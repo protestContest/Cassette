@@ -3,6 +3,7 @@
 
 void InitSymbols(void);
 Value CreateSymbol(char *src, u32 len);
-void PrintSymbol(Value sym, u32 len);
-void PrintSymbols(void);
+
 u32 LongestSymLength(void);
+void DumpSymbols(void);
+void PrintSymbol(Value value, u32 len);

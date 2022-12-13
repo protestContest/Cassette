@@ -3,12 +3,14 @@
 typedef enum {
   NUMBER,
   SYMBOL,
-  OBJ
+  OBJECT,
 } ValType;
 
 typedef struct {
-  ValType type;
-  u32 value;
+  struct {
+    ValType type;
+    u32 data;
+  } value;
   struct {
     u32 start;
     u32 end;
@@ -27,4 +29,5 @@ Value Symbol(u32 hash);
 u32 AsSymbol(Value val);
 
 bool IsNil(Value value);
-void PrintValue(Value value);
+void PrintValue(Value value, u32 len);
+char *TypeAbbr(Value value);

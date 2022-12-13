@@ -6,10 +6,7 @@ int main(void)
 {
   InitMem(100);
   InitSymbols();
-  TokenList tokens = Read();
-  PrintTokens(tokens);
-  PrintMem();
-  PrintSymbols();
+  Read();
 
   return 0;
 }

@@ -56,6 +56,11 @@ void PutItem(u32 hash, char *src, u32 len)
   symbols[hash % NUM_BUCKETS] = item;
 }
 
+u32 LongestSymLength(void)
+{
+  return longest_sym_length;
+}
+
 void PrintSymbol(Value sym, u32 len)
 {
   Item *item = GetItem(AsSymbol(sym));
@@ -69,19 +74,18 @@ void PrintSymbol(Value sym, u32 len)
   printf("%s", item->name);
 }
 
-void PrintSymbols(void)
+void DumpSymbols(void)
 {
-  printf("\nSymbols:\n");
+  printf("\n  \x1B[4mSymbols              ");
+  for (u32 i = 0; i < LongestSymLength(); i++) printf(" ");
+  printf("\x1B[0m\n");
   for (u32 i = 0; i < NUM_BUCKETS; i++) {
     Item *item = symbols[i];
     while (item != NULL) {
-      printf("%03d | 0x%8X | \"%s\"\n", i, item->hash, item->name);
+      printf("  % 3d │ 0x%8X │ \"%s\"\n", i, item->hash, item->name);
       item = item->next;
     }
   }
 }
 
-u32 LongestSymLength(void)
-{
-  return longest_sym_length;
-}
+

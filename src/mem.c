@@ -1,80 +1,86 @@
 #include "mem.h"
 #include "symbol.h"
 
-static Pair *mem = NULL;
-static u32 next = 0;
-static u32 total = 0;
+typedef struct {
+  Pair *pairs;
+  u32 next;
+  u32 total;
+} MemState;
+
+static MemState mem = {NULL, 0, 0};
 
 void InitMem(u32 num_pairs)
 {
-  if (mem != NULL) free(mem);
-  next = 0;
-  total = num_pairs;
-  mem = calloc(total, sizeof(Pair));
+  if (mem.pairs != NULL) free(mem.pairs);
+  mem.pairs = calloc(num_pairs, sizeof(Pair));
+  mem.next = 0;
+  mem.total = num_pairs;
 
   // nil
   MakePair(Index(0), Index(0));
 }
 
+void *GetMemState(void)
+{
+  return &mem;
+}
+
 Value MakePair(Value head, Value tail)
 {
-  if (next >= total) {
+  if (mem.next >= mem.total) {
     fprintf(stderr, "Out of memory\n");
     exit(1);
   }
 
-  u32 pos = next++;
-  mem[pos].head = head;
-  mem[pos].tail = tail;
+  u32 pos = mem.next++;
+  mem.pairs[pos].head = head;
+  mem.pairs[pos].tail = tail;
   Value v = Index(pos);
   return v;
 }
 
 Value Head(Value obj)
 {
-  return mem[AsIndex(obj)].head;
+  return mem.pairs[AsIndex(obj)].head;
 }
 
 Value Tail(Value obj)
 {
-  return mem[AsIndex(obj)].tail;
+  return mem.pairs[AsIndex(obj)].tail;
 }
 
 void SetHead(Value obj, Value head)
 {
-  mem[AsIndex(obj)].head = head;
+  mem.pairs[AsIndex(obj)].head = head;
 }
 
 void SetTail(Value obj, Value tail)
 {
-  mem[AsIndex(obj)].tail = tail;
+  mem.pairs[AsIndex(obj)].tail = tail;
 }
 
-char TypeAbbr(Value value)
+void DumpMem(void)
 {
-  switch (TypeOf(value)) {
-  case NUMBER:  return 'N';
-  case SYMBOL:  return 'S';
-  case OBJ:     return 'O';
-  default:      return '?';
-  }
-}
-
-void PrintMem(void)
-{
-  if (next == 0) {
+  if (mem.next == 0) {
     printf("Memory empty\n");
     return;
   }
 
-  printf("\nMemory:\n");
-  for (u32 i = 0; i < next; i++) {
-    Value head = mem[i].head;
-    Value tail = mem[i].tail;
-    printf("% 3d | %c ", i, TypeAbbr(head));
-    PrintValue(head);
-    printf(" | %c ", TypeAbbr(tail));
-    PrintValue(tail);
+  u32 len = LongestSymLength() > 8 ? LongestSymLength() : 8;
+  u32 table_width = 2*len + 14;
+
+  printf("\n");
+  printf("  \x1B[4mMemory");
+  for (u32 i = 0; i < table_width - 6; i++) printf(" ");
+  printf("\x1B[0m\n");
+  for (u32 i = 0; i < mem.next; i++) {
+    printf("  ");
+    Value head = mem.pairs[i].head;
+    Value tail = mem.pairs[i].tail;
+    printf("% 3d │ %s ", i, TypeAbbr(head));
+    PrintValue(head, len);
+    printf(" │ %s ", TypeAbbr(tail));
+    PrintValue(tail, len);
     printf("\n");
   }
 }

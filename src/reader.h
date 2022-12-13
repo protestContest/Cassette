@@ -9,4 +9,5 @@ typedef struct {
 
 TokenList Read(void);
 Value Parse(char *src);
-void PrintTokens(TokenList tokens);
+
+void DumpAST(TokenList tokens);
