@@ -2,32 +2,44 @@
 
 typedef enum {
   NUMBER,
+  INDEX,
   SYMBOL,
-  OBJECT,
+  PAIR,
+  VECTOR,
+  TRUE,
+  FALSE,
+  NIL
 } ValType;
 
 typedef struct {
-  struct {
-    ValType type;
-    u32 data;
-  } value;
-  struct {
-    u32 start;
-    u32 end;
-  } loc;
+  ValType type;
+  u32 data;
 } Value;
 
 extern Value nilVal;
+extern Value trueVal;
+extern Value falseVal;
 
 ValType TypeOf(Value value);
+#define IsNum(value)    (TypeOf(value) == NUMBER)
+#define IsIndex(value)  (TypeOf(value) == INDEX)
+#define IsSym(value)    (TypeOf(value) == SYMBOL)
+#define IsPair(value)    (TypeOf(value) == PAIR)
+#define IsVec(value)    (TypeOf(value) == VECTOR)
+#define IsTrue(value)   (TypeOf(value) == TRUE)
+#define IsFalse(value)  (TypeOf(value) == FALSE)
+#define IsNil(value)    (TypeOf(value) == NIL)
 
-Value Num(u32 n);
-u32 AsNum(Value val);
-Value Index(u32 pos);
+Value NumVal(float n);
+float AsNum(Value val);
+Value IndexVal(u32 pos);
 u32 AsIndex(Value val);
-Value Symbol(u32 hash);
+Value SymbolVal(u32 hash);
 u32 AsSymbol(Value val);
+Value PairVal(u32 p);
+u32 AsPair(Value v);
+Value VecVal(u32 pos);
+u32 AsVec(Value vec);
 
-bool IsNil(Value value);
 void PrintValue(Value value, u32 len);
 char *TypeAbbr(Value value);

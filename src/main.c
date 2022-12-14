@@ -4,9 +4,11 @@
 
 int main(void)
 {
-  InitMem(100);
+  Input input = {NULL, NULL};
+
+  InitMem();
   InitSymbols();
-  Read();
+  Read(&input);
 
   return 0;
 }

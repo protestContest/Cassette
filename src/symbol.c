@@ -34,8 +34,8 @@ Value CreateSymbol(char *src, u32 len)
     }
   }
 
-  Value v = Symbol(hash);
-  return v;
+  Value value = SymbolVal(hash);
+  return value;
 }
 
 Item *GetItem(u32 hash)
@@ -61,31 +61,29 @@ u32 LongestSymLength(void)
   return longest_sym_length;
 }
 
-void PrintSymbol(Value sym, u32 len)
+char *SymbolName(Value sym)
 {
   Item *item = GetItem(AsSymbol(sym));
   if (item == NULL) {
     fprintf(stderr, "No such symbol\n");
     exit(1);
   }
-
-  u32 padding = len - strlen(item->name);
-  for (u32 i = 0; i < padding; i++) printf(" ");
-  printf("%s", item->name);
+  return item->name;
 }
 
 void DumpSymbols(void)
 {
-  printf("\n  \x1B[4mSymbols              ");
+  printf("  \x1B[4m★ Symbols             ");
   for (u32 i = 0; i < LongestSymLength(); i++) printf(" ");
   printf("\x1B[0m\n");
   for (u32 i = 0; i < NUM_BUCKETS; i++) {
     Item *item = symbols[i];
     while (item != NULL) {
-      printf("  % 3d │ 0x%8X │ \"%s\"\n", i, item->hash, item->name);
+      printf("  % 4d │ 0x%8X │ \"%s\"\n", i, item->hash, item->name);
       item = item->next;
     }
   }
+  printf("\n");
 }
 
 

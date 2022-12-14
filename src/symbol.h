@@ -6,4 +6,4 @@ Value CreateSymbol(char *src, u32 len);
 
 u32 LongestSymLength(void);
 void DumpSymbols(void);
-void PrintSymbol(Value value, u32 len);
+char *SymbolName(Value sym);

@@ -1,8 +1,16 @@
 {
-	"folders":
-	[
+	"folders": [
 		{
-			"path": "."
+			"path": ".",
+			"binary_file_patterns": ["build/"]
 		}
-	]
+	],
+	"settings": {
+		"lsp_format_on_save": false,
+		"LSP": {
+			"clangd": {
+				"enabled": true
+			}
+		}
+	},
 }
