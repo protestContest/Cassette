@@ -30,6 +30,16 @@ ObjType ObjTypeOf(Value value)
   exit(1);
 }
 
+u32 ObjectSize(Value value)
+{
+  switch (ObjTypeOf(value)) {
+  case BINARY:    return BinarySize(value);
+  case FUNCTION:  return FunctionSize(value);
+  case TUPLE:     return TupleSize(value);
+  case DICT:      return DictSize(value);
+  }
+}
+
 Value MakeBinary(char *src, u32 start, u32 end)
 {
   u32 size = (start >= end) ? 0 : end - start;
@@ -148,3 +158,19 @@ char *TypeAbbr(Value value)
   default:      return "⍰";
   }
 }
+
+u32 FunctionSize(Value value)
+{
+  return 0;
+}
+
+u32 TupleSize(Value value)
+{
+  return 0;
+}
+
+u32 DictSize(Value value)
+{
+  return 0;
+}
+

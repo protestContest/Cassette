@@ -19,7 +19,7 @@ typedef enum {
 #define IsSpace(c)    ((c) == ' ' || (c) == '\n' || (c) == '\t' || (c) == '\r')
 #define IsDigit(c)    ((c) >= '0' && (c) <= '9')
 #define IsAlpha(c)    (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && c <= 'z'))
-#define IsSymchar(c)  (!IsSpace(c) && (c) != '(' && (c) != ')' && (c) != '.')
+#define IsSymchar(c)  (!IsSpace(c) && (c) != '(' && (c) != ')' && (c) != '.' && (c) != '\0')
 #define IsEnd(c)      ((c) == '\0')
 
 Value ParseRest(char *src, u32 start, Value prev);
@@ -32,34 +32,22 @@ Value TokenValue(Value token);
 u32 TokenStart(Value token);
 u32 TokenEnd(Value token);
 
-void GetLine(Input *input);
+Value GetLine(Value input);
 TokenType SniffToken(char c);
 Value Reverse(Value list);
 
 void DebugToken(char *src, Value token, u32 start);
 
-Value Read(Input *input)
+Value Read(void)
 {
   Value ast = nil_val;
   printf("⌘ ");
-  GetLine(input);
+  Value input = GetLine(nil_val);
 
-  while (!feof(stdin)) {
-    char *src = input->last_line->data;
-    while (IsSpace(*(src))) (src)++;
+  ast = Parse(BinaryData(Head(input)));
+  // DebugValue(input, 0);
 
-    ast = Parse(src);
-
-    printf("\n");
-    DumpAST(ast, src);
-    DumpPairs();
-    DumpSymbols();
-
-    printf("⌘ ");
-    GetLine(input);
-  }
-
-  return ast;
+  return MakePair(ast, input);
 }
 
 Value Parse(char *src)
@@ -68,76 +56,77 @@ Value Parse(char *src)
   return Reverse(token);
 }
 
-Value ParseRest(char *src, u32 start, Value prev)
+Value ParseRest(char *src, u32 cur, Value prev)
 {
-  Value token = ParseExpr(src, start);
+  while (IsSpace(*(src))) (src)++;
+  Value token = ParseExpr(src, cur);
 
   if (IsNil(token)) return prev;
 
-  start = TokenEnd(token);
-  while (IsSpace(src[start])) start++;
+  cur = TokenEnd(token);
+  while (IsSpace(src[cur])) cur++;
 
-  DebugToken(src, token, start);
+  DebugToken(src, token, cur);
 
   Value item = MakePair(token, prev);
-  return ParseRest(src, start, item);
+  return ParseRest(src, cur, item);
 }
 
-Value ParseExpr(char *src, u32 start)
+Value ParseExpr(char *src, u32 cur)
 {
-  switch (SniffToken(src[start])) {
+  switch (SniffToken(src[cur])) {
+  case LEFT_PAREN:  return ParseList(src, cur);
   case RIGHT_PAREN: return nil_val;
+  case SYMCHAR:     return ParseSymbol(src, cur);
+  case DIGIT:       return ParseNumber(src, cur);
   case END:         return nil_val;
-  case DIGIT:       return ParseNumber(src, start);
-  case SYMCHAR:     return ParseSymbol(src, start);
-  case LEFT_PAREN:  return ParseList(src, start);
   default:
-    fprintf(stderr, "Syntax error: Unknown token begins with \"0x%02X\"\n", src[start]);
+    fprintf(stderr, "Syntax error: Unknown token begins with \"0x%02X\"\n", src[cur]);
     fprintf(stderr, "  %s", src);
 
     fprintf(stderr, "  ");
-    for (u32 i = 0; i < StringLength(src, 0, start); i++) fprintf(stderr, " ");
+    for (u32 i = 0; i < StringLength(src, 0, cur); i++) fprintf(stderr, " ");
     fprintf(stderr, "↑\n");
     exit(1);
   }
 }
 
-Value ParseNumber(char *src, u32 start)
+Value ParseNumber(char *src, u32 cur)
 {
-  u32 end = start;
+  u32 start = cur;
 
   i32 sign = 1;
-  if (src[end] == '-') {
-    end++;
+  if (src[cur] == '-') {
+    cur++;
     sign = -1;
   }
 
   float n = 0;
-  while (IsDigit(src[end])) {
-    i32 d = src[end++] - '0';
+  while (IsDigit(src[cur])) {
+    i32 d = src[cur++] - '0';
     n = n*10 + sign*d;
   }
 
-  if (src[end] == '.') {
-    end++;
+  if (src[cur] == '.') {
+    cur++;
     u32 div = 1;
-    while (IsDigit(src[end])) {
-      i32 d = src[end++] - '0';
+    while (IsDigit(src[cur])) {
+      i32 d = src[cur++] - '0';
       n += (float)d / div;
       div /= 10;
     }
   }
 
-  return MakeToken(NumberVal(n), start, end);
+  return MakeToken(NumberVal(n), start, cur);
 }
 
-Value ParseSymbol(char *src, u32 start)
+Value ParseSymbol(char *src, u32 cur)
 {
-  u32 end = start;
-  while (IsSymchar(src[end])) end++;
+  u32 start = cur;
+  while (IsSymchar(src[cur])) cur++;
 
-  Value symbol = CreateSymbol(src, start, end);
-  Value token = MakeToken(symbol, start, end);
+  Value symbol = CreateSymbol(src, start, cur);
+  Value token = MakeToken(symbol, start, cur);
   return token;
 }
 
@@ -146,7 +135,6 @@ Value ParseList(char *src, u32 start)
   Value items = ParseRest(src, start + 1, nil_val);
 
   u32 end = TokenEnd(Head(items));
-  while (IsSpace(src[end])) end++;
   end++; // close paren
 
   return MakeToken(Reverse(items), start, end);
@@ -183,14 +171,15 @@ void DebugToken(char *src, Value token, u32 cur)
   printf("↑\n");
 }
 
-void PrintToken(Value token, char *src)
+void PrintToken(Value token, Value source)
 {
+  char *src = BinaryData(source);
   printf("%s \"", TypeAbbr(TokenValue(token)));
   ExplicitPrint(src + TokenStart(token), TokenEnd(token) - TokenStart(token));
   printf("\"");
 }
 
-void DumpASTRec(Value tokens, char *src, u32 indent, u32 lines)
+void DumpASTRec(Value tokens, Value src, u32 indent, u32 lines)
 {
   if (IsNil(tokens)) return;
 
@@ -218,7 +207,7 @@ void DumpASTRec(Value tokens, char *src, u32 indent, u32 lines)
 
   if (IsNil(Tail(tokens))) lines &= 0xFFFE;
 
-  PrintToken(token, src);
+  PrintToken(token, Head(src));
 
   if (IsPair(TokenValue(token))) {
     lines <<= 1;
@@ -230,34 +219,36 @@ void DumpASTRec(Value tokens, char *src, u32 indent, u32 lines)
   DumpASTRec(Tail(tokens), src, indent, lines);
 }
 
-void DumpAST(Value tokens, char *src)
+void DumpAST(Value ast)
 {
-  DebugTable("Syntax Tree", 0, 0);
+  Value tokens = Head(ast);
+
+  DebugTable("⌥ Syntax Tree", 0, 0);
   if (IsNil(tokens)) {
     DebugEmpty();
     return;
   }
 
-  DumpASTRec(tokens, src, 0, 1);
+  DumpASTRec(tokens, Tail(ast), 0, 1);
   EndDebugTable();
 }
 
-void GetLine(Input *input)
+Value GetLine(Value last_line)
 {
   static char buf[1024];
   fgets(buf, INPUT_LEN, stdin);
 
-  InputLine *line = malloc(sizeof(InputLine));
-  line->data = malloc(strlen(buf) + 1);
-  strcpy(line->data, buf);
-  line->next = NULL;
+  u32 start = 0;
+  while (IsSpace(buf[start])) start++;
+  u32 end = start;
+  while (!IsNewline(buf[end])) end++;
+  end--;
+  while (IsSpace(buf[end])) end--;
+  end++;
+  buf[end++] = '\0';
 
-  if (input->first_line == NULL) {
-    input->first_line = line;
-  } else {
-    input->last_line->next = line;
-  }
-  input->last_line = line;
+  Value line = MakeBinary(buf, start, end);
+  return MakePair(line, last_line);
 }
 
 Value ReverseWith(Value value, Value end)

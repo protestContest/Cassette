@@ -2,17 +2,6 @@
 
 #include "mem.h"
 
-typedef struct InputLine {
-  char *data;
-  struct InputLine *next;
-} InputLine;
-
-typedef struct {
-  InputLine *first_line;
-  InputLine *last_line;
-} Input;
-
-Value Read(Input *input);
+Value Read(void);
 Value Parse(char *src);
-
-void DumpAST(Value tokens, char *src);
+void DumpAST(Value ast);

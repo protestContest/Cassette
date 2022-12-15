@@ -24,12 +24,12 @@ The pairs table stores a pair's head and tail. An index is simply an immediate
 unsigned integer. An object's index is a word-offset into heap memory.
 
 Objects on the heap start with a 32-bit header. The header indicates the type
-with the 3 high bits, and the low 29 bits encode the object "size".
+with the 3 high bits, and the low 29 bits encode the object size in bytes.
 
-  Binary:       000nnnnn nnnnnnnn nnnnnnnn nnnnnnnn   (n = number of bytes folowing)
+  Binary:       000nnnnn nnnnnnnn nnnnnnnn nnnnnnnn
   Closure:      001nnnnn nnnnnnnn nnnnnnnn nnnnnnnn
-  Tuple:        010nnnnn nnnnnnnn nnnnnnnn nnnnnnnn   (n = number of items)
-  Dict:         011nnnnn nnnnnnnn nnnnnnnn nnnnnnnn   (n = number of items)
+  Tuple:        010nnnnn nnnnnnnn nnnnnnnn nnnnnnnn
+  Dict:         011nnnnn nnnnnnnn nnnnnnnn nnnnnnnn
 
 */
 
@@ -69,10 +69,10 @@ typedef u32 ObjHeader;
 #define fun_mask        0x20000000
 #define tpl_mask        0x40000000
 #define dct_mask        0x60000000
-#define IsBinary(v)     ((*ObjectRef(v) & obj_type_mask) == bin_mask)
-#define IsFunction(v)   ((*ObjectRef(v) & obj_type_mask) == fun_mask)
-#define IsTuple(v)      ((*ObjectRef(v) & obj_type_mask) == tpl_mask)
-#define IsDict(v)       ((*ObjectRef(v) & obj_type_mask) == dct_mask)
+#define IsBinary(v)     (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == bin_mask)
+#define IsFunction(v)   (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == fun_mask)
+#define IsTuple(v)      (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == tpl_mask)
+#define IsDict(v)       (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == dct_mask)
 
 #define IsNil(v)    ((v) == nil_val)
 
@@ -84,14 +84,20 @@ typedef u32 ObjHeader;
 #define RawVal(v)     (IsNumber(v) ? (v) : (v) & (~type_mask))
 
 #define HashValue(v)  Hash(&key, sizeof(Value))
-#define BinaryData(v)       (char*)(ObjectRef(v)+1)
 
 ValType TypeOf(Value value);
 ObjType ObjTypeOf(Value value);
 
+u32 ObjectSize(Value value);
+
 Value MakeBinary(char *src, u32 start, u32 end);
 u32 BinarySize(Value binary);
+#define BinaryData(v)       (char*)(ObjectRef(v)+1)
 void PrintBinary(Value value, u32 len);
 
 void PrintValue(Value value, u32 len);
 char *TypeAbbr(Value value);
+
+u32 FunctionSize(Value value);
+u32 TupleSize(Value value);
+u32 DictSize(Value value);

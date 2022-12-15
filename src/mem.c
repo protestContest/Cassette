@@ -1,4 +1,5 @@
 #include "mem.h"
+#include "string.h"
 #include "symbol.h"
 #include "debug.h"
 
@@ -29,7 +30,9 @@ static MemState mem = {
 
 #define VEC_AS(vec, type)   ((type*)((vec).data))
 #define PAIRS               VEC_AS(mem.pairs, Pair)
-#define HEAP                VEC_AS(mem.heap, ObjHeader)
+#define OBJS                VEC_AS(mem.heap, ObjHeader)
+#define HEAP                VEC_AS(mem.heap, u8)
+#define HEAP_SIZE           (mem.heap.count*4)
 
 void ResizeVector(Vector *vec, u32 count);
 void FreeVector(Vector *vec);
@@ -122,7 +125,7 @@ u32 AllocateObject(ObjHeader header, u32 size)
 
 ObjHeader *ObjectRef(Value value)
 {
-  return &HEAP[RawVal(value)];
+  return &OBJS[RawVal(value)];
 }
 
 void DumpPairs(void)
@@ -149,6 +152,59 @@ void DumpPairs(void)
     DebugValue(head, len);
     DebugCol();
     DebugValue(tail, len);
+  }
+  EndDebugTable();
+}
+
+void DumpHeap(void)
+{
+  HexDump(HEAP, HEAP_SIZE, "⨳ Heap");
+}
+
+void HexDump(u8 *data, u32 size, char *title)
+{
+  u32 addr_size = (size < 0x10000) ? 4 : 8;
+  u32 row_bytes = 32;
+  u32 table_width = 120 + addr_size;
+
+  char addr_fmt[7];
+  sprintf(addr_fmt, "  %%0%dX", addr_size);
+
+  DebugTable(title, table_width, 3);
+  if (size == 0) {
+    DebugEmpty();
+    return;
+  }
+
+  u32 ptr = 0;
+  while (ptr < size) {
+    DebugRow();
+    printf(addr_fmt, ptr);
+
+    DebugCol();
+    for (u32 i = 0; i < row_bytes; i++) {
+      if (ptr + i < size) {
+        u8 val = data[ptr+i];
+        printf("%02X", val);
+      } else {
+        printf("  ");
+      }
+      if (i % 2 != 0 && i != (row_bytes-1) != 0) printf(" ");
+    }
+
+    DebugCol();
+    char *row = (char*)&data[ptr];
+    for (u32 i = 0; i < row_bytes; i++) {
+      if (ptr + i < size) {
+        if (IsCtrl(row[i]) || IsUTFContinue(row[i])) printf(".");
+        else printf("%c", row[i]);
+      } else {
+        printf(" ");
+      }
+      if ((i+1) % 4 == 0) printf(" ");
+    }
+
+    ptr += row_bytes;
   }
   EndDebugTable();
 }

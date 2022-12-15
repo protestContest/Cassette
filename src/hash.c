@@ -1,29 +1,19 @@
 #include "hash.h"
 
-#define EMPTY_HASH ((u32)0x811c9dc5)
-#define HASH_PRIME ((u32)0x01000193)
+#define FNV_BASIS           ((u32)0x97058A1C)
+#define FNV_PRIME           ((u32)0x01000193)
 
-u32 Hash(void *obj, u32 size)
+u32 FNV(u8 *data, u32 size, u32 base)
 {
-    char *str = (char*)obj;
-    u32 result = EMPTY_HASH;
-    char *current = str;
-    char *end = current + size;
-
-    u32 word = 0;
-    while (current < end) {
-        word <<= 8;
-        word |= *current++;
-        if ((current - str) % 4 == 0) {
-            result ^= word;
-            result *= HASH_PRIME;
-            word = 0;
-        }
+    u32 hash = base;
+    for (u32 i = 0; i < size; i++) {
+        hash ^= data[i];
+        hash *= FNV_PRIME;
     }
-    if ((current - str) % 4 != 0) {
-        result ^= word;
-        result *= HASH_PRIME;
-    }
+    return hash;
+}
 
-    return result;
+u32 Hash(void *data, u32 size)
+{
+    return FNV(data, size, FNV_BASIS);
 }

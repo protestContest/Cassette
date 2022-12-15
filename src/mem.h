@@ -2,6 +2,8 @@
 #include "value.h"
 #include "symbol.h"
 
+#define ObjectAddr(v)   (RawVal(v)*4)
+
 void InitMem(void);
 
 Value MakePair(Value head, Value tail);
@@ -19,3 +21,5 @@ u32 AllocateObject(ObjHeader header, u32 size);
 ObjHeader *ObjectRef(Value value);
 
 void DumpPairs(void);
+void DumpHeap(void);
+void HexDump(u8 *data, u32 size, char *title);
