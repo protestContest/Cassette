@@ -14,3 +14,5 @@ typedef struct {
 
 Value Read(Input *input);
 Value Parse(char *src);
+
+void DumpAST(Value tokens, char *src);

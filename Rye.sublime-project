@@ -2,7 +2,7 @@
 	"folders": [
 		{
 			"path": ".",
-			"binary_file_patterns": ["build/"]
+			"binary_file_patterns": ["build/", ".elixir_ls/"]
 		}
 	],
 	"settings": {

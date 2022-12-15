@@ -1,5 +1,11 @@
 #include "mem.h"
 #include "symbol.h"
+#include "debug.h"
+
+typedef struct {
+  Value head;
+  Value tail;
+} Pair;
 
 typedef struct {
   u32 item_size;
@@ -10,24 +16,37 @@ typedef struct {
 
 typedef struct {
   Vector pairs;
-  Vector vecs;
+  Vector heap;
 } MemState;
 
 static MemState mem = {
   {sizeof(Pair), 0, 0, NULL},
-  {sizeof(Vector), 0, 0, NULL}
+  {sizeof(ObjHeader), 0, 0, NULL}
 };
 
 #define INITIAL_NUM_PAIRS 32
+#define INITIAL_HEAP_SIZE 1024
+
 #define VEC_AS(vec, type)   ((type*)((vec).data))
 #define PAIRS               VEC_AS(mem.pairs, Pair)
-#define VECS                VEC_AS(mem.vecs, Vector)
+#define HEAP                VEC_AS(mem.heap, ObjHeader)
 
 void ResizeVector(Vector *vec, u32 count);
+void FreeVector(Vector *vec);
 
 void InitMem(void)
 {
   ResizeVector(&mem.pairs, INITIAL_NUM_PAIRS);
+  ResizeVector(&mem.heap, INITIAL_HEAP_SIZE);
+  InitSymbols();
+}
+
+void ResetMem(void)
+{
+  FreeVector(&mem.pairs);
+  FreeVector(&mem.heap);
+  InitMem();
+  ResetSymbols();
 }
 
 Value MakePair(Value head, Value tail)
@@ -44,73 +63,24 @@ Value MakePair(Value head, Value tail)
   return val;
 }
 
-Value Head(Value obj)
+Value Head(Value pair)
 {
-  return PAIRS[AsVec(obj)].head;
+  return PAIRS[RawVal(pair)].head;
 }
 
-Value Tail(Value obj)
+Value Tail(Value pair)
 {
-  return PAIRS[AsVec(obj)].tail;
+  return PAIRS[RawVal(pair)].tail;
 }
 
-void SetHead(Value obj, Value head)
+void SetHead(Value pair, Value head)
 {
-  PAIRS[AsVec(obj)].head = head;
+  PAIRS[RawVal(pair)].head = head;
 }
 
-void SetTail(Value obj, Value tail)
+void SetTail(Value pair, Value tail)
 {
-  PAIRS[AsVec(obj)].tail = tail;
-}
-
-Value MakeVec(u32 count)
-{
-  if (mem.vecs.count >= mem.vecs.capacity) {
-    ResizeVector(&mem.vecs, 2*mem.vecs.capacity);
-  }
-
-  u32 pos = mem.vecs.count++;
-  VECS[pos].item_size = sizeof(Value);
-  VECS[pos].count = 0;
-  VECS[pos].capacity = 0;
-  VECS[pos].data = NULL;
-  ResizeVector(&VECS[pos], count);
-
-  Value val = VecVal(pos);
-  return val;
-}
-
-Value VecGet(Value vec, u32 n)
-{
-  if (AsVec(vec) >= mem.vecs.count) {
-    fprintf(stderr, "Invalid vector access\n");
-    exit(1);
-  }
-
-  Vector v = VECS[AsVec(vec)];
-  if (n >= v.count) {
-    fprintf(stderr, "Invalid vector element access\n");
-    exit(1);
-  }
-
-  return VEC_AS(v, Value)[n];
-}
-
-void VecSet(Value vec, u32 n, Value val)
-{
-  if (AsVec(vec) >= mem.vecs.count) {
-    fprintf(stderr, "Invalid vector access\n");
-    exit(1);
-  }
-
-  Vector v = VECS[AsVec(vec)];
-  if (n >= v.count) {
-    fprintf(stderr, "Invalid vector element access\n");
-    exit(1);
-  }
-
-  VEC_AS(v, Value)[n] = val;
+  PAIRS[RawVal(pair)].tail = tail;
 }
 
 void ResizeVector(Vector *vec, u32 count)
@@ -119,30 +89,66 @@ void ResizeVector(Vector *vec, u32 count)
   vec->capacity = count;
 }
 
+void FreeVector(Vector *vec)
+{
+  if (vec->data != NULL) free(vec->data);
+  vec->capacity = 0;
+  vec->count = 0;
+}
+
+void CheckVectorSize(Vector *vec, u32 count)
+{
+  u32 need = vec->count + count;
+  if (need >= vec->capacity) {
+    u32 new_count = (need > 2*vec->capacity) ? need : 2*vec->capacity;
+    ResizeVector(vec, new_count);
+  }
+}
+
+u32 Allocate(u32 size)
+{
+  CheckVectorSize(&mem.heap, size);
+  u32 ptr = mem.heap.count;
+  mem.heap.count += size;
+  return ptr;
+}
+
+u32 AllocateObject(ObjHeader header, u32 size)
+{
+  u32 ptr = Allocate(size + sizeof(ObjType));
+  ((ObjHeader*)mem.heap.data)[ptr] = header;
+  return ptr;
+}
+
+ObjHeader *ObjectRef(Value value)
+{
+  return &HEAP[RawVal(value)];
+}
+
 void DumpPairs(void)
 {
+  const u32 min_len = 8;
+
+  u32 len = LongestSymLength() + 2 > min_len ? LongestSymLength() + 2 : min_len;
+  u32 table_width = 2*len + 4;
+
+  DebugTable("⚭ Pairs", table_width, 3);
+
   if (mem.pairs.count == 0) {
-    printf("  \x1B[4mMemory empty\x1B[0m\n");
+    DebugEmpty();
     return;
   }
 
-  const u32 min_len = 4;
-
-  u32 len = LongestSymLength() > min_len ? LongestSymLength() : min_len;
-  u32 table_width = 2*len + 14;
-
-  printf("  \x1B[4m⚭ Pairs");
-  for (u32 i = 0; i < table_width - 6; i++) printf(" ");
-  printf("\x1B[0m\n");
   for (u32 i = 0; i < mem.pairs.count; i++) {
-    printf("  ");
     Value head = PAIRS[i].head;
     Value tail = PAIRS[i].tail;
-    printf("% 4d │ ", i);
-    PrintValue(head, len);
-    printf(" │ ");
-    PrintValue(tail, len);
-    printf("\n");
+
+    DebugRow();
+    printf("% 4d", i);
+    DebugCol();
+    DebugValue(head, len);
+    DebugCol();
+    DebugValue(tail, len);
   }
-  printf("\n");
+  EndDebugTable();
 }

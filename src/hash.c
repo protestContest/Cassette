@@ -3,8 +3,9 @@
 #define EMPTY_HASH ((u32)0x811c9dc5)
 #define HASH_PRIME ((u32)0x01000193)
 
-u32 Hash(char *str, u32 size)
+u32 Hash(void *obj, u32 size)
 {
+    char *str = (char*)obj;
     u32 result = EMPTY_HASH;
     char *current = str;
     char *end = current + size;

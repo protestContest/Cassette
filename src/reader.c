@@ -2,6 +2,7 @@
 #include "mem.h"
 #include "symbol.h"
 #include "string.h"
+#include "debug.h"
 
 typedef enum {
   UNKNOWN,
@@ -15,6 +16,12 @@ typedef enum {
 
 #define INPUT_LEN 1024
 
+#define IsSpace(c)    ((c) == ' ' || (c) == '\n' || (c) == '\t' || (c) == '\r')
+#define IsDigit(c)    ((c) >= '0' && (c) <= '9')
+#define IsAlpha(c)    (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && c <= 'z'))
+#define IsSymchar(c)  (!IsSpace(c) && (c) != '(' && (c) != ')' && (c) != '.')
+#define IsEnd(c)      ((c) == '\0')
+
 Value ParseRest(char *src, u32 start, Value prev);
 Value ParseExpr(char *src, u32 start);
 Value ParseNumber(char *src, u32 start);
@@ -27,19 +34,13 @@ u32 TokenEnd(Value token);
 
 void GetLine(Input *input);
 TokenType SniffToken(char c);
-bool IsSpace(char c);
-bool IsDigit(char c);
-bool IsAlpha(char c);
-bool IsSymchar(char c);
-bool IsEnd(char c);
 Value Reverse(Value list);
 
-void DebugParse(char *src, Value token, u32 start);
-void DumpAST(Value tokens, char *src);
+void DebugToken(char *src, Value token, u32 start);
 
 Value Read(Input *input)
 {
-  Value ast = nilVal;
+  Value ast = nil_val;
   printf("⌘ ");
   GetLine(input);
 
@@ -49,6 +50,7 @@ Value Read(Input *input)
 
     ast = Parse(src);
 
+    printf("\n");
     DumpAST(ast, src);
     DumpPairs();
     DumpSymbols();
@@ -62,7 +64,7 @@ Value Read(Input *input)
 
 Value Parse(char *src)
 {
-  Value token = ParseRest(src, 0, nilVal);
+  Value token = ParseRest(src, 0, nil_val);
   return Reverse(token);
 }
 
@@ -75,7 +77,7 @@ Value ParseRest(char *src, u32 start, Value prev)
   start = TokenEnd(token);
   while (IsSpace(src[start])) start++;
 
-  DebugParse(src, token, start);
+  DebugToken(src, token, start);
 
   Value item = MakePair(token, prev);
   return ParseRest(src, start, item);
@@ -84,18 +86,18 @@ Value ParseRest(char *src, u32 start, Value prev)
 Value ParseExpr(char *src, u32 start)
 {
   switch (SniffToken(src[start])) {
-  case RIGHT_PAREN: return nilVal;
-  case END:         return nilVal;
+  case RIGHT_PAREN: return nil_val;
+  case END:         return nil_val;
   case DIGIT:       return ParseNumber(src, start);
   case SYMCHAR:     return ParseSymbol(src, start);
   case LEFT_PAREN:  return ParseList(src, start);
   default:
-    fprintf(stderr, "Syntax error: Unknown token begins with \"0x%02X\"\n",
-            src[start]);
-    fprintf(stderr, "%s", src);
-    for (u32 i = 0; i < start; i++)
-      printf(" ");
-    printf("^\n");
+    fprintf(stderr, "Syntax error: Unknown token begins with \"0x%02X\"\n", src[start]);
+    fprintf(stderr, "  %s", src);
+
+    fprintf(stderr, "  ");
+    for (u32 i = 0; i < StringLength(src, 0, start); i++) fprintf(stderr, " ");
+    fprintf(stderr, "↑\n");
     exit(1);
   }
 }
@@ -126,7 +128,7 @@ Value ParseNumber(char *src, u32 start)
     }
   }
 
-  return MakeToken(NumVal(n), start, end);
+  return MakeToken(NumberVal(n), start, end);
 }
 
 Value ParseSymbol(char *src, u32 start)
@@ -134,13 +136,14 @@ Value ParseSymbol(char *src, u32 start)
   u32 end = start;
   while (IsSymchar(src[end])) end++;
 
-  Value symbol = CreateSymbol(src + start, end - start);
-  return MakeToken(symbol, start, end);
+  Value symbol = CreateSymbol(src, start, end);
+  Value token = MakeToken(symbol, start, end);
+  return token;
 }
 
 Value ParseList(char *src, u32 start)
 {
-  Value items = ParseRest(src, start + 1, nilVal);
+  Value items = ParseRest(src, start + 1, nil_val);
 
   u32 end = TokenEnd(Head(items));
   while (IsSpace(src[end])) end++;
@@ -161,45 +164,29 @@ TokenType SniffToken(char c)
   return SYMCHAR;
 }
 
-bool IsSpace(char c) { return c == ' ' || c == '\n' || c == '\t' || c == '\r'; }
-bool IsDigit(char c) { return c >= '0' && c <= '9'; }
-bool IsAlpha(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }
-bool IsSymchar(char c) { return !IsSpace(c) && c != '(' && c != ')' && c != '.'; }
-bool IsEnd(char c) { return c == '\0'; }
-
-void DebugParse(char *src, Value token, u32 cur)
+void DebugToken(char *src, Value token, u32 cur)
 {
-  u32 start = StringLength(src, 0, TokenStart(token));
-  u32 end = StringLength(src, 0, TokenEnd(token));
-  u32 cur_pos = StringLength(src, 0, cur);
+  u32 src_size = strlen(src);
 
   printf("  ");
-  char *c = src;
-  while (*c != '\0') {
-    if (*c == '\n') printf("␤");
-    else if (*c == '\r') printf("␍");
-    else printf("%c", *c);
-    c++;
-  }
+  ExplicitPrint(src, TokenStart(token));
+  printf("%s", UNDERLINE_START);
+  ExplicitPrint(src + TokenStart(token), TokenEnd(token) - TokenStart(token));
+  printf("%s", UNDERLINE_END);
+  ExplicitPrint(src + TokenEnd(token), src_size - TokenEnd(token));
 
   printf("    ");
-  PrintValue(token, 0);
+  DebugValue(token, 0);
 
   printf("\n  ");
-  for (u32 i = 0; i < start; i++) printf(" ");
-  for (u32 i = start; i < end; i++) printf("‾");
-  for (u32 i = end; i < cur_pos; i++) printf(" ");
+  for (u32 i = 0; i < StringLength(src, 0, cur); i++) printf(" ");
   printf("↑\n");
 }
 
 void PrintToken(Value token, char *src)
 {
   printf("%s \"", TypeAbbr(TokenValue(token)));
-  for (u32 i = TokenStart(token); i < TokenEnd(token); i++) {
-    if (src[i] == '\n') printf("␤");
-    else if (src[i] == '\r') printf("␍");
-    else printf("%c", src[i]);
-  }
+  ExplicitPrint(src + TokenStart(token), TokenEnd(token) - TokenStart(token));
   printf("\"");
 }
 
@@ -209,9 +196,9 @@ void DumpASTRec(Value tokens, char *src, u32 indent, u32 lines)
 
   Value token = Head(tokens);
 
-  printf("  ");
-  PrintValue(token, 2);
-  printf(" │ ");
+  DebugRow();
+  DebugValue(token, 4);
+  DebugCol();
 
   if (indent > 1) {
     for (u32 i = 0; i < indent - 1; i++) {
@@ -232,7 +219,6 @@ void DumpASTRec(Value tokens, char *src, u32 indent, u32 lines)
   if (IsNil(Tail(tokens))) lines &= 0xFFFE;
 
   PrintToken(token, src);
-  printf("\n");
 
   if (IsPair(TokenValue(token))) {
     lines <<= 1;
@@ -246,9 +232,14 @@ void DumpASTRec(Value tokens, char *src, u32 indent, u32 lines)
 
 void DumpAST(Value tokens, char *src)
 {
-  printf("  \x1B[4mSyntax Tree\x1B[0m\n");
+  DebugTable("Syntax Tree", 0, 0);
+  if (IsNil(tokens)) {
+    DebugEmpty();
+    return;
+  }
+
   DumpASTRec(tokens, src, 0, 1);
-  printf("\n");
+  EndDebugTable();
 }
 
 void GetLine(Input *input)
@@ -280,7 +271,7 @@ Value ReverseWith(Value value, Value end)
 
 Value Reverse(Value list)
 {
-  return ReverseWith(list, nilVal);
+  return ReverseWith(list, nil_val);
 }
 
 Value MakeToken(Value val, u32 start, u32 end)
@@ -297,10 +288,10 @@ Value TokenValue(Value token)
 
 u32 TokenStart(Value token)
 {
-  return AsNum(Head(Tail(token)));
+  return RawVal(Head(Tail(token)));
 }
 
 u32 TokenEnd(Value token)
 {
-  return AsNum(Tail(Tail(token)));
+  return RawVal(Tail(Tail(token)));
 }
