@@ -7,10 +7,10 @@
 void InitMem(void);
 
 Value MakePair(Value head, Value tail);
-Value Head(Value obj);
-Value Tail(Value obj);
-void SetHead(Value obj, Value head);
-void SetTail(Value obj, Value tail);
+Value Head(Value pair);
+Value Tail(Value pair);
+void SetHead(Value pair, Value head);
+void SetTail(Value pair, Value tail);
 
 Value MakeVec(u32 count);
 Value VecGet(Value vec, u32 n);

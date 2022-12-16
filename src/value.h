@@ -1,5 +1,4 @@
 #pragma once
-#include "hash.h"
 
 /*
 
@@ -32,6 +31,8 @@ with the 3 high bits, and the low 29 bits encode the object size in bytes.
   Dict:         011nnnnn nnnnnnnn nnnnnnnn nnnnnnnn
 
 */
+
+#include "hash.h"
 
 typedef enum {
   NUMBER,
@@ -92,8 +93,8 @@ u32 ObjectSize(Value value);
 
 Value MakeBinary(char *src, u32 start, u32 end);
 u32 BinarySize(Value binary);
-#define BinaryData(v)       (char*)(ObjectRef(v)+1)
 void PrintBinary(Value value, u32 len);
+#define BinaryData(v)       ((char*)(ObjectRef(v)+1))
 
 void PrintValue(Value value, u32 len);
 char *TypeAbbr(Value value);

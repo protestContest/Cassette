@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "string.h"
 #include "mem.h"
+#include <stdio.h>
 
 #define MIN_TABLE_WIDTH 28
 #define MAX_TABLE_WIDTH 140

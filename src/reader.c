@@ -1,268 +1,202 @@
-#include "reader.h"
+/*
+Parsing algorithm:
+
+Start with an empty stack of "open" lists. The head of this stack is the
+"current list".
+
+Push an empty list onto the stack as the initial current list.
+
+Proceed by parsing each token:
+
+Check the next token type.
+  Some value?
+    Parse the value.
+    Append an item onto the current list whose head is the value.
+  Start of a new list?
+    Push a new list onto the stack as a new current list.
+  End of a list?
+    Reverse the current list.
+    Append the current list as an item in the previous list.
+    The previous list is now the current list.
+  End of text?
+    If the parens are balanced, there should be one list in the stack. Reverse
+    it, and you have the root of the AST.
+    If there's more than one list in the stack, there are unclosed parentheses.
+    Don't reverse it, since more items may appear later (e.g. with more input).
+*/
+
+#include "value.h"
 #include "mem.h"
-#include "symbol.h"
 #include "string.h"
 #include "debug.h"
 
 typedef enum {
-  UNKNOWN,
   DIGIT,
-  SYMCHAR,
   LEFT_PAREN,
-  RIGHT_PAREN,
-  END,
-  DOT
+  RIGHT_PAREN
 } TokenType;
 
-#define INPUT_LEN 1024
+#define END_MARK    '$'
 
-#define IsSpace(c)    ((c) == ' ' || (c) == '\n' || (c) == '\t' || (c) == '\r')
-#define IsDigit(c)    ((c) >= '0' && (c) <= '9')
-#define IsAlpha(c)    (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && c <= 'z'))
-#define IsSymchar(c)  (!IsSpace(c) && (c) != '(' && (c) != ')' && (c) != '.' && (c) != '\0')
-#define IsEnd(c)      ((c) == '\0')
+#define Text(source)            BinaryData(Head(source))
+#define Index(source)           RawVal(Tail(source))
+#define Peek(source)            Text(source)[Index(source)]
+#define Advance(source)         SetTail(source, IndexVal(Index(source) + 1))
+#define IsAtEnd(source)         (Peek(source) == END_MARK)
+#define SkipWhitespace(source)  do { while (IsSpace(Peek(source)) && !IsAtEnd(source)) Advance(source); } while (0)
+#define TokenStart(token)       RawVal(Head(Tail(token)))
+#define TokenEnd(token)         RawVal(Tail(Tail(token)))
+#define TokenValue(token)       Head(token)
 
-Value ParseRest(char *src, u32 start, Value prev);
-Value ParseExpr(char *src, u32 start);
-Value ParseNumber(char *src, u32 start);
-Value ParseSymbol(char *src, u32 start);
-Value ParseList(char *src, u32 start);
-Value MakeToken(Value val, u32 start, u32 end);
-Value TokenValue(Value token);
-u32 TokenStart(Value token);
-u32 TokenEnd(Value token);
-
-Value GetLine(Value input);
-TokenType SniffToken(char c);
-Value Reverse(Value list);
-
-void DebugToken(char *src, Value token, u32 start);
+Value GetLine(void);
+Value Parse(Value source);
+void DebugToken(Value token, Value source);
 
 Value Read(void)
 {
-  Value ast = nil_val;
-  printf("⌘ ");
-  Value input = GetLine(nil_val);
-
-  ast = Parse(BinaryData(Head(input)));
-  // DebugValue(input, 0);
-
-  return MakePair(ast, input);
+  Value source = MakePair(GetLine(), IndexVal(0));
+  return Parse(source);
 }
 
-Value Parse(char *src)
+#define MAX_INPUT_LENGTH 1024
+Value GetLine(void)
 {
-  Value token = ParseRest(src, 0, nil_val);
-  return Reverse(token);
+  static char buf[MAX_INPUT_LENGTH];
+  fgets(buf, MAX_INPUT_LENGTH, stdin);
+
+  u32 start = 0;
+  while (IsSpace(buf[start])) { start++; }
+  u32 end = start;
+  while (!IsNewline(buf[end])) { end++; }
+  end--;
+  while (IsSpace(buf[end])) { end--; }
+  end++;
+  buf[end++] = END_MARK;
+
+  printf("line: %d %d\n", start, end);
+
+  Value line = MakeBinary(buf, start, end);
+  return line;
 }
 
-Value ParseRest(char *src, u32 cur, Value prev)
+Value ParseToken(Value source, Value lists);
+
+Value Parse(Value source)
 {
-  while (IsSpace(*(src))) (src)++;
-  Value token = ParseExpr(src, cur);
+  Value lists = MakePair(nil_val, nil_val);
 
-  if (IsNil(token)) return prev;
+  while (!IsAtEnd(source)) {
+    lists = ParseToken(source, lists);
+  }
 
-  cur = TokenEnd(token);
-  while (IsSpace(src[cur])) cur++;
-
-  DebugToken(src, token, cur);
-
-  Value item = MakePair(token, prev);
-  return ParseRest(src, cur, item);
+  return lists;
 }
 
-Value ParseExpr(char *src, u32 cur)
-{
-  switch (SniffToken(src[cur])) {
-  case LEFT_PAREN:  return ParseList(src, cur);
-  case RIGHT_PAREN: return nil_val;
-  case SYMCHAR:     return ParseSymbol(src, cur);
-  case DIGIT:       return ParseNumber(src, cur);
-  case END:         return nil_val;
-  default:
-    fprintf(stderr, "Syntax error: Unknown token begins with \"0x%02X\"\n", src[cur]);
-    fprintf(stderr, "  %s", src);
+TokenType SniffToken(Value source);
+Value BeginList(Value source, Value lists);
+Value EndList(Value source, Value lists);
+Value ParseNumber(Value source);
+Value AddToken(Value token, Value source, Value lists);
 
-    fprintf(stderr, "  ");
-    for (u32 i = 0; i < StringLength(src, 0, cur); i++) fprintf(stderr, " ");
-    fprintf(stderr, "↑\n");
-    exit(1);
+Value ParseToken(Value source, Value lists)
+{
+  SkipWhitespace(source);
+
+  if (IsAtEnd(source)) {
+    return lists;
+  }
+
+  switch (SniffToken(source)) {
+  case DIGIT:       return AddToken(ParseNumber(source), source, lists);
+  case LEFT_PAREN:  return BeginList(source, lists);
+  case RIGHT_PAREN: return EndList(source, lists);
   }
 }
 
-Value ParseNumber(char *src, u32 cur)
+TokenType SniffToken(Value source)
 {
-  u32 start = cur;
+  char *text = Text(source);
+  u32 index = Index(source);
+
+  if (IsDigit(text[index])) {
+    return DIGIT;
+  }
+
+  switch (text[index]) {
+  case '-':       return DIGIT;
+  case '(':       return LEFT_PAREN;
+  case ')':       return RIGHT_PAREN;
+  default:
+    Error("Syntax error: Unexpected character at column %d\n", index);
+  }
+}
+
+Value AddToken(Value token, Value source, Value lists)
+{
+  DebugToken(token, source);
+
+  Value current_list = Head(lists);
+  Value item = MakePair(token, current_list);
+  SetHead(lists, item);
+  return lists;
+}
+
+Value BeginList(Value source, Value lists)
+{
+  Advance(source);
+  return MakePair(nil_val, lists);
+}
+
+Value ReverseList(Value list);
+
+Value EndList(Value source, Value lists)
+{
+  Value prev_list = Tail(lists);
+
+  if (IsNil(prev_list)) {
+    Error("Too many trailing parens");
+  }
+
+  ReverseList(Head(lists));
+  SetTail(lists, Head(prev_list));
+  SetHead(prev_list, lists);
+
+  Advance(source);
+
+  return prev_list;
+}
+
+Value MakeToken(Value val, u32 start, u32 end);
+
+Value ParseNumber(Value source)
+{
+  u32 start = Index(source);
 
   i32 sign = 1;
-  if (src[cur] == '-') {
-    cur++;
+  if (Peek(source) == '-') {
+    Advance(source);
     sign = -1;
   }
 
   float n = 0;
-  while (IsDigit(src[cur])) {
-    i32 d = src[cur++] - '0';
+  while (IsDigit(Peek(source))) {
+    i32 d = Peek(source) - '0';
     n = n*10 + sign*d;
+    Advance(source);
   }
 
-  if (src[cur] == '.') {
-    cur++;
+  if (Peek(source) == '.') {
+    Advance(source);
     u32 div = 1;
-    while (IsDigit(src[cur])) {
-      i32 d = src[cur++] - '0';
+    while (IsDigit(Peek(source))) {
+      i32 d = Peek(source) - '0';
       n += (float)d / div;
       div /= 10;
+      Advance(source);
     }
   }
 
-  return MakeToken(NumberVal(n), start, cur);
-}
-
-Value ParseSymbol(char *src, u32 cur)
-{
-  u32 start = cur;
-  while (IsSymchar(src[cur])) cur++;
-
-  Value symbol = CreateSymbol(src, start, cur);
-  Value token = MakeToken(symbol, start, cur);
-  return token;
-}
-
-Value ParseList(char *src, u32 start)
-{
-  Value items = ParseRest(src, start + 1, nil_val);
-
-  u32 end = TokenEnd(Head(items));
-  end++; // close paren
-
-  return MakeToken(Reverse(items), start, end);
-}
-
-TokenType SniffToken(char c)
-{
-  if (c == '.')               return DOT;
-  if (c == '-' || IsDigit(c)) return DIGIT;
-  if (c == '(')               return LEFT_PAREN;
-  if (c == ')')               return RIGHT_PAREN;
-  if (c == '\0')              return END;
-  if (IsSpace(c))             return UNKNOWN;
-
-  return SYMCHAR;
-}
-
-void DebugToken(char *src, Value token, u32 cur)
-{
-  u32 src_size = strlen(src);
-
-  printf("  ");
-  ExplicitPrint(src, TokenStart(token));
-  printf("%s", UNDERLINE_START);
-  ExplicitPrint(src + TokenStart(token), TokenEnd(token) - TokenStart(token));
-  printf("%s", UNDERLINE_END);
-  ExplicitPrint(src + TokenEnd(token), src_size - TokenEnd(token));
-
-  printf("    ");
-  DebugValue(token, 0);
-
-  printf("\n  ");
-  for (u32 i = 0; i < StringLength(src, 0, cur); i++) printf(" ");
-  printf("↑\n");
-}
-
-void PrintToken(Value token, Value source)
-{
-  char *src = BinaryData(source);
-  printf("%s \"", TypeAbbr(TokenValue(token)));
-  ExplicitPrint(src + TokenStart(token), TokenEnd(token) - TokenStart(token));
-  printf("\"");
-}
-
-void DumpASTRec(Value tokens, Value src, u32 indent, u32 lines)
-{
-  if (IsNil(tokens)) return;
-
-  Value token = Head(tokens);
-
-  DebugRow();
-  DebugValue(token, 4);
-  DebugCol();
-
-  if (indent > 1) {
-    for (u32 i = 0; i < indent - 1; i++) {
-      u32 bit = 1 << (indent - i - 1);
-      if (lines & bit) printf("│ ");
-      else printf("  ");
-    }
-  }
-
-  if (indent > 0) {
-    if (IsNil(Tail(tokens))) {
-      printf("└─");
-    } else {
-      printf("├─");
-    }
-  }
-
-  if (IsNil(Tail(tokens))) lines &= 0xFFFE;
-
-  PrintToken(token, Head(src));
-
-  if (IsPair(TokenValue(token))) {
-    lines <<= 1;
-    lines |= 0x01;
-    DumpASTRec(TokenValue(token), src, indent + 1, lines);
-    lines >>= 1;
-  }
-
-  DumpASTRec(Tail(tokens), src, indent, lines);
-}
-
-void DumpAST(Value ast)
-{
-  Value tokens = Head(ast);
-
-  DebugTable("⌥ Syntax Tree", 0, 0);
-  if (IsNil(tokens)) {
-    DebugEmpty();
-    return;
-  }
-
-  DumpASTRec(tokens, Tail(ast), 0, 1);
-  EndDebugTable();
-}
-
-Value GetLine(Value last_line)
-{
-  static char buf[1024];
-  fgets(buf, INPUT_LEN, stdin);
-
-  u32 start = 0;
-  while (IsSpace(buf[start])) start++;
-  u32 end = start;
-  while (!IsNewline(buf[end])) end++;
-  end--;
-  while (IsSpace(buf[end])) end--;
-  end++;
-  buf[end++] = '\0';
-
-  Value line = MakeBinary(buf, start, end);
-  return MakePair(line, last_line);
-}
-
-Value ReverseWith(Value value, Value end)
-{
-  if (IsNil(value)) return end;
-
-  Value next = Tail(value);
-  SetTail(value, end);
-  return ReverseWith(next, value);
-}
-
-Value Reverse(Value list)
-{
-  return ReverseWith(list, nil_val);
+  return MakeToken(NumberVal(n), start, Index(source));
 }
 
 Value MakeToken(Value val, u32 start, u32 end)
@@ -272,17 +206,39 @@ Value MakeToken(Value val, u32 start, u32 end)
   return token;
 }
 
-Value TokenValue(Value token)
+Value ReverseWith(Value value, Value tail)
 {
-  return Head(token);
+  if (IsNil(value)) return tail;
+
+  Value next = Tail(value);
+  SetTail(value, tail);
+  return ReverseWith(next, value);
 }
 
-u32 TokenStart(Value token)
+Value ReverseList(Value list)
 {
-  return RawVal(Head(Tail(token)));
+  return ReverseWith(list, nil_val);
 }
 
-u32 TokenEnd(Value token)
+void DebugToken(Value token, Value source)
 {
-  return RawVal(Tail(Tail(token)));
+  char *text = Text(source);
+
+  u32 src_size = 0;
+  while (text[src_size] != END_MARK) src_size++;
+  src_size++;
+
+  printf("  ");
+  ExplicitPrint(text, TokenStart(token));
+  printf("%s", UNDERLINE_START);
+  ExplicitPrint(text + TokenStart(token), TokenEnd(token) - TokenStart(token));
+  printf("%s", UNDERLINE_END);
+  ExplicitPrint(text + TokenEnd(token), src_size - TokenEnd(token));
+
+  printf("    ");
+  DebugValue(token, 0);
+
+  printf("\n  ");
+  for (u32 i = 0; i < StringLength(text, 0, Index(source)); i++) printf(" ");
+  printf("↑\n");
 }

@@ -5,10 +5,10 @@
 int main(void)
 {
   InitMem();
-  Value parsed = Read();
+  Read();
 
   printf("\n");
-  DumpAST(parsed);
+  // DumpAST(parsed);
   DumpPairs();
   DumpSymbols();
   DumpHeap();
