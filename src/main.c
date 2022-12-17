@@ -1,17 +1,17 @@
-#include "mem.h"
+#include "vm.h"
 #include "reader.h"
 #include "value.h"
 
 int main(void)
 {
-  InitMem();
+  InitVM();
   Read();
 
   printf("\n");
   // DumpAST(parsed);
-  DumpPairs();
-  DumpSymbols();
-  DumpHeap();
+  // DumpPairs();
+  // DumpSymbols();
+  // DumpHeap();
 
   return 0;
 }

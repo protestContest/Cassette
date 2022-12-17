@@ -1,6 +1,6 @@
 #include "string.h"
 
-u32 StringLength(char *src, u32 start, u32 end)
+u32 CountGraphemes(char *src, u32 start, u32 end)
 {
   u32 len = 0;
 

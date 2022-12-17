@@ -1,11 +1,10 @@
 #pragma once
 
-u32 StringLength(char *src, u32 start, u32 end);
+u32 CountGraphemes(char *src, u32 start, u32 end);
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\n' || (c) == '\t' || (c) == '\r')
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
 #define IsAlpha(c)        (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && c <= 'z'))
-#define IsSymchar(c)      (!IsSpace(c) && (c) != '(' && (c) != ')' && (c) != '.' && (c) != '\0')
 #define IsNul(c)          ((c) == '\0')
 #define IsNewline(c)      ((c) == '\n' || (c) == '\r')
 #define IsCtrl(c)         (((c) < 0x20) || (c) == 0x7F)

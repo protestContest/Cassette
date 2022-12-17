@@ -1,7 +1,5 @@
 #pragma once
-
-#include "mem.h"
+#include "value.h"
 
 Value Read(void);
-Value Parse(char *src);
-void DumpAST(Value ast);
+Value Parse(Value source, Value ast);

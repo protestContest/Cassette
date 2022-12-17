@@ -33,6 +33,7 @@ with the 3 high bits, and the low 29 bits encode the object size in bytes.
 */
 
 #include "hash.h"
+#include "vm.h"
 
 typedef enum {
   NUMBER,
@@ -49,8 +50,9 @@ typedef enum {
   DICT
 } ObjType;
 
-typedef u32 Value;
-typedef u32 ObjHeader;
+extern Value nil_val;
+extern Value true_val;
+extern Value false_val;
 
 #define nan_mask    0x7FE00000
 #define type_mask   (nan_mask | 0x80100000)
@@ -70,10 +72,10 @@ typedef u32 ObjHeader;
 #define fun_mask        0x20000000
 #define tpl_mask        0x40000000
 #define dct_mask        0x60000000
-#define IsBinary(v)     (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == bin_mask)
-#define IsFunction(v)   (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == fun_mask)
-#define IsTuple(v)      (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == tpl_mask)
-#define IsDict(v)       (IsObject(v) && (*ObjectRef(v) & obj_type_mask) == dct_mask)
+#define IsBinary(v)     (IsObject(v) && (*HeapRef(v) & obj_type_mask) == bin_mask)
+#define IsFunction(v)   (IsObject(v) && (*HeapRef(v) & obj_type_mask) == fun_mask)
+#define IsTuple(v)      (IsObject(v) && (*HeapRef(v) & obj_type_mask) == tpl_mask)
+#define IsDict(v)       (IsObject(v) && (*HeapRef(v) & obj_type_mask) == dct_mask)
 
 #define IsNil(v)    ((v) == nil_val)
 
@@ -84,7 +86,7 @@ typedef u32 ObjHeader;
 #define ObjectVal(o)  (Value)(((o) & (~type_mask)) | obj_mask)
 #define RawVal(v)     (IsNumber(v) ? (v) : (v) & (~type_mask))
 
-#define HashValue(v)  Hash(&key, sizeof(Value))
+#define ValueHash(v)  Hash(&key, sizeof(Value))
 
 ValType TypeOf(Value value);
 ObjType ObjTypeOf(Value value);
@@ -92,13 +94,5 @@ ObjType ObjTypeOf(Value value);
 u32 ObjectSize(Value value);
 
 Value MakeBinary(char *src, u32 start, u32 end);
-u32 BinarySize(Value binary);
-void PrintBinary(Value value, u32 len);
-#define BinaryData(v)       ((char*)(ObjectRef(v)+1))
-
-void PrintValue(Value value, u32 len);
-char *TypeAbbr(Value value);
-
-u32 FunctionSize(Value value);
-u32 TupleSize(Value value);
-u32 DictSize(Value value);
+#define BinarySize(binary)  ObjectSize(binary)
+#define BinaryData(value)   ((char *)(HeapRef(value) + 1))
