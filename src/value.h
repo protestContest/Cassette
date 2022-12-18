@@ -94,5 +94,6 @@ ObjType ObjTypeOf(Value value);
 u32 ObjectSize(Value value);
 
 Value MakeBinary(char *src, u32 start, u32 end);
+Value MakeString(char *src);
 #define BinarySize(binary)  ObjectSize(binary)
 #define BinaryData(value)   ((char *)(HeapRef(value) + 1))

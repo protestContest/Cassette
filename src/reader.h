@@ -3,3 +3,4 @@
 
 Value Read(void);
 Value Parse(Value source, Value ast);
+void DumpAST(Value ast);

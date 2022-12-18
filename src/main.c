@@ -5,11 +5,11 @@
 int main(void)
 {
   InitVM();
-  Read();
+  Value ast = Read();
 
   printf("\n");
-  // DumpAST(parsed);
-  // DumpPairs();
+  DumpAST(ast);
+  DumpPairs();
   // DumpSymbols();
   // DumpHeap();
 

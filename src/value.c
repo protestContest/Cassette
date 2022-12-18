@@ -45,3 +45,9 @@ Value MakeBinary(char *src, u32 start, u32 end)
   memcpy(str, src + start, size);
   return obj;
 }
+
+Value MakeString(char *src)
+{
+  u32 size = strlen(src);
+  return MakeBinary(src, 0, size);
+}

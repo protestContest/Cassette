@@ -62,6 +62,7 @@ char *CtrlChar(char c)
 void ExplicitPrint(char *str, u32 count)
 {
   for (u32 i = 0; i < count; i++) {
+    // if (str[i] == '\0') return;
     if (IsCtrl(str[i])) printf("%s", CtrlChar(str[i]));
     else if (!IsUTFContinue(str[i])) printf("%c", str[i]);
   }

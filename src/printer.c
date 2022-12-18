@@ -29,8 +29,9 @@ char *TypeAbbr(Value value)
 
 void PrintSymbol(Value value)
 {
-  char *str = BinaryData(value);
-  u32 size = BinarySize(value);
+  Value name = SymbolName(value);
+  char *str = BinaryData(name);
+  u32 size = BinarySize(name);
 
   for (u32 i = 0; i < size; i++) {
     printf("%c", str[i]);
@@ -194,7 +195,7 @@ void PrintIntItem(Value value, u32 width)
   printf(fmt, RawVal(value));
 }
 
-void PrintTableItem(Value value, u32 width)
+void TableItem(Value value, u32 width)
 {
   if (width < 2) return;
 
@@ -220,12 +221,12 @@ void TableRow(Table *table, ...)
   BeginRow();
   va_start(args, table);
   Value value = va_arg(args, Value);
-  PrintTableItem(value, table->width[0]);
+  TableItem(value, table->width[0]);
   for (u32 i = 1; i < table->num_cols; i++) {
     value = va_arg(args, Value);
     TableSep();
     printf("%s ", TypeAbbr(value));
-    PrintTableItem(value, table->width[i] - 1);
+    TableItem(value, table->width[i] - 1);
   }
   va_end(args);
 }

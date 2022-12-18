@@ -20,6 +20,7 @@ void TableTitle(char *title, u32 num_cols, u32 cols_width);
 #define TableEnd()    printf("\n\n");
 
 Table *BeginTable(char *title, u32 num_cols, ...);
+void TableItem(Value value, u32 width);
 void TableRow(Table *table, ...);
 void EndTable(Table *table);
 
