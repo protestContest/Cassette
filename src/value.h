@@ -86,6 +86,14 @@ extern Value false_val;
 #define ObjectVal(o)  (Value)(((o) & (~type_mask)) | obj_mask)
 #define RawVal(v)     (IsNumber(v) ? (v) : (v) & (~type_mask))
 
+#define header_mask         0xE0000000
+#define BinaryHeader(size)  ((size) & (~header_mask) | bin_mask)
+#define HeaderValue(hdr)    ((hdr) & (~header_mask))
+
+#define IsEqual(a, b)       (RawVal(a) == RawVal(b))
+#define IsLessThan(a, b)    (RawVal(a) < RawVal(b))
+#define Incr(n)             (RawVal(n) + 1)
+
 #define ValueHash(v)  Hash(&key, sizeof(Value))
 
 ValType TypeOf(Value value);
@@ -94,6 +102,7 @@ ObjType ObjTypeOf(Value value);
 u32 ObjectSize(Value value);
 
 Value MakeBinary(char *src, u32 start, u32 end);
-Value MakeString(char *src);
+Value CreateBinary(char *src);
+Value CopySlice(Value text, Value start, Value end);
 #define BinarySize(binary)  ObjectSize(binary)
 #define BinaryData(value)   ((char *)(HeapRef(value) + 1))

@@ -1,11 +1,8 @@
 #include "value.h"
 #include "string.h"
 #include "vm.h"
+#include "printer.h"
 #include <stdio.h>
-
-#define header_mask         0xE0000000
-#define BinaryHeader(size)  ((size) & (~header_mask) | bin_mask)
-#define HeaderValue(hdr)    ((hdr) & (~header_mask))
 
 ValType TypeOf(Value value)
 {
@@ -15,8 +12,7 @@ ValType TypeOf(Value value)
   if (IsIndex(value))   return INDEX;
   if (IsObject(value))  return OBJECT;
 
-  fprintf(stderr, "Value not implemented: 0x%0X\n", value);
-  exit(1);
+  Error("Value not implemented: 0x%0X", value);
 }
 
 ObjType ObjTypeOf(Value value)
@@ -26,8 +22,7 @@ ObjType ObjTypeOf(Value value)
   if (IsTuple(value))     return TUPLE;
   if (IsDict(value))      return DICT;
 
-  fprintf(stderr, "Object type not implemented: 0x%0X\n", *HeapRef(value));
-  exit(1);
+  Error("Object type not implemented: 0x%0X", *HeapRef(value));
 }
 
 u32 ObjectSize(Value value)
@@ -39,15 +34,26 @@ u32 ObjectSize(Value value)
 Value MakeBinary(char *src, u32 start, u32 end)
 {
   u32 size = (start >= end) ? 0 : end - start;
-  ObjHeader header = BinaryHeader(size);
-  Value obj = Allocate(header, size);
+  Value obj = Allocate(BinaryHeader(size));
   char *str = BinaryData(obj);
   memcpy(str, src + start, size);
   return obj;
 }
 
-Value MakeString(char *src)
+Value CreateBinary(char *src)
 {
   u32 size = strlen(src);
-  return MakeBinary(src, 0, size);
+  Value obj = Allocate(BinaryHeader(size));
+  memcpy(BinaryData(obj), src, size);
+  return obj;
+}
+
+Value CopySlice(Value text, Value start, Value end)
+{
+  u32 size = RawVal(end) - RawVal(start);
+  Value obj = Allocate(BinaryHeader(size));
+  char *src = BinaryData(text) + RawVal(start);
+  char *dst = BinaryData(obj);
+  memcpy(dst, src, size);
+  return obj;
 }

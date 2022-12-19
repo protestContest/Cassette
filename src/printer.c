@@ -1,6 +1,50 @@
 #include "printer.h"
+#include "reader.h"
 #include "vm.h"
 #include "string.h"
+
+void WriteTo(FILE *dest, Value message)
+{
+  assert(IsBinary(message));
+  char *data = BinaryData(message);
+  u32 size = BinarySize(message);
+  for (u32 i = 0; i < size; i++) {
+    fprintf(dest, "%c", data[i]);
+  }
+}
+
+void Write(Value message)
+{
+  WriteTo(stdout, message);
+}
+
+void WriteSlice(Value message, Value begin, Value end)
+{
+
+}
+
+void SyntaxError(const char *message, Value source)
+{
+  Value line = Line(Cursor(source));
+  Value col = Col(Cursor(source));
+
+  fprintf(stderr, "%d:%d Syntax error: %s\n\n", RawVal(line), RawVal(col), message);
+
+  WriteTo(stderr, Text(source));
+  fprintf(stderr, "\n  ");
+
+  u32 spaces = CountGraphemes(Text(source), IndexVal(0), col);
+  for (u32 i = 0; i < spaces; i++) {
+    fprintf(stderr, " ");
+  }
+  fprintf(stderr, "↑\n");
+}
+
+void RuntimeError(const char *message)
+{
+  fprintf(stderr, "%s", message);
+  exit(1);
+}
 
 char *TypeAbbr(Value value)
 {
@@ -30,6 +74,7 @@ char *TypeAbbr(Value value)
 void PrintSymbol(Value value)
 {
   Value name = SymbolName(value);
+
   char *str = BinaryData(name);
   u32 size = BinarySize(name);
 
@@ -126,12 +171,14 @@ typedef struct Table {
 
 void EmptyTable(char *title)
 {
-  u32 table_pad = MIN_TABLE_WIDTH - CountGraphemes(title, 1, 0);
-  printf("  %s%s", UNDERLINE_START, title);
+  u32 table_pad = MIN_TABLE_WIDTH - RawCountGraphemes(title);
+  printf("  ");
+  BeginUnderline();
+  printf("%s", title);
   for (u32 i = 0; i < table_pad; i++) {
     printf(" ");
   }
-  printf("%s", UNDERLINE_END);
+  EndUnderline();
   printf("\n    (empty)\n\n");
 }
 
@@ -141,12 +188,14 @@ void TableTitle(char *title, u32 num_cols, u32 cols_width)
   u32 table_width = cols_width + divider_width;
   if (table_width > MAX_TABLE_WIDTH) table_width = MAX_TABLE_WIDTH;
   if (table_width < MIN_TABLE_WIDTH) table_width = MIN_TABLE_WIDTH;
-  u32 table_pad = table_width - CountGraphemes(title, 1, 0);
-  printf("  %s%s", UNDERLINE_START, title);
+  u32 table_pad = table_width - RawCountGraphemes(title);
+  printf("  ");
+  BeginUnderline();
+  printf("%s", title);
   for (u32 i = 0; i < table_pad; i++) {
     printf(" ");
   }
-  printf("%s", UNDERLINE_END);
+  EndUnderline();
 }
 
 Table *BeginTable(char *title, u32 num_cols, ...)
@@ -178,7 +227,7 @@ void PrintFloatItem(Value value, u32 width)
 
 void PrintStringItem(Value value, u32 width)
 {
-  u32 len = CountGraphemes(BinaryData(value), 0, BinarySize(value));
+  u32 len = CountGraphemes(value, IndexVal(0), IndexVal(BinarySize(value)));
   if (len > width) len = width;
   for (u32 i = 0; i < width - len; i++) {
     printf(" ");

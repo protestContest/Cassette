@@ -26,3 +26,8 @@ void ListPush(Value stack, Value value)
   Value head = MakePair(value, Head(stack));
   SetHead(stack, head);
 }
+
+void ListAppendItem(Value list1, Value list2)
+{
+  SetTail(list1, list2);
+}

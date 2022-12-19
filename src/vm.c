@@ -30,9 +30,9 @@ void InitVM(void)
 
   InitDict(&vm.symbols);
 
-  nil_val = CreateSymbol("nil", 0, 3);
-  true_val = CreateSymbol("true", 0, 4);
-  false_val = CreateSymbol("false", 0, 5);
+  nil_val = CreateSymbol("nil");
+  true_val = CreateSymbol("true");
+  false_val = CreateSymbol("false");
 }
 
 Value MakePair(Value head, Value tail)
@@ -68,8 +68,9 @@ ObjHeader *HeapRef(Value index)
   return (ObjHeader*)VectorRef(&vm.heap, RawVal(index));
 }
 
-Value Allocate(ObjHeader header, u32 bytes)
+Value Allocate(ObjHeader header)
 {
+  u32 bytes = HeaderValue(header);
   u32 size = (bytes - 1) / sizeof(Value) + 1 + 1;
 
   VectorGrow(&vm.heap, vm.heap_next + size);
@@ -108,21 +109,51 @@ void DumpHeap(void)
   HexDump(data, vm.heap_next*4, "⨳ Heap");
 }
 
-Value CreateSymbol(char *src, u32 start, u32 end)
+Value MakeSymbolFrom(Value text, Value start, Value end)
 {
-  u32 len = (start >= end) ? 0 : end - start;
-  Value symbol = SymbolVal(Hash(src + start, len));
+  u32 len = RawVal(end) - RawVal(start);
+  char *data = BinaryData(text) + RawVal(start);
+  Value symbol = SymbolVal(Hash(data, len));
 
   if (DictHasKey(&vm.symbols, symbol)) {
     return symbol;
   } else {
-    Value binary = MakeBinary(src, start, end);
+    Value binary = CopySlice(text, start, end);
     DictPut(&vm.symbols, symbol, binary);
     if (len > vm.longest_sym) {
       vm.longest_sym = len;
     }
 
     return symbol;
+  }
+}
+
+Value CreateSymbol(char *src)
+{
+  u32 len = strlen(src);
+  Value symbol = SymbolVal(Hash(src, len));
+
+  if (DictHasKey(&vm.symbols, symbol)) {
+    return symbol;
+  } else {
+    Value binary = CreateBinary(src);
+    DictPut(&vm.symbols, symbol, binary);
+    if (len > vm.longest_sym) {
+      vm.longest_sym = len;
+    }
+
+    return symbol;
+  }
+}
+
+Value GetSymbol(char *src)
+{
+  u32 len = strlen(src);
+  Value symbol = SymbolVal(Hash(src, len));
+  if (DictHasKey(&vm.symbols, symbol)) {
+    return symbol;
+  } else {
+    return nil_val;
   }
 }
 
@@ -135,8 +166,7 @@ Value SymbolName(Value sym)
 {
   Value binary = DictGet(&vm.symbols, sym);
   if (IsNil(binary)) {
-    fprintf(stderr, "No such symbol 0x%0X\n", sym);
-    exit(1);
+    Error("No such symbol 0x%0X", sym);
   }
 
   return binary;

@@ -1,6 +1,8 @@
 #include "dict.h"
 #include "printer.h"
 
+#define DictHeader(size)  ((size) & (~header_mask) | dct_mask)
+
 typedef struct DictEntry {
   Value key;
   Value value;

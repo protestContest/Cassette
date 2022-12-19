@@ -1,6 +1,8 @@
 #pragma once
+#include "value.h"
 
-u32 CountGraphemes(char *src, u32 start, u32 end);
+Value CountGraphemes(Value text, Value start, Value end);
+u32 RawCountGraphemes(char *text);
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\n' || (c) == '\t' || (c) == '\r')
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
@@ -9,6 +11,3 @@ u32 CountGraphemes(char *src, u32 start, u32 end);
 #define IsNewline(c)      ((c) == '\n' || (c) == '\r')
 #define IsCtrl(c)         (((c) < 0x20) || (c) == 0x7F)
 #define IsUTFContinue(c)  (((c) & 0xC0) == 0x80)
-
-char *CtrlChar(char c);
-void ExplicitPrint(char *str, u32 count);

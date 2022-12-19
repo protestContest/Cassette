@@ -2,10 +2,15 @@
 
 #include "value.h"
 
-#define UNDERLINE_START "\x1B[4m"
-#define UNDERLINE_END   "\x1B[0m"
+#define BeginUnderline()    printf("%s", "\x1B[4m")
+#define EndUnderline()      printf("%s", "\x1B[0m")
+
+void WriteSlice(Value message, Value begin, Value end);
 
 #define Error(...)  do { fprintf (stderr, __VA_ARGS__); exit(1); } while (0)
+
+void SyntaxError(const char *message, Value source);
+void RuntimeError(const char *message);
 
 char *TypeAbbr(Value value);
 void PrintValue(Value value);

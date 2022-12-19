@@ -1,19 +1,32 @@
 #include "string.h"
 
-u32 CountGraphemes(char *src, u32 start, u32 end)
+char CharAt(Value text, Value index)
+{
+  return BinaryData(text)[RawVal(index)];
+}
+
+Value CountGraphemes(Value text, Value start, Value end)
+{
+  Value len = IndexVal(0);
+
+  if (IsLessThan(start, end) || IsEqual(start, end)) {
+    for (Value i = start; IsLessThan(i, end); i = Incr(i)) {
+      if (!IsUTFContinue(CharAt(text, i))) {
+        len = Incr(len);
+      }
+    }
+  }
+
+  return len;
+}
+
+u32 RawCountGraphemes(char *text)
 {
   u32 len = 0;
 
-  if (start <= end) {
-    for (u32 i = start; i < end; i++) {
-      if (src[i] == '\0') return len;
-      if (!IsUTFContinue(src[i])) len++;
-    }
-  } else {
-    while (*src != '\0') {
-      if (!IsUTFContinue(*src)) len++;
-      src++;
-    }
+  while (*text != '\0') {
+    if (!IsUTFContinue(*text)) len++;
+    text++;
   }
 
   return len;
@@ -56,14 +69,5 @@ char *CtrlChar(char c)
   case 0x1F:  return "␟";
   case 0x7F:  return "␡";
   default:    return "";
-  }
-}
-
-void ExplicitPrint(char *str, u32 count)
-{
-  for (u32 i = 0; i < count; i++) {
-    // if (str[i] == '\0') return;
-    if (IsCtrl(str[i])) printf("%s", CtrlChar(str[i]));
-    else if (!IsUTFContinue(str[i])) printf("%c", str[i]);
   }
 }
