@@ -3,6 +3,20 @@
 #include "vm.h"
 #include "string.h"
 
+#define FMT_NORMAL    "\x1B[0m"
+#define FMT_UNDERLINE "\x1B[4m"
+#define FMT_RED       "\x1B[31m"
+
+void BeginUnderline(void)
+{
+  printf(FMT_UNDERLINE);
+}
+
+void EndUnderline(void)
+{
+  printf(FMT_NORMAL);
+}
+
 void WriteTo(FILE *dest, Value message)
 {
   assert(IsBinary(message));
@@ -20,24 +34,27 @@ void Write(Value message)
 
 void WriteSlice(Value message, Value begin, Value end)
 {
-
+  for (u32 i = RawVal(begin); i < RawVal(end); i++) {
+    printf("%c", CharAt(message, IndexVal(i)));
+  }
 }
 
 void SyntaxError(const char *message, Value source)
 {
-  Value line = Line(Cursor(source));
-  Value col = Col(Cursor(source));
+  Value line = CurrentLineNum(source);
+  Value col = CurrentColumn(source);
 
-  fprintf(stderr, "%d:%d Syntax error: %s\n\n", RawVal(line), RawVal(col), message);
-
-  WriteTo(stderr, Text(source));
+  fprintf(stderr, FMT_RED);
+  fprintf(stderr, "Syntax error at %d:%d: %s\n\n  ", RawVal(line), RawVal(col), message);
+  WriteTo(stderr, CurrentLine(source));
   fprintf(stderr, "\n  ");
 
-  u32 spaces = CountGraphemes(Text(source), IndexVal(0), col);
+  u32 spaces = CountGraphemes(CurrentLine(source), IndexVal(0), col);
   for (u32 i = 0; i < spaces; i++) {
     fprintf(stderr, " ");
   }
   fprintf(stderr, "↑\n");
+  fprintf(stderr, FMT_NORMAL);
 }
 
 void RuntimeError(const char *message)
@@ -227,13 +244,16 @@ void PrintFloatItem(Value value, u32 width)
 
 void PrintStringItem(Value value, u32 width)
 {
-  u32 len = CountGraphemes(value, IndexVal(0), IndexVal(BinarySize(value)));
-  if (len > width) len = width;
-  for (u32 i = 0; i < width - len; i++) {
+  Value len = CountGraphemes(value, IndexVal(0), IndexVal(BinarySize(value)));
+  len = Min(len, IndexVal(width));
+  Value pad = IndexVal(width - RawVal(len));
+
+  for (Value i = IndexVal(0); IsLessThan(i, pad); i = Incr(i)) {
     printf(" ");
   }
-  for (u32 i = 0; i < len; i++) {
-    printf("%c", BinaryData(value)[i]);
+
+  for (Value i = IndexVal(0); IsLessThan(i, len); i = Incr(i)) {
+    printf("%c", CharAt(value, i));
   }
 }
 

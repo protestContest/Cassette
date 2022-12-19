@@ -1,11 +1,14 @@
 #pragma once
 #include "value.h"
 
-#define Line(loc)               Head(loc)
-#define Col(loc)                Tail(loc)
+#define LineNum(cur)            Head(cur)
+#define Column(cur)             Tail(cur)
 
-#define Text(source)            Head(source)
-#define Cursor(source)          Tail(source)
+#define SourceLines(source)     Head(source)
+#define SourcePos(source)       Tail(source)
+#define CurrentLine(source)     Head(SourceLines(source))
+#define CurrentLineNum(source)  LineNum(SourcePos(source))
+#define CurrentColumn(source)   Column(SourcePos(source))
 
 Value Read(void);
 Value Parse(Value source, Value ast);

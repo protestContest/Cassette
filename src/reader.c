@@ -7,57 +7,74 @@
 void DumpAST(Value ast);
 
 /* Source
-A source object is a pair whose head is a binary value (the text), and the tail
-is a cursor of the current position during parsing. As the source is parsed, the
-cursor is advanced.
-
-GetLine reads an input string into a buffer and creates a binary value trimmed
-of whitespace.
-*/
+ *
+ * The source text is stored as a list of binaries. A source object is a pair whose
+ * head is the source text and tail is a cursor location of the current position
+ * during parsing. As the source is parsed, the cursor is advanced.
+ *
+ * GetLine reads an input string into a buffer and creates a binary value trimmed
+ * of whitespace.
+ */
 
 #define MAX_INPUT_LENGTH 1024
-#define END_MARK    '\0'
+#define END_MARK    '$'
 
-#define SourceLoc(line, col)    MakePair(line, col)
-#define SetCol(loc, i)          SetTail(loc, i)
+#define MakeCursor(line, col)   MakePair(line, col)
+#define CopyCursor(cur)         MakeCursor(LineNum(cur), Column(cur))
+#define SetLineNum(cur, i)      SetHead(cur, i)
+#define SetColumn(cur, i)       SetTail(cur, i)
 
-#define MakeSource(text)        MakePair(text, SourceLoc(0, 0))
-#define CurLine(source)         RawVal(Line(Cursor(source)))
-#define CurCol(source)          RawVal(Col(Cursor(source)))
-#define Peek(source)            BinaryData(Text(source))[CurCol(source)]
-#define Advance(source)         SetCol(Cursor(source), IndexVal(CurCol(source) + 1))
+#define MakeSource()            MakePair(nil_val, MakeCursor(IndexVal(0), IndexVal(0)))
+#define AddLine(line, source)   SetHead(source, MakePair(line, SourceLines(source)))
+#define Peek(source)            CharAt(CurrentLine(source), CurrentColumn(source))
+#define Advance(source)         SetColumn(SourcePos(source), Incr(CurrentColumn(source)))
+#define AdvanceLine(source)     SetLineNum(SourcePos(source), Incr(CurrentLineNum(source)))
 #define IsAtEnd(source)         (Peek(source) == END_MARK)
 #define SkipWhitespace(source)  do { while (IsSpace(Peek(source)) && !IsAtEnd(source)) Advance(source); } while (0)
 
-Value MakeLine(char *src)
+Value SourceLine(Value source, Value line_num)
 {
-  Value text = CreateBinary(src);
-  BinaryData(text)[strlen(src)] = END_MARK;
-  return MakeSource(text);
+  return ListAt(SourceLines(source), line_num);
 }
 
-Value GetLine(void)
+/* Given a source object, this reads in a line of text from the user and appends
+ * it to the source.
+ */
+Value GetLine(Value source)
 {
   static char buf[MAX_INPUT_LENGTH];
   fgets(buf, MAX_INPUT_LENGTH, stdin);
 
+  // Set start after all whitespace
   u32 start = 0;
-  while (IsSpace(buf[start]) && !IsNewline(buf[start])) { start++; }
+  while (IsSpace(buf[start]) && !IsNewline(buf[start])) {
+    start++;
+  }
+
+  // Scan to the end, saving the last non-whitespace position
   u32 end = start;
-  while (!IsNewline(buf[end])) { end++; }
-  end--;
-  while (IsSpace(buf[end])) { end--; }
-  end++;
+  u32 maybe_end = end;
+  while (!IsNewline(buf[maybe_end])) {
+    if (!IsSpace(buf[maybe_end])) {
+      end = maybe_end + 1;
+    }
+    maybe_end++;
+  }
+
+  // Mark the end
   buf[end++] = END_MARK;
 
-  Value text = CreateBinary(buf);
-  return MakeSource(text);
+  Value line = MakeBinary(buf, start, end);
+  AddLine(line, source);
+  SetColumn(SourcePos(source), IndexVal(0));
+  return source;
 }
 
 /* Tokens
-A token is a pair whose head is a parsed value and tail is a (start . end) pair,
-marking the start and end positions in the source.
-*/
+ *
+ * A token is a pair whose head is a parsed value and tail is a (start . end)
+ * pair, marking the start and end positions in the source.
+ */
 
 typedef enum {
   DIGIT,
@@ -67,12 +84,14 @@ typedef enum {
   QUOTE
 } TokenType;
 
-#define MakeToken(val, start, end)  MakePair(val, SourceLoc(start, end))
+#define MakeToken(val, start, end)  MakePair(val, MakePair(start, end))
 #define TokenValue(token)           Head(token)
 #define SetTokenValue(token, val)   SetHead(token, val)
 #define TokenLoc(token)             Tail(token)
 #define TokenStart(token)           Head(TokenLoc(token))
 #define TokenEnd(token)             Tail(TokenLoc(token))
+#define SetTokenStart(token, pos)   SetHead(TokenLoc(token), MakeCursor(LineNum(pos), Column(pos)))
+#define SetTokenEnd(token, pos)     SetTail(TokenLoc(token), MakeCursor(LineNum(pos), Column(pos)))
 
 #define IsSymchar(c)      (!IsCtrl(c) && (c) != ' ' && (c) != '(' && (c) != ')' && (c) != '.')
 
@@ -91,45 +110,46 @@ TokenType SniffToken(Value source)
 
 void DebugToken(Value token, Value source)
 {
-  Value start = Col(TokenStart(token));
-  Value end = Col(TokenEnd(token));
-
-  if (IsNil(start) || IsNil(end) || RawVal(start) > RawVal(end)) {
-    Error("Bad token location\n");
+  Value start;
+  if (LineNum(TokenStart(token)) != CurrentLineNum(source)) {
+    start = IndexVal(0);
+  } else {
+    start = Column(TokenStart(token));
   }
 
-  u32 src_size = BinarySize(Text(source));
-
-  if (src_size > 100) {
-    Error("Suspicious token size\n");
+  Value end;
+  if (IsNil(TokenEnd(token))) {
+    end = CurrentColumn(source);
+  } else {
+    end = Column(TokenEnd(token));
   }
 
   printf("  ");
-  WriteSlice(Text(source), IndexVal(0), start);
+  WriteSlice(CurrentLine(source), IndexVal(0), start);
   BeginUnderline();
-  WriteSlice(Text(source), start, end);
+  WriteSlice(CurrentLine(source), start, end);
   EndUnderline();
-  WriteSlice(Text(source), end, IndexVal(src_size));
-
-  printf("    ");
-  DebugValue(token);
+  WriteSlice(CurrentLine(source), end, IndexVal(BinarySize(CurrentLine(source))));
 
   printf("\n  ");
-  for (u32 i = 0; i < CountGraphemes(Text(source), IndexVal(0), Col(Cursor(source))); i++) printf(" ");
+  Value spaces = CountGraphemes(CurrentLine(source), IndexVal(0), end);
+  for (u32 i = 0; i < RawVal(spaces); i++) printf(" ");
   printf("↑\n");
 }
 
-/* List token
-A list token is a token whose value is a list of other tokens. A partial list
-token (where the end index is unknown) is used while parsing open lists. When a
-close paren is found, the end index is set and the list token is added as an
-item in the parent list.
-*/
+/* Token List
+ *
+ * A token list is a list of tokens that represent open expressions being
+ * parsed. Each token in the list represents a list expression in the source.
+ * These tokens have a nil end position, since they are currently being parsed.
+ * When the list being parsed is closed, it is appended to the parent token list
+ * as an item, and popped from the top-level token list.
+ */
 
 #define ListToken(list)       Head(list)
 #define ParentList(list)      Tail(list)
-#define MakeListToken(source) MakeToken(nil_val, Cursor(source), nil_val)
-#define TokenList(list_token) TokenValue(list_token)
+#define MakeListToken(source) MakeToken(nil_val, CopyCursor(SourcePos(source)), nil_val)
+#define CurrentTokens(list)   TokenValue(ListToken(list))
 
 Value BeginTokenList(Value ast, Value source)
 {
@@ -138,27 +158,23 @@ Value BeginTokenList(Value ast, Value source)
   return ast;
 }
 
-void ListTokenPush(Value list_token, Value token)
-{
-  Value list = MakePair(token, TokenList(list_token));
-  SetTokenValue(list_token, list);
-}
-
 void ListTokenAttach(Value item, Value list_token)
 {
-  SetTail(item, TokenList(list_token));
+  SetTail(item, TokenValue(list_token));
   SetTokenValue(list_token, item);
 }
 
 Value AddToken(Value token, Value ast)
 {
-  ListTokenPush(ListToken(ast), token);
+  Value list_token = ListToken(ast);
+  Value list = MakePair(token, TokenValue(list_token));
+  SetTokenValue(list_token, list);
   return ast;
 }
 
 void ReverseTokenList(Value list_token)
 {
-  SetTokenValue(list_token, ReverseList(TokenList(list_token)));
+  SetTokenValue(list_token, ReverseList(TokenValue(list_token)));
 }
 
 Value EndTokenList(Value ast, Value source)
@@ -169,7 +185,7 @@ Value EndTokenList(Value ast, Value source)
   }
 
   // Set end location of the list
-  SetCol(TokenLoc(ListToken(ast)), Col(Cursor(source)));
+  SetTokenEnd(ListToken(ast), CopyCursor(SourcePos(source)));
 
   // Reverse the current list
   ReverseTokenList(ListToken(ast));
@@ -205,7 +221,7 @@ Check the next token type.
 
 Value ParseNumber(Value source)
 {
-  Value start = SourceLoc(Line(Cursor(source)), Col(Cursor(source)));
+  Value start = CopyCursor(SourcePos(source));
 
   i32 sign = 1;
   if (Peek(source) == '-') {
@@ -231,38 +247,38 @@ Value ParseNumber(Value source)
     }
   }
 
-  Value end = SourceLoc(Line(Cursor(source)), Col(Cursor(source)));
+  Value end = CopyCursor(SourcePos(source));
   return MakeToken(NumberVal(n), start, end);
 }
 
 Value ParseSymbol(Value source)
 {
-  u32 start = CurCol(source);
+  Value start = CopyCursor(SourcePos(source));
+
   while (IsSymchar(Peek(source)) && !IsAtEnd(source)) {
     Advance(source);
   }
 
-  u32 end = CurCol(source);
-  Value symbol = MakeSymbolFrom(Text(source), start, end);
-  Value line = Line(Cursor(source));
-  Value token = MakeToken(symbol, SourceLoc(line, IndexVal(start)), SourceLoc(line, IndexVal(end)));
+  Value end = CopyCursor(SourcePos(source));
+  Value symbol = MakeSymbolFrom(CurrentLine(source), Column(start), Column(end));
+  Value token = MakeToken(symbol, start, end);
   return token;
 }
 
-Value ParseToken(Value source, Value ast);
-
-bool InQuotation(Value ast)
+bool WasQuoted(Value ast)
 {
-  Value first_token = Head(TokenList(ListToken(ast)));
-  return TokenValue(first_token) == GetSymbol("quote");
+  Value tokens = CurrentTokens(ast);
+  if (IsNil(Tail(tokens))) return false;
+  Value prev_token = ListToken(Tail(tokens));
+  return TokenValue(prev_token) == GetSymbol("quote");
 }
 
 Value BeginQuote(Value ast, Value source)
 {
-  BeginTokenList(ast, source);
+  ast = BeginTokenList(ast, source);
   Advance(source);
   Value symbol = CreateSymbol("quote");
-  Value quoteToken = MakeToken(symbol, Cursor(source), Cursor(source));
+  Value quoteToken = MakeToken(symbol, CopyCursor(SourcePos(source)), CopyCursor(SourcePos(source)));
   return AddToken(quoteToken, ast);
 }
 
@@ -283,13 +299,15 @@ Value ParseToken(Value source, Value ast)
   case DIGIT: {
     Value token = ParseNumber(source);
     ast = AddToken(token, ast);
-    if (InQuotation(ast)) ast = EndQuote(ast, source);
+    if (WasQuoted(ast)) ast = EndQuote(ast, source);
     return ast;
   }
   case SYMCHAR: {
     Value token = ParseSymbol(source);
     ast = AddToken(token, ast);
-    if (InQuotation(ast)) ast = EndQuote(ast, source);
+    if (WasQuoted(ast)) {
+      ast = EndQuote(ast, source);
+    }
     return ast;
   }
   case LEFT_PAREN: {
@@ -300,7 +318,9 @@ Value ParseToken(Value source, Value ast)
   case RIGHT_PAREN: {
     Advance(source);
     ast = EndTokenList(ast, source);
-    if (InQuotation(ast)) ast = EndQuote(ast, source);
+    if (WasQuoted(ast)) {
+      ast = EndQuote(ast, source);
+    }
     return ast;
   }
   case QUOTE: {
@@ -315,11 +335,12 @@ Value Parse(Value source, Value ast)
 {
   while (!IsAtEnd(source)) {
     ast = ParseToken(source, ast);
+    DebugToken(Head(CurrentTokens(ast)), source);
   }
 
   if (IsNil(ParentList(ast))) {
     // No open parens
-    SetCol(TokenLoc(ListToken(ast)), Col(Cursor(source)));
+    SetTokenEnd(ListToken(ast), CopyCursor(SourcePos(source)));
     ReverseTokenList(ListToken(ast));
   }
 
@@ -396,24 +417,27 @@ level token.
 
 #define Prompt()                printf("⌘ ")
 
-Value ReadNext(Value ast)
+Value ReadNext(Value ast, Value source)
 {
-  Value source = GetLine();
+  source = GetLine(source);
   ast = Parse(source, ast);
 
   if (IsNil(Tail(ast))) {
     return ast;
   }
 
+  AdvanceLine(source);
+
   printf(". ");
-  return ReadNext(ast);
+  return ReadNext(ast, source);
 }
 
 Value Read(void)
 {
-  Value initial_token = MakeToken(nil_val, IndexVal(0), nil_val);
+  Value source = MakeSource();
+  Value initial_token = MakeToken(nil_val, CopyCursor(SourcePos(source)), nil_val);
   Value ast = MakePair(initial_token, nil_val);
 
   Prompt();
-  return ReadNext(ast);
+  return ReadNext(ast, source);
 }

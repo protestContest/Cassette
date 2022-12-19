@@ -136,7 +136,7 @@ Value CreateSymbol(char *src)
   if (DictHasKey(&vm.symbols, symbol)) {
     return symbol;
   } else {
-    Value binary = CreateBinary(src);
+    Value binary = MakeBinary(src, 0, len);
     DictPut(&vm.symbols, symbol, binary);
     if (len > vm.longest_sym) {
       vm.longest_sym = len;

@@ -2,8 +2,8 @@
 
 #include "value.h"
 
-#define BeginUnderline()    printf("%s", "\x1B[4m")
-#define EndUnderline()      printf("%s", "\x1B[0m")
+void BeginUnderline(void);
+void EndUnderline(void);
 
 void WriteSlice(Value message, Value begin, Value end);
 

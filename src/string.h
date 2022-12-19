@@ -3,6 +3,7 @@
 
 Value CountGraphemes(Value text, Value start, Value end);
 u32 RawCountGraphemes(char *text);
+char CharAt(Value text, Value index);
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\n' || (c) == '\t' || (c) == '\r')
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')

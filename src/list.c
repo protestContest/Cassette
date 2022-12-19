@@ -1,6 +1,15 @@
 #include "list.h"
 #include "vm.h"
 
+Value ListAt(Value list, Value n)
+{
+  if (RawVal(n) == 0) {
+    return Head(list);
+  }
+
+  return ListAt(Tail(list), Decr(n));
+}
+
 u32 ListLength(Value list)
 {
   if (IsNil(list)) return 0;

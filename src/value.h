@@ -92,7 +92,9 @@ extern Value false_val;
 
 #define IsEqual(a, b)       (RawVal(a) == RawVal(b))
 #define IsLessThan(a, b)    (RawVal(a) < RawVal(b))
-#define Incr(n)             (RawVal(n) + 1)
+#define Min(a, b)           (IsLessThan(a, b) ? a : b)
+#define Incr(n)             IndexVal(RawVal(n) + 1)
+#define Decr(n)             IndexVal(RawVal(n) - 1)
 
 #define ValueHash(v)  Hash(&key, sizeof(Value))
 
