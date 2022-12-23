@@ -1,180 +1,189 @@
 #include "vm.h"
-#include "vector.h"
-#include "printer.h"
-#include "dict.h"
+#include "hash.h"
 
-typedef struct VM {
-  Vector pairs;
-  u32 pair_next;
-  Vector heap;
-  u32 heap_next;
-  Dict symbols;
-  u32 longest_sym;
-} VM;
+/* Values are nan-boxed floats */
 
-#define INITIAL_NUM_PAIRS 32
-#define INITIAL_HEAP_SIZE 32
+#define nanMask     0x7FC00000
 
-static VM vm;
+#define type1Mask   0xFFE00000
+#define symMask     0x7FC00000
+#define intMask     0x7FE00000
 
-Value nil_val = 0;
-Value true_val = 0;
-Value false_val = 0;
+#define type2Mask   0xFFF00000
+#define pairMask    0xFFC00000
+#define tupleMask   0xFFE00000
+#define binMask     0xFFF00000
+#define xMask       0xFFD00000
 
-void InitVM(void)
+#define IsType1(v)  (((v) & 0x80000000) == 0x0)
+#define NumVal(n)   (u32)(n)
+#define IsNum(n)    (((n) & nanMask) != nanMask)
+#define IntVal(i)   ((i) | intMask)
+#define IsInt(i)    (((i) & type1Mask) == intMask)
+#define SymVal(s)   ((s) | symMask)
+#define IsSym(s)    (((s) & type1Mask) == symMask)
+#define PairVal(p)  ((p) & pairMask)
+#define IsPair(p)   (((p) & type2Mask) == pairMask)
+#define TupleVal(t) ((t) & tupleMask)
+#define IsTuple(t)  (((t) & type2Mask) == tupleMask)
+#define BinVal(b)   ((b) & binMask)
+#define IsBin(b)    (((b) & type2Mask) == binMask)
+
+#define RawVal(v)   (IsNum(v) ? (float)(v) : IsType1(v) ? ((v) & (~type1Mask)) : ((v) & (~type2Mask)))
+
+#define  nil_val    PairVal(0)
+
+void InitVM(VM *vm)
 {
-  InitVector(&vm.pairs, INITIAL_NUM_PAIRS*2);
-  vm.pair_next = 0;
-  InitVector(&vm.heap, INITIAL_HEAP_SIZE);
-  vm.heap_next = 0;
-
-  InitDict(&vm.symbols);
-
-  nil_val = CreateSymbol("nil");
-  true_val = CreateSymbol("true");
-  false_val = CreateSymbol("false");
+  vm->mem[0] = nil_val;
+  vm->mem[1] = nil_val;
+  vm->base = 0;
+  vm->free = 2;
+  vm->sp = MEMORY_SIZE - 1;
+  for (u32 i = 0; i < NUM_SYMBOLS; i++) {
+    vm->symbols[i].hash = 0;
+  }
 }
 
-Value MakePair(Value head, Value tail)
+void StackPush(VM *vm, u32 val)
 {
-  u32 index = PairVal(vm.pair_next);
-  VectorSet(&vm.pairs, vm.pair_next++, head);
-  VectorSet(&vm.pairs, vm.pair_next++, tail);
+  if (vm->sp - 1 == vm->free) {
+    Error("Stack overflow\n");
+    exit(1);
+  }
+  vm->mem[vm->sp] = val;
+  vm->sp--;
+}
+
+u32 StackPop(VM *vm)
+{
+  u32 val = vm->mem[vm->sp];
+  vm->sp++;
+  return val;
+}
+
+u32 Allocate(VM *vm, u32 size)
+{
+  if (vm->free + size > vm->sp) {
+    Error("Can't allocate %d: Out of memory\n", size);
+    DumpVM(vm);
+    exit(2);
+  }
+
+  u32 index = vm->free;
+  vm->free += size;
   return index;
 }
 
-Value Head(Value pair)
-{
-  return VectorGet(&vm.pairs, RawVal(pair));
-}
-
-Value Tail(Value pair)
-{
-  return VectorGet(&vm.pairs, RawVal(pair) + 1);
-}
-
-void SetHead(Value pair, Value head)
-{
-  VectorSet(&vm.pairs, RawVal(pair), head);
-}
-
-void SetTail(Value pair, Value tail)
-{
-  VectorSet(&vm.pairs, RawVal(pair) + 1, tail);
-}
-
-ObjHeader *HeapRef(Value index)
-{
-  return (ObjHeader*)VectorRef(&vm.heap, RawVal(index));
-}
-
-Value Allocate(ObjHeader header)
-{
-  u32 bytes = HeaderValue(header);
-  u32 size = (bytes - 1) / sizeof(Value) + 1 + 1;
-
-  VectorGrow(&vm.heap, vm.heap_next + size);
-  VectorSet(&vm.heap, vm.heap_next, header);
-
-  Value index = ObjectVal(vm.heap_next);
-  vm.heap_next += size;
-
-  return index;
-}
-
-void DumpPairs(void)
-{
-  const u32 min_len = 8;
-
-  u32 sym_len = LongestSymLength();
-  if (sym_len < min_len) sym_len = min_len;
-
-  if (vm.pair_next == 0) {
-    EmptyTable("⚭ Pairs");
-    return;
-  }
-
-  Table *table = BeginTable("⚭ Pairs", 3, 4, sym_len, sym_len);
-  for (u32 i = 0; i < vm.pair_next; i++) {
-    Value head = VectorGet(&vm.pairs, i);
-    Value tail = VectorGet(&vm.pairs, i+1);
-    TableRow(table, IndexVal(i), head, tail);
-  }
-  EndTable(table);
-}
-
-void DumpHeap(void)
-{
-  u8 *data = (u8*)VectorRef(&vm.heap, 0);
-  HexDump(data, vm.heap_next*4, "⨳ Heap");
-}
-
-Value MakeSymbolFrom(Value text, Value start, Value end)
-{
-  u32 len = RawVal(end) - RawVal(start);
-  char *data = BinaryData(text) + RawVal(start);
-  Value symbol = SymbolVal(Hash(data, len));
-
-  if (DictHasKey(&vm.symbols, symbol)) {
-    return symbol;
-  } else {
-    Value binary = CopySlice(text, start, end);
-    DictPut(&vm.symbols, symbol, binary);
-    if (len > vm.longest_sym) {
-      vm.longest_sym = len;
-    }
-
-    return symbol;
-  }
-}
-
-Value CreateSymbol(char *src)
+u32 MakeSymbol(VM *vm, char *src)
 {
   u32 len = strlen(src);
-  Value symbol = SymbolVal(Hash(src, len));
+  u32 val = SymVal(Hash(src, len));
+  for (u32 i = 0; i < NUM_SYMBOLS; i++) {
+    if (vm->symbols[i].hash == val) {
+      return val;
+    }
+    if (vm->symbols[i].hash == 0) {
+      vm->symbols[i].hash = val;
+      vm->symbols[i].name = src;
+      return val;
+    }
+  }
+  Error("Too many symbols\n");
+  exit(3);
+}
 
-  if (DictHasKey(&vm.symbols, symbol)) {
-    return symbol;
-  } else {
-    Value binary = MakeBinary(src, 0, len);
-    DictPut(&vm.symbols, symbol, binary);
-    if (len > vm.longest_sym) {
-      vm.longest_sym = len;
+u32 MakePair(VM *vm, u32 head, u32 tail)
+{
+  u32 index = Allocate(vm, 2);
+  vm->mem[vm->base + index] = head;
+  vm->mem[vm->base + index+1] = tail;
+  return PairVal(index);
+}
+
+u32 Head(VM *vm, u32 pair)
+{
+  u32 index = RawVal(pair);
+  return vm->mem[vm->base + index];
+}
+
+u32 Tail(VM *vm, u32 pair)
+{
+  u32 index = RawVal(pair);
+  return vm->mem[vm->base + index+1];
+}
+
+void SetHead(VM *vm, u32 pair, u32 head)
+{
+  u32 index = RawVal(pair);
+  vm->mem[vm->base + index] = head;
+}
+
+void SetTail(VM *vm, u32 pair, u32 tail)
+{
+  u32 index = RawVal(pair);
+  vm->mem[vm->base + index+1] = tail;
+}
+
+u32 MakeTuple(VM *vm, u32 length, ...)
+{
+  va_list args;
+
+  u32 index = Allocate(vm, length + 1);
+  vm->mem[vm->base + index] = length;
+
+  va_start(args, length);
+  for (u32 i = 0; i < length; i++) {
+    u32 arg = va_arg(args, u32);
+    vm->mem[vm->base + index + 1 + i] = arg;
+  }
+
+  va_end(args);
+
+  return TupleVal(index);
+}
+
+u32 TupleAt(VM *vm, u32 tuple, u32 i)
+{
+  u32 index = RawVal(tuple);
+  return vm->mem[vm->base + index + 1 + i];
+}
+
+void DumpVM(VM *vm)
+{
+  printf("  Registers\n");
+
+  printf("  exp:  0x%08X\n", vm->exp);
+  printf("  env:  0x%08X\n", vm->env);
+  printf("  proc: 0x%08X\n", vm->proc);
+  printf("  argl: 0x%08X\n", vm->argl);
+  printf("  val:  0x%08X\n", vm->val);
+  printf("  cont: 0x%08X\n", vm->cont);
+  printf("  unev: 0x%08X\n", vm->unev);
+  printf("  sp:   0x%08X\n", vm->sp);
+  printf("  base: 0x%08X\n", vm->base);
+  printf("  free: 0x%08X\n", vm->free);
+  printf("\n");
+
+  printf("  Memory\n");
+  for (u32 i = vm->base; i < vm->free; i++) {
+    printf("  0x%08X    %08X\n", i, vm->mem[i]);
+  }
+  printf("\n");
+
+  printf("  Stack\n");
+  for (u32 i = MEMORY_SIZE - 1; i > vm->sp; i--) {
+    printf("  0x%08X    %08X\n", i, vm->mem[i]);
+  }
+  printf("\n");
+
+  printf("  Symbols\n");
+  for (u32 i = 0; i < NUM_SYMBOLS; i++) {
+    if (vm->symbols[i].hash == 0) {
+      break;
     }
 
-    return symbol;
+    printf("  0x%08X    %s\n", vm->symbols[i].hash, vm->symbols[i].name);
   }
+  printf("\n");
 }
-
-Value GetSymbol(char *src)
-{
-  u32 len = strlen(src);
-  Value symbol = SymbolVal(Hash(src, len));
-  if (DictHasKey(&vm.symbols, symbol)) {
-    return symbol;
-  } else {
-    return nil_val;
-  }
-}
-
-u32 LongestSymLength(void)
-{
-  return vm.longest_sym;
-}
-
-Value SymbolName(Value sym)
-{
-  Value binary = DictGet(&vm.symbols, sym);
-  if (IsNil(binary)) {
-    Error("No such symbol 0x%0X", sym);
-  }
-
-  return binary;
-}
-
-void DumpSymbols(void)
-{
-  u32 table_width = LongestSymLength();
-  DumpDict(&vm.symbols, "★ Symbols", table_width);
-}
-

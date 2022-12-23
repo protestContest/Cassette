@@ -18,3 +18,5 @@ typedef int32_t   i32;
 typedef int64_t   i64;
 
 #define Bit(n)  (1 << (n))
+
+#define Error(...)  fprintf(stderr, __VA_ARGS__)
