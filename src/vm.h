@@ -39,6 +39,7 @@ typedef struct {
 } VM;
 
 extern Val nil_val;
+extern Val quote_val;
 
 #define nanMask     0x7FC00000
 
@@ -71,6 +72,8 @@ extern Val nil_val;
 #define AsInt(v)    ((v).as_v & (~type1Mask))
 
 #define Eq(v1, v2)  ((v1).as_v == (v2).as_v)
+
+#define IsTaggedList(vm, exp, tag)  (IsPair(exp) && Eq(Head(vm, exp), tag))
 
 ValType TypeOf(Val v);
 

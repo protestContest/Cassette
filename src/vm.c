@@ -11,6 +11,7 @@
 #define Chr(c)      ((c) >= 0x20 && (c) < 0x7F) ? (c) : ('.')
 
 Val nil_val = PairVal(0);
+Val quote_val;
 
 ValType TypeOf(Val v)
 {
@@ -34,6 +35,8 @@ void InitVM(VM *vm)
   for (u32 i = 0; i < NUM_SYMBOLS; i++) {
     vm->symbols[i].key = nil_val;
   }
+
+  quote_val = MakeSymbol(vm, "quote", 5);
 }
 
 void StackPush(VM *vm, Val val)

@@ -28,7 +28,7 @@ typedef unsigned char byte;
   exit(1);                      \
 } while (0)
 
-#if 1
+#if 0
 #define Debug(...)  do {        \
   fprintf(stderr, "; ");        \
   fprintf(stderr, __VA_ARGS__); \

@@ -59,7 +59,7 @@ void Ignore(Reader *reader);
 void ConvertToNum(Reader *reader);
 
 #define NUM_RULES 23
-ParseRule rules[NUM_RULES] = {
+static ParseRule rules[NUM_RULES] = {
   {LIST,  SYMCHAR,      &BeginSym},
   {LIST,  DIGIT,        &BeginInt},
   {LIST,  OPEN_PAREN,   &BeginList},
@@ -101,12 +101,9 @@ Val Read(VM *vm, char *src)
     Debug("read \"%c\"", Peek(&reader));
     ReadChar(&reader);
     Advance(&reader);
-
-    PrintValue(reader.vm, reader.root);
-    printf("\n");
   }
 
-  return reader.root;
+  return Head(reader.vm, reader.root);
 }
 
 char *TypeName(TokenType type)
@@ -247,8 +244,7 @@ void BeginQuote(Reader *reader)
   Debug("begin quote");
   AddToken(reader, nil_val);
   PushToken(reader);
-  Val sym = MakeSymbol(reader->vm, "quote", 5);
-  AddToken(reader, sym);
+  AddToken(reader, quote_val);
 }
 
 void AddToken(Reader *reader, Val value)
@@ -291,7 +287,7 @@ TokenType CurTokenType(Reader *reader)
 
   if (IsPair(reader->token)) {
     Val list_head = (IsStackEmpty(reader->vm)) ? reader->root : Head(reader->vm, StackPeek(reader->vm, 0));
-    if (Eq(Head(reader->vm, list_head), SymbolFor(reader->vm, "quote", 5))) {
+    if (Eq(Head(reader->vm, list_head), quote_val)) {
       return QUOTE;
     } else {
       return LIST;
