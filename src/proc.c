@@ -1,5 +1,6 @@
 #include "proc.h"
 #include "env.h"
+#include "list.h"
 
 typedef Val (*PrimitiveImpl)(VM *vm, Val args);
 
@@ -43,4 +44,9 @@ void DefinePrimitives(VM *vm, Val env)
     Val proc = MakePair(vm, primitive_val, sym);
     Define(vm, sym, proc, env);
   }
+}
+
+Val MakeProcedure(VM *vm, Val params, Val body, Val env)
+{
+  return MakeList(vm, 4, fn_val, params, body, env);
 }

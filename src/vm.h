@@ -40,6 +40,10 @@ typedef struct {
 
 extern Val nil_val;
 extern Val quote_val;
+extern Val ok_val;
+extern Val false_val;
+extern Val fn_val;
+extern Val do_val;
 
 #define nanMask     0x7FC00000
 
@@ -88,6 +92,7 @@ Val MakeSymbol(VM *vm, char *src, u32 len);
 Val SymbolName(VM *vm, Val sym);
 Val SymbolFor(VM *vm, char *src, u32 len);
 Val BinToSymbol(VM *vm, Val bin);
+char *SymbolText(VM *vm, Val sym);
 
 Val MakePair(VM *vm, Val head, Val tail);
 Val Head(VM *vm, Val pair);
@@ -106,4 +111,4 @@ u32 BinaryLength(VM *vm, Val binary);
 byte *BinaryData(VM *vm, Val binary);
 
 void DumpVM(VM *vm);
-void PrintValue(VM *vm, Val val);
+

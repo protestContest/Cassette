@@ -1,5 +1,6 @@
 #include "vm.h"
 #include "hash.h"
+#include "proc.h"
 #include <string.h>
 
 /* Values are nan-boxed floats */
@@ -12,6 +13,10 @@
 
 Val nil_val = PairVal(0);
 Val quote_val;
+Val ok_val;
+Val false_val;
+Val fn_val;
+Val do_val;
 
 ValType TypeOf(Val v)
 {
@@ -37,6 +42,10 @@ void InitVM(VM *vm)
   }
 
   quote_val = MakeSymbol(vm, "quote", 5);
+  ok_val = MakeSymbol(vm, "ok", 2);
+  false_val = MakeSymbol(vm, "false", 5);
+  fn_val = MakeSymbol(vm, "fn", 2);
+  do_val = MakeSymbol(vm, "do", 2);
 }
 
 void StackPush(VM *vm, Val val)
@@ -135,6 +144,16 @@ Val BinToSymbol(VM *vm, Val bin)
   Error("Too many symbols");
 }
 
+char *SymbolText(VM *vm, Val sym)
+{
+  Val name = SymbolName(vm, sym);
+  u32 len = BinaryLength(vm, name);
+  char *text = malloc(len+1);
+  memcpy(text, BinaryData(vm, name), len);
+  text[len] = '\0';
+  return text;
+}
+
 Val MakePair(VM *vm, Val head, Val tail)
 {
   u32 index = Allocate(vm, 2);
@@ -172,20 +191,6 @@ void SetTail(VM *vm, Val pair, Val tail)
   }
   u32 index = RawVal(pair);
   vm->mem[vm->base + index+1] = tail;
-}
-
-Val ReverseOnto(VM *vm, Val list, Val tail)
-{
-  if (IsNil(list)) return tail;
-
-  Val rest = Tail(vm, list);
-  SetTail(vm, list, tail);
-  return ReverseOnto(vm, rest, list);
-}
-
-Val Reverse(VM *vm, Val list)
-{
-  return ReverseOnto(vm, list, nil_val);
 }
 
 Val MakeTuple(VM *vm, u32 length, ...)
@@ -318,65 +323,4 @@ void DumpVM(VM *vm)
     printf("│\n");
   }
   printf("└──────────────────────────────────────────────────────────────────────┘\n");
-}
-
-void PrintTail(VM *vm, Val tail)
-{
-  if (IsNil(tail)) {
-    printf(")");
-    return;
-  }
-
-  printf(" ");
-  PrintValue(vm, Head(vm, tail));
-  PrintTail(vm, Tail(vm, tail));
-}
-
-void PrintValue(VM *vm, Val val)
-{
-  switch (TypeOf(val)) {
-  case NUMBER:
-    printf("%.1f", (float)RawVal(val));
-    break;
-  case INTEGER:
-    printf("%d", (u32)RawVal(val));
-    break;
-  case PAIR:
-    printf("(");
-    if (IsNil(val)) {
-      printf(")");
-    } else {
-      PrintValue(vm, Head(vm, val));
-      if (IsPair(Tail(vm, val))) {
-        PrintTail(vm, Tail(vm, val));
-      } else {
-        printf(" . ");
-        PrintValue(vm, Tail(vm, val));
-        printf(")");
-      }
-    }
-    break;
-  case SYMBOL:
-    for (u32 i = 0; i < BinaryLength(vm, SymbolName(vm, val)); i++) {
-      printf("%c", BinaryData(vm, SymbolName(vm, val))[i]);
-    }
-    break;
-  case BINARY:
-    printf("\"");
-    for (u32 i = 0; i < BinaryLength(vm, val); i++) {
-      printf("%c", ((char*)BinaryData(vm, val))[i]);
-    }
-    printf("\"");
-    break;
-  case TUPLE:
-    printf("[");
-    for (u32 i = 0; i < TupleLength(vm, val); i++) {
-      PrintValue(vm, TupleAt(vm, val, i));
-      if (i < TupleLength(vm, val) - 1) printf(" ");
-    }
-    printf("]");
-    break;
-  default:
-    printf("0x%08x", val.as_v);
-  }
 }

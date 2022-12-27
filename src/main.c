@@ -1,10 +1,11 @@
 #include "vm.h"
 #include "reader.h"
+#include "printer.h"
 #include "eval.h"
 #include "env.h"
 #include "proc.h"
 
-int main(void)
+int main(int argc, char **argv)
 {
   VM vm;
   InitVM(&vm);
@@ -12,13 +13,15 @@ int main(void)
   Val env = InitialEnv(&vm);
   DefinePrimitives(&vm, env);
 
-  // Val sym = MakeSymbol(&vm, "a", 1);
-  // Define(&vm, sym, IntVal(31), env);
+  // if (argc < 2) {
+  //   Error("Not enough args");
+  // }
+  char *filename = "test.rye";
+  Val ast = ReadFile(&vm, filename);
 
-  char *src = "(+ 3 1)";
-  printf("> %s\n", src);
-
-  Val ast = Read(&vm, src);
+  printf("AST: ");
+  PrintValue(&vm, ast);
+  printf("\n");
 
   Val val = Eval(&vm, ast, env);
   PrintValue(&vm, val);

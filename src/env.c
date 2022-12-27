@@ -1,8 +1,11 @@
 #include "env.h"
+#include "proc.h"
 
 Val InitialEnv(VM *vm)
 {
-  return ExtendEnv(vm, nil_val, nil_val, nil_val);
+  Val env = MakePair(vm, MakePair(vm, nil_val, nil_val), nil_val);
+  DefinePrimitives(vm, env);
+  return env;
 }
 
 void AddBinding(VM *vm, Val frame, Val var, Val val)
@@ -34,7 +37,7 @@ Val Lookup(VM *vm, Val var, Val env)
     env = Tail(vm, env);
   }
 
-  Error("Unbound variable");
+  Error("Unbound variable \"%s\"", SymbolText(vm, var));
 }
 
 void SetVar(VM *vm, Val var, Val val, Val env)

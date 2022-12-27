@@ -1,17 +1,16 @@
 #include "reader.h"
 #include "vm.h"
-#include <stdio.h>
+#include "list.h"
 
 #define Peek(reader)        (reader)->src[(reader)->pos]
 #define Advance(reader)     (reader)->pos++
 
-#define IsList(v)           IsPair(v)
-
-#define IsEnd(c)            ((c) == '\0')
+#define IsQuote(vm, v)      Eq(Head(vm, Tail(vm, Tail(vm, v))), quote_val)
+#define IsList(vm, v)       (IsPair(v) && !IsQuote(vm, v))
+#define IsEnd(c)            ((c) == '\0' || (c) == EOF)
 #define IsSpace(c)          ((c) == ' ' || (c) == '\n' || (c) == '\t')
 #define IsDigit(c)          ((c) >= '0' && (c) <= '9')
 #define IsNumChar(c)        (IsDigit(c) || (c) == '.')
-
 #define IsSymChar(c)       ((c) >= 0x21 && (c) <= 0x7F && (c) != '(' && (c) != ')' && (c) != '\'')
 
 typedef enum {
@@ -29,7 +28,8 @@ typedef enum {
   CLOSE_PAREN,
   QUOTE_CHAR,
   DOT,
-  SPACE
+  SPACE,
+  END
 } CharType;
 
 typedef void (*ParseFn)(Reader *);
@@ -40,90 +40,134 @@ typedef struct {
   ParseFn parse;
 } ParseRule;
 
-void ReadChar(Reader *reader);
-void ParseDigit(Reader *reader);
-TokenType CurTokenType(Reader *reader);
-CharType CurCharType(Reader *reader);
+void ParseChar(Reader *reader);
+
+void Ignore(Reader *reader);
 void EndToken(Reader *reader);
-void BeginSym(Reader *reader);
-void UpdateSym(Reader *reader);
-void UpdateInt(Reader *reader);
-void UpdateNum(Reader *reader);
-void BeginInt(Reader *reader);
+
 void BeginList(Reader *reader);
+void EndList(Reader *reader);
 void BeginQuote(Reader *reader);
+void EndQuote(Reader *reader);
+void BeginSym(Reader *reader);
+void EndSym(Reader *reader);
+void BeginInt(Reader *reader);
+void UpdateInt(Reader *reader);
+void ConvertToNum(Reader *reader);
+void UpdateNum(Reader *reader);
+
 void AddToken(Reader *reader, Val value);
 void PushToken(Reader *reader);
 void PopToken(Reader *reader);
-void Ignore(Reader *reader);
-void ConvertToNum(Reader *reader);
 
-#define NUM_RULES 23
+TokenType CurTokenType(Reader *reader);
+CharType CurCharType(Reader *reader);
+char *TokenTypeName(TokenType type);
+char *CharTypeName(CharType type);
+
+#define NUM_RULES 28
 static ParseRule rules[NUM_RULES] = {
   {LIST,  SYMCHAR,      &BeginSym},
   {LIST,  DIGIT,        &BeginInt},
   {LIST,  OPEN_PAREN,   &BeginList},
-  {LIST,  CLOSE_PAREN,  &EndToken},
+  {LIST,  CLOSE_PAREN,  &EndList},
   {LIST,  QUOTE_CHAR,   &BeginQuote},
   {LIST,  SPACE,        &Ignore},
+  {LIST,  END,          &Ignore},
 
-  {SYM,   SYMCHAR,      &UpdateSym},
-  {SYM,   DIGIT,        &UpdateSym},
-  {SYM,   CLOSE_PAREN,  &EndToken},
-  {SYM,   SPACE,        &EndToken},
+  {SYM,   SYMCHAR,      &Ignore},
+  {SYM,   DIGIT,        &Ignore},
+  {SYM,   CLOSE_PAREN,  &EndSym},
+  {SYM,   SPACE,        &EndSym},
+  {SYM,   END,          &EndSym},
 
   {QUOTE, SYMCHAR,      &BeginSym},
   {QUOTE, DIGIT,        &BeginInt},
   {QUOTE, OPEN_PAREN,   &BeginList},
-  {QUOTE, CLOSE_PAREN,  &PopToken},
+  {QUOTE, CLOSE_PAREN,  &EndQuote},
   {QUOTE, QUOTE_CHAR,   &BeginSym},
-  {QUOTE, SPACE,        &EndToken},
+  {QUOTE, SPACE,        &EndQuote},
+  {QUOTE, END,          &EndQuote},
 
   {INT,   DIGIT,        &UpdateInt},
   {INT,   CLOSE_PAREN,  &EndToken},
   {INT,   SPACE,        &EndToken},
   {INT,   DOT,          &ConvertToNum},
+  {INT,   END,          &EndToken},
 
   {NUM,   DIGIT,        &UpdateNum},
   {NUM,   CLOSE_PAREN,  &EndToken},
-  {NUM,   SPACE,        &EndToken}
+  {NUM,   SPACE,        &EndToken},
+  {NUM,   END,          &EndToken}
 };
 
 Val Read(VM *vm, char *src)
 {
-  Reader reader = {0, nil_val, nil_val, src, vm};
+  Reader reader = {0, nil_val, src, vm};
+
+  while (IsSpace(Peek(&reader))) {
+    Advance(&reader);
+  }
+
+  reader.token = MakeLoop(vm);
+  Val root = reader.token;
+
+  do {
+    Debug("read \"%c\"", Peek(&reader));
+    ParseChar(&reader);
+    Advance(&reader);
+  } while (!IsEnd(Peek(&reader)) && !IsStackEmpty(vm));
+
+  return Head(vm, Tail(vm, root));
+}
+
+Val ReadFile(VM *vm, char *path)
+{
+  FILE *file = fopen(path, "r");
+  if (!file) {
+    Error("Could not open file \"%s\"", path);
+  }
+
+  fseek(file, 0, SEEK_END);
+  u32 filesize = ftell(file);
+  rewind(file);
+  char src[filesize];
+  fread(src, filesize, 1, file);
+
+  Reader reader = {0, nil_val, src, vm};
+
+  while (IsSpace(Peek(&reader))) {
+    Advance(&reader);
+  }
+
+  Val root = MakeLoop(vm);
+  root = LoopAppend(vm, root, do_val);
 
   while (IsSpace(Peek(&reader))) {
     Advance(&reader);
   }
 
   while (!IsEnd(Peek(&reader))) {
-    Debug("read \"%c\"", Peek(&reader));
-    ReadChar(&reader);
-    Advance(&reader);
+    reader.token = MakeLoop(vm);
+
+    do {
+      Debug("read \"%c\"", Peek(&reader));
+      ParseChar(&reader);
+      Advance(&reader);
+    } while (!IsStackEmpty(vm));
+
+    root = LoopAppend(vm, root, Head(vm, reader.token));
+
+    while (IsSpace(Peek(&reader))) {
+      Advance(&reader);
+    }
   }
 
-  return Head(reader.vm, reader.root);
+  return CloseLoop(vm, root);
 }
 
-char *TypeName(TokenType type)
+void ParseChar(Reader *reader)
 {
-  switch (type) {
-  case INT:   return "INT";
-  case NUM:   return "NUM";
-  case LIST:  return "LIST";
-  case QUOTE: return "QUOTE";
-  case SYM:   return "SYM";
-  }
-}
-
-void ReadChar(Reader *reader)
-{
-  if (IsEnd(Peek(reader))) {
-    Debug("end");
-    return;
-  }
-
   TokenType token_type = CurTokenType(reader);
   CharType char_type = CurCharType(reader);
 
@@ -134,7 +178,7 @@ void ReadChar(Reader *reader)
     }
   }
 
-  Error("No rule found for %c", Peek(reader));
+  Error("No rule found for %c in %s", Peek(reader), TokenTypeName(CurTokenType(reader)));
 }
 
 void Ignore(Reader *reader)
@@ -142,46 +186,72 @@ void Ignore(Reader *reader)
   Debug("skip");
 }
 
-void EndList(Reader *reader)
-{
-  PopToken(reader);
-}
-
 void EndToken(Reader *reader)
 {
   TokenType type = CurTokenType(reader);
   PopToken(reader);
   if (CurTokenType(reader) != type) {
-    ReadChar(reader);
+    ParseChar(reader);
+  }
+}
+
+void BeginList(Reader *reader)
+{
+  Debug("begin list");
+  AddToken(reader, MakeLoop(reader->vm));
+  PushToken(reader);
+}
+
+void EndList(Reader *reader)
+{
+  Debug("end list");
+  SetTail(reader->vm, reader->token, nil_val);
+  PopToken(reader);
+  SetHead(reader->vm, reader->token, Tail(reader->vm, Head(reader->vm, reader->token)));
+  if (!IsList(reader->vm, reader->token)) {
+    ParseChar(reader);
+  }
+}
+
+void BeginQuote(Reader *reader)
+{
+  Debug("begin quote");
+  BeginList(reader);
+  AddToken(reader, quote_val);
+}
+
+void EndQuote(Reader *reader)
+{
+  Debug("end quote");
+  bool was_list = IsList(reader->vm, Head(reader->vm, reader->token));
+
+  SetTail(reader->vm, reader->token, nil_val);
+  PopToken(reader);
+  SetHead(reader->vm, reader->token, Tail(reader->vm, Head(reader->vm, reader->token)));
+
+  if (!was_list) {
+    ParseChar(reader);
   }
 }
 
 void BeginSym(Reader *reader)
 {
-  Debug("create sym");
-  char c = Peek(reader);
-  Val sym = MakeSymbol(reader->vm, &c, 1);
+  Debug("begin sym");
+  Val sym = MakeSymbol(reader->vm, "_sym_", 5);
   AddToken(reader, sym);
   PushToken(reader);
 }
 
-void UpdateSym(Reader *reader)
+void EndSym(Reader *reader)
 {
-  Debug("update sym");
+  Debug("end sym");
+  u32 start = reader->pos;
+  while (&reader->src[start] > reader->src && IsSymChar(reader->src[start-1])) start--;
+  Val sym = MakeSymbol(reader->vm, reader->src + start, reader->pos - start);
 
-  Val old_bin = SymbolName(reader->vm, reader->token);
-  u32 old_length = BinaryLength(reader->vm, old_bin);
-  Val bin = MakeBinary(reader->vm, old_length + 1);
-
-  char *old_chars = (char*)BinaryData(reader->vm, old_bin);
-  char *new_chars = (char*)BinaryData(reader->vm, bin);
-
-  memcpy(new_chars, old_chars, old_length);
-  new_chars[old_length] = Peek(reader);
-
-  reader->token = BinToSymbol(reader->vm, bin);
-  Val parent = StackPeek(reader->vm, 0);
-  SetHead(reader->vm, parent, reader->token);
+  PopToken(reader);
+  SetHead(reader->vm, reader->token, sym);
+  ParseChar(reader);
 }
 
 void BeginInt(Reader *reader)
@@ -232,37 +302,10 @@ void UpdateNum(Reader *reader)
   SetHead(reader->vm, parent, reader->token);
 }
 
-void BeginList(Reader *reader)
-{
-  Debug("begin list");
-  AddToken(reader, nil_val);
-  PushToken(reader);
-}
-
-void BeginQuote(Reader *reader)
-{
-  Debug("begin quote");
-  AddToken(reader, nil_val);
-  PushToken(reader);
-  AddToken(reader, quote_val);
-}
-
 void AddToken(Reader *reader, Val value)
 {
   Debug("add token");
-  assert(IsList(reader->token));
-
-  if (IsNil(reader->token)) {
-    reader->token = MakePair(reader->vm, value, nil_val);
-    if (IsNil(reader->root)) {
-      reader->root = reader->token;
-    } else {
-      SetHead(reader->vm, StackPeek(reader->vm, 0), reader->token);
-    }
-  } else {
-    SetTail(reader->vm, reader->token, MakePair(reader->vm, value, Tail(reader->vm, reader->token)));
-    reader->token = Tail(reader->vm, reader->token);
-  }
+  reader->token = LoopAppend(reader->vm, reader->token, value);
 }
 
 void PushToken(Reader *reader)
@@ -286,8 +329,7 @@ TokenType CurTokenType(Reader *reader)
   if (IsSym(reader->token))   return SYM;
 
   if (IsPair(reader->token)) {
-    Val list_head = (IsStackEmpty(reader->vm)) ? reader->root : Head(reader->vm, StackPeek(reader->vm, 0));
-    if (Eq(Head(reader->vm, list_head), quote_val)) {
+    if (IsQuote(reader->vm, reader->token)) {
       return QUOTE;
     } else {
       return LIST;
@@ -307,6 +349,33 @@ CharType CurCharType(Reader *reader)
   if (IsSpace(c))   return SPACE;
   if (IsDigit(c))   return DIGIT;
   if (IsSymChar(c)) return SYMCHAR;
+  if (IsEnd(c))     return END;
 
   Error("Unknown char type");
+}
+
+
+char *TokenTypeName(TokenType type)
+{
+  switch (type) {
+  case INT:   return "INT";
+  case NUM:   return "NUM";
+  case LIST:  return "LIST";
+  case QUOTE: return "QUOTE";
+  case SYM:   return "SYM";
+  }
+}
+
+char *CharTypeName(CharType type)
+{
+  switch (type) {
+  case SYMCHAR:     return "SYMCHAR";
+  case DIGIT:       return "DIGIT";
+  case OPEN_PAREN:  return "OPEN_PAREN";
+  case CLOSE_PAREN: return "CLOSE_PAREN";
+  case QUOTE_CHAR:  return "QUOTE_CHAR";
+  case DOT:         return "DOT";
+  case SPACE:       return "SPACE";
+  case END:         return "END";
+  }
 }

@@ -5,3 +5,4 @@
 
 Val ApplyPrimitiveProc(VM *vm, Val proc, Val args);
 void DefinePrimitives(VM *vm, Val env);
+Val MakeProcedure(VM *vm, Val params, Val body, Val env);
