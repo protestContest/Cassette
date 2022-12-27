@@ -1,23 +1,16 @@
 #include "vm.h"
+#include "reader.h"
 
 int main(void)
 {
   VM vm;
   InitVM(&vm);
 
-  StackPush(&vm, 1);
-  StackPush(&vm, 2);
-  MakePair(&vm, 'a', 'b');
-  StackPush(&vm, 3);
-  StackPush(&vm, 3);
-  StackPush(&vm, 3);
-  StackPush(&vm, 3);
-  StackPush(&vm, 3);
-  StackPush(&vm, 3);
-  StackPop(&vm);
-  MakeSymbol(&vm, "test");
-  StackPush(&vm, 4);
-  MakeTuple(&vm, 6, 41, 42, 43, 44, 45, 46);
+  char *src = "ab 12 3.14 ";
+  printf("> %s\n", src);
+  Val val = Read(&vm, src);
+  PrintValue(&vm, val);
+  printf("\n");
 
   DumpVM(&vm);
 

@@ -1,0 +1,19 @@
+expr        ::  symbol | number | list | string
+
+symbol      ::  sym_start sym_end 
+sym_start   ::  [^0-9()."' ]
+sym_end     ::  sym_char sym_end
+sym_char    ::  sym_start | [0-9]
+
+number      ::  int | float
+int         ::  [0-9_]+
+float       ::  int . int
+
+list        ::  ( list_tail
+list_tail   ::  ) | expr list_tail
+
+string      ::  \" string_tail
+string_tail ::  \" | string_expr string_tail
+string_expr ::  string_char | string_esc
+string_char ::  [^"#]
+string_esc  ::  \# \# | \# expr
