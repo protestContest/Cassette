@@ -113,7 +113,7 @@ Val Read(VM *vm, char *src)
   Val root = reader.token;
 
   do {
-    Debug("read \"%c\"", Peek(&reader));
+    Debug(READ, "read \"%c\"", Peek(&reader));
     ParseChar(&reader);
     Advance(&reader);
   } while (!IsEnd(Peek(&reader)) && !IsStackEmpty(vm));
@@ -151,7 +151,7 @@ Val ReadFile(VM *vm, char *path)
     reader.token = MakeLoop(vm);
 
     do {
-      Debug("read \"%c\"", Peek(&reader));
+      Debug(READ, "read \"%c\"", Peek(&reader));
       ParseChar(&reader);
       Advance(&reader);
     } while (!IsStackEmpty(vm));
@@ -183,7 +183,7 @@ void ParseChar(Reader *reader)
 
 void Ignore(Reader *reader)
 {
-  Debug("skip");
+  Debug(READ, "skip");
 }
 
 void EndToken(Reader *reader)
@@ -197,14 +197,14 @@ void EndToken(Reader *reader)
 
 void BeginList(Reader *reader)
 {
-  Debug("begin list");
+  Debug(READ, "begin list");
   AddToken(reader, MakeLoop(reader->vm));
   PushToken(reader);
 }
 
 void EndList(Reader *reader)
 {
-  Debug("end list");
+  Debug(READ, "end list");
   SetTail(reader->vm, reader->token, nil_val);
   PopToken(reader);
   SetHead(reader->vm, reader->token, Tail(reader->vm, Head(reader->vm, reader->token)));
@@ -215,14 +215,14 @@ void EndList(Reader *reader)
 
 void BeginQuote(Reader *reader)
 {
-  Debug("begin quote");
+  Debug(READ, "begin quote");
   BeginList(reader);
   AddToken(reader, quote_val);
 }
 
 void EndQuote(Reader *reader)
 {
-  Debug("end quote");
+  Debug(READ, "end quote");
   bool was_list = IsList(reader->vm, Head(reader->vm, reader->token));
 
   SetTail(reader->vm, reader->token, nil_val);
@@ -236,7 +236,7 @@ void EndQuote(Reader *reader)
 
 void BeginSym(Reader *reader)
 {
-  Debug("begin sym");
+  Debug(READ, "begin sym");
   Val sym = MakeSymbol(reader->vm, "_sym_", 5);
   AddToken(reader, sym);
   PushToken(reader);
@@ -244,7 +244,7 @@ void BeginSym(Reader *reader)
 
 void EndSym(Reader *reader)
 {
-  Debug("end sym");
+  Debug(READ, "end sym");
   u32 start = reader->pos;
   while (&reader->src[start] > reader->src && IsSymChar(reader->src[start-1])) start--;
   Val sym = MakeSymbol(reader->vm, reader->src + start, reader->pos - start);
@@ -256,7 +256,7 @@ void EndSym(Reader *reader)
 
 void BeginInt(Reader *reader)
 {
-  Debug("create int");
+  Debug(READ, "create int");
 
   u32 digit = (u32)(Peek(reader) - '0');
   AddToken(reader, IntVal(digit));
@@ -265,7 +265,7 @@ void BeginInt(Reader *reader)
 
 void UpdateInt(Reader *reader)
 {
-  Debug("update int");
+  Debug(READ, "update int");
 
   u32 digit = (u32)(Peek(reader) - '0');
   u32 num = RawVal(reader->token)*10 + digit;
@@ -277,7 +277,7 @@ void UpdateInt(Reader *reader)
 
 void ConvertToNum(Reader *reader)
 {
-  Debug("convert to num");
+  Debug(READ, "convert to num");
   u32 num = RawVal(reader->token);
   reader->token.as_f = (float)num;
 
@@ -287,7 +287,7 @@ void ConvertToNum(Reader *reader)
 
 void UpdateNum(Reader *reader)
 {
-  Debug("update num");
+  Debug(READ, "update num");
   float digit = (float)(Peek(reader) - '0');
   u32 precision = 1;
   char *c = &reader->src[reader->pos];
@@ -304,13 +304,13 @@ void UpdateNum(Reader *reader)
 
 void AddToken(Reader *reader, Val value)
 {
-  Debug("add token");
+  Debug(READ, "add token");
   reader->token = LoopAppend(reader->vm, reader->token, value);
 }
 
 void PushToken(Reader *reader)
 {
-  Debug("push token");
+  Debug(READ, "push token");
   Val value = Head(reader->vm, reader->token);
   StackPush(reader->vm, reader->token);
   reader->token = value;
@@ -318,7 +318,7 @@ void PushToken(Reader *reader)
 
 void PopToken(Reader *reader)
 {
-  Debug("pop token");
+  Debug(READ, "pop token");
   reader->token = StackPop(reader->vm);
 }
 

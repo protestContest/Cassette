@@ -1,5 +1,5 @@
-(define (fib n)
-  (define (loop a b count)
+(def (fib n)
+  (def (loop a b count)
     (if (= count 0)
         b
         (loop (+ a b) a (- count 1))))

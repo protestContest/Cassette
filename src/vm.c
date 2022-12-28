@@ -30,6 +30,19 @@ ValType TypeOf(Val v)
   Error("Unknown type");
 }
 
+bool IsTagged(VM *vm, Val val, Val tag)
+{
+  if (IsPair(val)) {
+    return Eq(Head(vm, val), tag);
+  }
+
+  if (IsTuple(val)) {
+    return Eq(TupleAt(vm, val, 0), tag);
+  }
+
+  return false;
+}
+
 void InitVM(VM *vm)
 {
   vm->mem[0] = nil_val;

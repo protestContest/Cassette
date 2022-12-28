@@ -14,3 +14,4 @@ Val Lookup(VM *vm, Val var, Val env);
 void SetVar(VM *vm, Val var, Val val, Val env);
 void Define(VM *vm, Val var, Val val, Val env);
 
+void PrintEnv(VM *vm, Val env);

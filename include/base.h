@@ -28,12 +28,15 @@ typedef unsigned char byte;
   exit(1);                      \
 } while (0)
 
-#if 0
-#define Debug(...)  do {        \
-  fprintf(stderr, "; ");        \
-  fprintf(stderr, __VA_ARGS__); \
-  fprintf(stderr, "\n");        \
+#define DEBUG 1
+#define READ  0
+#define EVAL  1
+
+#define Debug(level, ...)  do {   \
+  if (DEBUG && level) {           \
+    fprintf(stderr, "; ");        \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "\n");        \
+    fflush(stderr);               \
+  }                               \
 } while (0)
-#else
-#define Debug(...)  (0)
-#endif

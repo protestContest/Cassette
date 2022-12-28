@@ -1,6 +1,7 @@
 #include "proc.h"
 #include "env.h"
 #include "list.h"
+#include "eval.h"
 
 typedef Val (*PrimitiveImpl)(VM *vm, Val args);
 
@@ -37,7 +38,7 @@ Val ApplyPrimitiveProc(VM *vm, Val proc, Val args)
 
 void DefinePrimitives(VM *vm, Val env)
 {
-  Val primitive_val = MakeSymbol(vm, "primitive", 9);
+  Val primitive_val = MakeSymbol(vm, "prim", 4);
 
   for (u32 i = 0; i < NUM_PRIMITIVES; i++) {
     Val sym = MakeSymbol(vm, primitives[i].sym, strlen(primitives[i].sym));
@@ -48,5 +49,5 @@ void DefinePrimitives(VM *vm, Val env)
 
 Val MakeProcedure(VM *vm, Val params, Val body, Val env)
 {
-  return MakeList(vm, 4, fn_val, params, body, env);
+  return MakeList(vm, 4, MakeSymbol(vm, "proc", 4), params, body, env);
 }

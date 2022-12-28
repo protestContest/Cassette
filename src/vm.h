@@ -77,7 +77,7 @@ extern Val do_val;
 
 #define Eq(v1, v2)  ((v1).as_v == (v2).as_v)
 
-#define IsTaggedList(vm, exp, tag)  (IsPair(exp) && Eq(Head(vm, exp), tag))
+bool IsTagged(VM *vm, Val val, Val tag);
 
 ValType TypeOf(Val v);
 

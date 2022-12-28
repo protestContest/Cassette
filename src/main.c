@@ -13,20 +13,16 @@ int main(int argc, char **argv)
   Val env = InitialEnv(&vm);
   DefinePrimitives(&vm, env);
 
-  // if (argc < 2) {
-  //   Error("Not enough args");
-  // }
   char *filename = "test.rye";
   Val ast = ReadFile(&vm, filename);
 
-  printf("AST: ");
-  PrintValue(&vm, ast);
-  printf("\n");
+  printf("> ");
+  // PrintValue(&vm, ast);
+  printf("\n\n");
 
   Val val = Eval(&vm, ast, env);
   PrintValue(&vm, val);
   printf("\n");
-  DumpVM(&vm);
 
   return 0;
 }

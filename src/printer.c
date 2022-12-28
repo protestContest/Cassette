@@ -1,75 +1,99 @@
 #include "printer.h"
 #include "list.h"
 
-void PrintTail(VM *vm, Val tail)
+void PrintValueTo(VM *vm, Val val, FILE *stream);
+
+void PrintTail(VM *vm, Val tail, FILE *stream)
 {
+  static u32 n = 0;
+  if (n++ > 1000) {
+    exit(1);
+  }
+
   if (IsNil(tail)) {
-    printf(")");
+    fprintf(stream, ")");
     return;
   }
 
   if (IsLoop(vm, tail)) {
-    printf(" ^)");
+    fprintf(stream, " ^)");
     return;
   }
 
-  printf(" ");
-  PrintValue(vm, Head(vm, tail));
-  PrintTail(vm, Tail(vm, tail));
+  fprintf(stream, " ");
+  PrintValueTo(vm, Head(vm, tail), stream);
+  PrintTail(vm, Tail(vm, tail), stream);
 }
 
-void PrintValue(VM *vm, Val val)
+void PrintValueTo(VM *vm, Val val, FILE *stream)
 {
   switch (TypeOf(val)) {
   case NUMBER:
-    printf("%.1f", (float)RawVal(val));
+    fprintf(stream, "%.1f", (float)RawVal(val));
     break;
   case INTEGER:
-    printf("%d", (u32)RawVal(val));
+    fprintf(stream, "%d", (u32)RawVal(val));
     break;
   case PAIR:
-    printf("(");
+    fprintf(stream, "(");
     if (IsNil(val)) {
-      printf(")");
+      fprintf(stream, ")");
     } else {
       if (Eq(val, Head(vm, val))) {
-        printf("_");
+        fprintf(stream, "_");
       } else {
-        PrintValue(vm, Head(vm, val));
+        PrintValueTo(vm, Head(vm, val), stream);
       }
 
       if (Eq(val, Tail(vm, val))) {
-        printf(" . ^)");
+        fprintf(stream, " . ^)");
       } else if (IsPair(Tail(vm, val))) {
-        PrintTail(vm, Tail(vm, val));
+        if (Eq(Head(vm, val), MakeSymbol(vm, "proc", 4))) {
+          fprintf(stream, " ...)");
+        } else {
+          PrintTail(vm, Tail(vm, val), stream);
+        }
       } else {
-        printf(" . ");
-        PrintValue(vm, Tail(vm, val));
-        printf(")");
+        fprintf(stream, " . ");
+        PrintValueTo(vm, Tail(vm, val), stream);
+        fprintf(stream, ")");
       }
     }
     break;
   case SYMBOL:
     for (u32 i = 0; i < BinaryLength(vm, SymbolName(vm, val)); i++) {
-      printf("%c", BinaryData(vm, SymbolName(vm, val))[i]);
+      fprintf(stream, "%c", BinaryData(vm, SymbolName(vm, val))[i]);
     }
     break;
   case BINARY:
-    printf("\"");
+    fprintf(stream, "\"");
     for (u32 i = 0; i < BinaryLength(vm, val); i++) {
-      printf("%c", ((char*)BinaryData(vm, val))[i]);
+      fprintf(stream, "%c", ((char*)BinaryData(vm, val))[i]);
     }
-    printf("\"");
+    fprintf(stream, "\"");
     break;
   case TUPLE:
-    printf("[");
+    fprintf(stream, "[");
     for (u32 i = 0; i < TupleLength(vm, val); i++) {
-      PrintValue(vm, TupleAt(vm, val, i));
-      if (i < TupleLength(vm, val) - 1) printf(" ");
+      PrintValueTo(vm, TupleAt(vm, val, i), stream);
+      if (i < TupleLength(vm, val) - 1) fprintf(stream, " ");
     }
-    printf("]");
+    fprintf(stream, "]");
     break;
   default:
-    printf("0x%08x", val.as_v);
+    fprintf(stream, "0x%08x", val.as_v);
+  }
+}
+
+void PrintValue(VM *vm, Val val)
+{
+  PrintValueTo(vm, val, stdout);
+}
+
+void DebugValue(u32 level, VM *vm, Val val) {
+  if (DEBUG && level) {
+    fprintf(stderr, "; ");
+    PrintValueTo(vm, val, stderr);
+    fprintf(stderr, "\n");
   }
 }
