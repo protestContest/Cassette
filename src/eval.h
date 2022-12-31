@@ -1,5 +1,5 @@
 #pragma once
-#include "vm.h"
+#include "value.h"
 
-Val Eval(VM *vm, Val exp, Val env);
-Val Apply(VM *vm, Val proc, Val args);
+Val Eval(Val exp, Val env);
+Val Apply(Val proc, Val args);

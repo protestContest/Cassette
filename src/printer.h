@@ -1,5 +1,6 @@
 #pragma once
-#include "vm.h"
+#include "value.h"
 
-void PrintValue(VM *vm, Val val);
-void DebugValue(u32 level, VM *vm, Val val);
+void DebugVal(Val val);
+void PrintVal(Val val);
+void PrintTail(Val val);

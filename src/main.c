@@ -1,28 +1,27 @@
-#include "vm.h"
+#include "value.h"
+#include "mem.h"
 #include "reader.h"
 #include "printer.h"
 #include "eval.h"
 #include "env.h"
-#include "proc.h"
 
-int main(int argc, char **argv)
+int main(void)
 {
-  VM vm;
-  InitVM(&vm);
+  InitMem();
 
-  Val env = InitialEnv(&vm);
-  DefinePrimitives(&vm, env);
-
-  char *filename = "test.rye";
-  Val ast = ReadFile(&vm, filename);
-
-  printf("> ");
-  // PrintValue(&vm, ast);
-  printf("\n\n");
-
-  Val val = Eval(&vm, ast, env);
-  PrintValue(&vm, val);
+  char src[4096];
+  FILE *file = fopen("test.rye", "r");
+  u32 i = 0;
+  i32 c;
+  while ((c = fgetc(file)) != EOF) {
+    src[i++] = c;
+  }
+  src[i] = '\0';
+  printf("%s\n---\n", src);
+  Val exp = Read(src);
+  // printf("Exp: ");
+  // PrintVal(exp);
+  // printf("\n");
+  PrintVal(Eval(exp, InitialEnv()));
   printf("\n");
-
-  return 0;
 }

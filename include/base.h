@@ -22,9 +22,11 @@ typedef unsigned char byte;
 #define Bit(n)    (1 << (n))
 
 #define Error(...)  do {        \
+  fflush(stdout);               \
   fprintf(stderr, "Error: ");   \
   fprintf(stderr, __VA_ARGS__); \
   fprintf(stderr, "\n");        \
+  fflush(stderr);               \
   exit(1);                      \
 } while (0)
 

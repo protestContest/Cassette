@@ -1,150 +1,133 @@
 #include "eval.h"
 #include "env.h"
+#include "mem.h"
 #include "proc.h"
-#include "list.h"
-#include "vm.h"
 #include "printer.h"
 
-#define IsSelfEval(val)     (IsNum(val) || IsInt(val))
-#define IsVariable(val)     IsSym(val)
-#define IsQuoted(vm, val)   IsTagged(vm, exp, MakeSymbol(vm, "quote", 5))
-#define IsApplication(val)  IsPair(val)
-#define IsAssign(vm, val)   IsTagged(vm, exp, MakeSymbol(vm, "set!", 4))
-#define IsDefine(vm, val)   IsTagged(vm, exp, MakeSymbol(vm, "def", 3))
-#define IsCond(vm, val)     IsTagged(vm, exp, MakeSymbol(vm, "cond", 4))
-#define IsLambda(vm, val)   IsTagged(vm, exp, MakeSymbol(vm, "lambda", 6))
-#define IsBegin(vm, exp)    IsTagged(vm, exp, MakeSymbol(vm, "do", 2))
-#define IsTrue(exp)         (!IsNil(exp) && !Eq(exp, false_val))
-#define IsLastExp(vm, exp)  IsNil(Tail(vm, exp))
-
-#define Operator(vm, exp)   Head(vm, exp)
-#define Operands(vm, exp)   Tail(vm, exp)
-
-Val QuoteValue(VM *vm, Val exp);
-Val MakeLambda(VM *vm, Val params, Val body);
-
-Val EvalSequence(VM *vm, Val exps, Val env);
-Val ListOfValues(VM *vm, Val exps, Val env);
-Val EvalAssign(VM *vm, Val exp, Val env);
-Val EvalDefine(VM *vm, Val exp, Val env);
-Val EvalCond(VM *vm, Val exp, Val env);
-Val EvalLambda(VM *vm, Val exp, Val env);
-Val ApplyCompoundProc(VM *vm, Val proc, Val args);
-
-Val Eval(VM *vm, Val exp, Val env)
+Val EvalTuple(Val exp, Val env)
 {
-  Debug(EVAL, "eval");
-  DebugValue(EVAL, vm, exp);
-  PrintEnv(vm, env);
 
-  if (IsSelfEval(exp))    {Debug(EVAL, "self"); return exp;}
-  if (IsVariable(exp))    {Debug(EVAL, "var"); return Lookup(vm, exp, env);}
-  if (IsQuoted(vm, exp))  {Debug(EVAL, "quote"); return QuoteValue(vm, exp);}
-  if (IsAssign(vm, exp))  {Debug(EVAL, "set"); return EvalAssign(vm, exp, env);}
-  if (IsDefine(vm, exp))  {Debug(EVAL, "def"); return EvalDefine(vm, Tail(vm, exp), env);}
-  if (IsCond(vm, exp))    {Debug(EVAL, "cond"); return EvalCond(vm, exp, env);}
-  if (IsLambda(vm, exp))  {Debug(EVAL, "fn"); return EvalLambda(vm, exp, env);}
-  if (IsBegin(vm, exp))   {Debug(EVAL, "do"); return EvalSequence(vm, Tail(vm, exp), env);}
+  u32 size = RawVal(TupleLength(exp));
+  Val tuple = MakeTuple(size);
+  for (u32 i = 0; i < size; i++) {
+    TupleSet(tuple, i, Eval(TupleAt(exp, i), env));
+  }
+  return tuple;
+}
 
-  if (IsApplication(exp)) {
-    Debug(EVAL, "apply");
-    return Apply(vm, Eval(vm, Operator(vm, exp), env), ListOfValues(vm, Operands(vm, exp), env));
+Val EvalPair(Val exp, Val env)
+{
+
+  return MakePair(Eval(Head(exp), env), Eval(Tail(exp), env));
+}
+
+Val EvalAssignment(Val exp, Val env)
+{
+
+  Val var = Head(exp);
+  Val val = Head(Tail(exp));
+  SetVariable(var, val, env);
+  return MakeSymbol("ok", 2);
+}
+
+Val EvalDefine(Val exp, Val env)
+{
+
+  if (IsSym(Head(exp))) {
+    Define(Head(exp), Head(Tail(exp)), env);
+    return MakeSymbol("ok", 2);
+  } else if (IsPair(Head(exp))) {
+    Val pattern = Head(exp);
+    Val var = Head(pattern);
+    Val params = Tail(pattern);
+    Val body = Tail(exp);
+    Val proc = MakeProc(params, body, env);
+    Define(var, proc, env);
+    return MakeSymbol("ok", 2);
   }
 
-  Error("Unknown expression type");
+  Error("Can't define that");
 }
 
-Val Apply(VM *vm, Val proc, Val args)
+Val EvalCond(Val exp, Val env)
 {
-  if (IsPrimitiveProc(vm, proc)) {
-    return ApplyPrimitiveProc(vm, proc, args);
+
+  if (IsNil(exp)) {
+    Error("Unhandled condition");
   }
 
-  if (IsCompoundProc(vm, proc)) {
-    return ApplyCompoundProc(vm, proc, args);
+  Val clause = Head(exp);
+  Val predicate = Head(clause);
+  Val consequent = Head(Tail(clause));
+
+  if (Eq(predicate, MakeSymbol("else", 4))) {
+    return Eval(consequent, env);
   }
 
-  Error("Can't apply");
+  Val pass = Eval(predicate, env);
+  if (!IsNil(pass) && !Eq(pass, MakeSymbol("false", 5))) {
+    return Eval(consequent, env);
+  }
+
+  return EvalCond(Tail(exp), env);
 }
 
-Val ApplyCompoundProc(VM *vm, Val proc, Val args)
+Val EvalLambda(Val exp, Val env)
 {
-  Val env = ExtendEnv(vm, ProcEnv(vm, proc), ProcParams(vm, proc), args);
-  return EvalSequence(vm, ProcBody(vm, proc), env);
+
+  return MakeProc(Head(exp), Tail(exp), env);
 }
 
-Val QuoteValue(VM *vm, Val exp)
+Val EvalSequence(Val exp, Val env)
 {
-  return Head(vm, Tail(vm, exp));
-}
 
-Val MakeLambda(VM *vm, Val params, Val body)
-{
-  return MakeTuple(vm, 3, MakeSymbol(vm, "lambda", 6), params, body);
-}
-
-Val EvalSequence(VM *vm, Val exps, Val env)
-{
-  if (IsLastExp(vm, exps)) {
-    return Eval(vm, Head(vm, exps), env);
+  if (IsNil(Tail(exp))) {
+    return Eval(Head(exp), env);
   } else {
-    Eval(vm, Head(vm, exps), env);
-    return EvalSequence(vm, Tail(vm, exps), env);
+    Eval(Head(exp), env);
+    return EvalSequence(Tail(exp), env);
   }
 }
 
-Val ListOfValues(VM *vm, Val exps, Val env)
+Val EvalList(Val exp, Val env)
 {
-  if (IsNil(exps)) return nil_val;
 
-  return MakePair(vm, Eval(vm, Head(vm, exps), env),
-                      ListOfValues(vm, Tail(vm, exps), env));
+  if (IsNil(exp)) return nil;
+  return MakePair(Eval(Head(exp), env), EvalList(Tail(exp), env));
 }
 
-Val EvalAssign(VM *vm, Val exp, Val env)
+Val EvalApplication(Val exp, Val env)
 {
-  Val var = ListAt(vm, exp, 1);
-  Val val = Eval(vm, ListAt(vm, exp, 2), env);
-  SetVar(vm, var, val, env);
-  return ok_val;
+  Val values = EvalList(exp, env);
+  return Apply(Head(values), Tail(values));
 }
 
-Val EvalDefine(VM *vm, Val exp, Val env)
+Val Eval(Val exp, Val env)
 {
-  Val var = Head(vm, exp);
-  Val val = Tail(vm, exp);
-  if (IsPair(var)) {
-    Val name = Head(vm, var);
-    Val params = Tail(vm, var);
-    Val body = val;
+  if (IsNum(exp))                             return exp;
+  if (IsInt(exp))                             return exp;
+  if (IsTuple(exp))                           return EvalTuple(exp, env);
+  if (IsSym(exp))                             return Lookup(exp, env);
+  if (IsTagged(exp, MakeSymbol("quote", 5)))  return Tail(exp);
+  if (IsTagged(exp, MakeSymbol("set!", 4)))   return EvalAssignment(Tail(exp), env);
+  if (IsTagged(exp, MakeSymbol("def", 3)))    return EvalDefine(Tail(exp), env);
+  if (IsTagged(exp, MakeSymbol("cond", 4)))   return EvalCond(Tail(exp), env);
+  if (IsTagged(exp, MakeSymbol("fn", 2)))     return EvalLambda(Tail(exp), env);
+  if (IsTagged(exp, MakeSymbol("do", 2)))     return EvalSequence(Tail(exp), env);
+  if (IsPair(exp) && !IsPair(Tail(exp)))      return EvalPair(exp, env);
+  if (IsPair(exp))                            return EvalApplication(exp, env);
 
-    val = MakeLambda(vm, params, body);
-    Define(vm, name, Eval(vm, val, env), env);
-  } else {
-    Define(vm, var, Eval(vm, val, env), env);
+  Error("Unknown expression");
+}
+
+Val Apply(Val proc, Val args)
+{
+  if (IsTagged(proc, MakeSymbol("prim", 4))) {
+    return DoPrimitive(Tail(proc), args);
+  } else if (IsTagged(proc, MakeSymbol("proc", 4))) {
+    Val env = ExtendEnv(ProcParams(proc), args, ProcEnv(proc));
+    return EvalSequence(ProcBody(proc), env);
   }
 
-  return ok_val;
+  Error("Unknown procedure type");
 }
-
-Val EvalCond(VM *vm, Val exp, Val env)
-{
-  Val clauses = Tail(vm, exp);
-
-  while (!IsNil(clauses)) {
-    Val clause = Head(vm, clauses);
-    Val test = Head(vm, clause);
-    Val consequent = Head(vm, Tail(vm, clause));
-    if (IsTrue(test)) {
-      return Eval(vm, consequent, env);
-    }
-  }
-
-  Error("Unhandled case");
-}
-
-Val EvalLambda(VM *vm, Val exp, Val env)
-{
-  return MakeProcedure(vm, ProcParams(vm, exp), ProcBody(vm, exp), env);
-}
-

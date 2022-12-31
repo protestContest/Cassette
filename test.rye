@@ -1,9 +1,16 @@
-(def (fib n)
-  (def (loop a b count)
-    (if (= count 0)
-        b
-        (loop (+ a b) a (- count 1))))
+(do
+  (def (reduce list acc fun)
+    (cond ((= list nil) acc)
+          (else
+            (reduce (tail list)
+              (fun (head list) acc)
+              fun))))
 
-  (loop 1 0 n))
+  (def (map list fun)
+    (reverse
+      (reduce list nil (fn (item rest)
+                        ((fun item) . rest)))))
 
-(fib 6)
+  (def (square n) (* n n))
+
+  (map '(1 2 3 4 5) square))
