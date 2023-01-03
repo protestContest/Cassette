@@ -3,9 +3,10 @@
 #include "hash.h"
 #include "env.h"
 
-#define MEM_SIZE (4096*4096)
+#define MEM_SIZE      (4096)
 #define GC_THRESHHOLD 0.5
 Val mem[MEM_SIZE];
+Val alt_mem[MEM_SIZE];
 u32 mem_next = 2;
 #define mem_base      (u32)RawVal(nil)
 
@@ -41,7 +42,6 @@ Val MakePair(Val head, Val tail)
 {
   if (mem_next+1 >= MEM_SIZE) mem_next = 0;
   if (mem_base >= mem_next && mem_base < mem_next + 2) {
-    DumpMem();
     Error("Out of memory");
   }
 
@@ -49,10 +49,6 @@ Val MakePair(Val head, Val tail)
 
   mem[mem_next++] = head;
   mem[mem_next++] = tail;
-
-  if (MemUsed() >= GC_THRESHHOLD*MEM_SIZE) {
-    // GarbageCollect();
-  }
 
   return pair;
 }
@@ -97,7 +93,6 @@ Val Reverse(Val list)
 
 Val MakeTuple(u32 count, ...)
 {
-  if (mem_next+1 >= MEM_SIZE) mem_next = 0;
   if (mem_base >= mem_next && mem_base < mem_next + count + 1) {
     DumpMem();
     Error("Out of memory");
@@ -168,6 +163,11 @@ Val MakeSymbol(char *src, u32 len)
   return key;
 }
 
+Val SymbolFor(char *src)
+{
+  return SymVal(Hash(src, strlen(src)));
+}
+
 char *SymbolName(Val sym)
 {
   for (u32 i = 0; i < sym_next; i++) {
@@ -178,24 +178,65 @@ char *SymbolName(Val sym)
   return NULL;
 }
 
-Val Relocate(Val obj)
+Val MakeBinary(char *src, u32 len)
+{
+  u32 count = (len - 1) / 4 + 1;
+
+  if (mem_base >= mem_next && mem_base < mem_next + count + 1) {
+    Error("Out of memory");
+  }
+
+  Val binary = BinVal(mem_next);
+  mem[mem_next++] = HdrVal(len);
+
+  u8 *data = (u8*)&mem[mem_next];
+  for (u32 i = 0; i < len; i++) {
+    data[i] = src[i];
+  }
+
+  mem_next += count;
+
+  return binary;
+}
+
+Val BinaryLength(Val binary)
+{
+  u32 index = RawVal(binary);
+  return mem[index];
+}
+
+char *BinaryData(Val binary)
+{
+  u32 index = RawVal(binary);
+  return (char*)&mem[index+1];
+}
+
+Val Relocate(Val obj, Val *new_mem)
 {
   if (IsPair(obj)) {
-    if (mem_next+1 >= MEM_SIZE) mem_next = 0;
     Val pair = PairVal(mem_next);
-    mem[mem_next++] = Head(obj);
-    mem[mem_next++] = Tail(obj);
+    new_mem[mem_next++] = Head(obj);
+    new_mem[mem_next++] = Tail(obj);
     SetHead(obj, MakeSymbol("moved", 5));
     SetTail(obj, pair);
     return pair;
   } else if (IsTuple(obj)) {
     u32 count = RawVal(TupleLength(obj));
-    Val tuple = MakeTuple(count);
+
+    Val tuple = TupleVal(mem_next);
+    new_mem[mem_next++] = HdrVal(count);
+
     if (count == 0) {
-      TupleSet(tuple, 0, nil);
+      new_mem[mem_next++] = nil;
     } else {
-      for (u32 i = 0; i < count; i++) {
-        TupleSet(tuple, i, TupleAt(obj, i));
+      u32 index = RawVal(tuple);
+
+      if (count == 0) {
+        new_mem[index + 1] = nil;
+      } else {
+        for (u32 i = 0; i < count; i++) {
+          new_mem[index + i + 1] = TupleAt(obj, i);
+        }
       }
     }
 
@@ -204,27 +245,26 @@ Val Relocate(Val obj)
     return tuple;
   }
 
-
   return obj;
 }
 
 Val GarbageCollect(void)
 {
-  nil = Relocate(nil);
-  root = Relocate(root);
+  mem_next = 0;
+  nil = Relocate(nil, alt_mem);
+  root = Relocate(root, alt_mem);
 
   u32 scan = RawVal(nil);
 
   while (scan != mem_next) {
-    if (IsPair(mem[scan]) || IsTuple(mem[scan])) {
-      Val obj = mem[scan];
+    if (IsPair(alt_mem[scan]) || IsTuple(alt_mem[scan])) {
+      Val obj = alt_mem[scan];
       if (!Eq(Head(obj), MakeSymbol("moved", 5))) {
-        Relocate(obj);
+        Relocate(obj, alt_mem);
       }
-      mem[scan] = Tail(obj);
+      alt_mem[scan] = Tail(obj);
     }
     scan++;
-    if (scan > MEM_SIZE) scan = 0;
   }
 
   return root;
@@ -234,19 +274,39 @@ void DumpMem(void)
 {
   printf("Mem (%d-%d)\n", mem_base, mem_next);
   u32 i = 0;
-  while (i < MEM_SIZE) {
+  while (i < mem_next) {
     if (IsHdr(mem[i])) {
       printf("  %04d    0x%08X    ", i, mem[i].as_v);
       u32 size = RawVal(mem[i]);
-      printf("┌ Obj [%d]\n", size);
-      for (u32 j = 0; j < size; j++) {
-        printf("  %04d    0x%08X    ", i+j, mem[i+1+j].as_v);
-        if (j == size-1) printf("└ ");
-        else printf("│ ");
-        DebugVal(mem[i+j+1]);
-        printf("\n");
+      if (IsTupHdr(mem[i])) {
+        printf("┌ Tuple [%d]\n", size);
+        for (u32 j = 0; j < size; j++) {
+          printf("  %04d    0x%08X    ", i+j, mem[i+1+j].as_v);
+          if (j == size-1) printf("└ ");
+          else printf("│ ");
+          DebugVal(mem[i+j+1]);
+          printf("\n");
+        }
+        i += size + 1;
+      } else if (IsBinHdr(mem[i])) {
+        printf("┌ Binary [%d]\n", size);
+        u32 count = (size - 1) / 4 + 1;
+        for (u32 j = 0; j < count; j++) {
+          char *data = (char*)&mem[i+j+1];
+          printf("  %04d    0x%08X    ", i+j, mem[i+1+j].as_v);
+          if (j == count-1) printf("└ ");
+          else printf("│ ");
+          for (u32 k = 0; k < 4; k++) {
+            if (data[k] >= '!' && data[k] <= '~') {
+              printf("%c", data[k]);
+            } else {
+              printf(".");
+            }
+          }
+          printf("\n");
+        }
+        i += size + 1;
       }
-      i += size + 1;
     } else {
       printf("  %04d    0x%08X    ", i, mem[i].as_v);
       printf("┌ ");

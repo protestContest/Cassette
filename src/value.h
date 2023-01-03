@@ -13,9 +13,13 @@ typedef union {
 
 #define type2Mask   0xFFF00000
 #define pairMask    0xFFC00000
+#define binMask     0xFFD00000
 #define tupleMask   0xFFE00000
-#define binMask     0xFFF00000
-#define hdrMask     0xFFD00000
+#define hdrMask     0xFFF00000
+
+#define hdrTypeMask 0xFFF80000
+#define binHdrMask  0xFFF00000
+#define tupHdrMask  0xFFF80000
 
 #define IsType1(v)  (((v).as_v & 0x80000000) == 0x0)
 #define NumVal(n)   (Val)(n)
@@ -34,13 +38,16 @@ typedef union {
 
 #define HdrVal(h)   (Val)(((h) & ~type2Mask) | hdrMask)
 #define IsHdr(h)    (((h).as_v & type2Mask) == hdrMask)
+#define IsBinHdr(h) (((h).as_v & hdrTypeMask) == binHdrMask)
+#define IsTupHdr(h) (((h).as_v & hdrTypeMask) == tupHdrMask)
 
 extern Val nil;
 #define IsNil(v)    (Eq(v, nil))
 
-// #define moved       HdrVal(-1)
-
-#define RawVal(v)   (IsNum(v) ? (v).as_f : IsType1(v) ? ((v).as_v & (~type1Mask)) : ((v).as_v & (~type2Mask)))
+#define RawVal(v)   (IsNum(v) ? (v).as_f \
+                    : IsType1(v) ? ((v).as_v & (~type1Mask)) \
+                    : IsHdr(v) ? ((v).as_v & (~hdrTypeMask)) \
+                    : ((v).as_v & (~type2Mask)))
 #define AsInt(v)    ((v).as_v & (~type1Mask))
 
 #define Eq(v1, v2)  ((v1).as_v == (v2).as_v)

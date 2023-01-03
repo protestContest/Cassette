@@ -1,0 +1,38 @@
+(def (nil? x) (eq? nil x))
+
+(def (reverse-onto list base)
+  (if (nil? list)
+      base
+      ((fn (rest)
+          (set-tail! list base)
+          (reverse-onto rest list))
+        (tail list))))
+
+(def (reverse list) (reverse-onto list nil))
+
+(def (reduce list acc fun)
+  (if (nil? list)
+      acc
+      (reduce (tail list)
+        (fun (head list) acc)
+        fun)))
+
+(def (map list fun)
+  (reverse
+    (reduce list nil (fn (item acc)
+                      ((fun item) . acc)))))
+
+(def (filter list test)
+  (reverse
+    (reduce list nil
+      (fn (item acc)
+        (if (test item)
+            (item . acc)
+            acc)))))
+
+(def (ι n)
+  (def (loop n result)
+    (if (= n 0)
+        result
+        (loop (- n 1) (n . result))))
+  (loop n nil))

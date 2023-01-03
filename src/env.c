@@ -1,23 +1,11 @@
 #include "env.h"
 #include "mem.h"
-#include "proc.h"
+#include "primitives.h"
 
 Val InitialEnv(void)
 {
   Val env = ExtendEnv(nil, nil, nil);
-  DefinePrimitive("head", env);
-  DefinePrimitive("head", env);
-  DefinePrimitive("tail", env);
-  DefinePrimitive("pair", env);
-  DefinePrimitive("nth", env);
-  DefinePrimitive("+", env);
-  DefinePrimitive("-", env);
-  DefinePrimitive("*", env);
-  DefinePrimitive("/", env);
-  DefinePrimitive("=", env);
-  DefinePrimitive("display", env);
-  DefinePrimitive("reverse", env);
-
+  DefinePrimitives(env);
   Define(MakeSymbol("true", 4), IntVal(1), env);
   Define(MakeSymbol("false", 5), nil, env);
   Define(MakeSymbol("nil", 3), nil, env);

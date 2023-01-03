@@ -4,23 +4,57 @@
 
 typedef struct {
   char *src;
-  u32 start;
   u32 cur;
 } Reader;
 
-#define IsSpace(c)    ((c) == ' ' || (c) == '\n' || (c) == '\r' || (c) == '\t')
-#define IsAlpha(c)    (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' & (c) <= 'z'))
-#define IsDigit(c)    ((c) >= '0' && (c) <= '9')
-#define IsReserved(c) (IsSpace(c) || (c) == '(' || (c) == ')' || (c) == '[' || (c) == ']' || (c) == '\'' || (c) == ';')
-#define IsSymChar(c)  ((c) >= '!' && (c) <= '~' && !IsReserved(c))
-#define IsSymStart(c) (IsSymChar(c) && !IsDigit(c))
+#define IsSpace(c)        ((c) == ' ' || (c) == '\n' || (c) == '\r' || (c) == '\t')
+#define IsAlpha(c)        (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' & (c) <= 'z'))
+#define IsDigit(c)        ((c) >= '0' && (c) <= '9')
+#define IsReserved(c)     (IsSpace(c) || (c) == '(' || (c) == ')' || (c) == '[' || (c) == ']' || (c) == '\'' || (c) == ';' || (c) == '"')
+#define IsUTFChar(c)      (((c) & 0x80) == 0x80)
+#define IsSymChar(c)      (((c) > 0x20 && !IsReserved(c)) || IsUTFChar(c))
+#define IsSymStart(c)     (IsSymChar(c) && !IsDigit(c))
+#define IsEnd(c)          ((c) == '\0')
+
+Val CurLocation(Reader *r)
+{
+  return IntVal(r->cur);
+}
+
+Val MakeToken(Val exp, Val location)
+{
+  return MakePair(exp, location);
+}
+
+Val TokenExp(Val token)
+{
+  return Head(token);
+}
+
+Val TokenLocation(Val token)
+{
+  return Tail(token);
+}
+
+void SkipSpace(Reader *r);
+
+void SkipComment(Reader *r)
+{
+  while (r->src[r->cur] != '\n' && !IsEnd(r->src[r->cur])) {
+    r->cur++;
+  }
+  r->cur++;
+  SkipSpace(r);
+}
 
 void SkipSpace(Reader *r)
 {
   while (IsSpace(r->src[r->cur])) {
     r->cur++;
   }
-  r->start = r->cur;
+  if (r->src[r->cur] == ';') {
+    SkipComment(r);
+  }
 }
 
 Val ParseInt(Reader *r)
@@ -37,8 +71,12 @@ Val ParseInt(Reader *r)
 
 Val ParseSym(Reader *r)
 {
-  while (IsSymChar(r->src[r->cur])) r->cur++;
-  return MakeSymbol(&r->src[r->start], r->cur - r->start);
+  u32 start = r->cur;
+  while (IsSymChar(r->src[r->cur])) {
+    r->cur++;
+  }
+  Val symbol = MakeSymbol(&r->src[start], r->cur - start);
+  return symbol;
 }
 
 Val ParseExpr(Reader *r);
@@ -97,6 +135,35 @@ Val ParseTuple(Reader *r)
   return tuple;
 }
 
+Val ParseBinary(Reader *r)
+{
+  u32 start = r->cur;
+
+  u32 size = 0;
+  while (r->src[r->cur] != '"') {
+    if (r->src[r->cur] == '\\') {
+      r->cur++;
+    }
+    r->cur++;
+    size++;
+  }
+
+  char str[size];
+  u32 i = 0;
+  r->cur = start;
+  while (r->src[r->cur] != '"') {
+    if (r->src[r->cur] == '\\') {
+      r->cur++;
+    }
+    str[i] = r->src[r->cur];
+    r->cur++;
+    i++;
+  }
+  r->cur++;
+
+  return MakeBinary(str, size);
+}
+
 Val ParseExpr(Reader *r)
 {
   if (r->src[r->cur] == '\'') {
@@ -105,9 +172,7 @@ Val ParseExpr(Reader *r)
     Val head = MakeSymbol("quote", 5);
     Val tail = ParseExpr(r);
     return MakePair(head, tail);
-  }
-
-  if (r->src[r->cur] == '(') {
+  } else if (r->src[r->cur] == '(') {
     r->cur++;
     SkipSpace(r);
     if (r->src[r->cur] == ')') {
@@ -116,37 +181,54 @@ Val ParseExpr(Reader *r)
     } else {
       return ParsePair(r);
     }
-  }
-
-  if (r->src[r->cur] == '[') {
+  } else if (r->src[r->cur] == '[') {
     r->cur++;
     SkipSpace(r);
     return ParseTuple(r);
-  }
-
-  if (IsDigit(r->src[r->cur])) {
-    return ParseInt(r);
-  }
-
-  if (IsSymStart(r->src[r->cur])) {
-    return ParseSym(r);
-  }
-
-  if (r->src[r->cur] == ';') {
-    while (r->src[r->cur] != '\n') {
-      r->cur++;
-    }
+  } else if (r->src[r->cur] == '"') {
     r->cur++;
-    SkipSpace(r);
-    return ParseExpr(r);
+    return ParseBinary(r);
+  } else if (IsDigit(r->src[r->cur])) {
+    return ParseInt(r);
+  } else if (IsSymStart(r->src[r->cur])) {
+    return ParseSym(r);
+  } else {
+    Error("Unexpected char 0x%02X at %d", (u8)r->src[r->cur], r->cur);
   }
-
-  Error("Unexpected char at %d", r->cur);
 }
 
 Val Read(char *src)
 {
-  Reader r = { src, 0, 0 };
+  Reader r = { src, 0 };
+
+  Val exps = MakePair(MakeSymbol("do", 2), nil);
   SkipSpace(&r);
-  return ParseExpr(&r);
+
+  while (!IsEnd(r.src[r.cur])) {
+    exps = MakePair(ParseExpr(&r), exps);
+    SkipSpace(&r);
+  }
+
+  return Reverse(exps);
+}
+
+Val ReadFile(char *path)
+{
+  FILE *file = fopen(path, "r");
+  if (!file) {
+    Error("Could not open file \"%s\"", path);
+  }
+
+  fseek(file, 0, SEEK_END);
+  u32 size = ftell(file);
+  rewind(file);
+
+  char src[size+1];
+  for (u32 i = 0; i < size; i++) {
+    int c = fgetc(file);
+    src[i] = (char)c;
+  }
+  src[size] = '\0';
+
+  return Read(src);
 }

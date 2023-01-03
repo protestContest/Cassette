@@ -20,7 +20,12 @@ void TupleSet(Val tuple, u32 i, Val val);
 bool IsTagged(Val exp, Val tag);
 
 Val MakeSymbol(char *src, u32 len);
+Val SymbolFor(char *src);
 char *SymbolName(Val sym);
+
+Val MakeBinary(char *src, u32 len);
+Val BinaryLength(Val binary);
+char *BinaryData(Val binary);
 
 void DumpMem(void);
 void DumpSymbols(void);
