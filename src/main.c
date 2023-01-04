@@ -11,5 +11,5 @@ int main(void)
   Val exp = ReadFile("test.rye");
   PrintVal(exp);
   PrintTree(exp);
-  // PrintVal(Eval(exp, InitialEnv()));
+  PrintVal(Eval(exp, InitialEnv()));
 }

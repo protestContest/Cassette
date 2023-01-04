@@ -258,7 +258,12 @@ Val ParseKeyword(Val symbol, Reader *r)
         alternative = nil;
       }
     } else {
-      Error("Expected \"do\" after conditional at %d", r->cur);
+      consequent = ParseExpr(r);
+      if (Match(r, "else")) {
+        alternative = ParseExpr(r);
+      } else {
+        alternative = nil;
+      }
     }
 
     exp = MakeList(4, MakeSymbol("if", 2), predicate, consequent, alternative);

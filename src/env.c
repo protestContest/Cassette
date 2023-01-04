@@ -79,6 +79,8 @@ Val Lookup(Val var, Val env)
     env = ParentEnv(env);
   }
 
+  DumpEnv(env);
+
   Error("Unbound variable \"%s\"", SymbolName(var));
 }
 
@@ -100,7 +102,7 @@ void SetVariable(Val var, Val val, Val env)
     env = ParentEnv(env);
   }
 
-  Error("Unbound variable");
+  Error("Can't set unbound variable \"%s\"", ValStr(var));
 }
 
 void Define(Val var, Val val, Val env)
@@ -128,25 +130,29 @@ bool IsEnv(Val env)
 
 void DumpEnv(Val env)
 {
-  printf("Dumping env\n");
-  DumpSymbols();
-  while (!IsNil(env)) {
-    Val frame = FirstFrame(env);
-    Val vars = FrameVars(frame);
-    Val vals = FrameVals(frame);
-    while (!IsNil(vars)) {
-      Val var = Head(vars);
-      Val val = Head(vals);
+  if (IsNil(env)) {
+    printf("Env is nil\n");
+  } else {
+    printf("┌────────────────────────\n");
+    while (!IsNil(env)) {
+      Val frame = FirstFrame(env);
+      Val vars = FrameVars(frame);
+      Val vals = FrameVals(frame);
+      while (!IsNil(vars)) {
+        Val var = Head(vars);
+        Val val = Head(vals);
 
-      PrintVal(var);
-      printf("  ");
-      PrintVal(val);
-      // printf("%s: %s\n", ValStr(var), ValStr(val));
+        printf("│ %s: %s\n", ValStr(var), ValStr(val));
 
-      vars = Tail(vars);
-      vals = Tail(vals);
+        vars = Tail(vars);
+        vals = Tail(vals);
+      }
+      env = ParentEnv(env);
+      if (IsNil(env)) {
+        printf("└────────────────────────\n");
+      } else {
+        printf("├────────────────────────\n");
+      }
     }
-    printf("----------------\n");
-    env = ParentEnv(env);
   }
 }

@@ -6,15 +6,18 @@ file_extensions:
 scope: source.rye
 contexts:
   main:
+    # Symchar: [^\s\(\)\[\]\{\}\:\;\"\.\|]
+    # Reserved: [\s\(\)\[\]\{\}\:\;\"\.\|]
+
     # Function call
-    - match: '(\()((?:[\w]+\.)*)([\w+\-*/!?]+)\s+'
+    - match: '(\()((?:[^\s\(\)\[\]\{\}\:\;\"\.\|]+\.)*)([^\s\(\)\[\]\{\}\:\;\"\.\|]+)(?:\s+|\))'
       captures:
         1: punctuation.section.function.rye
         2: entity.name.type.class.rye
         3: entity.name.function.rye
 
     # Def
-    - match: '\b(def)\s+(\()\s*([\w]+)((?:\s+(?:[\w]+))*)\s*(\))'
+    - match: '\b(def)\s+(\()\s*([^\s\(\)\[\]\{\}\:\;\"\.\|]+)((?:\s+(?:[^\s\(\)\[\]\{\}\:\;\"\.\|]+))*)\s*(\))'
       captures:
         1: keyword.control.function.rye
         2: punctuation.section.function.rye
@@ -23,13 +26,13 @@ contexts:
         5: punctuation.section.function.rye
 
     # Module
-    - match: '\s*(module)\s+([\w]+)\b'
+    - match: '\s*(module)\s+([^\s\(\)\[\]\{\}\:\;\"\.\|]+)\b'
       captures:
         1: keyword.control.module.rye
         2: entity.name.type.class.rye
 
     # Keywords
-    - match: 'do|end'
+    - match: 'do|end|if|else'
       scope: keyword.control.rye
 
     # Quote
@@ -41,10 +44,24 @@ contexts:
       scope: punctuation.string.begin.rye
       push: string
 
-  func_call:
-    - match: '\)'
-      scope: punctuation.section.function.rye
-      pop: true
+    # Number
+    - match: '\b[0-9]+\b'
+      scope: constant.numeric.integer.rye
+
+    - match: '\b[0-9]+\.[0-9]+\b'
+      scope: constant.numeric.float.rye
+
+    # Operators
+    - match: '(->|\|)'
+      scope: keyword.operator.other.rye
+
+    # Constants
+    - match: 'true|false|nil'
+      scope: constant.language.rye
+
+    # Comment
+    - match: ';.*$'
+      scope: comment.line.character.rye
 
   string:
     - meta_scope: string.quoted.double.rye
