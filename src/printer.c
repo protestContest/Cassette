@@ -131,34 +131,73 @@ void PrintVal(Val val)
   }
 }
 
-void PrintTreeTail(Val exp, u32 indent)
+void Indent(u32 level, u32 lines, bool end)
 {
-  if (IsNil(exp)) return;
+  for (u32 i = 0; i < level; i++) {
+    u32 line = (0x1 << i) & lines;
 
-  if (!IsPair(exp)) {
-    PrintTree(exp, indent);
-  } else {
-    PrintTree(Head(exp), indent);
-    PrintTreeTail(Tail(exp), indent);
+    if (i == level-1) {
+      if (end) {
+        printf("└");
+      } else {
+        printf("├");
+      }
+    } else if (line) {
+      printf("│");
+    } else {
+      printf(" ");
+    }
   }
 }
 
-#define Indent(n)   do { for (u32 i = 0; i < n; i++) printf("  "); } while (0)
+void PrintTreeLevel(Val exp, u32 level, u32 lines);
 
-void PrintTree(Val exp, u32 indent)
+void PrintTreeTail(Val exp, u32 level, u32 lines)
 {
-  if (indent > 10) {
-    Error("Too much indent");
-  }
-  if (IsPair(exp) && !IsNil(exp)) {
-    Indent(indent);
-    DebugVal(exp);
-    printf("\n");
-    PrintTree(Head(exp), indent + 1);
-    PrintTreeTail(Tail(exp), indent + 1);
+  if (IsNil(Tail(exp))) {
+    Indent(level, lines, true);
+    lines = lines & ~(0x1 << (level-1));
+    PrintTreeLevel(Head(exp), level, lines);
   } else {
-    Indent(indent);
-    DebugVal(exp);
-    printf("\n");
+    Indent(level, lines, false);
+    PrintTreeLevel(Head(exp), level, lines);
+
+    if (IsPair(Tail(exp))) {
+      PrintTreeTail(Tail(exp), level, lines);
+    } else {
+      Indent(level, lines, true);
+      PrintTreeLevel(Tail(exp), level, lines);
+    }
   }
+}
+
+void PrintTreeLevel(Val exp, u32 level, u32 lines)
+{
+  if (level > 32) Error("Too much indent");
+
+  if (IsPair(exp) && !IsNil(exp) && IsPair(Tail(exp))) {
+    printf("┬");
+    lines = (0x1 << level) | lines;
+    level++;
+    PrintTreeLevel(Head(exp), level, lines);
+    PrintTreeTail(Tail(exp), level, lines);
+  } else {
+    printf("╴");
+    if (IsPair(exp)) {
+      printf("(");
+      DebugVal(Head(exp));
+      printf(" | ");
+      DebugVal(Tail(exp));
+      printf(")\n");
+    } else {
+      DebugVal(exp);
+      printf("\n");
+    }
+  }
+}
+
+void PrintTree(Val exp)
+{
+  Indent(0, 0, false);
+  PrintTreeLevel(exp, 0, 0);
 }
