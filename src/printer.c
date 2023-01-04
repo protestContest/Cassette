@@ -26,164 +26,109 @@ void DebugVal(Val val)
   }
 }
 
-u32 ValStrLen(Val val);
+u32 PrintValTo(Val val, char *dst, u32 start, u32 size);
 
-u32 TailStrLen(Val val)
+u32 PrintTail(Val val, char *dst, u32 start, u32 size)
 {
-  u32 length = ValStrLen(Head(val));
+  start = PrintValTo(Head(val), dst, start, size);
   if (IsNil(Tail(val))) {
-    return length;
+    return start;
   } else if (IsPair(Tail(val))) {
-    length++;
-    return length + TailStrLen(Tail(val));
+    start += snprintf(dst + start, size, " ");
+    return PrintTail(Tail(val), dst, start, size);
   } else {
-    length += 3;
-    length += ValStrLen(Tail(val));
-    return length;
+    start += snprintf(dst + start, size, " . ");
+    return PrintValTo(Tail(val), dst, start, size);
+  }
+}
+
+u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
+{
+  if (IsNum(val)) {
+    return start + snprintf(dst + start, size, "%.1f", (float)RawVal(val));
+  } else if (IsInt(val)) {
+    return start + snprintf(dst + start, size, "%d", (u32)RawVal(val));
+  } else if (IsNil(val)) {
+    return start + snprintf(dst + start, size, "nil");
+  } else if (IsTagged(val, MakeSymbol("proc", 4))) {
+    start += snprintf(dst + start, size, "[proc (");
+    char *name = SymbolName(ProcName(val));
+    start += snprintf(dst + start, size, "%s", name);
+    Val params = ProcParams(val);
+    while (!IsNil(params)) {
+      start += snprintf(dst + start, size, " ");
+      start = PrintValTo(Head(params), dst, start, size);
+      params = Tail(params);
+    }
+    return start + snprintf(dst + start, size, ")]");
+  } else if (IsPair(val)) {
+    start += snprintf(dst + start, size, "(");
+    start = PrintTail(val, dst, start, size);
+    return start + snprintf(dst + start, size, ")");
+  } else if (IsSym(val)) {
+    char *name = SymbolName(val);
+    return start + snprintf(dst + start, size, "%s", name);
+  } else if (IsBin(val)) {
+    u32 length = BinaryLength(val);
+    char *data = BinaryData(val);
+    if (size == 0) {
+      return start + length + 2;
+    } else {
+      return start + snprintf(dst + start, length+3, "\"%s\"", data);
+    }
+  } else if (IsTuple(val)) {
+    start += snprintf(dst + start, size, "[");
+    u32 size = TupleLength(val);
+    for (u32 i = 0; i < size; i++) {
+      start = PrintValTo(TupleAt(val, i), dst, start, size);
+      if (i != size-1) {
+        start += snprintf(dst + start, size, " ");
+      }
+    }
+    return start + snprintf(dst + start, size, "]");
+  } else if (IsDict(val)) {
+    start += snprintf(dst + start, size, "{");
+    u32 size = DictSize(val);
+    for (u32 i = 0; i < size; i++) {
+      start = PrintValTo(DictKeyAt(val, i), dst, start, size);
+      start += snprintf(dst + start, size, ": ");
+      start = PrintValTo(DictValueAt(val, i), dst, start, size);
+      if (i != size-1) {
+        start += snprintf(dst + start, size, " ");
+      }
+    }
+    return start + snprintf(dst + start, size, "}");
+  } else {
+    return start;
   }
 }
 
 u32 ValStrLen(Val val)
 {
-  if (IsNum(val)) {
-    return snprintf(NULL, 0, "%.1f", (float)RawVal(val));
-  } else if (IsInt(val)) {
-    return snprintf(NULL, 0, "%d", (u32)RawVal(val));
-  } else if (IsNil(val)) {
-    return 3;
-  } else if (IsTagged(val, MakeSymbol("proc", 4))) {
-    u32 length = 7;
-    length += strlen(SymbolName(ProcName(val)));
-    Val params = ProcParams(val);
-    while (!IsNil(params)) {
-      length++;
-      length += ValStrLen(Head(params));
-      params = Tail(params);
-    }
-    length += 2;
-    return length;
-  } else if (IsPair(val)) {
-    return 2 + TailStrLen(val);
-  } else if (IsSym(val)) {
-    return strlen(SymbolName(val));
-  } else if (IsBin(val)) {
-    return snprintf(NULL, 0, "Bin (%d)", (u32)RawVal(val));
-  } else if (IsTuple(val)) {
-    u32 length = 1;
-    u32 count = TupleLength(val);
-    for (u32 i = 0; i < count; i++) {
-      length += ValStrLen(TupleAt(val, i));
-      if (i != count-1) {
-        length++;
-      }
-    }
-    length++;
-    return length;
-  } else if (IsDict(val)) {
-    u32 length = 1;
-    u32 size = DictSize(val);
-    for (u32 i = 0; i < size; i++) {
-      length += ValStrLen(DictKeyAt(val, i));
-      length += 2;
-      length += ValStrLen(DictValueAt(val, i));
-      if (i != size-1) {
-        length++;
-      }
-    }
-    length++;
-    return length;
-  } else if (IsBin(val)) {
-    return 2 + BinaryLength(val);
-  }
-
-  return 0;
-}
-
-char *PrintValTo(Val val, char *dst);
-
-char *PrintTail(Val val, char *dst)
-{
-  dst = PrintValTo(Head(val), dst);
-  if (IsNil(Tail(val))) {
-    return dst;
-  } else if (IsPair(Tail(val))) {
-    dst += sprintf(dst, " ");
-    return PrintTail(Tail(val), dst);
-  } else {
-    dst += sprintf(dst, " . ");
-    return PrintValTo(Tail(val), dst);
-  }
-}
-
-char *PrintValTo(Val val, char *dst)
-{
-  if (IsNum(val)) {
-    return dst + sprintf(dst, "%.1f", (float)RawVal(val));
-  } else if (IsInt(val)) {
-    return dst + sprintf(dst, "%d", (u32)RawVal(val));
-  } else if (IsNil(val)) {
-    return dst + sprintf(dst, "nil");
-  } else if (IsTagged(val, MakeSymbol("proc", 4))) {
-    dst += sprintf(dst, "[proc (");
-    char *name = SymbolName(ProcName(val));
-    dst += sprintf(dst, "%s", name);
-    Val params = ProcParams(val);
-    while (!IsNil(params)) {
-      dst += sprintf(dst, " ");
-      dst = PrintValTo(Head(params), dst);
-      params = Tail(params);
-    }
-    return dst + sprintf(dst, ")]");
-  } else if (IsPair(val)) {
-    dst += sprintf(dst, "(");
-    dst = PrintTail(val, dst);
-    return dst + sprintf(dst, ")");
-  } else if (IsSym(val)) {
-    char *name = SymbolName(val);
-    return dst + sprintf(dst, "%s", name);
-  } else if (IsBin(val)) {
-    u32 length = BinaryLength(val);
-    char *data = BinaryData(val);
-    return dst + snprintf(dst, length+3, "\"%s\"", data);
-  } else if (IsTuple(val)) {
-    dst += sprintf(dst, "[");
-    u32 size = TupleLength(val);
-    for (u32 i = 0; i < size; i++) {
-      dst = PrintValTo(TupleAt(val, i), dst);
-      if (i != size-1) {
-        dst += sprintf(dst, " ");
-      }
-    }
-    return dst + sprintf(dst, "]");
-  } else if (IsDict(val)) {
-    dst += sprintf(dst, "{");
-    u32 size = DictSize(val);
-    for (u32 i = 0; i < size; i++) {
-      dst = PrintValTo(DictKeyAt(val, i), dst);
-      dst += sprintf(dst, ": ");
-      dst = PrintValTo(DictValueAt(val, i), dst);
-      if (i != size-1) {
-        dst += sprintf(dst, " ");
-      }
-    }
-    return dst + sprintf(dst, "}");
-  } else {
-    return dst;
-  }
+  return PrintValTo(val, NULL, 0, 0);
 }
 
 char *ValStr(Val val)
 {
-  char *str = malloc(ValStrLen(val) + 1);
-  PrintValTo(val, str);
+  u32 length = ValStrLen(val) + 1;
+  char *str = malloc(length);
+  PrintValTo(val, str, 0, length);
   return str;
 }
 
 void PrintVal(Val val)
 {
-  char *str = ValStr(val);
-  printf("%s\n", str);
-  free(str);
+  if (IsBin(val)) {
+    u32 length = BinaryLength(val);
+    char str[length];
+    snprintf(str, length, "%s\n", BinaryData(val));
+  } else if (IsSym(val)) {
+    printf(":%s\n", SymbolName(val));
+  } else {
+    char *str = ValStr(val);
+    printf("%s\n", str);
+    free(str);
+  }
 }
 
 void PrintTreeTail(Val exp, u32 indent)

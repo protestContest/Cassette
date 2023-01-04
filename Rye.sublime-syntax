@@ -1,0 +1,55 @@
+%YAML 1.2
+---
+name: Rye
+file_extensions:
+  - rye
+scope: source.rye
+contexts:
+  main:
+    # Function call
+    - match: '(\()((?:[\w]+\.)*)([\w+\-*/!?]+)\s+'
+      captures:
+        1: punctuation.section.function.rye
+        2: entity.name.type.class.rye
+        3: entity.name.function.rye
+
+    # Def
+    - match: '\b(def)\s+(\()\s*([\w]+)((?:\s+(?:[\w]+))*)\s*(\))'
+      captures:
+        1: keyword.control.function.rye
+        2: punctuation.section.function.rye
+        3: entity.name.function.rye
+        4: variable.parameter.rye
+        5: punctuation.section.function.rye
+
+    # Module
+    - match: '\s*(module)\s+([\w]+)\b'
+      captures:
+        1: keyword.control.module.rye
+        2: entity.name.type.class.rye
+
+    # Keywords
+    - match: 'do|end'
+      scope: keyword.control.rye
+
+    # Quote
+    - match: ':[\w]+'
+      scope: constant.other.symbol.rye
+
+    # String
+    - match: '"'
+      scope: punctuation.string.begin.rye
+      push: string
+
+  func_call:
+    - match: '\)'
+      scope: punctuation.section.function.rye
+      pop: true
+
+  string:
+    - meta_scope: string.quoted.double.rye
+    - match: '\\.'
+      scope: constant.character.escaped.rye
+    - match: '"'
+      scope: punctuation.string.end.rye
+      pop: true

@@ -1,6 +1,6 @@
 module Math do
   def (foo a b c) do
-    (display 'foo)
+    (display "foo")
     (+ (* a b) (* a c))
   end
 end

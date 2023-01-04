@@ -18,7 +18,7 @@ typedef struct {
 bool IsReserved(char c)
 {
   #define NUM_RESERVED 12
-  static char reserved[NUM_RESERVED] = {'(', ')', '[', ']', '{', '}', ':', '\'', ';', '"', '.', '|'};
+  static char reserved[NUM_RESERVED] = {'(', ')', '[', ']', '{', '}', ':', ';', '"', '.', '|'};
 
   if (IsSpace(c)) return true;
   for (u32 i = 0; i < NUM_RESERVED; i++) {
@@ -285,7 +285,7 @@ Val ParseExpr(Reader *r)
 {
   Val expr = nil;
 
-  if (r->src[r->cur] == '\'') {
+  if (r->src[r->cur] == ':') {
     r->cur++;
     SkipSpace(r);
     Val head = MakeSymbol("quote", 5);

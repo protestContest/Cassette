@@ -22,7 +22,7 @@ end
 def (map list fun)
   (reverse
     (reduce list nil (fn (item acc)
-                      ((fun item) . acc))))
+                      ((fun item) | acc))))
 
 def (filter list test)
   (reverse
@@ -36,6 +36,6 @@ def (ι n) do
   def (loop n result)
     (if (= n 0)
         result
-        (loop (- n 1) (n . result)))
+        (loop (- n 1) (n | result)))
   (loop n nil)
 end

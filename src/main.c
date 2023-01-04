@@ -9,5 +9,6 @@ int main(void)
 {
   InitMem();
   Val exp = ReadFile("test.rye");
+  // PrintVal(exp);
   PrintVal(Eval(exp, InitialEnv()));
 }
