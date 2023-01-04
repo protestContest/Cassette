@@ -3,6 +3,8 @@
 #include "env.h"
 #include "printer.h"
 #include "value.h"
+#include "eval.h"
+#include "reader.h"
 
 typedef Val (*PrimitiveFn)(Val args);
 
@@ -42,6 +44,16 @@ Val PrimPair(Val args)
   Val head = Head(args);
   Val tail = Head(Tail(args));
   return MakePair(head, tail);
+}
+
+Val PrimMakeTuple(Val args)
+{
+  return ListToTuple(args);
+}
+
+Val PrimMakeDict(Val args)
+{
+  return MakeDict(args);
 }
 
 Val PrimNth(Val args)
@@ -180,14 +192,28 @@ Val PrimDisplay(Val args)
   return MakeSymbol("ok", 2);
 }
 
+Val PrimEval(Val args)
+{
+  Val exp = Head(args);
+  Val env = Head(Tail(args));
+  return Eval(exp, env);
+}
 
-#define NUM_PRIMITIVES 14
+Val PrimReadFile(Val args)
+{
+  char *path = BinToCStr(Head(args));
+  return ReadFile(path);
+}
+
+#define NUM_PRIMITIVES 18
 PrimitiveDef primitives[NUM_PRIMITIVES] = {
   {"head",        &PrimHead},
   {"tail",        &PrimTail},
   {"set-head!",   &PrimSetHead},
   {"set-tail!",   &PrimSetTail},
-  {"pair",        &PrimPair},
+  {"make-pair",   &PrimPair},
+  {"make-tuple",  &PrimMakeTuple},
+  {"make-dict",   &PrimMakeDict},
   {"nth",         &PrimNth},
   {"+",           &PrimAdd},
   {"-",           &PrimSub},
@@ -196,7 +222,9 @@ PrimitiveDef primitives[NUM_PRIMITIVES] = {
   {"=",           &PrimNumEquals},
   {"rem",         &PrimRem},
   {"eq?",         &PrimEq},
-  {"display",     &PrimDisplay}
+  {"display",     &PrimDisplay},
+  {"eval",        &PrimEval},
+  {"read-file",   &PrimReadFile}
 };
 
 void DefinePrimitives(Val env)

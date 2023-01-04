@@ -20,7 +20,6 @@ Symbol symbols[NUM_SYMBOLS];
 u32 sym_next = 0;
 
 Val nil = PairVal(0);
-Val root = PairVal(0);
 
 u32 MemUsed(void)
 {
@@ -35,7 +34,6 @@ void InitMem(void)
 {
   SetHead(nil, nil);
   SetTail(nil, nil);
-  root = MakeTuple(3, nil, nil, InitialEnv());
 }
 
 Val MakePair(Val head, Val tail)
@@ -77,6 +75,19 @@ void SetTail(Val pair, Val val)
   mem[index+1] = val;
 }
 
+Val MakeList(u32 length, ...)
+{
+  Val list = nil;
+  va_list args;
+  va_start(args, length);
+  for (u32 i = 0; i < length; i++) {
+    Val arg = va_arg(args, Val);
+    list = MakePair(arg, list);
+  }
+  va_end(args);
+  return Reverse(list);
+}
+
 Val ReverseOnto(Val list, Val tail)
 {
   if (IsNil(list)) return tail;
@@ -91,15 +102,24 @@ Val Reverse(Val list)
   return ReverseOnto(list, nil);
 }
 
+u32 ListLength(Val list)
+{
+  u32 length = 0;
+  while (!IsNil(list)) {
+    length++;
+    list = Tail(list);
+  }
+  return length;
+}
+
 Val MakeTuple(u32 count, ...)
 {
   if (mem_base >= mem_next && mem_base < mem_next + count + 1) {
-    DumpMem();
     Error("Out of memory");
   }
 
   Val tuple = TupleVal(mem_next);
-  mem[mem_next++] = HdrVal(count);
+  mem[mem_next++] = TupHdr(count);
 
   if (count == 0) {
     mem[mem_next++] = nil;
@@ -111,17 +131,39 @@ Val MakeTuple(u32 count, ...)
   for (u32 i = 0; i < count; i++) {
     Val arg = va_arg(args, Val);
     mem[mem_next++] = arg;
-    if (mem_next == MEM_SIZE) mem_next = 0;
   }
   va_end(args);
 
   return tuple;
 }
 
-Val TupleLength(Val tuple)
+Val ListToTuple(Val list)
+{
+  u32 count = ListLength(list);
+  if (mem_base >= mem_next && mem_base < mem_next + count + 1) {
+    Error("Out of memory");
+  }
+
+  Val tuple = TupleVal(mem_next);
+  mem[mem_next++] = TupHdr(count);
+
+  if (count == 0) {
+    mem[mem_next++] = nil;
+    return tuple;
+  }
+
+  while (!IsNil(list)) {
+    mem[mem_next++] = Head(list);
+    list = Tail(list);
+  }
+
+  return tuple;
+}
+
+u32 TupleLength(Val tuple)
 {
   u32 index = RawVal(tuple);
-  return mem[index];
+  return HdrVal(mem[index]);
 }
 
 Val TupleAt(Val tuple, u32 i)
@@ -178,6 +220,14 @@ char *SymbolName(Val sym)
   return NULL;
 }
 
+void DumpSymbols(void)
+{
+  printf("Symbols\n");
+  for (u32 i = 0; i < sym_next; i++) {
+    printf("  0x%0X %s\n", symbols[i].key.as_v, symbols[i].name);
+  }
+}
+
 Val MakeBinary(char *src, u32 len)
 {
   u32 count = (len - 1) / 4 + 1;
@@ -187,7 +237,7 @@ Val MakeBinary(char *src, u32 len)
   }
 
   Val binary = BinVal(mem_next);
-  mem[mem_next++] = HdrVal(len);
+  mem[mem_next++] = BinHdr(len);
 
   u8 *data = (u8*)&mem[mem_next];
   for (u32 i = 0; i < len; i++) {
@@ -199,10 +249,10 @@ Val MakeBinary(char *src, u32 len)
   return binary;
 }
 
-Val BinaryLength(Val binary)
+u32 BinaryLength(Val binary)
 {
   u32 index = RawVal(binary);
-  return mem[index];
+  return HdrVal(mem[index]);
 }
 
 char *BinaryData(Val binary)
@@ -211,120 +261,114 @@ char *BinaryData(Val binary)
   return (char*)&mem[index+1];
 }
 
-Val Relocate(Val obj, Val *new_mem)
+char *BinToCStr(Val binary)
 {
-  if (IsPair(obj)) {
-    Val pair = PairVal(mem_next);
-    new_mem[mem_next++] = Head(obj);
-    new_mem[mem_next++] = Tail(obj);
-    SetHead(obj, MakeSymbol("moved", 5));
-    SetTail(obj, pair);
-    return pair;
-  } else if (IsTuple(obj)) {
-    u32 count = RawVal(TupleLength(obj));
-
-    Val tuple = TupleVal(mem_next);
-    new_mem[mem_next++] = HdrVal(count);
-
-    if (count == 0) {
-      new_mem[mem_next++] = nil;
-    } else {
-      u32 index = RawVal(tuple);
-
-      if (count == 0) {
-        new_mem[index + 1] = nil;
-      } else {
-        for (u32 i = 0; i < count; i++) {
-          new_mem[index + i + 1] = TupleAt(obj, i);
-        }
-      }
-    }
-
-    SetHead(obj, MakeSymbol("moved", 5));
-    SetTail(obj, tuple);
-    return tuple;
+  u32 len = BinaryLength(binary);
+  char *src = BinaryData(binary);
+  char *dst = malloc(len+1);
+  for (u32 i = 0; i < len; i++) {
+    dst[i] = src[i];
   }
-
-  return obj;
+  dst[len] = '\0';
+  return dst;
 }
 
-Val GarbageCollect(void)
+u32 HashBinary(Val binary)
 {
-  mem_next = 0;
-  nil = Relocate(nil, alt_mem);
-  root = Relocate(root, alt_mem);
-
-  u32 scan = RawVal(nil);
-
-  while (scan != mem_next) {
-    if (IsPair(alt_mem[scan]) || IsTuple(alt_mem[scan])) {
-      Val obj = alt_mem[scan];
-      if (!Eq(Head(obj), MakeSymbol("moved", 5))) {
-        Relocate(obj, alt_mem);
-      }
-      alt_mem[scan] = Tail(obj);
-    }
-    scan++;
-  }
-
-  return root;
+  u32 length = BinaryLength(binary);
+  return Hash(BinaryData(binary), length);
 }
 
-void DumpMem(void)
+void DictSet(Val dict, Val key, Val value);
+
+Val MakeDict(Val pairs)
 {
-  printf("Mem (%d-%d)\n", mem_base, mem_next);
-  u32 i = 0;
-  while (i < mem_next) {
-    if (IsHdr(mem[i])) {
-      printf("  %04d    0x%08X    ", i, mem[i].as_v);
-      u32 size = RawVal(mem[i]);
-      if (IsTupHdr(mem[i])) {
-        printf("┌ Tuple [%d]\n", size);
-        for (u32 j = 0; j < size; j++) {
-          printf("  %04d    0x%08X    ", i+j, mem[i+1+j].as_v);
-          if (j == size-1) printf("└ ");
-          else printf("│ ");
-          DebugVal(mem[i+j+1]);
-          printf("\n");
-        }
-        i += size + 1;
-      } else if (IsBinHdr(mem[i])) {
-        printf("┌ Binary [%d]\n", size);
-        u32 count = (size - 1) / 4 + 1;
-        for (u32 j = 0; j < count; j++) {
-          char *data = (char*)&mem[i+j+1];
-          printf("  %04d    0x%08X    ", i+j, mem[i+1+j].as_v);
-          if (j == count-1) printf("└ ");
-          else printf("│ ");
-          for (u32 k = 0; k < 4; k++) {
-            if (data[k] >= '!' && data[k] <= '~') {
-              printf("%c", data[k]);
-            } else {
-              printf(".");
-            }
-          }
-          printf("\n");
-        }
-        i += size + 1;
-      }
-    } else {
-      printf("  %04d    0x%08X    ", i, mem[i].as_v);
-      printf("┌ ");
-      DebugVal(mem[i]);
-      printf("\n");
-      printf("  %04d    0x%08X    ", i+1, mem[i+1].as_v);
-      printf("└ ");
-      DebugVal(mem[i+1]);
-      printf("\n");
-      i += 2;
-    }
+  u32 size = ListLength(pairs);
+
+  Val dict = DictVal(mem_next);
+  mem[mem_next++] = DctHdr(size);
+
+  for (u32 i = 0; i < size; i++) {
+    mem[mem_next++] = nil;
+    mem[mem_next++] = nil;
   }
+
+  while (!IsNil(pairs)) {
+    Val pair = Head(pairs);
+    Val key = Head(pair);
+    Val value = Tail(pair);
+    DictSet(dict, key, value);
+    pairs = Tail(pairs);
+  }
+
+  return dict;
 }
 
-void DumpSymbols(void)
+u32 DictSize(Val dict)
 {
-  printf("Symbols\n");
-  for (u32 i = 0; i < sym_next; i++) {
-    printf("  0x%0X %s\n", symbols[i].key.as_v, symbols[i].name);
+  u32 index = RawVal(dict);
+  return HdrVal(mem[index]);
+}
+
+Val DictGet(Val dict, Val key)
+{
+  if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
+    Error("Invalid key: %s", ValStr(key));
   }
+
+  Val *data = &mem[(u32)RawVal(dict)];
+  u32 size = HdrVal(data[0]);
+  u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
+  u32 index = hash % size;
+
+  u32 start = index;
+  u32 key_slot = 1 + 2*index;
+  while (!IsNil(data[key_slot])) {
+    if (Eq(data[key_slot], key)) {
+      return data[key_slot+1];
+    }
+
+    index = (index + 1) % size;
+    if (index == start) {
+      return nil;
+    }
+    key_slot = 1 + 2*index;
+  }
+
+  return nil;
+}
+
+Val DictKeyAt(Val dict, u32 i)
+{
+  u32 index = RawVal(dict);
+  return mem[index+1+2*i];
+}
+
+Val DictValueAt(Val dict, u32 i)
+{
+  u32 index = RawVal(dict);
+  return mem[index+1+2*i+1];
+}
+
+void DictSet(Val dict, Val key, Val value)
+{
+  if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
+    Error("Invalid key: %s", ValStr(key));
+  }
+
+  Val *data = &mem[(u32)RawVal(dict)];
+  u32 size = HdrVal(data[0]);
+  u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
+  u32 index = hash % size;
+
+  u32 start = index;
+  u32 key_slot = 1 + 2*index;
+  while (!IsNil(data[key_slot]) && !Eq(data[key_slot], key)) {
+    index = (index + 1) % size;
+    if (index == start) Error("Dict full");
+    key_slot = 1 + 2*index;
+  }
+
+  data[key_slot] = key;
+  data[key_slot+1] = value;
 }

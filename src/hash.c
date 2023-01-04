@@ -13,7 +13,13 @@ u32 FNV(u8 *data, u32 size, u32 base)
     return hash;
 }
 
+u32 FoldXor(u32 hash, u32 size)
+{
+    u32 mask = 0xFFFFFFFF >> (32 - size);
+    return (hash >> size) ^ (hash & mask);
+}
+
 u32 Hash(void *data, u32 size)
 {
-    return FNV(data, size, FNV_BASIS);
+    return FoldXor(FNV(data, size, FNV_BASIS), 21);
 }

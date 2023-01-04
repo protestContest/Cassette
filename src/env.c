@@ -1,6 +1,7 @@
 #include "env.h"
 #include "mem.h"
 #include "primitives.h"
+#include "printer.h"
 
 Val InitialEnv(void)
 {
@@ -13,23 +14,36 @@ Val InitialEnv(void)
   return env;
 }
 
-Val ParentEnv(Val env) {
+Val ParentEnv(Val env)
+{
   return Tail(env);
 }
 
-Val FirstFrame(Val env) {
+Val FirstFrame(Val env)
+{
   return Head(env);
 }
 
-Val MakeFrame(Val vars, Val vals) {
+Val BaseEnv(Val env)
+{
+  while (!IsNil(ParentEnv(env))) {
+    env = ParentEnv(env);
+  }
+  return env;
+}
+
+Val MakeFrame(Val vars, Val vals)
+{
   return MakePair(vars, vals);
 }
 
-Val FrameVars(Val frame) {
+Val FrameVars(Val frame)
+{
   return Head(frame);
 }
 
-Val FrameVals(Val frame) {
+Val FrameVals(Val frame)
+{
   return Tail(frame);
 }
 
@@ -46,6 +60,10 @@ Val ExtendEnv(Val vars, Val vals, Val env)
 
 Val Lookup(Val var, Val env)
 {
+  if (Eq(var, MakeSymbol("ENV", 3))) {
+    return env;
+  }
+
   while (!IsNil(env)) {
     Val frame = FirstFrame(env);
     Val vars = FrameVars(frame);
@@ -101,4 +119,34 @@ void Define(Val var, Val val, Val env)
   }
 
   AddBinding(var, val, frame);
+}
+
+bool IsEnv(Val env)
+{
+  return IsTagged(env, MakeSymbol("env", 3));
+}
+
+void DumpEnv(Val env)
+{
+  printf("Dumping env\n");
+  DumpSymbols();
+  while (!IsNil(env)) {
+    Val frame = FirstFrame(env);
+    Val vars = FrameVars(frame);
+    Val vals = FrameVals(frame);
+    while (!IsNil(vars)) {
+      Val var = Head(vars);
+      Val val = Head(vals);
+
+      PrintVal(var);
+      printf("  ");
+      PrintVal(val);
+      // printf("%s: %s\n", ValStr(var), ValStr(val));
+
+      vars = Tail(vars);
+      vals = Tail(vals);
+    }
+    printf("----------------\n");
+    env = ParentEnv(env);
+  }
 }

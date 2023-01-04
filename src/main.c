@@ -8,5 +8,6 @@
 int main(void)
 {
   InitMem();
-  PrintVal(Eval(ReadFile("prelude.rye"), InitialEnv()));
+  Val exp = ReadFile("test.rye");
+  PrintVal(Eval(exp, InitialEnv()));
 }

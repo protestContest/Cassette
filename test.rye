@@ -1,0 +1,8 @@
+module Math do
+  def (foo a b c) do
+    (display 'foo)
+    (+ (* a b) (* a c))
+  end
+end
+
+(Math.foo 3 4 5)

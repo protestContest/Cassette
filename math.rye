@@ -1,0 +1,5 @@
+module Math do
+  def (combo a b c) (+ (* a b) (* a c))
+end
+
+'foo

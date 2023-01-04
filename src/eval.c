@@ -4,27 +4,20 @@
 #include "proc.h"
 #include "printer.h"
 #include "primitives.h"
+#include "module.h"
 
-Val EvalTuple(Val exp, Val env)
+bool IsSelfEvaluating(Val exp)
 {
-
-  u32 size = RawVal(TupleLength(exp));
-  Val tuple = MakeTuple(size);
-  for (u32 i = 0; i < size; i++) {
-    TupleSet(tuple, i, Eval(TupleAt(exp, i), env));
-  }
-  return tuple;
-}
-
-Val EvalPair(Val exp, Val env)
-{
-
-  return MakePair(Eval(Head(exp), env), Eval(Tail(exp), env));
+  return IsNil(exp)
+      || IsNum(exp)
+      || IsInt(exp)
+      || IsBin(exp)
+      || IsTuple(exp)
+      || IsDict(exp);
 }
 
 Val EvalAssignment(Val exp, Val env)
 {
-
   Val var = Head(exp);
   Val val = Head(Tail(exp));
   SetVariable(var, val, env);
@@ -33,7 +26,6 @@ Val EvalAssignment(Val exp, Val env)
 
 Val EvalDefine(Val exp, Val env)
 {
-
   if (IsSym(Head(exp))) {
     Define(Head(exp), Eval(Head(Tail(exp)), env), env);
     return MakeSymbol("ok", 2);
@@ -66,8 +58,7 @@ Val EvalIf(Val exp, Val env)
 
 Val EvalLambda(Val exp, Val env)
 {
-
-  return MakeProc(MakeSymbol("fn", 2), Head(exp), Tail(exp), env);
+  return MakeProc(MakeSymbol("λ", 2), Head(exp), Tail(exp), env);
 }
 
 Val EvalSequence(Val exp, Val env)
@@ -82,7 +73,6 @@ Val EvalSequence(Val exp, Val env)
 
 Val EvalList(Val exp, Val env)
 {
-
   if (IsNil(exp)) return nil;
   return MakePair(Eval(Head(exp), env), EvalList(Tail(exp), env));
 }
@@ -93,22 +83,48 @@ Val EvalApplication(Val exp, Val env)
   return Apply(Head(values), Tail(values));
 }
 
+Val EvalLookup(Val exp, Val env)
+{
+  Val var = Eval(Head(exp), env);
+  return Lookup(var, env);
+}
+
+Val EvalLoad(Val exp, Val env)
+{
+  Val filename = Head(exp);
+  if (!IsBin(filename)) {
+    Error("Can't load \"%s\"", ValStr(filename));
+  }
+
+  u32 len = BinaryLength(filename);
+  char path[len+5];
+  for (u32 i = 0; i < len; i++) {
+    path[i] = BinaryData(filename)[i];
+  }
+  path[len] = '.';
+  path[len+1] = 'r';
+  path[len+2] = 'y';
+  path[len+3] = 'e';
+  path[len+4] = '\0';
+
+  Val ok = LoadModule(path, BaseEnv(env));
+  DumpEnv(env);
+  return ok;
+}
+
 Val Eval(Val exp, Val env)
 {
-  if (IsNum(exp))                             return exp;
-  if (IsInt(exp))                             return exp;
-  if (IsBin(exp))                             return exp;
-  if (IsTuple(exp))                           return EvalTuple(exp, env);
+  if (IsSelfEvaluating(exp))                  return exp;
   if (IsSym(exp))                             return Lookup(exp, env);
   if (IsTagged(exp, MakeSymbol("quote", 5)))  return Tail(exp);
   if (IsTagged(exp, MakeSymbol("set!", 4)))   return EvalAssignment(Tail(exp), env);
   if (IsTagged(exp, MakeSymbol("def", 3)))    return EvalDefine(Tail(exp), env);
   if (IsTagged(exp, MakeSymbol("if", 2)))     return EvalIf(Tail(exp), env);
   if (IsTagged(exp, MakeSymbol("fn", 2)))     return EvalLambda(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("fn", 2)))     return EvalLambda(Tail(exp), env);
   if (IsTagged(exp, MakeSymbol("λ", 2)))      return EvalLambda(Tail(exp), env);
   if (IsTagged(exp, MakeSymbol("do", 2)))     return EvalSequence(Tail(exp), env);
-  if (IsPair(exp) && !IsPair(Tail(exp)))      return EvalPair(exp, env);
+  if (IsTagged(exp, MakeSymbol("load", 4)))   return EvalLoad(Tail(exp), env);
+  if (IsTagged(exp, MakeSymbol("lookup", 6))) return EvalLookup(Tail(exp), env);
   if (IsPair(exp))                            return EvalApplication(exp, env);
 
   Error("Unknown expression: %s", ValStr(exp));
