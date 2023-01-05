@@ -113,6 +113,7 @@ char *ValStr(Val val)
   u32 length = ValStrLen(val) + 1;
   char *str = malloc(length);
   PrintValTo(val, str, 0, length);
+  str[length] = '\0';
   return str;
 }
 
