@@ -5,24 +5,24 @@
 void DebugVal(Val val)
 {
   if (IsNil(val)) {
-    printf("nil (%d)", (u32)RawVal(val));
+    printf(" nil");
   } else if (IsNum(val)) {
-    printf("%.1f", (float)RawVal(val));
+    printf("%4.1f", (float)RawVal(val));
   } else if (IsInt(val)) {
-    printf("%d", (u32)RawVal(val));
+    printf("%4d", (i32)RawVal(val));
   } else if (IsPair(val)) {
-    printf("Pair (%d)", (u32)RawVal(val));
+    printf("p%3d", (i32)RawVal(val));
   } else if (IsSym(val)) {
     char *name = SymbolName(val);
-    printf("%s", name);
+    printf(":%s", name);
   } else if (IsBin(val)) {
-    printf("Bin (%d)", (u32)RawVal(val));
+    printf("b%3d", (i32)RawVal(val));
   } else if (IsTuple(val)) {
-    printf("Tuple (%d)", (u32)RawVal(val));
+    printf("t%3d", (i32)RawVal(val));
   } else if (IsDict(val)) {
-    printf("Map (%d)", (u32)RawVal(val));
+    printf("m%3d", (i32)RawVal(val));
   } else {
-    printf("Obj (%d)", (u32)RawVal(val));
+    printf("?%3d", (i32)RawVal(val));
   }
 }
 

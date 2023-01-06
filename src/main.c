@@ -5,29 +5,32 @@
 int main(void)
 {
   Chunk *chunk = NewChunk();
-  u8 a = PutConstant(chunk, IntVal(30));
-  u8 b = PutConstant(chunk, IntVal(42));
-  u8 zero = PutConstant(chunk, IntVal(0));
-  u8 done = PutConstant(chunk, IntVal(32));
-  u8 test_b = PutConstant(chunk, IntVal(9));
+  u8 a = PutConstant(chunk, IntVal(42));
+  u8 b = PutConstant(chunk, IntVal(30));
 
-  Assign(chunk, a, REG_A);
-  Assign(chunk, b, REG_B);
-  Assign(chunk, zero, REG_Z);
-// test_b
-  // Break(chunk);
-  Assign(chunk, done, REG_ADDR);
-  Compare(chunk, REG_B, REG_Z);
-  Branch(chunk, REG_ADDR);
-  Rem(chunk, REG_A, REG_B, REG_T);
-  Move(chunk, REG_B, REG_A);
-  Move(chunk, REG_T, REG_B);
-  Assign(chunk, test_b, REG_ADDR);
-  Goto(chunk, REG_ADDR);
-// done
-  Halt(chunk);
+  PutInst(chunk, OP_BRK);
 
-  Disassemble(chunk);
+  PutInst(chunk, OP_CNST, a, D0);
+  PutInst(chunk, OP_CNST, b, D1);
+  PutInst(chunk, OP_CMP, D1, D0);
+  PutInst(chunk, OP_BLT, 5);
+  PutInst(chunk, OP_SUB, D1, D0);
+  PutInst(chunk, OP_BGE, -10);
+  PutInst(chunk, OP_EXG, D0, D1);
+  PutInst(chunk, OP_CMPI, 0, D1);
+  PutInst(chunk, OP_BNE, -16);
+  PutInst(chunk, OP_STOP);
+
+  // PutInst(chunk, OP_CMPI, 0, D1);
+  // PutInst(chunk, OP_BEQ, 8);
+
+  // PutInst(chunk, OP_MOVE, D0, D2);
+  // PutInst(chunk, OP_CMP, D1, D2);
+  // PutInst(chunk, OP_BLE, 5);
+  // PutInst(chunk, OP_SUB, D1, D2);
+  // PutInst(chunk, OP_BRA, -10);
+
+  Disassemble(chunk, "Test chunk");
 
   VM *vm = NewVM();
   ExecuteChunk(vm, chunk);
