@@ -4,11 +4,8 @@
 #include "env.h"
 
 #define MEM_SIZE      (4096)
-#define GC_THRESHHOLD 0.5
 Val mem[MEM_SIZE];
-Val alt_mem[MEM_SIZE];
 u32 mem_next = 2;
-#define mem_base      (u32)RawVal(nil)
 
 typedef struct {
   Val key;
@@ -21,15 +18,6 @@ u32 sym_next = 0;
 
 Val nil = PairVal(0);
 
-u32 MemUsed(void)
-{
-  if (mem_base <= mem_next) {
-    return mem_next - mem_base;
-  } else {
-    return MEM_SIZE - mem_base + mem_next;
-  }
-}
-
 void InitMem(void)
 {
   SetHead(nil, nil);
@@ -38,10 +26,7 @@ void InitMem(void)
 
 Val MakePair(Val head, Val tail)
 {
-  if (mem_next+1 >= MEM_SIZE) mem_next = 0;
-  if (mem_base >= mem_next && mem_base < mem_next + 2) {
-    Error("Out of memory");
-  }
+  if (mem_next+1 >= MEM_SIZE) Error("Out of memory");
 
   Val pair = PairVal(mem_next);
 
@@ -114,9 +99,7 @@ u32 ListLength(Val list)
 
 Val MakeTuple(u32 count, ...)
 {
-  if (mem_base >= mem_next && mem_base < mem_next + count + 1) {
-    Error("Out of memory");
-  }
+  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
 
   Val tuple = TupleVal(mem_next);
   mem[mem_next++] = TupHdr(count);
@@ -140,9 +123,7 @@ Val MakeTuple(u32 count, ...)
 Val ListToTuple(Val list)
 {
   u32 count = ListLength(list);
-  if (mem_base >= mem_next && mem_base < mem_next + count + 1) {
-    Error("Out of memory");
-  }
+  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
 
   Val tuple = TupleVal(mem_next);
   mem[mem_next++] = TupHdr(count);
@@ -232,9 +213,7 @@ Val MakeBinary(char *src, u32 len)
 {
   u32 count = (len - 1) / 4 + 1;
 
-  if (mem_base >= mem_next && mem_base < mem_next + count + 1) {
-    Error("Out of memory");
-  }
+  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
 
   Val binary = BinVal(mem_next);
   mem[mem_next++] = BinHdr(len);

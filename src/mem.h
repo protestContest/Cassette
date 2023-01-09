@@ -2,7 +2,6 @@
 #include "value.h"
 
 void InitMem(void);
-Val GarbageCollect(void);
 
 Val MakePair(Val head, Val tail);
 Val Head(Val pair);
