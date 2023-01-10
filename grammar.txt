@@ -20,5 +20,5 @@ module        ::  "module" space+ symbol space+ expr
 symbol        ::  sym_start sym_char*
 sym_start     ::  char & not(reserved_char) & not(digit)
 sym_char      ::  char & not(reserved_char)
-reserved_char ::  "(" | ")" | "[" | "]" | "{" | "}" | "\'" | ";" | """ | "." | "|"
+reserved_char ::  "(" | ")" | "[" | "]" | "{" | "}" | ";" | """ | "«" | "»" | "." | "|"
 comment       ::  ";" not(newline)* newline
