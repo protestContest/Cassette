@@ -8,7 +8,7 @@ Val LoadModule(char *path, Val base_env)
 {
   Val exp = ReadFile(path);
   Val file_env = ExtendEnv(nil, nil, base_env);
-  Eval(exp, file_env);
+  EvalIn(exp, file_env);
 
   DumpEnv(file_env);
 
@@ -24,5 +24,5 @@ Val LoadModule(char *path, Val base_env)
     vals = Tail(vals);
   }
 
-  return MakeSymbol("ok", 2);
+  return nil;
 }

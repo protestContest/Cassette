@@ -4,3 +4,4 @@
 void DefinePrimitives(Val env);
 
 Val DoPrimitive(Val name, Val args);
+bool IsTrue(Val val);

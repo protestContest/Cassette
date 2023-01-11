@@ -7,9 +7,9 @@ Val InitialEnv(void)
 {
   Val env = ExtendEnv(nil, nil, nil);
   DefinePrimitives(env);
-  Define(MakeSymbol("true", 4), IntVal(1), env);
-  Define(MakeSymbol("false", 5), nil, env);
-  Define(MakeSymbol("nil", 3), nil, env);
+  Define(MakeSymbol("true"), IntVal(1), env);
+  Define(MakeSymbol("false"), nil, env);
+  Define(MakeSymbol("nil"), nil, env);
 
   return env;
 }
@@ -24,7 +24,7 @@ Val FirstFrame(Val env)
   return Head(env);
 }
 
-Val BaseEnv(Val env)
+Val GlobalEnv(Val env)
 {
   while (!IsNil(ParentEnv(env))) {
     env = ParentEnv(env);
@@ -60,12 +60,14 @@ Val ExtendEnv(Val vars, Val vals, Val env)
 
 Val Lookup(Val var, Val env)
 {
-  if (Eq(var, MakeSymbol("ENV", 3))) {
+  if (Eq(var, MakeSymbol("ENV"))) {
     return env;
   }
 
-  while (!IsNil(env)) {
-    Val frame = FirstFrame(env);
+  Val cur_env = env;
+
+  while (!IsNil(cur_env)) {
+    Val frame = FirstFrame(cur_env);
     Val vars = FrameVars(frame);
     Val vals = FrameVals(frame);
     while (!IsNil(vars)) {
@@ -76,10 +78,8 @@ Val Lookup(Val var, Val env)
       vars = Tail(vars);
       vals = Tail(vals);
     }
-    env = ParentEnv(env);
+    cur_env = ParentEnv(cur_env);
   }
-
-  DumpEnv(env);
 
   Error("Unbound variable \"%s\"", SymbolName(var));
 }
@@ -125,7 +125,7 @@ void Define(Val var, Val val, Val env)
 
 bool IsEnv(Val env)
 {
-  return IsTagged(env, MakeSymbol("env", 3));
+  return IsTagged(env, "env");
 }
 
 void DumpEnv(Val env)

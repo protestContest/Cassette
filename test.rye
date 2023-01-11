@@ -1,8 +1,13 @@
-module Math do
-  def (foo a b c) do
-    (display "foo")
-    (+ (* a b) (* a c))
+def (ι n) do
+  def (loop n result) do
+    if n < 1 do
+      result
+    else
+      (loop n - 1 [n | result])
+    end
   end
+
+  (loop n nil)
 end
 
-(Math.foo 3 4 5)
+(ι 10)

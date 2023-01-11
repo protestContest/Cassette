@@ -18,12 +18,6 @@ u32 sym_next = 0;
 
 Val nil = PairVal(0);
 
-void InitMem(void)
-{
-  SetHead(nil, nil);
-  SetTail(nil, nil);
-}
-
 Val MakePair(Val head, Val tail)
 {
   if (mem_next+1 >= MEM_SIZE) Error("Out of memory");
@@ -38,24 +32,28 @@ Val MakePair(Val head, Val tail)
 
 Val Head(Val pair)
 {
+  if (IsNil(pair)) return nil;
   u32 index = RawVal(pair);
   return mem[index];
 }
 
 Val Tail(Val pair)
 {
+  if (IsNil(pair)) return nil;
   u32 index = RawVal(pair);
   return mem[index+1];
 }
 
 void SetHead(Val pair, Val val)
 {
+  if (IsNil(pair)) Error("Can't change nil");
   u32 index = RawVal(pair);
   mem[index] = val;
 }
 
 void SetTail(Val pair, Val val)
 {
+  if (IsNil(pair)) Error("Can't change nil");
   u32 index = RawVal(pair);
   mem[index+1] = val;
 }
@@ -95,6 +93,28 @@ u32 ListLength(Val list)
     list = Tail(list);
   }
   return length;
+}
+
+Val ListAt(Val list, u32 index)
+{
+  if (IsNil(list)) return nil;
+  if (index == 0) return Head(list);
+  return ListAt(Tail(list), index - 1);
+}
+
+Val First(Val list)
+{
+  return ListAt(list, 0);
+}
+
+Val Second(Val list)
+{
+  return ListAt(list, 1);
+}
+
+Val Third(Val list)
+{
+  return ListAt(list, 2);
 }
 
 Val MakeTuple(u32 count, ...)
@@ -159,14 +179,19 @@ void TupleSet(Val tuple, u32 i, Val val)
   mem[(index + i + 1) % MEM_SIZE] = val;
 }
 
-bool IsTagged(Val exp, Val tag)
+bool IsTagged(Val exp, char *tag)
 {
-  if (IsPair(exp) && Eq(Head(exp), tag)) return true;
-  if (IsTuple(exp) && Eq(TupleAt(exp, 0), tag)) return true;
+  if (IsPair(exp) && Eq(Head(exp), SymbolFor(tag))) return true;
+  if (IsTuple(exp) && Eq(TupleAt(exp, 0), SymbolFor(tag))) return true;
   return false;
 }
 
-Val MakeSymbol(char *src, u32 len)
+Val MakeSymbol(char *src)
+{
+  return MakeSymbolFromSlice(src, strlen(src));
+}
+
+Val MakeSymbolFromSlice(char *src, u32 len)
 {
   Val key = SymVal(Hash(src, len));
 
@@ -184,6 +209,15 @@ Val MakeSymbol(char *src, u32 len)
   memcpy(sym->name, src, len);
   sym->name[len] = '\0';
   return key;
+}
+
+Val BoolSymbol(bool val)
+{
+  if (val) {
+    return MakeSymbol("true");
+  } else {
+    return MakeSymbol("false");
+  }
 }
 
 Val SymbolFor(char *src)
@@ -260,9 +294,9 @@ u32 HashBinary(Val binary)
 
 void DictSet(Val dict, Val key, Val value);
 
-Val MakeDict(Val pairs)
+Val MakeDict(Val keys, Val vals)
 {
-  u32 size = ListLength(pairs);
+  u32 size = ListLength(keys);
 
   Val dict = DictVal(mem_next);
   mem[mem_next++] = DctHdr(size);
@@ -272,12 +306,12 @@ Val MakeDict(Val pairs)
     mem[mem_next++] = nil;
   }
 
-  while (!IsNil(pairs)) {
-    Val pair = Head(pairs);
-    Val key = Head(pair);
-    Val value = Tail(pair);
+  while (!IsNil(keys)) {
+    Val key = Head(keys);
+    Val value = Head(vals);
     DictSet(dict, key, value);
-    pairs = Tail(pairs);
+    keys = Tail(keys);
+    vals = Tail(vals);
   }
 
   return dict;

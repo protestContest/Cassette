@@ -6,7 +6,12 @@
 #include "primitives.h"
 #include "module.h"
 
-bool IsSelfEvaluating(Val exp)
+static bool IsBool(Val exp)
+{
+  return Eq(exp, SymbolFor("true")) || Eq(exp, SymbolFor("false"));
+}
+
+static bool IsSelfEvaluating(Val exp)
 {
   return IsNil(exp)
       || IsNum(exp)
@@ -21,14 +26,14 @@ Val EvalAssignment(Val exp, Val env)
   Val var = Head(exp);
   Val val = Head(Tail(exp));
   SetVariable(var, val, env);
-  return MakeSymbol("ok", 2);
+  return nil;
 }
 
 Val EvalDefine(Val exp, Val env)
 {
-  if (IsSym(Head(exp))) {
-    Define(Head(exp), Eval(Head(Tail(exp)), env), env);
-    return MakeSymbol("ok", 2);
+  if (IsSym(First(exp))) {
+    Define(First(exp), EvalIn(Second(exp), env), env);
+    return nil;
   } else if (IsPair(Head(exp))) {
     Val pattern = Head(exp);
     Val name = Head(pattern);
@@ -36,7 +41,7 @@ Val EvalDefine(Val exp, Val env)
     Val body = Tail(exp);
     Val proc = MakeProc(name, params, body, env);
     Define(name, proc, env);
-    return MakeSymbol("ok", 2);
+    return nil;
   }
 
   Error("Can't define that");
@@ -44,29 +49,30 @@ Val EvalDefine(Val exp, Val env)
 
 Val EvalIf(Val exp, Val env)
 {
-  Val predicate = Head(exp);
-  Val consequent = Head(Tail(exp));
-  Val alternative = Head(Tail(Tail(exp)));
+  Val predicate = First(exp);
+  Val consequent = Second(exp);
+  Val alternative = Third(exp);
 
-  Val test = Eval(predicate, env);
-  if (IsNil(test) || Eq(test, MakeSymbol("false", 5))) {
-    return Eval(alternative, env);
+  Val test = EvalIn(predicate, env);
+
+  if (IsTrue(test)) {
+    return EvalIn(consequent, env);
   } else {
-    return Eval(consequent, env);
+    return EvalIn(alternative, env);
   }
 }
 
 Val EvalLambda(Val exp, Val env)
 {
-  return MakeProc(MakeSymbol("λ", 2), Head(exp), Tail(exp), env);
+  return MakeProc(MakeSymbol("λ"), Head(exp), Tail(exp), env);
 }
 
 Val EvalSequence(Val exp, Val env)
 {
   if (IsNil(Tail(exp))) {
-    return Eval(Head(exp), env);
+    return EvalIn(Head(exp), env);
   } else {
-    Eval(Head(exp), env);
+    EvalIn(Head(exp), env);
     return EvalSequence(Tail(exp), env);
   }
 }
@@ -74,7 +80,9 @@ Val EvalSequence(Val exp, Val env)
 Val EvalList(Val exp, Val env)
 {
   if (IsNil(exp)) return nil;
-  return MakePair(Eval(Head(exp), env), EvalList(Tail(exp), env));
+  Val head = EvalIn(Head(exp), env);
+  Val tail = EvalList(Tail(exp), env);
+  return MakePair(head, tail);
 }
 
 Val EvalApplication(Val exp, Val env)
@@ -85,7 +93,7 @@ Val EvalApplication(Val exp, Val env)
 
 Val EvalLookup(Val exp, Val env)
 {
-  Val var = Eval(Head(exp), env);
+  Val var = EvalIn(Head(exp), env);
   return Lookup(var, env);
 }
 
@@ -101,43 +109,45 @@ Val EvalLoad(Val exp, Val env)
   for (u32 i = 0; i < len; i++) {
     path[i] = BinaryData(filename)[i];
   }
-  path[len] = '.';
-  path[len+1] = 'r';
-  path[len+2] = 'y';
-  path[len+3] = 'e';
-  path[len+4] = '\0';
+  strcpy(&path[len], ".rye");
 
-  Val ok = LoadModule(path, BaseEnv(env));
-  DumpEnv(env);
-  return ok;
+  return LoadModule(path, GlobalEnv(env));
 }
 
-Val Eval(Val exp, Val env)
+Val EvalIn(Val exp, Val env)
 {
-  if (IsSelfEvaluating(exp))                  return exp;
-  if (IsSym(exp))                             return Lookup(exp, env);
-  if (IsTagged(exp, MakeSymbol("quote", 5)))  return Tail(exp);
-  if (IsTagged(exp, MakeSymbol("set!", 4)))   return EvalAssignment(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("def", 3)))    return EvalDefine(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("if", 2)))     return EvalIf(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("fn", 2)))     return EvalLambda(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("λ", 2)))      return EvalLambda(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("do", 2)))     return EvalSequence(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("load", 4)))   return EvalLoad(Tail(exp), env);
-  if (IsTagged(exp, MakeSymbol("lookup", 6))) return EvalLookup(Tail(exp), env);
-  if (IsPair(exp))                            return EvalApplication(exp, env);
+  printf("Evaluating ");
+  PrintVal(exp);
+
+  if (IsSelfEvaluating(exp))   return exp;
+  if (IsSym(exp))              return Lookup(exp, env);
+  if (IsTagged(exp, "quote"))  return Tail(exp);
+  if (IsTagged(exp, "set!"))   return EvalAssignment(Tail(exp), env);
+  if (IsTagged(exp, "def"))    return EvalDefine(Tail(exp), env);
+  if (IsTagged(exp, "if"))     return EvalIf(Tail(exp), env);
+  if (IsTagged(exp, "fn"))     return EvalLambda(Tail(exp), env);
+  if (IsTagged(exp, "λ"))      return EvalLambda(Tail(exp), env);
+  if (IsTagged(exp, "do"))     return EvalSequence(Tail(exp), env);
+  if (IsTagged(exp, "load"))   return EvalLoad(Tail(exp), env);
+  if (IsTagged(exp, "lookup")) return EvalLookup(Tail(exp), env);
+  if (IsPair(exp))             return EvalApplication(exp, env);
 
   Error("Unknown expression: %s", ValStr(exp));
 }
 
 Val Apply(Val proc, Val args)
 {
-  if (IsTagged(proc, MakeSymbol("prim", 4))) {
+  if (IsTagged(proc, "prim")) {
     return DoPrimitive(Tail(proc), args);
-  } else if (IsTagged(proc, MakeSymbol("proc", 4))) {
+  } else if (IsTagged(proc, "proc")) {
     Val env = ExtendEnv(ProcParams(proc), args, ProcEnv(proc));
     return EvalSequence(ProcBody(proc), env);
   }
 
   Error("Unknown procedure type: %s", ValStr(proc));
+}
+
+Val Eval(Val exp)
+{
+  return EvalIn(exp, InitialEnv());
 }

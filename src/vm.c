@@ -157,9 +157,9 @@ void ExecuteChunk(VM *vm, Chunk *chunk)
   RunVM(vm);
 }
 
-bool IsTrue(Val value)
+static bool IsTrue(Val value)
 {
-  return !IsNil(value) && !Eq(value, MakeSymbol("false", 5));
+  return !IsNil(value) && !Eq(value, MakeSymbol("false"));
 }
 
 void PrintRegisters(VM *vm)

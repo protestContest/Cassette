@@ -3,7 +3,7 @@
 
 Val MakeProc(Val name, Val params, Val body, Val env)
 {
-  return MakeTuple(5, MakeSymbol("proc", 4), name, params, body, env);
+  return MakeTuple(5, MakeSymbol("proc"), name, params, body, env);
 }
 
 Val ProcName(Val proc)

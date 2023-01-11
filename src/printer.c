@@ -50,7 +50,7 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     return start + snprintf(dst + start, size, "%d", (u32)RawVal(val));
   } else if (IsNil(val)) {
     return start + snprintf(dst + start, size, "nil");
-  } else if (IsTagged(val, MakeSymbol("proc", 4))) {
+  } else if (IsTagged(val, "proc")) {
     start += snprintf(dst + start, size, "[proc (");
     char *name = SymbolName(ProcName(val));
     start += snprintf(dst + start, size, "%s", name);
@@ -62,9 +62,9 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     }
     return start + snprintf(dst + start, size, ")]");
   } else if (IsPair(val)) {
-    start += snprintf(dst + start, size, "(");
+    start += snprintf(dst + start, size, "[");
     start = PrintTail(val, dst, start, size);
-    return start + snprintf(dst + start, size, ")");
+    return start + snprintf(dst + start, size, "]");
   } else if (IsSym(val)) {
     char *name = SymbolName(val);
     return start + snprintf(dst + start, size, "%s", name);
@@ -77,23 +77,23 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
       return start + snprintf(dst + start, length+3, "\"%s\"", data);
     }
   } else if (IsTuple(val)) {
-    start += snprintf(dst + start, size, "[");
-    u32 size = TupleLength(val);
-    for (u32 i = 0; i < size; i++) {
+    start += snprintf(dst + start, size, "#[");
+    u32 count = TupleLength(val);
+    for (u32 i = 0; i < count; i++) {
       start = PrintValTo(TupleAt(val, i), dst, start, size);
-      if (i != size-1) {
+      if (i != count-1) {
         start += snprintf(dst + start, size, " ");
       }
     }
     return start + snprintf(dst + start, size, "]");
   } else if (IsDict(val)) {
     start += snprintf(dst + start, size, "{");
-    u32 size = DictSize(val);
-    for (u32 i = 0; i < size; i++) {
+    u32 count = DictSize(val);
+    for (u32 i = 0; i < count; i++) {
       start = PrintValTo(DictKeyAt(val, i), dst, start, size);
       start += snprintf(dst + start, size, ": ");
       start = PrintValTo(DictValueAt(val, i), dst, start, size);
-      if (i != size-1) {
+      if (i != count-1) {
         start += snprintf(dst + start, size, " ");
       }
     }
@@ -174,22 +174,19 @@ void PrintTreeTail(Val exp, u32 level, u32 lines)
 
 void PrintTreeLevel(Val exp, u32 level, u32 lines)
 {
-  if (level > 32) Error("Too much indent");
-
-  if (IsPair(exp) && !IsNil(exp) && IsPair(Tail(exp))) {
+  if (IsList(exp)) {
     printf("┬");
     lines = (0x1 << level) | lines;
     level++;
     PrintTreeLevel(Head(exp), level, lines);
-    PrintTreeTail(Tail(exp), level, lines);
+
+    if (!IsNil(Tail(exp))) {
+      PrintTreeTail(Tail(exp), level, lines);
+    }
   } else {
     printf("╴");
     if (IsPair(exp)) {
-      printf("(");
-      DebugVal(Head(exp));
-      printf(" | ");
-      DebugVal(Tail(exp));
-      printf(")\n");
+      printf("[%s | %s ]\n", ValStr(Head(exp)), ValStr(Tail(exp)));
     } else {
       DebugVal(exp);
       printf("\n");

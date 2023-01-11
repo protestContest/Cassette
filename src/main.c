@@ -1,10 +1,35 @@
+#include "env.h"
 #include "value.h"
 #include "reader.h"
+#include "eval.h"
 #include "printer.h"
 
-int main(void)
+void REPL(void);
+
+int main(int argc, char *argv[])
 {
-  char *src = "(map-get {x: 1 y: 2} :y)";
-  Val exp = Read(src);
-  PrintTree(exp);
+  if (argc > 1) {
+    Val exp = ReadFile(argv[1]);
+    Eval(exp);
+  } else {
+    REPL();
+  }
+}
+
+bool GetLine(char *buf)
+{
+  printf("? ");
+  fgets(buf, 1024, stdin);
+  if (feof(stdin)) return false;
+  return true;
+}
+
+void REPL(void)
+{
+  char buf[1024];
+  Val env = InitialEnv();
+  while (GetLine(buf)) {
+    Val exp = Read(buf);
+    PrintVal(EvalIn(exp, env));
+  }
 }

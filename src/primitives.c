@@ -3,8 +3,8 @@
 #include "env.h"
 #include "printer.h"
 #include "value.h"
-#include "eval.h"
 #include "reader.h"
+#include "eval.h"
 
 typedef Val (*PrimitiveFn)(Val args);
 
@@ -13,37 +13,125 @@ typedef struct {
   PrimitiveFn impl;
 } PrimitiveDef;
 
+bool IsTrue(Val val)
+{
+  return !IsNil(val) && !Eq(val, SymbolFor("false"));
+}
+
+bool IsEqual(Val a, Val b)
+{
+  if (IsNil(a) && IsNil(b)) return true;
+  if (IsNumeric(a) && IsNumeric(b)) return RawVal(a) == RawVal(b);
+  if (IsSym(a) && IsSym(b)) return RawVal(a) == RawVal(b);
+
+  if (IsPair(a) && IsPair(b)) {
+    return IsEqual(Head(a), Head(b)) && IsEqual(Tail(a), Tail(b));
+  }
+
+  if (IsBin(a) && IsBin(b) && BinaryLength(a) == BinaryLength(b)) {
+    char *data_a = BinaryData(a);
+    char *data_b = BinaryData(b);
+    for (u32 i = 0; i < BinaryLength(a); i++) {
+      if (data_a[i] != data_b[i]) return false;
+    }
+    return true;
+  }
+
+  if (IsTuple(a) && IsTuple(b) && TupleLength(a) == TupleLength(b)) {
+    for (u32 i = 0; i < TupleLength(a); i++) {
+      if (!IsEqual(TupleAt(a, i), TupleAt(b, i))) return false;
+    }
+    return true;
+  }
+
+  if (IsDict(a) && IsDict(b) && DictSize(a) == DictSize(b)) {
+    for (u32 i = 0; i < DictSize(a); i++) {
+      if (!IsEqual(DictKeyAt(a, i), DictKeyAt(b, i))) return false;
+      if (!IsEqual(DictValueAt(a, i), DictValueAt(b, i))) return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+bool IsLess(Val a, Val b)
+{
+  if (IsNil(a) && IsNil(b)) return false;
+  if (IsNumeric(a) && IsNumeric(b)) return RawVal(a) < RawVal(b);
+
+  if (IsSym(a) && IsSym(b)) {
+    return strcmp(SymbolName(a), SymbolName(b)) < 0;
+  }
+
+  if (IsPair(a) && IsPair(b)) {
+    if (IsNil(a)) return true;
+    if (IsNil(b)) return false;
+
+    if (IsEqual(Head(a), Head(b))) return IsLess(Tail(a), Tail(b));
+
+    return IsLess(Head(a), Head(b));
+  }
+
+  if (IsBin(a) && IsBin(b)) {
+    char *data_a = BinaryData(a);
+    char *data_b = BinaryData(b);
+    for (u32 i = 0; i < BinaryLength(a) && i < BinaryLength(b); i++) {
+      if (data_a[i] < data_b[i]) return true;
+      if (data_a[i] > data_b[i]) return false;
+    }
+    return BinaryLength(a) < BinaryLength(b);
+  }
+
+  if (IsTuple(a) && IsTuple(b)) {
+    if (TupleLength(a) == TupleLength(b)) {
+      for (u32 i = 0; i < TupleLength(a); i++) {
+        if (IsLess(TupleAt(a, i), TupleAt(b, i))) return true;
+      }
+      return false;
+    }
+    return TupleLength(a) < TupleLength(b);
+  }
+
+  return false;
+}
+
 Val PrimHead(Val args)
 {
-  return Head(Head(args));
+  return Head(First(args));
 }
 
 Val PrimTail(Val args)
 {
-  return Tail(Head(args));
+  return Tail(First(args));
 }
 
 Val PrimSetHead(Val args)
 {
-  Val pair = Head(args);
-  Val head = Head(Tail(args));
+  Val pair = First(args);
+  Val head = Second(args);
   SetHead(pair, head);
-  return MakeSymbol("ok", 2);
+  return nil;
 }
 
 Val PrimSetTail(Val args)
 {
-  Val pair = Head(args);
-  Val tail = Head(Tail(args));
+  Val pair = First(args);
+  Val tail = Second(args);
   SetTail(pair, tail);
-  return MakeSymbol("ok", 2);
+  return nil;
 }
 
 Val PrimPair(Val args)
 {
-  Val head = Head(args);
-  Val tail = Head(Tail(args));
+  Val head = First(args);
+  Val tail = Second(args);
   return MakePair(head, tail);
+}
+
+Val PrimList(Val args)
+{
+  return args;
 }
 
 Val PrimMakeTuple(Val args)
@@ -53,14 +141,28 @@ Val PrimMakeTuple(Val args)
 
 Val PrimMakeDict(Val args)
 {
-  return MakeDict(args);
+  Val keys = First(args);
+  Val vals = Second(args);
+  return MakeDict(keys, vals);
 }
 
-Val PrimNth(Val args)
+Val PrimAccess(Val args)
 {
-  Val tuple = Head(args);
-  Val index = Head(Tail(args));
-  return TupleAt(tuple, RawVal(index));
+  Val subject = First(args);
+  Val index = Second(args);
+
+  if (IsTuple(subject)) {
+    if (!IsInt(index)) Error("Can only access tuples with integers");
+    return TupleAt(subject, RawVal(index));
+  } else if (IsDict(subject)) {
+    if (!IsSym(index)) Error("Can only access dictionaries with symbols");
+    return DictGet(subject, index);
+  } else if (IsList(subject)) {
+    if (!IsInt(index)) Error("Can only access lists with integers");
+    return ListAt(subject, RawVal(index));
+  } else {
+    Error("Can't access this");
+  }
 }
 
 Val PrimAdd(Val args)
@@ -141,46 +243,87 @@ Val PrimMult(Val args)
 
 Val PrimDiv(Val args)
 {
-  Val num = Head(args);
-  Val den = Head(Tail(args));
+  Val num = First(args);
+  Val den = Second(args);
   float n = RawVal(num) / RawVal(den);
   return NumVal(n);
 }
 
-Val PrimNumEquals(Val args)
+Val PrimEquals(Val args)
 {
-  Val a = Head(args);
-  Val b = Head(Tail(args));
-  if ((IsInt(a) && IsInt(b)) || (IsNum(a) && IsNum(b))) {
-    if (RawVal(a) == RawVal(b)) {
-      return MakeSymbol("true", 4);
-    } else {
-      return MakeSymbol("false", 5);
-    }
-  } else if ((IsInt(a) && IsNum(b)) || (IsNum(a) && IsInt(b))) {
-    if ((float)RawVal(a) == (float)RawVal(b)) {
-      return MakeSymbol("true", 4);
-    } else {
-      return MakeSymbol("false", 5);
-    }
-  } else {
-    return MakeSymbol("false", 5);
-  }
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(IsEqual(a, b));
+}
+
+Val PrimNotEquals(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(!IsEqual(a, b));
+}
+
+Val PrimLessThan(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(IsLess(a, b));
+}
+
+Val PrimGreaterThan(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(!IsLess(a, b) && !IsEqual(a, b));
+}
+
+Val PrimLessEquals(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(IsLess(a, b) || IsEqual(a, b));
+}
+
+Val PrimGreaterEquals(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(!IsLess(a, b));
+}
+
+Val PrimAnd(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(IsTrue(a) && IsTrue(b));
+}
+
+Val PrimOr(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return BoolSymbol(IsTrue(a) || IsTrue(b));
+}
+
+Val PrimNot(Val args)
+{
+  Val a = First(args);
+  return BoolSymbol(!IsTrue(a));
 }
 
 Val PrimRem(Val args)
 {
-  Val a = Head(args);
-  Val b = Head(Tail(args));
+  Val a = First(args);
+  Val b = Second(args);
   return IntVal((u32)RawVal(a) % (u32)RawVal(b));
 }
 
 Val PrimEq(Val args)
 {
-  Val a = Head(args);
-  Val b = Head(Tail(args));
-  if (Eq(a, b)) return MakeSymbol("true", 4);
-  else return MakeSymbol("false", 5);
+  Val a = First(args);
+  Val b = Second(args);
+  if (Eq(a, b)) return MakeSymbol("true");
+  else return MakeSymbol("false");
 }
 
 Val PrimDisplay(Val args)
@@ -189,14 +332,14 @@ Val PrimDisplay(Val args)
     PrintVal(Head(args));
     args = Tail(args);
   }
-  return MakeSymbol("ok", 2);
+  return nil;
 }
 
 Val PrimEval(Val args)
 {
-  Val exp = Head(args);
-  Val env = Head(Tail(args));
-  return Eval(exp, env);
+  Val exp = First(args);
+  Val env = Second(args);
+  return EvalIn(exp, env);
 }
 
 Val PrimReadFile(Val args)
@@ -205,21 +348,29 @@ Val PrimReadFile(Val args)
   return ReadFile(path);
 }
 
-#define NUM_PRIMITIVES 18
-PrimitiveDef primitives[NUM_PRIMITIVES] = {
+PrimitiveDef primitives[] = {
   {"head",        &PrimHead},
   {"tail",        &PrimTail},
   {"set-head!",   &PrimSetHead},
   {"set-tail!",   &PrimSetTail},
-  {"make-pair",   &PrimPair},
-  {"make-tuple",  &PrimMakeTuple},
-  {"make-dict",   &PrimMakeDict},
-  {"nth",         &PrimNth},
+  {"pair",        &PrimPair},
+  {"list",        &PrimList},
+  {"tuple",       &PrimMakeTuple},
+  {"dict",        &PrimMakeDict},
+  {"get",         &PrimAccess},
   {"+",           &PrimAdd},
   {"-",           &PrimSub},
   {"*",           &PrimMult},
   {"/",           &PrimDiv},
-  {"=",           &PrimNumEquals},
+  {"=",           &PrimEquals},
+  {"≠",           &PrimNotEquals},
+  {"<",           &PrimLessThan},
+  {">",           &PrimGreaterThan},
+  {"≤",           &PrimLessEquals},
+  {"≥",           &PrimGreaterEquals},
+  {"and",         &PrimAnd},
+  {"or",          &PrimOr},
+  {"not",         &PrimNot},
   {"rem",         &PrimRem},
   {"eq?",         &PrimEq},
   {"display",     &PrimDisplay},
@@ -229,20 +380,22 @@ PrimitiveDef primitives[NUM_PRIMITIVES] = {
 
 void DefinePrimitives(Val env)
 {
-  for (u32 i = 0; i < NUM_PRIMITIVES; i++) {
+  u32 n = sizeof(primitives)/sizeof(PrimitiveDef);
+  for (u32 i = 0; i < n; i++) {
     char *name = primitives[i].name;
-    Val sym = MakeSymbol(name, strlen(name));
-    Define(sym, MakePair(MakeSymbol("prim", 4), sym), env);
+    Val sym = MakeSymbol(name);
+    Define(sym, MakePair(MakeSymbol("prim"), sym), env);
   }
 }
 
 Val DoPrimitive(Val name, Val args)
 {
-  for (u32 i = 0; i < NUM_PRIMITIVES; i++) {
+  u32 n = sizeof(primitives)/sizeof(PrimitiveDef);
+  for (u32 i = 0; i < n; i++) {
     if (Eq(name, SymbolFor(primitives[i].name))) {
       return primitives[i].impl(args);
     }
   }
 
-  Error("Not a primitive: %s", SymbolName(name));
+  Error("Not a primitive: \"%s\"", SymbolName(name));
 }
