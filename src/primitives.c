@@ -344,8 +344,9 @@ Val PrimEval(Val args)
 
 Val PrimReadFile(Val args)
 {
-  char *path = BinToCStr(Head(args));
-  return ReadFile(path);
+  // char *path = BinToCStr(Head(args));
+  // return ReadFile(path);
+  return nil;
 }
 
 PrimitiveDef primitives[] = {

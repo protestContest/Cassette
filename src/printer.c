@@ -5,24 +5,24 @@
 void DebugVal(Val val)
 {
   if (IsNil(val)) {
-    printf(" nil");
+    fprintf(stderr, " nil");
   } else if (IsNum(val)) {
-    printf("%-4.1f", (float)RawVal(val));
+    fprintf(stderr, "%-4.1f", (float)RawVal(val));
   } else if (IsInt(val)) {
-    printf("%-4d", (i32)RawVal(val));
+    fprintf(stderr, "%-4d", (i32)RawVal(val));
   } else if (IsPair(val)) {
-    printf("p%3d", (i32)RawVal(val));
+    fprintf(stderr, "p%3d", (i32)RawVal(val));
   } else if (IsSym(val)) {
     char *name = SymbolName(val);
-    printf(":%s", name);
+    fprintf(stderr, ":%s", name);
   } else if (IsBin(val)) {
-    printf("b%-3d", (i32)RawVal(val));
+    fprintf(stderr, "b%-3d", (i32)RawVal(val));
   } else if (IsTuple(val)) {
-    printf("t%-3d", (i32)RawVal(val));
+    fprintf(stderr, "t%-3d", (i32)RawVal(val));
   } else if (IsDict(val)) {
-    printf("m%-3d", (i32)RawVal(val));
+    fprintf(stderr, "m%-3d", (i32)RawVal(val));
   } else {
-    printf("?%-3d", (i32)RawVal(val));
+    fprintf(stderr, "?%-3d", (i32)RawVal(val));
   }
 }
 
@@ -62,9 +62,9 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     }
     return start + snprintf(dst + start, size, ")]");
   } else if (IsPair(val)) {
-    start += snprintf(dst + start, size, "[");
+    start += snprintf(dst + start, size, "(");
     start = PrintTail(val, dst, start, size);
-    return start + snprintf(dst + start, size, "]");
+    return start + snprintf(dst + start, size, ")");
   } else if (IsSym(val)) {
     char *name = SymbolName(val);
     return start + snprintf(dst + start, size, "%s", name);
@@ -139,14 +139,14 @@ void Indent(u32 level, u32 lines, bool end)
 
     if (i == level-1) {
       if (end) {
-        printf("└");
+        fprintf(stderr, "└");
       } else {
-        printf("├");
+        fprintf(stderr, "├");
       }
     } else if (line) {
-      printf("│");
+      fprintf(stderr, "│");
     } else {
-      printf(" ");
+      fprintf(stderr, " ");
     }
   }
 }
@@ -175,7 +175,7 @@ void PrintTreeTail(Val exp, u32 level, u32 lines)
 void PrintTreeLevel(Val exp, u32 level, u32 lines)
 {
   if (IsList(exp)) {
-    printf("┬");
+    fprintf(stderr, "┬");
     lines = (0x1 << level) | lines;
     level++;
     PrintTreeLevel(Head(exp), level, lines);
@@ -184,12 +184,14 @@ void PrintTreeLevel(Val exp, u32 level, u32 lines)
       PrintTreeTail(Tail(exp), level, lines);
     }
   } else {
-    printf("╴");
-    if (IsPair(exp)) {
-      printf("[%s | %s ]\n", ValStr(Head(exp)), ValStr(Tail(exp)));
+    fprintf(stderr, "╴");
+    if (IsNil(exp)) {
+      fprintf(stderr, "nil\n");
+    } else if (IsPair(exp)) {
+      fprintf(stderr, "[%s | %s ]\n", ValStr(Head(exp)), ValStr(Tail(exp)));
     } else {
       DebugVal(exp);
-      printf("\n");
+      fprintf(stderr, "\n");
     }
   }
 }
@@ -198,4 +200,5 @@ void PrintTree(Val exp)
 {
   Indent(0, 0, false);
   PrintTreeLevel(exp, 0, 0);
+  fprintf(stderr, "\n");
 }

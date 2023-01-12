@@ -8,6 +8,7 @@ void SetHead(Val pair, Val val);
 void SetTail(Val pair, Val val);
 
 Val MakeList(u32 length, ...);
+Val MakeTagged(u32 length, char *name, ...);
 Val ReverseOnto(Val list, Val tail);
 Val Reverse(Val list);
 u32 ListLength(Val list);

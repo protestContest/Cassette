@@ -71,6 +71,19 @@ Val MakeList(u32 length, ...)
   return Reverse(list);
 }
 
+Val MakeTagged(u32 length, char *name, ...)
+{
+  Val list = MakePair(MakeSymbol(name), nil);
+  va_list args;
+  va_start(args, name);
+  for (u32 i = 0; i < length - 1; i++) {
+    Val arg = va_arg(args, Val);
+    list = MakePair(arg, list);
+  }
+  va_end(args);
+  return Reverse(list);
+}
+
 Val ReverseOnto(Val list, Val tail)
 {
   if (IsNil(list)) return tail;

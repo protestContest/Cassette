@@ -21,6 +21,16 @@ typedef unsigned char byte;
 
 #define Bit(n)    (1 << (n))
 
+#define ArrayCount(a)   (sizeof (a) / sizeof (a)[0])
+
+#define PrintInto(str, fmt, ...)                                  \
+  do {                                                            \
+    u32 size = snprintf(NULL, 0, fmt __VA_OPT__(,) __VA_ARGS__);  \
+    *((void **)&(str)) = realloc(str, size);                      \
+    sprintf(str, fmt __VA_OPT__(,) __VA_ARGS__);                  \
+  } while (0)
+
+
 #define Error(...)  do {        \
   fflush(stdout);               \
   fprintf(stderr, "Error: ");   \

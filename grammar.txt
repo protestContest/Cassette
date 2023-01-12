@@ -1,24 +1,27 @@
-expr          ::  quote | list | lambda | tuple | dict | string | num | lookup |
-                  block | define | module | symbol | comment
-quote         ::  "'" expr
-list          ::  "(" space* list_tail
-list_tail     ::  ")" | expr space+ list_tail
-lambda        ::  list space* "->" space* expr
-tuple         ::  "[" space* tuple_tail
-tuple_tail    ::  "]" | expr space+ tuple_tail
-dict          ::  "{" space* dict_tail
-dict_tail     ::  "}" | (symbol | string) space* ":" space* expr space * dict_tail
-string        ::  """ string_tail
-string_tail   ::  """ | "\" char string_tail | char string_tail
-num           ::  digit+ (. digit+)?
-lookup        ::  symbol "." lookup_tail
-lookup_tail   ::  symbol | lookup
-block         ::  "do" space+ block_tail
-block_tail    ::  "end" | expr space+ block_tail
-define        ::  "def" space+ expr space+ expr
-module        ::  "module" space+ symbol space+ expr
-symbol        ::  sym_start sym_char*
-sym_start     ::  char & not(reserved_char) & not(digit)
-sym_char      ::  char & not(reserved_char)
-reserved_char ::  "(" | ")" | "[" | "]" | "{" | "}" | ";" | """ | "«" | "»" | "." | "|"
-comment       ::  ";" not(newline)* newline
+block           ::  expr (space* ("," | (newline (space | newline)*)) space* expr)*
+expr            ::  (lambda (space+ lambda)*)
+lambda          ::  logic (space* "->" space* logic)*
+logic           ::  equality (space+ ("and" | "or") space+ equality)*
+equality        ::  compare (space+ ("=" | "!=") space+ compare)*
+compare         ::  term (space+ (">" | ">=" | "<" | "<=") space+ term)*
+term            ::  factor (space+ ("+" | "-") space+ factor)*
+factor          ::  exponent (space+ ("*" | "/") space+ exponent)*
+exponent        ::  negative (space+ "**" space+ negative)*
+negative        ::  ( ("-")? negative ) | access
+access          ::  (identifier ("." identifier)*) | primary
+primary         ::  literal | identifier | ( "(" (space | newline)* block ")" )
+literal         ::  number | string | list | dict | symbol
+number          ::  digit+ ("." digit+)?
+string          ::  "\"" ( (char & !"\") | ("\" char) )* "\""
+list            ::  "[" space* list-tail
+list-tail       ::  (("|" space* expr)? "]") | (expr space* list-tail)
+dict            ::  "{" dict-entry* "}"
+dict-entry      ::  (identifier | string) space* ":" space* expr
+symbol          ::  ":" identifier
+identifier      ::  sym-start sym-char*
+sym-start       ::  char & !reserved-char & !digit
+sym-char        ::  char & !reserved-char
+reserved-char   ::  group-char | space | ";" | "\"" | ":" | "." | "," | "|"
+group-char      ::  "(" | ")" | "{" | "}" | "[" | "]"
+space           ::  " " | "\t"
+newline         ::  "\n" | "\r"

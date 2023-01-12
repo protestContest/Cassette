@@ -3,33 +3,35 @@
 #include "reader.h"
 #include "eval.h"
 #include "printer.h"
+#include "repl.h"
 
-void REPL(void);
+int ExecuteScript(char *path);
 
 int main(int argc, char *argv[])
 {
+  // ExecuteScript("test.rye");
+
   if (argc > 1) {
-    Val exp = ReadFile(argv[1]);
-    Eval(exp);
+    return ExecuteScript(argv[1]);
   } else {
     REPL();
   }
 }
 
-bool GetLine(char *buf)
+int ExecuteScript(char *path)
 {
-  printf("? ");
-  fgets(buf, 1024, stdin);
-  if (feof(stdin)) return false;
-  return true;
-}
+  Reader *reader = NewReader();
+  ReadFile(reader, path);
 
-void REPL(void)
-{
-  char buf[1024];
-  Val env = InitialEnv();
-  while (GetLine(buf)) {
-    Val exp = Read(buf);
-    PrintVal(EvalIn(exp, env));
+  switch (reader->status) {
+  case PARSE_OK:
+    PrintVal(reader->ast);
+    PrintTree(reader->ast);
+    break;
+  case PARSE_INCOMPLETE:
+    ParseError(reader, "Unexpected end of input");
+  case PARSE_ERROR:
+    PrintReaderError(reader);
   }
+  return reader->status;
 }

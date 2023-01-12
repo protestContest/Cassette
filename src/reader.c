@@ -3,253 +3,95 @@
 #include "value.h"
 #include "printer.h"
 
-#define DEBUG_READ 0
+#define DEBUG_READ 1
 
-typedef struct {
-  char *src;
-  u32 cur;
-  u32 line;
-  u32 col;
-} Reader;
+/*
+ * Source helpers
+ */
 
-typedef enum {
-  PREC_NONE,
-  PREC_EXPR,
-  PREC_BOOLEAN,
-  PREC_COMPARE,
-  PREC_TERM,
-  PREC_FACTOR,
-  PREC_UNARY,
-  PREC_ACCESS,
-} Precedence;
-
-typedef enum {
-  NONE,
-  PAREN,
-  BRACKET,
-  BRACE,
-  QUOTE,
-  QUOTE2,
-  PLUS,
-  MINUS,
-  STAR,
-  SLASH,
-  COLON,
-  BLOCK,
-  ARROW,
-  DOT,
-  DIGIT,
-  SYMCHAR,
-  DEF,
-  IF,
-  EQUAL,
-  INEQUAL,
-  LESS,
-  LT_EQ,
-  GREATER,
-  GT_EQ,
-  AND,
-  OR,
-  NOT,
-} Sigil;
-
-typedef Val (*PrefixFn)(Reader *r);
-typedef Val (*InfixFn)(Reader *r, Val prefix);
-
-typedef struct {
-  char *name;
-  PrefixFn prefix;
-  InfixFn infix;
-  Precedence prec;
-} ParseRule;
-
-#define IsSpace(c)        ((c) == ' ' || (c) == '\n' || (c) == '\r' || (c) == '\t')
+#define IsSpace(c)        ((c) == ' ' || (c) == '\t')
+#define IsNewline(c)      ((c) == '\n' || (c) == '\r')
 #define IsAlpha(c)        (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' & (c) <= 'z'))
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
-#define IsUTFChar(c)      (((c) & 0x80) == 0x80)
 #define IsEnd(c)          ((c) == '\0')
 #define Peek(r)           ((r)->src[(r)->cur])
 
-static void SkipSpace(Reader *r);
-static bool WillMatch(Reader *r, char *expect);
-static bool Match(Reader *r, char *expected);
-static bool IsSymChar(char c);
-
-static Val ParsePrecedence(Reader *r, Precedence prec);
-
-static Val ParseExpr(Reader *r);
-static Val ParseInt(Reader *r);
-static Val ParseString(Reader *r);
-static Val ParseString2(Reader *r);
-static Val ParseSymbol(Reader *r);
-static Val ParseVariable(Reader *r);
-static Val ParseBlock(Reader *r);
-static Val ParseList(Reader *r);
-static Val ParseListLiteral(Reader *r);
-static Val ParseDict(Reader *r);
-static Val ParseLambda(Reader *r, Val prefix);
-static Val ParseUnary(Reader *r);
-static Val ParseNegate(Reader *r);
-static Val ParseAdd(Reader *r, Val prefix);
-static Val ParseSubtract(Reader *r, Val prefix);
-static Val ParseMultiply(Reader *r, Val prefix);
-static Val ParseDivide(Reader *r, Val prefix);
-static Val ParseDefine(Reader *r);
-static Val ParseIf(Reader *r);
-
-static Val ParseAccess(Reader *r, Val prefix);
-static Val ParseDotAccess(Reader *r, Val prefix);
-static Val ParseCompare(Reader *r, Val prefix);
-static Val ParseBool(Reader *r, Val prefix);
-
-static void PrintRule(Reader *r, char *name, bool infix, Precedence prec);
-static void PrintReader(Reader *r);
-static void PrintReaderTo(FILE *stream, Reader *r);
-static Val ParseError(Reader *r, char *message);
-
-ParseRule rules[] = {
-  [PAREN] =   { "PAREN",    &ParseList,         NULL,             PREC_NONE },
-  [BRACKET] = { "BRACKET",  &ParseListLiteral,  NULL,             PREC_NONE },
-  [BRACE] =   { "BRACE",    &ParseDict,         NULL,             PREC_NONE },
-  [QUOTE] =   { "QUOTE",    &ParseString,       NULL,             PREC_NONE },
-  [QUOTE2] =  { "QUOTE2",   &ParseString2,      NULL,             PREC_NONE },
-  [PLUS] =    { "PLUS",     &ParseSymbol,       &ParseAdd,        PREC_TERM },
-  [MINUS] =   { "MINUS",    &ParseNegate,       &ParseSubtract,   PREC_TERM },
-  [STAR] =    { "STAR",     &ParseSymbol,       &ParseMultiply,   PREC_FACTOR },
-  [SLASH] =   { "SLASH",    &ParseSymbol,       &ParseDivide,     PREC_FACTOR },
-  [COLON] =   { "COLON",    &ParseSymbol,       NULL,             PREC_NONE },
-  [BLOCK] =   { "BLOCK",    &ParseBlock,        NULL,             PREC_NONE },
-  [ARROW] =   { "ARROW",    NULL,               &ParseLambda,     PREC_EXPR },
-  [DOT] =     { "DOT",      NULL,               &ParseDotAccess,  PREC_ACCESS },
-  [DIGIT] =   { "DIGIT",    &ParseInt,          NULL,             PREC_NONE },
-  [SYMCHAR] = { "SYMCHAR",  &ParseVariable,     NULL,             PREC_NONE },
-  [DEF] =     { "DEF",      &ParseDefine,       NULL,             PREC_NONE },
-  [IF] =      { "IF",       &ParseIf,           NULL,             PREC_NONE },
-  [EQUAL] =   { "EQUAL",    &ParseSymbol,       &ParseCompare,    PREC_COMPARE },
-  [INEQUAL] = { "INEQUAL",  &ParseSymbol,       &ParseCompare,    PREC_COMPARE },
-  [LESS] =    { "LESS",     &ParseSymbol,       &ParseCompare,    PREC_COMPARE },
-  [LT_EQ] =   { "LT_EQ",    &ParseSymbol,       &ParseCompare,    PREC_COMPARE },
-  [GREATER] = { "GREATER",  &ParseSymbol,       &ParseCompare,    PREC_COMPARE },
-  [GT_EQ] =   { "GT_EQ",    &ParseSymbol,       &ParseCompare,    PREC_COMPARE },
-  [AND] =     { "AND",      &ParseSymbol,       &ParseBool,       PREC_BOOLEAN },
-  [OR] =      { "OR",       &ParseSymbol,       &ParseBool,       PREC_BOOLEAN },
-  [NOT] =     { "NOT",      &ParseSymbol,       &ParseBool,       PREC_BOOLEAN },
-};
-
-static ParseRule *GetPrefixRule(Reader *r)
+static bool IsSymChar(char c)
 {
-  SkipSpace(r);
+  if (IsAlpha(c)) return true;
+  if (IsSpace(c)) return false;
+  if (IsNewline(c)) return false;
+  if (IsEnd(c)) return false;
 
-  if (Match(r, "("))      return &rules[PAREN];
-  if (Match(r, "["))      return &rules[BRACKET];
-  if (Match(r, "{"))      return &rules[BRACE];
-  if (Match(r, "«"))      return &rules[QUOTE];
-  if (Match(r, "\""))     return &rules[QUOTE2];
-  if (Match(r, ":"))      return &rules[COLON];
-  if (Match(r, "do"))     return &rules[BLOCK];
-  if (Match(r, "def"))    return &rules[DEF];
-  if (Match(r, "if"))     return &rules[IF];
-  if (IsDigit(Peek(r)))   return &rules[DIGIT];
-  if (IsSymChar(Peek(r))) return &rules[SYMCHAR];
-  return NULL;
-}
-
-static bool InfixApplies(Sigil type, Precedence prec)
-{
-  return rules[type].infix != NULL && rules[type].prec >= prec;
-}
-
-static ParseRule *GetInfixRule(Reader *r, Precedence prec)
-{
-  if (InfixApplies(PAREN, prec)   && Match(r, "("))       return &rules[PAREN];
-  if (InfixApplies(BRACKET, prec) && Match(r, "["))       return &rules[BRACKET];
-  if (InfixApplies(BRACE, prec)   && Match(r, "{"))       return &rules[BRACE];
-  if (InfixApplies(QUOTE, prec)   && Match(r, "«"))       return &rules[QUOTE];
-  if (InfixApplies(QUOTE2, prec)  && Match(r, "\""))      return &rules[QUOTE2];
-  if (InfixApplies(PLUS, prec)    && Match(r, "+"))       return &rules[PLUS];
-  if (InfixApplies(MINUS, prec)   && Match(r, "-"))       return &rules[MINUS];
-  if (InfixApplies(STAR, prec)    && Match(r, "*"))       return &rules[STAR];
-  if (InfixApplies(SLASH, prec)   && Match(r, "/"))       return &rules[SLASH];
-  if (InfixApplies(COLON, prec)   && Match(r, ":"))       return &rules[COLON];
-  if (InfixApplies(ARROW, prec)   && Match(r, "->"))      return &rules[ARROW];
-  if (InfixApplies(DOT, prec)     && Match(r, "."))       return &rules[DOT];
-  if (InfixApplies(BLOCK, prec)   && Match(r, "do"))      return &rules[BLOCK];
-  if (InfixApplies(DEF, prec)     && Match(r, "def"))     return &rules[DEF];
-  if (InfixApplies(IF, prec)      && Match(r, "if"))      return &rules[IF];
-  if (InfixApplies(EQUAL, prec)   && WillMatch(r, "="))   return &rules[EQUAL];
-  if (InfixApplies(INEQUAL, prec) && WillMatch(r, "≠"))   return &rules[INEQUAL];
-  if (InfixApplies(LESS, prec)    && WillMatch(r, "<"))   return &rules[LESS];
-  if (InfixApplies(LT_EQ, prec)   && WillMatch(r, "≤"))   return &rules[LT_EQ];
-  if (InfixApplies(GREATER, prec) && WillMatch(r, ">"))   return &rules[GREATER];
-  if (InfixApplies(GT_EQ, prec)   && WillMatch(r, "≥"))   return &rules[GT_EQ];
-  if (InfixApplies(AND, prec)     && WillMatch(r, "and")) return &rules[AND];
-  if (InfixApplies(OR, prec)      && WillMatch(r, "or"))  return &rules[OR];
-  if (InfixApplies(NOT, prec)     && WillMatch(r, "not")) return &rules[NOT];
-  if (InfixApplies(DIGIT, prec)   && IsDigit(Peek(r)))    return &rules[DIGIT];
-  if (InfixApplies(SYMCHAR, prec) && IsSymChar(Peek(r)))  return &rules[SYMCHAR];
-
-  return NULL;
-}
-
-static Val ParsePrecedence(Reader *r, Precedence prec)
-{
-  SkipSpace(r);
-  if (IsEnd(Peek(r))) ParseError(r, "Unexpected end of text");
-
-  if (DEBUG_READ) PrintReader(r);
-  ParseRule *rule = GetPrefixRule(r);
-  if (DEBUG_READ) PrintRule(r, rule->name, false, prec);
-  if (rule->prefix == NULL) ParseError(r, "Expected expression");
-
-  Val exp = rule->prefix(r);
-  while ((rule = GetInfixRule(r, prec))) {
-    if (DEBUG_READ) PrintRule(r, rule->name, true, prec);
-    exp = rule->infix(r, exp);
+  switch (c) {
+  case '(':
+  case ')':
+  case '{':
+  case '}':
+  case '[':
+  case ']':
+  case ':':
+  case ';':
+  case '.':
+  case ',':
+    return false;
+  default:
+    return true;
   }
-
-  return exp;
 }
 
-Val Read(char *src)
+/*
+ * Reader manipulation
+ */
+
+Reader *NewReader(void)
 {
-  Reader r = { src, 0, 1, 1};
+  Reader *r = malloc(sizeof(Reader));
+  r->src = NULL;
+  r->last_ok = NULL;
+  r->status = PARSE_OK;
+  r->cur = 0;
+  r->file = "stdin";
+  r->line = 1;
+  r->col = 1;
+  r->error = NULL;
+  r->ast = nil;
+  return r;
+}
 
-  SkipSpace(&r);
-  if (IsEnd(Peek(&r))) {
-    return nil;
-  }
+void FreeReader(Reader *r)
+{
+  free(r->src);
+  free(r);
+}
 
-  Val items = nil;
-  while (!IsEnd(Peek(&r))) {
-    items = MakePair(ParseExpr(&r), items);
-  }
-
-  if (IsNil(Tail(items))) {
-    return Head(items);
+void AppendSource(Reader *r, char *src)
+{
+  if (r->src == NULL) {
+    r->src = malloc(strlen(src) + 1);
+    strcpy(r->src, src);
   } else {
-    return MakePair(MakeSymbol("do"), Reverse(items));
+    r->src = realloc(r->src, strlen(r->src) + strlen(src) + 1);
+    strcat(r->src, src);
+  }
+
+  if (ReadOk(r)) {
+    r->last_ok = r->src;
   }
 }
 
-Val ReadFile(char *path)
+static Val Stop(Reader *r)
 {
-  FILE *file = fopen(path, "r");
-  if (!file) {
-    Error("Could not open file \"%s\"", path);
-  }
+  r->status = PARSE_INCOMPLETE;
+  return nil;
+}
 
-  fseek(file, 0, SEEK_END);
-  u32 size = ftell(file);
-  rewind(file);
-
-  char src[size+1];
-  for (u32 i = 0; i < size; i++) {
-    int c = fgetc(file);
-    src[i] = (char)c;
-  }
-  src[size] = '\0';
-
-  return Read(src);
+static void Rewind(Reader *r)
+{
+  r->cur = 0;
+  r->col = 1;
+  r->line = 1;
+  r->status = PARSE_OK;
 }
 
 static void Advance(Reader *r)
@@ -268,22 +110,28 @@ static void AdvanceLine(Reader *r)
 static void SkipSpace(Reader *r)
 {
   while (IsSpace(Peek(r))) {
-    if (Peek(r) == '\n') {
-      AdvanceLine(r);
-    } else {
-      Advance(r);
-    }
+    Advance(r);
   }
 
   if (Peek(r) == ';') {
-    while (Peek(r) != '\n') {
+    while (!IsNewline(Peek(r))) {
       Advance(r);
     }
+    AdvanceLine(r);
     SkipSpace(r);
   }
 }
 
-static bool WillMatch(Reader *r, char *expect)
+static void SkipSpaceAndNewlines(Reader *r)
+{
+  SkipSpace(r);
+  while (IsNewline(Peek(r))) {
+    AdvanceLine(r);
+    SkipSpace(r);
+  }
+}
+
+static bool Check(Reader *r, char *expect)
 {
   SkipSpace(r);
   u32 len = strlen(expect);
@@ -296,7 +144,7 @@ static bool WillMatch(Reader *r, char *expect)
 
 static bool Match(Reader *r, char *expect)
 {
-  if (WillMatch(r, expect)) {
+  if (Check(r, expect)) {
     r->cur += strlen(expect);
     r->col += strlen(expect);
     SkipSpace(r);
@@ -309,39 +157,252 @@ static bool Match(Reader *r, char *expect)
 static void Expect(Reader *r, char *expect)
 {
   if (!Match(r, expect)) {
-    char message[strlen(expect) + 12];
-    sprintf(message, "Expected \"%s\"", expect);
-    ParseError(r, message);
+    ParseError(r, "Expected \"%s\"", expect);
   }
 }
 
-static bool IsSymChar(char c)
-{
-  if (IsAlpha(c)) return true;
-  if (IsSpace(c)) return false;
+/*
+ * Debugging
+ */
 
-  switch (c) {
-  case '(':
-  case ')':
-  case '{':
-  case '}':
-  case '[':
-  case ']':
-  case ':':
-  case ';':
-  case '.':
-    return false;
-  default:
-    return true;
+void PrintSource(Reader *r)
+{
+  u32 linenum_size = (r->line >= 1000) ? 4 : (r->line >= 100) ? 3 : (r->line >= 10) ? 2 : 1;
+  u32 colnum_size = (r->col >= 1000) ? 4 : (r->col >= 100) ? 3 : (r->col >= 10) ? 2 : 1;
+  u32 gutter = (linenum_size > colnum_size + 1) ? linenum_size : colnum_size + 1;
+  if (gutter < 3) gutter = 3;
+
+  char *c = r->src;
+  u32 line = 1;
+
+  while (!IsEnd(*c)) {
+    fprintf(stderr, "  %*d │ ", gutter, line);
+    while (!IsNewline(*c) && !IsEnd(*c)) {
+      fprintf(stderr, "%c", *c);
+      c++;
+    }
+
+    fprintf(stderr, "\n");
+    line++;
+    c++;
   }
+
+  if (IsEnd(*c) && c > r->src && !IsNewline(*(c-1))) {
+    fprintf(stderr, "\n");
+  }
+}
+
+void PrintSourceContext(Reader *r, u32 num_lines)
+{
+  char *c = &r->src[r->cur];
+  u32 after = 0;
+  while (!IsEnd(*c) && after < num_lines / 2) {
+    c++;
+    after++;
+  }
+  u32 before = num_lines - after;
+  if (before > r->line) {
+    before = r->line;
+    after = num_lines - r->line;
+  }
+
+  u32 gutter = (r->line >= 1000) ? 4 : (r->line >= 100) ? 3 : (r->line >= 10) ? 2 : 1;
+  if (gutter < 2) gutter = 2;
+
+  c = r->src;
+  i32 line = 1;
+
+  while (line < (i32)r->line - (i32)before) {
+    if (IsEnd(*c)) return;
+    if (IsNewline(*c)) line++;
+    c++;
+  }
+
+  while (line < (i32)r->line + (i32)after + 1 && !IsEnd(*c)) {
+    fprintf(stderr, "  %*d │ ", gutter, line);
+    while (!IsNewline(*c) && !IsEnd(*c)) {
+      fprintf(stderr, "%c", *c);
+      c++;
+    }
+
+    if (line == (i32)r->line) {
+      fprintf(stderr, "\n  ");
+      for (u32 i = 0; i < gutter + r->col + 2; i++) fprintf(stderr, " ");
+      fprintf(stderr, "↑");
+    }
+    fprintf(stderr, "\n");
+    line++;
+    c++;
+  }
+
+  if (IsEnd(*c) && c > r->src && !IsNewline(*(c-1))) {
+    fprintf(stderr, "\n");
+  }
+}
+
+void PrintReaderError(Reader *r)
+{
+  if (r->status != PARSE_ERROR) return;
+
+  // red text
+  fprintf(stderr, "\x1B[31m");
+  fprintf(stderr, "[%s:%d:%d] Parse error: %s\n\n", r->file, r->line, r->col, r->error);
+
+  PrintSourceContext(r, 10);
+
+  // reset text
+  fprintf(stderr, "\x1B[0m");
+}
+
+/*
+ * Parsing
+ */
+
+typedef enum {
+  PREC_NONE,
+  PREC_BLOCK,
+  PREC_EXPR,
+  PREC_LAMBDA,
+  PREC_CALL,
+  PREC_LOGIC,
+  PREC_EQUALITY,
+  PREC_COMPARE,
+  PREC_TERM,
+  PREC_FACTOR,
+  PREC_EXPONENT,
+  PREC_NEGATIVE,
+  PREC_ACCESS,
+  PREC_PRIMARY,
+} Precedence;
+
+char *PrecName(Precedence prec)
+{
+  switch (prec) {
+  case PREC_NONE:     return "PREC_NONE";
+  case PREC_BLOCK:    return "PREC_BLOCK";
+  case PREC_EXPR:     return "PREC_EXPR";
+  case PREC_LAMBDA:   return "PREC_LAMBDA";
+  case PREC_CALL:     return "PREC_CALL";
+  case PREC_LOGIC:    return "PREC_LOGIC";
+  case PREC_EQUALITY: return "PREC_EQUALITY";
+  case PREC_COMPARE:  return "PREC_COMPARE";
+  case PREC_TERM:     return "PREC_TERM";
+  case PREC_FACTOR:   return "PREC_FACTOR";
+  case PREC_EXPONENT: return "PREC_EXPONENT";
+  case PREC_NEGATIVE: return "PREC_NEGATIVE";
+  case PREC_ACCESS:   return "PREC_ACCESS";
+  case PREC_PRIMARY:  return "PREC_PRIMARY";
+  default:            return "PREC_UNKNOWN";
+  }
+}
+
+struct InfixRule;
+typedef Val (*PrefixFn)(Reader *r);
+typedef Val (*InfixFn)(Reader *r, struct InfixRule *rule, Val prefix);
+
+typedef struct {
+  char *intro;
+  PrefixFn parse;
+} PrefixRule;
+
+typedef struct InfixRule {
+  char *op;
+  InfixFn parse;
+  Precedence prec;
+} InfixRule;
+
+typedef enum {
+  DIGIT
+} TokenType;
+
+static Val ParsePrec(Reader *r, Precedence prec);
+
+static void PrintPrefixRule(Reader *r, PrefixRule *rule, Precedence prec)
+{
+  fprintf(stderr, "Prefix rule for \"%s\" at %s\n", rule->intro, PrecName(prec));
+  PrintSourceContext(r, 0);
+}
+
+static void PrintInfixRule(Reader *r, InfixRule *rule, Precedence prec)
+{
+  fprintf(stderr, "Infix rule for \"%s\" (%s) at %s\n", rule->op, PrecName(rule->prec), PrecName(prec));
+  PrintSourceContext(r, 0);
 }
 
 static Val ParseExpr(Reader *r)
 {
-  return ParsePrecedence(r, PREC_EXPR);
+  Val exp = nil;
+  while (!IsEnd(Peek(r))) {
+    exp = MakePair(ParsePrec(r, PREC_LAMBDA), exp);
+    if (!ReadOk(r)) return nil;
+    if (IsNil(Head(exp))) return Reverse(Tail(exp));
+    SkipSpace(r);
+  }
+
+  return Reverse(exp);
 }
 
-static Val ParseInt(Reader *r)
+static Val ParseBlock(Reader *r)
+{
+  Val exprs = nil;
+  SkipSpaceAndNewlines(r);
+  while (!IsEnd(Peek(r))) {
+    Val exp = ParseExpr(r);
+
+    if (!ReadOk(r)) return nil;
+    if (IsNil(exp)) break;
+
+    exprs = MakePair(exp, exprs);
+    SkipSpaceAndNewlines(r);
+    while (Peek(r) == ',') {
+      Advance(r);
+      SkipSpaceAndNewlines(r);
+    }
+  }
+
+  return Reverse(exprs);
+}
+
+static Val ParseDoBlock(Reader *r)
+{
+  Advance(r);
+  Advance(r);
+
+  Val exp = MakePair(MakeSymbol("do"), ParseBlock(r));
+
+  if (Match(r, "else")) {
+    Val else_exp = MakePair(MakeSymbol("do"), ParseBlock(r));
+
+    if (!Match(r, "end")) {
+      return Stop(r);
+    }
+
+    return MakeTagged(3, "ifelse", exp, else_exp);
+  }
+
+  if (!Match(r, "end")) {
+    return Stop(r);
+  }
+
+  return exp;
+}
+
+static Val ParseGroup(Reader *r)
+{
+  Advance(r);
+  Val exp = ParseBlock(r);
+  if (!Match(r, ")")) {
+    return Stop(r);
+  }
+
+  if (ListLength(exp) == 1) {
+    return Head(exp);
+  } else {
+    return exp;
+  }
+}
+
+static Val ParseNumber(Reader *r)
 {
   u32 n = Peek(r) - '0';
   Advance(r);
@@ -354,282 +415,206 @@ static Val ParseInt(Reader *r)
   return IntVal(n);
 }
 
-static void SkipString(Reader *r)
+static bool CheckKeywords(Reader *r)
 {
-  while (!Match(r, "»")) {
-    if (IsEnd(Peek(r))) ParseError(r, "Unterminated string");
-    if (Match(r, "«")) {
-      SkipString(r);
-    }
+  char *keywords[] = {"else", "end"};
 
-    if (Peek(r) == '\n') {
-      AdvanceLine(r);
-    } else {
-      Advance(r);
-    }
+  for (u32 i = 0; i < ArrayCount(keywords); i++) {
+    if (Check(r, keywords[i])) return true;
   }
+  return false;
 }
 
-static Val ParseString(Reader *r)
+static Val ParseIdentifier(Reader *r)
 {
-  u32 start = r->cur;
+  if (CheckKeywords(r)) return nil;
 
-  SkipString(r);
-
-  u32 length = r->cur - start;
-  return MakeBinary(r->src + start, length);
-}
-
-static Val ParseString2(Reader *r)
-{
-  u32 start = r->cur;
-
-  while (!Match(r, "\"")) {
-    if (Peek(r) == '\\') Advance(r);
-    if (IsEnd(Peek(r))) return ParseError(r, "Unterminated string");
-
-    if (Peek(r) == '\n') {
-      AdvanceLine(r);
-    } else {
-      Advance(r);
-    }
-  }
-
-  u32 length = r->cur - start;
-  return MakeBinary(r->src + start, length);
-}
-
-static Val ParseVariable(Reader *r)
-{
   u32 start = r->cur;
   while (IsSymChar(Peek(r))) {
     Advance(r);
   }
 
-  if (r->cur == start) ParseError(r, "Expected symbol");
+  if (r->cur == start) {
+    ParseError(r, "Expected symbol");
+    return nil;
+  }
 
   return MakeSymbolFromSlice(&r->src[start], r->cur - start);
 }
 
+static Val ParseNegative(Reader *r)
+{
+  Advance(r);
+  Val operand = ParsePrec(r, PREC_NEGATIVE);
+  return MakeTagged(2, "-", operand);
+}
+
+static Val ParseString(Reader *r)
+{
+  Advance(r);
+  u32 start = r->cur;
+  while (Peek(r) != '"') {
+    if (IsEnd(Peek(r))) return Stop(r);
+
+    if (IsNewline(Peek(r))) {
+      AdvanceLine(r);
+    } else {
+      Advance(r);
+    }
+  }
+  Val str = MakeBinary(r->src + start, r->cur - start);
+  Advance(r);
+  return str;
+}
+
 static Val ParseSymbol(Reader *r)
 {
-  Val var = ParseVariable(r);
-  return MakePair(MakeSymbol("quote"), var);
+  Advance(r);
+  Val name = ParseIdentifier(r);
+  if (!ReadOk(r)) return nil;
+
+  return name;
 }
 
-static Val ParseBlock(Reader *r)
+static Val ParseAccess(Reader *r, InfixRule *rule, Val prefix)
 {
-  Val block = MakePair(MakeSymbol("do"), nil);
-
-  while (!Eq(Head(block), SymbolFor("end"))) {
-    block = MakePair(ParseExpr(r), block);
-  }
-
-  return Reverse(Tail(block));
+  Advance(r);
+  Val operand = ParseIdentifier(r);
+  return MakeTagged(3, ".", prefix, operand);
 }
 
-static Val ParseList(Reader *r)
+static Val ParseInfix(Reader *r, InfixRule *rule, Val prefix)
 {
-  Val items = nil;
-
-  while (!Match(r, ")")) {
-    items = MakePair(ParseExpr(r), items);
-  }
-
-  return Reverse(items);
+  for (u32 i = 0; i < strlen(rule->op); i++) Advance(r);
+  SkipSpace(r);
+  Val operand = ParsePrec(r, rule->prec + 1);
+  return MakeTagged(3, rule->op, prefix, operand);
 }
 
-static Val ParseListLiteral(Reader *r)
+PrefixRule num_rule = { "DIGIT", &ParseNumber };
+PrefixRule id_rule = { "ALPHA", &ParseIdentifier };
+
+static PrefixRule prefix_rules[] = {
+  { "do",   &ParseDoBlock },
+  { "-",    &ParseNegative },
+  { "\"",   &ParseString },
+  { ":",    &ParseSymbol },
+  { "(",    &ParseGroup },
+};
+
+static InfixRule infix_rules[] = {
+  { "and",  &ParseInfix,    PREC_LOGIC },
+  { "or",   &ParseInfix,    PREC_LOGIC },
+  { "**",   &ParseInfix,    PREC_EXPONENT },
+  { ">=",   &ParseInfix,    PREC_COMPARE },
+  { "<=",   &ParseInfix,    PREC_COMPARE },
+  { "!=",   &ParseInfix,    PREC_EQUALITY },
+  { "->",   &ParseInfix,    PREC_LAMBDA },
+  { ".",    &ParseAccess,   PREC_ACCESS },
+  { "*",    &ParseInfix,    PREC_FACTOR },
+  { "/",    &ParseInfix,    PREC_FACTOR },
+  { "+",    &ParseInfix,    PREC_TERM },
+  { "-",    &ParseInfix,    PREC_TERM },
+  { ">",    &ParseInfix,    PREC_COMPARE },
+  { "<",    &ParseInfix,    PREC_COMPARE },
+  { "=",    &ParseInfix,    PREC_EQUALITY },
+};
+
+static PrefixRule *GetPrefixRule(Reader *r)
 {
-  Val items = nil;
+  if (IsDigit(Peek(r)))   return &num_rule;
 
-  while (!Match(r, "]")) {
-    if (Match(r, "|")) {
-      if (ListLength(items) != 1) {
-        ParseError(r, "Can only add one head to a list");
-      }
-      Val head = Head(items);
-      Val tail = ParseExpr(r);
-      Expect(r, "]");
-
-      return MakeList(3, MakeSymbol("pair"), head, tail);
+  for (u32 i = 0; i < ArrayCount(prefix_rules); i++) {
+    if (Check(r, prefix_rules[i].intro)) {
+      return &prefix_rules[i];
     }
-    Val exp = ParseExpr(r);
-    items = MakePair(exp, items);
   }
 
-  return MakePair(MakeSymbol("list"), Reverse(items));
+  if (IsSymChar(Peek(r))) return &id_rule;
+
+  return NULL;
 }
 
-static Val ParseDict(Reader *r)
+static InfixRule *GetInfixRule(Reader *r, Precedence prec)
 {
-  Val keys = nil;
-  Val vals = nil;
-
-  while (!Match(r, "}")) {
-    keys = MakePair(ParseSymbol(r), keys);
-    Expect(r, ":");
-    vals = MakePair(ParseExpr(r), vals);
-  }
-
-  return MakeList(3, MakeSymbol("dict"),
-                     MakePair(MakeSymbol("list"), keys),
-                     MakePair(MakeSymbol("list"), vals));
-}
-
-static Val ParseLambda(Reader *r, Val params)
-{
-  return MakeList(3, MakeSymbol("λ"), params, ParseExpr(r));
-}
-
-static Val ParseError(Reader *r, char *message)
-{
-  u32 len = snprintf(NULL, 0, "[%d:%d] Error: %s\n\n", r->line, r->col, message);
-  char msg[len+1];
-  snprintf(msg, len, "[%d:%d] Error: %s\n\n", r->line, r->col, message);
-  return nil;
-}
-
-static Val ParseNegate(Reader *r)
-{
-  Val operand = ParsePrecedence(r, PREC_UNARY);
-  return MakeList(2, MakeSymbol("-"), operand);
-}
-
-static Val ParseAdd(Reader *r, Val prefix)
-{
-  Val operand = ParsePrecedence(r, PREC_TERM);
-  return MakeList(3, MakeSymbol("+"), prefix, operand);
-}
-
-static Val ParseSubtract(Reader *r, Val prefix)
-{
-  Val operand = ParsePrecedence(r, PREC_TERM);
-  return MakeList(3, MakeSymbol("-"), prefix, operand);
-}
-
-static Val ParseMultiply(Reader *r, Val prefix)
-{
-  Val operand = ParsePrecedence(r, PREC_FACTOR);
-  return MakeList(3, MakeSymbol("*"), prefix, operand);
-}
-
-static Val ParseDivide(Reader *r, Val prefix)
-{
-  Val operand = ParsePrecedence(r, PREC_FACTOR);
-  return MakeList(3, MakeSymbol("/"), prefix, operand);
-}
-
-static Val ParseDefine(Reader *r)
-{
-  Val var = ParseExpr(r);
-
-  if (IsSym(var)) {
-    Val val = ParseExpr(r);
-    return MakeList(3, MakeSymbol("def"), var, val);
-  } else if (IsList(var)) {
-    Val args = Tail(var);
-    var = Head(var);
-    Val body = ParseExpr(r);
-    Val lambda = MakeList(3, MakeSymbol("λ"), args, body);
-    return MakeList(3, MakeSymbol("def"), var, lambda);
-  }
-
-  return ParseError(r, "Can't define that");
-}
-
-static Val ParseIf(Reader *r)
-{
-  Val test = ParseExpr(r);
-
-  if (Match(r, "do")) {
-    Val block = MakePair(MakeSymbol("do"), nil);
-
-    while (!Eq(Head(block), SymbolFor("end")) && !Eq(Head(block), SymbolFor("else"))) {
-      block = MakePair(ParseExpr(r), block);
+  for (u32 i = 0; i < ArrayCount(infix_rules); i++) {
+    if (infix_rules[i].prec >= prec && Check(r, infix_rules[i].op)) {
+      return &infix_rules[i];
     }
+  }
+  return NULL;
+}
 
-    Val else_block = MakePair(MakeSymbol("do"), nil);
-    if (Eq(Head(block), SymbolFor("else"))) {
-      while (!Eq(Head(else_block), SymbolFor("end"))) {
-        else_block = MakePair(ParseExpr(r), else_block);
-      }
-      else_block = Reverse(Tail(else_block));
+static Val ParsePrec(Reader *r, Precedence prec)
+{
+  if (IsEnd(Peek(r))) return Stop(r);
+
+  PrefixRule *prefix = GetPrefixRule(r);
+  if (!prefix) {
+    return nil;
+  }
+  if (DEBUG_READ) PrintPrefixRule(r, prefix, prec);
+
+  Val exp = prefix->parse(r);
+  if (!ReadOk(r)) return nil;
+
+  if (DEBUG_READ) {
+    fprintf(stderr, "Produced ");
+    PrintVal(exp);
+  }
+
+  InfixRule *infix;
+  while ((infix = GetInfixRule(r, prec))) {
+    if (DEBUG_READ) PrintInfixRule(r, infix, prec);
+    exp = infix->parse(r, infix, exp);
+    if (!ReadOk(r)) return nil;
+
+    if (DEBUG_READ) {
+      fprintf(stderr, "Produced ");
+      PrintVal(exp);
     }
+  }
 
-    block = Reverse(Tail(block));
-    return MakeList(4, MakeSymbol("if"), test, block, else_block);
-  } else {
-    Val consequent = ParseExpr(r);
-    return MakeList(4, MakeSymbol("if"), test, consequent, nil);
+  return exp;
+}
+
+/* Read functions */
+
+void Read(Reader *r, char *src)
+{
+  AppendSource(r, src);
+  Rewind(r);
+  SkipSpaceAndNewlines(r);
+
+  if (DEBUG_READ) {
+    PrintSource(r);
+    fprintf(stderr, "---\n");
+  }
+
+  Val exp = ParseBlock(r);
+  if (ReadOk(r)) {
+    r->ast = exp;
   }
 }
 
-static Val ParseAccess(Reader *r, Val prefix)
+void ReadFile(Reader *reader, char *path)
 {
-  Val operand = ParseExpr(r);
-  Expect(r, "]");
-  return MakeList(3, MakeSymbol("get"), prefix, operand);
-}
-
-static Val ParseDotAccess(Reader *r, Val prefix)
-{
-  Val operand = ParseSymbol(r);
-  return MakeList(3, MakeSymbol("get"), prefix, operand);
-}
-
-static Val ParseCompare(Reader *r, Val prefix)
-{
-  Val op = ParseVariable(r);
-  Val operand = ParsePrecedence(r, PREC_COMPARE + 1);
-  return MakeList(3, op, prefix, operand);
-}
-
-static Val ParseBool(Reader *r, Val prefix)
-{
-  Val op = ParseVariable(r);
-  Val operand = ParsePrecedence(r, PREC_BOOLEAN + 1);
-  return MakeList(3, op, prefix, operand);
-}
-
-static void PrintRule(Reader *r, char *name, bool infix, Precedence prec)
-{
-  printf("[%d:%d] ", r->line, r->col);
-  if (infix) {
-    printf("Infix rule:  ");
-  } else {
-    printf("Prefix rule: ");
-  }
-  printf("%s at ", name);
-  switch (prec) {
-  case PREC_NONE: printf("PREC_NONE"); break;
-  case PREC_EXPR: printf("PREC_EXPR"); break;
-  case PREC_TERM: printf("PREC_TERM"); break;
-  case PREC_FACTOR: printf("PREC_FACTOR"); break;
-  case PREC_UNARY: printf("PREC_UNARY"); break;
-  case PREC_ACCESS: printf("PREC_ACCESS"); break;
-  case PREC_COMPARE: printf("PREC_COMPARE"); break;
-  case PREC_BOOLEAN: printf("PREC_BOOLEAN"); break;
-  }
-  printf("\n");
-}
-
-static void PrintReader(Reader *r)
-{
-  PrintReaderTo(stdout, r);
-}
-
-static void PrintReaderTo(FILE *stream, Reader *r)
-{
-  char *line = r->src + r->cur - (r->col - 1);
-
-  fprintf(stream, "  ");
-  while (*line != '\n' && *line != '\0') {
-    fprintf(stream, "%c", *line++);
+  FILE *file = fopen(path, "r");
+  if (!file) {
+    ParseError(reader, "Could not open file \"%s\"", path);
   }
 
-  fprintf(stream, "\n");
-  fprintf(stream, "  ");
-  for (u32 i = 0; i < r->col - 1; i++) fprintf(stream, " ");
-  fprintf(stream, "^\n");
+  fseek(file, 0, SEEK_END);
+  u32 size = ftell(file);
+  rewind(file);
+
+  char src[size+1];
+  for (u32 i = 0; i < size; i++) {
+    int c = fgetc(file);
+    src[i] = (char)c;
+  }
+  src[size] = '\0';
+
+  reader->file = path;
+  Read(reader, src);
 }

@@ -1,13 +1,7 @@
-def (ι n) do
-  def (loop n result) do
-    if n < 1 do
-      result
-    else
-      (loop n - 1 [n | result])
-    end
-  end
-
-  (loop n nil)
+if (test x) do
+  display :ok
+  ok
+else
+  display :err
+  err
 end
-
-(ι 10)
