@@ -295,16 +295,19 @@ Val PrimRange(Val args)
 {
   Val from = First(args);
   Val to = Second(args);
-  if (RawVal(to) < RawVal(from)) {
-    fprintf(stderr, "%d > %d", (u32)RawVal(from), (u32)RawVal(to));
-    return nil;
-  }
-
   Val list = nil;
-  for (u32 i = RawVal(from); i < RawVal(to); i++) {
-    list = MakePair(IntVal(i), list);
+
+  if (RawVal(from) > RawVal(to)) {
+    for (i32 i = RawVal(from); i > RawVal(to); i--) {
+      list = MakePair(IntVal(i), list);
+    }
+    return Reverse(list);
+  } else {
+    for (i32 i = RawVal(from); i < RawVal(to); i++) {
+      list = MakePair(IntVal(i), list);
+    }
+    return Reverse(list);
   }
-  return Reverse(list);
 }
 
 Val PrimAnd(Val args)
@@ -351,6 +354,13 @@ Val PrimDisplay(Val args)
   return nil;
 }
 
+Val PrimReverse(Val args)
+{
+  Val list = First(args);
+  PrintVal(args);
+  return Reverse(list);
+}
+
 Val PrimEval(Val args)
 {
   Val exp = First(args);
@@ -370,11 +380,11 @@ PrimitiveDef primitives[] = {
   {"tail",        &PrimTail},
   {"set-head!",   &PrimSetHead},
   {"set-tail!",   &PrimSetTail},
-  {"pair",        &PrimPair},
   {"list",        &PrimList},
   {"tuple",       &PrimMakeTuple},
   {"dict",        &PrimMakeDict},
   {"get",         &PrimAccess},
+  {"|",           &PrimPair},
   {"+",           &PrimAdd},
   {"-",           &PrimSub},
   {"*",           &PrimMult},
@@ -392,6 +402,7 @@ PrimitiveDef primitives[] = {
   {"rem",         &PrimRem},
   {"eq?",         &PrimEq},
   {"display",     &PrimDisplay},
+  {"reverse",     &PrimReverse},
   {"eval",        &PrimEval},
   {"read-file",   &PrimReadFile}
 };

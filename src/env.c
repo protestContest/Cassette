@@ -81,6 +81,8 @@ Val Lookup(Val var, Val env)
     cur_env = ParentEnv(cur_env);
   }
 
+  DumpEnv(env);
+
   Error("Unbound variable \"%s\"", SymbolName(var));
 }
 

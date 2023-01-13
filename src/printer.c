@@ -55,10 +55,14 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     char *name = SymbolName(ProcName(val));
     start += snprintf(dst + start, size, "%s", name);
     Val params = ProcParams(val);
-    while (!IsNil(params)) {
-      start += snprintf(dst + start, size, " ");
-      start = PrintValTo(Head(params), dst, start, size);
-      params = Tail(params);
+    if (IsList(params)) {
+      while (!IsNil(params)) {
+        start += snprintf(dst + start, size, " ");
+        start = PrintValTo(Head(params), dst, start, size);
+        params = Tail(params);
+      }
+    } else {
+      start = PrintValTo(params, dst, start, size);
     }
     return start + snprintf(dst + start, size, ")]");
   } else if (IsPair(val)) {
@@ -74,7 +78,13 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     if (size == 0) {
       return start + length + 2;
     } else {
-      return start + snprintf(dst + start, length+3, "\"%s\"", data);
+      // start += snprintf(dst + start, size, "\"");
+      for (u32 i = 0; i < length; i++) {
+        start += snprintf(dst + start, size, "%c", data[i]);
+      }
+      // start += snprintf(dst + start, size, "\"");
+      return start;
+      // return start + snprintf(dst + start, size, "\"");
     }
   } else if (IsTuple(val)) {
     start += snprintf(dst + start, size, "#[");
@@ -121,8 +131,12 @@ void PrintVal(Val val)
 {
   if (IsBin(val)) {
     u32 length = BinaryLength(val);
-    char str[length];
-    snprintf(str, length, "%s\n", BinaryData(val));
+    // fprintf(stderr, "\"");
+    for (u32 i = 0; i < length; i++) {
+      fprintf(stderr, "%c", BinaryData(val)[i]);
+    }
+    // fprintf(stderr, "\"");
+    fprintf(stderr, "\n");
   } else if (IsSym(val)) {
     fprintf(stderr, ":%s\n", SymbolName(val));
   } else {

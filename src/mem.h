@@ -11,6 +11,7 @@ Val MakeList(u32 length, ...);
 Val MakeTagged(u32 length, char *name, ...);
 Val ReverseOnto(Val list, Val tail);
 Val Reverse(Val list);
+Val Flatten(Val list);
 u32 ListLength(Val list);
 Val ListAt(Val list, u32 index);
 Val First(Val list);

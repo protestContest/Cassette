@@ -18,8 +18,8 @@ typedef enum {
 #define nanMask       0x7FC00000
 
 #define type1Mask     0xFFE00000
-#define intMask       0x7FE00000
 #define symMask       0x7FC00000
+#define intMask       0x7FE00000
 
 #define type2Mask     0xFFF00000
 #define pairMask      0xFFC00000
@@ -28,7 +28,7 @@ typedef enum {
 #define dctMask       0xFFF00000
 
 #define IsType1(v)    (((v).as_v & 0x80000000) == 0x0)
-#define NumVal(n)     (Val)(i32)(n)
+#define NumVal(n)     (Val)(float)(n)
 #define IsNum(n)      (((n).as_v & nanMask) != nanMask)
 #define IntVal(i)     (Val)(i32)(((i) & ~type1Mask) | intMask)
 #define IsInt(i)      (((i).as_v & type1Mask) == intMask)

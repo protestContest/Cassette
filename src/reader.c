@@ -3,7 +3,7 @@
 #include "value.h"
 #include "printer.h"
 
-#define DEBUG_READ 1
+#define DEBUG_READ 0
 
 /*
  * Source helpers
@@ -92,6 +92,14 @@ static void Rewind(Reader *r)
   r->col = 1;
   r->line = 1;
   r->status = PARSE_OK;
+}
+
+static void Retreat(Reader *r)
+{
+  if (r->cur > 0) {
+    r->cur--;
+    r->col--;
+  }
 }
 
 static void Advance(Reader *r)
@@ -389,10 +397,8 @@ static Val ParseBlock(Reader *r)
 
     exprs = MakePair(exp, exprs);
     SkipSpaceAndNewlines(r);
-    while (Peek(r) == ',') {
-      Advance(r);
-      SkipSpaceAndNewlines(r);
-    }
+    Match(r, ",");
+    SkipSpaceAndNewlines(r);
   }
 
   return Reverse(exprs);
@@ -400,8 +406,7 @@ static Val ParseBlock(Reader *r)
 
 static Val ParseDoBlock(Reader *r)
 {
-  Advance(r);
-  Advance(r);
+  Match(r, "do");
 
   Val exp = MakePair(MakeSymbol("do"), ParseBlock(r));
 
@@ -422,19 +427,45 @@ static Val ParseDoBlock(Reader *r)
   return exp;
 }
 
+static Val ParseCond(Reader *r)
+{
+  Match(r, "cond");
+  SkipSpace(r);
+  if (!Check(r, "do")) {
+    ParseError(r, "Expected do block after cond");
+    return nil;
+  }
+
+  Val block = ParseDoBlock(r);
+  if (!ReadOk(r)) return nil;
+
+  Val clauses = MakePair(MakeSymbol("cond"), nil);
+  block = Tail(block);
+  while (!IsNil(block)) {
+    Val clause = Head(block);
+    if (!IsTagged(clause, "->")) {
+      ParseError(r, "Only \"->\" clauses allowed in cond: %s", ValStr(clause));
+      return nil;
+    }
+
+    Val condition = Second(clause);
+    Val consequent = Third(clause);
+    clauses = MakePair(MakePair(condition, consequent), clauses);
+    block = Tail(block);
+  }
+
+  return Reverse(clauses);
+}
+
 static Val ParseGroup(Reader *r)
 {
-  Advance(r);
+  Match(r, "(");
   Val exp = ParseBlock(r);
   if (!Match(r, ")")) {
     return Stop(r);
   }
 
-  if (ListLength(exp) == 1) {
-    return Head(exp);
-  } else {
-    return exp;
-  }
+  return Flatten(exp);
 }
 
 static Val ParseNumber(Reader *r)
@@ -446,6 +477,24 @@ static Val ParseNumber(Reader *r)
     n = n*10 + d;
     Advance(r);
     while (Peek(r) == '_') Advance(r);
+  }
+  if (Match(r, ".")) {
+    if (!IsDigit(Peek(r))) {
+      Retreat(r);
+      return IntVal(n);
+    }
+
+    float frac = 0.0;
+    float denom = 10.0;
+    while (IsDigit(Peek(r))) {
+      u32 d = Peek(r) - '0';
+      frac += (float)d / denom;
+      printf("%f\n", frac + n);
+      denom *= 10;
+      Advance(r);
+      while (Peek(r) == '_') Advance(r);
+    }
+    return NumVal(n + frac);
   }
   return IntVal(n);
 }
@@ -486,7 +535,8 @@ static Val ParseNegative(Reader *r)
 
 static Val ParseString(Reader *r)
 {
-  Advance(r);
+  Match(r, "\"");
+
   u32 start = r->cur;
   while (Peek(r) != '"') {
     if (IsEnd(Peek(r))) return Stop(r);
@@ -499,12 +549,13 @@ static Val ParseString(Reader *r)
   }
   Val str = MakeBinary(r->src + start, r->cur - start);
   Advance(r);
+
   return str;
 }
 
 static Val ParseSymbol(Reader *r)
 {
-  Advance(r);
+  Match(r, ":");
   Val name = ParseIdentifier(r);
   if (!ReadOk(r)) return nil;
 
@@ -592,10 +643,19 @@ static Val ParseInfix(Reader *r, InfixRule *rule, Val prefix)
   return MakeTagged(3, rule->op, prefix, operand);
 }
 
+static Val ParseLambda(Reader *r, InfixRule *rule, Val prefix)
+{
+  Match(r, "->");
+  SkipSpace(r);
+  Val operand = ParseExpr(r);
+  return MakeTagged(3, "->", prefix, operand);
+}
+
 PrefixRule num_rule = { "DIGIT", &ParseNumber };
 PrefixRule id_rule = { "ALPHA", &ParseIdentifier };
 
 static PrefixRule prefix_rules[] = {
+  { "cond", &ParseCond },
   { "do",   &ParseDoBlock },
   { "#[",   &ParseTuple },
   { "-",    &ParseNegative },
@@ -614,7 +674,7 @@ static InfixRule infix_rules[] = {
   { ">=",   &ParseInfix,    PREC_COMPARE },
   { "<=",   &ParseInfix,    PREC_COMPARE },
   { "!=",   &ParseInfix,    PREC_EQUALITY },
-  { "->",   &ParseInfix,    PREC_LAMBDA },
+  { "->",   &ParseLambda,   PREC_LAMBDA },
   { ".",    &ParseAccess,   PREC_ACCESS },
   { "*",    &ParseInfix,    PREC_FACTOR },
   { "/",    &ParseInfix,    PREC_FACTOR },
@@ -704,6 +764,11 @@ void Read(Reader *r, char *src)
     exp = Head(exp);
   }
   r->ast = exp;
+
+  if (DEBUG_READ) {
+    fprintf(stderr, "AST:\n");
+    PrintVal(r->ast);
+  }
 }
 
 void ReadFile(Reader *reader, char *path)

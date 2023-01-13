@@ -1,7 +1,7 @@
 block           ::  pipe (space* ("," | (newline (space | newline)*)) space* pipe)*
 pipe            ::  expr ((space | newline)* "|>" (space | newline)* expr)*
 expr            ::  (lambda (space+ lambda)*)
-lambda          ::  logic (space* "->" space* logic)*
+lambda          ::  logic (space* "->" space* expr)*
 logic           ::  equality (space+ ("and" | "or") space+ equality)*
 equality        ::  compare (space+ ("=" | "!=") space+ compare)*
 compare         ::  range (space+ (">" | ">=" | "<" | "<=") space+ range)*

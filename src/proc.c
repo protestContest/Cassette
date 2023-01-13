@@ -6,6 +6,11 @@ Val MakeProc(Val name, Val params, Val body, Val env)
   return MakeTuple(5, MakeSymbol("proc"), name, params, body, env);
 }
 
+bool IsProc(Val proc)
+{
+  return IsTagged(proc, "prim") || IsTagged(proc, "proc");
+}
+
 Val ProcName(Val proc)
 {
   return TupleAt(proc, 1);

@@ -3,7 +3,7 @@
 #include "hash.h"
 #include "env.h"
 
-#define MEM_SIZE      (4096)
+#define MEM_SIZE      (4096*4096)
 Val mem[MEM_SIZE];
 u32 mem_next = 2;
 
@@ -96,6 +96,24 @@ Val ReverseOnto(Val list, Val tail)
 Val Reverse(Val list)
 {
   return ReverseOnto(list, nil);
+}
+
+Val Flatten(Val list)
+{
+  Val result = nil;
+  while (!IsNil(list)) {
+    Val item = Head(list);
+    if (IsList(item)) {
+      while (!IsNil(item)) {
+        result = MakePair(Head(item), result);
+        item = Tail(item);
+      }
+    } else {
+      result = MakePair(item, result);
+    }
+    list = Tail(list);
+  }
+  return Reverse(result);
 }
 
 u32 ListLength(Val list)

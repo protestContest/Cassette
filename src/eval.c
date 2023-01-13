@@ -6,7 +6,7 @@
 #include "primitives.h"
 #include "module.h"
 
-#define DEBUG_EVAL 1
+#define DEBUG_EVAL 0
 
 static bool IsBool(Val exp)
 {
@@ -36,11 +36,11 @@ Val EvalDefine(Val exp, Val env)
   if (IsSym(First(exp))) {
     Define(First(exp), EvalIn(Second(exp), env), env);
     return nil;
-  } else if (IsPair(Head(exp))) {
-    Val pattern = Head(exp);
+  } else if (IsList(First(exp))) {
+    Val pattern = First(exp);
     Val name = Head(pattern);
     Val params = Tail(pattern);
-    Val body = Tail(exp);
+    Val body = Second(exp);
     Val proc = MakeProc(name, params, body, env);
     Define(name, proc, env);
     return nil;
@@ -53,7 +53,12 @@ Val EvalIf(Val exp, Val env)
 {
   Val predicate = First(exp);
   Val consequent = Second(exp);
-  Val alternative = Third(exp);
+  Val alternative = nil;
+
+  if (IsTagged(consequent, "else")) {
+    alternative = Third(consequent);
+    consequent = Second(consequent);
+  }
 
   Val test = EvalIn(predicate, env);
 
@@ -64,9 +69,30 @@ Val EvalIf(Val exp, Val env)
   }
 }
 
+Val EvalCond(Val clauses, Val env)
+{
+  while (!IsNil(clauses)) {
+    Val clause = Head(clauses);
+    Val test = EvalIn(Head(clause), env);
+    if (IsTrue(test)) {
+      return EvalIn(Tail(clause), env);
+    }
+
+    clauses = Tail(clauses);
+  }
+
+  return nil;
+}
+
 Val EvalLambda(Val exp, Val env)
 {
-  return MakeProc(MakeSymbol("λ"), Head(exp), Tail(exp), env);
+  Val params = Head(exp);
+  if (!IsList(params)) {
+    params = MakePair(params, nil);
+  }
+  Val body = Tail(exp);
+  Val proc = MakeProc(MakeSymbol("λ"), params, body, env);
+  return proc;
 }
 
 Val EvalSequence(Val exp, Val env)
@@ -90,6 +116,9 @@ Val EvalList(Val exp, Val env)
 Val EvalApplication(Val exp, Val env)
 {
   Val values = EvalList(exp, env);
+  if (!IsProc(Head(values))) {
+    return Head(values);
+  }
   return Apply(Head(values), Tail(values));
 }
 
@@ -120,16 +149,15 @@ bool IsApplication(Val exp)
 {
   if (!IsList(exp)) return false;
 
-  if (IsTagged(exp, "|>"))     return false;
-  if (IsTagged(exp, "quote"))  return false;
-  if (IsTagged(exp, "set!"))   return false;
-  if (IsTagged(exp, "def"))    return false;
-  if (IsTagged(exp, "if"))     return false;
-  if (IsTagged(exp, "fn"))     return false;
-  if (IsTagged(exp, "λ"))      return false;
-  if (IsTagged(exp, "do"))     return false;
-  if (IsTagged(exp, "load"))   return false;
-  if (IsTagged(exp, "lookup")) return false;
+  if (IsTagged(exp, "|>"))      return false;
+  if (IsTagged(exp, "quote"))   return false;
+  if (IsTagged(exp, "set!"))    return false;
+  if (IsTagged(exp, "def"))     return false;
+  if (IsTagged(exp, "if"))      return false;
+  if (IsTagged(exp, "->"))      return false;
+  if (IsTagged(exp, "do"))      return false;
+  if (IsTagged(exp, "load"))    return false;
+  if (IsTagged(exp, "lookup"))  return false;
   return true;
 }
 
@@ -140,9 +168,10 @@ Val EvalCompose(Val exp, Val env)
     Error("Can't pipe to this: %s", ValStr(fn));
   }
 
-  Val values = EvalList(fn, env);
-  Val op = Head(values);
-  Val args = MakePair(First(exp), Tail(values));
+  Val application = EvalList(fn, env);
+  Val operand = EvalIn(First(exp), env);
+  Val op = Head(application);
+  Val args = MakePair(operand, Tail(application));
   return Apply(op, args);
 }
 
@@ -153,33 +182,42 @@ Val EvalIn(Val exp, Val env)
     PrintVal(exp);
   }
 
-  if (IsSelfEvaluating(exp))   return exp;
-  if (IsSym(exp))              return Lookup(exp, env);
-  if (IsTagged(exp, "|>"))     return EvalCompose(exp, env);
-  if (IsTagged(exp, "quote"))  return Tail(exp);
-  if (IsTagged(exp, "set!"))   return EvalAssignment(Tail(exp), env);
-  if (IsTagged(exp, "def"))    return EvalDefine(Tail(exp), env);
-  if (IsTagged(exp, "if"))     return EvalIf(Tail(exp), env);
-  if (IsTagged(exp, "fn"))     return EvalLambda(Tail(exp), env);
-  if (IsTagged(exp, "λ"))      return EvalLambda(Tail(exp), env);
-  if (IsTagged(exp, "do"))     return EvalSequence(Tail(exp), env);
-  if (IsTagged(exp, "load"))   return EvalLoad(Tail(exp), env);
-  if (IsTagged(exp, "lookup")) return EvalLookup(Tail(exp), env);
-  if (IsList(exp))             return EvalApplication(exp, env);
+  Val result = nil;
+
+  if (IsSelfEvaluating(exp))        result = exp;
+  else if (IsSym(exp))              result = Lookup(exp, env);
+  else if (IsTagged(exp, "|>"))     result = EvalCompose(Tail(exp), env);
+  else if (IsTagged(exp, "quote"))  result = Tail(exp);
+  else if (IsTagged(exp, "set!"))   result = EvalAssignment(Tail(exp), env);
+  else if (IsTagged(exp, "def"))    result = EvalDefine(Tail(exp), env);
+  else if (IsTagged(exp, "if"))     result = EvalIf(Tail(exp), env);
+  else if (IsTagged(exp, "cond"))   result = EvalCond(Tail(exp), env);
+  else if (IsTagged(exp, "->"))     result = EvalLambda(Tail(exp), env);
+  else if (IsTagged(exp, "do"))     result = EvalSequence(Tail(exp), env);
+  else if (IsTagged(exp, "load"))   result = EvalLoad(Tail(exp), env);
+  else if (IsTagged(exp, "lookup")) result = EvalLookup(Tail(exp), env);
+  else if (IsApplication(exp))      result = EvalApplication(exp, env);
+
+  return result;
 
   Error("Unknown expression: %s", ValStr(exp));
 }
 
 Val Apply(Val proc, Val args)
 {
+  if (DEBUG_EVAL) {
+    fprintf(stderr, "Applying ");
+    PrintVal(proc);
+  }
   if (IsTagged(proc, "prim")) {
     return DoPrimitive(Tail(proc), args);
   } else if (IsTagged(proc, "proc")) {
     Val env = ExtendEnv(ProcParams(proc), args, ProcEnv(proc));
-    return EvalSequence(ProcBody(proc), env);
+    return EvalIn(ProcBody(proc), env);
   }
 
-  Error("Unknown procedure type: %s", ValStr(proc));
+  // Error("Unknown procedure type: %s", ValStr(proc));
+  return proc;
 }
 
 Val Eval(Val exp)

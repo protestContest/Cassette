@@ -9,11 +9,12 @@ int ExecuteScript(char *path);
 
 int main(int argc, char *argv[])
 {
-  if (argc > 1) {
-    return ExecuteScript(argv[1]);
-  } else {
-    REPL();
-  }
+  ExecuteScript("test.rye");
+  // if (argc > 1) {
+  //   return ExecuteScript(argv[1]);
+  // } else {
+  //   REPL();
+  // }
 }
 
 int ExecuteScript(char *path)
