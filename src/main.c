@@ -9,8 +9,6 @@ int ExecuteScript(char *path);
 
 int main(int argc, char *argv[])
 {
-  // ExecuteScript("test.rye");
-
   if (argc > 1) {
     return ExecuteScript(argv[1]);
   } else {
@@ -25,8 +23,7 @@ int ExecuteScript(char *path)
 
   switch (reader->status) {
   case PARSE_OK:
-    PrintVal(reader->ast);
-    PrintTree(reader->ast);
+    Eval(reader->ast);
     break;
   case PARSE_INCOMPLETE:
     ParseError(reader, "Unexpected end of input");

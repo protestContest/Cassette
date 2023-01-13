@@ -16,6 +16,11 @@ void OnSignal(int sig)
   }
 }
 
+void ExitSignal(int sig)
+{
+
+}
+
 void Prompt(Reader *reader)
 {
   if (reader->status == PARSE_INCOMPLETE) {
@@ -33,9 +38,9 @@ void REPL(void)
 
   signal(SIGINT, &OnSignal);
 
+  Prompt(reader);
+  fgets(line, BUFSIZ, stdin);
   while (!feof(stdin)) {
-    Prompt(reader);
-    fgets(line, BUFSIZ, stdin);
     Read(reader, line);
 
     if (ReadOk(reader)) {
@@ -45,5 +50,8 @@ void REPL(void)
     } else if (reader->status == PARSE_ERROR) {
       PrintReaderError(reader);
     }
+
+    Prompt(reader);
+    fgets(line, BUFSIZ, stdin);
   }
 }

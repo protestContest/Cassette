@@ -291,6 +291,22 @@ Val PrimGreaterEquals(Val args)
   return BoolSymbol(!IsLess(a, b));
 }
 
+Val PrimRange(Val args)
+{
+  Val from = First(args);
+  Val to = Second(args);
+  if (RawVal(to) < RawVal(from)) {
+    fprintf(stderr, "%d > %d", (u32)RawVal(from), (u32)RawVal(to));
+    return nil;
+  }
+
+  Val list = nil;
+  for (u32 i = RawVal(from); i < RawVal(to); i++) {
+    list = MakePair(IntVal(i), list);
+  }
+  return Reverse(list);
+}
+
 Val PrimAnd(Val args)
 {
   Val a = First(args);
@@ -364,11 +380,12 @@ PrimitiveDef primitives[] = {
   {"*",           &PrimMult},
   {"/",           &PrimDiv},
   {"=",           &PrimEquals},
-  {"≠",           &PrimNotEquals},
+  {"!=",          &PrimNotEquals},
   {"<",           &PrimLessThan},
   {">",           &PrimGreaterThan},
-  {"≤",           &PrimLessEquals},
-  {"≥",           &PrimGreaterEquals},
+  {"<=",          &PrimLessEquals},
+  {">=",          &PrimGreaterEquals},
+  {"..",          &PrimRange},
   {"and",         &PrimAnd},
   {"or",          &PrimOr},
   {"not",         &PrimNot},

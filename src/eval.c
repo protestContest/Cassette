@@ -6,6 +6,8 @@
 #include "primitives.h"
 #include "module.h"
 
+#define DEBUG_EVAL 1
+
 static bool IsBool(Val exp)
 {
   return Eq(exp, SymbolFor("true")) || Eq(exp, SymbolFor("false"));
@@ -114,13 +116,46 @@ Val EvalLoad(Val exp, Val env)
   return LoadModule(path, GlobalEnv(env));
 }
 
+bool IsApplication(Val exp)
+{
+  if (!IsList(exp)) return false;
+
+  if (IsTagged(exp, "|>"))     return false;
+  if (IsTagged(exp, "quote"))  return false;
+  if (IsTagged(exp, "set!"))   return false;
+  if (IsTagged(exp, "def"))    return false;
+  if (IsTagged(exp, "if"))     return false;
+  if (IsTagged(exp, "fn"))     return false;
+  if (IsTagged(exp, "λ"))      return false;
+  if (IsTagged(exp, "do"))     return false;
+  if (IsTagged(exp, "load"))   return false;
+  if (IsTagged(exp, "lookup")) return false;
+  return true;
+}
+
+Val EvalCompose(Val exp, Val env)
+{
+  Val fn = Second(exp);
+  if (!IsApplication(fn)) {
+    Error("Can't pipe to this: %s", ValStr(fn));
+  }
+
+  Val values = EvalList(fn, env);
+  Val op = Head(values);
+  Val args = MakePair(First(exp), Tail(values));
+  return Apply(op, args);
+}
+
 Val EvalIn(Val exp, Val env)
 {
-  printf("Evaluating ");
-  PrintVal(exp);
+  if (DEBUG_EVAL) {
+    fprintf(stderr, "Evaluating ");
+    PrintVal(exp);
+  }
 
   if (IsSelfEvaluating(exp))   return exp;
   if (IsSym(exp))              return Lookup(exp, env);
+  if (IsTagged(exp, "|>"))     return EvalCompose(exp, env);
   if (IsTagged(exp, "quote"))  return Tail(exp);
   if (IsTagged(exp, "set!"))   return EvalAssignment(Tail(exp), env);
   if (IsTagged(exp, "def"))    return EvalDefine(Tail(exp), env);
@@ -130,7 +165,7 @@ Val EvalIn(Val exp, Val env)
   if (IsTagged(exp, "do"))     return EvalSequence(Tail(exp), env);
   if (IsTagged(exp, "load"))   return EvalLoad(Tail(exp), env);
   if (IsTagged(exp, "lookup")) return EvalLookup(Tail(exp), env);
-  if (IsPair(exp))             return EvalApplication(exp, env);
+  if (IsList(exp))             return EvalApplication(exp, env);
 
   Error("Unknown expression: %s", ValStr(exp));
 }

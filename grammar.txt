@@ -1,23 +1,27 @@
-block           ::  expr (space* ("," | (newline (space | newline)*)) space* expr)*
+block           ::  pipe (space* ("," | (newline (space | newline)*)) space* pipe)*
+pipe            ::  expr ((space | newline)* "|>" (space | newline)* expr)*
 expr            ::  (lambda (space+ lambda)*)
 lambda          ::  logic (space* "->" space* logic)*
 logic           ::  equality (space+ ("and" | "or") space+ equality)*
 equality        ::  compare (space+ ("=" | "!=") space+ compare)*
-compare         ::  term (space+ (">" | ">=" | "<" | "<=") space+ term)*
+compare         ::  range (space+ (">" | ">=" | "<" | "<=") space+ range)*
+range           ::  term (space* ".." space* term)*
 term            ::  factor (space+ ("+" | "-") space+ factor)*
 factor          ::  exponent (space+ ("*" | "/") space+ exponent)*
-exponent        ::  negative (space+ "**" space+ negative)*
+exponent        ::  cons (space+ "**" space+ cons)*
+cons            ::  negative (space* "|" space* negative)*
 negative        ::  ( ("-")? negative ) | access
 access          ::  (identifier ("." identifier)*) | primary
 primary         ::  literal | identifier | ( "(" (space | newline)* block ")" )
-literal         ::  number | string | list | dict | symbol
+literal         ::  number | string | list | dict | symbol | tuple
 number          ::  digit+ ("." digit+)?
 string          ::  "\"" ( (char & !"\") | ("\" char) )* "\""
-list            ::  "[" space* list-tail
-list-tail       ::  (("|" space* expr)? "]") | (expr space* list-tail)
-dict            ::  "{" dict-entry* "}"
-dict-entry      ::  (identifier | string) space* ":" space* expr
+list            ::  "[" (space|newline)* list-tail
+list-tail       ::  "]" | (expr (space | newline)* list-tail)
+dict            ::  "{" (space | newline)* dict-entry* "}"
+dict-entry      ::  identifier ":" (space | newline)* expr (space | newline)*
 symbol          ::  ":" identifier
+tuple           ::  "#[" (space | newline)* list-tail
 identifier      ::  sym-start sym-char*
 sym-start       ::  char & !reserved-char & !digit
 sym-char        ::  char & !reserved-char

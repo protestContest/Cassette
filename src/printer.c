@@ -124,10 +124,10 @@ void PrintVal(Val val)
     char str[length];
     snprintf(str, length, "%s\n", BinaryData(val));
   } else if (IsSym(val)) {
-    printf(":%s\n", SymbolName(val));
+    fprintf(stderr, ":%s\n", SymbolName(val));
   } else {
     char *str = ValStr(val);
-    printf("%s\n", str);
+    fprintf(stderr, "%s\n", str);
     free(str);
   }
 }
