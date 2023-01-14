@@ -19,17 +19,18 @@ int main(int argc, char *argv[])
 
 int ExecuteScript(char *path)
 {
-  Reader *reader = NewReader();
-  ReadFile(reader, path);
+  Reader *r = NewReader();
+  ReadFile(r, path);
 
-  switch (reader->status) {
+  switch (r->status) {
   case PARSE_OK:
-    Eval(reader->ast);
+    PrintVal(r->ast);
+    // Eval(r->ast);
     break;
   case PARSE_INCOMPLETE:
-    ParseError(reader, "Unexpected end of input");
+    ParseError(r, "Unexpected end of input");
   case PARSE_ERROR:
-    PrintReaderError(reader);
+    PrintReaderError(r);
   }
-  return reader->status;
+  return r->status;
 }

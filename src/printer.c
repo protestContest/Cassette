@@ -78,13 +78,12 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     if (size == 0) {
       return start + length + 2;
     } else {
-      // start += snprintf(dst + start, size, "\"");
+      start += snprintf(dst + start, size, "\"");
       for (u32 i = 0; i < length; i++) {
         start += snprintf(dst + start, size, "%c", data[i]);
       }
-      // start += snprintf(dst + start, size, "\"");
+      start += snprintf(dst + start, size, "\"");
       return start;
-      // return start + snprintf(dst + start, size, "\"");
     }
   } else if (IsTuple(val)) {
     start += snprintf(dst + start, size, "#[");

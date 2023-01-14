@@ -8,9 +8,7 @@ Reader *reader = NULL;
 void OnSignal(int sig)
 {
   if (reader->status == PARSE_INCOMPLETE) {
-    reader->status = PARSE_OK;
-    *reader->last_ok = '\0';
-    ungetc('\n', stdin);
+    CancelRead(reader);
   } else {
     exit(0);
   }
@@ -43,7 +41,7 @@ void REPL(void)
   while (!feof(stdin)) {
     Read(reader, line);
 
-    if (ReadOk(reader)) {
+    if (reader->status == PARSE_OK) {
       // TODO: Eval
       PrintVal(reader->ast);
       PrintTree(reader->ast);

@@ -2,35 +2,38 @@
 #include "value.h"
 
 typedef struct {
-  char *src;
-  char *last_ok;
   enum {
     PARSE_OK,
     PARSE_INCOMPLETE,
     PARSE_ERROR
   } status;
-  u32 cur;
   char *file;
   u32 line;
   u32 col;
+  char *src;
+  u32 cur;
+  u32 last_ok;
   char *error;
   Val ast;
 } Reader;
 
-#define ReadOk(r)     ((r)->status == PARSE_OK)
-
-#define ParseError(r, fmt, ...)               \
-  do {                                        \
-    (r)->status = PARSE_ERROR;                \
-    PrintInto((r)->error, fmt, __VA_ARGS__);  \
-  } while (0)
+#define Peek(r)           ((r)->src[(r)->cur])
 
 Reader *NewReader(void);
 void FreeReader(Reader *r);
 
-void PrintReaderSource(Reader *r, u32 before, u32 after);
-void PrintReaderError(Reader *r);
-
 void Read(Reader *r, char *src);
-void ReadLine(Reader *r);
 void ReadFile(Reader *r, char *path);
+void CancelRead(Reader *r);
+
+void AppendSource(Reader *r, char *src);
+Val Stop(Reader *r);
+Val ParseError(Reader *r, char *msg);
+void Rewind(Reader *r);
+void Advance(Reader *r);
+void AdvanceLine(Reader *r);
+void Retreat(Reader *r);
+
+void PrintSource(Reader *r);
+void PrintSourceContext(Reader *r, u32 num_lines);
+void PrintReaderError(Reader *r);

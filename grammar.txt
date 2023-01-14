@@ -1,31 +1,40 @@
-block           ::  pipe (space* ("," | (newline (space | newline)*)) space* pipe)*
-pipe            ::  expr ((space | newline)* "|>" (space | newline)* expr)*
-expr            ::  (lambda (space+ lambda)*)
-lambda          ::  logic (space* "->" space* expr)*
-logic           ::  equality (space+ ("and" | "or") space+ equality)*
-equality        ::  compare (space+ ("=" | "!=") space+ compare)*
-compare         ::  range (space+ (">" | ">=" | "<" | "<=") space+ range)*
-range           ::  term (space* ".." space* term)*
-term            ::  factor (space+ ("+" | "-") space+ factor)*
-factor          ::  exponent (space+ ("*" | "/") space+ exponent)*
-exponent        ::  cons (space+ "**" space+ cons)*
-cons            ::  negative (space* "|" space* negative)*
-negative        ::  ( ("-")? negative ) | access
-access          ::  (identifier ("." identifier)*) | primary
-primary         ::  literal | identifier | ( "(" (space | newline)* block ")" )
-literal         ::  number | string | list | dict | symbol | tuple
-number          ::  digit+ ("." digit+)?
-string          ::  "\"" ( (char & !"\") | ("\" char) )* "\""
-list            ::  "[" (space|newline)* list-tail
-list-tail       ::  "]" | (expr (space | newline)* list-tail)
-dict            ::  "{" (space | newline)* dict-entry* "}"
-dict-entry      ::  identifier ":" (space | newline)* expr (space | newline)*
-symbol          ::  ":" identifier
-tuple           ::  "#[" (space | newline)* list-tail
-identifier      ::  sym-start sym-char*
-sym-start       ::  char & !reserved-char & !digit
-sym-char        ::  char & !reserved-char
-reserved-char   ::  group-char | space | ";" | "\"" | ":" | "." | "," | "|"
-group-char      ::  "(" | ")" | "{" | "}" | "[" | "]"
-space           ::  " " | "\t"
-newline         ::  "\n" | "\r"
+block               ::  pipe space* ( ("," | newline) (newline | space)* pipe )*
+pipe                ::  expr ( (space | newline)* "|>" (space | newline)* expr )*
+
+expr                ::  infix (space* infix)*
+infix[prec]         ::  infix[prec+1] (space* op[prec] space* infix[prec+1])
+op[0] "lambda"      ::  "->"
+op[1] "logic"       ::  "and" | "or"
+op[2] "equality"    ::  "=" | "!="
+op[3] "compare"     ::  ">" | "<" | ">=" | "<="
+op[4] "range"       ::  ".."
+op[5] "term"        ::  "+" | "-"
+op[6] "factor"      ::  "*" | "/"
+op[7] "exponent"    ::  "**"
+op[8] "cons"        ::  "|"
+infix[9] "negative" ::  ( ("-")? negative ) | lookup
+lookup              ::  ( identifier ("." identifier)* ) | primary
+primary             ::  group | do-block | cond-block | literal
+group               ::  "(" (space | newline)* block ")"
+do-block            ::  "do" (space | newline)* block (space | newline)* (else-block | "end")
+else-block          ::  "else" (space | newline)* block (space | newline)* "end"
+cond-block          ::  "cond" space* "do" (space | newline)* (clause (space | newline)*)*
+clause              ::  infix[logic] space* "->" space* infix[logic]
+
+literal             ::  number | string | symbol | list | tuple | dict
+list                ::  "[" (space | newline)* list-tail
+list-tail           ::  ( expr? (space | newline)* "]" ) |
+                        ( expr space* ("," | newline) (newline | space)* list-tail )
+tuple               ::  "#[" (space | newline)* list-tail
+dict                ::  "{" (space | newline)* dict-entry* "}"
+dict-entry          ::  (string | identifier) space* ":" space* expr space* (newline | ",") (space | newline)*
+
+identifier          ::  id-start (char -reserved-char)*
+id-start            ::  char -reserved-char -digit -reserved-start
+reserved-start      ::  "<" | ">" | "=" | "+" | "*" | "/" | "|"
+reserved-char       ::  "(" | ")" | "[" | "]" | "{" | "}" | ";" | ":" | "," | "."
+string              ::  """ (escaped-char | (char -"""))* """
+escaped-char        ::  "\" char
+number              ::  digit+ ("." digit+)
+space               ::  " " | "\t"
+newline             ::  "\n" | "\r"

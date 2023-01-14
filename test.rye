@@ -3,16 +3,18 @@ def (reduce list acc fn) do
   if list = nil do
     acc
   else
-    reduce (tail list) (fn (head list) acc) fn
+    (reduce (tail list)
+            (fn (head list) acc)
+            fn)
   end
 end
 
-; def (map list fn) do
-;   reduce list nil (item new-list) -> do
-;     (fn item) | new-list
-;   end
-;   |> (reverse)
-; end
+def (map list fn) do
+  reduce list nil (item new-list) -> do
+    (fn item) | new-list
+  end
+  |> (reverse)
+end
 
 def (each list fn) do
   reduce list nil (item _) -> do
@@ -31,9 +33,10 @@ end
 1..101
 |> each (n) -> do
   cond do
-    ((rem n 3) = 0 and (rem n 5) = 0) -> display "fizzbuzz"
+    (rem n 3) = 0 and (rem n 5) = 0 -> display "fizzbuzz"
     ((rem n 3) = 0) -> display "fizz"
     ((rem n 5) = 0) -> display "buzz"
-    true -> display n
+  else
+    display n
   end
 end
