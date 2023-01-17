@@ -1,7 +1,8 @@
 #pragma once
+#include "eval.h"
 #include "value.h"
 
-void DefinePrimitives(Val env);
+Val Primitives(void);
 
-Val DoPrimitive(Val name, Val args);
+EvalResult DoPrimitive(Val name, Val args);
 bool IsTrue(Val val);

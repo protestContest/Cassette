@@ -1,6 +1,16 @@
 #pragma once
 #include "value.h"
 
-Val Apply(Val proc, Val args);
-Val EvalIn(Val exp, Val env);
-Val Eval(Val exp);
+typedef struct {
+  enum { EVAL_OK, EVAL_ERROR } status;
+  Val value;
+  char *error;
+} EvalResult;
+
+EvalResult Eval(Val exp, Val env);
+EvalResult Apply(Val proc, Val args);
+
+EvalResult EvalOk(Val exp);
+EvalResult RuntimeError(char *msg);
+
+void PrintEvalError(EvalResult result);

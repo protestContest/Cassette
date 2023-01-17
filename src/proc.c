@@ -3,12 +3,12 @@
 
 Val MakeProc(Val name, Val params, Val body, Val env)
 {
-  return MakeTuple(5, MakeSymbol("proc"), name, params, body, env);
+  return MakeTuple(5, MakeSymbol("procedure"), name, params, body, env);
 }
 
 bool IsProc(Val proc)
 {
-  return IsTagged(proc, "prim") || IsTagged(proc, "proc");
+  return IsTagged(proc, "primitive") || IsTagged(proc, "procedure");
 }
 
 Val ProcName(Val proc)
@@ -18,7 +18,12 @@ Val ProcName(Val proc)
 
 Val ProcParams(Val proc)
 {
-  return TupleAt(proc, 2);
+  Val params = TupleAt(proc, 2);
+  if (IsList(params)) {
+    return params;
+  } else {
+    return MakePair(params, nil);
+  }
 }
 
 Val ProcBody(Val proc)

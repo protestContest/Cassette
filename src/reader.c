@@ -2,6 +2,7 @@
 #include "parse.h"
 #include "mem.h"
 #include "printer.h"
+#include <stdio.h>
 
 Reader *NewReader(void)
 {
@@ -32,10 +33,7 @@ void Read(Reader *r, char *src)
   Val exp = ParseBlock(r);
   if (r->status != PARSE_OK) return;
 
-  if (ListLength(exp) == 1) {
-    exp = Head(exp);
-  }
-  r->ast = exp;
+  r->ast = MakePair(MakeSymbol("do"), exp);
 }
 
 void ReadFile(Reader *reader, char *path)

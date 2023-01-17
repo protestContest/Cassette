@@ -5,156 +5,69 @@
 
 Val InitialEnv(void)
 {
-  Val env = ExtendEnv(nil, nil, nil);
-  DefinePrimitives(env);
-  Define(MakeSymbol("true"), IntVal(1), env);
-  Define(MakeSymbol("false"), nil, env);
-  Define(MakeSymbol("nil"), nil, env);
-
-  return env;
+  Val prims = Primitives();
+  Val keys = MakePair(MakeSymbol("nil"), MakePair(MakeSymbol("true"), MakePair(MakeSymbol("false"), Head(prims))));
+  Val vals = MakePair(nil, MakePair(MakeSymbol("true"), MakePair(MakeSymbol("false"), Tail(prims))));
+  return ExtendEnv(nil, keys, vals);;
 }
 
-Val ParentEnv(Val env)
+Val ExtendEnv(Val env, Val keys, Val vals)
 {
-  return Tail(env);
+  Val frame = MakeDict(keys, vals);
+  return MakePair(frame, env);
 }
 
-Val FirstFrame(Val env)
+Val AddFrame(Val env, u32 size)
 {
-  return Head(env);
+  Val frame = MakeEmptyDict(size);
+  return MakePair(frame, env);
 }
 
-Val GlobalEnv(Val env)
-{
-  while (!IsNil(ParentEnv(env))) {
-    env = ParentEnv(env);
-  }
-  return env;
-}
-
-Val MakeFrame(Val vars, Val vals)
-{
-  return MakePair(vars, vals);
-}
-
-Val FrameVars(Val frame)
-{
-  return Head(frame);
-}
-
-Val FrameVals(Val frame)
-{
-  return Tail(frame);
-}
-
-void AddBinding(Val var, Val val, Val frame)
-{
-  SetHead(frame, MakePair(var, Head(frame)));
-  SetTail(frame, MakePair(val, Tail(frame)));
-}
-
-Val ExtendEnv(Val vars, Val vals, Val env)
-{
-  return MakePair(MakeFrame(vars, vals), env);
-}
-
-Val Lookup(Val var, Val env)
+EvalResult Lookup(Val var, Val env)
 {
   if (Eq(var, MakeSymbol("ENV"))) {
-    return env;
+    return EvalOk(env);
   }
 
   Val cur_env = env;
-
   while (!IsNil(cur_env)) {
-    Val frame = FirstFrame(cur_env);
-    Val vars = FrameVars(frame);
-    Val vals = FrameVals(frame);
-    while (!IsNil(vars)) {
-      if (Eq(var, Head(vars))) {
-        return Head(vals);
-      }
-
-      vars = Tail(vars);
-      vals = Tail(vals);
+    Val frame = Head(cur_env);
+    if (DictHasKey(frame, var)) {
+      return EvalOk(DictGet(frame, var));
     }
-    cur_env = ParentEnv(cur_env);
+
+    cur_env = Tail(cur_env);
   }
 
   DumpEnv(env);
 
-  Error("Unbound variable \"%s\"", SymbolName(var));
-}
-
-void SetVariable(Val var, Val val, Val env)
-{
-  while (!IsNil(env)) {
-    Val frame = FirstFrame(env);
-    Val vars = FrameVars(frame);
-    Val vals = FrameVals(frame);
-    while (!IsNil(vars)) {
-      if (Eq(var, Head(vars))) {
-        SetHead(vals, val);
-        return;
-      }
-
-      vars = Tail(vars);
-      vals = Tail(vals);
-    }
-    env = ParentEnv(env);
-  }
-
-  Error("Can't set unbound variable \"%s\"", ValStr(var));
-}
-
-void Define(Val var, Val val, Val env)
-{
-  Val frame = FirstFrame(env);
-  Val vars = FrameVars(frame);
-  Val vals = FrameVals(frame);
-  while (!IsNil(vars)) {
-    if (Eq(var, Head(vars))) {
-      SetHead(vals, val);
-      return;
-    }
-
-    vars = Tail(vars);
-    vals = Tail(vals);
-  }
-
-  AddBinding(var, val, frame);
-}
-
-bool IsEnv(Val env)
-{
-  return IsTagged(env, "env");
+  char *msg = NULL;
+  PrintInto(msg, "Unbound variable \"%s\"", SymbolName(var));
+  return RuntimeError(msg);
 }
 
 void DumpEnv(Val env)
 {
   if (IsNil(env)) {
-    printf("Env is nil\n");
+    fprintf(stderr, "Env is nil\n");
   } else {
-    printf("┌────────────────────────\n");
-    while (!IsNil(env)) {
-      Val frame = FirstFrame(env);
-      Val vars = FrameVars(frame);
-      Val vals = FrameVals(frame);
-      while (!IsNil(vars)) {
-        Val var = Head(vars);
-        Val val = Head(vals);
+    fprintf(stderr, "┌────────────────────────\n");
 
-        printf("│ %s: %s\n", ValStr(var), ValStr(val));
+    while (!IsNil(Tail(env))) {
+      Val frame = Head(env);
 
-        vars = Tail(vars);
-        vals = Tail(vals);
+      for (u32 i = 0; i < DictSize(frame); i++) {
+        Val var = DictKeyAt(frame, i);
+        Val val = DictValueAt(frame, i);
+
+        fprintf(stderr, "│ %s: %s\n", ValStr(var), ValStr(val));
       }
-      env = ParentEnv(env);
-      if (IsNil(env)) {
-        printf("└────────────────────────\n");
-      } else {
-        printf("├────────────────────────\n");
-      }
+
+      env = Tail(env);
+      fprintf(stderr, "├────────────────────────\n");
     }
+
+    fprintf(stderr, "│ <base env>\n");
+    fprintf(stderr, "└────────────────────────\n");
   }
 }

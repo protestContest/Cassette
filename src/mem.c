@@ -329,13 +329,7 @@ Val MakeDict(Val keys, Val vals)
 {
   u32 size = ListLength(keys);
 
-  Val dict = DictVal(mem_next);
-  mem[mem_next++] = DctHdr(size);
-
-  for (u32 i = 0; i < size; i++) {
-    mem[mem_next++] = nil;
-    mem[mem_next++] = nil;
-  }
+  Val dict = MakeEmptyDict(size);
 
   while (!IsNil(keys)) {
     Val key = Head(keys);
@@ -348,10 +342,51 @@ Val MakeDict(Val keys, Val vals)
   return dict;
 }
 
+Val MakeEmptyDict(u32 size)
+{
+  Val dict = DictVal(mem_next);
+  mem[mem_next++] = DctHdr(size);
+
+  for (u32 i = 0; i < size; i++) {
+    mem[mem_next++] = nil;
+    mem[mem_next++] = nil;
+  }
+
+  return dict;
+}
+
 u32 DictSize(Val dict)
 {
   u32 index = RawVal(dict);
   return HdrVal(mem[index]);
+}
+
+bool DictHasKey(Val dict, Val key)
+{
+  if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
+    return false;
+  }
+
+  Val *data = &mem[(u32)RawVal(dict)];
+  u32 size = HdrVal(data[0]);
+  u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
+  u32 index = hash % size;
+
+  u32 start = index;
+  u32 key_slot = 1 + 2*index;
+  while (!IsNil(data[key_slot])) {
+    if (Eq(data[key_slot], key)) {
+      return true;
+    }
+
+    index = (index + 1) % size;
+    if (index == start) {
+      return false;
+    }
+    key_slot = 1 + 2*index;
+  }
+
+  return false;
 }
 
 Val DictGet(Val dict, Val key)

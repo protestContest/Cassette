@@ -6,7 +6,7 @@
 #include "reader.h"
 #include "eval.h"
 
-typedef Val (*PrimitiveFn)(Val args);
+typedef EvalResult (*PrimitiveFn)(Val args);
 
 typedef struct {
   char *name;
@@ -96,294 +96,258 @@ bool IsLess(Val a, Val b)
   return false;
 }
 
-Val PrimHead(Val args)
+EvalResult PrimHead(Val args)
 {
-  return Head(First(args));
+  Val arg = First(args);
+  if (!IsPair(arg)) {
+    char *msg = NULL;
+    PrintInto(msg, "Argument error: not a pair: %s", ValStr(arg));
+    return RuntimeError(msg);
+  }
+
+  return EvalOk(Head(arg));
 }
 
-Val PrimTail(Val args)
+EvalResult PrimTail(Val args)
 {
-  return Tail(First(args));
+  Val arg = First(args);
+  if (!IsPair(arg)) {
+    char *msg = NULL;
+    PrintInto(msg, "Argument error: not a pair: %s", ValStr(arg));
+    return RuntimeError(msg);
+  }
+
+  return EvalOk(Tail(arg));
 }
 
-Val PrimSetHead(Val args)
-{
-  Val pair = First(args);
-  Val head = Second(args);
-  SetHead(pair, head);
-  return nil;
-}
-
-Val PrimSetTail(Val args)
-{
-  Val pair = First(args);
-  Val tail = Second(args);
-  SetTail(pair, tail);
-  return nil;
-}
-
-Val PrimPair(Val args)
+EvalResult PrimPair(Val args)
 {
   Val head = First(args);
   Val tail = Second(args);
-  return MakePair(head, tail);
+  return EvalOk(MakePair(head, tail));
 }
 
-Val PrimList(Val args)
+EvalResult PrimList(Val args)
 {
-  return args;
+  return EvalOk(args);
 }
 
-Val PrimMakeTuple(Val args)
+EvalResult PrimMakeTuple(Val args)
 {
-  return ListToTuple(args);
+  return EvalOk(ListToTuple(args));
 }
 
-Val PrimMakeDict(Val args)
+EvalResult PrimMakeDict(Val args)
 {
   Val keys = First(args);
   Val vals = Second(args);
-  return MakeDict(keys, vals);
+  return EvalOk(MakeDict(keys, vals));
 }
 
-Val PrimAccess(Val args)
+EvalResult PrimAdd(Val args)
 {
-  Val subject = First(args);
-  Val index = Second(args);
+  Val a = First(args);
+  Val b = Second(args);
+  if (!IsNumeric(a) || !IsNumeric(b)) {
+    char *msg = NULL;
+    PrintInto(msg, "Arithmetic error: %s + %s", ValStr(a), ValStr(b));
+    return RuntimeError(msg);
+  }
 
-  if (IsTuple(subject)) {
-    if (!IsInt(index)) Error("Can only access tuples with integers");
-    return TupleAt(subject, RawVal(index));
-  } else if (IsDict(subject)) {
-    if (!IsSym(index)) Error("Can only access dictionaries with symbols");
-    return DictGet(subject, index);
-  } else if (IsList(subject)) {
-    if (!IsInt(index)) Error("Can only access lists with integers");
-    return ListAt(subject, RawVal(index));
+  if (IsInt(a) && IsInt(b)) {
+    return EvalOk(IntVal((u32)RawVal(a) + (u32)RawVal(b)));
   } else {
-    Error("Can't access this");
+    return EvalOk(NumVal(RawVal(a) + RawVal(b)));
   }
 }
 
-Val PrimAdd(Val args)
+EvalResult PrimSub(Val args)
 {
-  u32 sum = 0;
-  while (!IsNil(args)) {
-    Val arg = Head(args);
-    if (IsNum(arg)) {
-      float fsum = (float)sum;
-      while (!IsNil(args)) {
-        Val arg = Head(args);
-        fsum += RawVal(arg);
-        args = Tail(args);
-      }
-      return NumVal(fsum);
-
-    }
-    sum += RawVal(arg);
-    args = Tail(args);
-  }
-  return IntVal(sum);
-}
-
-Val PrimSub(Val args)
-{
-  if (IsNum(Head(args))) {
-    float sum = RawVal(Head(args));
-    args = Tail(args);
-    while (!IsNil(args)) {
-      Val arg = Head(args);
-      sum -= RawVal(arg);
-      args = Tail(args);
-    }
-    return NumVal(sum);
+  Val a = First(args);
+  Val b = Second(args);
+  if (!IsNumeric(a) || !IsNumeric(b)) {
+    char *msg = NULL;
+    PrintInto(msg, "Arithmetic error: %s - %s", ValStr(a), ValStr(b));
+    return RuntimeError(msg);
   }
 
-  u32 sum = RawVal(Head(args));
-  args = Tail(args);
-
-  while (!IsNil(args)) {
-    Val arg = Head(args);
-    if (IsNum(arg)) {
-      float fsum = (float)sum - RawVal(arg);
-      args = Tail(args);
-      while (!IsNil(args)) {
-        Val arg = Head(args);
-        fsum -= RawVal(arg);
-        args = Tail(args);
-      }
-      return NumVal(fsum);
-    }
-    sum -= RawVal(arg);
-    args = Tail(args);
+  if (IsInt(a) && IsInt(b)) {
+    return EvalOk(IntVal((u32)RawVal(a) - (u32)RawVal(b)));
+  } else {
+    return EvalOk(NumVal(RawVal(a) - RawVal(b)));
   }
-  return IntVal(sum);
 }
 
-Val PrimMult(Val args)
+EvalResult PrimMult(Val args)
 {
-  u32 prod = 1;
-
-  while (!IsNil(args)) {
-    Val arg = Head(args);
-    if (IsNum(arg)) {
-      float fprod = (float)prod;
-      while (!IsNil(args)) {
-        Val arg = Head(args);
-        fprod *= RawVal(arg);
-        args = Tail(args);
-      }
-      return NumVal(fprod);
-    }
-    prod *= RawVal(arg);
-    args = Tail(args);
+  Val a = First(args);
+  Val b = Second(args);
+  if (!IsNumeric(a) || !IsNumeric(b)) {
+    char *msg = NULL;
+    PrintInto(msg, "Arithmetic error: %s * %s", ValStr(a), ValStr(b));
+    return RuntimeError(msg);
   }
-  return IntVal(prod);
+
+  return EvalOk(NumVal(RawVal(a) * RawVal(b)));
 }
 
-Val PrimDiv(Val args)
-{
-  Val num = First(args);
-  Val den = Second(args);
-  float n = RawVal(num) / RawVal(den);
-  return NumVal(n);
-}
-
-Val PrimEquals(Val args)
+EvalResult PrimDiv(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(IsEqual(a, b));
+  if (!IsNumeric(a) || !IsNumeric(b) || RawVal(b) == 0) {
+    char *msg = NULL;
+    PrintInto(msg, "Arithmetic error: %s / %s", ValStr(a), ValStr(b));
+    return RuntimeError(msg);
+  }
+
+  return EvalOk(NumVal(RawVal(a) / RawVal(b)));
 }
 
-Val PrimNotEquals(Val args)
+EvalResult PrimEquals(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(!IsEqual(a, b));
+  return EvalOk(BoolSymbol(IsEqual(a, b)));
 }
 
-Val PrimLessThan(Val args)
+EvalResult PrimNotEquals(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(IsLess(a, b));
+  return EvalOk(BoolSymbol(!IsEqual(a, b)));
 }
 
-Val PrimGreaterThan(Val args)
+EvalResult PrimLessThan(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(!IsLess(a, b) && !IsEqual(a, b));
+  return EvalOk(BoolSymbol(IsLess(a, b)));
 }
 
-Val PrimLessEquals(Val args)
+EvalResult PrimGreaterThan(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(IsLess(a, b) || IsEqual(a, b));
+  return EvalOk(BoolSymbol(!IsLess(a, b) && !IsEqual(a, b)));
 }
 
-Val PrimGreaterEquals(Val args)
+EvalResult PrimLessEquals(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(!IsLess(a, b));
+  return EvalOk(BoolSymbol(IsLess(a, b) || IsEqual(a, b)));
 }
 
-Val PrimRange(Val args)
+EvalResult PrimGreaterEquals(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  return EvalOk(BoolSymbol(!IsLess(a, b)));
+}
+
+EvalResult PrimRange(Val args)
 {
   Val from = First(args);
   Val to = Second(args);
   Val list = nil;
 
+  if (!IsInt(from) || !IsInt(to)) {
+    char *msg = NULL;
+    PrintInto(msg, "Argument error: %s .. %s", ValStr(from), ValStr(to));
+    return RuntimeError(msg);
+  }
+
   if (RawVal(from) > RawVal(to)) {
     for (i32 i = RawVal(from); i > RawVal(to); i--) {
       list = MakePair(IntVal(i), list);
     }
-    return Reverse(list);
+    return EvalOk(Reverse(list));
   } else {
     for (i32 i = RawVal(from); i < RawVal(to); i++) {
       list = MakePair(IntVal(i), list);
     }
-    return Reverse(list);
+    return EvalOk(Reverse(list));
   }
 }
 
-Val PrimAnd(Val args)
+EvalResult PrimAnd(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(IsTrue(a) && IsTrue(b));
+  return EvalOk(BoolSymbol(IsTrue(a) && IsTrue(b)));
 }
 
-Val PrimOr(Val args)
+EvalResult PrimOr(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  return BoolSymbol(IsTrue(a) || IsTrue(b));
+  return EvalOk(BoolSymbol(IsTrue(a) || IsTrue(b)));
 }
 
-Val PrimNot(Val args)
+EvalResult PrimNot(Val args)
 {
   Val a = First(args);
-  return BoolSymbol(!IsTrue(a));
+  return EvalOk(BoolSymbol(!IsTrue(a)));
 }
 
-Val PrimRem(Val args)
-{
-  Val a = First(args);
-  Val b = Second(args);
-  return IntVal((u32)RawVal(a) % (u32)RawVal(b));
-}
-
-Val PrimEq(Val args)
+EvalResult PrimRem(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  if (Eq(a, b)) return MakeSymbol("true");
-  else return MakeSymbol("false");
+
+  if (!IsInt(a) || !IsInt(b)) {
+    char *msg = NULL;
+    PrintInto(msg, "Argument error: (rem %s %s)", ValStr(a), ValStr(b));
+    return RuntimeError(msg);
+  }
+
+  return EvalOk(IntVal((u32)RawVal(a) % (u32)RawVal(b)));
 }
 
-Val PrimDisplay(Val args)
+EvalResult PrimEq(Val args)
+{
+  Val a = First(args);
+  Val b = Second(args);
+  if (Eq(a, b)) return EvalOk(MakeSymbol("true"));
+  else return EvalOk(MakeSymbol("false"));
+}
+
+EvalResult PrimDisplay(Val args)
 {
   while (!IsNil(args)) {
     PrintVal(Head(args));
     args = Tail(args);
   }
-  return nil;
+  return EvalOk(nil);
 }
 
-Val PrimReverse(Val args)
+EvalResult PrimReverse(Val args)
 {
   Val list = First(args);
-  PrintVal(args);
-  return Reverse(list);
+  return EvalOk(Reverse(list));
 }
 
-Val PrimEval(Val args)
-{
-  Val exp = First(args);
-  Val env = Second(args);
-  return EvalIn(exp, env);
-}
+// EvalResult PrimEval(Val args)
+// {
+//   Val exp = First(args);
+//   Val env = Second(args);
+//   return Eval(exp, env);
+// }
 
-Val PrimReadFile(Val args)
-{
-  // char *path = BinToCStr(Head(args));
-  // return ReadFile(path);
-  return nil;
-}
+// EvalResult PrimReadFile(Val args)
+// {
+//   // char *path = BinToCStr(Head(args));
+//   // return ReadFile(path);
+//   return nil;
+// }
 
 PrimitiveDef primitives[] = {
   {"head",        &PrimHead},
   {"tail",        &PrimTail},
-  {"set-head!",   &PrimSetHead},
-  {"set-tail!",   &PrimSetTail},
   {"list",        &PrimList},
   {"tuple",       &PrimMakeTuple},
   {"dict",        &PrimMakeDict},
-  {"get",         &PrimAccess},
   {"|",           &PrimPair},
   {"+",           &PrimAdd},
   {"-",           &PrimSub},
@@ -403,21 +367,35 @@ PrimitiveDef primitives[] = {
   {"eq?",         &PrimEq},
   {"display",     &PrimDisplay},
   {"reverse",     &PrimReverse},
-  {"eval",        &PrimEval},
-  {"read-file",   &PrimReadFile}
+  // {"eval",        &PrimEval},
+  // {"read-file",   &PrimReadFile}
 };
+
+
+Val Primitives(void)
+{
+  Val names = nil;
+  Val vals = nil;
+  for (u32 i = 0; i < ArrayCount(primitives); i++) {
+    Val symbol = MakeSymbol(primitives[i].name);
+    names = MakePair(symbol, names);
+    Val val = MakePair(MakeSymbol("primitive"), symbol);
+    vals = MakePair(val, vals);
+  }
+  return MakePair(names, vals);
+}
 
 void DefinePrimitives(Val env)
 {
-  u32 n = sizeof(primitives)/sizeof(PrimitiveDef);
-  for (u32 i = 0; i < n; i++) {
-    char *name = primitives[i].name;
-    Val sym = MakeSymbol(name);
-    Define(sym, MakePair(MakeSymbol("prim"), sym), env);
-  }
+  // u32 n = sizeof(primitives)/sizeof(PrimitiveDef);
+  // for (u32 i = 0; i < n; i++) {
+  //   char *name = primitives[i].name;
+  //   Val sym = MakeSymbol(name);
+  //   Define(sym, MakePair(MakeSymbol("prim"), sym), env);
+  // }
 }
 
-Val DoPrimitive(Val name, Val args)
+EvalResult DoPrimitive(Val name, Val args)
 {
   u32 n = sizeof(primitives)/sizeof(PrimitiveDef);
   for (u32 i = 0; i < n; i++) {
@@ -426,5 +404,7 @@ Val DoPrimitive(Val name, Val args)
     }
   }
 
-  Error("Not a primitive: \"%s\"", SymbolName(name));
+  char *msg = NULL;
+  PrintInto(msg, "Not a primitive: \"%s\"", SymbolName(name));
+  return RuntimeError(msg);
 }

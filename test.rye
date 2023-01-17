@@ -13,7 +13,7 @@ def (map list fn) do
   reduce list nil (item new-list) -> do
     (fn item) | new-list
   end
-  |> (reverse)
+  |> reverse
 end
 
 def (each list fn) do
@@ -23,14 +23,14 @@ def (each list fn) do
   end
 end
 
-; def (filter list fn) do
-;   reduce list nil (item new-list) -> do
-;     if (fn item) (item | new-list) new-list
-;   end
-;   |> (reverse)
-; end
+def (filter list fn) do
+  reduce list nil (item new-list) -> do
+    if (fn item) (item | new-list) new-list
+  end
+  |> (reverse)
+end
 
-1..101
+1..100
 |> each (n) -> do
   cond do
     (rem n 3) = 0 and (rem n 5) = 0 -> display "fizzbuzz"

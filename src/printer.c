@@ -50,21 +50,22 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     return start + snprintf(dst + start, size, "%d", (u32)RawVal(val));
   } else if (IsNil(val)) {
     return start + snprintf(dst + start, size, "nil");
-  } else if (IsTagged(val, "proc")) {
-    start += snprintf(dst + start, size, "[proc (");
-    char *name = SymbolName(ProcName(val));
-    start += snprintf(dst + start, size, "%s", name);
-    Val params = ProcParams(val);
-    if (IsList(params)) {
-      while (!IsNil(params)) {
+  } else if (IsTagged(val, "procedure")) {
+    start += snprintf(dst + start, size, "#[procedure (");
+
+    start = PrintValTo(ProcName(val), dst, start, size);
+    start += snprintf(dst + start, size, " ");
+
+    u32 env = ListLength(ProcEnv(val));
+
+    u32 count = ListLength(ProcParams(val));
+    for (u32 i = 0; i < count; i++) {
+      start = PrintValTo(ListAt(ProcParams(val), i), dst, start, size);
+      if (i != count-1) {
         start += snprintf(dst + start, size, " ");
-        start = PrintValTo(Head(params), dst, start, size);
-        params = Tail(params);
       }
-    } else {
-      start = PrintValTo(params, dst, start, size);
     }
-    return start + snprintf(dst + start, size, ")]");
+    return start + snprintf(dst + start, size, ") <e%d>]", env);
   } else if (IsPair(val)) {
     start += snprintf(dst + start, size, "(");
     start = PrintTail(val, dst, start, size);

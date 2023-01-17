@@ -1,17 +1,12 @@
 #pragma once
 #include "value.h"
+#include "eval.h"
 
 Val InitialEnv(void);
+Val ExtendEnv(Val env, Val keys, Val vals);
+Val AddFrame(Val env, u32 size);
+
 Val GlobalEnv(Val env);
-Val ExtendEnv(Val vars, Val vals, Val env);
-Val Lookup(Val var, Val env);
-void SetVariable(Val var, Val val, Val env);
-void Define(Val var, Val val, Val env);
-
-bool IsEnv(Val env);
-
-Val FirstFrame(Val env);
-Val FrameVars(Val frame);
-Val FrameVals(Val frame);
+EvalResult Lookup(Val var, Val env);
 
 void DumpEnv(Val env);

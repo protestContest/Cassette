@@ -39,7 +39,10 @@ char *BinaryData(Val binary);
 char *BinToCStr(Val binary);
 
 Val MakeDict(Val keys, Val vals);
+Val MakeEmptyDict(u32 size);
 u32 DictSize(Val dict);
+bool DictHasKey(Val dict, Val key);
 Val DictGet(Val dict, Val key);
 Val DictKeyAt(Val dict, u32 i);
 Val DictValueAt(Val dict, u32 i);
+void DictSet(Val dict, Val key, Val value);

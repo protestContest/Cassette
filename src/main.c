@@ -23,10 +23,13 @@ int ExecuteScript(char *path)
   ReadFile(r, path);
 
   switch (r->status) {
-  case PARSE_OK:
-    PrintVal(r->ast);
-    // Eval(r->ast);
+  case PARSE_OK: {
+    EvalResult result = Eval(r->ast, InitialEnv());
+    if (result.status != EVAL_OK) {
+      PrintEvalError(result);
+    }
     break;
+  }
   case PARSE_INCOMPLETE:
     ParseError(r, "Unexpected end of input");
   case PARSE_ERROR:

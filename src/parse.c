@@ -3,7 +3,7 @@
 #include "reader.h"
 #include "printer.h"
 
-#define DEBUG_PARSE 1
+#define DEBUG_PARSE 0
 
 typedef enum {
   PREC_EXPR,
@@ -57,6 +57,7 @@ Val ParseSymbol(Reader *r);
 
 static PrefixRule prefix_rules[] = {
   { "cond", &ParseCond      },
+  { "else", &ParseElseBlock },
   { "do",   &ParseDoBlock   },
   { "#[",   &ParseTuple     },
   { "[",    &ParseList      },
@@ -177,17 +178,10 @@ Val ParseDoBlock(Reader *r)
   SkipSpaceAndNewlines(r);
 
   Val exps = MakePair(MakeSymbol("do"), nil);
-  while (!Match(r, "end")) {
+  while (!Match(r, "end") && !Check(r, "else")) {
     if (IsEnd(Peek(r))) return Stop(r);
 
-    if (Match(r, "else")) {
-      Val else_block = ParseElseBlock(r);
-      if (r->status != PARSE_OK) return nil;
-
-      return MakeTagged(3, "else", Reverse(exps), else_block);
-    }
-
-    Val exp = ParseExpr(r);
+    Val exp = ParsePipe(r);
     if (r->status != PARSE_OK) return nil;
 
     exps = MakePair(exp, exps);
@@ -237,7 +231,7 @@ Val ParseClauses(Reader *r)
   Val alternative = ParseClauses(r);
   if (r->status != PARSE_OK) return nil;
 
-  return MakeTagged(3, "if", condition, MakeTagged(3, "else", consequent, alternative));
+  return MakeTagged(4, "if", condition, consequent, alternative);
 }
 
 Val ParseCond(Reader *r)
@@ -348,7 +342,7 @@ Val ParseLookup(Reader *r, Val prefix)
 {
   Val operand = ParseIdentifier(r);
   if (r->status != PARSE_OK) return nil;
-  return MakeList(2, prefix, MakeTagged(2, "quote", operand));
+  return MakeList(2, prefix, MakePair(MakeSymbol("quote"), operand));
 }
 
 Val ParseLambda(Reader *r, Val params)
@@ -549,7 +543,7 @@ Val ParseSymbol(Reader *r)
   Val name = ParseIdentifier(r);
   if (r->status != PARSE_OK) return nil;
 
-  return MakeTagged(2, "quote", name);
+  return MakePair(MakeSymbol("quote"), name);
 }
 
 
