@@ -17,6 +17,7 @@ Val ListAt(Val list, u32 index);
 Val First(Val list);
 Val Second(Val list);
 Val Third(Val list);
+Val ListLast(Val list);
 
 Val MakeTuple(u32 count, ...);
 Val ListToTuple(Val list);
@@ -37,6 +38,7 @@ Val MakeBinary(char *src, u32 len);
 u32 BinaryLength(Val binary);
 char *BinaryData(Val binary);
 char *BinToCStr(Val binary);
+Val BinaryAt(Val binary, u32 i);
 
 Val MakeDict(Val keys, Val vals);
 Val MakeEmptyDict(u32 size);

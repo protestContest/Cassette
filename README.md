@@ -3,6 +3,17 @@
 Rye is a personal scripting language inspired by Elixir and Scheme. It's a Lisp
 with infix operators and optional parentheses.
 
+## Features
+
+- Infix operators: `+`, `-`, `*`, `/`, `**`, `<`, `<=`, `>`, `>=`, `=`, `!=`, `and`, `or`, `|`
+- Optional parentheses for function calls: `line-to 30 80`
+- Literal symbols, lists, and dicts: `:foo`, `[1, 2, 3, 4]`, `{width: 512, height: 342}`
+- Dot operator to access dicts: `dimensions.width`
+- Blocks: `do foo x, bar y end`
+- Lambdas: `(x y) -> x * y`
+- Pipes: `(foo x) |> bar`
+- Cond: `cond do pred1 -> result1, pred2, result2 end`
+
 See the file ["test.rye"](https://git.sr.ht/~zjm/Rye/tree/master/item/test.rye) for a sample.
 
 ## Expressions
@@ -124,8 +135,8 @@ You can define variables in a new lexical scope with `let`.
 
 ```
 let {x: 3, y: 4} do
-	display "X: " x "Y: " y
-	x * y
+  display "X: " x "Y: " y
+  x * y
 end
 ```
 
@@ -151,10 +162,10 @@ module Math do
 end
 
 module String do
-	def (display-both str1 str2) do
-		display str1
-		display str2
-	end
+  def (display-both str1 str2) do
+    display str1
+    display str2
+  end
 end
 
 Math.dist 2 2 4 8
@@ -176,4 +187,3 @@ import Math
 
 dist 3 3 8 7
 ```
-

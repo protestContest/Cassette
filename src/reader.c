@@ -13,6 +13,7 @@ Reader *NewReader(void)
   r->col = 1;
   r->src = NULL;
   r->cur = 0;
+  r->indent = 0;
   r->last_ok = 0;
   r->error = NULL;
   r->ast = nil;
@@ -30,10 +31,15 @@ void Read(Reader *r, char *src)
 {
   AppendSource(r, src);
 
-  Val exp = ParseBlock(r);
+  Val exp = Parse(r);
   if (r->status != PARSE_OK) return;
 
   r->ast = MakePair(MakeSymbol("do"), exp);
+
+  if (DEBUG_PARSE) {
+    fprintf(stderr, "AST: ");
+    PrintVal(r->ast);
+  }
 }
 
 void ReadFile(Reader *reader, char *path)
@@ -101,10 +107,10 @@ void Rewind(Reader *r)
   r->status = PARSE_OK;
 }
 
-void Advance(Reader *r)
+char Advance(Reader *r)
 {
   r->col++;
-  r->cur++;
+  return r->src[r->cur++];
 }
 
 void AdvanceLine(Reader *r)
@@ -114,11 +120,12 @@ void AdvanceLine(Reader *r)
   r->cur++;
 }
 
-void Retreat(Reader *r)
+void Retreat(Reader *r, u32 count)
 {
-  if (r->cur > 0) {
+  while (count > 0 && r->cur > 0) {
     r->cur--;
     r->col--;
+    count--;
   }
 }
 
@@ -210,4 +217,105 @@ void PrintReaderError(Reader *r)
 
   // reset text
   fprintf(stderr, "\x1B[0m");
+}
+
+bool IsSymChar(char c)
+{
+  if (IsAlpha(c)) return true;
+  if (IsSpace(c)) return false;
+  if (IsNewline(c)) return false;
+  if (IsEnd(c)) return false;
+
+  switch (c) {
+  case '(':
+  case ')':
+  case '{':
+  case '}':
+  case '[':
+  case ']':
+  case ':':
+  case ';':
+  case '.':
+  case ',':
+    return false;
+  default:
+    return true;
+  }
+}
+
+bool IsOperator(char c)
+{
+  switch (c) {
+  case '+':
+  case '-':
+  case '*':
+  case '/':
+    return true;
+  default:
+    return false;
+  }
+}
+
+void SkipSpace(Reader *r)
+{
+  while (IsSpace(Peek(r))) {
+    Advance(r);
+  }
+
+  if (Peek(r) == ';') {
+    while (!IsNewline(Peek(r))) {
+      Advance(r);
+    }
+    AdvanceLine(r);
+    SkipSpace(r);
+  }
+}
+
+void SkipSpaceAndNewlines(Reader *r)
+{
+  SkipSpace(r);
+  while (IsNewline(Peek(r))) {
+    AdvanceLine(r);
+    SkipSpace(r);
+  }
+}
+
+bool Check(Reader *r, char *expect)
+{
+  u32 len = strlen(expect);
+
+  for (u32 i = 0; i < len; i++) {
+    if IsEnd(r->src[r->cur + i]) return false;
+    if (r->src[r->cur + i] != expect[i]) return false;
+  }
+
+  return true;
+}
+
+bool CheckToken(Reader *r, char *expect)
+{
+  if (!Check(r, expect)) return false;
+  if (IsSymChar(r->src[r->cur + strlen(expect)])) return false;
+  return true;
+}
+
+bool Match(Reader *r, char *expect)
+{
+  if (Check(r, expect)) {
+    r->cur += strlen(expect);
+    r->col += strlen(expect);
+    SkipSpace(r);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void Expect(Reader *r, char *expect)
+{
+  if (!Match(r, expect)) {
+    char *msg = NULL;
+    PrintInto(msg, "Expected \"%s\"", expect);
+    ParseError(r, msg);
+  }
 }

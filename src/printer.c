@@ -37,7 +37,7 @@ u32 PrintTail(Val val, char *dst, u32 start, u32 size)
     start += snprintf(dst + start, size, " ");
     return PrintTail(Tail(val), dst, start, size);
   } else {
-    start += snprintf(dst + start, size, " . ");
+    start += snprintf(dst + start, size, " | ");
     return PrintValTo(Tail(val), dst, start, size);
   }
 }

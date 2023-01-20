@@ -148,6 +148,14 @@ Val Third(Val list)
   return ListAt(list, 2);
 }
 
+Val ListLast(Val list)
+{
+  while (!IsNil(Tail(list))) {
+    list = Tail(list);
+  }
+  return Head(list);
+}
+
 Val MakeTuple(u32 count, ...)
 {
   if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
@@ -315,6 +323,13 @@ char *BinToCStr(Val binary)
   }
   dst[len] = '\0';
   return dst;
+}
+
+Val BinaryAt(Val binary, u32 i)
+{
+  if (i >= BinaryLength(binary)) return nil;
+
+  return IntVal(BinaryData(binary)[i]);
 }
 
 u32 HashBinary(Val binary)

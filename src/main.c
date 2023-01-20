@@ -9,12 +9,12 @@ int ExecuteScript(char *path);
 
 int main(int argc, char *argv[])
 {
-  ExecuteScript("test.rye");
-  // if (argc > 1) {
-  //   return ExecuteScript(argv[1]);
-  // } else {
-  //   REPL();
-  // }
+  if (argc > 1) {
+    return ExecuteScript(argv[1]);
+  } else {
+    ExecuteScript("test.rye");
+    // REPL();
+  }
 }
 
 int ExecuteScript(char *path)
@@ -27,6 +27,8 @@ int ExecuteScript(char *path)
     EvalResult result = Eval(r->ast, InitialEnv());
     if (result.status != EVAL_OK) {
       PrintEvalError(result);
+    } else {
+      PrintVal(result.value);
     }
     break;
   }

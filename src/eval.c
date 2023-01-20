@@ -6,8 +6,6 @@
 #include "proc.h"
 #include <stdio.h>
 
-#define DEBUG_EVAL 0
-
 static u32 stack_depth = 0;
 
 EvalResult EvalOk(Val exp)
@@ -22,12 +20,14 @@ EvalResult RuntimeError(char *msg)
   return res;
 }
 
-EvalResult EvalIf(Val exp, Val env);
-EvalResult EvalLambda(Val exp, Val env);
+// EvalResult EvalIf(Val exp, Val env);
+// EvalResult EvalLambda(Val exp, Val env);
 EvalResult EvalSequence(Val exp, Val env);
-EvalResult EvalPipe(Val exp, Val env);
-EvalResult EvalApply(Val exp, Val env);
+// EvalResult EvalPipe(Val exp, Val env);
+// EvalResult EvalApply(Val exp, Val env);
+// EvalResult EvalAccess(Val obj, Val key);
 bool IsSelfEvaluating(Val exp);
+// bool IsAccessable(Val exp);
 
 EvalResult Eval(Val exp, Val env)
 {
@@ -42,20 +42,20 @@ EvalResult Eval(Val exp, Val env)
     result = EvalOk(exp);
   } else if (IsSym(exp)) {
     result = Lookup(exp, env);
-  } else if (IsTagged(exp, "quote")) {
-    result = EvalOk(Tail(exp));
-  } else if (IsTagged(exp, "if")) {
-    result = EvalIf(Tail(exp), env);
-  } else if (IsTagged(exp, "->")) {
-    result = EvalLambda(Tail(exp), env);
+  // } else if (IsTagged(exp, "quote")) {
+  //   result = EvalOk(Tail(exp));
+  // } else if (IsTagged(exp, "if")) {
+  //   result = EvalIf(Tail(exp), env);
+  // } else if (IsTagged(exp, "->")) {
+  //   result = EvalLambda(Tail(exp), env);
   } else if (IsTagged(exp, "do")) {
     result = EvalSequence(Tail(exp), env);
-  } else if (IsTagged(exp, "|>")) {
-    result = EvalPipe(Tail(exp), env);
+  // } else if (IsTagged(exp, "|>")) {
+  //   result = EvalPipe(Tail(exp), env);
   } else if (IsTagged(exp, "def")) {
     result = EvalOk(nil);
-  } else if (IsList(exp)) {
-    result = EvalApply(exp, env);
+  // } else if (IsList(exp)) {
+  //   result = EvalApply(exp, env);
   } else {
     char *msg = NULL;
     PrintInto(msg, "Unknown expression: %s", ValStr(exp));
@@ -73,12 +73,14 @@ EvalResult Apply(Val proc, Val args)
 {
   if (DEBUG_EVAL) fprintf(stderr, "Applying %s to %s\n", ValStr(proc), ValStr(args));
 
-  if (IsTagged(proc, "primitive")) {
-    return DoPrimitive(Tail(proc), args);
-  } else if (IsTagged(proc, "procedure")) {
-    Val env = ExtendEnv(ProcEnv(proc), ProcParams(proc), args);
-    return Eval(ProcBody(proc), env);
-  }
+  // if (IsTagged(proc, "primitive")) {
+  //   return DoPrimitive(Tail(proc), args);
+  // } else if (IsTagged(proc, "procedure")) {
+  //   Val env = ExtendEnv(ProcEnv(proc), ProcParams(proc), args);
+  //   return Eval(ProcBody(proc), env);
+  // } else if (IsAccessable(proc)) {
+  //   return EvalAccess(proc, Head(args));
+  // }
 
   char *msg = NULL;
   PrintInto(msg, "Unknown procedure: %s", ValStr(proc));
@@ -165,23 +167,23 @@ EvalResult EvalEach(Val exp, Val env)
 
 EvalResult EvalSequence(Val exp, Val env)
 {
-  Val vars = nil;
-  Val vals = nil;
-  Val exps = exp;
+  // Val vars = nil;
+  // Val vals = nil;
+  // Val exps = exp;
 
-  while (!IsNil(exps)) {
-    Val cur_exp = Head(exps);
-    if (IsTagged(cur_exp, "def")) {
-      vars = MakePair(DefVariable(Tail(cur_exp)), vars);
-      vals = MakePair(DefValue(Tail(cur_exp)), vals);
-    }
-    exps = Tail(exps);
-  }
+  // while (!IsNil(exps)) {
+  //   Val cur_exp = Head(exps);
+  //   if (IsTagged(cur_exp, "def")) {
+  //     vars = MakePair(DefVariable(Tail(cur_exp)), vars);
+  //     vals = MakePair(DefValue(Tail(cur_exp)), vals);
+  //   }
+  //   exps = Tail(exps);
+  // }
 
-  EvalResult env_result = EvalDefines(vars, vals, env);
-  if (env_result.status == EVAL_ERROR) return env_result;
+  // EvalResult env_result = EvalDefines(vars, vals, env);
+  // if (env_result.status == EVAL_ERROR) return env_result;
 
-  return EvalEach(exp, env_result.value);
+  return EvalEach(exp, env);
 }
 
 EvalResult EvalPipe(Val exp, Val env)
@@ -196,6 +198,55 @@ EvalResult EvalPipe(Val exp, Val env)
   }
 
   return Eval(exp, env);
+}
+
+bool IsAccessable(Val exp)
+{
+  return IsDict(exp) || IsTuple(exp) || IsBin(exp) || IsList(exp);
+}
+
+EvalResult EvalAccess(Val obj, Val key)
+{
+  char *err = NULL;
+  if (IsDict(obj)) {
+    if (!IsSym(key) && !IsBin(key)) {
+      PrintInto(err, "Dict keys must be symbols or strings: %s", ValStr(key));
+      return RuntimeError(err);
+    }
+
+    Val value = DictGet(obj, key);
+    return EvalOk(value);
+  }
+
+  if (IsTuple(obj)) {
+    if (!IsInt(key)) {
+      PrintInto(err, "Tuple indexes must be integers: %s", ValStr(key));
+      return RuntimeError(err);
+    }
+
+    return EvalOk(TupleAt(obj, RawVal(key)));
+  }
+
+  if (IsList(obj)) {
+    if (!IsInt(key)) {
+      PrintInto(err, "List indexes must be integers: %s", ValStr(key));
+      return RuntimeError(err);
+    }
+
+    return EvalOk(ListAt(obj, RawVal(key)));
+  }
+
+  if (IsBin(obj)) {
+    if (!IsInt(key)) {
+      PrintInto(err, "Binary indexes must be integers: %s", ValStr(key));
+      return RuntimeError(err);
+    }
+
+    return EvalOk(BinaryAt(obj, RawVal(key)));
+  }
+
+  PrintInto(err, "Can't access this: %s", ValStr(obj));
+  return RuntimeError(err);
 }
 
 EvalResult EvalApply(Val exp, Val env)
@@ -214,7 +265,8 @@ EvalResult EvalApply(Val exp, Val env)
     exp = Tail(exp);
   }
 
-  return Apply(proc.value, Reverse(args));
+  args = Reverse(args);
+  return Apply(proc.value, args);
 }
 
 bool IsSelfEvaluating(Val exp)

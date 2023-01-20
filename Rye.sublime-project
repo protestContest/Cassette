@@ -15,5 +15,23 @@
 				"enabled": true
 			}
 		}
-	}
+	},
+	"build_systems":
+	[
+		{
+			"name": "Make",
+			"working_dir": "${project_path}",
+			"cmd": ["make"],
+			"variants": [
+				{
+					"name": "Run",
+					"cmd": ["build/rye", "$file"]
+				},
+				{
+					"name": "Clean",
+					"cmd": ["make", "clean"]
+				}
+			]
+		}
+	]
 }

@@ -1,4 +1,5 @@
 #include "primitives.h"
+#include "base.h"
 #include "mem.h"
 #include "env.h"
 #include "printer.h"
