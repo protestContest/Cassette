@@ -3,26 +3,39 @@
 #include "reader.h"
 #include "eval.h"
 #include "mem.h"
+#include <dirent.h>
 
-Val LoadModule(char *path, Val base_env)
+Val LoadFile(char *path)
 {
-  // Val exp = ReadFile(path);
-  // Val file_env = ExtendEnv(nil, nil, base_env);
-  // EvalIn(exp, file_env);
+  Reader *r = NewReader();
+  ReadFile(r, path);
 
-  // DumpEnv(file_env);
+  if (r->status == PARSE_INCOMPLETE) {
+    ParseError(r, "Unexpected end of file");
+  }
 
-  // Val frame = FirstFrame(file_env);
-  // Val vars = FrameVars(frame);
-  // Val vals = FrameVals(frame);
-  // while (!IsNil(vars)) {
-  //   Val val = Head(vals);
-  //   if (IsEnv(val)) {
-  //     Define(Head(vars), val, base_env);
-  //   }
-  //   vars = Tail(vars);
-  //   vals = Tail(vals);
-  // }
+  if (r->status == PARSE_ERROR) {
+    PrintReaderError(r);
+    return nil;
+  }
 
-  return nil;
+  Val env = ExtendEnv(InitialEnv(), nil, nil);
+  EvalResult result = Eval(r->ast, env);
+
+  if (result.status != EVAL_OK) {
+    PrintEvalError(result);
+    return nil;
+  } else {
+    return env;
+  }
+}
+
+Val FindModules(char *path)
+{
+  DIR *dir = opendir(path);
+  if (dir == NULL) {
+    fprintf(stderr, "Bad directory name\n");
+  }
+
+
 }

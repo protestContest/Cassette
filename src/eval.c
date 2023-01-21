@@ -10,24 +10,30 @@ static u32 stack_depth = 0;
 
 EvalResult EvalOk(Val exp)
 {
-  EvalResult res = { EVAL_OK, exp, NULL };
+  EvalResult res;
+  res.status = EVAL_OK;
+  res.value = exp;
   return res;
 }
 
 EvalResult RuntimeError(char *msg)
 {
-  EvalResult res = { EVAL_ERROR, nil, msg };
+  EvalResult res;
+  res.status = EVAL_ERROR;
+  res.error = msg;
   return res;
 }
 
-// EvalResult EvalIf(Val exp, Val env);
-// EvalResult EvalLambda(Val exp, Val env);
+EvalResult EvalIf(Val exp, Val env);
+EvalResult EvalCond(Val exp, Val env);
+EvalResult EvalLambda(Val exp, Val env);
 EvalResult EvalSequence(Val exp, Val env);
-// EvalResult EvalPipe(Val exp, Val env);
-// EvalResult EvalApply(Val exp, Val env);
-// EvalResult EvalAccess(Val obj, Val key);
+EvalResult EvalDefine(Val exp, Val env);
+EvalResult EvalPipe(Val exp, Val env);
+EvalResult EvalApply(Val exp, Val env);
+EvalResult EvalAccess(Val obj, Val key);
 bool IsSelfEvaluating(Val exp);
-// bool IsAccessable(Val exp);
+bool IsAccessable(Val exp);
 
 EvalResult Eval(Val exp, Val env)
 {
@@ -42,20 +48,22 @@ EvalResult Eval(Val exp, Val env)
     result = EvalOk(exp);
   } else if (IsSym(exp)) {
     result = Lookup(exp, env);
-  // } else if (IsTagged(exp, "quote")) {
-  //   result = EvalOk(Tail(exp));
-  // } else if (IsTagged(exp, "if")) {
-  //   result = EvalIf(Tail(exp), env);
-  // } else if (IsTagged(exp, "->")) {
-  //   result = EvalLambda(Tail(exp), env);
+  } else if (IsTagged(exp, "quote")) {
+    result = EvalOk(Tail(exp));
+  } else if (IsTagged(exp, "if")) {
+    result = EvalIf(Tail(exp), env);
+  } else if (IsTagged(exp, "cond")) {
+    result = EvalCond(Tail(exp), env);
+  } else if (IsTagged(exp, "->")) {
+    result = EvalLambda(Tail(exp), env);
   } else if (IsTagged(exp, "do")) {
     result = EvalSequence(Tail(exp), env);
-  // } else if (IsTagged(exp, "|>")) {
-  //   result = EvalPipe(Tail(exp), env);
+  } else if (IsTagged(exp, "|>")) {
+    result = EvalPipe(Tail(exp), env);
   } else if (IsTagged(exp, "def")) {
-    result = EvalOk(nil);
-  // } else if (IsList(exp)) {
-  //   result = EvalApply(exp, env);
+    result = EvalDefine(Tail(exp), env);
+  } else if (IsList(exp)) {
+    result = EvalApply(exp, env);
   } else {
     char *msg = NULL;
     PrintInto(msg, "Unknown expression: %s", ValStr(exp));
@@ -73,14 +81,14 @@ EvalResult Apply(Val proc, Val args)
 {
   if (DEBUG_EVAL) fprintf(stderr, "Applying %s to %s\n", ValStr(proc), ValStr(args));
 
-  // if (IsTagged(proc, "primitive")) {
-  //   return DoPrimitive(Tail(proc), args);
-  // } else if (IsTagged(proc, "procedure")) {
-  //   Val env = ExtendEnv(ProcEnv(proc), ProcParams(proc), args);
-  //   return Eval(ProcBody(proc), env);
-  // } else if (IsAccessable(proc)) {
-  //   return EvalAccess(proc, Head(args));
-  // }
+  if (IsTagged(proc, "primitive")) {
+    return DoPrimitive(Tail(proc), args);
+  } else if (IsTagged(proc, "procedure")) {
+    Val env = ExtendEnv(ProcEnv(proc), ProcParams(proc), args);
+    return Eval(ProcBody(proc), env);
+  } else if (IsAccessable(proc)) {
+    return EvalAccess(proc, Head(args));
+  }
 
   char *msg = NULL;
   PrintInto(msg, "Unknown procedure: %s", ValStr(proc));
@@ -100,6 +108,22 @@ EvalResult EvalIf(Val exp, Val env)
   } else {
     return Eval(alternative, env);
   }
+}
+
+EvalResult EvalCond(Val exp, Val env)
+{
+  if (IsNil(exp)) return EvalOk(nil);
+
+  Val clause = Head(exp);
+  Val pred = Head(clause);
+  Val consequent = Tail(clause);
+  EvalResult pred_result = Eval(pred, env);
+  if (pred_result.status != EVAL_OK) return pred_result;
+  if (IsTrue(pred_result.value)) {
+    return Eval(consequent, env);
+  }
+
+  return EvalCond(Tail(exp), env);
 }
 
 EvalResult EvalLambda(Val exp, Val env)
@@ -131,59 +155,35 @@ Val DefValue(Val exp)
   }
 }
 
-EvalResult EvalDefines(Val vars, Val vals, Val env)
+EvalResult EvalDefine(Val exp, Val env)
 {
-  if (DEBUG_EVAL) {
-    fprintf(stderr, "Evaluating block defines: %s\n", ValStr(vars));
+  Val frame = Head(env);
+  Val var = First(exp);
+
+  if (IsSym(var)) {
+    EvalResult val = Eval(Second(exp), env);
+    if (val.status != EVAL_OK) return val;
+    DictSet(frame, var, val.value);
+    return EvalOk(nil);
+  } else if (IsList(var)) {
+    Val name = Head(var);
+    Val params = Tail(var);
+    Val body = Second(exp);
+    Val proc = MakeProc(name, params, body, env);
+    DictSet(frame, name, proc);
+    return EvalOk(nil);
+  } else {
+    char *msg = NULL;
+    PrintInto(msg, "Can't define this: \"%s\"", ValStr(var));
+    return RuntimeError(msg);
   }
-
-  if (IsNil(vars)) return EvalOk(env);
-
-  Val new_env = AddFrame(env, ListLength(vars));
-
-  while (!IsNil(vars)) {
-    if (DEBUG_EVAL) {
-      fprintf(stderr, "  %s => %s\n", ValStr(Head(vars)), ValStr(Head(vals)));
-    }
-
-    EvalResult result = Eval(Head(vals), new_env);
-    if (result.status == EVAL_ERROR) return result;
-
-    DictSet(Head(new_env), Head(vars), result.value);
-
-    vars = Tail(vars);
-    vals = Tail(vals);
-  }
-
-  return EvalOk(new_env);
-}
-
-EvalResult EvalEach(Val exp, Val env)
-{
-  EvalResult result = Eval(Head(exp), env);
-  if (IsNil(Tail(exp)) || result.status == EVAL_ERROR) return result;
-  return EvalEach(Tail(exp), env);
 }
 
 EvalResult EvalSequence(Val exp, Val env)
 {
-  // Val vars = nil;
-  // Val vals = nil;
-  // Val exps = exp;
-
-  // while (!IsNil(exps)) {
-  //   Val cur_exp = Head(exps);
-  //   if (IsTagged(cur_exp, "def")) {
-  //     vars = MakePair(DefVariable(Tail(cur_exp)), vars);
-  //     vals = MakePair(DefValue(Tail(cur_exp)), vals);
-  //   }
-  //   exps = Tail(exps);
-  // }
-
-  // EvalResult env_result = EvalDefines(vars, vals, env);
-  // if (env_result.status == EVAL_ERROR) return env_result;
-
-  return EvalEach(exp, env);
+  EvalResult result = Eval(Head(exp), env);
+  if (IsNil(Tail(exp)) || result.status == EVAL_ERROR) return result;
+  return EvalSequence(Tail(exp), env);
 }
 
 EvalResult EvalPipe(Val exp, Val env)

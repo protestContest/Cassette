@@ -179,6 +179,20 @@ Val MakeTuple(u32 count, ...)
   return tuple;
 }
 
+Val MakeEmptyTuple(u32 count)
+{
+  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
+
+  Val tuple = TupleVal(mem_next);
+  mem[mem_next++] = TupHdr(count);
+
+  for (u32 i = 0; i < count; i++) {
+    mem[mem_next++] = nil;
+  }
+
+  return tuple;
+}
+
 Val ListToTuple(Val list)
 {
   u32 count = ListLength(list);
@@ -342,9 +356,7 @@ void DictSet(Val dict, Val key, Val value);
 
 Val MakeDict(Val keys, Val vals)
 {
-  u32 size = ListLength(keys);
-
-  Val dict = MakeEmptyDict(size);
+  Val dict = MakeEmptyTuple(DICT_BUCKETS);
 
   while (!IsNil(keys)) {
     Val key = Head(keys);
@@ -354,26 +366,7 @@ Val MakeDict(Val keys, Val vals)
     vals = Tail(vals);
   }
 
-  return dict;
-}
-
-Val MakeEmptyDict(u32 size)
-{
-  Val dict = DictVal(mem_next);
-  mem[mem_next++] = DctHdr(size);
-
-  for (u32 i = 0; i < size; i++) {
-    mem[mem_next++] = nil;
-    mem[mem_next++] = nil;
-  }
-
-  return dict;
-}
-
-u32 DictSize(Val dict)
-{
-  u32 index = RawVal(dict);
-  return HdrVal(mem[index]);
+  return DictVal(dict.as_v);
 }
 
 bool DictHasKey(Val dict, Val key)
@@ -382,23 +375,17 @@ bool DictHasKey(Val dict, Val key)
     return false;
   }
 
-  Val *data = &mem[(u32)RawVal(dict)];
-  u32 size = HdrVal(data[0]);
   u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
-  u32 index = hash % size;
+  u32 index = hash % DICT_BUCKETS;
 
-  u32 start = index;
-  u32 key_slot = 1 + 2*index;
-  while (!IsNil(data[key_slot])) {
-    if (Eq(data[key_slot], key)) {
+  Val bucket = TupleAt(dict, index);
+  while (!IsNil(bucket)) {
+    Val entry = Head(bucket);
+    if (RawVal(Head(entry)) == hash) {
       return true;
     }
 
-    index = (index + 1) % size;
-    if (index == start) {
-      return false;
-    }
-    key_slot = 1 + 2*index;
+    bucket = Tail(bucket);
   }
 
   return false;
@@ -410,38 +397,20 @@ Val DictGet(Val dict, Val key)
     Error("Invalid key: %s", ValStr(key));
   }
 
-  Val *data = &mem[(u32)RawVal(dict)];
-  u32 size = HdrVal(data[0]);
   u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
-  u32 index = hash % size;
+  u32 index = hash % DICT_BUCKETS;
 
-  u32 start = index;
-  u32 key_slot = 1 + 2*index;
-  while (!IsNil(data[key_slot])) {
-    if (Eq(data[key_slot], key)) {
-      return data[key_slot+1];
+  Val bucket = TupleAt(dict, index);
+  while (!IsNil(bucket)) {
+    Val entry = Head(bucket);
+    if (Eq(Head(entry), key)) {
+      return Tail(entry);
     }
 
-    index = (index + 1) % size;
-    if (index == start) {
-      return nil;
-    }
-    key_slot = 1 + 2*index;
+    bucket = Tail(bucket);
   }
 
   return nil;
-}
-
-Val DictKeyAt(Val dict, u32 i)
-{
-  u32 index = RawVal(dict);
-  return mem[index+1+2*i];
-}
-
-Val DictValueAt(Val dict, u32 i)
-{
-  u32 index = RawVal(dict);
-  return mem[index+1+2*i+1];
 }
 
 void DictSet(Val dict, Val key, Val value)
@@ -450,19 +419,20 @@ void DictSet(Val dict, Val key, Val value)
     Error("Invalid key: %s", ValStr(key));
   }
 
-  Val *data = &mem[(u32)RawVal(dict)];
-  u32 size = HdrVal(data[0]);
   u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
-  u32 index = hash % size;
+  u32 index = hash % DICT_BUCKETS;
 
-  u32 start = index;
-  u32 key_slot = 1 + 2*index;
-  while (!IsNil(data[key_slot]) && !Eq(data[key_slot], key)) {
-    index = (index + 1) % size;
-    if (index == start) Error("Dict full");
-    key_slot = 1 + 2*index;
+  Val bucket = TupleAt(dict, index);
+  while (!IsNil(bucket)) {
+    Val entry = Head(bucket);
+    if (Eq(Head(entry), key)) {
+      SetTail(entry, value);
+      return;
+    }
+    bucket = Tail(bucket);
   }
 
-  data[key_slot] = key;
-  data[key_slot+1] = value;
+  bucket = TupleAt(dict, index);
+  Val entry = MakePair(key, value);
+  TupleSet(dict, index, MakePair(entry, bucket));
 }

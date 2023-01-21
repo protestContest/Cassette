@@ -14,6 +14,7 @@ typedef enum {
   TOKEN_FAT_ARROW,
   TOKEN_NUMBER,
   TOKEN_SYMBOL,
+  TOKEN_QUOTE,
   TOKEN_BAR,
   TOKEN_PLUS,
   TOKEN_MINUS,
@@ -32,6 +33,7 @@ typedef enum {
   TOKEN_DO,
   TOKEN_ELSE,
   TOKEN_END,
+  TOKEN_DEF,
   TOKEN_COND,
   TOKEN_LPAREN,
   TOKEN_RPAREN,
@@ -48,7 +50,12 @@ typedef struct {
 } TokenMap;
 
 TokenMap tokens[] = {
+  { "else", TOKEN_ELSE      },
+  { "cond", TOKEN_COND      },
+  { "end",  TOKEN_END       },
   { "and",  TOKEN_AND       },
+  { "def",  TOKEN_DEF       },
+  { "do",   TOKEN_DO        },
   { "or",   TOKEN_OR        },
   { "**",   TOKEN_EXPONENT  },
   { "|>",   TOKEN_PIPE      },
@@ -77,6 +84,7 @@ TokenMap tokens[] = {
   { ",",    TOKEN_COMMA     },
   { ":",    TOKEN_COLON     },
   { ".",    TOKEN_DOT       },
+  { "\"",   TOKEN_QUOTE     },
 };
 
 TokenType NextToken(Reader *r);
@@ -93,6 +101,7 @@ Val ParseDict(Reader *r);
 Val ParseNegative(Reader *r);
 Val ParseDo(Reader *r);
 Val ParseCond(Reader *r);
+Val ParseDef(Reader *r);
 
 Val ParseBlock(Reader *r, Val prefix);
 Val ParsePipe(Reader *r, Val prefix);
@@ -161,6 +170,7 @@ ParseRule rules[] = {
   [TOKEN_PIPE] =      { ParseIdentifier,  ParsePipe,      PREC_PIPE     },
   [TOKEN_NUMBER] =    { ParseNumber,      ParseExpr,      PREC_EXPR     },
   [TOKEN_SYMBOL] =    { ParseIdentifier,  ParseExpr,      PREC_EXPR     },
+  [TOKEN_QUOTE] =     { ParseString,      NULL,           PREC_NONE     },
   [TOKEN_PLUS] =      { ParseIdentifier,  ParseOperator,  PREC_TERM     },
   [TOKEN_MINUS] =     { ParseNegative,    ParseOperator,  PREC_TERM     },
   [TOKEN_STAR] =      { ParseIdentifier,  ParseOperator,  PREC_FACTOR   },
@@ -179,6 +189,7 @@ ParseRule rules[] = {
   [TOKEN_ELSE] =      { NULL,             ParseElse,      PREC_EXPR     },
   [TOKEN_END] =       { NULL,             NULL,           PREC_NONE     },
   [TOKEN_COND] =      { ParseCond,        NULL,           PREC_NONE     },
+  [TOKEN_DEF] =       { ParseDef,         NULL,           PREC_NONE     },
   [TOKEN_BAR] =       { NULL,             ParseOperator,  PREC_PAIR     },
   [TOKEN_LPAREN] =    { ParseGroup,       ParseExpr,      PREC_EXPR     },
   [TOKEN_RPAREN] =    { NULL,             NULL,           PREC_NONE     },
@@ -379,6 +390,9 @@ Val ParseGroup(Reader *r)
   if (r->status != PARSE_OK) return nil;
 
   Expect(r, ")");
+
+  if (!IsList(exp)) exp = MakePair(exp, nil);
+
   DebugResult(r, exp);
   return exp;
 }
@@ -511,25 +525,35 @@ Val ParseCond(Reader *r)
   return exp;
 }
 
-typedef struct {
-  char *name;
-  TokenType type;
-} Keyword;
-
-Keyword keywords[] = {
-  { "do",   TOKEN_DO },
-  { "else", TOKEN_ELSE },
-  { "end",  TOKEN_END },
-  { "cond", TOKEN_COND },
-};
-
-TokenType CheckKeywords(Reader *r)
+Val ParseDef(Reader *r)
 {
-  for (u32 i = 0; i < ArrayCount(keywords); i++) {
-    if (CheckToken(r, keywords[i].name)) return keywords[i].type;
+  DebugParse(r, "ParseDef");
+
+  Expect(r, "def");
+  SkipSpace(r);
+
+  Val var;
+  if (Match(r, "(")) {
+    SkipSpace(r);
+    var = nil;
+    while (!Match(r, ")")) {
+      if (IsEnd(Peek(r))) return Stop(r);
+      Val param = ParseIdentifier(r);
+      if (r->status != PARSE_OK) return nil;
+      var = MakePair(param, var);
+      SkipSpace(r);
+    }
+  } else {
+    var = ParseIdentifier(r);
+    if (r->status != PARSE_OK) return nil;
   }
 
-  return TOKEN_SYMBOL;
+  Val val = ParseLevel(r, PREC_EXPR);
+  if (r->status != PARSE_OK) return nil;
+
+  Val exp = MakeTagged(3, "def", var, val);
+  DebugResult(r, exp);
+  return exp;
 }
 
 TokenType NextToken(Reader *r)
@@ -543,13 +567,19 @@ TokenType NextToken(Reader *r)
   }
 
   for (u32 i = 0; i < ArrayCount(tokens); i++) {
-    if (Check(r, tokens[i].name)) {
-      return tokens[i].type;
+    if (IsSymChar(tokens[i].name[0])) {
+      if (CheckToken(r, tokens[i].name)) {
+        return tokens[i].type;
+      }
+    } else {
+      if (Check(r, tokens[i].name)) {
+        return tokens[i].type;
+      }
     }
   }
 
   if (IsSymChar(Peek(r))) {
-    return CheckKeywords(r);
+    return TOKEN_SYMBOL;
   }
 
   ParseError(r, "Expected character");
@@ -650,17 +680,7 @@ Val ParseSymbol(Reader *r)
 
 Val Parse(Reader *r)
 {
-  Val exps = nil;
-  SkipSpaceAndNewlines(r);
-  while (!IsEnd(Peek(r))) {
-    Val exp = ParseLevel(r, PREC_NONE + 1);
-    if (r->status != PARSE_OK) return nil;
-
-    exps = MakePair(exp, exps);
-    SkipSpaceAndNewlines(r);
-  }
-
-  return Reverse(exps);
+  return ParseBlock(r, MakeSymbol("do"));
 }
 
 void DebugParse(Reader *r, char *msg)

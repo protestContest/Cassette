@@ -1,1 +1,1 @@
-1
+def (foo) (display "ok")

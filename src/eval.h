@@ -1,12 +1,14 @@
 #pragma once
 #include "value.h"
 
-#define DEBUG_EVAL 0
+#define DEBUG_EVAL 1
 
 typedef struct {
   enum { EVAL_OK, EVAL_ERROR } status;
-  Val value;
-  char *error;
+  union {
+    Val value;
+    char *error;
+  };
 } EvalResult;
 
 EvalResult Eval(Val exp, Val env);

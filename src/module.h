@@ -1,4 +1,4 @@
 #pragma once
 #include "value.h"
 
-Val LoadModule(char *path, Val env);
+Val LoadFile(char *path);

@@ -34,12 +34,12 @@ void Read(Reader *r, char *src)
   Val exp = Parse(r);
   if (r->status != PARSE_OK) return;
 
-  r->ast = MakePair(MakeSymbol("do"), exp);
+  r->ast = exp;
 
-  if (DEBUG_PARSE) {
+  // if (DEBUG_PARSE) {
     fprintf(stderr, "AST: ");
     PrintVal(r->ast);
-  }
+  // }
 }
 
 void ReadFile(Reader *reader, char *path)
@@ -233,6 +233,7 @@ bool IsSymChar(char c)
   case '}':
   case '[':
   case ']':
+  case '"':
   case ':':
   case ';':
   case '.':

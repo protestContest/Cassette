@@ -19,7 +19,7 @@ Val ExtendEnv(Val env, Val keys, Val vals)
 
 Val AddFrame(Val env, u32 size)
 {
-  Val frame = MakeEmptyDict(size);
+  Val frame = MakeDict(nil, nil);
   return MakePair(frame, env);
 }
 
@@ -56,11 +56,15 @@ void DumpEnv(Val env)
     while (!IsNil(Tail(env))) {
       Val frame = Head(env);
 
-      for (u32 i = 0; i < DictSize(frame); i++) {
-        Val var = DictKeyAt(frame, i);
-        Val val = DictValueAt(frame, i);
-
-        fprintf(stderr, "│ %s: %s\n", ValStr(var), ValStr(val));
+      for (u32 i = 0; i < DICT_BUCKETS; i++) {
+        Val bucket = TupleAt(frame, i);
+        while (!IsNil(bucket)) {
+          Val entry = Head(bucket);
+          Val var = Head(entry);
+          Val val = Tail(entry);
+          fprintf(stderr, "│ %s: %s\n", ValStr(var), ValStr(val));
+          bucket = Tail(bucket);
+        }
       }
 
       env = Tail(env);

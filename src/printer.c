@@ -92,19 +92,24 @@ u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
     for (u32 i = 0; i < count; i++) {
       start = PrintValTo(TupleAt(val, i), dst, start, size);
       if (i != count-1) {
-        start += snprintf(dst + start, size, " ");
+        start += snprintf(dst + start, size, ", ");
       }
     }
     return start + snprintf(dst + start, size, "]");
   } else if (IsDict(val)) {
     start += snprintf(dst + start, size, "{");
-    u32 count = DictSize(val);
-    for (u32 i = 0; i < count; i++) {
-      start = PrintValTo(DictKeyAt(val, i), dst, start, size);
-      start += snprintf(dst + start, size, ": ");
-      start = PrintValTo(DictValueAt(val, i), dst, start, size);
-      if (i != count-1) {
-        start += snprintf(dst + start, size, " ");
+
+    for (u32 i = 0; i < DICT_BUCKETS; i++) {
+      Val bucket = TupleAt(val, i);
+      while (!IsNil(bucket)) {
+        Val entry = Head(bucket);
+        Val var = Head(entry);
+        Val val = Tail(entry);
+        start = PrintValTo(var, dst, start, size);
+        start += snprintf(dst + start, size, ": ");
+        start = PrintValTo(val, dst, start, size);
+        start += snprintf(dst + start, size, ", ");
+        bucket = Tail(bucket);
       }
     }
     return start + snprintf(dst + start, size, "}");

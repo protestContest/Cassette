@@ -21,6 +21,8 @@ bool IsTrue(Val val)
 
 bool IsEqual(Val a, Val b)
 {
+  if (Eq(a, b)) return true;
+
   if (IsNil(a) && IsNil(b)) return true;
   if (IsNumeric(a) && IsNumeric(b)) return RawVal(a) == RawVal(b);
   if (IsSym(a) && IsSym(b)) return RawVal(a) == RawVal(b);
@@ -41,14 +43,6 @@ bool IsEqual(Val a, Val b)
   if (IsTuple(a) && IsTuple(b) && TupleLength(a) == TupleLength(b)) {
     for (u32 i = 0; i < TupleLength(a); i++) {
       if (!IsEqual(TupleAt(a, i), TupleAt(b, i))) return false;
-    }
-    return true;
-  }
-
-  if (IsDict(a) && IsDict(b) && DictSize(a) == DictSize(b)) {
-    for (u32 i = 0; i < DictSize(a); i++) {
-      if (!IsEqual(DictKeyAt(a, i), DictKeyAt(b, i))) return false;
-      if (!IsEqual(DictValueAt(a, i), DictValueAt(b, i))) return false;
     }
     return true;
   }

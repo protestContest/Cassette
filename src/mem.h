@@ -1,6 +1,8 @@
 #pragma once
 #include "value.h"
 
+#define DICT_BUCKETS 32
+
 Val MakePair(Val head, Val tail);
 Val Head(Val pair);
 Val Tail(Val pair);
@@ -41,10 +43,6 @@ char *BinToCStr(Val binary);
 Val BinaryAt(Val binary, u32 i);
 
 Val MakeDict(Val keys, Val vals);
-Val MakeEmptyDict(u32 size);
-u32 DictSize(Val dict);
 bool DictHasKey(Val dict, Val key);
 Val DictGet(Val dict, Val key);
-Val DictKeyAt(Val dict, u32 i);
-Val DictValueAt(Val dict, u32 i);
 void DictSet(Val dict, Val key, Val value);

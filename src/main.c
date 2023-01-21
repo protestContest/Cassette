@@ -1,9 +1,10 @@
 #include "env.h"
 #include "value.h"
-#include "reader.h"
+#include "module.h"
 #include "eval.h"
 #include "printer.h"
 #include "repl.h"
+#include "mem.h"
 
 int ExecuteScript(char *path);
 
@@ -19,23 +20,11 @@ int main(int argc, char *argv[])
 
 int ExecuteScript(char *path)
 {
-  Reader *r = NewReader();
-  ReadFile(r, path);
-
-  switch (r->status) {
-  case PARSE_OK: {
-    EvalResult result = Eval(r->ast, InitialEnv());
-    if (result.status != EVAL_OK) {
-      PrintEvalError(result);
-    } else {
-      PrintVal(result.value);
-    }
-    break;
-  }
-  case PARSE_INCOMPLETE:
-    ParseError(r, "Unexpected end of input");
-  case PARSE_ERROR:
-    PrintReaderError(r);
-  }
-  return r->status;
+  Val env = LoadFile(path);
+  DumpEnv(env);
+  // Val frame = Head(env);
+  // for (u32 i = 0; i < DICT_BUCKETS; i++) {
+  //   PrintVal(TupleAt(frame, i));
+  // }
+  return 0;
 }
