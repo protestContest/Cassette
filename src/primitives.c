@@ -139,6 +139,20 @@ EvalResult PrimMakeDict(Val args)
   return EvalOk(MakeDict(keys, vals));
 }
 
+EvalResult PrimDictGet(Val args)
+{
+  Val dict = First(args);
+  Val key = Second(args);
+
+  if (DictHasKey(dict, key)) {
+    return EvalOk(DictGet(dict, key));
+  } else {
+    char *msg = NULL;
+    PrintInto(msg, "Undefined: %s", ValStr(key));
+    return RuntimeError(msg);
+  }
+}
+
 EvalResult PrimAdd(Val args)
 {
   Val a = First(args);
@@ -343,6 +357,7 @@ PrimitiveDef primitives[] = {
   {"list",        &PrimList},
   {"tuple",       &PrimMakeTuple},
   {"dict",        &PrimMakeDict},
+  {"dict-get",    &PrimDictGet},
   {"|",           &PrimPair},
   {"+",           &PrimAdd},
   {"-",           &PrimSub},

@@ -20,6 +20,7 @@ Val First(Val list);
 Val Second(Val list);
 Val Third(Val list);
 Val ListLast(Val list);
+void ListAppend(Val list1, Val list2);
 
 Val MakeTuple(u32 count, ...);
 Val ListToTuple(Val list);
@@ -35,6 +36,7 @@ Val BoolSymbol(bool val);
 Val SymbolFor(char *src);
 char *SymbolName(Val sym);
 void DumpSymbols(void);
+Val MakeQuoted(Val val);
 
 Val MakeBinary(char *src, u32 len);
 u32 BinaryLength(Val binary);
@@ -46,3 +48,4 @@ Val MakeDict(Val keys, Val vals);
 bool DictHasKey(Val dict, Val key);
 Val DictGet(Val dict, Val key);
 void DictSet(Val dict, Val key, Val value);
+void DictMerge(Val dict1, Val dict2);

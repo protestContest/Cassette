@@ -1,7 +1,7 @@
 #pragma once
 #include "value.h"
 
-#define DEBUG_EVAL 1
+#define DEBUG_EVAL 0
 
 typedef struct {
   enum { EVAL_OK, EVAL_ERROR } status;
@@ -13,6 +13,9 @@ typedef struct {
 
 EvalResult Eval(Val exp, Val env);
 EvalResult Apply(Val proc, Val args);
+EvalResult EvalDefine(Val exp, Val env);
+EvalResult EvalModule(Val exp, Val env);
+EvalResult EvalModuleBody(Val body, Val env);
 
 EvalResult EvalOk(Val exp);
 EvalResult RuntimeError(char *msg);

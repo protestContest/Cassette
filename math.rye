@@ -1,5 +1,7 @@
 module Math do
-  def (combo a b c) (+ (* a b) (* a c))
+  def (combo a b c) do
+    a * b + a * c
+  end
 end
 
-'foo
+Math.combo 3 4 5

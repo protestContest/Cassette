@@ -1,6 +1,8 @@
 #include "repl.h"
 #include "reader.h"
 #include "eval.h"
+#include "mem.h"
+#include "env.h"
 #include "printer.h"
 
 Reader *reader = NULL;
@@ -28,11 +30,13 @@ void Prompt(Reader *reader)
   }
 }
 
-void REPL(void)
+void REPL(Val env)
 {
   char line[BUFSIZ];
   reader = NewReader();
   reader->file = "repl";
+
+  env = ExtendEnv(env, nil, nil);
 
   signal(SIGINT, &OnSignal);
 
@@ -42,9 +46,13 @@ void REPL(void)
     Read(reader, line);
 
     if (reader->status == PARSE_OK) {
-      // TODO: Eval
-      PrintVal(reader->ast);
-      PrintTree(reader->ast);
+      Val exp = ListLast(reader->ast);
+      EvalResult result = Eval(exp, env);
+      if (result.status == EVAL_OK) {
+        fprintf(stderr, "=> %s\n", ValStr(result.value));
+      } else {
+        PrintEvalError(result);
+      }
     } else if (reader->status == PARSE_ERROR) {
       PrintReaderError(reader);
     }

@@ -16,8 +16,6 @@ typedef struct {
 Symbol symbols[NUM_SYMBOLS];
 u32 sym_next = 0;
 
-Val nil = PairVal(0);
-
 Val MakePair(Val head, Val tail)
 {
   if (mem_next+1 >= MEM_SIZE) Error("Out of memory");
@@ -154,6 +152,15 @@ Val ListLast(Val list)
     list = Tail(list);
   }
   return Head(list);
+}
+
+void ListAppend(Val list1, Val list2)
+{
+  while (!IsNil(Tail(list1))) {
+    list1 = Tail(list1);
+  }
+
+  SetTail(list1, list2);
 }
 
 Val MakeTuple(u32 count, ...)
@@ -296,6 +303,11 @@ void DumpSymbols(void)
   }
 }
 
+Val MakeQuoted(Val val)
+{
+  return MakePair(MakeSymbol("quote"), val);
+}
+
 Val MakeBinary(char *src, u32 len)
 {
   u32 count = (len - 1) / 4 + 1;
@@ -435,4 +447,20 @@ void DictSet(Val dict, Val key, Val value)
   bucket = TupleAt(dict, index);
   Val entry = MakePair(key, value);
   TupleSet(dict, index, MakePair(entry, bucket));
+}
+
+void DictMerge(Val dict1, Val dict2)
+{
+  for (u32 i = 0; i < DICT_BUCKETS; i++) {
+    Val bucket = TupleAt(dict1, i);
+    while (!IsNil(bucket)) {
+      Val entry = Head(bucket);
+      Val key = Head(entry);
+      if (!IsNil(key)) {
+        Val val = Tail(entry);
+        DictSet(dict2, key, val);
+      }
+      bucket = Tail(bucket);
+    }
+  }
 }

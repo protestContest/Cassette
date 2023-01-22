@@ -32,6 +32,9 @@ EvalResult EvalDefine(Val exp, Val env);
 EvalResult EvalPipe(Val exp, Val env);
 EvalResult EvalApply(Val exp, Val env);
 EvalResult EvalAccess(Val obj, Val key);
+EvalResult EvalModule(Val exp, Val env);
+EvalResult EvalUse(Val exp, Val env);
+EvalResult EvalImport(Val exp, Val env);
 bool IsSelfEvaluating(Val exp);
 bool IsAccessable(Val exp);
 
@@ -39,7 +42,7 @@ EvalResult Eval(Val exp, Val env)
 {
   if (DEBUG_EVAL) {
     fprintf(stderr, "[%d] Evaluating %s\n", stack_depth++, ValStr(exp));
-    DumpEnv(env);
+    DumpEnv(env, false);
   }
 
   EvalResult result;
@@ -62,6 +65,12 @@ EvalResult Eval(Val exp, Val env)
     result = EvalPipe(Tail(exp), env);
   } else if (IsTagged(exp, "def")) {
     result = EvalDefine(Tail(exp), env);
+  } else if (IsTagged(exp, "module")) {
+    result = EvalModule(Tail(exp), env);
+  } else if (IsTagged(exp, "use")) {
+    result = EvalUse(Tail(exp), env);
+  } else if (IsTagged(exp, "import")) {
+    result = EvalImport(Tail(exp), env);
   } else if (IsList(exp)) {
     result = EvalApply(exp, env);
   } else {
@@ -179,11 +188,16 @@ EvalResult EvalDefine(Val exp, Val env)
   }
 }
 
-EvalResult EvalSequence(Val exp, Val env)
+EvalResult EvalEach(Val exp, Val env)
 {
   EvalResult result = Eval(Head(exp), env);
   if (IsNil(Tail(exp)) || result.status == EVAL_ERROR) return result;
-  return EvalSequence(Tail(exp), env);
+  return EvalEach(Tail(exp), env);
+}
+
+EvalResult EvalSequence(Val exp, Val env)
+{
+  return EvalEach(exp, ExtendEnv(env, nil, nil));
 }
 
 EvalResult EvalPipe(Val exp, Val env)
@@ -247,6 +261,74 @@ EvalResult EvalAccess(Val obj, Val key)
 
   PrintInto(err, "Can't access this: %s", ValStr(obj));
   return RuntimeError(err);
+}
+
+EvalResult EvalModuleBody(Val body, Val env)
+{
+  if (!IsTagged(body, "do")) {
+    return RuntimeError("Bad module definition");
+  }
+
+  Val mod_env = ExtendEnv(env, nil, nil);
+  EvalResult result = EvalEach(Tail(body), mod_env);
+  if (result.status != EVAL_OK) return result;
+
+  return EvalOk(Head(mod_env));
+}
+
+Val UseProc(Val mod_name, Val env)
+{
+  Val params = MakePair(MakeSymbol("var"), nil);
+  Val get_mod = MakeList(2, MakeSymbol("MODULES"), MakeQuoted(mod_name));
+  Val get_var = MakeList(2, get_mod, MakeSymbol("var"));
+  Val proc = MakeProc(mod_name, params, get_var, env);
+  return proc;
+}
+
+EvalResult EvalModule(Val exp, Val env)
+{
+  Val name = First(exp);
+
+  EvalResult mod_frame = EvalModuleBody(Second(exp), env);
+  if (mod_frame.status != EVAL_OK) return mod_frame;
+
+  DefineModule(name, mod_frame.value, env);
+  Define(name, UseProc(name, env), env);
+
+  return EvalUse(MakePair(name, nil), env);
+}
+
+EvalResult EvalUse(Val exp, Val env)
+{
+  Val mod_name = First(exp);
+
+  Val proc = UseProc(mod_name, env);
+  Define(mod_name, proc, env);
+
+  return EvalOk(MakeSymbol("ok"));
+}
+
+EvalResult EvalImport(Val exp, Val env)
+{
+  char *msg = NULL;
+  Val mod_name = First(exp);
+
+  if (!IsSym(mod_name)) {
+    PrintInto(msg, "Bad module name: %s", ValStr(mod_name));
+    return RuntimeError(msg);
+  }
+
+  EvalResult modules = Lookup(MakeSymbol("MODULES"), GlobalEnv(env));
+  if (modules.status != EVAL_OK) return modules;
+
+  if (!DictHasKey(modules.value, mod_name)) {
+    PrintInto(msg, "Module not loaded: %s", ValStr(mod_name));
+    return RuntimeError(msg);
+  }
+
+  Val module = DictGet(modules.value, mod_name);
+  DictMerge(module, Head(env));
+  return EvalOk(MakeSymbol("ok"));
 }
 
 EvalResult EvalApply(Val exp, Val env)

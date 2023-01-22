@@ -64,7 +64,7 @@ typedef enum {
 
 #define Eq(v1, v2)  ((v1).as_v == (v2).as_v)
 
-extern Val nil;
+#define nil         ((Val)(i32)0xFFC00000)
 #define IsNil(v)    (Eq(v, nil))
 #define IsList(v)   (IsPair(v) && !IsNil(v) && IsPair(Tail(v)))
 

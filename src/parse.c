@@ -205,13 +205,15 @@ ParseRule *GetRule(TokenType type)
   return &rules[type];
 }
 
-Val ParseLevel(Reader *r, Precedence level)
+Val ParseLevel(Reader *r, Precedence level, bool skip_newlines)
 {
-  SkipSpace(r);
-  char *msg = NULL;
-  PrintInto(msg, "ParseLevel %s (%d)\n", PrecName(level), level);
-  DebugParse(r, msg);
-  if (DEBUG_PARSE) PrintSourceContext(r, 0);
+  if (skip_newlines) {SkipSpaceAndNewlines(r);} else {SkipSpace(r);}
+  if (DEBUG_PARSE) {
+    char *msg = NULL;
+    PrintInto(msg, "ParseLevel %s (%d)\n", PrecName(level), level);
+    DebugParse(r, msg);
+    PrintSourceContext(r, 0);
+  }
 
   ParseRule *rule = GetRule(NextToken(r));
   if (!rule->prefix) return nil;
@@ -219,14 +221,14 @@ Val ParseLevel(Reader *r, Precedence level)
   Val exp = rule->prefix(r);
   if (r->status != PARSE_OK) return nil;
 
-  SkipSpace(r);
+  if (skip_newlines) {SkipSpaceAndNewlines(r);} else {SkipSpace(r);}
   rule = GetRule(NextToken(r));
   while (level <= rule->prec) {
     if (DEBUG_PARSE) PrintSourceContext(r, 0);
 
     exp = rule->infix(r, exp);
     if (r->status != PARSE_OK) return nil;
-    SkipSpace(r);
+    if (skip_newlines) {SkipSpaceAndNewlines(r);} else {SkipSpace(r);}
     rule = GetRule(NextToken(r));
   }
 
@@ -249,7 +251,7 @@ Val ParseBlock(Reader *r, Val prefix)
       exp = ParsePipe(r, Head(exps));
       exps = Tail(exps);
     } else {
-      exp = ParseLevel(r, PREC_BLOCK + 1);
+      exp = ParseLevel(r, PREC_BLOCK + 1, false);
     }
 
     if (r->status != PARSE_OK) return nil;
@@ -271,7 +273,7 @@ Val ParsePipe(Reader *r, Val prefix)
   Expect(r, "|>");
   SkipSpace(r);
 
-  Val operand = ParseLevel(r, PREC_PIPE + 1);
+  Val operand = ParseLevel(r, PREC_PIPE + 1, false);
   if (r->status != PARSE_OK) return nil;
 
   Val exp = MakeList(3, MakeSymbol("|>"), prefix, operand);
@@ -287,7 +289,7 @@ Val ParseExpr(Reader *r, Val prefix)
 
   SkipSpace(r);
   while (!IsNewline(Peek(r)) && !Check(r, ",") && !IsEnd(Peek(r))) {
-    Val exp = ParseLevel(r, PREC_EXPR + 1);
+    Val exp = ParseLevel(r, PREC_EXPR + 1, false);
     if (r->status != PARSE_OK) return nil;
     if (IsNil(exp)) break;
 
@@ -332,7 +334,7 @@ Val ParseOperator(Reader *r, Val prefix)
   Val op = ParseIdentifier(r);
   if (r->status != PARSE_OK) return nil;
 
-  Val operand = ParseLevel(r, rule->prec + 1);
+  Val operand = ParseLevel(r, rule->prec + 1, false);
   if (r->status != PARSE_OK) return nil;
 
   Val exp = MakeList(3, op, prefix, operand);
@@ -357,7 +359,7 @@ Val ParseLambda(Reader *r, Val prefix)
 
   Expect(r, "->");
   SkipSpace(r);
-  Val body = ParseLevel(r, PREC_EXPR);
+  Val body = ParseLevel(r, PREC_EXPR, false);
   if (r->status != PARSE_OK) return nil;
 
   Val exp = MakeTagged(3, "->", prefix, body);
@@ -386,7 +388,7 @@ Val ParseGroup(Reader *r)
 
   Expect(r, "(");
 
-  Val exp = ParseLevel(r, PREC_EXPR);
+  Val exp = ParseLevel(r, PREC_EXPR, true);
   if (r->status != PARSE_OK) return nil;
 
   Expect(r, ")");
@@ -406,7 +408,7 @@ Val ParseList(Reader *r)
 
   Val items = nil;
   while (!Match(r, "]")) {
-    Val item = ParseLevel(r, PREC_EXPR);
+    Val item = ParseLevel(r, PREC_EXPR, false);
     if (r->status != PARSE_OK) return nil;
 
     items = MakePair(item, items);
@@ -445,7 +447,7 @@ Val ParseDict(Reader *r)
     Expect(r, ":");
     SkipSpaceAndNewlines(r);
 
-    Val val = ParseLevel(r, PREC_EXPR);
+    Val val = ParseLevel(r, PREC_EXPR, false);
     if (r->status != PARSE_OK) return nil;
     vals = MakePair(val, vals);
 
@@ -463,7 +465,8 @@ Val ParseNegative(Reader *r)
 {
   DebugParse(r, "ParseNegative");
 
-  Val exp = ParseLevel(r, PREC_NEGATIVE);
+  Expect(r, "-");
+  Val exp = ParseLevel(r, PREC_NEGATIVE, false);
   if (r->status != PARSE_OK) return nil;
 
   exp = MakeTagged(2, "-", exp);
@@ -496,14 +499,14 @@ Val ParseCond(Reader *r)
 
   Val clauses = nil;
   while (!Check(r, "end") && !Check(r, "else")) {
-    Val pred = ParseLevel(r, PREC_EXPR);
+    Val pred = ParseLevel(r, PREC_EXPR, false);
     if (r->status != PARSE_OK) return nil;
 
     SkipSpace(r);
     Expect(r, "=>");
     SkipSpaceAndNewlines(r);
 
-    Val result = ParseLevel(r, PREC_EXPR);
+    Val result = ParseLevel(r, PREC_EXPR, false);
     if (r->status != PARSE_OK) return nil;
 
     Val clause = MakePair(pred, result);
@@ -543,12 +546,13 @@ Val ParseDef(Reader *r)
       var = MakePair(param, var);
       SkipSpace(r);
     }
+    var = Reverse(var);
   } else {
     var = ParseIdentifier(r);
     if (r->status != PARSE_OK) return nil;
   }
 
-  Val val = ParseLevel(r, PREC_EXPR);
+  Val val = ParseLevel(r, PREC_EXPR, false);
   if (r->status != PARSE_OK) return nil;
 
   Val exp = MakeTagged(3, "def", var, val);

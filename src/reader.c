@@ -14,7 +14,6 @@ Reader *NewReader(void)
   r->src = NULL;
   r->cur = 0;
   r->indent = 0;
-  r->last_ok = 0;
   r->error = NULL;
   r->ast = nil;
   return r;
@@ -36,10 +35,10 @@ void Read(Reader *r, char *src)
 
   r->ast = exp;
 
-  // if (DEBUG_PARSE) {
+  if (DEBUG_PARSE) {
     fprintf(stderr, "AST: ");
     PrintVal(r->ast);
-  // }
+  }
 }
 
 void ReadFile(Reader *reader, char *path)
@@ -71,7 +70,6 @@ void ReadFile(Reader *reader, char *path)
 void CancelRead(Reader *r)
 {
   r->status = PARSE_OK;
-  // r->last_ok = '\0';
 }
 
 void AppendSource(Reader *r, char *src)
@@ -281,7 +279,7 @@ void SkipSpaceAndNewlines(Reader *r)
   }
 }
 
-bool Check(Reader *r, char *expect)
+bool Check(Reader *r, const char *expect)
 {
   u32 len = strlen(expect);
 
@@ -293,14 +291,14 @@ bool Check(Reader *r, char *expect)
   return true;
 }
 
-bool CheckToken(Reader *r, char *expect)
+bool CheckToken(Reader *r, const char *expect)
 {
   if (!Check(r, expect)) return false;
   if (IsSymChar(r->src[r->cur + strlen(expect)])) return false;
   return true;
 }
 
-bool Match(Reader *r, char *expect)
+bool Match(Reader *r, const char *expect)
 {
   if (Check(r, expect)) {
     r->cur += strlen(expect);
@@ -312,7 +310,7 @@ bool Match(Reader *r, char *expect)
   }
 }
 
-void Expect(Reader *r, char *expect)
+void Expect(Reader *r, const char *expect)
 {
   if (!Match(r, expect)) {
     char *msg = NULL;
