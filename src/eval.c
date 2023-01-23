@@ -35,8 +35,6 @@ EvalResult EvalAccess(Val obj, Val key);
 EvalResult EvalModule(Val exp, Val env);
 EvalResult EvalUse(Val exp, Val env);
 EvalResult EvalImport(Val exp, Val env);
-bool IsSelfEvaluating(Val exp);
-bool IsAccessable(Val exp);
 
 EvalResult Eval(Val exp, Val env)
 {

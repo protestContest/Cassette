@@ -17,6 +17,9 @@ EvalResult EvalDefine(Val exp, Val env);
 EvalResult EvalModule(Val exp, Val env);
 EvalResult EvalModuleBody(Val body, Val env);
 
+bool IsSelfEvaluating(Val exp);
+bool IsAccessable(Val exp);
+
 EvalResult EvalOk(Val exp);
 EvalResult RuntimeError(char *msg);
 

@@ -1,4 +1,1 @@
-import Kernel
-use Math
-
-display (Math.combo 3 4 5)
+def foo 3

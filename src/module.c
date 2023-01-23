@@ -8,7 +8,7 @@
 
 Module *LoadFile(char *path)
 {
-  if (DEBUG_MODULE) fprintf(stderr, "Loading file %s\n", path);
+  if (DEBUG_MODULE) fprintf(stderr, "Loading \"%s\"\n", path);
 
   Reader *r = NewReader();
   ReadFile(r, path);
