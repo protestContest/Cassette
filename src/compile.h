@@ -1,6 +1,8 @@
 #pragma once
 #include "value.h"
 #include "vm.h"
-#include "inst.h"
+#include "chunk.h"
 
-InstSeq Compile(Val exp, Reg target, Val linkage);
+Chunk *Compile(Val exp, Reg target, Val linkage);
+Chunk *CompileLinkage(Val linkage);
+Chunk *EndWithLinkage(Val linkage, Chunk *seq);

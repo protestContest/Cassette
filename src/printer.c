@@ -7,22 +7,22 @@ void DebugVal(Val val)
   if (IsNil(val)) {
     fprintf(stderr, " nil");
   } else if (IsNum(val)) {
-    fprintf(stderr, "%-4.1f", (float)RawVal(val));
+    fprintf(stderr, "%-4.1f", val.as_f);
   } else if (IsInt(val)) {
-    fprintf(stderr, "%-4d", (i32)RawVal(val));
+    fprintf(stderr, "%-4d", RawInt(val));
   } else if (IsPair(val)) {
-    fprintf(stderr, "p%3d", (i32)RawVal(val));
+    fprintf(stderr, "p%3d", RawObj(val));
   } else if (IsSym(val)) {
     char *name = SymbolName(val);
     fprintf(stderr, ":%s", name);
   } else if (IsBin(val)) {
-    fprintf(stderr, "b%-3d", (i32)RawVal(val));
+    fprintf(stderr, "b%-3d", RawObj(val));
   } else if (IsTuple(val)) {
-    fprintf(stderr, "t%-3d", (i32)RawVal(val));
+    fprintf(stderr, "t%-3d", RawObj(val));
   } else if (IsDict(val)) {
-    fprintf(stderr, "m%-3d", (i32)RawVal(val));
+    fprintf(stderr, "m%-3d", RawObj(val));
   } else {
-    fprintf(stderr, "?%-3d", (i32)RawVal(val));
+    fprintf(stderr, "?%-3d", val.as_v);
   }
 }
 
@@ -45,9 +45,9 @@ u32 PrintTail(Val val, char *dst, u32 start, u32 size)
 u32 PrintValTo(Val val, char *dst, u32 start, u32 size)
 {
   if (IsNum(val)) {
-    return start + snprintf(dst + start, size, "%.1f", (float)RawVal(val));
+    return start + snprintf(dst + start, size, "%.1f", val.as_f);
   } else if (IsInt(val)) {
-    return start + snprintf(dst + start, size, "%d", (u32)RawVal(val));
+    return start + snprintf(dst + start, size, "%d", RawInt(val));
   } else if (IsNil(val)) {
     return start + snprintf(dst + start, size, "nil");
   } else if (IsTagged(val, "procedure")) {
