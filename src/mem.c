@@ -31,28 +31,28 @@ Val MakePair(Val head, Val tail)
 Val Head(Val pair)
 {
   if (IsNil(pair)) return nil;
-  u32 index = RawVal(pair);
+  u32 index = RawObj(pair);
   return mem[index];
 }
 
 Val Tail(Val pair)
 {
   if (IsNil(pair)) return nil;
-  u32 index = RawVal(pair);
+  u32 index = RawObj(pair);
   return mem[index+1];
 }
 
 void SetHead(Val pair, Val val)
 {
   if (IsNil(pair)) Error("Can't change nil");
-  u32 index = RawVal(pair);
+  u32 index = RawObj(pair);
   mem[index] = val;
 }
 
 void SetTail(Val pair, Val val)
 {
   if (IsNil(pair)) Error("Can't change nil");
-  u32 index = RawVal(pair);
+  u32 index = RawObj(pair);
   mem[index+1] = val;
 }
 
@@ -223,19 +223,19 @@ Val ListToTuple(Val list)
 
 u32 TupleLength(Val tuple)
 {
-  u32 index = RawVal(tuple);
+  u32 index = RawObj(tuple);
   return HdrVal(mem[index]);
 }
 
 Val TupleAt(Val tuple, u32 i)
 {
-  u32 index = RawVal(tuple);
+  u32 index = RawObj(tuple);
   return mem[(index + i + 1) % MEM_SIZE];
 }
 
 void TupleSet(Val tuple, u32 i, Val val)
 {
-  u32 index = RawVal(tuple);
+  u32 index = RawObj(tuple);
   mem[(index + i + 1) % MEM_SIZE] = val;
 }
 
@@ -329,13 +329,13 @@ Val MakeBinary(char *src, u32 len)
 
 u32 BinaryLength(Val binary)
 {
-  u32 index = RawVal(binary);
+  u32 index = RawObj(binary);
   return HdrVal(mem[index]);
 }
 
 char *BinaryData(Val binary)
 {
-  u32 index = RawVal(binary);
+  u32 index = RawObj(binary);
   return (char*)&mem[index+1];
 }
 
@@ -387,13 +387,13 @@ bool DictHasKey(Val dict, Val key)
     return false;
   }
 
-  u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
+  u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
   u32 index = hash % DICT_BUCKETS;
 
   Val bucket = TupleAt(dict, index);
   while (!IsNil(bucket)) {
     Val entry = Head(bucket);
-    if (RawVal(Head(entry)) == hash) {
+    if (Eq(Head(entry), key)) {
       return true;
     }
 
@@ -409,7 +409,7 @@ Val DictGet(Val dict, Val key)
     Error("Invalid key: %s", ValStr(key));
   }
 
-  u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
+  u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
   u32 index = hash % DICT_BUCKETS;
 
   Val bucket = TupleAt(dict, index);
@@ -431,7 +431,7 @@ void DictSet(Val dict, Val key, Val value)
     Error("Invalid key: %s", ValStr(key));
   }
 
-  u32 hash = (IsBin(key)) ? HashBinary(key) : RawVal(key);
+  u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
   u32 index = hash % DICT_BUCKETS;
 
   Val bucket = TupleAt(dict, index);

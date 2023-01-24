@@ -24,8 +24,12 @@ bool IsEqual(Val a, Val b)
   if (Eq(a, b)) return true;
 
   if (IsNil(a) && IsNil(b)) return true;
-  if (IsNumeric(a) && IsNumeric(b)) return RawVal(a) == RawVal(b);
-  if (IsSym(a) && IsSym(b)) return RawVal(a) == RawVal(b);
+  if (IsSym(a) && IsSym(b)) return a.as_v == b.as_v;
+
+  if (IsInt(a) && IsInt(b)) return RawInt(a) == RawInt(b);
+  if (IsNum(a) && IsNum(b)) return a.as_f == b.as_f;
+  if (IsNum(a) && IsInt(b)) return a.as_f == (float)RawInt(b);
+  if (IsInt(a) && IsNum(b)) return (float)RawInt(a) == b.as_f;
 
   if (IsPair(a) && IsPair(b)) {
     return IsEqual(Head(a), Head(b)) && IsEqual(Tail(a), Tail(b));
@@ -53,7 +57,12 @@ bool IsEqual(Val a, Val b)
 bool IsLess(Val a, Val b)
 {
   if (IsNil(a) && IsNil(b)) return false;
-  if (IsNumeric(a) && IsNumeric(b)) return RawVal(a) < RawVal(b);
+
+  if (IsInt(a) && IsInt(b)) return RawInt(a) < RawInt(b);
+  if (IsNum(a) && IsNum(b)) return a.as_f < b.as_f;
+  if (IsNum(a) && IsInt(b)) return a.as_f < (float)RawInt(b);
+  if (IsInt(a) && IsNum(b)) return (float)RawInt(a) < b.as_f;
+
 
   if (IsSym(a) && IsSym(b)) {
     return strcmp(SymbolName(a), SymbolName(b)) < 0;
@@ -157,60 +166,66 @@ EvalResult PrimAdd(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  if (!IsNumeric(a) || !IsNumeric(b)) {
-    char *msg = NULL;
-    PrintInto(msg, "Arithmetic error: %s + %s", ValStr(a), ValStr(b));
-    return RuntimeError(msg);
-  }
 
-  if (IsInt(a) && IsInt(b)) {
-    return EvalOk(IntVal((u32)RawVal(a) + (u32)RawVal(b)));
-  } else {
-    return EvalOk(NumVal(RawVal(a) + RawVal(b)));
-  }
+  if (IsInt(a) && IsInt(b)) return EvalOk(IntVal(RawInt(a) + RawInt(b)));
+  if (IsNum(a) && IsNum(b)) return EvalOk(NumVal(a.as_f + b.as_f));
+  if (IsNum(a) && IsInt(b)) return EvalOk(NumVal(a.as_f + (float)RawInt(b)));
+  if (IsInt(a) && IsNum(b)) return EvalOk(NumVal((float)RawInt(a) + b.as_f));
+
+  char *msg = NULL;
+  PrintInto(msg, "Arithmetic error: %s + %s", ValStr(a), ValStr(b));
+  return RuntimeError(msg);
 }
 
 EvalResult PrimSub(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  if (!IsNumeric(a) || !IsNumeric(b)) {
-    char *msg = NULL;
-    PrintInto(msg, "Arithmetic error: %s - %s", ValStr(a), ValStr(b));
-    return RuntimeError(msg);
-  }
 
-  if (IsInt(a) && IsInt(b)) {
-    return EvalOk(IntVal((u32)RawVal(a) - (u32)RawVal(b)));
-  } else {
-    return EvalOk(NumVal(RawVal(a) - RawVal(b)));
-  }
+  if (IsInt(a) && IsInt(b)) return EvalOk(IntVal(RawInt(a) - RawInt(b)));
+  if (IsNum(a) && IsNum(b)) return EvalOk(NumVal(a.as_f - b.as_f));
+  if (IsNum(a) && IsInt(b)) return EvalOk(NumVal(a.as_f - (float)RawInt(b)));
+  if (IsInt(a) && IsNum(b)) return EvalOk(NumVal((float)RawInt(a) - b.as_f));
+
+  char *msg = NULL;
+  PrintInto(msg, "Arithmetic error: %s - %s", ValStr(a), ValStr(b));
+  return RuntimeError(msg);
 }
 
 EvalResult PrimMult(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  if (!IsNumeric(a) || !IsNumeric(b)) {
-    char *msg = NULL;
-    PrintInto(msg, "Arithmetic error: %s * %s", ValStr(a), ValStr(b));
-    return RuntimeError(msg);
-  }
 
-  return EvalOk(NumVal(RawVal(a) * RawVal(b)));
+  if (IsInt(a) && IsInt(b)) return EvalOk(NumVal(RawInt(a) * RawInt(b)));
+  if (IsNum(a) && IsNum(b)) return EvalOk(NumVal(a.as_f * b.as_f));
+  if (IsNum(a) && IsInt(b)) return EvalOk(NumVal(a.as_f * (float)RawInt(b)));
+  if (IsInt(a) && IsNum(b)) return EvalOk(NumVal((float)RawInt(a) * b.as_f));
+
+  char *msg = NULL;
+  PrintInto(msg, "Arithmetic error: %s * %s", ValStr(a), ValStr(b));
+  return RuntimeError(msg);
 }
 
 EvalResult PrimDiv(Val args)
 {
   Val a = First(args);
   Val b = Second(args);
-  if (!IsNumeric(a) || !IsNumeric(b) || RawVal(b) == 0) {
+
+  if ((IsInt(b) && RawInt(b) == 0) || (IsNum(b) && b.as_f == 0.0)) {
     char *msg = NULL;
     PrintInto(msg, "Arithmetic error: %s / %s", ValStr(a), ValStr(b));
     return RuntimeError(msg);
   }
 
-  return EvalOk(NumVal(RawVal(a) / RawVal(b)));
+  if (IsInt(a) && IsInt(b)) return EvalOk(NumVal((float)RawInt(a) / (float)RawInt(b)));
+  if (IsNum(a) && IsNum(b)) return EvalOk(NumVal(a.as_f / b.as_f));
+  if (IsNum(a) && IsInt(b)) return EvalOk(NumVal(a.as_f / (float)RawInt(b)));
+  if (IsInt(a) && IsNum(b)) return EvalOk(NumVal((float)RawInt(a) / b.as_f));
+
+  char *msg = NULL;
+  PrintInto(msg, "Arithmetic error: %s / %s", ValStr(a), ValStr(b));
+  return RuntimeError(msg);
 }
 
 EvalResult PrimEquals(Val args)
@@ -255,31 +270,6 @@ EvalResult PrimGreaterEquals(Val args)
   return EvalOk(BoolSymbol(!IsLess(a, b)));
 }
 
-EvalResult PrimRange(Val args)
-{
-  Val from = First(args);
-  Val to = Second(args);
-  Val list = nil;
-
-  if (!IsInt(from) || !IsInt(to)) {
-    char *msg = NULL;
-    PrintInto(msg, "Argument error: %s .. %s", ValStr(from), ValStr(to));
-    return RuntimeError(msg);
-  }
-
-  if (RawVal(from) > RawVal(to)) {
-    for (i32 i = RawVal(from); i > RawVal(to); i--) {
-      list = MakePair(IntVal(i), list);
-    }
-    return EvalOk(Reverse(list));
-  } else {
-    for (i32 i = RawVal(from); i < RawVal(to); i++) {
-      list = MakePair(IntVal(i), list);
-    }
-    return EvalOk(Reverse(list));
-  }
-}
-
 EvalResult PrimAnd(Val args)
 {
   Val a = First(args);
@@ -311,7 +301,7 @@ EvalResult PrimRem(Val args)
     return RuntimeError(msg);
   }
 
-  return EvalOk(IntVal((u32)RawVal(a) % (u32)RawVal(b)));
+  return EvalOk(IntVal(RawInt(a) % RawInt(b)));
 }
 
 EvalResult PrimEq(Val args)
@@ -369,7 +359,6 @@ PrimitiveDef primitives[] = {
   {">",           &PrimGreaterThan},
   {"<=",          &PrimLessEquals},
   {">=",          &PrimGreaterEquals},
-  {"..",          &PrimRange},
   {"and",         &PrimAnd},
   {"or",          &PrimOr},
   {"not",         &PrimNot},

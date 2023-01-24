@@ -236,7 +236,7 @@ EvalResult EvalAccess(Val obj, Val key)
       return RuntimeError(err);
     }
 
-    return EvalOk(TupleAt(obj, RawVal(key)));
+    return EvalOk(TupleAt(obj, RawInt(key)));
   }
 
   if (IsList(obj)) {
@@ -245,7 +245,7 @@ EvalResult EvalAccess(Val obj, Val key)
       return RuntimeError(err);
     }
 
-    return EvalOk(ListAt(obj, RawVal(key)));
+    return EvalOk(ListAt(obj, RawInt(key)));
   }
 
   if (IsBin(obj)) {
@@ -254,7 +254,7 @@ EvalResult EvalAccess(Val obj, Val key)
       return RuntimeError(err);
     }
 
-    return EvalOk(BinaryAt(obj, RawVal(key)));
+    return EvalOk(BinaryAt(obj, RawInt(key)));
   }
 
   PrintInto(err, "Can't access this: %s", ValStr(obj));
