@@ -6,6 +6,7 @@ Chunk *NewChunk(void)
 {
   Chunk *chunk = malloc(sizeof(Chunk));
   if (!chunk) Fatal("Out of memory");
+  InitChunk(chunk);
   return chunk;
 }
 
@@ -17,11 +18,17 @@ Chunk *InitChunk(Chunk *chunk)
   return chunk;
 }
 
-void FreeChunk(Chunk *chunk)
+void ResetChunk(Chunk *chunk)
 {
   FreeVec(chunk->code);
   FreeVec(chunk->lines);
   FreeVec(chunk->constants);
+}
+
+void FreeChunk(Chunk *chunk)
+{
+  ResetChunk(chunk);
+  free(chunk);
 }
 
 u32 PutByte(Chunk *chunk, u32 line, u8 byte)

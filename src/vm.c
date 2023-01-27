@@ -95,17 +95,21 @@ Status Run(VM *vm)
 
 Status Interpret(VM *vm, char *src)
 {
-  CompileResult result = Compile(src);
+  Chunk chunk;
+  InitChunk(&chunk);
 
-  if (result.status == Error) {
-    vm->error = result.error;
+  if (Compile(src, &chunk) == Error) {
+    ResetChunk(&chunk);
     return Error;
-  } else {
-    vm->chunk = result.chunk;
   }
 
+  vm->chunk = &chunk;
   vm->pc = 0;
-  return Run(vm);
+  Status result = Run(vm);
+
+  ResetChunk(&chunk);
+
+  return result;
 }
 
 Status RuntimeError(VM *vm, char *msg)

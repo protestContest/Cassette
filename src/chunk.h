@@ -10,7 +10,9 @@ typedef struct {
 
 Chunk *NewChunk(void);
 Chunk *InitChunk(Chunk *chunk);
+void ResetChunk(Chunk *chunk);
 void FreeChunk(Chunk *chunk);
+
 u32 PutByte(Chunk *chunk, u32 line, u8 byte);
 u8 GetByte(Chunk *chunk, u32 i);
 u8 PutConst(Chunk *chunk, Val value);

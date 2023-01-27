@@ -1,13 +1,12 @@
 #pragma once
 #include "value.h"
+#include "reader.h"
 #include "chunk.h"
 
 typedef struct {
-  Status status;
-  union {
-    Chunk *chunk;
-    char *error;
-  };
-} CompileResult;
+  Reader r;
+  Chunk *chunk;
+  Token current;
+} Parser;
 
-CompileResult Compile(char *src);
+Status Compile(char *src, Chunk *chunk);

@@ -1,41 +1,237 @@
 #include "compile.h"
-#include "reader.h"
+#include "chunk.h"
 
-CompileResult CompileOk(Chunk *chunk)
+typedef enum {
+  PREC_NONE,
+  PREC_BLOCK,
+  PREC_PIPE,
+  PREC_EXPR,
+  PREC_LOGIC,
+  PREC_EQUALITY,
+  PREC_COMPARE,
+  PREC_PAIR,
+  PREC_TERM,
+  PREC_FACTOR,
+  PREC_EXPONENT,
+  PREC_LAMBDA,
+  PREC_NEGATIVE,
+  PREC_ACCESS,
+  PREC_PRIMARY,
+} Precedence;
+
+typedef void (*ParseFn)(Parser *p);
+
+static void ParseNumber(Parser *p);
+static void ParseIdentifier(Parser *p);
+static void ParseNegative(Parser *p);
+static void ParseOperator(Parser *p);
+static void ParseGroup(Parser *p);
+static void ParseExpr(Parser *p);
+static bool ParseLevel(Parser *p, Precedence level);
+
+typedef struct {
+  ParseFn prefix;
+  ParseFn infix;
+  Precedence prec;
+} ParseRule;
+
+ParseRule rules[] = {
+  [TOKEN_LPAREN] =      { ParseGroup,       ParseExpr,      PREC_EXPR     },
+  [TOKEN_RPAREN] =      { NULL,             NULL,           PREC_NONE     },
+  // [TOKEN_LBRACKET] =    { ParseList,        NULL,           PREC_NONE     },
+  [TOKEN_RBRACKET] =    { NULL,             NULL,           PREC_NONE     },
+  // [TOKEN_LBRACE] =      { ParseDict,        ParseExpr,      PREC_EXPR     },
+  [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
+  // [TOKEN_COMMA] =       { NULL,             ParseBlock,     PREC_BLOCK    },
+  // [TOKEN_DOT] =         { NULL,             ParseAccess,    PREC_ACCESS   },
+  [TOKEN_MINUS] =       { ParseNegative,    ParseOperator,  PREC_TERM     },
+  [TOKEN_PLUS] =        { ParseIdentifier,  ParseOperator,  PREC_TERM     },
+  [TOKEN_STAR] =        { ParseIdentifier,  ParseOperator,  PREC_FACTOR   },
+  [TOKEN_SLASH] =       { ParseIdentifier,  ParseOperator,  PREC_FACTOR   },
+  [TOKEN_EXPONENT] =    { ParseIdentifier,  ParseOperator,  PREC_EXPONENT },
+  [TOKEN_BAR] =         { NULL,             ParseOperator,  PREC_PAIR     },
+  [TOKEN_EQ] =          { ParseIdentifier,  ParseOperator,  PREC_EQUALITY },
+  [TOKEN_NEQ] =         { ParseIdentifier,  ParseOperator,  PREC_EQUALITY },
+  [TOKEN_GT] =          { ParseIdentifier,  ParseOperator,  PREC_COMPARE  },
+  [TOKEN_GTE] =         { ParseIdentifier,  ParseOperator,  PREC_COMPARE  },
+  [TOKEN_LT] =          { ParseIdentifier,  ParseOperator,  PREC_COMPARE  },
+  [TOKEN_LTE] =         { ParseIdentifier,  ParseOperator,  PREC_COMPARE  },
+  // [TOKEN_PIPE] =        { ParseIdentifier,  ParsePipe,      PREC_PIPE     },
+  // [TOKEN_ARROW] =       { NULL,             ParseLambda,    PREC_LAMBDA   },
+  [TOKEN_IDENTIFIER] =  { ParseIdentifier,  ParseExpr,      PREC_EXPR     },
+  // [TOKEN_STRING] =      { ParseString,      NULL,           PREC_NONE     },
+  [TOKEN_NUMBER] =      { ParseNumber,      ParseExpr,      PREC_EXPR     },
+  // [TOKEN_SYMBOL] =      { ParseSymbol,      NULL,           PREC_NONE     },
+  [TOKEN_AND] =         { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
+  [TOKEN_OR] =          { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
+  // [TOKEN_DEF] =         { ParseDef,         NULL,           PREC_NONE     },
+  // [TOKEN_COND] =        { ParseCond,        NULL,           PREC_NONE     },
+  // [TOKEN_DO] =          { ParseDo,          NULL,           PREC_NONE     },
+  // [TOKEN_ELSE] =        { NULL,             ParseElse,      PREC_EXPR     },
+  [TOKEN_END] =         { NULL,             NULL,           PREC_NONE     },
+  // [TOKEN_NEWLINE] =     { NULL,             ParseBlock,     PREC_BLOCK    },
+  [TOKEN_EOF] =         { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_ERROR] =       { NULL,             NULL,           PREC_NONE     },
+};
+
+#define CurType(p)  ((p)->current.type)
+#define GetRule(p)  (&rules[CurType(p)])
+
+void Emit(Parser *p, u8 byte)
 {
-  CompileResult result;
-  result.status = Ok;
-  result.chunk = chunk;
-  return result;
+  PutByte(p->chunk, p->r.line, byte);
 }
 
-CompileResult CompileError(char *msg)
+void EmitConst(Parser *p, Val value)
 {
-  CompileResult result;
-  result.status = Error;
-  result.error = msg;
-  return result;
+  u8 i = PutConst(p->chunk, value);
+  PutByte(p->chunk, p->r.line, OP_CONST);
+  PutByte(p->chunk, p->r.line, i);
 }
 
-CompileResult Compile(char *src)
+static Status SyntaxError(Parser *p, const char *message)
 {
-  Reader *reader = NewReader(src);
+  if (p->r.status != Ok) return Error;
 
-  u32 line = 0;
-  while (true) {
-    Token token = ScanToken(reader);
+  fprintf(stderr, "[%d:%d] Syntax error: %s\n", p->current.line, p->current.col, message);
+  PrintSourceContext(&p->r, 0);
 
-    if (token.line != line) {
-      printf("%3u│ ", token.line);
-      line = token.line;
-    } else {
-      printf("   │ ");
-    }
+  return Error;
+}
 
-    printf("%2d \"%*.s\"\n", token.type, token.length, token.start);
+static void Advance(Parser *p)
+{
+  p->current = ScanToken(&p->r);
+}
 
-    if (token.type == TOKEN_EOF) break;
+static void Expect(Parser *p, TokenType type, const char *msg)
+{
+  Token token = ScanToken(&p->r);
+
+  if (token.type == type) {
+    p->current = token;
+  } else {
+    SyntaxError(p, msg);
+  }
+}
+
+static void ParseNegative(Parser *p)
+{
+  ParseLevel(p, PREC_NEGATIVE);
+  Emit(p, OP_NEG);
+}
+
+static void ParseOperator(Parser *p)
+{
+  TokenType op = CurType(p);
+  ParseRule *rule = GetRule(p);
+  ParseLevel(p, rule->prec + 1);
+
+  switch (op) {
+  case TOKEN_MINUS:
+    Emit(p, OP_SUB);
+    break;
+  case TOKEN_PLUS:
+    Emit(p, OP_ADD);
+    break;
+  case TOKEN_STAR:
+    Emit(p, OP_MUL);
+    break;
+  case TOKEN_SLASH:
+    Emit(p, OP_DIV);
+    break;
+  default:
+    return;
+  }
+}
+
+static void ParseGroup(Parser *p)
+{
+  ParseExpr(p);
+  Expect(p, TOKEN_RPAREN, "Expected \")\" after expression");
+}
+
+// static void ParseExpr(Parser *p)
+// {
+//   Token token = p->current;
+
+//   Advance(p);
+//   while (CurType(p) != TOKEN_COMMA && CurType(p) != TOKEN_NEWLINE && CurType(p) != TOKEN_EOF) {
+//     if (!ParseLevel(p, PREC_EXPR + 1)) break;
+//     Advance(p);
+//   }
+//   if (p->r.status != Ok) return;
+
+
+// }
+
+static void ParseExpr(Parser *p)
+{
+  ParseLevel(p, PREC_EXPR + 1);
+}
+
+static bool ParseLevel(Parser *p, Precedence level)
+{
+  Advance(p);
+
+  ParseRule *rule = GetRule(p);
+  if (!rule->prefix) return false;
+
+  rule->prefix(p);
+  if (p->r.status != Ok) return false;
+
+  Advance(p);
+  rule = GetRule(p);
+  while (level <= rule->prec) {
+    rule->infix(p);
+    if (p->r.status != Ok) return false;
+    Advance(p);
+    rule = GetRule(p);
   }
 
-  return CompileOk(NewChunk());
+  return true;
+}
+
+static void ParseNumber(Parser *p)
+{
+  Token token = p->current;
+  u32 num = 0;
+
+  for (u32 i = 0; i < token.length; i++) {
+    if (token.lexeme[i] == '_') continue;
+    if (token.lexeme[i] == '.') {
+      float frac = 0.0;
+      float magn = 10.0;
+      for (u32 j = i+1; j < token.length; j++) {
+        if (token.lexeme[i] == '_') continue;
+        u32 digit = token.lexeme[j] - '0';
+        frac += (float)digit / magn;
+      }
+
+      EmitConst(p, NumVal((float)num + frac));
+      return;
+    }
+
+    u32 digit = token.lexeme[i] - '0';
+    num = num*10 + digit;
+  }
+
+  EmitConst(p, IntVal(num));
+}
+
+static void ParseIdentifier(Parser *p)
+{
+
+}
+
+Status Compile(char *src, Chunk *chunk)
+{
+  Parser p;
+  InitReader(&p.r, src);
+  p.chunk = chunk;
+
+  ParseExpr(&p);
+
+  Emit(&p, OP_RETURN);
+  return p.r.status;
 }

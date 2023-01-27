@@ -20,7 +20,7 @@ typedef struct {
   TokenType type;
   u32 line;
   u32 col;
-  const char *start;
+  const char *lexeme;
   u32 length;
 } Token;
 
@@ -36,6 +36,7 @@ typedef struct {
 Token ScanToken(Reader *r);
 
 Reader *NewReader(char *src);
+Reader *InitReader(Reader *r, char *src);
 void FreeReader(Reader *r);
 
 void Read(Reader *r, char *src);
@@ -46,9 +47,6 @@ void AppendSource(Reader *r, char *src);
 Val Stop(Reader *r);
 Val ParseError(Reader *r, char *msg);
 void Rewind(Reader *r);
-char Advance(Reader *r);
-void AdvanceLine(Reader *r);
-void Retreat(Reader *r, u32 count);
 
 void PrintSource(Reader *r);
 void PrintSourceContext(Reader *r, u32 num_lines);
@@ -59,7 +57,6 @@ bool IsOperator(char c);
 void SkipSpace(Reader *r);
 void SkipSpaceAndNewlines(Reader *r);
 bool Check(Reader *r, const char *expect);
-bool CheckToken(Reader *r, const char *expect);
+bool CheckKeyword(Reader *r, const char *expect);
 bool Match(Reader *r, const char *expect);
-bool MatchToken(Reader *r, const char *expect);
-void Expect(Reader *r, const char *expect);
+bool MatchKeyword(Reader *r, const char *expect);

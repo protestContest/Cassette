@@ -13,6 +13,10 @@
 #define Peek(r)           ((r)->src[(r)->cur])
 #define PeekNext(r)   ((r)->src[(r)->cur + 1])
 
+static char Advance(Reader *r);
+static void AdvanceLine(Reader *r);
+static void Retreat(Reader *r, u32 count);
+
 Token NumberToken(Reader *r);
 Token StringToken(Reader *r);
 Token IdentifierToken(Reader *r);
@@ -23,7 +27,7 @@ static Token MakeToken(Reader *r, TokenType type, u32 length)
   token.type = type;
   token.line = r->line;
   token.col = r->col;
-  token.start = r->src + r->cur - length;
+  token.lexeme = r->src + r->cur - length;
   token.length = length;
   return token;
 }
@@ -34,7 +38,7 @@ static Token ErrorToken(Reader *r, const char *msg)
   token.type = TOKEN_ERROR;
   token.line = r->line;
   token.col = r->col;
-  token.start = msg;
+  token.lexeme = msg;
   token.length = strlen(msg);
   return token;
 }
@@ -42,6 +46,12 @@ static Token ErrorToken(Reader *r, const char *msg)
 Reader *NewReader(char *src)
 {
   Reader *r = malloc(sizeof(Reader));
+  InitReader(r, src);
+  return r;
+}
+
+Reader *InitReader(Reader *r, char *src)
+{
   r->status = Ok;
   r->line = 1;
   r->col = 1;
@@ -120,7 +130,7 @@ Token StringToken(Reader *r)
   }
 
   if (IsEnd(Peek(r))) return ErrorToken(r, "Unterminated string");
-  Expect(r, "\"");
+  Advance(r);
   return MakeToken(r, TOKEN_STRING, r->cur - start);
 }
 
@@ -128,13 +138,13 @@ Token IdentifierToken(Reader *r)
 {
   u32 start = r->cur;
 
-  if (MatchToken(r, "and"))   return MakeToken(r, TOKEN_AND, 3);
-  if (MatchToken(r, "cond"))  return MakeToken(r, TOKEN_COND, 4);
-  if (MatchToken(r, "def"))   return MakeToken(r, TOKEN_DEF, 3);
-  if (MatchToken(r, "do"))    return MakeToken(r, TOKEN_DO, 2);
-  if (MatchToken(r, "else"))  return MakeToken(r, TOKEN_ELSE, 4);
-  if (MatchToken(r, "end"))   return MakeToken(r, TOKEN_END, 3);
-  if (MatchToken(r, "or"))    return MakeToken(r, TOKEN_OR, 2);
+  if (MatchKeyword(r, "and"))   return MakeToken(r, TOKEN_AND, 3);
+  if (MatchKeyword(r, "cond"))  return MakeToken(r, TOKEN_COND, 4);
+  if (MatchKeyword(r, "def"))   return MakeToken(r, TOKEN_DEF, 3);
+  if (MatchKeyword(r, "do"))    return MakeToken(r, TOKEN_DO, 2);
+  if (MatchKeyword(r, "else"))  return MakeToken(r, TOKEN_ELSE, 4);
+  if (MatchKeyword(r, "end"))   return MakeToken(r, TOKEN_END, 3);
+  if (MatchKeyword(r, "or"))    return MakeToken(r, TOKEN_OR, 2);
 
   while (IsSymChar(Peek(r))) Advance(r);
 
@@ -143,41 +153,7 @@ Token IdentifierToken(Reader *r)
   return MakeToken(r, TOKEN_IDENTIFIER, r->cur - start);
 }
 
-Val ParseNumber(Reader *r)
-{
-  // DebugParse(r, "ParseNumber");
 
-  u32 n = Peek(r) - '0';
-  Advance(r);
-  while (IsDigit(Peek(r))) {
-    u32 d = Peek(r) - '0';
-    n = n*10 + d;
-    Advance(r);
-    while (Peek(r) == '_') Advance(r);
-  }
-  if (Match(r, ".")) {
-    if (!IsDigit(Peek(r))) {
-      Retreat(r, 1);
-      // DebugResult(r, IntVal(n));
-      return IntVal(n);
-    }
-
-    float frac = 0.0;
-    float denom = 10.0;
-    while (IsDigit(Peek(r))) {
-      u32 d = Peek(r) - '0';
-      frac += (float)d / denom;
-      denom *= 10;
-      Advance(r);
-      while (Peek(r) == '_') Advance(r);
-    }
-    // DebugResult(r, NumVal(n + frac));
-    return NumVal(n + frac);
-  }
-
-  // DebugResult(r, IntVal(n));
-  return IntVal(n);
-}
 
 Val ParseIdentifier(Reader *r)
 {
@@ -231,20 +207,20 @@ void Rewind(Reader *r)
   r->status = Ok;
 }
 
-char Advance(Reader *r)
+static char Advance(Reader *r)
 {
   r->col++;
   return r->src[r->cur++];
 }
 
-void AdvanceLine(Reader *r)
+static void AdvanceLine(Reader *r)
 {
   r->line++;
   r->col = 1;
   r->cur++;
 }
 
-void Retreat(Reader *r, u32 count)
+static void Retreat(Reader *r, u32 count)
 {
   while (count > 0 && r->cur > 0) {
     r->cur--;
@@ -417,7 +393,7 @@ bool Check(Reader *r, const char *expect)
   return true;
 }
 
-bool CheckToken(Reader *r, const char *expect)
+bool CheckKeyword(Reader *r, const char *expect)
 {
   if (!Check(r, expect)) return false;
   if (IsSymChar(r->src[r->cur + strlen(expect)])) return false;
@@ -436,21 +412,12 @@ bool Match(Reader *r, const char *expect)
   }
 }
 
-bool MatchToken(Reader *r, const char *expect)
+bool MatchKeyword(Reader *r, const char *expect)
 {
-  if (CheckToken(r, expect)) {
+  if (CheckKeyword(r, expect)) {
     Match(r, expect);
     return true;
   } else {
     return false;
-  }
-}
-
-void Expect(Reader *r, const char *expect)
-{
-  if (!Match(r, expect)) {
-    char *msg = NULL;
-    PrintInto(msg, "Expected \"%s\"", expect);
-    ParseError(r, msg);
   }
 }

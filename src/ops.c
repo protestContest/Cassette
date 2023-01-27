@@ -52,8 +52,8 @@ Status NegOp(struct VM *vm)
 
 Status AddOp(struct VM *vm)
 {
-  Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
+  Val a = VecPop(vm->stack);
 
   if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
 
@@ -67,8 +67,8 @@ Status AddOp(struct VM *vm)
 
 Status SubOp(struct VM *vm)
 {
-  Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
+  Val a = VecPop(vm->stack);
 
   if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
 
@@ -82,8 +82,8 @@ Status SubOp(struct VM *vm)
 
 Status MulOp(struct VM *vm)
 {
-  Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
+  Val a = VecPop(vm->stack);
 
   if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
 
@@ -97,8 +97,8 @@ Status MulOp(struct VM *vm)
 
 Status DivOp(struct VM *vm)
 {
-  Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
+  Val a = VecPop(vm->stack);
 
   if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
   if ((IsInt(b) && RawInt(b) == 0) || (IsNum(b) && b.as_f == 0.0)) return RuntimeError(vm, "Divide by zero");
