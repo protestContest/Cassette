@@ -11,5 +11,5 @@ typedef struct VM {
 
 VM *NewVM(void);
 void FreeVM(VM *vm);
-Status Run(VM *vm, Chunk *chunk);
+Status Interpret(VM *vm, char *src);
 Status RuntimeError(VM *vm, char *msg);

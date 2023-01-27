@@ -1,5 +1,6 @@
 #include "vm.h"
 #include "chunk.h"
+#include "compile.h"
 #include "vec.h"
 #include "printer.h"
 
@@ -45,15 +46,13 @@ static void PrintStack(VM *vm, u32 bufsize)
   printf("▪︎");
 }
 
-Status Run(VM *vm, Chunk *chunk)
+Status Run(VM *vm)
 {
-  vm->chunk = chunk;
-  vm->pc = 0;
   u32 count = 0;
 
   if (TRACE) printf("───╴Line╶┬╴Instruction╶─────┬╴Stack╶──\n");
 
-  while (vm->pc < VecCount(chunk->code)) {
+  while (vm->pc < VecCount(vm->chunk->code)) {
     count++;
     if (TRACE) {
       if (count % 30 == 0) printf("─────────┼╴Instruction╶─────┼╴Stack╶──\n");
@@ -92,6 +91,21 @@ Status Run(VM *vm, Chunk *chunk)
   if (TRACE) printf("\n");
 
   return Ok;
+}
+
+Status Interpret(VM *vm, char *src)
+{
+  CompileResult result = Compile(src);
+
+  if (result.status == Error) {
+    vm->error = result.error;
+    return Error;
+  } else {
+    vm->chunk = result.chunk;
+  }
+
+  vm->pc = 0;
+  return Run(vm);
 }
 
 Status RuntimeError(VM *vm, char *msg)

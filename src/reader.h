@@ -1,21 +1,41 @@
 #pragma once
 #include "value.h"
 
+typedef enum {
+  TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACKET, TOKEN_RBRACKET, TOKEN_LBRACE,
+  TOKEN_RBRACE, TOKEN_COMMA, TOKEN_DOT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_STAR,
+  TOKEN_SLASH, TOKEN_EXPONENT, TOKEN_BAR, TOKEN_EQ, TOKEN_NEQ, TOKEN_GT,
+  TOKEN_GTE, TOKEN_LT, TOKEN_LTE, TOKEN_PIPE, TOKEN_ARROW, TOKEN_IDENTIFIER,
+  TOKEN_STRING, TOKEN_NUMBER, TOKEN_SYMBOL, TOKEN_AND, TOKEN_OR, TOKEN_DEF,
+  TOKEN_COND, TOKEN_DO, TOKEN_ELSE, TOKEN_END, TOKEN_NEWLINE, TOKEN_EOF,
+  TOKEN_ERROR,
+} TokenType;
+
 typedef struct {
-  Status status;
-  char *file;
+  char *name;
+  TokenType type;
+} TokenMap;
+
+typedef struct {
+  TokenType type;
   u32 line;
   u32 col;
-  char *src;
+  const char *start;
+  u32 length;
+} Token;
+
+typedef struct {
+  Status status;
+  u32 line;
+  u32 col;
   u32 cur;
-  u32 indent;
+  char *src;
   char *error;
-  Val ast;
 } Reader;
 
-#define Peek(r)           ((r)->src[(r)->cur])
+Token ScanToken(Reader *r);
 
-Reader *NewReader(void);
+Reader *NewReader(char *src);
 void FreeReader(Reader *r);
 
 void Read(Reader *r, char *src);
@@ -41,4 +61,5 @@ void SkipSpaceAndNewlines(Reader *r);
 bool Check(Reader *r, const char *expect);
 bool CheckToken(Reader *r, const char *expect);
 bool Match(Reader *r, const char *expect);
+bool MatchToken(Reader *r, const char *expect);
 void Expect(Reader *r, const char *expect);

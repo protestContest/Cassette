@@ -2,4 +2,12 @@
 #include "value.h"
 #include "chunk.h"
 
-Chunk *Compile(Val exp);
+typedef struct {
+  Status status;
+  union {
+    Chunk *chunk;
+    char *error;
+  };
+} CompileResult;
+
+CompileResult Compile(char *src);

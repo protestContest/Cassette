@@ -1,21 +1,53 @@
 #include "reader.h"
-#include "parse.h"
 #include "mem.h"
 #include "printer.h"
 #include <stdio.h>
 
-Reader *NewReader(void)
+#define IsSpace(c)        ((c) == ' ' || (c) == '\t')
+#define IsNewline(c)      ((c) == '\n' || (c) == '\r')
+#define IsAlpha(c)        (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' & (c) <= 'z'))
+#define IsDigit(c)        ((c) >= '0' && (c) <= '9')
+#define IsEnd(c)          ((c) == '\0')
+#define IsBoundary(c)     (IsSpace(c) || IsNewline(c) || IsEnd(c))
+
+#define Peek(r)           ((r)->src[(r)->cur])
+#define PeekNext(r)   ((r)->src[(r)->cur + 1])
+
+Token NumberToken(Reader *r);
+Token StringToken(Reader *r);
+Token IdentifierToken(Reader *r);
+
+static Token MakeToken(Reader *r, TokenType type, u32 length)
+{
+  Token token;
+  token.type = type;
+  token.line = r->line;
+  token.col = r->col;
+  token.start = r->src + r->cur - length;
+  token.length = length;
+  return token;
+}
+
+static Token ErrorToken(Reader *r, const char *msg)
+{
+  Token token;
+  token.type = TOKEN_ERROR;
+  token.line = r->line;
+  token.col = r->col;
+  token.start = msg;
+  token.length = strlen(msg);
+  return token;
+}
+
+Reader *NewReader(char *src)
 {
   Reader *r = malloc(sizeof(Reader));
   r->status = Ok;
-  r->file = "stdin";
   r->line = 1;
   r->col = 1;
-  r->src = NULL;
+  r->src = src;
   r->cur = 0;
-  r->indent = 0;
   r->error = NULL;
-  r->ast = nil;
   return r;
 }
 
@@ -26,50 +58,144 @@ void FreeReader(Reader *r)
   free(r);
 }
 
-void Read(Reader *r, char *src)
+Token ScanToken(Reader *r)
 {
-  AppendSource(r, src);
+  SkipSpace(r);
 
-  Val exp = Parse(r);
-  if (r->status != Ok) return;
+  if (IsEnd(Peek(r))) return MakeToken(r, TOKEN_EOF, 0);
 
-  r->ast = exp;
+  if (IsDigit(Peek(r))) return NumberToken(r);
+  if (Match(r, "\""))   return StringToken(r);
 
-  if (DEBUG_PARSE) {
-    fprintf(stderr, "AST: ");
-    PrintVal(r->ast);
-  }
+  if (Match(r, "("))  return MakeToken(r, TOKEN_LPAREN, 1);
+  if (Match(r, ")"))  return MakeToken(r, TOKEN_RPAREN, 1);
+  if (Match(r, "["))  return MakeToken(r, TOKEN_LBRACKET, 1);
+  if (Match(r, "]"))  return MakeToken(r, TOKEN_RBRACKET, 1);
+  if (Match(r, "{"))  return MakeToken(r, TOKEN_LBRACE, 1);
+  if (Match(r, "}"))  return MakeToken(r, TOKEN_RBRACE, 1);
+  if (Match(r, ","))  return MakeToken(r, TOKEN_COMMA, 1);
+  if (Match(r, "."))  return MakeToken(r, TOKEN_DOT, 1);
+  if (Match(r, "-"))  return MakeToken(r, TOKEN_MINUS, 1);
+  if (Match(r, "+"))  return MakeToken(r, TOKEN_PLUS, 1);
+  if (Match(r, "*"))  return MakeToken(r, TOKEN_STAR, 1);
+  if (Match(r, "/"))  return MakeToken(r, TOKEN_SLASH, 1);
+  if (Match(r, "|"))  return MakeToken(r, TOKEN_BAR, 1);
+  if (Match(r, "="))  return MakeToken(r, TOKEN_EQ, 1);
+  if (Match(r, ">"))  return MakeToken(r, TOKEN_GT, 1);
+  if (Match(r, "<"))  return MakeToken(r, TOKEN_LT, 1);
+  if (Match(r, "\n")) return MakeToken(r, TOKEN_NEWLINE, 1);
+  if (Match(r, "\r")) return MakeToken(r, TOKEN_NEWLINE, 1);
+
+  if (Match(r, "!=")) return MakeToken(r, TOKEN_NEQ, 2);
+  if (Match(r, ">=")) return MakeToken(r, TOKEN_GTE, 2);
+  if (Match(r, "**")) return MakeToken(r, TOKEN_EXPONENT, 2);
+  if (Match(r, "|>")) return MakeToken(r, TOKEN_PIPE, 2);
+  if (Match(r, "->")) return MakeToken(r, TOKEN_ARROW, 2);
+  if (Match(r, "<=")) return MakeToken(r, TOKEN_LTE, 2);
+
+  if (IsSymChar(Peek(r))) return IdentifierToken(r);
+
+  return ErrorToken(r, "Unexpected character");
 }
 
-void ReadFile(Reader *reader, char *path)
+Token NumberToken(Reader *r)
 {
-  FILE *file = fopen(path, "r");
-  if (!file) {
-    u32 len = snprintf(NULL, 0, "Could not open file \"%s\"", path);
-    char msg[len+1];
-    sprintf(msg, "Could not open file \"%s\"", path);
-    ParseError(reader, msg);
-    return;
+  u32 start = r->cur;
+
+  while (IsDigit(Peek(r)) || Peek(r) == '_') Advance(r);
+  if (Check(r, ".") && IsDigit(PeekNext(r))) {
+    Match(r, ".");
+    while (IsDigit(Peek(r)) || Peek(r) == '_') Advance(r);
   }
 
-  fseek(file, 0, SEEK_END);
-  u32 size = ftell(file);
-  rewind(file);
-
-  char src[size+1];
-  for (u32 i = 0; i < size; i++) {
-    int c = fgetc(file);
-    src[i] = (char)c;
-  }
-  src[size] = '\0';
-
-  reader->file = path;
-  Read(reader, src);
+  return MakeToken(r, TOKEN_NUMBER, r->cur - start);
 }
 
-void CancelRead(Reader *r)
+Token StringToken(Reader *r)
 {
-  r->status = Ok;
+  u32 start = r->cur - 1;
+  while (Peek(r) != '"' && !IsEnd(Peek(r))) {
+    if (Peek(r) == '\n') AdvanceLine(r);
+    else Advance(r);
+  }
+
+  if (IsEnd(Peek(r))) return ErrorToken(r, "Unterminated string");
+  Expect(r, "\"");
+  return MakeToken(r, TOKEN_STRING, r->cur - start);
+}
+
+Token IdentifierToken(Reader *r)
+{
+  u32 start = r->cur;
+
+  if (MatchToken(r, "and"))   return MakeToken(r, TOKEN_AND, 3);
+  if (MatchToken(r, "cond"))  return MakeToken(r, TOKEN_COND, 4);
+  if (MatchToken(r, "def"))   return MakeToken(r, TOKEN_DEF, 3);
+  if (MatchToken(r, "do"))    return MakeToken(r, TOKEN_DO, 2);
+  if (MatchToken(r, "else"))  return MakeToken(r, TOKEN_ELSE, 4);
+  if (MatchToken(r, "end"))   return MakeToken(r, TOKEN_END, 3);
+  if (MatchToken(r, "or"))    return MakeToken(r, TOKEN_OR, 2);
+
+  while (IsSymChar(Peek(r))) Advance(r);
+
+  if (r->cur == start) return ErrorToken(r, "Expected symbol");
+
+  return MakeToken(r, TOKEN_IDENTIFIER, r->cur - start);
+}
+
+Val ParseNumber(Reader *r)
+{
+  // DebugParse(r, "ParseNumber");
+
+  u32 n = Peek(r) - '0';
+  Advance(r);
+  while (IsDigit(Peek(r))) {
+    u32 d = Peek(r) - '0';
+    n = n*10 + d;
+    Advance(r);
+    while (Peek(r) == '_') Advance(r);
+  }
+  if (Match(r, ".")) {
+    if (!IsDigit(Peek(r))) {
+      Retreat(r, 1);
+      // DebugResult(r, IntVal(n));
+      return IntVal(n);
+    }
+
+    float frac = 0.0;
+    float denom = 10.0;
+    while (IsDigit(Peek(r))) {
+      u32 d = Peek(r) - '0';
+      frac += (float)d / denom;
+      denom *= 10;
+      Advance(r);
+      while (Peek(r) == '_') Advance(r);
+    }
+    // DebugResult(r, NumVal(n + frac));
+    return NumVal(n + frac);
+  }
+
+  // DebugResult(r, IntVal(n));
+  return IntVal(n);
+}
+
+Val ParseIdentifier(Reader *r)
+{
+  // DebugParse(r, "ParseIdentifier");
+
+  u32 start = r->cur;
+  while (IsSymChar(Peek(r))) {
+    Advance(r);
+  }
+
+  if (r->cur == start) {
+    ParseError(r, "Expected symbol");
+    return nil;
+  }
+
+  Val exp = MakeSymbolFromSlice(&r->src[start], r->cur - start);
+  // DebugResult(r, exp);
+  return exp;
 }
 
 void AppendSource(Reader *r, char *src)
@@ -209,7 +335,7 @@ void PrintReaderError(Reader *r)
 
   // red text
   fprintf(stderr, "\x1B[31m");
-  fprintf(stderr, "[%s:%d:%d] Parse error: %s\n\n", r->file, r->line, r->col, r->error);
+  fprintf(stderr, "[%d:%d] Parse error: %s\n\n", r->line, r->col, r->error);
 
   PrintSourceContext(r, 10);
 
@@ -304,6 +430,16 @@ bool Match(Reader *r, const char *expect)
     r->cur += strlen(expect);
     r->col += strlen(expect);
     SkipSpace(r);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool MatchToken(Reader *r, const char *expect)
+{
+  if (CheckToken(r, expect)) {
+    Match(r, expect);
     return true;
   } else {
     return false;
