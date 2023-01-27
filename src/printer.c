@@ -132,6 +132,14 @@ char *ValStr(Val val)
   return str;
 }
 
+char *ValAbbr(Val val)
+{
+  char *str = malloc(9);
+  PrintValTo(val, str, 0, 9);
+  str[9] = '\0';
+  return str;
+}
+
 void PrintVal(Val val)
 {
   if (IsBin(val)) {

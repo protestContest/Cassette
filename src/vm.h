@@ -2,13 +2,20 @@
 #include "value.h"
 #include "chunk.h"
 
-// typedef struct {
-//   bool trace;
-//   u32 sp;
-//   Val *stack;
-//   Chunk *chunk;
-// } VM;
+typedef enum RunResult {
+  ResultOk,
+  ResultCompileError,
+  ResultRuntimeError,
+} Result;
 
-// VM *NewVM(void);
-// void PrintRegisters(VM *vm);
-// void Run(VM *vm, Chunk *chunk);
+typedef struct VM {
+  u32 pc;
+  Chunk *chunk;
+  Val *stack;
+  char *error;
+} VM;
+
+VM *NewVM(void);
+void FreeVM(VM *vm);
+Result Run(VM *vm, Chunk *chunk);
+Result RuntimeError(VM *vm, char *msg);

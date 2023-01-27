@@ -1,7 +1,105 @@
-// #include "vm.h"
-// #include "chunk.h"
-// #include "primitives.h"
-// #include "printer.h"
+#include "vm.h"
+#include "chunk.h"
+#include "vec.h"
+#include "printer.h"
+
+#define TRACE 1
+
+VM *NewVM(void)
+{
+  VM *vm = malloc(sizeof(VM));
+  vm->pc = 0;
+  vm->chunk = NULL;
+  vm->stack = NULL;
+  return vm;
+}
+
+void FreeVM(VM *vm)
+{
+  free(vm);
+  FreeVec(vm->stack);
+}
+
+static u8 ReadByte(VM *vm)
+{
+  return vm->chunk->code[vm->pc++];
+}
+
+static Val ReadConst(VM *vm)
+{
+  return GetConst(vm->chunk, ReadByte(vm));
+}
+
+static void PrintStack(VM *vm, u32 bufsize)
+{
+  u32 written = 0;
+  for (u32 i = 0; i < VecCount(vm->stack); i++) {
+    if (written + 8 >= bufsize) {
+      if (i < VecCount(vm->stack) - 1) printf("...");
+      return;
+    }
+
+    char *str = ValAbbr(vm->stack[VecCount(vm->stack)-1-i]);
+    written += printf("%s  ", str);
+  }
+  printf("▪︎");
+}
+
+Result Run(VM *vm, Chunk *chunk)
+{
+  vm->chunk = chunk;
+  vm->pc = 0;
+  u32 count = 0;
+
+  if (TRACE) printf("───╴Line╶┬╴Instruction╶─────┬╴Stack╶──\n");
+
+  while (vm->pc < VecCount(chunk->code)) {
+    count++;
+    if (TRACE) {
+      if (count % 30 == 0) printf("─────────┼╴Instruction╶─────┼╴Stack╶──\n");
+      u32 written = DisassembleInstruction(vm->chunk, vm->pc);
+      for (u32 i = 0; i < 30 - written; i++) printf(" ");
+      printf("│ ");
+      PrintStack(vm, 100);
+      printf("\n");
+    }
+
+    OpCode op;
+    switch (op = ReadByte(vm)) {
+    case OP_RETURN:
+      return ResultOk;
+    case OP_CONST:
+      VecPush(vm->stack, ReadConst(vm));
+      break;
+    case OP_NEG:
+      NegOp(vm);
+      break;
+    case OP_ADD:
+      AddOp(vm);
+      break;
+    case OP_SUB:
+      SubOp(vm);
+      break;
+    case OP_MUL:
+      MulOp(vm);
+      break;
+    case OP_DIV:
+      DivOp(vm);
+      break;
+    }
+  }
+
+  if (TRACE) printf("\n");
+
+  return ResultOk;
+}
+
+Result RuntimeError(VM *vm, char *msg)
+{
+  vm->error = msg;
+  return ResultRuntimeError;
+}
+
 
 // #define STACK_SIZE 1024
 // // VM *NewVM(void)
