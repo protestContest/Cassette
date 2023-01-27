@@ -5,7 +5,7 @@
 Chunk *NewChunk(void)
 {
   Chunk *chunk = malloc(sizeof(Chunk));
-  if (!chunk) Error("Out of memory");
+  if (!chunk) Fatal("Out of memory");
   return chunk;
 }
 

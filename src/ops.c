@@ -36,21 +36,21 @@ u32 OpSize(OpCode op)
   }
 }
 
-enum RunResult NegOp(struct VM *vm)
+Status NegOp(struct VM *vm)
 {
   Val val = VecPop(vm->stack);
   if (IsNum(val)) {
     VecPush(vm->stack, NumVal(-val.as_f));
-    return ResultOk;
+    return Ok;
   } else if (IsInt(val)) {
     VecPush(vm->stack, IntVal(-RawInt(val)));
-    return ResultOk;
+    return Ok;
   } else {
     return RuntimeError(vm, "Arithmetic error");
   }
 }
 
-enum RunResult AddOp(struct VM *vm)
+Status AddOp(struct VM *vm)
 {
   Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
@@ -62,10 +62,10 @@ enum RunResult AddOp(struct VM *vm)
   if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f + (float)RawInt(b)));
   if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) + b.as_f));
 
-  return ResultOk;
+  return Ok;
 }
 
-enum RunResult SubOp(struct VM *vm)
+Status SubOp(struct VM *vm)
 {
   Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
@@ -77,10 +77,10 @@ enum RunResult SubOp(struct VM *vm)
   if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f - (float)RawInt(b)));
   if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) - b.as_f));
 
-  return ResultOk;
+  return Ok;
 }
 
-enum RunResult MulOp(struct VM *vm)
+Status MulOp(struct VM *vm)
 {
   Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
@@ -92,10 +92,10 @@ enum RunResult MulOp(struct VM *vm)
   if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f * (float)RawInt(b)));
   if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) * b.as_f));
 
-  return ResultOk;
+  return Ok;
 }
 
-enum RunResult DivOp(struct VM *vm)
+Status DivOp(struct VM *vm)
 {
   Val a = VecPop(vm->stack);
   Val b = VecPop(vm->stack);
@@ -108,5 +108,5 @@ enum RunResult DivOp(struct VM *vm)
   if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f / (float)RawInt(b)));
   if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) / b.as_f));
 
-  return ResultOk;
+  return Ok;
 }

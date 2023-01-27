@@ -16,7 +16,7 @@ void *ResizeVec(void *vec, u32 num_items, u32 item_size)
   u32 new_capacity = (double_capacity < min_required) ? min_required : double_capacity;
 
   u32 *new_raw_vec = (u32 *)realloc(vec ? RawVec(vec) : 0, item_size*new_capacity + sizeof(u32)*2);
-  if (!new_raw_vec) Error("Out of memory");
+  if (!new_raw_vec) Fatal("Out of memory");
 
   new_raw_vec[0] = new_capacity;
   if (!vec) new_raw_vec[1] = 0;

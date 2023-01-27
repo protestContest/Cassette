@@ -2,11 +2,7 @@
 #include "value.h"
 
 typedef struct {
-  enum {
-    PARSE_OK,
-    PARSE_INCOMPLETE,
-    PARSE_ERROR
-  } status;
+  Status status;
   char *file;
   u32 line;
   u32 col;

@@ -7,7 +7,7 @@
 Reader *NewReader(void)
 {
   Reader *r = malloc(sizeof(Reader));
-  r->status = PARSE_OK;
+  r->status = Ok;
   r->file = "stdin";
   r->line = 1;
   r->col = 1;
@@ -31,7 +31,7 @@ void Read(Reader *r, char *src)
   AppendSource(r, src);
 
   Val exp = Parse(r);
-  if (r->status != PARSE_OK) return;
+  if (r->status != Ok) return;
 
   r->ast = exp;
 
@@ -69,7 +69,7 @@ void ReadFile(Reader *reader, char *path)
 
 void CancelRead(Reader *r)
 {
-  r->status = PARSE_OK;
+  r->status = Ok;
 }
 
 void AppendSource(Reader *r, char *src)
@@ -85,13 +85,13 @@ void AppendSource(Reader *r, char *src)
 
 Val Stop(Reader *r)
 {
-  r->status = PARSE_INCOMPLETE;
+  r->status = Unknown;
   return nil;
 }
 
 Val ParseError(Reader *r, char *msg)
 {
-  r->status = PARSE_ERROR;
+  r->status = Error;
   r->error = realloc(r->error, strlen(msg) + 1);
   strcpy(r->error, msg);
   return nil;
@@ -102,7 +102,7 @@ void Rewind(Reader *r)
   r->cur = 0;
   r->col = 1;
   r->line = 1;
-  r->status = PARSE_OK;
+  r->status = Ok;
 }
 
 char Advance(Reader *r)
@@ -205,7 +205,7 @@ void PrintSourceContext(Reader *r, u32 num_lines)
 
 void PrintReaderError(Reader *r)
 {
-  if (r->status != PARSE_ERROR) return;
+  if (r->status != Error) return;
 
   // red text
   fprintf(stderr, "\x1B[31m");

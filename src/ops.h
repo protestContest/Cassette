@@ -1,7 +1,6 @@
 #pragma once
 
 struct VM;
-enum RunResult;
 
 typedef enum {
   OP_RETURN,
@@ -22,8 +21,8 @@ const char *OpStr(OpCode op);
 ArgFormat OpFormat(OpCode op);
 u32 OpSize(OpCode op);
 
-enum RunResult NegOp(struct VM *vm);
-enum RunResult AddOp(struct VM *vm);
-enum RunResult SubOp(struct VM *vm);
-enum RunResult MulOp(struct VM *vm);
-enum RunResult DivOp(struct VM *vm);
+Status NegOp(struct VM *vm);
+Status AddOp(struct VM *vm);
+Status SubOp(struct VM *vm);
+Status MulOp(struct VM *vm);
+Status DivOp(struct VM *vm);

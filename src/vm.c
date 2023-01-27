@@ -45,7 +45,7 @@ static void PrintStack(VM *vm, u32 bufsize)
   printf("▪︎");
 }
 
-Result Run(VM *vm, Chunk *chunk)
+Status Run(VM *vm, Chunk *chunk)
 {
   vm->chunk = chunk;
   vm->pc = 0;
@@ -67,7 +67,7 @@ Result Run(VM *vm, Chunk *chunk)
     OpCode op;
     switch (op = ReadByte(vm)) {
     case OP_RETURN:
-      return ResultOk;
+      return Ok;
     case OP_CONST:
       VecPush(vm->stack, ReadConst(vm));
       break;
@@ -91,13 +91,13 @@ Result Run(VM *vm, Chunk *chunk)
 
   if (TRACE) printf("\n");
 
-  return ResultOk;
+  return Ok;
 }
 
-Result RuntimeError(VM *vm, char *msg)
+Status RuntimeError(VM *vm, char *msg)
 {
   vm->error = msg;
-  return ResultRuntimeError;
+  return Error;
 }
 
 

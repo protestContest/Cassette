@@ -19,6 +19,12 @@ typedef int32_t   i32;
 typedef int64_t   i64;
 typedef unsigned char byte;
 
+typedef enum {
+  Ok,
+  Error,
+  Unknown,
+} Status;
+
 #define Bit(n)    (1 << (n))
 
 #define ArrayCount(a)   (sizeof (a) / sizeof (a)[0])
@@ -31,9 +37,9 @@ typedef unsigned char byte;
   } while (0)
 
 
-#define Error(...)  do {        \
+#define Fatal(...)  do {        \
   fflush(stdout);               \
-  fprintf(stderr, "Error: ");   \
+  fprintf(stderr, "Fatal: ");   \
   fprintf(stderr, __VA_ARGS__); \
   fprintf(stderr, "\n");        \
   fflush(stderr);               \

@@ -18,7 +18,7 @@ u32 sym_next = 0;
 
 Val MakePair(Val head, Val tail)
 {
-  if (mem_next+1 >= MEM_SIZE) Error("Out of memory");
+  if (mem_next+1 >= MEM_SIZE) Fatal("Out of memory");
 
   Val pair = PairVal(mem_next);
 
@@ -44,14 +44,14 @@ Val Tail(Val pair)
 
 void SetHead(Val pair, Val val)
 {
-  if (IsNil(pair)) Error("Can't change nil");
+  if (IsNil(pair)) Fatal("Can't change nil");
   u32 index = RawObj(pair);
   mem[index] = val;
 }
 
 void SetTail(Val pair, Val val)
 {
-  if (IsNil(pair)) Error("Can't change nil");
+  if (IsNil(pair)) Fatal("Can't change nil");
   u32 index = RawObj(pair);
   mem[index+1] = val;
 }
@@ -165,7 +165,7 @@ void ListAppend(Val list1, Val list2)
 
 Val MakeTuple(u32 count, ...)
 {
-  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
+  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
 
   Val tuple = TupleVal(mem_next);
   mem[mem_next++] = TupHdr(count);
@@ -188,7 +188,7 @@ Val MakeTuple(u32 count, ...)
 
 Val MakeEmptyTuple(u32 count)
 {
-  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
+  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
 
   Val tuple = TupleVal(mem_next);
   mem[mem_next++] = TupHdr(count);
@@ -203,7 +203,7 @@ Val MakeEmptyTuple(u32 count)
 Val ListToTuple(Val list)
 {
   u32 count = ListLength(list);
-  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
+  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
 
   Val tuple = TupleVal(mem_next);
   mem[mem_next++] = TupHdr(count);
@@ -261,7 +261,7 @@ Val MakeSymbolFromSlice(char *src, u32 len)
     }
   }
 
-  if (sym_next >= NUM_SYMBOLS) Error("Too many symbols");
+  if (sym_next >= NUM_SYMBOLS) Fatal("Too many symbols");
 
   Symbol *sym = &symbols[sym_next++];
   sym->key = key;
@@ -312,7 +312,7 @@ Val MakeBinary(char *src, u32 len)
 {
   u32 count = (len - 1) / 4 + 1;
 
-  if (mem_next + count + 1 >= MEM_SIZE) Error("Out of memory");
+  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
 
   Val binary = BinVal(mem_next);
   mem[mem_next++] = BinHdr(len);
@@ -406,7 +406,7 @@ bool DictHasKey(Val dict, Val key)
 Val DictGet(Val dict, Val key)
 {
   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-    Error("Invalid key: %s", ValStr(key));
+    Fatal("Invalid key: %s", ValStr(key));
   }
 
   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
@@ -428,7 +428,7 @@ Val DictGet(Val dict, Val key)
 void DictSet(Val dict, Val key, Val value)
 {
   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-    Error("Invalid key: %s", ValStr(key));
+    Fatal("Invalid key: %s", ValStr(key));
   }
 
   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
