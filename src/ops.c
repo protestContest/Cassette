@@ -115,6 +115,29 @@ void ArithmeticOp(struct VM *vm, OpCode op)
   VecPush(vm->stack, NumVal(n));
 }
 
+void CompareOp(struct VM *vm, OpCode op)
+{
+  Val b = VecPop(vm->stack);
+  Val a = VecPop(vm->stack);
+
+  if (!IsNumeric(a) || !IsNumeric(b)) {
+    RuntimeError(vm, "Comparison error");
+    return;
+  }
+
+  bool result;
+  switch (op) {
+  case OP_EQUAL:  result = RawNum(a) == RawNum(b); break;
+  case OP_LT:     result = RawNum(a) < RawNum(b); break;
+  case OP_GT:     result = RawNum(a) > RawNum(b); break;
+  default:
+    RuntimeError(vm, "Unknown op");
+    return;
+  }
+
+  VecPush(vm->stack, result ? SymbolFor("true") : SymbolFor("false"));
+}
+
 void NotOp(struct VM *vm)
 {
   Val val = VecPop(vm->stack);

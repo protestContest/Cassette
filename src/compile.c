@@ -1,6 +1,8 @@
 #include "compile.h"
 #include "chunk.h"
 #include "mem.h"
+#include "reader.h"
+#include "printer.h"
 
 typedef enum {
   PREC_NONE,
@@ -104,7 +106,8 @@ ParseRule rules[] = {
 };
 
 #define CurType(p)  ((p)->current.type)
-#define GetRule(p)  (&rules[CurType(p)])
+#define NextType(p) ((p)->next.type)
+#define GetRule(t)  (&rules[t])
 
 void Emit(Parser *p, u8 byte)
 {
@@ -130,8 +133,18 @@ static Status SyntaxError(Parser *p, const char *message)
 
 static void Advance(Parser *p)
 {
-  p->current = ScanToken(&p->r);
-  // printf("Advance \"%.*s\" %s\n", p->current.length, p->current.lexeme, TokenStr(p->current.type));
+  p->current = p->next;
+  p->next = ScanToken(&p->r);
+  printf("Advance \"%.*s\" %s\n", p->current.length, p->current.lexeme, TokenStr(p->current.type));
+}
+
+static void Consume(Parser *p, TokenType type, const char *msg)
+{
+  if (NextType(p) == type) {
+    Advance(p);
+  } else {
+    SyntaxError(p, msg);
+  }
 }
 
 static void Expect(Parser *p, TokenType type, const char *msg)
@@ -153,6 +166,8 @@ static void ParseNegative(Parser *p)
 
 static void ParseLiteral(Parser *p)
 {
+  printf("ParseLiteral\n");
+
   switch (p->current.type) {
   case TOKEN_TRUE:
     Emit(p, OP_TRUE);
@@ -169,14 +184,17 @@ static void ParseLiteral(Parser *p)
 
 static void ParseString(Parser *p)
 {
+  printf("ParseString\n");
   Val bin = MakeBinary(p->chunk->heap, p->current.lexeme + 1, p->current.length - 2);
   EmitConst(p, bin);
 }
 
 static void ParseOperator(Parser *p)
 {
+  printf("ParseOperator\n");
+
   TokenType op = CurType(p);
-  ParseRule *rule = GetRule(p);
+  ParseRule *rule = GetRule(op);
   ParseLevel(p, rule->prec + 1);
 
   switch (op) {
@@ -226,8 +244,9 @@ static void ParseOperator(Parser *p)
 
 static void ParseGroup(Parser *p)
 {
+  printf("ParseGroup\n");
   ParseExpr(p);
-  Expect(p, TOKEN_RPAREN, "Expected \")\" after expression");
+  Consume(p, TOKEN_RPAREN, "Expected \")\" after expression");
 }
 
 // static void ParseExpr(Parser *p)
@@ -244,36 +263,45 @@ static void ParseGroup(Parser *p)
 
 // }
 
+#define IsExprEnd(t)  ((t) == TOKEN_NEWLINE || (t) == TOKEN_COMMA || (t) == TOKEN_EOF)
+
 static void ParseExpr(Parser *p)
 {
-  ParseLevel(p, PREC_EXPR + 1);
+  while (!IsExprEnd(NextType(p))) {
+    ParseLevel(p, PREC_EXPR + 1);
+    PrintSourceContext(&p->r, 0);
+    printf("%s\n", TokenStr(CurType(p)));
+  }
 }
 
 static bool ParseLevel(Parser *p, Precedence level)
 {
-  // printf("ParseLevel %s\n", PrecStr(level));
+  printf("ParseLevel %s\n", PrecStr(level));
+
   Advance(p);
 
-  ParseRule *rule = GetRule(p);
+  ParseRule *rule = GetRule(CurType(p));
   if (!rule->prefix) return false;
 
   rule->prefix(p);
   if (p->r.status != Ok) return false;
 
-  Advance(p);
-  rule = GetRule(p);
+  rule = GetRule(NextType(p));
   while (level <= rule->prec) {
+    Advance(p);
     rule->infix(p);
     if (p->r.status != Ok) return false;
-    Advance(p);
-    rule = GetRule(p);
+    rule = GetRule(NextType(p));
   }
+
+  PrintSourceContext(&p->r, 0);
 
   return true;
 }
 
 static void ParseNumber(Parser *p)
 {
+  printf("ParseNumber\n");
   Token token = p->current;
   u32 num = 0;
 
@@ -301,6 +329,7 @@ static void ParseNumber(Parser *p)
 
 static void ParseIdentifier(Parser *p)
 {
+  printf("ParseIdentifier\n");
 
 }
 
@@ -310,7 +339,11 @@ Status Compile(char *src, Chunk *chunk)
   InitReader(&p.r, src);
   p.chunk = chunk;
 
+  p.next = ScanToken(&p.r);
+
   ParseExpr(&p);
+
+  // PrintSourceContext(&p.r, 0);
 
   Emit(&p, OP_RETURN);
   return p.r.status;

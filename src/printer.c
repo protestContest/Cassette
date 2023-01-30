@@ -9,6 +9,8 @@ u32 PrintVal(Val *mem, Val value)
     return printf("%d", RawInt(value));
   } else if (IsBin(value)) {
     return printf("%.*s", BinaryLength(mem, value), BinaryData(mem, value));
+  } else if (IsSym(value)) {
+    return printf("%s", SymbolName(value));
   } else {
     return 0;
   }

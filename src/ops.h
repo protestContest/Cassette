@@ -32,5 +32,6 @@ u32 OpSize(OpCode op);
 
 void NegOp(struct VM *vm);
 void ArithmeticOp(struct VM *vm, OpCode op);
+void CompareOp(struct VM *vm, OpCode op);
 void NotOp(struct VM *vm);
 void ConsOp(struct VM *vm);

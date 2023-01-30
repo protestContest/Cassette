@@ -7,6 +7,7 @@ typedef struct {
   Reader r;
   Chunk *chunk;
   Token current;
+  Token next;
 } Parser;
 
 Status Compile(char *src, Chunk *chunk);

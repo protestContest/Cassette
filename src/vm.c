@@ -99,10 +99,9 @@ Status Run(VM *vm)
       NotOp(vm);
       break;
     case OP_EQUAL:
-      break;
     case OP_GT:
-      break;
     case OP_LT:
+      CompareOp(vm, op);
       break;
     case OP_CONS:
       break;
