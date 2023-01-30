@@ -77,6 +77,13 @@ Token ScanToken(Reader *r)
   if (IsDigit(Peek(r))) return NumberToken(r);
   if (Match(r, "\""))   return StringToken(r);
 
+  if (Match(r, "!=")) return MakeToken(r, TOKEN_NEQ, 2);
+  if (Match(r, ">=")) return MakeToken(r, TOKEN_GTE, 2);
+  if (Match(r, "**")) return MakeToken(r, TOKEN_EXPONENT, 2);
+  if (Match(r, "|>")) return MakeToken(r, TOKEN_PIPE, 2);
+  if (Match(r, "->")) return MakeToken(r, TOKEN_ARROW, 2);
+  if (Match(r, "<=")) return MakeToken(r, TOKEN_LTE, 2);
+
   if (Match(r, "("))  return MakeToken(r, TOKEN_LPAREN, 1);
   if (Match(r, ")"))  return MakeToken(r, TOKEN_RPAREN, 1);
   if (Match(r, "["))  return MakeToken(r, TOKEN_LBRACKET, 1);
@@ -95,13 +102,6 @@ Token ScanToken(Reader *r)
   if (Match(r, "<"))  return MakeToken(r, TOKEN_LT, 1);
   if (Match(r, "\n")) return MakeToken(r, TOKEN_NEWLINE, 1);
   if (Match(r, "\r")) return MakeToken(r, TOKEN_NEWLINE, 1);
-
-  if (Match(r, "!=")) return MakeToken(r, TOKEN_NEQ, 2);
-  if (Match(r, ">=")) return MakeToken(r, TOKEN_GTE, 2);
-  if (Match(r, "**")) return MakeToken(r, TOKEN_EXPONENT, 2);
-  if (Match(r, "|>")) return MakeToken(r, TOKEN_PIPE, 2);
-  if (Match(r, "->")) return MakeToken(r, TOKEN_ARROW, 2);
-  if (Match(r, "<=")) return MakeToken(r, TOKEN_LTE, 2);
 
   if (IsSymChar(Peek(r))) return IdentifierToken(r);
 
@@ -138,7 +138,11 @@ Token IdentifierToken(Reader *r)
 {
   u32 start = r->cur;
 
+  if (MatchKeyword(r, "true"))  return MakeToken(r, TOKEN_TRUE, 4);
+  if (MatchKeyword(r, "false")) return MakeToken(r, TOKEN_FALSE, 5);
+  if (MatchKeyword(r, "nil"))   return MakeToken(r, TOKEN_NIL, 3);
   if (MatchKeyword(r, "and"))   return MakeToken(r, TOKEN_AND, 3);
+  if (MatchKeyword(r, "not"))   return MakeToken(r, TOKEN_NOT, 3);
   if (MatchKeyword(r, "cond"))  return MakeToken(r, TOKEN_COND, 4);
   if (MatchKeyword(r, "def"))   return MakeToken(r, TOKEN_DEF, 3);
   if (MatchKeyword(r, "do"))    return MakeToken(r, TOKEN_DO, 2);
@@ -405,7 +409,6 @@ bool Match(Reader *r, const char *expect)
   if (Check(r, expect)) {
     r->cur += strlen(expect);
     r->col += strlen(expect);
-    SkipSpace(r);
     return true;
   } else {
     return false;
@@ -419,5 +422,51 @@ bool MatchKeyword(Reader *r, const char *expect)
     return true;
   } else {
     return false;
+  }
+}
+
+const char *TokenStr(TokenType type)
+{
+  switch (type) {
+  case TOKEN_LPAREN:      return "LPAREN";
+  case TOKEN_RPAREN:      return "RPAREN";
+  case TOKEN_LBRACKET:    return "LBRACKET";
+  case TOKEN_RBRACKET:    return "RBRACKET";
+  case TOKEN_LBRACE:      return "LBRACE";
+  case TOKEN_RBRACE:      return "RBRACE";
+  case TOKEN_COMMA:       return "COMMA";
+  case TOKEN_DOT:         return "DOT";
+  case TOKEN_MINUS:       return "MINUS";
+  case TOKEN_PLUS:        return "PLUS";
+  case TOKEN_STAR:        return "STAR";
+  case TOKEN_SLASH:       return "SLASH";
+  case TOKEN_EXPONENT:    return "EXPONENT";
+  case TOKEN_BAR:         return "BAR";
+  case TOKEN_EQ:          return "EQ";
+  case TOKEN_NEQ:         return "NEQ";
+  case TOKEN_GT:          return "GT";
+  case TOKEN_GTE:         return "GTE";
+  case TOKEN_LT:          return "LT";
+  case TOKEN_LTE:         return "LTE";
+  case TOKEN_PIPE:        return "PIPE";
+  case TOKEN_ARROW:       return "ARROW";
+  case TOKEN_IDENTIFIER:  return "IDENTIFIER";
+  case TOKEN_STRING:      return "STRING";
+  case TOKEN_NUMBER:      return "NUMBER";
+  case TOKEN_SYMBOL:      return "SYMBOL";
+  case TOKEN_AND:         return "AND";
+  case TOKEN_NOT:         return "NOT";
+  case TOKEN_OR:          return "OR";
+  case TOKEN_DEF:         return "DEF";
+  case TOKEN_COND:        return "COND";
+  case TOKEN_DO:          return "DO";
+  case TOKEN_ELSE:        return "ELSE";
+  case TOKEN_END:         return "END";
+  case TOKEN_TRUE:        return "TRUE";
+  case TOKEN_FALSE:       return "FALSE";
+  case TOKEN_NIL:         return "NIL";
+  case TOKEN_NEWLINE:     return "NEWLINE";
+  case TOKEN_EOF:         return "EOF";
+  case TOKEN_ERROR:       return "ERROR";
   }
 }

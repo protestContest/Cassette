@@ -1,6 +1,14 @@
-// #pragma once
-// #include "value.h"
-// #include "eval.h"
+#pragma once
+#include "value.h"
+
+typedef struct Frame {
+  Val *keys;
+  Val *values;
+  struct Frame *parent;
+} Frame;
+
+Frame *NewFrame(Frame *parent);
+void FreeFrame(Frame *frame);
 
 // Val InitialEnv(void);
 // Val ExtendEnv(Val env, Val keys, Val vals);

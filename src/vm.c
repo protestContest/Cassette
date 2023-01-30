@@ -1,24 +1,33 @@
 #include "vm.h"
 #include "chunk.h"
 #include "compile.h"
+#include "ops.h"
 #include "vec.h"
 #include "printer.h"
+#include "mem.h"
 
 #define TRACE 1
 
 VM *NewVM(void)
 {
   VM *vm = malloc(sizeof(VM));
+  vm->status = Ok;
   vm->pc = 0;
   vm->chunk = NULL;
   vm->stack = NULL;
   return vm;
 }
 
+void ResetStack(VM *vm)
+{
+  FreeVec(vm->stack);
+  vm->stack = NULL;
+}
+
 void FreeVM(VM *vm)
 {
-  free(vm);
   FreeVec(vm->stack);
+  free(vm);
 }
 
 static u8 ReadByte(VM *vm)
@@ -74,16 +83,31 @@ Status Run(VM *vm)
       NegOp(vm);
       break;
     case OP_ADD:
-      AddOp(vm);
-      break;
     case OP_SUB:
-      SubOp(vm);
-      break;
     case OP_MUL:
-      MulOp(vm);
-      break;
     case OP_DIV:
-      DivOp(vm);
+    case OP_EXP:
+      ArithmeticOp(vm, op);
+      break;
+    case OP_TRUE:
+      VecPush(vm->stack, SymbolFor("true"));
+      break;
+    case OP_FALSE:
+      VecPush(vm->stack, SymbolFor("false"));
+      break;
+    case OP_NIL:
+      VecPush(vm->stack, nil);
+      break;
+    case OP_NOT:
+      NotOp(vm);
+      break;
+    case OP_EQUAL:
+      break;
+    case OP_GT:
+      break;
+    case OP_LT:
+      break;
+    case OP_CONS:
       break;
     }
   }
@@ -103,6 +127,8 @@ Status Interpret(VM *vm, char *src)
     return Error;
   }
 
+  Disassemble("Chunk", &chunk);
+
   vm->chunk = &chunk;
   vm->pc = 0;
   Status result = Run(vm);
@@ -112,10 +138,20 @@ Status Interpret(VM *vm, char *src)
   return result;
 }
 
-Status RuntimeError(VM *vm, char *msg)
+void RuntimeError(VM *vm, char *fmt, ...)
 {
-  vm->error = msg;
-  return Error;
+  u32 line = vm->chunk->lines[2*vm->pc];
+  u32 col = vm->chunk->lines[2*vm->pc+1];
+
+  va_list args;
+  va_start(args, fmt);
+  fprintf(stderr, "[%d:%d] Runtime error: ", line, col);
+  vfprintf(stderr, fmt, args);
+  va_end(args);
+  fprintf(stderr, "\n");
+
+  ResetStack(vm);
+  vm->status = Error;
 }
 
 

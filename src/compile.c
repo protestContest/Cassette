@@ -19,11 +19,34 @@ typedef enum {
   PREC_PRIMARY,
 } Precedence;
 
+static const char *PrecStr(Precedence prec)
+{
+  switch (prec)
+  {
+  case PREC_NONE:     return "NONE";
+  case PREC_BLOCK:    return "BLOCK";
+  case PREC_PIPE:     return "PIPE";
+  case PREC_EXPR:     return "EXPR";
+  case PREC_LOGIC:    return "LOGIC";
+  case PREC_EQUALITY: return "EQUALITY";
+  case PREC_COMPARE:  return "COMPARE";
+  case PREC_PAIR:     return "PAIR";
+  case PREC_TERM:     return "TERM";
+  case PREC_FACTOR:   return "FACTOR";
+  case PREC_EXPONENT: return "EXPONENT";
+  case PREC_LAMBDA:   return "LAMBDA";
+  case PREC_NEGATIVE: return "NEGATIVE";
+  case PREC_ACCESS:   return "ACCESS";
+  case PREC_PRIMARY:  return "PRIMARY";
+  }
+}
+
 typedef void (*ParseFn)(Parser *p);
 
 static void ParseNumber(Parser *p);
 static void ParseIdentifier(Parser *p);
 static void ParseNegative(Parser *p);
+static void ParseLiteral(Parser *p);
 static void ParseOperator(Parser *p);
 static void ParseGroup(Parser *p);
 static void ParseExpr(Parser *p);
@@ -63,12 +86,16 @@ ParseRule rules[] = {
   [TOKEN_NUMBER] =      { ParseNumber,      ParseExpr,      PREC_EXPR     },
   // [TOKEN_SYMBOL] =      { ParseSymbol,      NULL,           PREC_NONE     },
   [TOKEN_AND] =         { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
+  [TOKEN_NOT] =         { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
   [TOKEN_OR] =          { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
   // [TOKEN_DEF] =         { ParseDef,         NULL,           PREC_NONE     },
   // [TOKEN_COND] =        { ParseCond,        NULL,           PREC_NONE     },
   // [TOKEN_DO] =          { ParseDo,          NULL,           PREC_NONE     },
   // [TOKEN_ELSE] =        { NULL,             ParseElse,      PREC_EXPR     },
   [TOKEN_END] =         { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_TRUE] =        { ParseLiteral,     NULL,           PREC_NONE     },
+  [TOKEN_FALSE] =       { ParseLiteral,     NULL,           PREC_NONE     },
+  [TOKEN_NIL] =         { ParseLiteral,     NULL,           PREC_NONE     },
   // [TOKEN_NEWLINE] =     { NULL,             ParseBlock,     PREC_BLOCK    },
   [TOKEN_EOF] =         { NULL,             NULL,           PREC_NONE     },
   [TOKEN_ERROR] =       { NULL,             NULL,           PREC_NONE     },
@@ -102,6 +129,7 @@ static Status SyntaxError(Parser *p, const char *message)
 static void Advance(Parser *p)
 {
   p->current = ScanToken(&p->r);
+  // printf("Advance \"%.*s\" %s\n", p->current.length, p->current.lexeme, TokenStr(p->current.type));
 }
 
 static void Expect(Parser *p, TokenType type, const char *msg)
@@ -119,6 +147,22 @@ static void ParseNegative(Parser *p)
 {
   ParseLevel(p, PREC_NEGATIVE);
   Emit(p, OP_NEG);
+}
+
+static void ParseLiteral(Parser *p)
+{
+  switch (p->current.type) {
+  case TOKEN_TRUE:
+    Emit(p, OP_TRUE);
+    break;
+  case TOKEN_FALSE:
+    Emit(p, OP_FALSE);
+    break;
+  case TOKEN_NIL:
+    Emit(p, OP_NIL);
+    break;
+  default:  return;
+  }
 }
 
 static void ParseOperator(Parser *p)
@@ -139,6 +183,33 @@ static void ParseOperator(Parser *p)
     break;
   case TOKEN_SLASH:
     Emit(p, OP_DIV);
+    break;
+  case TOKEN_EXPONENT:
+    Emit(p, OP_EXP);
+    break;
+  case TOKEN_BAR:
+    Emit(p, OP_CONS);
+    break;
+  case TOKEN_EQ:
+    Emit(p, OP_EQUAL);
+    break;
+  case TOKEN_NEQ:
+    Emit(p, OP_EQUAL);
+    Emit(p, OP_NOT);
+    break;
+  case TOKEN_GT:
+    Emit(p, OP_GT);
+    break;
+  case TOKEN_GTE:
+    Emit(p, OP_LT);
+    Emit(p, OP_NOT);
+    break;
+  case TOKEN_LT:
+    Emit(p, OP_LT);
+    break;
+  case TOKEN_LTE:
+    Emit(p, OP_GT);
+    Emit(p, OP_NOT);
     break;
   default:
     return;
@@ -172,6 +243,7 @@ static void ParseExpr(Parser *p)
 
 static bool ParseLevel(Parser *p, Precedence level)
 {
+  // printf("ParseLevel %s\n", PrecStr(level));
   Advance(p);
 
   ParseRule *rule = GetRule(p);

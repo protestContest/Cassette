@@ -47,7 +47,7 @@ typedef enum {
 #define DictVal(d)    (Val)(i32)(((d) & ~type2Mask) | dctMask)
 #define IsDict(d)     (((d).as_v & type2Mask) == dctMask)
 
-#define RawInt(v)   (IsNegInt(v) ? (v).as_v | type2Mask : (v).as_v & ~type1Mask)
+#define RawInt(v)   (IsNegInt(v) ? (i32)((v).as_v | type2Mask) : (i32)((v).as_v & ~type1Mask))
 #define RawSym(v)   ((v).as_v & ~type1Mask)
 #define RawObj(v)   ((v).as_v & ~type2Mask)
 

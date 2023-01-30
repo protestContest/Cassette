@@ -2,6 +2,7 @@
 #include "vec.h"
 #include "value.h"
 #include "vm.h"
+#include "mem.h"
 
 typedef struct {
   char *name;
@@ -9,13 +10,22 @@ typedef struct {
 } OpInfo;
 
 static OpInfo ops[] = {
-  [OP_RETURN] =   { "return", ARGS_NONE     },
-  [OP_CONST] =    { "const",  ARGS_VAL      },
-  [OP_NEG] =      { "neg", ARGS_NONE        },
-  [OP_ADD] =      { "add", ARGS_NONE        },
-  [OP_SUB] =      { "sub", ARGS_NONE        },
-  [OP_MUL] =      { "mul", ARGS_NONE        },
-  [OP_DIV] =      { "div", ARGS_NONE        },
+  [OP_RETURN] =   { "return", ARGS_NONE   },
+  [OP_CONST] =    { "const",  ARGS_VAL    },
+  [OP_NEG] =      { "neg",    ARGS_NONE   },
+  [OP_ADD] =      { "add",    ARGS_NONE   },
+  [OP_SUB] =      { "sub",    ARGS_NONE   },
+  [OP_MUL] =      { "mul",    ARGS_NONE   },
+  [OP_DIV] =      { "div",    ARGS_NONE   },
+  [OP_EXP] =      { "exp",    ARGS_NONE   },
+  [OP_TRUE] =     { "true",   ARGS_NONE   },
+  [OP_FALSE] =    { "false",  ARGS_NONE   },
+  [OP_NIL] =      { "nil",    ARGS_NONE   },
+  [OP_NOT] =      { "not",    ARGS_NONE   },
+  [OP_EQUAL] =    { "equal",  ARGS_NONE   },
+  [OP_GT] =       { "gt",     ARGS_NONE   },
+  [OP_LT] =       { "lt",     ARGS_NONE   },
+  [OP_CONS] =     { "cons",   ARGS_NONE   },
 };
 
 const char *OpStr(OpCode op)
@@ -36,77 +46,90 @@ u32 OpSize(OpCode op)
   }
 }
 
-Status NegOp(struct VM *vm)
+static bool IsFalsey(Val value)
+{
+  return !IsNil(value) && !Eq(value, SymbolFor("false"));
+}
+
+void NegOp(struct VM *vm)
 {
   Val val = VecPop(vm->stack);
   if (IsNum(val)) {
     VecPush(vm->stack, NumVal(-val.as_f));
-    return Ok;
   } else if (IsInt(val)) {
     VecPush(vm->stack, IntVal(-RawInt(val)));
-    return Ok;
   } else {
-    return RuntimeError(vm, "Arithmetic error");
+    RuntimeError(vm, "Arithmetic error");
   }
 }
 
-Status AddOp(struct VM *vm)
+void ArithmeticOp(struct VM *vm, OpCode op)
 {
   Val b = VecPop(vm->stack);
   Val a = VecPop(vm->stack);
 
-  if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
+  if (!IsNumeric(a) || !IsNumeric(b)) {
+    RuntimeError(vm, "Arithmetic error");
+    return;
+  }
 
-  if (IsInt(a) && IsInt(b)) VecPush(vm->stack, IntVal(RawInt(a) + RawInt(b)));
-  if (IsNum(a) && IsNum(b)) VecPush(vm->stack, NumVal(a.as_f + b.as_f));
-  if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f + (float)RawInt(b)));
-  if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) + b.as_f));
+  if (IsInt(a) && IsInt(b)) {
+    if (op == OP_ADD) {
+      VecPush(vm->stack, IntVal(RawInt(a) + RawInt(b)));
+      return;
+    } else if (op == OP_SUB) {
+      VecPush(vm->stack, IntVal(RawInt(a) - RawInt(b)));
+      return;
+    }
+  }
 
-  return Ok;
+  float a_f = IsNum(a) ? a.as_f : (float)RawInt(a);
+  float b_f = IsNum(b) ? b.as_f : (float)RawInt(b);
+  float n;
+
+  switch (op) {
+  case OP_ADD:
+    n = a_f + b_f;
+    break;
+  case OP_SUB:
+    n = a_f - b_f;
+    break;
+  case OP_MUL:
+    n = a_f * b_f;
+    break;
+  case OP_DIV:
+    if (b_f == 0.0) {
+      RuntimeError(vm, "Divide by zero");
+      return;
+    }
+    n = a_f / b_f;
+    break;
+  case OP_EXP:
+    n = powf(a_f, b_f);
+    break;
+  default:
+    RuntimeError(vm, "Arithmetic error: Unknown op %s", OpStr(op));
+    return;
+  }
+
+  VecPush(vm->stack, NumVal(n));
 }
 
-Status SubOp(struct VM *vm)
+void NotOp(struct VM *vm)
 {
-  Val b = VecPop(vm->stack);
-  Val a = VecPop(vm->stack);
+  Val val = VecPop(vm->stack);
 
-  if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
-
-  if (IsInt(a) && IsInt(b)) VecPush(vm->stack, IntVal(RawInt(a) - RawInt(b)));
-  if (IsNum(a) && IsNum(b)) VecPush(vm->stack, NumVal(a.as_f - b.as_f));
-  if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f - (float)RawInt(b)));
-  if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) - b.as_f));
-
-  return Ok;
+  if (IsFalsey(val)) {
+    VecPush(vm->stack, SymbolFor("true"));
+  } else {
+    VecPush(vm->stack, SymbolFor("false"));
+  }
 }
 
-Status MulOp(struct VM *vm)
+void ConsOp(struct VM *vm)
 {
-  Val b = VecPop(vm->stack);
-  Val a = VecPop(vm->stack);
-
-  if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
-
-  if (IsInt(a) && IsInt(b)) VecPush(vm->stack, NumVal(RawInt(a) * RawInt(b)));
-  if (IsNum(a) && IsNum(b)) VecPush(vm->stack, NumVal(a.as_f * b.as_f));
-  if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f * (float)RawInt(b)));
-  if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) * b.as_f));
-
-  return Ok;
-}
-
-Status DivOp(struct VM *vm)
-{
-  Val b = VecPop(vm->stack);
-  Val a = VecPop(vm->stack);
-
-  if (!IsNumeric(a) || !IsNumeric(b)) return RuntimeError(vm, "Arithmetic error");
-  if ((IsInt(b) && RawInt(b) == 0) || (IsNum(b) && b.as_f == 0.0)) return RuntimeError(vm, "Divide by zero");
-
-  if (IsInt(a) && IsInt(b)) VecPush(vm->stack, NumVal((float)RawInt(a) / RawInt(b)));
-  if (IsNum(a) && IsNum(b)) VecPush(vm->stack, NumVal(a.as_f / b.as_f));
-  if (IsNum(a) && IsInt(b)) VecPush(vm->stack, NumVal(a.as_f / (float)RawInt(b)));
-  if (IsInt(a) && IsNum(b)) VecPush(vm->stack, NumVal((float)RawInt(a) / b.as_f));
-
-  return Ok;
+  Val tail = VecPop(vm->stack);
+  Val head = VecPop(vm->stack);
+  Val pair = MakePair(head, tail);
+  VecPush(vm->stack, pair);
 }

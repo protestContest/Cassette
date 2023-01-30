@@ -1,6 +1,7 @@
 #include "chunk.h"
 #include "printer.h"
 #include "vec.h"
+#include "mem.h"
 
 Chunk *NewChunk(void)
 {
@@ -15,6 +16,8 @@ Chunk *InitChunk(Chunk *chunk)
   chunk->code = NULL;
   chunk->lines = NULL;
   chunk->constants = NULL;
+  MakeSymbol("true");
+  MakeSymbol("false");
   return chunk;
 }
 

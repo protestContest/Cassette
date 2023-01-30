@@ -10,6 +10,15 @@ typedef enum {
   OP_SUB,
   OP_MUL,
   OP_DIV,
+  OP_EXP,
+  OP_TRUE,
+  OP_FALSE,
+  OP_NIL,
+  OP_NOT,
+  OP_EQUAL,
+  OP_GT,
+  OP_LT,
+  OP_CONS,
 } OpCode;
 
 typedef enum {
@@ -21,8 +30,7 @@ const char *OpStr(OpCode op);
 ArgFormat OpFormat(OpCode op);
 u32 OpSize(OpCode op);
 
-Status NegOp(struct VM *vm);
-Status AddOp(struct VM *vm);
-Status SubOp(struct VM *vm);
-Status MulOp(struct VM *vm);
-Status DivOp(struct VM *vm);
+void NegOp(struct VM *vm);
+void ArithmeticOp(struct VM *vm, OpCode op);
+void NotOp(struct VM *vm);
+void ConsOp(struct VM *vm);
