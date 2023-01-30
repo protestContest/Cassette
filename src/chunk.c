@@ -15,7 +15,9 @@ Chunk *InitChunk(Chunk *chunk)
 {
   chunk->code = NULL;
   chunk->lines = NULL;
-  chunk->constants = NULL;
+  chunk->heap = NULL;
+  VecPush(chunk->heap, nil);
+  VecPush(chunk->heap, nil);
   MakeSymbol("true");
   MakeSymbol("false");
   return chunk;
@@ -25,7 +27,7 @@ void ResetChunk(Chunk *chunk)
 {
   FreeVec(chunk->code);
   FreeVec(chunk->lines);
-  FreeVec(chunk->constants);
+  FreeVec(chunk->heap);
 }
 
 void FreeChunk(Chunk *chunk)
@@ -49,13 +51,13 @@ u8 GetByte(Chunk *chunk, u32 i)
 
 u8 PutConst(Chunk *chunk, Val value)
 {
-  VecPush(chunk->constants, value);
-  return VecCount(chunk->constants) - 1;
+  VecPush(chunk->heap, value);
+  return VecCount(chunk->heap) - 1;
 }
 
 Val GetConst(Chunk *chunk, u32 i)
 {
-  return chunk->constants[i];
+  return chunk->heap[i];
 }
 
 u32 PutInst(Chunk *chunk, u32 line, OpCode op, ...)
@@ -90,7 +92,8 @@ u32 DisassembleInstruction(Chunk *chunk, u32 i)
   OpCode op = chunk->code[i];
   switch (OpFormat(op)) {
   case ARGS_VAL:
-    written += printf("%s %s", OpStr(op), ValStr(GetConst(chunk, GetByte(chunk, i + 1))));
+    written += printf("%s ", OpStr(op));
+    written += PrintVal(chunk->heap, GetConst(chunk, GetByte(chunk, i + 1)));
     break;
   default:
     written += printf("%s", OpStr(op));

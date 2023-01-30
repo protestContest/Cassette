@@ -1,5 +1,6 @@
 #include "compile.h"
 #include "chunk.h"
+#include "mem.h"
 
 typedef enum {
   PREC_NONE,
@@ -47,6 +48,7 @@ static void ParseNumber(Parser *p);
 static void ParseIdentifier(Parser *p);
 static void ParseNegative(Parser *p);
 static void ParseLiteral(Parser *p);
+static void ParseString(Parser *p);
 static void ParseOperator(Parser *p);
 static void ParseGroup(Parser *p);
 static void ParseExpr(Parser *p);
@@ -82,7 +84,7 @@ ParseRule rules[] = {
   // [TOKEN_PIPE] =        { ParseIdentifier,  ParsePipe,      PREC_PIPE     },
   // [TOKEN_ARROW] =       { NULL,             ParseLambda,    PREC_LAMBDA   },
   [TOKEN_IDENTIFIER] =  { ParseIdentifier,  ParseExpr,      PREC_EXPR     },
-  // [TOKEN_STRING] =      { ParseString,      NULL,           PREC_NONE     },
+  [TOKEN_STRING] =      { ParseString,      NULL,           PREC_NONE     },
   [TOKEN_NUMBER] =      { ParseNumber,      ParseExpr,      PREC_EXPR     },
   // [TOKEN_SYMBOL] =      { ParseSymbol,      NULL,           PREC_NONE     },
   [TOKEN_AND] =         { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
@@ -163,6 +165,12 @@ static void ParseLiteral(Parser *p)
     break;
   default:  return;
   }
+}
+
+static void ParseString(Parser *p)
+{
+  Val bin = MakeBinary(p->chunk->heap, p->current.lexeme + 1, p->current.length - 2);
+  EmitConst(p, bin);
 }
 
 static void ParseOperator(Parser *p)

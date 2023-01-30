@@ -32,7 +32,7 @@ static Token MakeToken(Reader *r, TokenType type, u32 length)
   return token;
 }
 
-static Token ErrorToken(Reader *r, const char *msg)
+static Token ErrorToken(Reader *r, char *msg)
 {
   Token token;
   token.type = TOKEN_ERROR;

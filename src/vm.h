@@ -9,7 +9,7 @@ typedef struct VM {
   Val *stack;
 } VM;
 
-VM *NewVM(void);
+void InitVM(VM *vm);
 void FreeVM(VM *vm);
 Status Interpret(VM *vm, char *src);
 void RuntimeError(VM *vm, char *fmt, ...);

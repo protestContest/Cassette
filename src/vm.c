@@ -8,14 +8,12 @@
 
 #define TRACE 1
 
-VM *NewVM(void)
+void InitVM(VM *vm)
 {
-  VM *vm = malloc(sizeof(VM));
   vm->status = Ok;
   vm->pc = 0;
   vm->chunk = NULL;
   vm->stack = NULL;
-  return vm;
 }
 
 void ResetStack(VM *vm)
@@ -27,7 +25,6 @@ void ResetStack(VM *vm)
 void FreeVM(VM *vm)
 {
   FreeVec(vm->stack);
-  free(vm);
 }
 
 static u8 ReadByte(VM *vm)
@@ -49,8 +46,8 @@ static void PrintStack(VM *vm, u32 bufsize)
       return;
     }
 
-    char *str = ValAbbr(vm->stack[VecCount(vm->stack)-1-i]);
-    written += printf("%s  ", str);
+    written += PrintVal(vm->chunk->heap, vm->stack[VecCount(vm->stack)-1-i]);
+    written += printf("  ");
   }
   printf("▪︎");
 }
@@ -133,7 +130,7 @@ Status Interpret(VM *vm, char *src)
   vm->pc = 0;
   Status result = Run(vm);
 
-  ResetChunk(&chunk);
+  ResetStack(vm);
 
   return result;
 }

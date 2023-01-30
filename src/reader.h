@@ -20,7 +20,7 @@ typedef struct {
   TokenType type;
   u32 line;
   u32 col;
-  const char *lexeme;
+  char *lexeme;
   u32 length;
 } Token;
 

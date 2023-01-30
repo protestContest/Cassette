@@ -5,7 +5,7 @@
 typedef struct {
   u8 *code;
   u32 *lines;
-  Val *constants;
+  Val *heap;
 } Chunk;
 
 Chunk *NewChunk(void);

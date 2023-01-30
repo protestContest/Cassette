@@ -39,15 +39,16 @@ static void RunFile(VM *vm, const char *path)
 
 int main(int argc, char *argv[])
 {
-  VM *vm = NewVM();
+  VM vm;
+  InitVM(&vm);
 
   if (argc == 1) {
-    REPL(vm);
+    REPL(&vm);
   } else if (argc == 2) {
-    RunFile(vm, argv[1]);
+    RunFile(&vm, argv[1]);
   } else {
     Fatal("Usage: rye [path]\n");
   }
 
-  FreeVM(vm);
+  FreeVM(&vm);
 }

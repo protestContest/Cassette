@@ -1,51 +1,57 @@
 #pragma once
 #include "value.h"
 
+#define NUM_SYMBOLS 256
 #define DICT_BUCKETS 32
 
-Val MakePair(Val head, Val tail);
-Val Head(Val pair);
-Val Tail(Val pair);
-void SetHead(Val pair, Val val);
-void SetTail(Val pair, Val val);
+typedef struct {
+  Val key;
+  char *name;
+} Symbol;
 
-Val MakeList(u32 length, ...);
-Val MakeTagged(u32 length, char *name, ...);
-Val ReverseOnto(Val list, Val tail);
-Val Reverse(Val list);
-Val Flatten(Val list);
-u32 ListLength(Val list);
-Val ListAt(Val list, u32 index);
-Val First(Val list);
-Val Second(Val list);
-Val Third(Val list);
-Val ListLast(Val list);
-void ListAppend(Val list1, Val list2);
+void InitMem(Val *mem);
 
-Val MakeTuple(u32 count, ...);
-Val ListToTuple(Val list);
-u32 TupleLength(Val tuple);
-Val TupleAt(Val tuple, u32 i);
-void TupleSet(Val tuple, u32 i, Val val);
+Val MakePair(Val *mem, Val head, Val tail);
+Val Head(Val *mem, Val pair);
+Val Tail(Val *mem, Val pair);
+void SetHead(Val *mem, Val pair, Val val);
+void SetTail(Val *mem, Val pair, Val val);
 
-bool IsTagged(Val exp, char *tag);
+Val MakeList(Val *mem, u32 length, ...);
+// Val MakeTagged(Val *mem, u32 length, char *name, ...);
+// bool IsTagged(Val *mem, Val exp, char *tag);
+Val ReverseOnto(Val *mem, Val list, Val tail);
+Val Reverse(Val *mem, Val list);
+// Val Flatten(Val *mem, Val list);
+u32 ListLength(Val *mem, Val list);
+Val ListAt(Val *mem, Val list, u32 index);
+Val First(Val *mem, Val list);
+Val Second(Val *mem, Val list);
+Val Third(Val *mem, Val list);
+Val ListLast(Val *mem, Val list);
+void ListAppend(Val *mem, Val list1, Val list2);
+
+Val MakeTuple(Val *mem, u32 count, ...);
+// Val ListToTuple(Val *mem, Val list);
+u32 TupleLength(Val *mem, Val tuple);
+Val TupleAt(Val *mem, Val tuple, u32 i);
+void TupleSet(Val *mem, Val tuple, u32 i, Val val);
 
 Val MakeSymbol(char *src);
 Val MakeSymbolFromSlice(char *src, u32 len);
-Val BoolSymbol(bool val);
+// Val BoolSymbol(bool val);
 Val SymbolFor(char *src);
 char *SymbolName(Val sym);
 void DumpSymbols(void);
-Val MakeQuoted(Val val);
 
-Val MakeBinary(char *src, u32 len);
-u32 BinaryLength(Val binary);
-char *BinaryData(Val binary);
-char *BinToCStr(Val binary);
-Val BinaryAt(Val binary, u32 i);
+Val MakeBinary(Val *mem, char *src, u32 len);
+u32 BinaryLength(Val *mem, Val binary);
+char *BinaryData(Val *mem, Val binary);
+char *BinToCStr(Val *mem, Val binary);
+Val BinaryAt(Val *mem, Val binary, u32 i);
 
-Val MakeDict(Val keys, Val vals);
-bool DictHasKey(Val dict, Val key);
-Val DictGet(Val dict, Val key);
-void DictSet(Val dict, Val key, Val value);
-void DictMerge(Val dict1, Val dict2);
+// Val MakeDict(Val keys, Val vals);
+// bool DictHasKey(Val dict, Val key);
+// Val DictGet(Val dict, Val key);
+// void DictSet(Val dict, Val key, Val value);
+// void DictMerge(Val dict1, Val dict2);

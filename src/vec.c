@@ -23,3 +23,10 @@ void *ResizeVec(void *vec, u32 num_items, u32 item_size)
   return new_raw_vec + 2;
 }
 
+void *CopyVec(void *src)
+{
+  if (src == NULL) return NULL;
+  u32 *raw_vec = (u32 *)malloc(VecCapacity(src) + sizeof(u32)*2);
+  memcpy(raw_vec, RawVec(src), VecCapacity(src) + sizeof(u32)*2);
+  return raw_vec + 2;
+}

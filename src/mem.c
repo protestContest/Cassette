@@ -2,176 +2,173 @@
 #include "printer.h"
 #include "hash.h"
 #include "env.h"
+#include "vec.h"
 
-#define MEM_SIZE      (4096*4096)
-Val mem[MEM_SIZE];
-u32 mem_next = 2;
+#define HEAP_SIZE      (4096)
 
-typedef struct {
-  Val key;
-  char *name;
-} Symbol;
-
-#define NUM_SYMBOLS 256
 Symbol symbols[NUM_SYMBOLS];
 u32 sym_next = 0;
 
-Val MakePair(Val head, Val tail)
+void InitMem(Val *mem)
 {
-  if (mem_next+1 >= MEM_SIZE) Fatal("Out of memory");
+  VecPush(mem, nil);
+  VecPush(mem, nil);
+}
 
-  Val pair = PairVal(mem_next);
+Val MakePair(Val *mem, Val head, Val tail)
+{
+  if (VecCount(mem)+1 >= HEAP_SIZE) Fatal("Out of memory");
 
-  mem[mem_next++] = head;
-  mem[mem_next++] = tail;
+  Val pair = PairVal(VecCount(mem));
+
+  VecPush(mem, head);
+  VecPush(mem, tail);
 
   return pair;
 }
 
-Val Head(Val pair)
+Val Head(Val *mem, Val pair)
 {
   if (IsNil(pair)) return nil;
   u32 index = RawObj(pair);
   return mem[index];
 }
 
-Val Tail(Val pair)
+Val Tail(Val *mem, Val pair)
 {
   if (IsNil(pair)) return nil;
   u32 index = RawObj(pair);
   return mem[index+1];
 }
 
-void SetHead(Val pair, Val val)
+void SetHead(Val *mem, Val pair, Val val)
 {
   if (IsNil(pair)) Fatal("Can't change nil");
   u32 index = RawObj(pair);
   mem[index] = val;
 }
 
-void SetTail(Val pair, Val val)
+void SetTail(Val *mem, Val pair, Val val)
 {
   if (IsNil(pair)) Fatal("Can't change nil");
   u32 index = RawObj(pair);
   mem[index+1] = val;
 }
 
-Val MakeList(u32 length, ...)
+Val MakeList(Val *mem, u32 length, ...)
 {
   Val list = nil;
   va_list args;
   va_start(args, length);
   for (u32 i = 0; i < length; i++) {
     Val arg = va_arg(args, Val);
-    list = MakePair(arg, list);
+    list = MakePair(mem, arg, list);
   }
   va_end(args);
-  return Reverse(list);
+  return Reverse(mem, list);
 }
 
-Val MakeTagged(u32 length, char *name, ...)
-{
-  Val list = MakePair(MakeSymbol(name), nil);
-  va_list args;
-  va_start(args, name);
-  for (u32 i = 0; i < length - 1; i++) {
-    Val arg = va_arg(args, Val);
-    list = MakePair(arg, list);
-  }
-  va_end(args);
-  return Reverse(list);
-}
+// Val MakeTagged(Val *mem, u32 length, char *name, ...)
+// {
+//   Val list = MakePair(mem, MakeSymbol(name), nil);
+//   va_list args;
+//   va_start(args, name);
+//   for (u32 i = 0; i < length - 1; i++) {
+//     Val arg = va_arg(args, Val);
+//     list = MakePair(mem, arg, list);
+//   }
+//   va_end(args);
+//   return Reverse(mem, list);
+// }
 
-Val ReverseOnto(Val list, Val tail)
+Val ReverseOnto(Val *mem, Val list, Val tail)
 {
   if (IsNil(list)) return tail;
 
-  Val rest = Tail(list);
-  SetTail(list, tail);
-  return ReverseOnto(rest, list);
+  Val rest = Tail(mem, list);
+  SetTail(mem, list, tail);
+  return ReverseOnto(mem, rest, list);
 }
 
-Val Reverse(Val list)
+Val Reverse(Val *mem, Val list)
 {
-  return ReverseOnto(list, nil);
+  return ReverseOnto(mem, list, nil);
 }
 
-Val Flatten(Val list)
-{
-  Val result = nil;
-  while (!IsNil(list)) {
-    Val item = Head(list);
-    if (IsList(item)) {
-      while (!IsNil(item)) {
-        result = MakePair(Head(item), result);
-        item = Tail(item);
-      }
-    } else {
-      result = MakePair(item, result);
-    }
-    list = Tail(list);
-  }
-  return Reverse(result);
-}
+// Val Flatten(Val *mem, Val list)
+// {
+//   Val result = nil;
+//   while (!IsNil(list)) {
+//     Val item = Head(mem, list);
+//     if (IsList(mem, item)) {
+//       while (!IsNil(item)) {
+//         result = MakePair(mem, Head(mem, item), result);
+//         item = Tail(mem, item);
+//       }
+//     } else {
+//       result = MakePair(mem, item, result);
+//     }
+//     list = Tail(mem, list);
+//   }
+//   return Reverse(mem, result);
+// }
 
-u32 ListLength(Val list)
+u32 ListLength(Val *mem, Val list)
 {
   u32 length = 0;
   while (!IsNil(list)) {
     length++;
-    list = Tail(list);
+    list = Tail(mem, list);
   }
   return length;
 }
 
-Val ListAt(Val list, u32 index)
+Val ListAt(Val *mem, Val list, u32 index)
 {
   if (IsNil(list)) return nil;
-  if (index == 0) return Head(list);
-  return ListAt(Tail(list), index - 1);
+  if (index == 0) return Head(mem, list);
+  return ListAt(mem, Tail(mem, list), index - 1);
 }
 
-Val First(Val list)
+Val First(Val *mem, Val list)
 {
-  return ListAt(list, 0);
+  return ListAt(mem, list, 0);
 }
 
-Val Second(Val list)
+Val Second(Val *mem, Val list)
 {
-  return ListAt(list, 1);
+  return ListAt(mem, list, 1);
 }
 
-Val Third(Val list)
+Val Third(Val *mem, Val list)
 {
-  return ListAt(list, 2);
+  return ListAt(mem, list, 2);
 }
 
-Val ListLast(Val list)
+Val ListLast(Val *mem, Val list)
 {
-  while (!IsNil(Tail(list))) {
-    list = Tail(list);
+  while (!IsNil(Tail(mem, list))) {
+    list = Tail(mem, list);
   }
-  return Head(list);
+  return Head(mem, list);
 }
 
-void ListAppend(Val list1, Val list2)
+void ListAppend(Val *mem, Val list1, Val list2)
 {
-  while (!IsNil(Tail(list1))) {
-    list1 = Tail(list1);
+  while (!IsNil(Tail(mem, list1))) {
+    list1 = Tail(mem, list1);
   }
 
-  SetTail(list1, list2);
+  SetTail(mem, list1, list2);
 }
 
-Val MakeTuple(u32 count, ...)
+Val MakeTuple(Val *mem, u32 count, ...)
 {
-  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
-
-  Val tuple = TupleVal(mem_next);
-  mem[mem_next++] = TupHdr(count);
+  Val tuple = TupleVal(VecCount(mem));
+  VecPush(mem, TupHdr(count));
 
   if (count == 0) {
-    mem[mem_next++] = nil;
+    VecPush(mem, nil);
     return tuple;
   }
 
@@ -179,72 +176,49 @@ Val MakeTuple(u32 count, ...)
   va_start(args, count);
   for (u32 i = 0; i < count; i++) {
     Val arg = va_arg(args, Val);
-    mem[mem_next++] = arg;
+    VecPush(mem, arg);
   }
   va_end(args);
 
   return tuple;
 }
 
-Val MakeEmptyTuple(u32 count)
-{
-  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
+// static Val MakeEmptyTuple(Val *mem, u32 count)
+// {
+//   Val tuple = TupleVal(VecCount(mem));
+//   VecPush(mem, TupHdr(count));
 
-  Val tuple = TupleVal(mem_next);
-  mem[mem_next++] = TupHdr(count);
+//   for (u32 i = 0; i < count; i++) {
+//     VecPush(mem, nil);
+//   }
 
-  for (u32 i = 0; i < count; i++) {
-    mem[mem_next++] = nil;
-  }
+//   return tuple;
+// }
 
-  return tuple;
-}
-
-Val ListToTuple(Val list)
-{
-  u32 count = ListLength(list);
-  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
-
-  Val tuple = TupleVal(mem_next);
-  mem[mem_next++] = TupHdr(count);
-
-  if (count == 0) {
-    mem[mem_next++] = nil;
-    return tuple;
-  }
-
-  while (!IsNil(list)) {
-    mem[mem_next++] = Head(list);
-    list = Tail(list);
-  }
-
-  return tuple;
-}
-
-u32 TupleLength(Val tuple)
+u32 TupleLength(Val *mem, Val tuple)
 {
   u32 index = RawObj(tuple);
   return HdrVal(mem[index]);
 }
 
-Val TupleAt(Val tuple, u32 i)
+Val TupleAt(Val *mem, Val tuple, u32 i)
 {
   u32 index = RawObj(tuple);
-  return mem[(index + i + 1) % MEM_SIZE];
+  return mem[(index + i + 1) % HEAP_SIZE];
 }
 
-void TupleSet(Val tuple, u32 i, Val val)
+void TupleSet(Val *mem, Val tuple, u32 i, Val val)
 {
   u32 index = RawObj(tuple);
-  mem[(index + i + 1) % MEM_SIZE] = val;
+  mem[(index + i + 1) % HEAP_SIZE] = val;
 }
 
-bool IsTagged(Val exp, char *tag)
-{
-  if (IsPair(exp) && Eq(Head(exp), SymbolFor(tag))) return true;
-  if (IsTuple(exp) && Eq(TupleAt(exp, 0), SymbolFor(tag))) return true;
-  return false;
-}
+// bool IsTagged(Val *mem, Val exp, char *tag)
+// {
+//   if (IsPair(exp) && Eq(Head(mem, exp), SymbolFor(tag))) return true;
+//   if (IsTuple(exp) && Eq(TupleAt(mem, exp, 0), SymbolFor(tag))) return true;
+//   return false;
+// }
 
 Val MakeSymbol(char *src)
 {
@@ -271,14 +245,14 @@ Val MakeSymbolFromSlice(char *src, u32 len)
   return key;
 }
 
-Val BoolSymbol(bool val)
-{
-  if (val) {
-    return MakeSymbol("true");
-  } else {
-    return MakeSymbol("false");
-  }
-}
+// Val BoolSymbol(bool val)
+// {
+//   if (val) {
+//     return MakeSymbol("true");
+//   } else {
+//     return MakeSymbol("false");
+//   }
+// }
 
 Val SymbolFor(char *src)
 {
@@ -303,46 +277,39 @@ void DumpSymbols(void)
   }
 }
 
-Val MakeQuoted(Val val)
+Val MakeBinary(Val *mem, char *src, u32 len)
 {
-  return MakePair(MakeSymbol("quote"), val);
-}
+  u32 words = (len - 1) / 4 + 1;
 
-Val MakeBinary(char *src, u32 len)
-{
-  u32 count = (len - 1) / 4 + 1;
+  Val binary = BinVal(VecCount(mem));
+  VecPush(mem, BinHdr(len));
 
-  if (mem_next + count + 1 >= MEM_SIZE) Fatal("Out of memory");
+  u8 *data = (u8*)&mem[VecCount(mem)];
+  GrowVec(mem, words);
 
-  Val binary = BinVal(mem_next);
-  mem[mem_next++] = BinHdr(len);
-
-  u8 *data = (u8*)&mem[mem_next];
   for (u32 i = 0; i < len; i++) {
     data[i] = src[i];
   }
 
-  mem_next += count;
-
   return binary;
 }
 
-u32 BinaryLength(Val binary)
+u32 BinaryLength(Val *mem, Val binary)
 {
   u32 index = RawObj(binary);
   return HdrVal(mem[index]);
 }
 
-char *BinaryData(Val binary)
+char *BinaryData(Val *mem, Val binary)
 {
   u32 index = RawObj(binary);
   return (char*)&mem[index+1];
 }
 
-char *BinToCStr(Val binary)
+char *BinToCStr(Val *mem, Val binary)
 {
-  u32 len = BinaryLength(binary);
-  char *src = BinaryData(binary);
+  u32 len = BinaryLength(mem, binary);
+  char *src = BinaryData(mem, binary);
   char *dst = malloc(len+1);
   for (u32 i = 0; i < len; i++) {
     dst[i] = src[i];
@@ -351,116 +318,116 @@ char *BinToCStr(Val binary)
   return dst;
 }
 
-Val BinaryAt(Val binary, u32 i)
+Val BinaryAt(Val *mem, Val binary, u32 i)
 {
-  if (i >= BinaryLength(binary)) return nil;
+  if (i >= BinaryLength(mem, binary)) return nil;
 
-  return IntVal(BinaryData(binary)[i]);
+  return IntVal(BinaryData(mem, binary)[i]);
 }
 
-u32 HashBinary(Val binary)
-{
-  u32 length = BinaryLength(binary);
-  return Hash(BinaryData(binary), length);
-}
+// u32 HashBinary(Val binary)
+// {
+//   u32 length = BinaryLength(mem, binary);
+//   return Hash(BinaryData(mem, binary), length);
+// }
 
-void DictSet(Val dict, Val key, Val value);
+// void DictSet(Val dict, Val key, Val value);
 
-Val MakeDict(Val keys, Val vals)
-{
-  Val dict = MakeEmptyTuple(DICT_BUCKETS);
+// Val MakeDict(Val keys, Val vals)
+// {
+//   Val dict = MakeEmptyTuple(mem, DICT_BUCKETS);
 
-  while (!IsNil(keys)) {
-    Val key = Head(keys);
-    Val value = Head(vals);
-    DictSet(dict, key, value);
-    keys = Tail(keys);
-    vals = Tail(vals);
-  }
+//   while (!IsNil(keys)) {
+//     Val key = Head(mem, keys);
+//     Val value = Head(mem, vals);
+//     DictSet(dict, key, value);
+//     keys = Tail(mem, keys);
+//     vals = Tail(mem, vals);
+//   }
 
-  return DictVal(dict.as_v);
-}
+//   return DictVal(dict.as_v);
+// }
 
-bool DictHasKey(Val dict, Val key)
-{
-  if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-    return false;
-  }
+// bool DictHasKey(Val dict, Val key)
+// {
+//   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
+//     return false;
+//   }
 
-  u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
-  u32 index = hash % DICT_BUCKETS;
+//   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
+//   u32 index = hash % DICT_BUCKETS;
 
-  Val bucket = TupleAt(dict, index);
-  while (!IsNil(bucket)) {
-    Val entry = Head(bucket);
-    if (Eq(Head(entry), key)) {
-      return true;
-    }
+//   Val bucket = TupleAt(mem, dict, index);
+//   while (!IsNil(bucket)) {
+//     Val entry = Head(mem, bucket);
+//     if (Eq(Head(mem, entry), key)) {
+//       return true;
+//     }
 
-    bucket = Tail(bucket);
-  }
+//     bucket = Tail(mem, bucket);
+//   }
 
-  return false;
-}
+//   return false;
+// }
 
-Val DictGet(Val dict, Val key)
-{
-  if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-    Fatal("Invalid key: %s", ValStr(key));
-  }
+// Val DictGet(Val dict, Val key)
+// {
+//   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
+//     Fatal("Invalid key");
+//   }
 
-  u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
-  u32 index = hash % DICT_BUCKETS;
+//   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
+//   u32 index = hash % DICT_BUCKETS;
 
-  Val bucket = TupleAt(dict, index);
-  while (!IsNil(bucket)) {
-    Val entry = Head(bucket);
-    if (Eq(Head(entry), key)) {
-      return Tail(entry);
-    }
+//   Val bucket = TupleAt(mem, dict, index);
+//   while (!IsNil(bucket)) {
+//     Val entry = Head(mem, bucket);
+//     if (Eq(Head(mem, entry), key)) {
+//       return Tail(mem, entry);
+//     }
 
-    bucket = Tail(bucket);
-  }
+//     bucket = Tail(mem, bucket);
+//   }
 
-  return nil;
-}
+//   return nil;
+// }
 
-void DictSet(Val dict, Val key, Val value)
-{
-  if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-    Fatal("Invalid key: %s", ValStr(key));
-  }
+// void DictSet(Val dict, Val key, Val value)
+// {
+//   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
+//     Fatal("Invalid key");
+//   }
 
-  u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
-  u32 index = hash % DICT_BUCKETS;
+//   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
+//   u32 index = hash % DICT_BUCKETS;
 
-  Val bucket = TupleAt(dict, index);
-  while (!IsNil(bucket)) {
-    Val entry = Head(bucket);
-    if (Eq(Head(entry), key)) {
-      SetTail(entry, value);
-      return;
-    }
-    bucket = Tail(bucket);
-  }
+//   Val bucket = TupleAt(mem, dict, index);
+//   while (!IsNil(bucket)) {
+//     Val entry = Head(mem, bucket);
+//     if (Eq(Head(mem, entry), key)) {
+//       SetTail(mem, entry, value);
+//       return;
+//     }
+//     bucket = Tail(mem, bucket);
+//   }
 
-  bucket = TupleAt(dict, index);
-  Val entry = MakePair(key, value);
-  TupleSet(dict, index, MakePair(entry, bucket));
-}
+//   bucket = TupleAt(mem, dict, index);
+//   Val entry = MakePair(mem, key, value);
+//   TupleSet(mem, dict, index, MakePair(mem, entry, bucket));
+// }
 
-void DictMerge(Val dict1, Val dict2)
-{
-  for (u32 i = 0; i < DICT_BUCKETS; i++) {
-    Val bucket = TupleAt(dict1, i);
-    while (!IsNil(bucket)) {
-      Val entry = Head(bucket);
-      Val key = Head(entry);
-      if (!IsNil(key)) {
-        Val val = Tail(entry);
-        DictSet(dict2, key, val);
-      }
-      bucket = Tail(bucket);
-    }
-  }
-}
+// void DictMerge(Val dict1, Val dict2)
+// {
+//   for (u32 i = 0; i < DICT_BUCKETS; i++) {
+//     Val bucket = TupleAt(mem, dict1, i);
+//     while (!IsNil(bucket)) {
+//       Val entry = Head(mem, bucket);
+//       Val key = Head(mem, entry);
+//       if (!IsNil(key)) {
+//         Val val = Tail(mem, entry);
+//         DictSet(dict2, key, val);
+//       }
+//       bucket = Tail(mem, bucket);
+//     }
+//   }
+// }

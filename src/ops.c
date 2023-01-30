@@ -130,6 +130,6 @@ void ConsOp(struct VM *vm)
 {
   Val tail = VecPop(vm->stack);
   Val head = VecPop(vm->stack);
-  Val pair = MakePair(head, tail);
+  Val pair = MakePair(vm->chunk->heap, head, tail);
   VecPush(vm->stack, pair);
 }

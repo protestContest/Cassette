@@ -25,3 +25,4 @@
 
 u32 *NewRawVec(u32 item_size, u32 max_items);
 void *ResizeVec(void *vec, u32 num_items, u32 item_size);
+void *CopyVec(void *src);
