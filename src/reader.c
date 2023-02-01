@@ -13,6 +13,7 @@
 #define Peek(r)           ((r)->src[(r)->cur])
 #define PeekNext(r)   ((r)->src[(r)->cur + 1])
 
+static bool Match(Reader *r, const char *expect);
 static char Advance(Reader *r);
 static void AdvanceLine(Reader *r);
 static void Retreat(Reader *r, u32 count);
@@ -100,6 +101,7 @@ Token ScanToken(Reader *r)
   if (Match(r, "="))  return MakeToken(r, TOKEN_EQ, 1);
   if (Match(r, ">"))  return MakeToken(r, TOKEN_GT, 1);
   if (Match(r, "<"))  return MakeToken(r, TOKEN_LT, 1);
+  if (Match(r, ":"))  return MakeToken(r, TOKEN_COLON, 1);
   if (Match(r, "\n")) return MakeToken(r, TOKEN_NEWLINE, 1);
   if (Match(r, "\r")) return MakeToken(r, TOKEN_NEWLINE, 1);
 
@@ -428,6 +430,7 @@ bool MatchKeyword(Reader *r, const char *expect)
 const char *TokenStr(TokenType type)
 {
   switch (type) {
+  case TOKEN_COLON:       return "COLON";
   case TOKEN_LPAREN:      return "LPAREN";
   case TOKEN_RPAREN:      return "RPAREN";
   case TOKEN_LBRACKET:    return "LBRACKET";

@@ -3,14 +3,20 @@
 
 u32 PrintVal(Val *mem, Val value)
 {
-  if (IsNum(value)) {
+  if (IsNil(value)) {
+    return printf("nil");
+  } else if (IsPair(value)) {
+    return printf("p%d", RawObj(value));
+  } else if (IsNum(value)) {
     return printf("%.1f", value.as_f);
   } else if (IsInt(value)) {
     return printf("%d", RawInt(value));
   } else if (IsBin(value)) {
     return printf("%.*s", BinaryLength(mem, value), BinaryData(mem, value));
   } else if (IsSym(value)) {
-    return printf("%s", SymbolName(value));
+    return printf(":%s", SymbolName(value));
+  } else if (IsTuple(value)) {
+    return printf("t%d", RawObj(value));
   } else {
     return 0;
   }

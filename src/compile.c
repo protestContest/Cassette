@@ -3,6 +3,84 @@
 #include "mem.h"
 #include "reader.h"
 #include "printer.h"
+#include "vec.h"
+
+#define CurType(p)  ((p)->current.type)
+#define NextType(p) ((p)->next.type)
+#define GetRule(t)  (&rules[t])
+
+void Emit(Parser *p, u8 byte)
+{
+  PutByte(p->chunk, p->r.line, byte);
+  DisassembleInstruction(p->chunk, VecCount(p->chunk->code) - 1);
+  printf("\n");
+}
+
+void EmitPair(Parser *p, u8 byte1, u8 byte2)
+{
+  PutByte(p->chunk, p->r.line, byte1);
+  PutByte(p->chunk, p->r.line, byte2);
+  DisassembleInstruction(p->chunk, VecCount(p->chunk->code) - 2);
+  printf("\n");
+}
+
+void EmitConst(Parser *p, Val value)
+{
+  u8 i = PutConst(p->chunk, value);
+  EmitPair(p, OP_CONST, i);
+}
+
+void Patch(Parser *p, u32 loc, u8 byte)
+{
+  p->chunk->code[loc] = byte;
+}
+
+static Status SyntaxError(Parser *p, const char *message)
+{
+  if (p->r.status != Ok) return Error;
+
+  fprintf(stderr, "[%d:%d] Syntax error: %s\n", p->current.line, p->current.col, message);
+  PrintSourceContext(&p->r, 0);
+
+  return Error;
+}
+
+static void Advance(Parser *p)
+{
+  p->current = p->next;
+  p->next = ScanToken(&p->r);
+  printf("Advance \"%.*s\" %s\n", p->current.length, p->current.lexeme, TokenStr(p->current.type));
+}
+
+static void Consume(Parser *p, TokenType type, const char *msg)
+{
+  if (NextType(p) == type) {
+    Advance(p);
+  } else {
+    SyntaxError(p, msg);
+  }
+}
+
+static void Expect(Parser *p, TokenType type, const char *msg)
+{
+  Token token = ScanToken(&p->r);
+
+  if (token.type == type) {
+    p->current = token;
+  } else {
+    SyntaxError(p, msg);
+  }
+}
+
+static bool Match(Parser *p, TokenType type)
+{
+  if (NextType(p) == type) {
+    Advance(p);
+    return true;
+  }
+
+  return false;
+}
 
 typedef enum {
   PREC_NONE,
@@ -51,8 +129,11 @@ static void ParseIdentifier(Parser *p);
 static void ParseNegative(Parser *p);
 static void ParseLiteral(Parser *p);
 static void ParseString(Parser *p);
+static void ParseSymbol(Parser *p);
+static void ParseList(Parser *p);
 static void ParseOperator(Parser *p);
 static void ParseGroup(Parser *p);
+static void ParseLambda(Parser *p);
 static void ParseExpr(Parser *p);
 static bool ParseLevel(Parser *p, Precedence level);
 
@@ -63,11 +144,11 @@ typedef struct {
 } ParseRule;
 
 ParseRule rules[] = {
-  [TOKEN_LPAREN] =      { ParseGroup,       ParseExpr,      PREC_EXPR     },
+  [TOKEN_LPAREN] =      { ParseGroup,       NULL,           PREC_EXPR     },
   [TOKEN_RPAREN] =      { NULL,             NULL,           PREC_NONE     },
-  // [TOKEN_LBRACKET] =    { ParseList,        NULL,           PREC_NONE     },
+  [TOKEN_LBRACKET] =    { ParseList,        NULL,           PREC_NONE     },
   [TOKEN_RBRACKET] =    { NULL,             NULL,           PREC_NONE     },
-  // [TOKEN_LBRACE] =      { ParseDict,        ParseExpr,      PREC_EXPR     },
+  // [TOKEN_LBRACE] =      { ParseDict,        NULL,            PREC_EXPR     },
   [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
   // [TOKEN_COMMA] =       { NULL,             ParseBlock,     PREC_BLOCK    },
   // [TOKEN_DOT] =         { NULL,             ParseAccess,    PREC_ACCESS   },
@@ -84,10 +165,10 @@ ParseRule rules[] = {
   [TOKEN_LT] =          { ParseIdentifier,  ParseOperator,  PREC_COMPARE  },
   [TOKEN_LTE] =         { ParseIdentifier,  ParseOperator,  PREC_COMPARE  },
   // [TOKEN_PIPE] =        { ParseIdentifier,  ParsePipe,      PREC_PIPE     },
-  // [TOKEN_ARROW] =       { NULL,             ParseLambda,    PREC_LAMBDA   },
-  [TOKEN_IDENTIFIER] =  { ParseIdentifier,  ParseExpr,      PREC_EXPR     },
+  [TOKEN_ARROW] =       { NULL,             ParseLambda,    PREC_LAMBDA   },
+  [TOKEN_IDENTIFIER] =  { ParseIdentifier,  NULL,           PREC_EXPR     },
   [TOKEN_STRING] =      { ParseString,      NULL,           PREC_NONE     },
-  [TOKEN_NUMBER] =      { ParseNumber,      ParseExpr,      PREC_EXPR     },
+  [TOKEN_NUMBER] =      { ParseNumber,      NULL,           PREC_EXPR     },
   // [TOKEN_SYMBOL] =      { ParseSymbol,      NULL,           PREC_NONE     },
   [TOKEN_AND] =         { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
   [TOKEN_NOT] =         { ParseIdentifier,  ParseOperator,  PREC_LOGIC    },
@@ -100,62 +181,35 @@ ParseRule rules[] = {
   [TOKEN_TRUE] =        { ParseLiteral,     NULL,           PREC_NONE     },
   [TOKEN_FALSE] =       { ParseLiteral,     NULL,           PREC_NONE     },
   [TOKEN_NIL] =         { ParseLiteral,     NULL,           PREC_NONE     },
-  // [TOKEN_NEWLINE] =     { NULL,             ParseBlock,     PREC_BLOCK    },
+  [TOKEN_NEWLINE] =     { NULL,             NULL,           PREC_NONE     },
   [TOKEN_EOF] =         { NULL,             NULL,           PREC_NONE     },
   [TOKEN_ERROR] =       { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_COLON] =       { ParseSymbol,      NULL,           PREC_NONE     },
 };
 
-#define CurType(p)  ((p)->current.type)
-#define NextType(p) ((p)->next.type)
-#define GetRule(t)  (&rules[t])
-
-void Emit(Parser *p, u8 byte)
+static bool ParseLevel(Parser *p, Precedence level)
 {
-  PutByte(p->chunk, p->r.line, byte);
-}
+  printf("ParseLevel %s\n", PrecStr(level));
 
-void EmitConst(Parser *p, Val value)
-{
-  u8 i = PutConst(p->chunk, value);
-  PutByte(p->chunk, p->r.line, OP_CONST);
-  PutByte(p->chunk, p->r.line, i);
-}
+  Advance(p);
 
-static Status SyntaxError(Parser *p, const char *message)
-{
-  if (p->r.status != Ok) return Error;
+  ParseRule *rule = GetRule(CurType(p));
+  if (!rule->prefix) return false;
 
-  fprintf(stderr, "[%d:%d] Syntax error: %s\n", p->current.line, p->current.col, message);
+  rule->prefix(p);
+  if (p->r.status != Ok) return false;
+
+  rule = GetRule(NextType(p));
+  while (level <= rule->prec) {
+    Advance(p);
+    rule->infix(p);
+    if (p->r.status != Ok) return false;
+    rule = GetRule(NextType(p));
+  }
+
   PrintSourceContext(&p->r, 0);
 
-  return Error;
-}
-
-static void Advance(Parser *p)
-{
-  p->current = p->next;
-  p->next = ScanToken(&p->r);
-  printf("Advance \"%.*s\" %s\n", p->current.length, p->current.lexeme, TokenStr(p->current.type));
-}
-
-static void Consume(Parser *p, TokenType type, const char *msg)
-{
-  if (NextType(p) == type) {
-    Advance(p);
-  } else {
-    SyntaxError(p, msg);
-  }
-}
-
-static void Expect(Parser *p, TokenType type, const char *msg)
-{
-  Token token = ScanToken(&p->r);
-
-  if (token.type == type) {
-    p->current = token;
-  } else {
-    SyntaxError(p, msg);
-  }
+  return true;
 }
 
 static void ParseNegative(Parser *p)
@@ -185,8 +239,40 @@ static void ParseLiteral(Parser *p)
 static void ParseString(Parser *p)
 {
   printf("ParseString\n");
-  Val bin = MakeBinary(p->chunk->heap, p->current.lexeme + 1, p->current.length - 2);
-  EmitConst(p, bin);
+  // Val bin = MakeBinary(p->chunk->heap, p->current.lexeme + 1, p->current.length - 2);
+  // EmitConst(p, bin);
+}
+
+static void ParseSymbol(Parser *p)
+{
+  printf("ParseSymbol\n");
+
+  if (NextType(p) != TOKEN_IDENTIFIER) {
+    SyntaxError(p, "Expected identifier");
+    return;
+  }
+
+  Advance(p);
+  Val sym = MakeSymbolFromSlice(p->current.lexeme, p->current.length);
+  EmitConst(p, sym);
+}
+
+static void ParseList(Parser *p)
+{
+  printf("ParseList\n");
+
+  u8 num = 0;
+  while (NextType(p) != TOKEN_RBRACKET) {
+    while (NextType(p) != TOKEN_COMMA && NextType(p) != TOKEN_RBRACKET) {
+      if (NextType(p) == TOKEN_EOF) return;
+      num++;
+      ParseLevel(p, PREC_EXPR + 1);
+    }
+    Match(p, TOKEN_COMMA);
+  }
+  Match(p, TOKEN_RBRACKET);
+
+  EmitPair(p, OP_LIST, num);
 }
 
 static void ParseOperator(Parser *p)
@@ -195,6 +281,7 @@ static void ParseOperator(Parser *p)
 
   TokenType op = CurType(p);
   ParseRule *rule = GetRule(op);
+  if (NextType(p) == TOKEN_NEWLINE) Advance(p);
   ParseLevel(p, rule->prec + 1);
 
   switch (op) {
@@ -214,7 +301,7 @@ static void ParseOperator(Parser *p)
     Emit(p, OP_EXP);
     break;
   case TOKEN_BAR:
-    Emit(p, OP_CONS);
+    Emit(p, OP_PAIR);
     break;
   case TOKEN_EQ:
     Emit(p, OP_EQUAL);
@@ -245,58 +332,34 @@ static void ParseOperator(Parser *p)
 static void ParseGroup(Parser *p)
 {
   printf("ParseGroup\n");
-  ParseExpr(p);
+
+  while (NextType(p) != TOKEN_RPAREN && NextType(p) != TOKEN_EOF) {
+    ParseLevel(p, PREC_EXPR + 1);
+  }
+
   Consume(p, TOKEN_RPAREN, "Expected \")\" after expression");
 }
 
-// static void ParseExpr(Parser *p)
-// {
-//   Token token = p->current;
-
-//   Advance(p);
-//   while (CurType(p) != TOKEN_COMMA && CurType(p) != TOKEN_NEWLINE && CurType(p) != TOKEN_EOF) {
-//     if (!ParseLevel(p, PREC_EXPR + 1)) break;
-//     Advance(p);
-//   }
-//   if (p->r.status != Ok) return;
-
-
-// }
-
-#define IsExprEnd(t)  ((t) == TOKEN_NEWLINE || (t) == TOKEN_COMMA || (t) == TOKEN_EOF)
+static void ParseLambda(Parser *p)
+{
+  u32 jump_pos = VecCount(p->chunk->code);
+  EmitPair(p, OP_JUMP, 0);
+  u32 lambda_pos = VecCount(p->chunk->code);
+  ParseExpr(p);
+  Emit(p, OP_RETURN);
+  u32 next_pos = VecCount(p->chunk->code);
+  Patch(p, jump_pos + 1, next_pos - lambda_pos);
+  EmitConst(p, IntVal(lambda_pos));
+  Emit(p, OP_LAMBDA);
+}
 
 static void ParseExpr(Parser *p)
 {
-  while (!IsExprEnd(NextType(p))) {
+  printf("ParseExpr\n");
+
+  while (NextType(p) != TOKEN_NEWLINE && NextType(p) != TOKEN_COMMA && NextType(p) != TOKEN_EOF) {
     ParseLevel(p, PREC_EXPR + 1);
-    PrintSourceContext(&p->r, 0);
-    printf("%s\n", TokenStr(CurType(p)));
   }
-}
-
-static bool ParseLevel(Parser *p, Precedence level)
-{
-  printf("ParseLevel %s\n", PrecStr(level));
-
-  Advance(p);
-
-  ParseRule *rule = GetRule(CurType(p));
-  if (!rule->prefix) return false;
-
-  rule->prefix(p);
-  if (p->r.status != Ok) return false;
-
-  rule = GetRule(NextType(p));
-  while (level <= rule->prec) {
-    Advance(p);
-    rule->infix(p);
-    if (p->r.status != Ok) return false;
-    rule = GetRule(NextType(p));
-  }
-
-  PrintSourceContext(&p->r, 0);
-
-  return true;
 }
 
 static void ParseNumber(Parser *p)
@@ -330,7 +393,9 @@ static void ParseNumber(Parser *p)
 static void ParseIdentifier(Parser *p)
 {
   printf("ParseIdentifier\n");
-
+  Val sym = MakeSymbolFromSlice(p->current.lexeme, p->current.length);
+  EmitConst(p, sym);
+  Emit(p, OP_LOOKUP);
 }
 
 Status Compile(char *src, Chunk *chunk)
@@ -345,6 +410,6 @@ Status Compile(char *src, Chunk *chunk)
 
   // PrintSourceContext(&p.r, 0);
 
-  Emit(&p, OP_RETURN);
+  Emit(&p, OP_HALT);
   return p.r.status;
 }

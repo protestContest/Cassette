@@ -10,6 +10,7 @@ typedef struct {
 } OpInfo;
 
 static OpInfo ops[] = {
+  [OP_HALT] =     { "halt",   ARGS_NONE   },
   [OP_RETURN] =   { "return", ARGS_NONE   },
   [OP_CONST] =    { "const",  ARGS_VAL    },
   [OP_NEG] =      { "neg",    ARGS_NONE   },
@@ -25,7 +26,12 @@ static OpInfo ops[] = {
   [OP_EQUAL] =    { "equal",  ARGS_NONE   },
   [OP_GT] =       { "gt",     ARGS_NONE   },
   [OP_LT] =       { "lt",     ARGS_NONE   },
-  [OP_CONS] =     { "cons",   ARGS_NONE   },
+  [OP_LOOKUP] =   { "lookup", ARGS_NONE   },
+  [OP_PAIR] =     { "pair",   ARGS_NONE   },
+  [OP_LIST] =     { "list",   ARGS_INT    },
+  [OP_APPLY] =    { "apply",  ARGS_NONE   },
+  [OP_JUMP] =     { "jump",   ARGS_INT    },
+  [OP_LAMBDA] =   { "lambda", ARGS_NONE   },
 };
 
 const char *OpStr(OpCode op)
@@ -43,6 +49,7 @@ u32 OpSize(OpCode op)
   switch (OpFormat(op)) {
   case ARGS_NONE:     return 1;
   case ARGS_VAL:      return 2;
+  case ARGS_INT:      return 2;
   }
 }
 
@@ -149,10 +156,33 @@ void NotOp(struct VM *vm)
   }
 }
 
-void ConsOp(struct VM *vm)
+void PairOp(struct VM *vm)
 {
   Val tail = VecPop(vm->stack);
   Val head = VecPop(vm->stack);
-  Val pair = MakePair(vm->chunk->heap, head, tail);
+  Val pair = MakePair(&vm->heap, head, tail);
   VecPush(vm->stack, pair);
+}
+
+void ListOp(struct VM *vm, u32 num)
+{
+  Val list = nil;
+  for (u32 i = 0; i < num; i++) {
+    Val item = VecPop(vm->stack);
+    list = MakePair(&vm->heap, item, list);
+  }
+  VecPush(vm->stack, list);
+}
+
+void LambdaOp(struct VM *vm)
+{
+  Val code = VecPop(vm->stack);
+  Val params = VecPop(vm->stack);
+
+  Val proc = nil;
+  proc = MakePair(&vm->heap, vm->env, proc);
+  proc = MakePair(&vm->heap, params, proc);
+  proc = MakePair(&vm->heap, code, proc);
+
+  VecPush(vm->stack, proc);
 }

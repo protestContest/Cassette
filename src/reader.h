@@ -8,7 +8,7 @@ typedef enum {
   TOKEN_GTE, TOKEN_LT, TOKEN_LTE, TOKEN_PIPE, TOKEN_ARROW, TOKEN_IDENTIFIER,
   TOKEN_STRING, TOKEN_NUMBER, TOKEN_SYMBOL, TOKEN_AND, TOKEN_OR, TOKEN_DEF,
   TOKEN_COND, TOKEN_DO, TOKEN_ELSE, TOKEN_END, TOKEN_TRUE, TOKEN_FALSE,
-  TOKEN_NIL, TOKEN_NOT, TOKEN_NEWLINE, TOKEN_EOF, TOKEN_ERROR,
+  TOKEN_NIL, TOKEN_NOT, TOKEN_NEWLINE, TOKEN_EOF, TOKEN_ERROR, TOKEN_COLON,
 } TokenType;
 
 typedef struct {
@@ -58,7 +58,6 @@ void SkipSpace(Reader *r);
 void SkipSpaceAndNewlines(Reader *r);
 bool Check(Reader *r, const char *expect);
 bool CheckKeyword(Reader *r, const char *expect);
-bool Match(Reader *r, const char *expect);
 bool MatchKeyword(Reader *r, const char *expect);
 
 const char *TokenStr(TokenType type);

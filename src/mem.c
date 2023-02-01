@@ -15,14 +15,12 @@ void InitMem(Val *mem)
   VecPush(mem, nil);
 }
 
-Val MakePair(Val *mem, Val head, Val tail)
+Val MakePair(Val **mem, Val head, Val tail)
 {
-  if (VecCount(mem)+1 >= HEAP_SIZE) Fatal("Out of memory");
+  Val pair = PairVal(VecCount(*mem));
 
-  Val pair = PairVal(VecCount(mem));
-
-  VecPush(mem, head);
-  VecPush(mem, tail);
+  VecPush(*mem, head);
+  VecPush(*mem, tail);
 
   return pair;
 }
@@ -62,7 +60,7 @@ Val MakeList(Val *mem, u32 length, ...)
   va_start(args, length);
   for (u32 i = 0; i < length; i++) {
     Val arg = va_arg(args, Val);
-    list = MakePair(mem, arg, list);
+    list = MakePair(&mem, arg, list);
   }
   va_end(args);
   return Reverse(mem, list);
@@ -162,13 +160,13 @@ void ListAppend(Val *mem, Val list1, Val list2)
   SetTail(mem, list1, list2);
 }
 
-Val MakeTuple(Val *mem, u32 count, ...)
+Val MakeTuple(Val **mem, u32 count, ...)
 {
-  Val tuple = TupleVal(VecCount(mem));
-  VecPush(mem, TupHdr(count));
+  Val tuple = TupleVal(VecCount(*mem));
+  VecPush(*mem, TupHdr(count));
 
   if (count == 0) {
-    VecPush(mem, nil);
+    VecPush(*mem, nil);
     return tuple;
   }
 
@@ -176,7 +174,7 @@ Val MakeTuple(Val *mem, u32 count, ...)
   va_start(args, count);
   for (u32 i = 0; i < count; i++) {
     Val arg = va_arg(args, Val);
-    VecPush(mem, arg);
+    VecPush(*mem, arg);
   }
   va_end(args);
 
@@ -431,3 +429,14 @@ Val BinaryAt(Val *mem, Val binary, u32 i)
 //     }
 //   }
 // }
+
+void PrintHeap(Val *mem)
+{
+  printf("──╴Heap╶──\n");
+
+  for (u32 i = 0; i < VecCount(mem) && i < 100; i++) {
+    printf("%4u │ ", i);
+    PrintVal(mem, mem[i]);
+    printf("\n");
+  }
+}

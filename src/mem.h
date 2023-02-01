@@ -11,7 +11,7 @@ typedef struct {
 
 void InitMem(Val *mem);
 
-Val MakePair(Val *mem, Val head, Val tail);
+Val MakePair(Val **mem, Val head, Val tail);
 Val Head(Val *mem, Val pair);
 Val Tail(Val *mem, Val pair);
 void SetHead(Val *mem, Val pair, Val val);
@@ -31,7 +31,7 @@ Val Third(Val *mem, Val list);
 Val ListLast(Val *mem, Val list);
 void ListAppend(Val *mem, Val list1, Val list2);
 
-Val MakeTuple(Val *mem, u32 count, ...);
+Val MakeTuple(Val **mem, u32 count, ...);
 // Val ListToTuple(Val *mem, Val list);
 u32 TupleLength(Val *mem, Val tuple);
 Val TupleAt(Val *mem, Val tuple, u32 i);
@@ -49,6 +49,8 @@ u32 BinaryLength(Val *mem, Val binary);
 char *BinaryData(Val *mem, Val binary);
 char *BinToCStr(Val *mem, Val binary);
 Val BinaryAt(Val *mem, Val binary, u32 i);
+
+void PrintHeap(Val *mem);
 
 // Val MakeDict(Val keys, Val vals);
 // bool DictHasKey(Val dict, Val key);

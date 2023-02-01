@@ -3,6 +3,7 @@
 struct VM;
 
 typedef enum {
+  OP_HALT,
   OP_RETURN,
   OP_CONST,
   OP_NEG,
@@ -18,12 +19,18 @@ typedef enum {
   OP_EQUAL,
   OP_GT,
   OP_LT,
-  OP_CONS,
+  OP_LOOKUP,
+  OP_JUMP,
+  OP_LAMBDA,
+  OP_PAIR,
+  OP_LIST,
+  OP_APPLY,
 } OpCode;
 
 typedef enum {
   ARGS_NONE,
   ARGS_VAL,
+  ARGS_INT,
 } ArgFormat;
 
 const char *OpStr(OpCode op);
@@ -34,4 +41,6 @@ void NegOp(struct VM *vm);
 void ArithmeticOp(struct VM *vm, OpCode op);
 void CompareOp(struct VM *vm, OpCode op);
 void NotOp(struct VM *vm);
-void ConsOp(struct VM *vm);
+void PairOp(struct VM *vm);
+void ListOp(struct VM *vm, u32 num);
+void LambdaOp(struct VM *vm);

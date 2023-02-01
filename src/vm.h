@@ -7,6 +7,8 @@ typedef struct VM {
   u32 pc;
   Chunk *chunk;
   Val *stack;
+  Val *heap;
+  Val env;
 } VM;
 
 void InitVM(VM *vm);
