@@ -1,7 +1,6 @@
 #include "printer.h"
-#include "mem.h"
 
-u32 PrintVal(Val *mem, Val value)
+u32 PrintVal(Val *mem, Symbol *symbols, Val value)
 {
   if (IsNil(value)) {
     return printf("nil");
@@ -14,7 +13,8 @@ u32 PrintVal(Val *mem, Val value)
   } else if (IsBin(value)) {
     return printf("%.*s", BinaryLength(mem, value), BinaryData(mem, value));
   } else if (IsSym(value)) {
-    return printf(":%s", SymbolName(value));
+    // return printf("s%d", RawObj(value));
+    return printf(":%s", SymbolName(symbols, value));
   } else if (IsTuple(value)) {
     return printf("t%d", RawObj(value));
   } else {

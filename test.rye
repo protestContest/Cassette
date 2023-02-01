@@ -1,1 +1,7 @@
-def foo 3
+def f (x) -> x + 1
+f 3
+
+def f (x sum) ->
+  if x = 0
+    sum
+    f (x - 1) (sum + x)

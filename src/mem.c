@@ -4,11 +4,6 @@
 #include "env.h"
 #include "vec.h"
 
-#define HEAP_SIZE      (4096)
-
-Symbol symbols[NUM_SYMBOLS];
-u32 sym_next = 0;
-
 void InitMem(Val *mem)
 {
   VecPush(mem, nil);
@@ -39,28 +34,28 @@ Val Tail(Val *mem, Val pair)
   return mem[index+1];
 }
 
-void SetHead(Val *mem, Val pair, Val val)
+void SetHead(Val **mem, Val pair, Val val)
 {
   if (IsNil(pair)) Fatal("Can't change nil");
   u32 index = RawObj(pair);
-  mem[index] = val;
+  (*mem)[index] = val;
 }
 
-void SetTail(Val *mem, Val pair, Val val)
+void SetTail(Val **mem, Val pair, Val val)
 {
   if (IsNil(pair)) Fatal("Can't change nil");
   u32 index = RawObj(pair);
-  mem[index+1] = val;
+  (*mem)[index+1] = val;
 }
 
-Val MakeList(Val *mem, u32 length, ...)
+Val MakeList(Val **mem, u32 length, ...)
 {
   Val list = nil;
   va_list args;
   va_start(args, length);
   for (u32 i = 0; i < length; i++) {
     Val arg = va_arg(args, Val);
-    list = MakePair(&mem, arg, list);
+    list = MakePair(mem, arg, list);
   }
   va_end(args);
   return Reverse(mem, list);
@@ -79,16 +74,16 @@ Val MakeList(Val *mem, u32 length, ...)
 //   return Reverse(mem, list);
 // }
 
-Val ReverseOnto(Val *mem, Val list, Val tail)
+Val ReverseOnto(Val **mem, Val list, Val tail)
 {
   if (IsNil(list)) return tail;
 
-  Val rest = Tail(mem, list);
+  Val rest = Tail(*mem, list);
   SetTail(mem, list, tail);
   return ReverseOnto(mem, rest, list);
 }
 
-Val Reverse(Val *mem, Val list)
+Val Reverse(Val **mem, Val list)
 {
   return ReverseOnto(mem, list, nil);
 }
@@ -151,10 +146,10 @@ Val ListLast(Val *mem, Val list)
   return Head(mem, list);
 }
 
-void ListAppend(Val *mem, Val list1, Val list2)
+void ListAppend(Val **mem, Val list1, Val list2)
 {
-  while (!IsNil(Tail(mem, list1))) {
-    list1 = Tail(mem, list1);
+  while (!IsNil(Tail(*mem, list1))) {
+    list1 = Tail(*mem, list1);
   }
 
   SetTail(mem, list1, list2);
@@ -202,13 +197,13 @@ u32 TupleLength(Val *mem, Val tuple)
 Val TupleAt(Val *mem, Val tuple, u32 i)
 {
   u32 index = RawObj(tuple);
-  return mem[(index + i + 1) % HEAP_SIZE];
+  return mem[index + i + 1];
 }
 
 void TupleSet(Val *mem, Val tuple, u32 i, Val val)
 {
   u32 index = RawObj(tuple);
-  mem[(index + i + 1) % HEAP_SIZE] = val;
+  mem[index + i + 1] = val;
 }
 
 // bool IsTagged(Val *mem, Val exp, char *tag)
@@ -218,48 +213,40 @@ void TupleSet(Val *mem, Val tuple, u32 i, Val val)
 //   return false;
 // }
 
-Val MakeSymbol(char *src)
+Val MakeSymbol(Symbol **symbols, char *src)
 {
-  return MakeSymbolFromSlice(src, strlen(src));
+  return MakeSymbolFromSlice(symbols, src, strlen(src));
 }
 
-Val MakeSymbolFromSlice(char *src, u32 len)
+Val MakeSymbolFromSlice(Symbol **symbols, char *src, u32 len)
 {
   Val key = SymVal(Hash(src, len));
 
-  for (u32 i = 0; i < sym_next; i++) {
-    if (Eq(symbols[i].key, key)) {
+  for (u32 i = 0; i < VecCount(*symbols); i++) {
+    if (Eq((*symbols)[i].key, key)) {
       return key;
     }
   }
 
-  if (sym_next >= NUM_SYMBOLS) Fatal("Too many symbols");
+  Symbol sym;
+  sym.key = key;
+  sym.name = malloc(len+1);
+  memcpy(sym.name, src, len);
+  sym.name[len] = '\0';
 
-  Symbol *sym = &symbols[sym_next++];
-  sym->key = key;
-  sym->name = malloc(len+1);
-  memcpy(sym->name, src, len);
-  sym->name[len] = '\0';
+  VecPush(*symbols, sym);
+
   return key;
 }
-
-// Val BoolSymbol(bool val)
-// {
-//   if (val) {
-//     return MakeSymbol("true");
-//   } else {
-//     return MakeSymbol("false");
-//   }
-// }
 
 Val SymbolFor(char *src)
 {
   return SymVal(Hash(src, strlen(src)));
 }
 
-char *SymbolName(Val sym)
+char *SymbolName(Symbol *symbols, Val sym)
 {
-  for (u32 i = 0; i < sym_next; i++) {
+  for (u32 i = 0; i < VecCount(symbols); i++) {
     if (Eq(symbols[i].key, sym)) {
       return symbols[i].name;
     }
@@ -267,10 +254,10 @@ char *SymbolName(Val sym)
   return NULL;
 }
 
-void DumpSymbols(void)
+void DumpSymbols(Symbol *symbols)
 {
   printf("Symbols\n");
-  for (u32 i = 0; i < sym_next; i++) {
+  for (u32 i = 0; i < VecCount(symbols); i++) {
     printf("  0x%0X %s\n", symbols[i].key.as_v, symbols[i].name);
   }
 }
@@ -430,13 +417,13 @@ Val BinaryAt(Val *mem, Val binary, u32 i)
 //   }
 // }
 
-void PrintHeap(Val *mem)
+void PrintHeap(Val *mem, Symbol *symbols)
 {
-  printf("──╴Heap╶──\n");
+  printf("───╴Heap╶───\n");
 
   for (u32 i = 0; i < VecCount(mem) && i < 100; i++) {
     printf("%4u │ ", i);
-    PrintVal(mem, mem[i]);
+    PrintVal(mem, symbols, mem[i]);
     printf("\n");
   }
 }

@@ -11,15 +11,15 @@
 
 void Emit(Parser *p, u8 byte)
 {
-  PutByte(p->chunk, p->r.line, byte);
+  PutByte(p->chunk, byte);
   DisassembleInstruction(p->chunk, VecCount(p->chunk->code) - 1);
   printf("\n");
 }
 
 void EmitPair(Parser *p, u8 byte1, u8 byte2)
 {
-  PutByte(p->chunk, p->r.line, byte1);
-  PutByte(p->chunk, p->r.line, byte2);
+  PutByte(p->chunk, byte1);
+  PutByte(p->chunk, byte2);
   DisassembleInstruction(p->chunk, VecCount(p->chunk->code) - 2);
   printf("\n");
 }
@@ -253,7 +253,7 @@ static void ParseSymbol(Parser *p)
   }
 
   Advance(p);
-  Val sym = MakeSymbolFromSlice(p->current.lexeme, p->current.length);
+  Val sym = MakeSymbolFromSlice(&p->chunk->symbols, p->current.lexeme, p->current.length);
   EmitConst(p, sym);
 }
 
@@ -393,7 +393,7 @@ static void ParseNumber(Parser *p)
 static void ParseIdentifier(Parser *p)
 {
   printf("ParseIdentifier\n");
-  Val sym = MakeSymbolFromSlice(p->current.lexeme, p->current.length);
+  Val sym = MakeSymbolFromSlice(&p->chunk->symbols, p->current.lexeme, p->current.length);
   EmitConst(p, sym);
   Emit(p, OP_LOOKUP);
 }

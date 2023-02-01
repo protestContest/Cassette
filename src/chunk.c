@@ -14,20 +14,21 @@ Chunk *NewChunk(void)
 Chunk *InitChunk(Chunk *chunk)
 {
   chunk->code = NULL;
-  chunk->lines = NULL;
   chunk->constants = NULL;
-  VecPush(chunk->constants, nil);
-  VecPush(chunk->constants, nil);
-  MakeSymbol("true");
-  MakeSymbol("false");
+  chunk->symbols = NULL;
+
+  PutSymbol(chunk, "true");
+  PutSymbol(chunk, "false");
+  PutSymbol(chunk, "ok");
+
   return chunk;
 }
 
 void ResetChunk(Chunk *chunk)
 {
   FreeVec(chunk->code);
-  FreeVec(chunk->lines);
   FreeVec(chunk->constants);
+  FreeVec(chunk->symbols);
 }
 
 void FreeChunk(Chunk *chunk)
@@ -36,18 +37,26 @@ void FreeChunk(Chunk *chunk)
   free(chunk);
 }
 
-u32 PutByte(Chunk *chunk, u32 line, u8 byte)
+u32 ChunkSize(Chunk *chunk)
+{
+  return VecCount(chunk->code);
+}
+
+u32 PutByte(Chunk *chunk, u8 byte)
 {
   VecPush(chunk->code, byte);
-  VecPush(chunk->lines, line);
   return VecCount(chunk->code) - 1;
+}
+
+void SetByte(Chunk *chunk, u32 i, u8 byte)
+{
+  chunk->code[i] = byte;
 }
 
 u8 GetByte(Chunk *chunk, u32 i)
 {
   return chunk->code[i];
 }
-
 
 u8 PutConst(Chunk *chunk, Val value)
 {
@@ -60,20 +69,22 @@ Val GetConst(Chunk *chunk, u32 i)
   return chunk->constants[i];
 }
 
-u32 PutInst(Chunk *chunk, u32 line, OpCode op, ...)
+Val PutSymbol(Chunk *chunk, char *name)
+{
+  return MakeSymbol(&chunk->symbols, name);
+}
+
+u32 PutInst(Chunk *chunk, OpCode op, ...)
 {
   va_list args;
   va_start(args, op);
 
-  PutByte(chunk, line, op);
+  PutByte(chunk, op);
 
-  switch (op) {
-  case OP_CONST:
-    PutByte(chunk, line, PutConst(chunk, va_arg(args, Val)));
-    break;
-
-  default:
-    break;
+  if (op == OP_CONST) {
+    PutByte(chunk, PutConst(chunk, va_arg(args, Val)));
+  } else if (OpSize(op) > 1) {
+    PutByte(chunk, va_arg(args, u32));
   }
 
   va_end(args);
@@ -82,24 +93,19 @@ u32 PutInst(Chunk *chunk, u32 line, OpCode op, ...)
 
 u32 DisassembleInstruction(Chunk *chunk, u32 i)
 {
-  u32 written = printf("%4u  ", i);
-  if (i > 0 && chunk->lines[i] == chunk->lines[i - 1]) {
-    written += printf("   │ ");
-  } else {
-    written += printf("%3u│ ", chunk->lines[i]);
-  }
+  u32 written = printf("%4u │ ", i);
 
   OpCode op = chunk->code[i];
   switch (OpFormat(op)) {
   case ARGS_VAL:
-    written += printf("%s ", OpStr(op));
-    written += PrintVal(chunk->constants, GetConst(chunk, GetByte(chunk, i + 1)));
+    written += printf("%02X %02X %s ", GetByte(chunk, i), GetByte(chunk, i+1), OpStr(op));
+    written += PrintVal(chunk->constants, chunk->symbols, GetConst(chunk, GetByte(chunk, i + 1)));
     break;
   case ARGS_INT:
-    written += printf("%s %d", OpStr(op), GetByte(chunk, i + 1));
+    written += printf("%02X %02X %s %d", GetByte(chunk, i), GetByte(chunk, i+1), OpStr(op), GetByte(chunk, i + 1));
     break;
   default:
-    written += printf("%s", OpStr(op));
+    written += printf("%02X    %s", GetByte(chunk, i), OpStr(op));
     break;
 
   }

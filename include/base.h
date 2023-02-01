@@ -24,7 +24,6 @@ typedef enum {
   Ok,
   Error,
   Unknown,
-  Halted,
 } Status;
 
 #define Bit(n)    (1 << (n))

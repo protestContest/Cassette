@@ -3,36 +3,69 @@
 #include "value.h"
 #include "vm.h"
 #include "mem.h"
+#include "printer.h"
+#include "env.h"
+
+typedef void (*OpFn)(VM *vm, OpCode op);
 
 typedef struct {
   char *name;
   ArgFormat format;
+  OpFn impl;
 } OpInfo;
 
+static void StatusOp(VM *vm, OpCode op);
+static void PopOp(VM *vm, OpCode op);
+static void ConstOp(VM *vm, OpCode op);
+static void PairOp(VM *vm, OpCode op);
+static void ListOp(VM *vm, OpCode op);
+static void LambdaOp(VM *vm, OpCode op);
+static void NegOp(VM *vm, OpCode op);
+static void ArithmeticOp(VM *vm, OpCode op);
+static void NotOp(VM *vm, OpCode op);
+static void CompareOp(VM *vm, OpCode op);
+static void DefineOp(VM *vm, OpCode op);
+static void LookupOp(VM *vm, OpCode op);
+static void BranchOp(VM *vm, OpCode op);
+static void JumpOp(VM *vm, OpCode op);
+static void ReturnOp(VM *vm, OpCode op);
+static void ApplyOp(VM *vm, OpCode op);
+
 static OpInfo ops[] = {
-  [OP_HALT] =     { "halt",   ARGS_NONE   },
-  [OP_RETURN] =   { "return", ARGS_NONE   },
-  [OP_CONST] =    { "const",  ARGS_VAL    },
-  [OP_NEG] =      { "neg",    ARGS_NONE   },
-  [OP_ADD] =      { "add",    ARGS_NONE   },
-  [OP_SUB] =      { "sub",    ARGS_NONE   },
-  [OP_MUL] =      { "mul",    ARGS_NONE   },
-  [OP_DIV] =      { "div",    ARGS_NONE   },
-  [OP_EXP] =      { "exp",    ARGS_NONE   },
-  [OP_TRUE] =     { "true",   ARGS_NONE   },
-  [OP_FALSE] =    { "false",  ARGS_NONE   },
-  [OP_NIL] =      { "nil",    ARGS_NONE   },
-  [OP_NOT] =      { "not",    ARGS_NONE   },
-  [OP_EQUAL] =    { "equal",  ARGS_NONE   },
-  [OP_GT] =       { "gt",     ARGS_NONE   },
-  [OP_LT] =       { "lt",     ARGS_NONE   },
-  [OP_LOOKUP] =   { "lookup", ARGS_NONE   },
-  [OP_PAIR] =     { "pair",   ARGS_NONE   },
-  [OP_LIST] =     { "list",   ARGS_INT    },
-  [OP_APPLY] =    { "apply",  ARGS_NONE   },
-  [OP_JUMP] =     { "jump",   ARGS_INT    },
-  [OP_LAMBDA] =   { "lambda", ARGS_NONE   },
+  [OP_HALT] =     { "halt",   ARGS_NONE,  &StatusOp     },
+  [OP_BREAK] =    { "break",  ARGS_NONE,  &StatusOp     },
+  [OP_POP] =      { "pop",    ARGS_NONE,  &PopOp        },
+  [OP_CONST] =    { "const",  ARGS_VAL,   &ConstOp      },
+  [OP_TRUE] =     { "true",   ARGS_NONE,  &ConstOp      },
+  [OP_FALSE] =    { "false",  ARGS_NONE,  &ConstOp      },
+  [OP_NIL] =      { "nil",    ARGS_NONE,  &ConstOp      },
+  [OP_ZERO] =     { "zero",   ARGS_NONE,  &ConstOp      },
+  [OP_PAIR] =     { "pair",   ARGS_NONE,  &PairOp       },
+  [OP_LIST] =     { "list",   ARGS_INT,   &ListOp       },
+  [OP_LAMBDA] =   { "lambda", ARGS_INT,   &LambdaOp     },
+  [OP_NEG] =      { "neg",    ARGS_NONE,  &NegOp        },
+  [OP_ADD] =      { "add",    ARGS_NONE,  &ArithmeticOp },
+  [OP_SUB] =      { "sub",    ARGS_NONE,  &ArithmeticOp },
+  [OP_MUL] =      { "mul",    ARGS_NONE,  &ArithmeticOp },
+  [OP_DIV] =      { "div",    ARGS_NONE,  &ArithmeticOp },
+  [OP_EXP] =      { "exp",    ARGS_NONE,  &ArithmeticOp },
+  [OP_NOT] =      { "not",    ARGS_NONE,  &NotOp        },
+  [OP_EQUAL] =    { "equal",  ARGS_NONE,  &CompareOp    },
+  [OP_GT] =       { "gt",     ARGS_NONE,  &CompareOp    },
+  [OP_LT] =       { "lt",     ARGS_NONE,  &CompareOp    },
+  [OP_DEFINE] =   { "define", ARGS_NONE,  &DefineOp     },
+  [OP_LOOKUP] =   { "lookup", ARGS_NONE,  &LookupOp     },
+  [OP_BRANCH] =   { "branch", ARGS_INT,   &BranchOp     },
+  [OP_JUMP] =     { "jump",   ARGS_INT,   &JumpOp       },
+  [OP_RETURN] =   { "return", ARGS_NONE,  &ReturnOp     },
+  [OP_APPLY] =    { "apply",  ARGS_NONE,  &ApplyOp      },
 };
+
+void DoOp(VM *vm, OpCode op)
+{
+  OpFn fn = ops[op].impl;
+  fn(vm, op);
+}
 
 const char *OpStr(OpCode op)
 {
@@ -55,25 +88,67 @@ u32 OpSize(OpCode op)
 
 static bool IsFalsey(Val value)
 {
-  return !IsNil(value) && !Eq(value, SymbolFor("false"));
+  return IsNil(value) || Eq(value, SymbolFor("false"));
 }
 
-void NegOp(struct VM *vm)
+static void StatusOp(VM *vm, OpCode op)
 {
-  Val val = VecPop(vm->stack);
+  switch (op) {
+  case OP_HALT:
+    vm->status = VM_Halted;
+    break;
+  case OP_BREAK:
+    vm->status = VM_Debug;
+    break;
+  default:
+    break;
+  }
+}
+
+static void PopOp(VM *vm, OpCode op)
+{
+  StackPop(vm);
+}
+
+static void ConstOp(VM *vm, OpCode op)
+{
+  switch (op) {
+  case OP_TRUE:
+    StackPush(vm, SymbolFor("true"));
+    break;
+  case OP_FALSE:
+    StackPush(vm, SymbolFor("false"));
+    break;
+  case OP_NIL:
+    StackPush(vm, nil);
+    break;
+  case OP_ZERO:
+    StackPush(vm, IntVal(0));
+    break;
+  case OP_CONST:
+    StackPush(vm, ReadConst(vm));
+    break;
+  default:
+    break;
+  }
+}
+
+static void NegOp(VM *vm, OpCode op)
+{
+  Val val = StackPop(vm);
   if (IsNum(val)) {
-    VecPush(vm->stack, NumVal(-val.as_f));
+    StackPush(vm, NumVal(-val.as_f));
   } else if (IsInt(val)) {
-    VecPush(vm->stack, IntVal(-RawInt(val)));
+    StackPush(vm, IntVal(-RawInt(val)));
   } else {
     RuntimeError(vm, "Arithmetic error");
   }
 }
 
-void ArithmeticOp(struct VM *vm, OpCode op)
+static void ArithmeticOp(VM *vm, OpCode op)
 {
-  Val b = VecPop(vm->stack);
-  Val a = VecPop(vm->stack);
+  Val b = StackPop(vm);
+  Val a = StackPop(vm);
 
   if (!IsNumeric(a) || !IsNumeric(b)) {
     RuntimeError(vm, "Arithmetic error");
@@ -82,10 +157,10 @@ void ArithmeticOp(struct VM *vm, OpCode op)
 
   if (IsInt(a) && IsInt(b)) {
     if (op == OP_ADD) {
-      VecPush(vm->stack, IntVal(RawInt(a) + RawInt(b)));
+      StackPush(vm, IntVal(RawInt(a) + RawInt(b)));
       return;
     } else if (op == OP_SUB) {
-      VecPush(vm->stack, IntVal(RawInt(a) - RawInt(b)));
+      StackPush(vm, IntVal(RawInt(a) - RawInt(b)));
       return;
     }
   }
@@ -119,13 +194,13 @@ void ArithmeticOp(struct VM *vm, OpCode op)
     return;
   }
 
-  VecPush(vm->stack, NumVal(n));
+  StackPush(vm, NumVal(n));
 }
 
-void CompareOp(struct VM *vm, OpCode op)
+static void CompareOp(VM *vm, OpCode op)
 {
-  Val b = VecPop(vm->stack);
-  Val a = VecPop(vm->stack);
+  Val b = StackPop(vm);
+  Val a = StackPop(vm);
 
   if (!IsNumeric(a) || !IsNumeric(b)) {
     RuntimeError(vm, "Comparison error");
@@ -142,47 +217,124 @@ void CompareOp(struct VM *vm, OpCode op)
     return;
   }
 
-  VecPush(vm->stack, result ? SymbolFor("true") : SymbolFor("false"));
+  StackPush(vm, result ? SymbolFor("true") : SymbolFor("false"));
 }
 
-void NotOp(struct VM *vm)
+static void NotOp(VM *vm, OpCode op)
 {
-  Val val = VecPop(vm->stack);
+  Val val = StackPop(vm);
 
   if (IsFalsey(val)) {
-    VecPush(vm->stack, SymbolFor("true"));
+    StackPush(vm, SymbolFor("true"));
   } else {
-    VecPush(vm->stack, SymbolFor("false"));
+    StackPush(vm, SymbolFor("false"));
   }
 }
 
-void PairOp(struct VM *vm)
+static void PairOp(VM *vm, OpCode op)
 {
-  Val tail = VecPop(vm->stack);
-  Val head = VecPop(vm->stack);
+  Val tail = StackPop(vm);
+  Val head = StackPop(vm);
   Val pair = MakePair(&vm->heap, head, tail);
-  VecPush(vm->stack, pair);
+  StackPush(vm, pair);
 }
 
-void ListOp(struct VM *vm, u32 num)
+static void ListOp(VM *vm, OpCode op)
 {
+  u32 num = ReadByte(vm);
+
   Val list = nil;
   for (u32 i = 0; i < num; i++) {
-    Val item = VecPop(vm->stack);
+    Val item = StackPop(vm);
     list = MakePair(&vm->heap, item, list);
   }
-  VecPush(vm->stack, list);
+  StackPush(vm, list);
 }
 
-void LambdaOp(struct VM *vm)
+static void LambdaOp(VM *vm, OpCode op)
 {
-  Val code = VecPop(vm->stack);
-  Val params = VecPop(vm->stack);
+  u32 num_params = ReadByte(vm);
+
+  Val params = nil;
+  for (u32 i = 0; i < num_params; i++) {
+    Val param = StackPeek(vm, num_params - 1 - i);
+    params = MakePair(&vm->heap, param, params);
+  }
+  StackTrunc(vm, num_params);
+
+  Val code = StackPop(vm);
 
   Val proc = nil;
   proc = MakePair(&vm->heap, vm->env, proc);
   proc = MakePair(&vm->heap, params, proc);
   proc = MakePair(&vm->heap, code, proc);
 
-  VecPush(vm->stack, proc);
+  StackPush(vm, proc);
+}
+
+static void DefineOp(VM *vm, OpCode op)
+{
+  Val var = StackPop(vm);
+  Val val = StackPop(vm);
+
+  Define(vm, var, val, vm->env);
+  StackPush(vm, SymbolFor("ok"));
+}
+
+static void LookupOp(VM *vm, OpCode op)
+{
+  Val var = StackPop(vm);
+
+  Result result = Lookup(vm, var, vm->env);
+  if (result.status == Ok) {
+    StackPush(vm, result.value);
+  } else {
+    RuntimeError(vm, "Undefined symbol");
+  }
+}
+
+static void BranchOp(VM *vm, OpCode op)
+{
+  Val test = StackPop(vm);
+  i8 branch = (i8)ReadByte(vm);
+  if (!IsFalsey(test)) {
+    vm->pc += branch;
+  }
+}
+
+static void JumpOp(VM *vm, OpCode op)
+{
+  vm->pc += (i8)ReadByte(vm);
+}
+
+static void ReturnOp(VM *vm, OpCode op)
+{
+  Val result = StackPop(vm);
+  Val env = StackPop(vm);
+  Val cont = StackPop(vm);
+  StackPush(vm, result);
+  vm->env = env;
+  vm->pc = RawInt(cont);
+}
+
+static void ApplyOp(VM *vm, OpCode op)
+{
+  Val proc = StackPop(vm);
+  Val code = First(vm->heap, proc);
+  Val params = Second(vm->heap, proc);
+  Val env = Third(vm->heap, proc);
+
+  env = ExtendEnv(vm, env);
+  while (!IsNil(params)) {
+    Val var = Head(vm->heap, params);
+    Val val = StackPop(vm);
+    Define(vm, var, val, env);
+
+    params = Tail(vm->heap, params);
+  }
+
+  StackPush(vm, IntVal(vm->pc));
+  StackPush(vm, vm->env);
+  vm->pc = RawInt(code);
+  vm->env = env;
 }

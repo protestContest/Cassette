@@ -1,7 +1,8 @@
 #pragma once
 #include "value.h"
+#include "mem.h"
 
-u32 PrintVal(Val *mem, Val value);
+u32 PrintVal(Val *mem, Symbol *symbols, Val value);
 
 // void DebugVal(Val val);
 // u32 ValStrLen(Val val);

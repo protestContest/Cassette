@@ -23,10 +23,12 @@ void *ResizeVec(void *vec, u32 num_items, u32 item_size)
   return new_raw_vec + 2;
 }
 
-void *CopyVec(void *src)
+void *AppendVec(void *dst, void *src, u32 item_size)
 {
-  if (src == NULL) return NULL;
-  u32 *raw_vec = (u32 *)malloc(VecCapacity(src) + sizeof(u32)*2);
-  memcpy(raw_vec, RawVec(src), VecCapacity(src) + sizeof(u32)*2);
-  return raw_vec + 2;
+  if (src == NULL) return dst;
+
+  dst = ResizeVec(dst, VecCount(src), item_size);
+  memcpy(dst + item_size*VecCount(dst), src, item_size*VecCount(src));
+  RawVecCount(dst) = VecCount(dst) + VecCount(src);
+  return dst;
 }
