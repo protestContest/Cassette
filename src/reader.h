@@ -37,27 +37,3 @@ Reader *InitReader(Reader *r, char *src);
 Token ScanToken(Reader *r);
 void PrintSourceContext(Reader *r, u32 num_lines);
 const char *TokenStr(TokenType type);
-
-// Reader *NewReader(char *src);
-// void FreeReader(Reader *r);
-
-// void Read(Reader *r, char *src);
-// void ReadFile(Reader *r, char *path);
-// void CancelRead(Reader *r);
-
-// void AppendSource(Reader *r, char *src);
-// Val Stop(Reader *r);
-// Val ParseError(Reader *r, char *msg);
-// void Rewind(Reader *r);
-
-// void PrintSource(Reader *r);
-// void PrintReaderError(Reader *r);
-
-// bool IsSymChar(char c);
-// bool IsOperator(char c);
-// void SkipSpace(Reader *r);
-// void SkipSpaceAndNewlines(Reader *r);
-// bool Check(Reader *r, const char *expect);
-// bool CheckKeyword(Reader *r, const char *expect);
-// bool MatchKeyword(Reader *r, const char *expect);
-

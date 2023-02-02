@@ -42,7 +42,7 @@ after:
   const 0
   const foo
   lookup
-  apply
+  call
   break
 */
 
@@ -86,7 +86,6 @@ int main(int argc, char *argv[])
   PutInst(&chunk, OP_CONST, PutSymbol(&chunk, "foo"));
   PutInst(&chunk, OP_LOOKUP);
   PutInst(&chunk, OP_APPLY);
-  PutInst(&chunk, OP_RETURN);
   SetByte(&chunk, branch - 1, ChunkSize(&chunk) - branch);
   // true branch
   PutInst(&chunk, OP_CONST, PutSymbol(&chunk, "sum"));
@@ -112,9 +111,8 @@ int main(int argc, char *argv[])
   PutInst(&chunk, OP_ZERO);
   PutInst(&chunk, OP_CONST, PutSymbol(&chunk, "foo"));
   PutInst(&chunk, OP_LOOKUP);
-  PutInst(&chunk, OP_APPLY);
+  PutInst(&chunk, OP_CALL);
 
-  PutInst(&chunk, OP_BREAK);
   Disassemble("Chunk", &chunk);
 
   VM vm;

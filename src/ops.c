@@ -28,6 +28,7 @@ static void DefineOp(VM *vm, OpCode op);
 static void LookupOp(VM *vm, OpCode op);
 static void BranchOp(VM *vm, OpCode op);
 static void JumpOp(VM *vm, OpCode op);
+static void CallOp(VM *vm, OpCode op);
 static void ReturnOp(VM *vm, OpCode op);
 static void ApplyOp(VM *vm, OpCode op);
 
@@ -57,6 +58,7 @@ static OpInfo ops[] = {
   [OP_LOOKUP] =   { "lookup", ARGS_NONE,  &LookupOp     },
   [OP_BRANCH] =   { "branch", ARGS_INT,   &BranchOp     },
   [OP_JUMP] =     { "jump",   ARGS_INT,   &JumpOp       },
+  [OP_CALL] =     { "call",   ARGS_NONE,  &CallOp       },
   [OP_RETURN] =   { "return", ARGS_NONE,  &ReturnOp     },
   [OP_APPLY] =    { "apply",  ARGS_NONE,  &ApplyOp      },
 };
@@ -307,6 +309,25 @@ static void JumpOp(VM *vm, OpCode op)
   vm->pc += (i8)ReadByte(vm);
 }
 
+static void ApplyOp(VM *vm, OpCode op)
+{
+  Val proc = StackPop(vm);
+  Val code = First(vm->heap, proc);
+  Val params = Second(vm->heap, proc);
+  Val env = Third(vm->heap, proc);
+
+  env = ExtendEnv(vm, env);
+  while (!IsNil(params)) {
+    Val var = Head(vm->heap, params);
+    Val val = StackPop(vm);
+    Define(vm, var, val, env);
+    params = Tail(vm->heap, params);
+  }
+
+  vm->pc = RawInt(code);
+  vm->env = env;
+}
+
 static void ReturnOp(VM *vm, OpCode op)
 {
   Val result = StackPop(vm);
@@ -317,7 +338,7 @@ static void ReturnOp(VM *vm, OpCode op)
   vm->pc = RawInt(cont);
 }
 
-static void ApplyOp(VM *vm, OpCode op)
+static void CallOp(VM *vm, OpCode op)
 {
   Val proc = StackPop(vm);
   Val code = First(vm->heap, proc);

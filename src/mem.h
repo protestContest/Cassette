@@ -48,9 +48,3 @@ char *BinToCStr(Val *mem, Val binary);
 Val BinaryAt(Val *mem, Val binary, u32 i);
 
 void PrintHeap(Val *mem, Symbol *symbols);
-
-// Val MakeDict(Val keys, Val vals);
-// bool DictHasKey(Val dict, Val key);
-// Val DictGet(Val dict, Val key);
-// void DictSet(Val dict, Val key, Val value);
-// void DictMerge(Val dict1, Val dict2);

@@ -34,8 +34,9 @@ typedef enum {
 
   OP_BRANCH,
   OP_JUMP,
-  OP_RETURN,
   OP_APPLY,
+  OP_CALL,
+  OP_RETURN,
 } OpCode;
 
 typedef enum {
