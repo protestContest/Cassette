@@ -202,6 +202,8 @@ void Run(VM *vm)
     if (vm->status == VM_Debug || vm->status == VM_Error) {
       DebugVM(vm);
     }
+
+    if (count >= 100) exit(1);
   }
 }
 

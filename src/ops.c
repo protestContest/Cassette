@@ -15,6 +15,7 @@ typedef struct {
 } OpInfo;
 
 static void StatusOp(VM *vm, OpCode op);
+static void PrintOp(VM *vm, OpCode op);
 static void PopOp(VM *vm, OpCode op);
 static void ConstOp(VM *vm, OpCode op);
 static void PairOp(VM *vm, OpCode op);
@@ -35,6 +36,7 @@ static void ApplyOp(VM *vm, OpCode op);
 static OpInfo ops[] = {
   [OP_HALT] =     { "halt",   ARGS_NONE,  &StatusOp     },
   [OP_BREAK] =    { "break",  ARGS_NONE,  &StatusOp     },
+  [OP_PRINT] =    { "print",  ARGS_NONE,  &PrintOp      },
   [OP_POP] =      { "pop",    ARGS_NONE,  &PopOp        },
   [OP_CONST] =    { "const",  ARGS_VAL,   &ConstOp      },
   [OP_TRUE] =     { "true",   ARGS_NONE,  &ConstOp      },
@@ -43,6 +45,7 @@ static OpInfo ops[] = {
   [OP_ZERO] =     { "zero",   ARGS_NONE,  &ConstOp      },
   [OP_PAIR] =     { "pair",   ARGS_NONE,  &PairOp       },
   [OP_LIST] =     { "list",   ARGS_INT,   &ListOp       },
+  [OP_DICT] =     { "dict",   ARGS_INT,   &ListOp       },
   [OP_LAMBDA] =   { "lambda", ARGS_INT,   &LambdaOp     },
   [OP_NEG] =      { "neg",    ARGS_NONE,  &NegOp        },
   [OP_ADD] =      { "add",    ARGS_NONE,  &ArithmeticOp },
@@ -88,6 +91,11 @@ u32 OpSize(OpCode op)
   }
 }
 
+bool IsCallable(Val val)
+{
+  return IsPair(val);
+}
+
 static bool IsFalsey(Val value)
 {
   return IsNil(value) || Eq(value, SymbolFor("false"));
@@ -105,6 +113,12 @@ static void StatusOp(VM *vm, OpCode op)
   default:
     break;
   }
+}
+
+static void PrintOp(VM *vm, OpCode op)
+{
+  Val val = StackPop(vm);
+  PrintVal(vm->heap, vm->chunk->symbols, val);
 }
 
 static void PopOp(VM *vm, OpCode op)
@@ -256,6 +270,7 @@ static void ListOp(VM *vm, OpCode op)
 static void LambdaOp(VM *vm, OpCode op)
 {
   u32 num_params = ReadByte(vm);
+  Val code = StackPop(vm);
 
   Val params = nil;
   for (u32 i = 0; i < num_params; i++) {
@@ -263,8 +278,6 @@ static void LambdaOp(VM *vm, OpCode op)
     params = MakePair(&vm->heap, param, params);
   }
   StackTrunc(vm, num_params);
-
-  Val code = StackPop(vm);
 
   Val proc = nil;
   proc = MakePair(&vm->heap, vm->env, proc);
@@ -276,8 +289,8 @@ static void LambdaOp(VM *vm, OpCode op)
 
 static void DefineOp(VM *vm, OpCode op)
 {
-  Val var = StackPop(vm);
   Val val = StackPop(vm);
+  Val var = StackPop(vm);
 
   Define(vm, var, val, vm->env);
   StackPush(vm, SymbolFor("ok"));
@@ -340,6 +353,8 @@ static void ReturnOp(VM *vm, OpCode op)
 
 static void CallOp(VM *vm, OpCode op)
 {
+  if (!IsCallable(StackPeek(vm, 0))) return;
+
   Val proc = StackPop(vm);
   Val code = First(vm->heap, proc);
   Val params = Second(vm->heap, proc);

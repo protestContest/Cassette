@@ -3,7 +3,7 @@
 
 Val ExtendEnv(VM *vm, Val env)
 {
-  return MakePair(&vm->heap, nil, env);
+  return MakePair(&vm->heap, MakePair(&vm->heap, nil, nil), env);
 }
 
 void Define(VM *vm, Val var, Val val, Val env)
@@ -22,7 +22,7 @@ void Define(VM *vm, Val var, Val val, Val env)
 
   Val pair = MakePair(&vm->heap, var, val);
   frame = MakePair(&vm->heap, pair, FirstFrame(vm, env));
-  SetHead(&vm->heap, env, frame);
+  SetTail(&vm->heap, FrameHeader(vm, env), frame);
 }
 
 Result Lookup(VM *vm, Val var, Val env)

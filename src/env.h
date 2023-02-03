@@ -6,7 +6,8 @@
 #define SetEnvVal(vm, pair, val) SetTail(&(vm)->heap, pair, val)
 #define FirstPair(vm, frame)     Head((vm)->heap, frame)
 #define RestOfFrame(vm, frame)   Tail((vm)->heap, frame)
-#define FirstFrame(vm, env)      Head((vm)->heap, env)
+#define FrameHeader(vm, env)      Head((vm)->heap, env)
+#define FirstFrame(vm, env)      Tail((vm)->heap, FrameHeader(vm, env))
 #define RestOfEnv(vm, env)       Tail((vm)->heap, env)
 
 Val ExtendEnv(VM *vm, Val env);

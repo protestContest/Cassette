@@ -1,4 +1,4 @@
-#include "reader.h"
+#include "scan.h"
 #include "mem.h"
 #include "printer.h"
 #include <stdio.h>
@@ -10,23 +10,29 @@
 #define IsEnd(c)          ((c) == '\0')
 #define IsBoundary(c)     (IsSpace(c) || IsNewline(c) || IsEnd(c))
 
-#define Peek(r)           ((r)->src[(r)->cur])
-#define PeekNext(r)   ((r)->src[(r)->cur + 1])
+#define LookAhead(r, i)   ((r)->source.data[(r)->source.cur + (i)])
+#define Peek(r)           LookAhead(r, 0)
+#define PeekNext(r)       LookAhead(r, 1)
 
-static char Advance(Reader *r)
+TokenType CurToken(Parser *r)
 {
-  r->col++;
-  return r->src[r->cur++];
+  return r->token.type;
 }
 
-static void AdvanceLine(Reader *r)
+static char Advance(Parser *r)
 {
-  r->line++;
-  r->col = 1;
-  r->cur++;
+  r->source.col++;
+  return r->source.data[r->source.cur++];
 }
 
-static void SkipSpace(Reader *r)
+static void AdvanceLine(Parser *r)
+{
+  r->source.line++;
+  r->source.col = 1;
+  r->source.cur++;
+}
+
+static void SkipSpace(Parser *r)
 {
   while (IsSpace(Peek(r))) {
     Advance(r);
@@ -66,37 +72,39 @@ static bool IsSymChar(char c)
   }
 }
 
-static bool Check(Reader *r, const char *expect)
+static bool Check(Parser *r, const char *expect)
 {
   u32 len = strlen(expect);
 
   for (u32 i = 0; i < len; i++) {
-    if IsEnd(r->src[r->cur + i]) return false;
-    if (r->src[r->cur + i] != expect[i]) return false;
+    if IsEnd(LookAhead(r, i)) return false;
+    if (LookAhead(r, i) != expect[i]) return false;
   }
 
   return true;
 }
 
-static bool Match(Reader *r, const char *expect)
+static bool Match(Parser *r, const char *expect)
 {
   if (Check(r, expect)) {
-    r->cur += strlen(expect);
-    r->col += strlen(expect);
+    for (u32 i = 0; i < strlen(expect); i++) {
+      if (IsNewline(Peek(r))) AdvanceLine(r);
+      else Advance(r);
+    }
     return true;
   } else {
     return false;
   }
 }
 
-bool CheckKeyword(Reader *r, const char *expect)
+bool CheckKeyword(Parser *r, const char *expect)
 {
   if (!Check(r, expect)) return false;
-  if (IsSymChar(r->src[r->cur + strlen(expect)])) return false;
+  if (IsSymChar(LookAhead(r, strlen(expect)))) return false;
   return true;
 }
 
-bool MatchKeyword(Reader *r, const char *expect)
+bool MatchKeyword(Parser *r, const char *expect)
 {
   if (CheckKeyword(r, expect)) {
     Match(r, expect);
@@ -106,31 +114,42 @@ bool MatchKeyword(Reader *r, const char *expect)
   }
 }
 
-static Token MakeToken(Reader *r, TokenType type, u32 length)
+static Token MakeToken(Parser *r, TokenType type, u32 length)
 {
   Token token;
   token.type = type;
-  token.line = r->line;
-  token.col = r->col;
-  token.lexeme = r->src + r->cur - length;
+  token.line = r->source.line;
+  token.col = r->source.col;
+  token.lexeme = r->source.data + r->source.cur - length;
   token.length = length;
   return token;
 }
 
-static Token ErrorToken(Reader *r, char *msg)
+static Token ErrorToken(Parser *r, char *msg, ...)
 {
   Token token;
+  va_list vlist, vcount;
+  va_start(vlist, msg);
+
+  va_copy(vcount, vlist);
+  u32 count = vsnprintf(NULL, 0, msg, vcount);
+  va_end(vcount);
+  token.lexeme = malloc(count + 1);
+
+  vsprintf(token.lexeme, msg, vlist);
+  va_end(vlist);
+
   token.type = TOKEN_ERROR;
-  token.line = r->line;
-  token.col = r->col;
-  token.lexeme = msg;
+  token.line = r->source.line;
+  token.col = r->source.col;
   token.length = strlen(msg);
+
   return token;
 }
 
-static Token NumberToken(Reader *r)
+static Token NumberToken(Parser *r)
 {
-  u32 start = r->cur;
+  u32 start = r->source.cur;
 
   while (IsDigit(Peek(r)) || Peek(r) == '_') Advance(r);
   if (Check(r, ".") && IsDigit(PeekNext(r))) {
@@ -138,12 +157,12 @@ static Token NumberToken(Reader *r)
     while (IsDigit(Peek(r)) || Peek(r) == '_') Advance(r);
   }
 
-  return MakeToken(r, TOKEN_NUMBER, r->cur - start);
+  return MakeToken(r, TOKEN_NUMBER, r->source.cur - start);
 }
 
-static Token StringToken(Reader *r)
+static Token StringToken(Parser *r)
 {
-  u32 start = r->cur - 1;
+  u32 start = r->source.cur - 1;
   while (Peek(r) != '"' && !IsEnd(Peek(r))) {
     if (Peek(r) == '\n') AdvanceLine(r);
     else Advance(r);
@@ -151,12 +170,12 @@ static Token StringToken(Reader *r)
 
   if (IsEnd(Peek(r))) return ErrorToken(r, "Unterminated string");
   Advance(r);
-  return MakeToken(r, TOKEN_STRING, r->cur - start);
+  return MakeToken(r, TOKEN_STRING, r->source.cur - start);
 }
 
-Token IdentifierToken(Reader *r)
+Token IdentifierToken(Parser *r)
 {
-  u32 start = r->cur;
+  u32 start = r->source.cur;
 
   if (MatchKeyword(r, "true"))  return MakeToken(r, TOKEN_TRUE, 4);
   if (MatchKeyword(r, "false")) return MakeToken(r, TOKEN_FALSE, 5);
@@ -165,6 +184,7 @@ Token IdentifierToken(Reader *r)
   if (MatchKeyword(r, "not"))   return MakeToken(r, TOKEN_NOT, 3);
   if (MatchKeyword(r, "cond"))  return MakeToken(r, TOKEN_COND, 4);
   if (MatchKeyword(r, "def"))   return MakeToken(r, TOKEN_DEF, 3);
+  if (MatchKeyword(r, "if"))    return MakeToken(r, TOKEN_IF, 2);
   if (MatchKeyword(r, "do"))    return MakeToken(r, TOKEN_DO, 2);
   if (MatchKeyword(r, "else"))  return MakeToken(r, TOKEN_ELSE, 4);
   if (MatchKeyword(r, "end"))   return MakeToken(r, TOKEN_END, 3);
@@ -172,23 +192,23 @@ Token IdentifierToken(Reader *r)
 
   while (IsSymChar(Peek(r))) Advance(r);
 
-  if (r->cur == start) return ErrorToken(r, "Expected symbol");
+  if (r->source.cur == start) return ErrorToken(r, "Expected symbol");
 
-  return MakeToken(r, TOKEN_IDENTIFIER, r->cur - start);
+  return MakeToken(r, TOKEN_IDENTIFIER, r->source.cur - start);
 }
 
-Reader *InitReader(Reader *r, char *src)
+void InitParser(Parser *r, char *src, Chunk *chunk)
 {
   r->status = Ok;
-  r->line = 1;
-  r->col = 1;
-  r->src = src;
-  r->cur = 0;
+  r->source.line = 1;
+  r->source.col = 1;
+  r->source.data = src;
+  r->source.cur = 0;
+  r->chunk = chunk;
   r->error = NULL;
-  return r;
 }
 
-Token ScanToken(Reader *r)
+static Token ScanToken(Parser *r)
 {
   SkipSpace(r);
 
@@ -199,7 +219,6 @@ Token ScanToken(Reader *r)
 
   if (Match(r, "!=")) return MakeToken(r, TOKEN_NEQ, 2);
   if (Match(r, ">=")) return MakeToken(r, TOKEN_GTE, 2);
-  if (Match(r, "**")) return MakeToken(r, TOKEN_EXPONENT, 2);
   if (Match(r, "|>")) return MakeToken(r, TOKEN_PIPE, 2);
   if (Match(r, "->")) return MakeToken(r, TOKEN_ARROW, 2);
   if (Match(r, "<=")) return MakeToken(r, TOKEN_LTE, 2);
@@ -229,6 +248,11 @@ Token ScanToken(Reader *r)
   return ErrorToken(r, "Unexpected character");
 }
 
+void AdvanceToken(Parser *r)
+{
+  r->token = ScanToken(r);
+}
+
 const char *TokenStr(TokenType type)
 {
   switch (type) {
@@ -245,7 +269,6 @@ const char *TokenStr(TokenType type)
   case TOKEN_PLUS:        return "PLUS";
   case TOKEN_STAR:        return "STAR";
   case TOKEN_SLASH:       return "SLASH";
-  case TOKEN_EXPONENT:    return "EXPONENT";
   case TOKEN_BAR:         return "BAR";
   case TOKEN_EQ:          return "EQ";
   case TOKEN_NEQ:         return "NEQ";
@@ -258,12 +281,12 @@ const char *TokenStr(TokenType type)
   case TOKEN_IDENTIFIER:  return "IDENTIFIER";
   case TOKEN_STRING:      return "STRING";
   case TOKEN_NUMBER:      return "NUMBER";
-  case TOKEN_SYMBOL:      return "SYMBOL";
   case TOKEN_AND:         return "AND";
   case TOKEN_NOT:         return "NOT";
   case TOKEN_OR:          return "OR";
   case TOKEN_DEF:         return "DEF";
   case TOKEN_COND:        return "COND";
+  case TOKEN_IF:          return "IF";
   case TOKEN_DO:          return "DO";
   case TOKEN_ELSE:        return "ELSE";
   case TOKEN_END:         return "END";
@@ -276,9 +299,33 @@ const char *TokenStr(TokenType type)
   }
 }
 
-void PrintSourceContext(Reader *r, u32 num_lines)
+bool MatchToken(Parser *r, TokenType type)
 {
-  char *c = &r->src[r->cur];
+  if (r->token.type == type) {
+    AdvanceToken(r);
+    return true;
+  }
+  return false;
+}
+
+void ExpectToken(Parser *r, TokenType type)
+{
+  if (r->token.type == type) {
+    AdvanceToken(r);
+  } else {
+    r->token = ErrorToken(r, "Expected %s", TokenStr(type));
+    r->status = Error;
+  }
+}
+
+bool TokenEnd(Parser *r, TokenType type)
+{
+  return r->token.type == type || r->token.type == TOKEN_EOF;
+}
+
+void PrintSourceContext(Parser *r, u32 num_lines)
+{
+  char *c = &Peek(r);
   u32 after = 0;
   while (!IsEnd(*c) && after < num_lines / 2) {
     if (IsNewline(*c)) after++;
@@ -286,33 +333,33 @@ void PrintSourceContext(Reader *r, u32 num_lines)
   }
 
   u32 before = num_lines - after;
-  if (before > r->line) {
-    before = r->line;
-    after = num_lines - r->line;
+  if (before > r->source.line) {
+    before = r->source.line;
+    after = num_lines - r->source.line;
   }
 
-  u32 gutter = (r->line >= 1000) ? 4 : (r->line >= 100) ? 3 : (r->line >= 10) ? 2 : 1;
+  u32 gutter = (r->source.line >= 1000) ? 4 : (r->source.line >= 100) ? 3 : (r->source.line >= 10) ? 2 : 1;
   if (gutter < 2) gutter = 2;
 
-  c = r->src;
+  c = r->source.data;
   i32 line = 1;
 
-  while (line < (i32)r->line - (i32)before) {
+  while (line < (i32)r->source.line - (i32)before) {
     if (IsEnd(*c)) return;
     if (IsNewline(*c)) line++;
     c++;
   }
 
-  while (line < (i32)r->line + (i32)after + 1 && !IsEnd(*c)) {
+  while (line < (i32)r->source.line + (i32)after + 1 && !IsEnd(*c)) {
     fprintf(stderr, "  %*d │ ", gutter, line);
     while (!IsNewline(*c) && !IsEnd(*c)) {
       fprintf(stderr, "%c", *c);
       c++;
     }
 
-    if (line == (i32)r->line) {
+    if (line == (i32)r->source.line) {
       fprintf(stderr, "\n  ");
-      for (u32 i = 0; i < gutter + r->col + 2; i++) fprintf(stderr, " ");
+      for (u32 i = 0; i < gutter + r->source.col + 2; i++) fprintf(stderr, " ");
       fprintf(stderr, "↑");
     }
     fprintf(stderr, "\n");
@@ -320,7 +367,13 @@ void PrintSourceContext(Reader *r, u32 num_lines)
     c++;
   }
 
-  if (IsEnd(*c) && c > r->src && !IsNewline(*(c-1))) {
+  if (IsEnd(*c) && c > r->source.data && !IsNewline(*(c-1))) {
     fprintf(stderr, "\n");
   }
+}
+
+void PrintParser(Parser *p)
+{
+  printf("%s %.*s\n", TokenStr(p->token.type), p->token.length, p->token.lexeme);
+  PrintSourceContext(p, 0);
 }

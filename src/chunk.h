@@ -20,7 +20,7 @@ void SetByte(Chunk *chunk, u32 i, u8 byte);
 u8 GetByte(Chunk *chunk, u32 i);
 u8 PutConst(Chunk *chunk, Val value);
 Val GetConst(Chunk *chunk, u32 i);
-Val PutSymbol(Chunk *chunk, char *name);
+Val PutSymbol(Chunk *chunk, char *name, u32 length);
 u32 PutInst(Chunk *chunk, OpCode op, ...);
 u32 DisassembleInstruction(Chunk *chunk, u32 i);
 void Disassemble(char *title, Chunk *chunk);

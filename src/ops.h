@@ -1,10 +1,12 @@
 #pragma once
+#include "value.h"
 
 typedef struct VM VM;
 
 typedef enum {
   OP_HALT,
   OP_BREAK,
+  OP_PRINT,
 
   OP_CONST,
   OP_TRUE,
@@ -15,6 +17,7 @@ typedef enum {
 
   OP_PAIR,
   OP_LIST,
+  OP_DICT,
   OP_LAMBDA,
 
   OP_NEG,
@@ -48,5 +51,5 @@ typedef enum {
 const char *OpStr(OpCode op);
 ArgFormat OpFormat(OpCode op);
 u32 OpSize(OpCode op);
-
+bool IsCallable(Val val);
 void DoOp(VM *vm, OpCode op);

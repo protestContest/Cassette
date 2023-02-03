@@ -17,9 +17,9 @@ Chunk *InitChunk(Chunk *chunk)
   chunk->constants = NULL;
   chunk->symbols = NULL;
 
-  PutSymbol(chunk, "true");
-  PutSymbol(chunk, "false");
-  PutSymbol(chunk, "ok");
+  PutSymbol(chunk, "true", 4);
+  PutSymbol(chunk, "false", 5);
+  PutSymbol(chunk, "ok", 2);
 
   return chunk;
 }
@@ -69,9 +69,9 @@ Val GetConst(Chunk *chunk, u32 i)
   return chunk->constants[i];
 }
 
-Val PutSymbol(Chunk *chunk, char *name)
+Val PutSymbol(Chunk *chunk, char *name, u32 length)
 {
-  return MakeSymbol(&chunk->symbols, name);
+  return MakeSymbolFromSlice(&chunk->symbols, name, length);
 }
 
 u32 PutInst(Chunk *chunk, OpCode op, ...)
