@@ -17,7 +17,7 @@ typedef enum {
   PREC_FACTOR,
   PREC_EXPONENT,
   PREC_LAMBDA,
-  PREC_NEGATIVE,
+  PREC_UNARY,
   PREC_ACCESS,
   PREC_PRIMARY,
 } Precedence;
@@ -33,6 +33,7 @@ typedef struct {
 static char *PrecStr(Precedence prec);
 static bool CompileSubExpr(Parser *p);
 static bool CompileExpr(Parser *p);
+static void ConsumeSymbol(Parser *p);
 
 static void Grouping(Parser *p);
 static void Lambda(Parser *p);
@@ -49,6 +50,7 @@ static void Do(Parser *p);
 static void Sym(Parser *p);
 static void Literal(Parser *p);
 static void Operator(Parser *p);
+static void Logic(Parser *p);
 
 ParseRule rules[] = {
   [TOKEN_LPAREN] =      { Grouping,         NULL,           PREC_NONE     },
@@ -63,7 +65,7 @@ ParseRule rules[] = {
   [TOKEN_PLUS] =        { Variable,         Operator,       PREC_TERM     },
   [TOKEN_STAR] =        { Variable,         Operator,       PREC_FACTOR   },
   [TOKEN_SLASH] =       { Variable,         Operator,       PREC_FACTOR   },
-  [TOKEN_BAR] =         { NULL,             Operator,       PREC_NONE     },
+  [TOKEN_BAR] =         { NULL,             Operator,       PREC_PAIR     },
   [TOKEN_EQ] =          { Variable,         Operator,       PREC_EQUALITY },
   [TOKEN_NEQ] =         { Variable,         Operator,       PREC_EQUALITY },
   [TOKEN_GT] =          { Variable,         Operator,       PREC_COMPARE  },
@@ -75,9 +77,9 @@ ParseRule rules[] = {
   [TOKEN_IDENTIFIER] =  { Variable,         NULL,           PREC_NONE     },
   [TOKEN_STRING] =      { String,           NULL,           PREC_NONE     },
   [TOKEN_NUMBER] =      { Number,           NULL,           PREC_NONE     },
-  [TOKEN_AND] =         { Variable,         NULL,           PREC_NONE     },
+  [TOKEN_AND] =         { Variable,         Logic,          PREC_LOGIC    },
+  [TOKEN_OR] =          { Variable,         Logic,          PREC_LOGIC    },
   [TOKEN_NOT] =         { Unary,            NULL,           PREC_NONE     },
-  [TOKEN_OR] =          { Variable,         NULL,           PREC_NONE     },
   [TOKEN_DEF] =         { Define,           NULL,           PREC_NONE     },
   [TOKEN_COND] =        { Cond,             NULL,           PREC_NONE     },
   [TOKEN_IF] =          { If,               NULL,           PREC_NONE     },
@@ -97,13 +99,16 @@ ParseRule rules[] = {
 
 static u32 indent = 0;
 
+// returns whether the next token could be parsed
 static bool ParseLevel(Parser *p, Precedence prec)
 {
-  printf("%*s== Parse Level %s == \n", 2*indent, "", PrecStr(prec));
-  PrintParser(p);
-
   indent++;
   while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+
+  PrintSourceContext(p, 0);
+  printf("%-10s ", PrecStr(prec));
+  for (u32 i = 0; i < indent; i++) printf("▪︎ ");
+  printf("Prefix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
 
   ParseRule *rule = GetRule(p);
   if (rule->prefix == NULL) {
@@ -116,7 +121,10 @@ static bool ParseLevel(Parser *p, Precedence prec)
 
   rule = GetRule(p);
   while (rule->prec >= prec) {
-    printf("Infix %s %.*s\n", TokenStr(p->token.type), p->token.length, p->token.lexeme);
+    printf("%-10s ", PrecStr(prec));
+    for (u32 i = 0; i < indent; i++) printf("▪︎ ");
+    printf("Infix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
+
     rule->infix(p);
     while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
 
@@ -129,7 +137,7 @@ static bool ParseLevel(Parser *p, Precedence prec)
   return true;
 }
 
-static bool HasPrefix(Parser *p)
+static bool CanParseLevel(Parser *p)
 {
   ParseRule *rule = GetRule(p);
   return rule->prefix != NULL;
@@ -146,13 +154,9 @@ static void Grouping(Parser *p)
   }
   ExpectToken(p, TOKEN_RPAREN);
 
-  Disassemble("End Group", p->chunk);
-
   if (CurToken(p) == TOKEN_ARROW) {
     *p = saved;
     RewindVec(p->chunk->code, ChunkSize(p->chunk) - start);
-    Disassemble("Lambda detected", p->chunk);
-    PrintParser(p);
     Lambda(p);
   }
 }
@@ -164,12 +168,10 @@ static void Lambda(Parser *p)
   ExpectToken(p, TOKEN_LPAREN);
   while (!MatchToken(p, TOKEN_RPAREN)) {
     num_params++;
-    Sym(p);
+    ConsumeSymbol(p);
     MatchToken(p, TOKEN_COMMA);
   }
   ExpectToken(p, TOKEN_ARROW);
-
-  Disassemble("Lambda params", p->chunk);
 
   // temporary jump inst
   PutInst(p->chunk, OP_JUMP, 0);
@@ -179,9 +181,8 @@ static void Lambda(Parser *p)
   CompileExpr(p);
   if (VecLast(p->chunk->code) == OP_CALL) {
     SetByte(p->chunk, ChunkSize(p->chunk) - 1, OP_APPLY);
-  } else {
-    PutInst(p->chunk, OP_RETURN);
   }
+  PutInst(p->chunk, OP_RETURN);
 
   // patch jump inst
   SetByte(p->chunk, start - 1, ChunkSize(p->chunk) - start);
@@ -208,7 +209,7 @@ static void Dict(Parser *p)
   ExpectToken(p, TOKEN_LBRACE);
   u32 num = 0;
   while (!MatchToken(p, TOKEN_RBRACE)) {
-    Sym(p);
+    ConsumeSymbol(p);
     ExpectToken(p, TOKEN_COLON);
     CompileExpr(p);
     num++;
@@ -222,7 +223,7 @@ static void Unary(Parser *p)
   TokenType op = CurToken(p);
   AdvanceToken(p);
   ExpectToken(p, TOKEN_MINUS);
-  if (!ParseLevel(p, PREC_NEGATIVE)) {
+  if (!ParseLevel(p, PREC_UNARY)) {
     // error
   }
 
@@ -237,7 +238,7 @@ static void Unary(Parser *p)
 
 static void Variable(Parser *p)
 {
-  Sym(p);
+  ConsumeSymbol(p);
   PutInst(p->chunk, OP_LOOKUP);
 }
 
@@ -284,14 +285,14 @@ static void Number(Parser *p)
 static void Define(Parser *p)
 {
   ExpectToken(p, TOKEN_DEF);
-  Sym(p);
+  ConsumeSymbol(p);
   CompileExpr(p);
   PutInst(p->chunk, OP_DEFINE);
 }
 
 static void Cond(Parser *p)
 {
-
+  // TODO
 }
 
 static void If(Parser *p)
@@ -300,7 +301,6 @@ static void If(Parser *p)
 
   // condition
   CompileSubExpr(p);
-
   PutInst(p->chunk, OP_NOT);
   PutInst(p->chunk, OP_BRANCH, 0);
   u32 true_branch = ChunkSize(p->chunk);
@@ -341,6 +341,12 @@ static void Do(Parser *p)
 
 static void Sym(Parser *p)
 {
+  ExpectToken(p, TOKEN_COLON);
+  ConsumeSymbol(p);
+}
+
+static void ConsumeSymbol(Parser *p)
+{
   Val sym = PutSymbol(p->chunk, p->token.lexeme, p->token.length);
   PutInst(p->chunk, OP_CONST, sym);
   AdvanceToken(p);
@@ -362,6 +368,7 @@ static void Literal(Parser *p)
     // error
     break;
   }
+  AdvanceToken(p);
 }
 
 static void Operator(Parser *p)
@@ -415,22 +422,45 @@ static void Operator(Parser *p)
   }
 }
 
+static void Logic(Parser *p)
+{
+  if (CurToken(p) == TOKEN_AND) {
+    PutInst(p->chunk, OP_NOT);
+  }
+
+  // duplicate stack top, so our branch doesn't consume it
+  PutInst(p->chunk, OP_DUP);
+  PutInst(p->chunk, OP_BRANCH, 0);
+  u32 branch = ChunkSize(p->chunk);
+
+  // if we get to the second clause, we can discard the result from the first
+  PutInst(p->chunk, OP_POP);
+
+  ParseRule *rule = GetRule(p);
+  AdvanceToken(p);
+  ParseLevel(p, rule->prec + 1);
+
+  SetByte(p->chunk, branch - 1, ChunkSize(p->chunk) - branch);
+}
+
+// returns whether the next token could be parsed
 static bool CompileSubExpr(Parser *p)
 {
   return ParseLevel(p, PREC_EXPR + 1);
 }
 
+// returns whether the expression was called
 static bool CompileExpr(Parser *p)
 {
   // empty expression, pretend we handled calling it
-  if (!HasPrefix(p)) return true;
+  if (!CanParseLevel(p)) return true;
 
   // compile first sub-expr (the operator)
   u32 start = ChunkSize(p->chunk);
   CompileSubExpr(p);
 
   // if it's alone, don't call it
-  if (!HasPrefix(p)) {
+  if (!CanParseLevel(p)) {
     return false;
   }
 
@@ -481,7 +511,7 @@ static char *PrecStr(Precedence prec)
   case PREC_FACTOR:   return "FACTOR";
   case PREC_EXPONENT: return "EXPONENT";
   case PREC_LAMBDA:   return "LAMBDA";
-  case PREC_NEGATIVE: return "NEGATIVE";
+  case PREC_UNARY:    return "UNARY";
   case PREC_ACCESS:   return "ACCESS";
   case PREC_PRIMARY:  return "PRIMARY";
   }

@@ -350,30 +350,41 @@ void PrintSourceContext(Parser *r, u32 num_lines)
     c++;
   }
 
+  printf("  %*d │ ", gutter, line);
+  while (!IsNewline(*c) && !IsEnd(*c)) {
+    if (c == r->token.lexeme) {
+      printf("\x1B[4m");
+    }
+    if (c == r->token.lexeme + r->token.length) {
+      printf("\x1B[0m");
+    }
+    printf("%c", *c++);
+  }
+  printf("\x1B[0m");
+  printf("\n");
+  printf("%*s↑\n", r->source.col + gutter + 4, "");
+  line++;
+  c++;
+
   while (line < (i32)r->source.line + (i32)after + 1 && !IsEnd(*c)) {
-    fprintf(stderr, "  %*d │ ", gutter, line);
+    printf("  %*d │ ", gutter, line);
     while (!IsNewline(*c) && !IsEnd(*c)) {
-      fprintf(stderr, "%c", *c);
+      printf("%c", *c);
       c++;
     }
 
-    if (line == (i32)r->source.line) {
-      fprintf(stderr, "\n  ");
-      for (u32 i = 0; i < gutter + r->source.col + 2; i++) fprintf(stderr, " ");
-      fprintf(stderr, "↑");
-    }
-    fprintf(stderr, "\n");
+    printf("\n");
     line++;
     c++;
   }
 
   if (IsEnd(*c) && c > r->source.data && !IsNewline(*(c-1))) {
-    fprintf(stderr, "\n");
+    printf("\n");
   }
 }
 
 void PrintParser(Parser *p)
 {
-  printf("%s %.*s\n", TokenStr(p->token.type), p->token.length, p->token.lexeme);
+  printf("[%d:%d] %s %.*s\n", p->source.line, p->source.col, TokenStr(p->token.type), p->token.length, p->token.lexeme);
   PrintSourceContext(p, 0);
 }

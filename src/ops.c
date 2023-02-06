@@ -17,6 +17,7 @@ typedef struct {
 static void StatusOp(VM *vm, OpCode op);
 static void PrintOp(VM *vm, OpCode op);
 static void PopOp(VM *vm, OpCode op);
+static void DupOp(VM *vm, OpCode op);
 static void ConstOp(VM *vm, OpCode op);
 static void PairOp(VM *vm, OpCode op);
 static void ListOp(VM *vm, OpCode op);
@@ -38,6 +39,7 @@ static OpInfo ops[] = {
   [OP_BREAK] =    { "break",  ARGS_NONE,  &StatusOp     },
   [OP_PRINT] =    { "print",  ARGS_NONE,  &PrintOp      },
   [OP_POP] =      { "pop",    ARGS_NONE,  &PopOp        },
+  [OP_DUP] =      { "dup",    ARGS_NONE,  &DupOp        },
   [OP_CONST] =    { "const",  ARGS_VAL,   &ConstOp      },
   [OP_TRUE] =     { "true",   ARGS_NONE,  &ConstOp      },
   [OP_FALSE] =    { "false",  ARGS_NONE,  &ConstOp      },
@@ -124,6 +126,12 @@ static void PrintOp(VM *vm, OpCode op)
 static void PopOp(VM *vm, OpCode op)
 {
   StackPop(vm);
+}
+
+static void DupOp(VM *vm, OpCode op)
+{
+  Val val = StackPeek(vm, 0);
+  StackPush(vm, val);
 }
 
 static void ConstOp(VM *vm, OpCode op)

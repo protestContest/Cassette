@@ -13,7 +13,9 @@ typedef enum {
   OP_FALSE,
   OP_NIL,
   OP_ZERO,
+
   OP_POP,
+  OP_DUP,
 
   OP_PAIR,
   OP_LIST,

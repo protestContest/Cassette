@@ -7,11 +7,9 @@ op[0] "lambda"      ::  "->"
 op[1] "logic"       ::  "and" | "or"
 op[2] "equality"    ::  "=" | "!="
 op[3] "compare"     ::  ">" | "<" | ">=" | "<="
-op[4] "range"       ::  ".."
-op[5] "term"        ::  "+" | "-"
-op[6] "factor"      ::  "*" | "/"
-op[7] "exponent"    ::  "**"
-op[8] "cons"        ::  "|"
+op[4] "term"        ::  "+" | "-"
+op[5] "factor"      ::  "*" | "/"
+op[6] "pair"        ::  "|"
 infix[9] "negative" ::  ( ("-")? negative ) | lookup
 lookup              ::  ( identifier ("." identifier)* ) | primary
 primary             ::  group | do-block | cond-block | literal
