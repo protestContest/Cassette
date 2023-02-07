@@ -2,3 +2,5 @@ def f (x sum) ->
   if x = 0
     sum
     f (x - 1) (sum + x)
+
+f 4 0

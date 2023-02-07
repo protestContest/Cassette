@@ -29,6 +29,7 @@ void ResetChunk(Chunk *chunk)
   FreeVec(chunk->code);
   FreeVec(chunk->constants);
   FreeVec(chunk->symbols);
+  InitChunk(chunk);
 }
 
 void FreeChunk(Chunk *chunk)
@@ -60,6 +61,10 @@ u8 GetByte(Chunk *chunk, u32 i)
 
 u8 PutConst(Chunk *chunk, Val value)
 {
+  for (u32 i = 0; i < VecCount(chunk->constants); i++) {
+    if (Eq(chunk->constants[i], value)) return i;
+  }
+
   VecPush(chunk->constants, value);
   return VecCount(chunk->constants) - 1;
 }
@@ -107,7 +112,6 @@ u32 DisassembleInstruction(Chunk *chunk, u32 i)
   default:
     written += printf("%02X    %s", GetByte(chunk, i), OpStr(op));
     break;
-
   }
 
   return written;
@@ -122,4 +126,46 @@ void Disassemble(char *title, Chunk *chunk)
     printf("\n");
   }
   printf("\n");
+}
+
+bool ChunksEqual(Chunk *a, Chunk *b)
+{
+  if (VecCount(a->code) != VecCount(b->code)) return false;
+  if (VecCount(a->constants) != VecCount(b->constants)) return false;
+
+  for (u32 i = 0; i < VecCount(a->code); i++) {
+    if (a->code[i] != b->code[i]) return false;
+  }
+
+  for (u32 i = 0; i < VecCount(a->constants); i++) {
+    if (!Eq(a->constants[i], b->constants[i])) return false;
+  }
+
+  return true;
+}
+
+void WriteChunk(Chunk *chunk, u32 num_instructions, ...)
+{
+  va_list args;
+  va_start(args, num_instructions);
+  for (u32 i = 0; i < num_instructions; i++) {
+    u8 op = va_arg(args, u32);
+    PutByte(chunk, op);
+
+    if (op == OP_CONST) {
+      PutByte(chunk, PutConst(chunk, va_arg(args, Val)));
+    } else if (OpSize(op) > 1) {
+      PutByte(chunk, va_arg(args, u32));
+    }
+  }
+  va_end(args);
+}
+
+void DumpConstants(Chunk *chunk)
+{
+  for (u32 i = 0; i < VecCount(chunk->constants); i++) {
+    printf("%02d  ", i);
+    PrintVal(chunk->constants, chunk->symbols, chunk->constants[i]);
+    printf("\n");
+  }
 }

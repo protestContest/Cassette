@@ -4,6 +4,8 @@
 #include "scan.h"
 #include "vec.h"
 
+#define DEBUG_COMPILE 0
+
 typedef enum {
   PREC_NONE,
   PREC_BLOCK,
@@ -105,10 +107,12 @@ static bool ParseLevel(Parser *p, Precedence prec)
   indent++;
   while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
 
-  PrintSourceContext(p, 0);
-  printf("%-10s ", PrecStr(prec));
-  for (u32 i = 0; i < indent; i++) printf("▪︎ ");
-  printf("Prefix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
+#if DEBUG_COMPILE
+    PrintSourceContext(p, 0);
+    printf("%-10s ", PrecStr(prec));
+    for (u32 i = 0; i < indent; i++) printf("▪︎ ");
+    printf("Prefix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
+#endif
 
   ParseRule *rule = GetRule(p);
   if (rule->prefix == NULL) {
@@ -121,17 +125,17 @@ static bool ParseLevel(Parser *p, Precedence prec)
 
   rule = GetRule(p);
   while (rule->prec >= prec) {
+#if DEBUG_COMPILE
     printf("%-10s ", PrecStr(prec));
     for (u32 i = 0; i < indent; i++) printf("▪︎ ");
     printf("Infix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
+#endif
 
     rule->infix(p);
     while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
 
     rule = GetRule(p);
   }
-
-  Disassemble(PrecStr(prec), p->chunk);
 
   indent--;
   return true;

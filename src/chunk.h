@@ -24,3 +24,6 @@ Val PutSymbol(Chunk *chunk, char *name, u32 length);
 u32 PutInst(Chunk *chunk, OpCode op, ...);
 u32 DisassembleInstruction(Chunk *chunk, u32 i);
 void Disassemble(char *title, Chunk *chunk);
+bool ChunksEqual(Chunk *a, Chunk *b);
+void WriteChunk(Chunk *chunk, u32 num_instructions, ...);
+void DumpConstants(Chunk *chunk);

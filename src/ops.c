@@ -21,6 +21,7 @@ static void DupOp(VM *vm, OpCode op);
 static void ConstOp(VM *vm, OpCode op);
 static void PairOp(VM *vm, OpCode op);
 static void ListOp(VM *vm, OpCode op);
+static void DictOp(VM *vm, OpCode op);
 static void LambdaOp(VM *vm, OpCode op);
 static void NegOp(VM *vm, OpCode op);
 static void ArithmeticOp(VM *vm, OpCode op);
@@ -47,7 +48,7 @@ static OpInfo ops[] = {
   [OP_ZERO] =     { "zero",   ARGS_NONE,  &ConstOp      },
   [OP_PAIR] =     { "pair",   ARGS_NONE,  &PairOp       },
   [OP_LIST] =     { "list",   ARGS_INT,   &ListOp       },
-  [OP_DICT] =     { "dict",   ARGS_INT,   &ListOp       },
+  [OP_DICT] =     { "dict",   ARGS_INT,   &DictOp       },
   [OP_LAMBDA] =   { "lambda", ARGS_INT,   &LambdaOp     },
   [OP_NEG] =      { "neg",    ARGS_NONE,  &NegOp        },
   [OP_ADD] =      { "add",    ARGS_NONE,  &ArithmeticOp },
@@ -273,6 +274,17 @@ static void ListOp(VM *vm, OpCode op)
     list = MakePair(&vm->heap, item, list);
   }
   StackPush(vm, list);
+}
+
+static void DictOp(VM *vm, OpCode op)
+{
+  u32 num = ReadByte(vm);
+
+  for (u32 i = 0; i < num; i++) {
+    // TODO
+    StackPop(vm);
+    StackPop(vm);
+  }
 }
 
 static void LambdaOp(VM *vm, OpCode op)

@@ -3,6 +3,7 @@ BUILD_DIR := build
 SRC_DIR := src
 INC_DIR := include
 LIB_DIR := lib
+BIN_DIR := bin
 
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
@@ -15,7 +16,7 @@ LDFLAGS = -L$(LIB_DIR)
 
 TEST_ARG = test.rye
 
-$(BUILD_DIR)/$(TARGET): $(OBJS)
+$(BIN_DIR)/$(TARGET): $(OBJS)
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
@@ -24,23 +25,23 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: run
-run: $(BUILD_DIR)/$(TARGET)
-	@$(BUILD_DIR)/$(TARGET)
+run: $(BIN_DIR)/$(TARGET)
+	@$(BIN_DIR)/$(TARGET)
 
 .PHONY: test
-test: $(BUILD_DIR)/$(TARGET)
-	@$(BUILD_DIR)/$(TARGET) $(TEST_ARG)
+test: $(BIN_DIR)/$(TARGET)
+	@$(BIN_DIR)/$(TARGET) $(TEST_ARG)
 
 .PHONY: debug
-debug: $(BUILD_DIR)/$(TARGET)
-	$(DBG) $(BUILD_DIR)/$(TARGET)
+debug: $(BIN_DIR)/$(TARGET)
+	$(DBG) $(BIN_DIR)/$(TARGET)
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) $(BIN_DIR)
 
 .PHONY: watch
-watch: $(BUILD_DIR)/$(TARGET)
+watch: $(BIN_DIR)/$(TARGET)
 	@fswatch -0 -o $(SRC_DIR) | xargs -0 -n1 -I{} make test
 
 MKDIR_P ?= mkdir -p

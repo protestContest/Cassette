@@ -31,7 +31,7 @@ typedef enum {
 #define pairMask      0xFFC00000
 #define binMask       0xFFD00000
 #define tupleMask     0xFFE00000
-#define closMask      0xFFF00000
+#define dictMask      0xFFF00000
 
 #define IsType1(v)    (((v).as_v & 0x80000000) == 0x0)
 #define NumVal(n)     (Val)(float)(n)
@@ -49,28 +49,28 @@ typedef enum {
 #define IsTuple(t)    (((t).as_v & type2Mask) == tupleMask)
 #define BinVal(b)     (Val)(i32)(((b) & ~type2Mask) | binMask)
 #define IsBin(b)      (((b).as_v & type2Mask) == binMask)
-#define ColsureVal(d) (Val)(i32)(((d) & ~type2Mask) | closMask)
-#define IsClosure(d)  (((d).as_v & type2Mask) == closMask)
+#define DictVal(d)    (Val)(i32)(((d) & ~type2Mask) | dictMask)
+#define IsDict(d)     (((d).as_v & type2Mask) == dictMask)
 
-#define RawInt(v)   (IsNegInt(v) ? (i32)((v).as_v | type2Mask) : (i32)((v).as_v & ~type1Mask))
-#define RawNum(v)   (IsNum(v) ? (v).as_f : RawInt(v))
-#define RawSym(v)   ((v).as_v & ~type1Mask)
-#define RawObj(v)   ((v).as_v & ~type2Mask)
+#define RawInt(v)     (IsNegInt(v) ? (i32)((v).as_v | type2Mask) : (i32)((v).as_v & ~type1Mask))
+#define RawNum(v)     (IsNum(v) ? (v).as_f : RawInt(v))
+#define RawSym(v)     ((v).as_v & ~type1Mask)
+#define RawObj(v)     ((v).as_v & ~type2Mask)
 
-#define hdrMask     0xF0000000
-#define binHdrMask  0xD0000000
-#define tupHdrMask  0xE0000000
-#define closHdrMask 0xF0000000
+#define hdrMask       0xF0000000
+#define binHdrMask    0xD0000000
+#define tupHdrMask    0xE0000000
+#define dictHdrMask   0xF0000000
 
 #define BinHdr(n)     (Val)(i32)(((n) & ~hdrMask) | binHdrMask)
 #define IsBinHdr(h)   (((h) & hdrMask) == binHdrMask)
 #define TupHdr(n)     (Val)(i32)(((n) & ~hdrMask) | tupHdrMask)
 #define IsTupHdr(h)   (((h) & hdrMask) == tupHdrMask)
-#define ClosHdr(n)    (Val)(i32)(((n) & ~hdrMask) | closHdrMask)
-#define IsClosHdr(h)  (((h) & hdrMask) == closHdrMask)
+#define ClosHdr(n)    (Val)(i32)(((n) & ~hdrMask) | dictHdrMask)
+#define IsDictHdr(h)  (((h) & hdrMask) == dictHdrMask)
 #define HdrVal(h)     ((h).as_v & ~hdrMask)
 
-#define Eq(v1, v2)  ((v1).as_v == (v2).as_v)
+#define Eq(v1, v2)    ((v1).as_v == (v2).as_v)
 
 #define nil           ((Val)(i32)0xFFC00000)
 #define IsNil(v)      (Eq(v, nil))
