@@ -36,6 +36,7 @@ typedef enum {
 
   OP_DEFINE,
   OP_LOOKUP,
+  OP_ACCESS,
 
   OP_BRANCH,
   OP_JUMP,

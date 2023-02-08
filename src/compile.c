@@ -4,7 +4,7 @@
 #include "scan.h"
 #include "vec.h"
 
-#define DEBUG_COMPILE 0
+#define DEBUG_COMPILE 1
 
 typedef enum {
   PREC_NONE,
@@ -52,6 +52,7 @@ static void Do(Parser *p);
 static void Sym(Parser *p);
 static void Literal(Parser *p);
 static void Operator(Parser *p);
+static void Access(Parser *p);
 static void Logic(Parser *p);
 
 ParseRule rules[] = {
@@ -62,7 +63,7 @@ ParseRule rules[] = {
   [TOKEN_LBRACE] =      { Dict,             NULL,           PREC_NONE     },
   [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
   [TOKEN_COMMA] =       { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_DOT] =         { NULL,             Operator,       PREC_ACCESS   },
+  [TOKEN_DOT] =         { NULL,             Access,         PREC_ACCESS   },
   [TOKEN_MINUS] =       { Unary,            Operator,       PREC_TERM     },
   [TOKEN_PLUS] =        { Variable,         Operator,       PREC_TERM     },
   [TOKEN_STAR] =        { Variable,         Operator,       PREC_FACTOR   },
@@ -102,16 +103,16 @@ ParseRule rules[] = {
 static u32 indent = 0;
 
 // returns whether the next token could be parsed
-static bool ParseLevel(Parser *p, Precedence prec)
+static bool ParseLevel(Parser *p, Precedence prec, bool skip_newlines)
 {
   indent++;
-  while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+  while (skip_newlines && CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
 
 #if DEBUG_COMPILE
-    PrintSourceContext(p, 0);
     printf("%-10s ", PrecStr(prec));
     for (u32 i = 0; i < indent; i++) printf("▪︎ ");
     printf("Prefix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
+    PrintSourceContext(p, 0);
 #endif
 
   ParseRule *rule = GetRule(p);
@@ -121,7 +122,7 @@ static bool ParseLevel(Parser *p, Precedence prec)
   }
 
   rule->prefix(p);
-  while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+  while (skip_newlines && CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
 
   rule = GetRule(p);
   while (rule->prec >= prec) {
@@ -132,7 +133,7 @@ static bool ParseLevel(Parser *p, Precedence prec)
 #endif
 
     rule->infix(p);
-    while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+    while (skip_newlines && CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
 
     rule = GetRule(p);
   }
@@ -149,10 +150,13 @@ static bool CanParseLevel(Parser *p)
 
 static void Grouping(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Grouping\n");
+
   Parser saved = *p;
   u32 start = ChunkSize(p->chunk);
 
   ExpectToken(p, TOKEN_LPAREN);
+  // TODO: replace CompileExpr call with one that skips newlines
   if (!CompileExpr(p)) {
     PutInst(p->chunk, OP_CALL);
   }
@@ -167,6 +171,8 @@ static void Grouping(Parser *p)
 
 static void Lambda(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Lambda\n");
+
   // params
   u32 num_params = 0;
   ExpectToken(p, TOKEN_LPAREN);
@@ -198,6 +204,8 @@ static void Lambda(Parser *p)
 
 static void List(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("List\n");
+
   ExpectToken(p, TOKEN_LBRACKET);
   u32 num = 0;
   while (!MatchToken(p, TOKEN_RBRACKET)) {
@@ -210,6 +218,8 @@ static void List(Parser *p)
 
 static void Dict(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Dict\n");
+
   ExpectToken(p, TOKEN_LBRACE);
   u32 num = 0;
   while (!MatchToken(p, TOKEN_RBRACE)) {
@@ -224,10 +234,12 @@ static void Dict(Parser *p)
 
 static void Unary(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Unary\n");
+
   TokenType op = CurToken(p);
   AdvanceToken(p);
   ExpectToken(p, TOKEN_MINUS);
-  if (!ParseLevel(p, PREC_UNARY)) {
+  if (!ParseLevel(p, PREC_UNARY, true)) {
     // error
   }
 
@@ -242,12 +254,16 @@ static void Unary(Parser *p)
 
 static void Variable(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Variable\n");
+
   ConsumeSymbol(p);
   PutInst(p->chunk, OP_LOOKUP);
 }
 
 static void String(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("String\n");
+
   Val bin = MakeBinary(p->chunk->constants, p->token.lexeme, p->token.length);
   PutInst(p->chunk, OP_CONST, PutConst(p->chunk, bin));
   AdvanceToken(p);
@@ -255,6 +271,8 @@ static void String(Parser *p)
 
 static void Number(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Number\n");
+
   Token token = p->token;
   AdvanceToken(p);
   u32 num = 0;
@@ -288,9 +306,11 @@ static void Number(Parser *p)
 
 static void Define(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Define\n");
+
   ExpectToken(p, TOKEN_DEF);
   ConsumeSymbol(p);
-  CompileExpr(p);
+  CompileSubExpr(p);
   PutInst(p->chunk, OP_DEFINE);
 }
 
@@ -301,22 +321,27 @@ static void Cond(Parser *p)
 
 static void If(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("If\n");
+
   ExpectToken(p, TOKEN_IF);
 
   // condition
   CompileSubExpr(p);
+  SkipNewlines(p);
   PutInst(p->chunk, OP_NOT);
   PutInst(p->chunk, OP_BRANCH, 0);
   u32 true_branch = ChunkSize(p->chunk);
 
   // true branch
   CompileSubExpr(p);
+  SkipNewlines(p);
   PutInst(p->chunk, OP_JUMP, 0);
   u32 false_branch = ChunkSize(p->chunk);
 
   // false branch
   SetByte(p->chunk, true_branch - 1, false_branch - true_branch);
   CompileSubExpr(p);
+  SkipNewlines(p);
 
   // after condition
   SetByte(p->chunk, false_branch - 1, ChunkSize(p->chunk) - false_branch);
@@ -324,9 +349,13 @@ static void If(Parser *p)
 
 static void Script(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Script\n");
+
   while (!MatchToken(p, TOKEN_EOF)) {
     CompileExpr(p);
+    SkipNewlines(p);
     MatchToken(p, TOKEN_COMMA);
+    SkipNewlines(p);
     PutInst(p->chunk, OP_POP);
   }
   RewindVec(p->chunk->code, 1);
@@ -334,10 +363,14 @@ static void Script(Parser *p)
 
 static void Do(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Do\n");
+
   ExpectToken(p, TOKEN_DO);
   while (!MatchToken(p, TOKEN_END)) {
     CompileExpr(p);
+    SkipNewlines(p);
     MatchToken(p, TOKEN_COMMA);
+    SkipNewlines(p);
     PutInst(p->chunk, OP_POP);
   }
   RewindVec(p->chunk->code, 1);
@@ -345,6 +378,8 @@ static void Do(Parser *p)
 
 static void Sym(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Symbol\n");
+
   ExpectToken(p, TOKEN_COLON);
   ConsumeSymbol(p);
 }
@@ -358,6 +393,8 @@ static void ConsumeSymbol(Parser *p)
 
 static void Literal(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Literal\n");
+
   switch (CurToken(p)) {
   case TOKEN_TRUE:
     PutInst(p->chunk, OP_TRUE);
@@ -377,11 +414,13 @@ static void Literal(Parser *p)
 
 static void Operator(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Operator\n");
+
   TokenType op = CurToken(p);
   ParseRule *rule = GetRule(p);
 
   AdvanceToken(p);
-  ParseLevel(p, rule->prec + 1);
+  ParseLevel(p, rule->prec + 1, true);
 
   switch (op) {
   case TOKEN_PLUS:
@@ -426,8 +465,19 @@ static void Operator(Parser *p)
   }
 }
 
+static void Access(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Access\n");
+
+  ExpectToken(p, TOKEN_DOT);
+  ConsumeSymbol(p);
+  PutInst(p->chunk, OP_ACCESS);
+}
+
 static void Logic(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Logic\n");
+
   if (CurToken(p) == TOKEN_AND) {
     PutInst(p->chunk, OP_NOT);
   }
@@ -442,7 +492,7 @@ static void Logic(Parser *p)
 
   ParseRule *rule = GetRule(p);
   AdvanceToken(p);
-  ParseLevel(p, rule->prec + 1);
+  ParseLevel(p, rule->prec + 1, true);
 
   SetByte(p->chunk, branch - 1, ChunkSize(p->chunk) - branch);
 }
@@ -450,14 +500,18 @@ static void Logic(Parser *p)
 // returns whether the next token could be parsed
 static bool CompileSubExpr(Parser *p)
 {
-  return ParseLevel(p, PREC_EXPR + 1);
+  return ParseLevel(p, PREC_EXPR + 1, false);
 }
 
 // returns whether the expression was called
 static bool CompileExpr(Parser *p)
 {
+  if (DEBUG_COMPILE) printf("Expression\n");
+
   // empty expression, pretend we handled calling it
-  if (!CanParseLevel(p)) return true;
+  if (!CanParseLevel(p)) {
+    return true;
+  }
 
   // compile first sub-expr (the operator)
   u32 start = ChunkSize(p->chunk);

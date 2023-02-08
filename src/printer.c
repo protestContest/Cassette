@@ -17,6 +17,18 @@ u32 PrintVal(Val *mem, Symbol *symbols, Val value)
     return printf(":%s", SymbolName(symbols, value));
   } else if (IsTuple(value)) {
     return printf("t%d", RawObj(value));
+  } else if (IsDict(value)) {
+    u32 count = printf("{");
+    for (u32 i = 0; i < DictSize(mem, value); i++) {
+      count += PrintVal(mem, symbols, DictKeyAt(mem, value, i));
+      count += printf(": ");
+      count += PrintVal(mem, symbols, DictValAt(mem, value, i));
+      if (i != DictSize(mem, value) - 1) {
+        count += printf(", ");
+      }
+    }
+    count += printf("}");
+    return count;
   } else {
     return 0;
   }

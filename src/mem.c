@@ -310,112 +310,88 @@ Val BinaryAt(Val *mem, Val binary, u32 i)
   return IntVal(BinaryData(mem, binary)[i]);
 }
 
-// u32 HashBinary(Val binary)
-// {
-//   u32 length = BinaryLength(mem, binary);
-//   return Hash(BinaryData(mem, binary), length);
-// }
+Val MakeDict(Val **mem, u32 count)
+{
+  Val dict = DictVal(VecCount(*mem));
 
-// void DictSet(Val dict, Val key, Val value);
+  VecPush(*mem, DictHdr(count));
 
-// Val MakeDict(Val keys, Val vals)
-// {
-//   Val dict = MakeEmptyTuple(mem, DICT_BUCKETS);
+  for (u32 i = 0; i < count; i++) {
+    VecPush(*mem, nil);
+    VecPush(*mem, nil);
+  }
 
-//   while (!IsNil(keys)) {
-//     Val key = Head(mem, keys);
-//     Val value = Head(mem, vals);
-//     DictSet(dict, key, value);
-//     keys = Tail(mem, keys);
-//     vals = Tail(mem, vals);
-//   }
+  return dict;
+}
 
-//   return DictVal(dict.as_v);
-// }
+void DictPut(Val *mem, Val dict, Val key, Val val)
+{
+  u32 size = DictSize(mem, dict);
+  u32 base = RawObj(dict) + 1;
+  u32 index = RawObj(key) % size;
 
-// bool DictHasKey(Val dict, Val key)
-// {
-//   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-//     return false;
-//   }
+  while (!IsNil(DictKeyAt(mem, dict, index))) {
+    if (Eq(DictKeyAt(mem, dict, index), key)) {
+      mem[base+index*2+1] = val;
+      return;
+    }
 
-//   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
-//   u32 index = hash % DICT_BUCKETS;
+    index = (index + 1) % size;
+  }
 
-//   Val bucket = TupleAt(mem, dict, index);
-//   while (!IsNil(bucket)) {
-//     Val entry = Head(mem, bucket);
-//     if (Eq(Head(mem, entry), key)) {
-//       return true;
-//     }
+  mem[base+index*2] = key;
+  mem[base+index*2+1] = val;
+}
 
-//     bucket = Tail(mem, bucket);
-//   }
+bool DictHasKey(Val *mem, Val dict, Val key)
+{
+  u32 size = DictSize(mem, dict);
+  u32 base = RawObj(dict) + 1;
+  u32 index = (RawObj(key) * 2) % size;
 
-//   return false;
-// }
+  while (!IsNil(mem[base+index])) {
+    if (Eq(DictKeyAt(mem, dict, index), key)) {
+      return true;
+    }
 
-// Val DictGet(Val dict, Val key)
-// {
-//   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-//     Fatal("Invalid key");
-//   }
+    index = (index + 1) % size;
+  }
 
-//   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
-//   u32 index = hash % DICT_BUCKETS;
+  return false;
+}
 
-//   Val bucket = TupleAt(mem, dict, index);
-//   while (!IsNil(bucket)) {
-//     Val entry = Head(mem, bucket);
-//     if (Eq(Head(mem, entry), key)) {
-//       return Tail(mem, entry);
-//     }
+Val DictGet(Val *mem, Val dict, Val key)
+{
+  u32 size = DictSize(mem, dict);
+  u32 index = RawObj(key) % size;
 
-//     bucket = Tail(mem, bucket);
-//   }
+  while (!IsNil(DictKeyAt(mem, dict, index))) {
+    if (Eq(DictKeyAt(mem, dict, index), key)) {
+      return DictValAt(mem, dict, index);
+    }
 
-//   return nil;
-// }
+    index = (index + 1) % size;
+  }
 
-// void DictSet(Val dict, Val key, Val value)
-// {
-//   if (IsNil(key) || (!IsSym(key) && !IsBin(key))) {
-//     Fatal("Invalid key");
-//   }
+  return nil;
+}
 
-//   u32 hash = (IsBin(key)) ? HashBinary(key) : RawSym(key);
-//   u32 index = hash % DICT_BUCKETS;
+u32 DictSize(Val *mem, Val dict)
+{
+  return HdrVal(mem[RawObj(dict)]);
+}
 
-//   Val bucket = TupleAt(mem, dict, index);
-//   while (!IsNil(bucket)) {
-//     Val entry = Head(mem, bucket);
-//     if (Eq(Head(mem, entry), key)) {
-//       SetTail(mem, entry, value);
-//       return;
-//     }
-//     bucket = Tail(mem, bucket);
-//   }
+Val DictKeyAt(Val *mem, Val dict, u32 i)
+{
+  u32 base = RawObj(dict) + 1;
+  return mem[base + i*2];
+}
 
-//   bucket = TupleAt(mem, dict, index);
-//   Val entry = MakePair(mem, key, value);
-//   TupleSet(mem, dict, index, MakePair(mem, entry, bucket));
-// }
-
-// void DictMerge(Val dict1, Val dict2)
-// {
-//   for (u32 i = 0; i < DICT_BUCKETS; i++) {
-//     Val bucket = TupleAt(mem, dict1, i);
-//     while (!IsNil(bucket)) {
-//       Val entry = Head(mem, bucket);
-//       Val key = Head(mem, entry);
-//       if (!IsNil(key)) {
-//         Val val = Tail(mem, entry);
-//         DictSet(dict2, key, val);
-//       }
-//       bucket = Tail(mem, bucket);
-//     }
-//   }
-// }
+Val DictValAt(Val *mem, Val dict, u32 i)
+{
+  u32 base = RawObj(dict) + 1;
+  return mem[base + i*2 + 1];
+}
 
 void PrintHeap(Val *mem, Symbol *symbols)
 {

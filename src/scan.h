@@ -48,3 +48,4 @@ void ExpectToken(Parser *r, TokenType type);
 bool TokenEnd(Parser *r, TokenType type);
 TokenType CurToken(Parser *r);
 void PrintParser(Parser *p);
+void SkipNewlines(Parser *p);

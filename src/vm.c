@@ -16,9 +16,9 @@ void InitVM(VM *vm)
   vm->chunk = NULL;
   vm->stack = NULL;
   vm->heap = NULL;
-  vm->env = nil;
   VecPush(vm->heap, nil);
   VecPush(vm->heap, nil);
+  vm->env = ExtendEnv(vm, nil);
 }
 
 void ResetVM(VM *vm)
@@ -110,7 +110,7 @@ static bool DebugCmd(char *cmd, const char *name)
   return true;
 }
 
-static void PrintEnv(VM *vm)
+void PrintEnv(VM *vm)
 {
   printf("─────╴Environment╶──────\n");
   if (IsNil(vm->env)) {

@@ -388,3 +388,8 @@ void PrintParser(Parser *p)
   printf("[%d:%d] %s %.*s\n", p->source.line, p->source.col, TokenStr(p->token.type), p->token.length, p->token.lexeme);
   PrintSourceContext(p, 0);
 }
+
+void SkipNewlines(Parser *p)
+{
+  while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+}

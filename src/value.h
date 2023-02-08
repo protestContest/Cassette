@@ -66,7 +66,7 @@ typedef enum {
 #define IsBinHdr(h)   (((h) & hdrMask) == binHdrMask)
 #define TupHdr(n)     (Val)(i32)(((n) & ~hdrMask) | tupHdrMask)
 #define IsTupHdr(h)   (((h) & hdrMask) == tupHdrMask)
-#define ClosHdr(n)    (Val)(i32)(((n) & ~hdrMask) | dictHdrMask)
+#define DictHdr(n)    (Val)(i32)(((n) & ~hdrMask) | dictHdrMask)
 #define IsDictHdr(h)  (((h) & hdrMask) == dictHdrMask)
 #define HdrVal(h)     ((h).as_v & ~hdrMask)
 

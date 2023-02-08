@@ -5,6 +5,7 @@
 #include "mem.h"
 #include "printer.h"
 #include "env.h"
+#include "vm.h"
 
 typedef void (*OpFn)(VM *vm, OpCode op);
 
@@ -29,6 +30,7 @@ static void NotOp(VM *vm, OpCode op);
 static void CompareOp(VM *vm, OpCode op);
 static void DefineOp(VM *vm, OpCode op);
 static void LookupOp(VM *vm, OpCode op);
+static void AccessOp(VM *vm, OpCode op);
 static void BranchOp(VM *vm, OpCode op);
 static void JumpOp(VM *vm, OpCode op);
 static void CallOp(VM *vm, OpCode op);
@@ -62,6 +64,7 @@ static OpInfo ops[] = {
   [OP_LT] =       { "lt",     ARGS_NONE,  &CompareOp    },
   [OP_DEFINE] =   { "define", ARGS_NONE,  &DefineOp     },
   [OP_LOOKUP] =   { "lookup", ARGS_NONE,  &LookupOp     },
+  [OP_ACCESS] =   { "access", ARGS_NONE,  &AccessOp     },
   [OP_BRANCH] =   { "branch", ARGS_INT,   &BranchOp     },
   [OP_JUMP] =     { "jump",   ARGS_INT,   &JumpOp       },
   [OP_CALL] =     { "call",   ARGS_NONE,  &CallOp       },
@@ -280,11 +283,15 @@ static void DictOp(VM *vm, OpCode op)
 {
   u32 num = ReadByte(vm);
 
+  Val dict = MakeDict(&vm->heap, num);
+
   for (u32 i = 0; i < num; i++) {
-    // TODO
-    StackPop(vm);
-    StackPop(vm);
+    Val val = StackPop(vm);
+    Val key = StackPop(vm);
+    DictPut(vm->heap, dict, key, val);
   }
+
+  StackPush(vm, dict);
 }
 
 static void LambdaOp(VM *vm, OpCode op)
@@ -325,6 +332,21 @@ static void LookupOp(VM *vm, OpCode op)
     StackPush(vm, result.value);
   } else {
     RuntimeError(vm, "Undefined symbol");
+  }
+}
+
+static void AccessOp(VM *vm, OpCode op)
+{
+  Val var = StackPop(vm);
+  Val dict = StackPop(vm);
+
+  if (!IsDict(dict)) {
+    RuntimeError(vm, "Can't access this");
+  } else if (!DictHasKey(vm->heap, dict, var)) {
+    RuntimeError(vm, "Invalid access");
+  } else {
+    Val val = DictGet(vm->heap, dict, var);
+    StackPush(vm, val);
   }
 }
 
