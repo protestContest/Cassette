@@ -53,23 +53,24 @@ x = 0 or x = nil
 
 The operators in Rye are, in order of precedence:
 
-|-------|-----------------------|
-| `and` | logical and           |
-| `or`  | logical or            |
-| `=`   | equal                 |
-| `!=`  | not equal             |
-| `>`   | greater than          |
-| `<`   | less than             |
-| `>=`  | greater than or equal |
-| `<=`  | less than or equal    |
-| `|`   | pair construction     |
-| `+`   | add                   |
-| `-`   | subtract              |
-| `*`   | multiply              |
-| `/`   | divide                |
-| `-`   | unary negative        |
-| `not` | logical not           |
-| `.`   | dict access           |
+<table>
+  <tr><td><code>and</td><td>logical and
+  <tr><td><code>or </td><td>logical or
+  <tr><td><code>=  </td><td>equal
+  <tr><td><code>!= </td><td>not equal
+  <tr><td><code>&gt;  </td><td>greater than
+  <tr><td><code>&lt;  </td><td>less than
+  <tr><td><code>&gt;= </td><td>greater than or equal
+  <tr><td><code>&lt;= </td><td>less than or equal
+  <tr><td><code>|  </td><td>pair construction
+  <tr><td><code>+  </td><td>add
+  <tr><td><code>-  </td><td>subtract
+  <tr><td><code>*  </td><td>multiply
+  <tr><td><code>/  </td><td>divide
+  <tr><td><code>-  </td><td>unary negative
+  <tr><td><code>not</td><td>logical not
+  <tr><td><code>.  </td><td>dict access
+</table>
 
 ### Function Calls
 
