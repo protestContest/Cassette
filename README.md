@@ -3,187 +3,133 @@
 Rye is a personal scripting language inspired by Elixir and Scheme. It's a Lisp
 with infix operators and optional parentheses.
 
-## Features
+## Basic Types
 
-- Infix operators: `+`, `-`, `*`, `/`, `**`, `<`, `<=`, `>`, `>=`, `=`, `!=`, `and`, `or`, `|`
-- Optional parentheses for function calls: `line-to 30 80`
-- Literal symbols, lists, and dicts: `:foo`, `[1, 2, 3, 4]`, `{width: 512, height: 342}`
-- Dot operator to access dicts: `dimensions.width`
-- Blocks: `do foo x, bar y end`
-- Lambdas: `(x y) -> x * y`
-- Pipes: `(foo x) |> bar`
-- Cond: `cond do pred1 -> result1, pred2, result2 end`
-
-See the file ["test.rye"](https://git.sr.ht/~zjm/Rye/tree/master/item/test.rye) for a sample.
-
-## Expressions
-
-You can have numbers, strings, symbols, and variables. Comments begin with semicolon.
+Rye includes literal numbers, strings, symbols, lists, and dictionaries.
 
 ```
-3.14            ; number
-"hello there"   ; string
-:error          ; symbol
-width           ; variable
+32
+3.14
+5_000_000
+"hello!"
+:error
+[3, 4, "foo"]
+{width: 512, height: 342}
 ```
 
-You can define variables with the `def` function. You can make anonymous functions with `->`, and assign them to variables. You can also use a lisp-style syntax to define functions.
+Rye supports normal infix arithmetic and comparison, with precedence, and prefix
+negation and logical not.
 
 ```
-def pi 3.14
-def identity (x) -> x
-def (identity x) x
+3 + 4
+2 - 1
+3.14 * 9
+2 / 5
+3 = 2 + 1
+4 > 5
+4 < 5
+4 >= 5
+4 <= 5
+not true
+-34
 ```
 
-Parentheses are optional for function calls, but can be used to determine precedence.
+Lists are linked-lists of pairs. A pair can be created with the `|` operator.
+Attaching a head to a list extends the list.
 
 ```
-foo x y
-(foo x y)
-foo (x y)
+1 | 2         ; creates a pair with 1 as the head and 2 as the tail
+1 | [2, 3]    ; creates a new list with 1 at the head: [1, 2, 3]
 ```
 
-The usual infix operators work, too.
+Dicts can be accessed with the `.` operator.
 
 ```
-1 + 2           ; => 3
-5 / 12          ; => 2.5
-3 + 2 * 5       ; => 13
-(3 + 2) * 5     ; => 25
-2 ** 5          ; => 32 (exponent)
-
-3 > 5           ; => false
-4 <= 2 + 2      ; => true
-2 + 2 = 5       ; => false
-7 != 12         ; => true
-
-true and true   ; => true
-false or true   ; => true
-not true        ; => false
+screen.width  ; accesses `width` key
 ```
 
-Infix expressions are automatically wrapped in parentheses, so they can be used as arguments.
+Lists and dicts can be accessed by calling them as functions.
 
 ```
-foo 8 - 5     ; => (foo (8 - 5))
+(screen :width)   ; accesses `width` key
+(items 8)         ; accesses 8th element of items
 ```
 
-You can combine basic types into pairs, linked lists (of pairs), tuples, and dictionaries (dicts). You can make ranges with `..`. Dict keys are either strings or symbols. Elements are separated by newlines or commas. Elements are looked up by calling the structure as a function. Dicts can also look up symbolic keys with ".".
+Logical operators (`and` and `or`) short-circuit execution.
 
 ```
-a | b               ; pair (infix operator)
-[1, 2, "ok", 3]     ; list
-3..10               ; [3, 4, 5, 6, 7, 8, 9]
-10..3               ; [10, 9, 8, 7, 6, 5, 4]
-3 | my-list         ; adds 3 to the front of my-list, e.g. [3, 1, 2, "ok", 3]
-#[a, b, c]          ; tuple (fixed-size list)
+false and x   ; x not evaluated
+true or y     ; y not evaluated
+```
 
-{                   ; dict
-  a: 1
-  "b": 2
-}
+The operator precedence is:
 
-(my-list 3)         ; value at index 3 in my-list
-(my-tuple 2)        ; value at index 2 in my-tuple
-foo.a               ; value for :a in dict foo
-(foo :a)            ; value for :a in dict foo
-(foo "b")           ; value for "b" in dict foo
+- Dictionary access `.`
+- Unary `-` or `not`
+- Multiplication `*`, `/`
+- Addition `+`, `-`
+- Pair `|`
+- Comparison `>`, `<`, `>=`, `<=`
+- Equality `=`, `!=`
+- Logic `and`, `or`
+
+## Functions
+
+An expression is a combination of operators to their operands. A function call
+is a function expression followed by any number of expressions as its arguments.
+
+```
+send-email-after 3600 * 12 "admin@example.com" :urgent    ; a function call with three arguments
+```
+
+A function without arguments isn't called, unless it's surrounded with parentheses.
+
+```
+send-alert    ; not called
+(send-alert)  ; called
+```
+
+## Anonymous Functions
+
+Anonymous functions, aka lambdas, are defined with an arrow.
+
+```
+(x y) -> x * y      ; creates a lambda of two arguments
+```
+
+## Definitions
+
+Variables and functions can be defined with `def`.
+
+```
+def max-value (get-width screen) - 4      ; defines variable `max-value` to be the result of an expression
+def square (x) -> x * x                   ; defines `square` as a function of one parameter
+def (square x) x * x                      ; syntax sugar for the above
 ```
 
 ## Blocks
 
-A block is a list of expressions separated by newlines or commas. An expression can span multiple lines when wrapped in parentheses. Blocks are delimited by `do`/`end`.
+A block is an expression that evaluates sequence of function calls.
 
 ```
-def (reduce list acc fn) do
-  display "reduce"
-  (reduce (tail list)
-          (fn (head list))
-          fn)
+do
+  halt-system
+  send-alert "Attention needed"
+  open-pod-bay-doors
 end
-
-do display "error", :error end
 ```
 
-You can do conditionals with case, cond, and if. Arrows in case and cond are clauses, not functions.
+## Conditionals
+
+A conditional using `if`:
 
 ```
-if true :ok        ; => :ok
-if false :ok       ; => nil
+if x = 1 :ok        ; evaluates to `:ok` if true, `nil` if false
 
-if (done? x) do
-  :ok
+if not (system-ok) do
+  halt-system
+  alert-admin
 else
-  (wait-for-x)
+  :proceed
 end
-
-cond do
-  ((rem n 3) = 0 and
-   (rem n 5) = 0) -> display "fizzbuzz"
-  (rem n 3) = 0 -> display "fizz"
-  (rem n 5) = 0 -> display "buzz"
-  true -> display n
-end
-
-case x do
-  :error  -> display "oops"
-  :ok -> (keep-going x)
-end
-```
-
-You can define variables in a new lexical scope with `let`.
-
-```
-let {x: 3, y: 4} do
-  display "X: " x "Y: " y
-  x * y
-end
-```
-
-The pipe operator, `|>`, passes the previous expression as the first argument in the next expression. The pipe operator works across newlines, and has lower precedence than expressions.
-
-```
-1..10            ; => [1, 2, 3, 4, 5, 6, 7, 8, 9]
-|> filter even?  ; => [2, 4, 6, 8]
-|> display       ; prints the list
-```
-
-## Modules
-
-You can create modules to namespace variables.
-
-```
-module Math do
-  module Trig do
-    def (sin angle) (sin-table (round angle))
-  end
-
-  def (dist x1 y1 x2 y2) (sqrt (x2 - x1)**2 + (y2 - y1)**2)
-end
-
-module String do
-  def (display-both str1 str2) do
-    display str1
-    display str2
-  end
-end
-
-Math.dist 2 2 4 8
-Math.Trig.sin 30
-```
-
-You can use modules defined in other files. The module becomes defined in the current file.
-
-```
-use String
-
-String.display-both "hello" "world"
-```
-
-You can import modules defined in other files. All definitions in the module become defined in the current file.
-
-```
-import Math
-
-dist 3 3 8 7
 ```

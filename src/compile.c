@@ -1,15 +1,16 @@
 #include "compile.h"
 #include "chunk.h"
 #include "mem.h"
+#include "ops.h"
 #include "scan.h"
 #include "vec.h"
 
 #define DEBUG_COMPILE 1
 
-typedef enum {
+typedef enum Precedence {
   PREC_NONE,
-  PREC_BLOCK,
-  PREC_PIPE,
+  // PREC_BLOCK,
+  // PREC_PIPE,
   PREC_EXPR,
   PREC_LOGIC,
   PREC_EQUALITY,
@@ -17,11 +18,11 @@ typedef enum {
   PREC_PAIR,
   PREC_TERM,
   PREC_FACTOR,
-  PREC_EXPONENT,
-  PREC_LAMBDA,
+  // PREC_EXPONENT,
+  // PREC_LAMBDA,
   PREC_UNARY,
   PREC_ACCESS,
-  PREC_PRIMARY,
+  // PREC_PRIMARY,
 } Precedence;
 
 typedef void(*ParseFn)(Parser *p);
@@ -32,11 +33,85 @@ typedef struct {
   Precedence prec;
 } ParseRule;
 
-static char *PrecStr(Precedence prec);
-static bool CompileSubExpr(Parser *p);
-static bool CompileExpr(Parser *p);
-static void ConsumeSymbol(Parser *p);
+static void Script(Parser *p);
+static u32 Call(Parser *p, bool skip_newlines);
+static ParseFn Expression(Parser *p, Precedence prec, bool skip_newlines);
 
+// helpers
+static bool IsCallable(ParseFn parsed);
+static void ConsumeSymbol(Parser *p);
+static char *PrecStr(Precedence prec);
+
+/* Public interface. Compiles the given source as a script into a chunk.
+ */
+Status Compile(char *src, Chunk *chunk)
+{
+  Parser p;
+  InitParser(&p, src, chunk);
+
+  // Prime the parser
+  AdvanceToken(&p);
+  Script(&p);
+
+  return Ok;
+}
+
+/* A script is parsed as a sequence of function calls. The result of each call
+ * is discarded, except the last. Calls are separated by newlines or commas.
+ */
+static void Script(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Script\n");
+
+  while (!MatchToken(p, TOKEN_EOF)) {
+    Call(p, false);
+    SkipNewlines(p);
+    MatchToken(p, TOKEN_COMMA);
+    SkipNewlines(p);
+    PutInst(p->chunk, OP_POP);
+  }
+  // don't pop the final value
+  RewindVec(p->chunk->code, 1);
+}
+
+/* A call is a sequence of expressions, separated by spaces. The first
+ * expression is the operator, followed by arguments. If there are no arguments,
+ * the expression isn't called. Returns the number of arguments.
+ */
+static u32 Call(Parser *p, bool skip_newlines)
+{
+  if (DEBUG_COMPILE) printf("Expression\n");
+
+  u32 start = ChunkSize(p->chunk);
+
+  // first expression is possibly the operator
+  Expression(p, PREC_EXPR + 1, skip_newlines);
+
+  // save the operator code for later
+  u32 length = ChunkSize(p->chunk) - start;
+  u8 operator_code[length];
+  memcpy(operator_code, &p->chunk->code[start], length);
+  RewindVec(p->chunk->code, length);
+
+  // parse the arguments
+  u32 args = 0;
+  while (Expression(p, PREC_EXPR + 1, skip_newlines) != NULL) {
+    args++;
+  }
+
+  // copy the operator code back to the end
+  start = ChunkSize(p->chunk);
+  GrowVec(p->chunk->code, length);
+  memcpy(&p->chunk->code[start], operator_code, length);
+
+  if (args > 0) {
+    PutInst(p->chunk, OP_CALL);
+  }
+
+  return args;
+}
+
+/* Parse functions */
 static void Grouping(Parser *p);
 static void Lambda(Parser *p);
 static void List(Parser *p);
@@ -56,98 +131,96 @@ static void Access(Parser *p);
 static void Logic(Parser *p);
 
 ParseRule rules[] = {
-  [TOKEN_LPAREN] =      { Grouping,         NULL,           PREC_NONE     },
-  [TOKEN_RPAREN] =      { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_LBRACKET] =    { List,             NULL,           PREC_NONE     },
-  [TOKEN_RBRACKET] =    { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_LBRACE] =      { Dict,             NULL,           PREC_NONE     },
-  [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_COMMA] =       { NULL,             NULL,           PREC_NONE     },
   [TOKEN_DOT] =         { NULL,             Access,         PREC_ACCESS   },
-  [TOKEN_MINUS] =       { Unary,            Operator,       PREC_TERM     },
-  [TOKEN_PLUS] =        { Variable,         Operator,       PREC_TERM     },
   [TOKEN_STAR] =        { Variable,         Operator,       PREC_FACTOR   },
   [TOKEN_SLASH] =       { Variable,         Operator,       PREC_FACTOR   },
+  [TOKEN_MINUS] =       { Unary,            Operator,       PREC_TERM     },
+  [TOKEN_PLUS] =        { Variable,         Operator,       PREC_TERM     },
   [TOKEN_BAR] =         { NULL,             Operator,       PREC_PAIR     },
-  [TOKEN_EQ] =          { Variable,         Operator,       PREC_EQUALITY },
-  [TOKEN_NEQ] =         { Variable,         Operator,       PREC_EQUALITY },
   [TOKEN_GT] =          { Variable,         Operator,       PREC_COMPARE  },
   [TOKEN_GTE] =         { Variable,         Operator,       PREC_COMPARE  },
   [TOKEN_LT] =          { Variable,         Operator,       PREC_COMPARE  },
   [TOKEN_LTE] =         { Variable,         Operator,       PREC_COMPARE  },
-  [TOKEN_PIPE] =        { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_ARROW] =       { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_IDENTIFIER] =  { Variable,         NULL,           PREC_NONE     },
-  [TOKEN_STRING] =      { String,           NULL,           PREC_NONE     },
-  [TOKEN_NUMBER] =      { Number,           NULL,           PREC_NONE     },
+  [TOKEN_EQ] =          { Variable,         Operator,       PREC_EQUALITY },
+  [TOKEN_NEQ] =         { Variable,         Operator,       PREC_EQUALITY },
   [TOKEN_AND] =         { Variable,         Logic,          PREC_LOGIC    },
   [TOKEN_OR] =          { Variable,         Logic,          PREC_LOGIC    },
-  [TOKEN_NOT] =         { Unary,            NULL,           PREC_NONE     },
+  [TOKEN_LPAREN] =      { Grouping,         NULL,           PREC_NONE     },
   [TOKEN_DEF] =         { Define,           NULL,           PREC_NONE     },
-  [TOKEN_COND] =        { Cond,             NULL,           PREC_NONE     },
-  [TOKEN_IF] =          { If,               NULL,           PREC_NONE     },
   [TOKEN_DO] =          { Do,               NULL,           PREC_NONE     },
-  [TOKEN_ELSE] =        { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_END] =         { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_IF] =          { If,               NULL,           PREC_NONE     },
+  [TOKEN_COND] =        { Cond,             NULL,           PREC_NONE     },
+  [TOKEN_NOT] =         { Unary,            NULL,           PREC_NONE     },
+  [TOKEN_LBRACKET] =    { List,             NULL,           PREC_NONE     },
+  [TOKEN_LBRACE] =      { Dict,             NULL,           PREC_NONE     },
+  [TOKEN_IDENTIFIER] =  { Variable,         NULL,           PREC_NONE     },
+  [TOKEN_COLON] =       { Sym,              NULL,           PREC_NONE     },
+  [TOKEN_STRING] =      { String,           NULL,           PREC_NONE     },
+  [TOKEN_NUMBER] =      { Number,           NULL,           PREC_NONE     },
   [TOKEN_TRUE] =        { Literal,          NULL,           PREC_NONE     },
   [TOKEN_FALSE] =       { Literal,          NULL,           PREC_NONE     },
   [TOKEN_NIL] =         { Literal,          NULL,           PREC_NONE     },
+  [TOKEN_RPAREN] =      { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_RBRACKET] =    { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_ELSE] =        { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_END] =         { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_COMMA] =       { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_PIPE] =        { NULL,             NULL,           PREC_NONE     },
+  [TOKEN_ARROW] =       { NULL,             NULL,           PREC_NONE     },
   [TOKEN_NEWLINE] =     { NULL,             NULL,           PREC_NONE     },
   [TOKEN_EOF] =         { NULL,             NULL,           PREC_NONE     },
   [TOKEN_ERROR] =       { NULL,             NULL,           PREC_NONE     },
-  [TOKEN_COLON] =       { Sym,              NULL,           PREC_NONE     },
 };
 
 #define GetRule(p)  (&rules[(p)->token.type])
 
-static u32 indent = 0;
-
-// returns whether the next token could be parsed
-static bool ParseLevel(Parser *p, Precedence prec, bool skip_newlines)
+/* Parses an expression: a token that can be parsed as a prefix, followed by
+ * tokens that can be parsed as infix operators, up to the given precedence.
+ * Returns the last parse function executed.
+ */
+static ParseFn Expression(Parser *p, Precedence prec, bool skip_newlines)
 {
-  indent++;
-  while (skip_newlines && CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+  if (skip_newlines) SkipNewlines(p);
 
 #if DEBUG_COMPILE
     printf("%-10s ", PrecStr(prec));
-    for (u32 i = 0; i < indent; i++) printf("▪︎ ");
     printf("Prefix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
     PrintSourceContext(p, 0);
 #endif
 
   ParseRule *rule = GetRule(p);
   if (rule->prefix == NULL) {
-    indent--;
-    return false;
+    return NULL;
   }
 
+  ParseFn parsed = rule->prefix;
   rule->prefix(p);
-  while (skip_newlines && CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+  if (skip_newlines) SkipNewlines(p);
 
   rule = GetRule(p);
   while (rule->prec >= prec) {
 #if DEBUG_COMPILE
     printf("%-10s ", PrecStr(prec));
-    for (u32 i = 0; i < indent; i++) printf("▪︎ ");
     printf("Infix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
 #endif
 
+    parsed = rule->infix;
     rule->infix(p);
-    while (skip_newlines && CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
+    if (skip_newlines) SkipNewlines(p);
 
     rule = GetRule(p);
   }
 
-  indent--;
-  return true;
+  return parsed;
 }
 
-static bool CanParseLevel(Parser *p)
-{
-  ParseRule *rule = GetRule(p);
-  return rule->prefix != NULL;
-}
-
+/* Parses an expression in parentheses. Parenthesized expressions override
+ * precedence, can span multiple lines, and are always called. Since lambdas are
+ * defined with parenthesized parameters, this also checks for an arrow token
+ * afterwards. If it finds one, it discards the code it generated and calls the
+ * lambda parse function instead.
+ */
 static void Grouping(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Grouping\n");
@@ -156,10 +229,13 @@ static void Grouping(Parser *p)
   u32 start = ChunkSize(p->chunk);
 
   ExpectToken(p, TOKEN_LPAREN);
-  // TODO: replace CompileExpr call with one that skips newlines
-  if (!CompileExpr(p)) {
+
+  // Compile a multi-line expression
+  if (Call(p, true) == 0) {
+    // call the expression if it wasn't already
     PutInst(p->chunk, OP_CALL);
   }
+
   ExpectToken(p, TOKEN_RPAREN);
 
   if (CurToken(p) == TOKEN_ARROW) {
@@ -169,6 +245,10 @@ static void Grouping(Parser *p)
   }
 }
 
+/* Parses a lambda definition. Puts the parameter symbols on the stack, defines
+ * the body (and jumps past it), puts the body's location on the stack, and
+ * creates a closure.
+ */
 static void Lambda(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Lambda\n");
@@ -183,18 +263,22 @@ static void Lambda(Parser *p)
   }
   ExpectToken(p, TOKEN_ARROW);
 
-  // temporary jump inst
+  // jump past the body; will be patched once the body length is known
   PutInst(p->chunk, OP_JUMP, 0);
   u32 start = ChunkSize(p->chunk);
 
   // compile body
-  CompileExpr(p);
+  Expression(p, PREC_EXPR + 1, false);
+
+  // if the last op was a function call, make it a tail-recursive apply instead
   if (VecLast(p->chunk->code) == OP_CALL) {
     SetByte(p->chunk, ChunkSize(p->chunk) - 1, OP_APPLY);
   }
+
+  // always add a return op, in case branches in the body need to jump here
   PutInst(p->chunk, OP_RETURN);
 
-  // patch jump inst
+  // patch jump op to skip past the body
   SetByte(p->chunk, start - 1, ChunkSize(p->chunk) - start);
 
   // define lambda (params, position on stack)
@@ -202,6 +286,152 @@ static void Lambda(Parser *p)
   PutInst(p->chunk, OP_LAMBDA, num_params);
 }
 
+/* Parses a definition. Puts a symbol on the stack, followed by the result of an
+ * expression, and defines them in the current environment.
+ */
+static void Define(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Define\n");
+
+  ExpectToken(p, TOKEN_DEF);
+  ConsumeSymbol(p);
+  Expression(p, PREC_EXPR + 1, false);
+  PutInst(p->chunk, OP_DEFINE);
+}
+
+/* Parses a sequence of expressions separated by newlines. The result of each
+ * expression is discarded, except the last.
+ */
+static void Do(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Do\n");
+
+  ExpectToken(p, TOKEN_DO);
+  SkipNewlines(p);
+
+  while (!MatchToken(p, TOKEN_END)) {
+    Call(p, false);
+    MatchToken(p, TOKEN_COMMA);
+    SkipNewlines(p);
+    PutInst(p->chunk, OP_POP);
+  }
+
+  // don't pop the final value
+  RewindVec(p->chunk->code, 1);
+}
+
+/* Same as `Do`, except this stops at an "else" or "end" keyword without
+ * consuming it.
+ */
+static void DoElse(Parser *p)
+{
+  ExpectToken(p, TOKEN_DO);
+  SkipNewlines(p);
+
+  while (CurToken(p) != TOKEN_END && CurToken(p) != TOKEN_ELSE) {
+    Call(p, false);
+    MatchToken(p, TOKEN_COMMA);
+    SkipNewlines(p);
+    PutInst(p->chunk, OP_POP);
+  }
+  // don't pop the final value
+  RewindVec(p->chunk->code, 1);
+}
+
+/* Same as `Do`, except beginning with an "else" keyword
+ */
+static void Else(Parser *p)
+{
+  ExpectToken(p, TOKEN_ELSE);
+  SkipNewlines(p);
+
+  while (!MatchToken(p, TOKEN_END)) {
+    Call(p, false);
+    MatchToken(p, TOKEN_COMMA);
+    SkipNewlines(p);
+    PutInst(p->chunk, OP_POP);
+  }
+  // don't pop the final value
+  RewindVec(p->chunk->code, 1);
+}
+
+/* Compiles an if expression: the first expression is the condition, and the
+ * second is the consequent. If the consequent is a "do" expression, it's parsed
+ * as a possible "do-else" block.
+ */
+static void If(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("If\n");
+
+  ExpectToken(p, TOKEN_IF);
+
+  // condition
+  Expression(p, PREC_EXPR + 1, false);
+
+  // jump past the consequent if it's false
+  PutInst(p->chunk, OP_NOT);
+  PutInst(p->chunk, OP_BRANCH, 0);
+  u32 consequent = ChunkSize(p->chunk);
+
+  // check for do-else
+  bool do_else = (CurToken(p) == TOKEN_DO);
+
+  // consequent
+  if (do_else) {
+    DoElse(p);
+  } else {
+    Expression(p, PREC_EXPR + 1, false);
+  }
+
+  // jump past the alternative
+  PutInst(p->chunk, OP_JUMP, 0);
+
+  // patch jump over consequent to here
+  u32 alternative = ChunkSize(p->chunk);
+  SetByte(p->chunk, consequent - 1, alternative - consequent);
+
+  // alternative (nil unless using a do/else block)
+  if (do_else && CurToken(p) == TOKEN_ELSE) {
+    Else(p);
+  } else {
+    PutInst(p->chunk, OP_NIL);
+  }
+
+  // patch jump over alternative to here
+  u32 after = ChunkSize(p->chunk);
+  SetByte(p->chunk, alternative - 1, after - alternative);
+}
+
+/* Parses a cond expression: a sequence of clauses. A clause is a condition
+ * expression, followed by an arrow, followed by a result expression.
+ */
+static void Cond(Parser *p)
+{
+  // TODO
+}
+
+/* Parses a unary operator: "-" or "not", followed by an expression
+ */
+static void Unary(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Unary\n");
+
+  TokenType op = CurToken(p);
+  AdvanceToken(p);
+  ExpectToken(p, TOKEN_MINUS);
+  Expression(p, PREC_UNARY, false);
+
+  if (op == TOKEN_MINUS) {
+    PutInst(p->chunk, OP_NEG);
+  } else if (op == TOKEN_NOT) {
+    PutInst(p->chunk, OP_NOT);
+  } else {
+    Fatal("Invalid unary op: %s", TokenStr(op));
+  }
+}
+
+/* Parses a literal list: a sequence of expressions separated by commas
+ */
 static void List(Parser *p)
 {
   if (DEBUG_COMPILE) printf("List\n");
@@ -209,13 +439,16 @@ static void List(Parser *p)
   ExpectToken(p, TOKEN_LBRACKET);
   u32 num = 0;
   while (!MatchToken(p, TOKEN_RBRACKET)) {
-    CompileExpr(p);
+    Call(p, true);
     num++;
     MatchToken(p, TOKEN_COMMA);
   }
   PutInst(p->chunk, OP_LIST, num);
 }
 
+/* Parses a literal dict: a sequence of key-value pairs separated by commas.
+ * Each key-value pair is a symbol, a colon, and an expression.
+ */
 static void Dict(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Dict\n");
@@ -225,33 +458,14 @@ static void Dict(Parser *p)
   while (!MatchToken(p, TOKEN_RBRACE)) {
     ConsumeSymbol(p);
     ExpectToken(p, TOKEN_COLON);
-    CompileExpr(p);
+    Call(p, true);
     num++;
     MatchToken(p, TOKEN_COMMA);
   }
   PutInst(p->chunk, OP_DICT, num);
 }
 
-static void Unary(Parser *p)
-{
-  if (DEBUG_COMPILE) printf("Unary\n");
-
-  TokenType op = CurToken(p);
-  AdvanceToken(p);
-  ExpectToken(p, TOKEN_MINUS);
-  if (!ParseLevel(p, PREC_UNARY, true)) {
-    // error
-  }
-
-  if (op == TOKEN_MINUS) {
-    PutInst(p->chunk, OP_NEG);
-  } else if (op == TOKEN_NOT) {
-    PutInst(p->chunk, OP_NOT);
-  } else {
-    // error
-  }
-}
-
+/* Parses a variable: a symbol to be looked up in the environment. */
 static void Variable(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Variable\n");
@@ -260,6 +474,19 @@ static void Variable(Parser *p)
   PutInst(p->chunk, OP_LOOKUP);
 }
 
+/* Parses a quoted symbol, where the symbol is pushed onto the stack without
+ * being looked up.
+ */
+static void Sym(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Symbol\n");
+
+  ExpectToken(p, TOKEN_COLON);
+  ConsumeSymbol(p);
+}
+
+/* Parses a string: any sequence of characters (except double-quote)
+ */
 static void String(Parser *p)
 {
   if (DEBUG_COMPILE) printf("String\n");
@@ -269,6 +496,8 @@ static void String(Parser *p)
   AdvanceToken(p);
 }
 
+/* Parses a number. Underscores are ignored.
+ */
 static void Number(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Number\n");
@@ -304,93 +533,8 @@ static void Number(Parser *p)
   }
 }
 
-static void Define(Parser *p)
-{
-  if (DEBUG_COMPILE) printf("Define\n");
-
-  ExpectToken(p, TOKEN_DEF);
-  ConsumeSymbol(p);
-  CompileSubExpr(p);
-  PutInst(p->chunk, OP_DEFINE);
-}
-
-static void Cond(Parser *p)
-{
-  // TODO
-}
-
-static void If(Parser *p)
-{
-  if (DEBUG_COMPILE) printf("If\n");
-
-  ExpectToken(p, TOKEN_IF);
-
-  // condition
-  CompileSubExpr(p);
-  SkipNewlines(p);
-  PutInst(p->chunk, OP_NOT);
-  PutInst(p->chunk, OP_BRANCH, 0);
-  u32 true_branch = ChunkSize(p->chunk);
-
-  // true branch
-  CompileSubExpr(p);
-  SkipNewlines(p);
-  PutInst(p->chunk, OP_JUMP, 0);
-  u32 false_branch = ChunkSize(p->chunk);
-
-  // false branch
-  SetByte(p->chunk, true_branch - 1, false_branch - true_branch);
-  CompileSubExpr(p);
-  SkipNewlines(p);
-
-  // after condition
-  SetByte(p->chunk, false_branch - 1, ChunkSize(p->chunk) - false_branch);
-}
-
-static void Script(Parser *p)
-{
-  if (DEBUG_COMPILE) printf("Script\n");
-
-  while (!MatchToken(p, TOKEN_EOF)) {
-    CompileExpr(p);
-    SkipNewlines(p);
-    MatchToken(p, TOKEN_COMMA);
-    SkipNewlines(p);
-    PutInst(p->chunk, OP_POP);
-  }
-  RewindVec(p->chunk->code, 1);
-}
-
-static void Do(Parser *p)
-{
-  if (DEBUG_COMPILE) printf("Do\n");
-
-  ExpectToken(p, TOKEN_DO);
-  while (!MatchToken(p, TOKEN_END)) {
-    CompileExpr(p);
-    SkipNewlines(p);
-    MatchToken(p, TOKEN_COMMA);
-    SkipNewlines(p);
-    PutInst(p->chunk, OP_POP);
-  }
-  RewindVec(p->chunk->code, 1);
-}
-
-static void Sym(Parser *p)
-{
-  if (DEBUG_COMPILE) printf("Symbol\n");
-
-  ExpectToken(p, TOKEN_COLON);
-  ConsumeSymbol(p);
-}
-
-static void ConsumeSymbol(Parser *p)
-{
-  Val sym = PutSymbol(p->chunk, p->token.lexeme, p->token.length);
-  PutInst(p->chunk, OP_CONST, sym);
-  AdvanceToken(p);
-}
-
+/* Parses a literal value: true, false, or nil
+ */
 static void Literal(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Literal\n");
@@ -412,6 +556,21 @@ static void Literal(Parser *p)
   AdvanceToken(p);
 }
 
+/* Parses a dict access. A dict should be on the stack.
+ */
+static void Access(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Access\n");
+
+  ExpectToken(p, TOKEN_DOT);
+  ConsumeSymbol(p);
+  PutInst(p->chunk, OP_ACCESS);
+}
+
+/* Parses an infix operator. The first operand should already be compiled; this
+ * compiles the second operand expression (according to the operator's
+ * precedence), and adds the operator's instruction.
+ */
 static void Operator(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Operator\n");
@@ -420,7 +579,7 @@ static void Operator(Parser *p)
   ParseRule *rule = GetRule(p);
 
   AdvanceToken(p);
-  ParseLevel(p, rule->prec + 1, true);
+  Expression(p, rule->prec + 1, true);
 
   switch (op) {
   case TOKEN_PLUS:
@@ -465,15 +624,9 @@ static void Operator(Parser *p)
   }
 }
 
-static void Access(Parser *p)
-{
-  if (DEBUG_COMPILE) printf("Access\n");
-
-  ExpectToken(p, TOKEN_DOT);
-  ConsumeSymbol(p);
-  PutInst(p->chunk, OP_ACCESS);
-}
-
+/* Parses a logical infix operator ("and" and "or"). Unlike other infix
+ * operators, these short-ciruit execution.
+ */
 static void Logic(Parser *p)
 {
   if (DEBUG_COMPILE) printf("Logic\n");
@@ -492,65 +645,23 @@ static void Logic(Parser *p)
 
   ParseRule *rule = GetRule(p);
   AdvanceToken(p);
-  ParseLevel(p, rule->prec + 1, true);
+  Expression(p, rule->prec + 1, true);
 
   SetByte(p->chunk, branch - 1, ChunkSize(p->chunk) - branch);
 }
 
-// returns whether the next token could be parsed
-static bool CompileSubExpr(Parser *p)
+/* Helpers */
+
+static void ConsumeSymbol(Parser *p)
 {
-  return ParseLevel(p, PREC_EXPR + 1, false);
+  Val sym = PutSymbol(p->chunk, p->token.lexeme, p->token.length);
+  PutInst(p->chunk, OP_CONST, sym);
+  AdvanceToken(p);
 }
 
-// returns whether the expression was called
-static bool CompileExpr(Parser *p)
+static bool IsCallable(ParseFn parsed)
 {
-  if (DEBUG_COMPILE) printf("Expression\n");
-
-  // empty expression, pretend we handled calling it
-  if (!CanParseLevel(p)) {
-    return true;
-  }
-
-  // compile first sub-expr (the operator)
-  u32 start = ChunkSize(p->chunk);
-  CompileSubExpr(p);
-
-  // if it's alone, don't call it
-  if (!CanParseLevel(p)) {
-    return false;
-  }
-
-  // copy operator code out
-  u32 length = ChunkSize(p->chunk) - start;
-  u8 operator_code[length];
-  memcpy(operator_code, &p->chunk->code[start], length);
-  RewindVec(p->chunk->code, length);
-
-  // compile the rest of the expr
-  while (true) {
-    if (!CompileSubExpr(p)) break;
-  }
-
-  // copy the operator code to the end
-  start = ChunkSize(p->chunk);
-  GrowVec(p->chunk->code, length);
-  memcpy(&p->chunk->code[start], operator_code, length);
-
-  PutInst(p->chunk, OP_CALL);
-  return true;
-}
-
-Status Compile(char *src, Chunk *chunk)
-{
-  Parser p;
-  InitParser(&p, src, chunk);
-
-  AdvanceToken(&p);
-  Script(&p);
-
-  return Ok;
+  return parsed == Grouping || parsed == Access || parsed == Variable;
 }
 
 static char *PrecStr(Precedence prec)
@@ -558,8 +669,8 @@ static char *PrecStr(Precedence prec)
   switch (prec)
   {
   case PREC_NONE:     return "NONE";
-  case PREC_BLOCK:    return "BLOCK";
-  case PREC_PIPE:     return "PIPE";
+  // case PREC_BLOCK:    return "BLOCK";
+  // case PREC_PIPE:     return "PIPE";
   case PREC_EXPR:     return "EXPR";
   case PREC_LOGIC:    return "LOGIC";
   case PREC_EQUALITY: return "EQUALITY";
@@ -567,10 +678,10 @@ static char *PrecStr(Precedence prec)
   case PREC_PAIR:     return "PAIR";
   case PREC_TERM:     return "TERM";
   case PREC_FACTOR:   return "FACTOR";
-  case PREC_EXPONENT: return "EXPONENT";
-  case PREC_LAMBDA:   return "LAMBDA";
+  // case PREC_EXPONENT: return "EXPONENT";
+  // case PREC_LAMBDA:   return "LAMBDA";
   case PREC_UNARY:    return "UNARY";
   case PREC_ACCESS:   return "ACCESS";
-  case PREC_PRIMARY:  return "PRIMARY";
+  // case PREC_PRIMARY:  return "PRIMARY";
   }
 }

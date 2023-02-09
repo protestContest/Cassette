@@ -1,6 +1,8 @@
 def f (x sum) ->
-  if x = 0
-    sum
+  x = 0 and sum or (f x-1 sum+x)
+  if x = 0 sum
+  else
     f (x - 1) (sum + x)
+  end
 
 f 4 0

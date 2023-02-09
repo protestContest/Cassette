@@ -40,12 +40,12 @@ typedef struct {
 } Parser;
 
 void InitParser(Parser *parser, char *src, Chunk *chunk);
-void AdvanceToken(Parser *r);
-void PrintSourceContext(Parser *r, u32 num_lines);
+void AdvanceToken(Parser *p);
+void PrintSourceContext(Parser *p, u32 num_lines);
 const char *TokenStr(TokenType type);
-bool MatchToken(Parser *r, TokenType type);
-void ExpectToken(Parser *r, TokenType type);
-bool TokenEnd(Parser *r, TokenType type);
-TokenType CurToken(Parser *r);
+bool MatchToken(Parser *p, TokenType type);
+void ExpectToken(Parser *p, TokenType type);
+bool TokenEnd(Parser *p, TokenType type);
+TokenType CurToken(Parser *p);
 void PrintParser(Parser *p);
 void SkipNewlines(Parser *p);

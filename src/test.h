@@ -2,4 +2,4 @@
 
 #include "chunk.h"
 
-void TestCompile(char *src, Chunk *expected);
+void CompileTests(void);

@@ -40,7 +40,6 @@ static void ApplyOp(VM *vm, OpCode op);
 static OpInfo ops[] = {
   [OP_HALT] =     { "halt",   ARGS_NONE,  &StatusOp     },
   [OP_BREAK] =    { "break",  ARGS_NONE,  &StatusOp     },
-  [OP_PRINT] =    { "print",  ARGS_NONE,  &PrintOp      },
   [OP_POP] =      { "pop",    ARGS_NONE,  &PopOp        },
   [OP_DUP] =      { "dup",    ARGS_NONE,  &DupOp        },
   [OP_CONST] =    { "const",  ARGS_VAL,   &ConstOp      },
@@ -95,11 +94,6 @@ u32 OpSize(OpCode op)
   case ARGS_VAL:      return 2;
   case ARGS_INT:      return 2;
   }
-}
-
-bool IsCallable(Val val)
-{
-  return IsPair(val);
 }
 
 static bool IsFalsey(Val value)
@@ -395,7 +389,7 @@ static void ReturnOp(VM *vm, OpCode op)
 
 static void CallOp(VM *vm, OpCode op)
 {
-  if (!IsCallable(StackPeek(vm, 0))) return;
+  if (!IsPair(StackPeek(vm, 0))) return;
 
   Val proc = StackPop(vm);
   Val code = First(vm->heap, proc);
