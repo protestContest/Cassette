@@ -3,133 +3,282 @@
 Rye is a personal scripting language inspired by Elixir and Scheme. It's a Lisp
 with infix operators and optional parentheses.
 
-## Basic Types
+## Syntax
 
-Rye includes literal numbers, strings, symbols, lists, and dictionaries.
+### Comments
 
-```
-32
-3.14
-5_000_000
-"hello!"
-:error
-[3, 4, "foo"]
-{width: 512, height: 342}
-```
-
-Rye supports normal infix arithmetic and comparison, with precedence, and prefix
-negation and logical not.
+Comments start with a semicolon and end at the end of a line:
 
 ```
-3 + 4
-2 - 1
-3.14 * 9
-2 / 5
-3 = 2 + 1
-4 > 5
-4 < 5
-4 >= 5
-4 <= 5
-not true
--34
+; this is a comment
 ```
 
-Lists are linked-lists of pairs. A pair can be created with the `|` operator.
-Attaching a head to a list extends the list.
+### Reserved Words
+
+Rye has a few reserved words:
 
 ```
-1 | 2         ; creates a pair with 1 as the head and 2 as the tail
-1 | [2, 3]    ; creates a new list with 1 at the head: [1, 2, 3]
+and cond def do else end false if nil or not true
 ```
 
-Dicts can be accessed with the `.` operator.
+The operators (see below) are also reserved.
+
+### Identifiers
+
+Identifiers are fairly general. An identifier can use any printable characters,
+except for these: `( ) { } [ ] " : ; . ,`. Additionally, identifiers cannot
+begin with a digit.
 
 ```
-screen.width  ; accesses `width` key
+hello
+fourtwenty69
+thread-case
+snake_case
+camelCase
+#variable
+set!
 ```
 
-Lists and dicts can be accessed by calling them as functions.
+### Expressions
+
+Everything in Rye is an expression. Expressions can be combined with operators.
 
 ```
-(screen :width)   ; accesses `width` key
-(items 8)         ; accesses 8th element of items
+; Expressions:
+foo
+x + 3
+-2 * (3 + 1)
+x = 0 or x = nil
 ```
 
-Logical operators (`and` and `or`) short-circuit execution.
+The operators in Rye are, in order of precedence:
+
+|-------|-----------------------|
+| `and` | logical and           |
+| `or`  | logical or            |
+| `=`   | equal                 |
+| `!=`  | not equal             |
+| `>`   | greater than          |
+| `<`   | less than             |
+| `>=`  | greater than or equal |
+| `<=`  | less than or equal    |
+| `|`   | pair construction     |
+| `+`   | add                   |
+| `-`   | subtract              |
+| `*`   | multiply              |
+| `/`   | divide                |
+| `-`   | unary negative        |
+| `not` | logical not           |
+| `.`   | dict access           |
+
+### Function Calls
+
+A function call is a sequence of space-separated expressions:
 
 ```
-false and x   ; x not evaluated
-true or y     ; y not evaluated
+move-to 300 100
+line-to (with-margin width) (with-margin height)
 ```
 
-The operator precedence is:
-
-- Dictionary access `.`
-- Unary `-` or `not`
-- Multiplication `*`, `/`
-- Addition `+`, `-`
-- Pair `|`
-- Comparison `>`, `<`, `>=`, `<=`
-- Equality `=`, `!=`
-- Logic `and`, `or`
-
-## Functions
-
-An expression is a combination of operators to their operands. A function call
-is a function expression followed by any number of expressions as its arguments.
+A function without arguments is not called, unless it's surrounded by parens:
 
 ```
-send-email-after 3600 * 12 "admin@example.com" :urgent    ; a function call with three arguments
+send-alert        // not called
+send-alert :now   // called
+(send-alert)      // called
+(send-alert :now) // called
 ```
 
-A function without arguments isn't called, unless it's surrounded with parentheses.
+### Blocks
 
-```
-send-alert    ; not called
-(send-alert)  ; called
-```
-
-## Anonymous Functions
-
-Anonymous functions, aka lambdas, are defined with an arrow.
-
-```
-(x y) -> x * y      ; creates a lambda of two arguments
-```
-
-## Definitions
-
-Variables and functions can be defined with `def`.
-
-```
-def max-value (get-width screen) - 4      ; defines variable `max-value` to be the result of an expression
-def square (x) -> x * x                   ; defines `square` as a function of one parameter
-def (square x) x * x                      ; syntax sugar for the above
-```
-
-## Blocks
-
-A block is an expression that evaluates sequence of function calls.
+Calls can be sequenced in a `do` expression. A `do` expression evaluates to the
+last call in the sequence. Calls in a `do` expression are separated by newlines.
 
 ```
 do
-  halt-system
-  send-alert "Attention needed"
-  open-pod-bay-doors
+  send-alert "admin@example.com"
+  (halt-system)
+
+  ; multi-line call is ok in parens
+  (log (current-time)
+       "Error"
+       error)
+
+  :ok
 end
 ```
 
-## Conditionals
+## Values
 
-A conditional using `if`:
+### Numbers
+
+Numbers are either integers or floats. Addition, subtraction, and multiplication
+with integers will result in an integer; any other arithmetic results in a
+float. Floats can be cast to integers with some functions, like `floor` and
+`ceil`. Underscores in numbers are ignored.
 
 ```
-if x = 1 :ok        ; evaluates to `:ok` if true, `nil` if false
+2       ; int
+3 * 4   ; int
+3 + 0.1 ; float
+12 / 3  ; float
+3.14    ; float
+2.0     ; float
+```
 
-if not (system-ok) do
-  halt-system
-  alert-admin
+### Strings
+
+Strings are a sequence of bytes. It's convenient when strings are valid UTF-8.
+
+```
+"Hello world!"
+```
+
+### Symbols
+
+A symbol is a value that's equal to itself. Symbols are useful for making unique
+human-readable values.
+
+```
+:ok
+:error
+:some-really-long-symbol
+```
+
+### Booleans
+
+Two symbols, `:true` and `:false`, can be written without colons: `true`,
+`false`. The symbol `:false` is one of only two values (along with `nil`) that
+evaluates to false in boolean expressions.
+
+### Nil
+
+The special value `nil` represents an empty list. `nil` is a list, whose head is
+`nil` and tail is `nil`. `nil` evaluates to false in boolean expressions.
+
+## Lists
+
+Lists in Rye are linked lists of pairs, similar to Lisp. A pair can be created
+with the `|` operator:
+
+```
+x | y     ; creates a pair with a head x and tail y
+```
+
+A list is a pair whose head is the first value and tail is the rest of the list.
+A list can be created with square brackets, and a sequence of comma-separated
+expressions.
+
+```
+[a, b, 34, :foo]    ; creates a list
+1 | [2, 3, 4]       ; creates a list [1, 2, 3, 4] by pairing a new head
+```
+
+List elements can be accessed by calling the list as a function:
+
+```
+; my-list is [1, 2, 3, 4]
+(my-list 0)   ; 1
+(my-list 3)   ; 4
+(my-list -1)  ; 4
+(my-list 4)   ; nil
+```
+
+## Maps
+
+A map is a key-value store. Keys must be symbols. A map can be
+created with braces:
+
+```
+{x: 100, y: 200}
+```
+
+A map element can be accessed by calling it as a function:
+
+```
+(my-map :x)    ; 100
+(my-map :foo)  ; nil
+```
+
+A map can also be accessed with the `.` operator:
+
+```
+my-map.x    ; 100
+my-map.foo  ; nil
+```
+
+## Special Forms
+
+### Closures
+
+Anonymous functions can be created with the arrow syntax:
+
+```
+(x y) -> x * y      ; function of two arguments
+() -> :ok           ; function of no arguments
+```
+
+Anonymous functions create a new scope for their arguments, and return a
+closure that remembers their lexical scope.
+
+### Define
+
+Variables can be defined in the current scope with `def`:
+
+```
+def x 100                 ; x becomes 100
+def foo (x y) -> x * y    ; foo becomes a function of two arguments
+```
+
+A special syntax makes defining functions easier:
+
+```
+def (foo x y) -> x * y    ; foo becomes a function of two arguments
+```
+
+### Conditionals
+
+Conditional control flow can be done with `if`:
+
+```
+; if with a consequent and alternative
+if x = 0 do
+  :ok
 else
-  :proceed
+  :error
+end
+
+; if with no alternative (implicitly nil)
+if y > 0 do
+  y / 2
+end
+
+; short if form (implicit nil alternative)
+if (valid? x) :ok
+```
+
+### Modules
+
+A script can define modules with `module`:
+
+```
+module Math do
+  def (lerp a b t) do
+    t * (b - a) + a
+  end
 end
 ```
+
+A module expression returns a map with all definitions in it. It also registers
+the module so it can be imported later. Modules are imported with `import`:
+
+```
+import Math
+
+Math.lerp 50 100 0.5    ; 75
+```
+
+When a script is executed, it's directory tree is searched for ".rye" files. For
+each file, the top-level module expressions are evaluated and saved in a module
+list. Later, when an import expression is evaluated, it defines that module in
+the current environment.
