@@ -4,3 +4,4 @@
 #include "chunk.h"
 
 Status Compile(char *src, Chunk *chunk);
+Status CompileModule(char *src, Chunk *chunk);

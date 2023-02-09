@@ -1,129 +1,60 @@
-// #include "module.h"
-// #include "env.h"
-// #include "reader.h"
-// #include "eval.h"
-// #include "mem.h"
-// #include "printer.h"
-// #include <dirent.h>
+#include "module.h"
+#include "compile.h"
+#include <dirent.h>
 
-// Module *LoadFile(char *path)
-// {
-//   if (DEBUG_MODULE) fprintf(stderr, "Loading \"%s\"\n", path);
+#define DEBUG_MODULE 1
 
-//   Reader *r = NewReader();
-//   ReadFile(r, path);
+char *ReadFile(const char *path)
+{
+  FILE *file = fopen(path, "rb");
+  fseek(file, 0L, SEEK_END);
+  size_t size = ftell(file);
+  rewind(file);
 
-//   if (r->status == PARSE_INCOMPLETE) {
-//     ParseError(r, "Unexpected end of file");
-//   }
+  char *buffer = (char*)malloc(size + 1);
+  size_t num_read = fread(buffer, sizeof(char), size, file);
+  buffer[num_read] = '\0';
+  fclose(file);
+  return buffer;
+}
 
-//   if (r->status == PARSE_ERROR) {
-//     PrintReaderError(r);
-//     return NULL;
-//   }
+Status LoadFile(char *path, Chunk *chunk)
+{
+  if (DEBUG_MODULE) printf("Loading \"%s\"\n", path);
 
-//   Val env = ExtendEnv(InitialEnv(), nil, nil);
-//   Val body = Tail(r->ast);
-//   while (!IsNil(body)) {
-//     Val exp = Head(body);
-//     if (IsTagged(exp, "module")) {
-//       EvalResult result = EvalModule(Tail(exp), env);
-//       if (result.status != EVAL_OK) {
-//         PrintEvalError(result);
-//         return NULL;
-//       }
-//     }
-//     body = Tail(body);
-//   }
+  char *src = ReadFile(path);
+  Status result = CompileModule(src, chunk);
+  free(src);
+  return result;
+}
 
-//   Module *mod = malloc(sizeof(Module));
-//   mod->path = path;
-//   mod->defs = DictGet(Head(GlobalEnv(env)), SymbolFor("MODULES"));
-//   return mod;
-// }
+Status LoadModules(char *dir_name, char *main_file, Chunk *chunk)
+{
+  DIR *dir = opendir(dir_name);
+  if (dir == NULL) {
+    printf("Bad directory name: %s\n", dir_name);
+    return Error;
+  }
 
-// EvalResult RunFile(char *path, Val env)
-// {
-//   if (DEBUG_MODULE) fprintf(stderr, "Running file %s\n", path);
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != NULL) {
+    if (entry->d_type == DT_DIR) {
+      char path[1024];
+      if (entry->d_name[0] == '.' && (!main_file || strcmp(entry->d_name, main_file) != 0)) continue;
+      snprintf(path, sizeof(path), "%s/%s", dir_name, entry->d_name);
+      Status status = LoadModules(path, "", chunk);
+      if (status != Ok) return status;
+    } else if (entry->d_type == DT_REG
+        && entry->d_namlen > 4
+        && (!main_file || strcmp(entry->d_name, main_file) != 0)) {
+      if (strcmp(entry->d_name + (entry->d_namlen - 4), ".rye") == 0) {
+        char path[1024];
+        snprintf(path, sizeof(path), "%s/%s", dir_name, entry->d_name);
+        Status status = LoadFile(entry->d_name, chunk);
+        if (status != Ok) return status;
+      }
+    }
+  }
 
-//   Reader *r = NewReader();
-//   ReadFile(r, path);
-
-//   if (r->status == PARSE_INCOMPLETE) {
-//     ParseError(r, "Unexpected end of file");
-//   }
-
-//   if (r->status == PARSE_ERROR) {
-//     PrintReaderError(r);
-//     return RuntimeError("ParseError");
-//   }
-
-//   return Eval(r->ast, env);
-// }
-
-// Val RunProject(char *main_file)
-// {
-//   Module *mods = LoadModules(".", main_file);
-
-//   Val modules = MakeDict(nil, nil);
-
-//   while (mods != NULL) {
-//     DictMerge(mods->defs, modules);
-//     mods = mods->next;
-//   }
-
-//   Val env = InitialEnv();
-//   Define(MakeSymbol("MODULES"), modules, env);
-
-//   if (main_file == NULL) return env;
-
-//   EvalResult result = RunFile(main_file, env);
-//   if (result.status != EVAL_OK) {
-//     PrintEvalError(result);
-//   }
-//   return env;
-// }
-
-// Module *AppendModules(Module *mods1, Module *mods2)
-// {
-//   if (mods1 == NULL) return mods2;
-//   while (mods1->next != NULL) mods1 = mods1->next;
-//   mods1->next = mods2;
-//   return mods1;
-// }
-
-// Module *LoadModules(char *name, char *main_file)
-// {
-//   Module *mods = NULL;
-
-//   DIR *dir = opendir(name);
-//   if (dir == NULL) {
-//     fprintf(stderr, "Bad directory name: %s\n", name);
-//     return NULL;
-//   }
-
-//   struct dirent *entry;
-//   while ((entry = readdir(dir)) != NULL) {
-//     if (entry->d_type == DT_DIR) {
-//       char path[1024];
-//       if (entry->d_name[0] == '.' && (!main_file || strcmp(entry->d_name, main_file) != 0)) continue;
-//       snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
-//       Module *sub_mods = LoadModules(path, "");
-//       if (sub_mods) mods = AppendModules(mods, sub_mods);
-//     } else if (entry->d_type == DT_REG
-//         && entry->d_namlen > 4
-//         && (!main_file || strcmp(entry->d_name, main_file) != 0)) {
-//       if (strcmp(entry->d_name + (entry->d_namlen - 4), ".rye") == 0) {
-//         char path[1024];
-//         snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
-//         Module *mod = LoadFile(entry->d_name);
-//         if (mod) {
-//           mod->next = mods;
-//           mods = mod;
-//         }
-//       }
-//     }
-//   }
-
-//   return mods;
-// }
+  return Ok;
+}

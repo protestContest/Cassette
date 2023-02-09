@@ -4,8 +4,9 @@
 #include "ops.h"
 #include "scan.h"
 #include "vec.h"
+#include "vm.h"
 
-#define DEBUG_COMPILE 1
+#define DEBUG_COMPILE 0
 
 typedef enum Precedence {
   PREC_NONE,
@@ -37,12 +38,14 @@ static void Script(Parser *p);
 static u32 Call(Parser *p, bool skip_newlines);
 static ParseFn Expression(Parser *p, Precedence prec, bool skip_newlines);
 
+static void Module(Parser *p);
+
 // helpers
 static bool IsCallable(ParseFn parsed);
 static void ConsumeSymbol(Parser *p);
 static char *PrecStr(Precedence prec);
 
-/* Public interface. Compiles the given source as a script into a chunk.
+/* Compiles the given source as a script into a chunk.
  */
 Status Compile(char *src, Chunk *chunk)
 {
@@ -52,6 +55,23 @@ Status Compile(char *src, Chunk *chunk)
   // Prime the parser
   AdvanceToken(&p);
   Script(&p);
+
+  return Ok;
+}
+
+/* Same as `Compile`, but only compiles module expressions.
+ */
+Status CompileModule(char *src, Chunk *chunk)
+{
+  Parser p;
+  InitParser(&p, src, chunk);
+
+  AdvanceToken(&p);
+  while (CurToken(&p) != TOKEN_EOF) {
+    while (CurToken(&p) != TOKEN_MODULE && CurToken(&p) != TOKEN_EOF) AdvanceToken(&p);
+    if (CurToken(&p) == TOKEN_EOF) break;
+    Module(&p);
+  }
 
   return Ok;
 }
@@ -129,6 +149,7 @@ static void Literal(Parser *p);
 static void Operator(Parser *p);
 static void Access(Parser *p);
 static void Logic(Parser *p);
+static void Import(Parser *p);
 
 ParseRule rules[] = {
   [TOKEN_DOT] =         { NULL,             Access,         PREC_ACCESS   },
@@ -160,6 +181,8 @@ ParseRule rules[] = {
   [TOKEN_TRUE] =        { Literal,          NULL,           PREC_NONE     },
   [TOKEN_FALSE] =       { Literal,          NULL,           PREC_NONE     },
   [TOKEN_NIL] =         { Literal,          NULL,           PREC_NONE     },
+  [TOKEN_MODULE] =      { Module,           NULL,           PREC_NONE     },
+  [TOKEN_IMPORT] =      { Import,           NULL,           PREC_NONE     },
   [TOKEN_RPAREN] =      { NULL,             NULL,           PREC_NONE     },
   [TOKEN_RBRACKET] =    { NULL,             NULL,           PREC_NONE     },
   [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
@@ -294,8 +317,44 @@ static void Define(Parser *p)
   if (DEBUG_COMPILE) printf("Define\n");
 
   ExpectToken(p, TOKEN_DEF);
-  ConsumeSymbol(p);
-  Expression(p, PREC_EXPR + 1, false);
+
+  if (MatchToken(p, TOKEN_LPAREN)) {
+    ConsumeSymbol(p);
+
+    // params
+    u32 num_params = 0;
+    while (!MatchToken(p, TOKEN_RPAREN)) {
+      num_params++;
+      ConsumeSymbol(p);
+      MatchToken(p, TOKEN_COMMA);
+    }
+
+    // jump past the body; will be patched once the body length is known
+    PutInst(p->chunk, OP_JUMP, 0);
+    u32 start = ChunkSize(p->chunk);
+
+    // compile body
+    Expression(p, PREC_EXPR + 1, false);
+
+    // if the last op was a function call, make it a tail-recursive apply instead
+    if (VecLast(p->chunk->code) == OP_CALL) {
+      SetByte(p->chunk, ChunkSize(p->chunk) - 1, OP_APPLY);
+    }
+
+    // always add a return op, in case branches in the body need to jump here
+    PutInst(p->chunk, OP_RETURN);
+
+    // patch jump op to skip past the body
+    SetByte(p->chunk, start - 1, ChunkSize(p->chunk) - start);
+
+    // define lambda (params, position on stack)
+    PutInst(p->chunk, OP_CONST, IntVal(start));
+    PutInst(p->chunk, OP_LAMBDA, num_params);
+  } else {
+    ConsumeSymbol(p);
+    Expression(p, PREC_EXPR + 1, false);
+  }
+
   PutInst(p->chunk, OP_DEFINE);
 }
 
@@ -648,6 +707,28 @@ static void Logic(Parser *p)
   Expression(p, rule->prec + 1, true);
 
   SetByte(p->chunk, branch - 1, ChunkSize(p->chunk) - branch);
+}
+
+static void Module(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Module\n");
+
+  ExpectToken(p, TOKEN_MODULE);
+  ConsumeSymbol(p);
+
+  PutInst(p->chunk, OP_SCOPE);
+  Do(p);
+  PutInst(p->chunk, OP_POP);
+  PutInst(p->chunk, OP_MODULE);
+}
+
+static void Import(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Import\n");
+
+  ExpectToken(p, TOKEN_IMPORT);
+  ConsumeSymbol(p);
+  PutInst(p->chunk, OP_IMPORT);
 }
 
 /* Helpers */

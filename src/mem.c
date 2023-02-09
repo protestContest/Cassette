@@ -310,28 +310,28 @@ Val BinaryAt(Val *mem, Val binary, u32 i)
   return IntVal(BinaryData(mem, binary)[i]);
 }
 
-Val MakeDict(Val **mem, u32 count)
+Val MakeMap(Val **mem, u32 count)
 {
-  Val dict = DictVal(VecCount(*mem));
+  Val map = MapVal(VecCount(*mem));
 
-  VecPush(*mem, DictHdr(count));
+  VecPush(*mem, MapHdr(count));
 
   for (u32 i = 0; i < count; i++) {
     VecPush(*mem, nil);
     VecPush(*mem, nil);
   }
 
-  return dict;
+  return map;
 }
 
-void DictPut(Val *mem, Val dict, Val key, Val val)
+void MapPut(Val *mem, Val map, Val key, Val val)
 {
-  u32 size = DictSize(mem, dict);
-  u32 base = RawObj(dict) + 1;
+  u32 size = MapSize(mem, map);
+  u32 base = RawObj(map) + 1;
   u32 index = RawObj(key) % size;
 
-  while (!IsNil(DictKeyAt(mem, dict, index))) {
-    if (Eq(DictKeyAt(mem, dict, index), key)) {
+  while (!IsNil(MapKeyAt(mem, map, index))) {
+    if (Eq(MapKeyAt(mem, map, index), key)) {
       mem[base+index*2+1] = val;
       return;
     }
@@ -343,14 +343,14 @@ void DictPut(Val *mem, Val dict, Val key, Val val)
   mem[base+index*2+1] = val;
 }
 
-bool DictHasKey(Val *mem, Val dict, Val key)
+bool MapHasKey(Val *mem, Val map, Val key)
 {
-  u32 size = DictSize(mem, dict);
-  u32 base = RawObj(dict) + 1;
+  u32 size = MapSize(mem, map);
+  u32 base = RawObj(map) + 1;
   u32 index = (RawObj(key) * 2) % size;
 
   while (!IsNil(mem[base+index])) {
-    if (Eq(DictKeyAt(mem, dict, index), key)) {
+    if (Eq(MapKeyAt(mem, map, index), key)) {
       return true;
     }
 
@@ -360,14 +360,14 @@ bool DictHasKey(Val *mem, Val dict, Val key)
   return false;
 }
 
-Val DictGet(Val *mem, Val dict, Val key)
+Val MapGet(Val *mem, Val map, Val key)
 {
-  u32 size = DictSize(mem, dict);
+  u32 size = MapSize(mem, map);
   u32 index = RawObj(key) % size;
 
-  while (!IsNil(DictKeyAt(mem, dict, index))) {
-    if (Eq(DictKeyAt(mem, dict, index), key)) {
-      return DictValAt(mem, dict, index);
+  while (!IsNil(MapKeyAt(mem, map, index))) {
+    if (Eq(MapKeyAt(mem, map, index), key)) {
+      return MapValAt(mem, map, index);
     }
 
     index = (index + 1) % size;
@@ -376,20 +376,20 @@ Val DictGet(Val *mem, Val dict, Val key)
   return nil;
 }
 
-u32 DictSize(Val *mem, Val dict)
+u32 MapSize(Val *mem, Val map)
 {
-  return HdrVal(mem[RawObj(dict)]);
+  return HdrVal(mem[RawObj(map)]);
 }
 
-Val DictKeyAt(Val *mem, Val dict, u32 i)
+Val MapKeyAt(Val *mem, Val map, u32 i)
 {
-  u32 base = RawObj(dict) + 1;
+  u32 base = RawObj(map) + 1;
   return mem[base + i*2];
 }
 
-Val DictValAt(Val *mem, Val dict, u32 i)
+Val MapValAt(Val *mem, Val map, u32 i)
 {
-  u32 base = RawObj(dict) + 1;
+  u32 base = RawObj(map) + 1;
   return mem[base + i*2 + 1];
 }
 

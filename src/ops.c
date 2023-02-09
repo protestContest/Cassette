@@ -22,7 +22,7 @@ static void DupOp(VM *vm, OpCode op);
 static void ConstOp(VM *vm, OpCode op);
 static void PairOp(VM *vm, OpCode op);
 static void ListOp(VM *vm, OpCode op);
-static void DictOp(VM *vm, OpCode op);
+static void MapOp(VM *vm, OpCode op);
 static void LambdaOp(VM *vm, OpCode op);
 static void NegOp(VM *vm, OpCode op);
 static void ArithmeticOp(VM *vm, OpCode op);
@@ -31,6 +31,10 @@ static void CompareOp(VM *vm, OpCode op);
 static void DefineOp(VM *vm, OpCode op);
 static void LookupOp(VM *vm, OpCode op);
 static void AccessOp(VM *vm, OpCode op);
+static void ModuleOp(VM *vm, OpCode op);
+static void ImportOp(VM *vm, OpCode op);
+static void PushScopeOp(VM *vm, OpCode op);
+static void PopScopeOp(VM *vm, OpCode op);
 static void BranchOp(VM *vm, OpCode op);
 static void JumpOp(VM *vm, OpCode op);
 static void CallOp(VM *vm, OpCode op);
@@ -38,37 +42,41 @@ static void ReturnOp(VM *vm, OpCode op);
 static void ApplyOp(VM *vm, OpCode op);
 
 static OpInfo ops[] = {
-  [OP_HALT] =     { "halt",   ARGS_NONE,  &StatusOp     },
-  [OP_BREAK] =    { "break",  ARGS_NONE,  &StatusOp     },
-  [OP_POP] =      { "pop",    ARGS_NONE,  &PopOp        },
-  [OP_DUP] =      { "dup",    ARGS_NONE,  &DupOp        },
-  [OP_CONST] =    { "const",  ARGS_VAL,   &ConstOp      },
-  [OP_TRUE] =     { "true",   ARGS_NONE,  &ConstOp      },
-  [OP_FALSE] =    { "false",  ARGS_NONE,  &ConstOp      },
-  [OP_NIL] =      { "nil",    ARGS_NONE,  &ConstOp      },
-  [OP_ZERO] =     { "zero",   ARGS_NONE,  &ConstOp      },
-  [OP_PAIR] =     { "pair",   ARGS_NONE,  &PairOp       },
-  [OP_LIST] =     { "list",   ARGS_INT,   &ListOp       },
-  [OP_DICT] =     { "dict",   ARGS_INT,   &DictOp       },
-  [OP_LAMBDA] =   { "lambda", ARGS_INT,   &LambdaOp     },
-  [OP_NEG] =      { "neg",    ARGS_NONE,  &NegOp        },
-  [OP_ADD] =      { "add",    ARGS_NONE,  &ArithmeticOp },
-  [OP_SUB] =      { "sub",    ARGS_NONE,  &ArithmeticOp },
-  [OP_MUL] =      { "mul",    ARGS_NONE,  &ArithmeticOp },
-  [OP_DIV] =      { "div",    ARGS_NONE,  &ArithmeticOp },
-  [OP_EXP] =      { "exp",    ARGS_NONE,  &ArithmeticOp },
-  [OP_NOT] =      { "not",    ARGS_NONE,  &NotOp        },
-  [OP_EQUAL] =    { "equal",  ARGS_NONE,  &CompareOp    },
-  [OP_GT] =       { "gt",     ARGS_NONE,  &CompareOp    },
-  [OP_LT] =       { "lt",     ARGS_NONE,  &CompareOp    },
-  [OP_DEFINE] =   { "define", ARGS_NONE,  &DefineOp     },
-  [OP_LOOKUP] =   { "lookup", ARGS_NONE,  &LookupOp     },
-  [OP_ACCESS] =   { "access", ARGS_NONE,  &AccessOp     },
-  [OP_BRANCH] =   { "branch", ARGS_INT,   &BranchOp     },
-  [OP_JUMP] =     { "jump",   ARGS_INT,   &JumpOp       },
-  [OP_CALL] =     { "call",   ARGS_NONE,  &CallOp       },
-  [OP_RETURN] =   { "return", ARGS_NONE,  &ReturnOp     },
-  [OP_APPLY] =    { "apply",  ARGS_NONE,  &ApplyOp      },
+  [OP_HALT] =     { "halt",     ARGS_NONE,  &StatusOp     },
+  [OP_BREAK] =    { "break",    ARGS_NONE,  &StatusOp     },
+  [OP_POP] =      { "pop",      ARGS_NONE,  &PopOp        },
+  [OP_DUP] =      { "dup",      ARGS_NONE,  &DupOp        },
+  [OP_CONST] =    { "const",    ARGS_VAL,   &ConstOp      },
+  [OP_TRUE] =     { "true",     ARGS_NONE,  &ConstOp      },
+  [OP_FALSE] =    { "false",    ARGS_NONE,  &ConstOp      },
+  [OP_NIL] =      { "nil",      ARGS_NONE,  &ConstOp      },
+  [OP_ZERO] =     { "zero",     ARGS_NONE,  &ConstOp      },
+  [OP_PAIR] =     { "pair",     ARGS_NONE,  &PairOp       },
+  [OP_LIST] =     { "list",     ARGS_INT,   &ListOp       },
+  [OP_DICT] =     { "dict",     ARGS_INT,   &MapOp        },
+  [OP_LAMBDA] =   { "lambda",   ARGS_INT,   &LambdaOp     },
+  [OP_NEG] =      { "neg",      ARGS_NONE,  &NegOp        },
+  [OP_ADD] =      { "add",      ARGS_NONE,  &ArithmeticOp },
+  [OP_SUB] =      { "sub",      ARGS_NONE,  &ArithmeticOp },
+  [OP_MUL] =      { "mul",      ARGS_NONE,  &ArithmeticOp },
+  [OP_DIV] =      { "div",      ARGS_NONE,  &ArithmeticOp },
+  [OP_EXP] =      { "exp",      ARGS_NONE,  &ArithmeticOp },
+  [OP_NOT] =      { "not",      ARGS_NONE,  &NotOp        },
+  [OP_EQUAL] =    { "equal",    ARGS_NONE,  &CompareOp    },
+  [OP_GT] =       { "gt",       ARGS_NONE,  &CompareOp    },
+  [OP_LT] =       { "lt",       ARGS_NONE,  &CompareOp    },
+  [OP_DEFINE] =   { "define",   ARGS_NONE,  &DefineOp     },
+  [OP_LOOKUP] =   { "lookup",   ARGS_NONE,  &LookupOp     },
+  [OP_ACCESS] =   { "access",   ARGS_NONE,  &AccessOp     },
+  [OP_MODULE] =   { "module",   ARGS_NONE,  &ModuleOp     },
+  [OP_IMPORT] =   { "import",   ARGS_NONE,  &ImportOp     },
+  [OP_SCOPE] =    { "scope",    ARGS_NONE,  &PushScopeOp  },
+  [OP_UNSCOPE] =  { "unscope",  ARGS_NONE,  &PopScopeOp   },
+  [OP_BRANCH] =   { "branch",   ARGS_INT,   &BranchOp     },
+  [OP_JUMP] =     { "jump",     ARGS_INT,   &JumpOp       },
+  [OP_CALL] =     { "call",     ARGS_NONE,  &CallOp       },
+  [OP_RETURN] =   { "return",   ARGS_NONE,  &ReturnOp     },
+  [OP_APPLY] =    { "apply",    ARGS_NONE,  &ApplyOp      },
 };
 
 void DoOp(VM *vm, OpCode op)
@@ -184,6 +192,9 @@ static void ArithmeticOp(VM *vm, OpCode op)
     } else if (op == OP_SUB) {
       StackPush(vm, IntVal(RawInt(a) - RawInt(b)));
       return;
+    } else if (op == OP_MUL) {
+      StackPush(vm, IntVal(RawInt(a) * RawInt(b)));
+      return;
     }
   }
 
@@ -273,19 +284,19 @@ static void ListOp(VM *vm, OpCode op)
   StackPush(vm, list);
 }
 
-static void DictOp(VM *vm, OpCode op)
+static void MapOp(VM *vm, OpCode op)
 {
   u32 num = ReadByte(vm);
 
-  Val dict = MakeDict(&vm->heap, num);
+  Val map = MakeMap(&vm->heap, num);
 
   for (u32 i = 0; i < num; i++) {
     Val val = StackPop(vm);
     Val key = StackPop(vm);
-    DictPut(vm->heap, dict, key, val);
+    MapPut(vm->heap, map, key, val);
   }
 
-  StackPush(vm, dict);
+  StackPush(vm, map);
 }
 
 static void LambdaOp(VM *vm, OpCode op)
@@ -334,14 +345,63 @@ static void AccessOp(VM *vm, OpCode op)
   Val var = StackPop(vm);
   Val dict = StackPop(vm);
 
-  if (!IsDict(dict)) {
+  if (!IsMap(dict)) {
     RuntimeError(vm, "Can't access this");
-  } else if (!DictHasKey(vm->heap, dict, var)) {
-    RuntimeError(vm, "Invalid access");
+  } else if (!MapHasKey(vm->heap, dict, var)) {
+    StackPush(vm, nil);
   } else {
-    Val val = DictGet(vm->heap, dict, var);
+    Val val = MapGet(vm->heap, dict, var);
     StackPush(vm, val);
   }
+}
+
+static void PushScopeOp(VM *vm, OpCode op)
+{
+  vm->env = ExtendEnv(vm, vm->env);
+}
+
+static void PopScopeOp(VM *vm, OpCode op)
+{
+  vm->env = ParentEnv(vm, vm->env);
+}
+
+static void ModuleOp(VM *vm, OpCode op)
+{
+  Val name = StackPop(vm);
+  Val mod = FrameMap(vm, vm->env);
+
+  Val modules = vm->modules;
+  while (!IsNil(modules)) {
+    if (Eq(Head(vm->heap, modules), name)) {
+      SetTail(&vm->heap, modules, mod);
+      vm->env = ParentEnv(vm, vm->env);
+      return;
+    }
+  }
+
+  Val item = MakePair(&vm->heap, name, mod);
+  vm->modules = MakePair(&vm->heap, item, vm->modules);
+  vm->env = ParentEnv(vm, vm->env);
+}
+
+static void ImportOp(VM *vm, OpCode op)
+{
+  Val name = StackPop(vm);
+
+  Val modules = vm->modules;
+  while (!IsNil(modules)) {
+    Val item = Head(vm->heap, modules);
+
+    if (Eq(Head(vm->heap, item), name)) {
+      Val mod = Tail(vm->heap, item);
+      Define(vm, name, mod, vm->env);
+      StackPush(vm, SymbolFor("ok"));
+      return;
+    }
+    modules = Tail(vm->heap, modules);
+  }
+
+  RuntimeError(vm, "Module not defined: %s\n", SymbolName(vm->chunk->symbols, name));
 }
 
 static void BranchOp(VM *vm, OpCode op)

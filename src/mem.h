@@ -49,10 +49,10 @@ Val BinaryAt(Val *mem, Val binary, u32 i);
 
 void PrintHeap(Val *mem, Symbol *symbols);
 
-Val MakeDict(Val **mem, u32 count);
-void DictPut(Val *mem, Val dict, Val key, Val val);
-bool DictHasKey(Val *mem, Val dict, Val key);
-Val DictGet(Val *mem, Val dict, Val key);
-u32 DictSize(Val *mem, Val dict);
-Val DictKeyAt(Val *mem, Val dict, u32 i);
-Val DictValAt(Val *mem, Val dict, u32 i);
+Val MakeMap(Val **mem, u32 count);
+void MapPut(Val *mem, Val map, Val key, Val val);
+bool MapHasKey(Val *mem, Val map, Val key);
+Val MapGet(Val *mem, Val map, Val key);
+u32 MapSize(Val *mem, Val map);
+Val MapKeyAt(Val *mem, Val map, u32 i);
+Val MapValAt(Val *mem, Val map, u32 i);

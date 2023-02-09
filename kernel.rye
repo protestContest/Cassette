@@ -1,52 +1,52 @@
-module Kernel do
-  def (nil? x) eq? nil x
+; module Kernel do
+;   def (nil? x) eq? nil x
 
-  def (reverse-onto list base) do
-    if nil? list do
-      base
-    else
-      let {rest: tail list} do
-        set-tail! list base
-        reverse-onto rest list
-      end
-    end
-  end
+;   def (reverse-onto list base) do
+;     if nil? list do
+;       base
+;     else
+;       let {rest: tail list} do
+;         set-tail! list base
+;         reverse-onto rest list
+;       end
+;     end
+;   end
 
-  def (reverse list) (reverse-onto list nil)
+;   def (reverse list) (reverse-onto list nil)
 
-  def (reduce list acc fun) do
-    if (nil? list) do
-      acc
-    else
-      reduce (tail list) (fun (head list) acc) fun
-    end
-  end
+;   def (reduce list acc fun) do
+;     if (nil? list) do
+;       acc
+;     else
+;       reduce (tail list) (fun (head list) acc) fun
+;     end
+;   end
 
-  def (map list fun) do
-    reduce list nil (item acc) -> ((fun item) | acc)
-    |> reverse
-  end
+;   def (map list fun) do
+;     reduce list nil (item acc) -> ((fun item) | acc)
+;     |> reverse
+;   end
 
-  def (filter list test) do
-    reduce list nil (item acc) -> do
-      if (test item) do
-        (item | acc)
-      else
-        acc
-      end
-    end
-    |> reverse
-  end
+;   def (filter list test) do
+;     reduce list nil (item acc) -> do
+;       if (test item) do
+;         (item | acc)
+;       else
+;         acc
+;       end
+;     end
+;     |> reverse
+;   end
 
-  def (ι n) do
-    def (loop n result) do
-      if n = 0 do
-        result
-      else
-        loop (n - 1) (n | result)
-      end
-    end
+;   def (ι n) do
+;     def (loop n result) do
+;       if n = 0 do
+;         result
+;       else
+;         loop (n - 1) (n | result)
+;       end
+;     end
 
-    loop n nil
-  end
-end
+;     loop n nil
+;   end
+; end

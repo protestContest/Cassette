@@ -53,9 +53,9 @@ void CompileTests(void)
     OP_NOT,
     OP_BRANCH, 4,
     OP_CONST, SymbolFor("ok"),
-    OP_JUMP, 2,
-    OP_CONST, SymbolFor("err"));
-  passed += TestCompile("if 1 = 2 - 1 or nil :ok :err", &chunk);
+    OP_JUMP, 1,
+    OP_NIL);
+  passed += TestCompile("if 1 = 2 - 1 or nil :ok", &chunk);
   total++;
   ResetChunk(&chunk);
 

@@ -6,7 +6,16 @@
 
 int main(int argc, char *argv[])
 {
-  CompileTests();
+  VM vm;
+  InitVM(&vm);
+
+  if (argc > 1) {
+    RunFile(&vm, argv[1]);
+  } else {
+    REPL(&vm);
+  }
+
+  // CompileTests();
 
   // VM vm;
   // InitVM(&vm);

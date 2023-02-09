@@ -6,6 +6,11 @@ Val ExtendEnv(VM *vm, Val env)
   return MakePair(&vm->heap, nil, env);
 }
 
+Val ParentEnv(VM *vm, Val env)
+{
+  return Tail(vm->heap, env);
+}
+
 void Define(VM *vm, Val var, Val val, Val env)
 {
   Val frame = Head(vm->heap, env);
@@ -53,4 +58,21 @@ Result Lookup(VM *vm, Val var, Val env)
 
   Result result = {Error, nil};
   return result;
+}
+
+Val FrameMap(VM *vm, Val env)
+{
+  Val frame = Head(vm->heap, env);
+  u32 count = ListLength(vm->heap, frame);
+  Val map = MakeMap(&vm->heap, count);
+
+  while (!IsNil(frame)) {
+    Val pair = Head(vm->heap, frame);
+    Val var = Head(vm->heap, pair);
+    Val val = Tail(vm->heap, pair);
+    MapPut(vm->heap, map, var, val);
+    frame = Tail(vm->heap, frame);
+  }
+
+  return map;
 }

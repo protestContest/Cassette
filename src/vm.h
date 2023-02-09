@@ -16,6 +16,7 @@ typedef struct VM {
   Val *stack;
   Val *heap;
   Val env;
+  Val modules;
 } VM;
 
 void InitVM(VM *vm);

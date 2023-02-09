@@ -11,5 +11,7 @@
 #define RestOfEnv(vm, env)       Tail((vm)->heap, env)
 
 Val ExtendEnv(VM *vm, Val env);
+Val ParentEnv(VM *vm, Val env);
 void Define(VM *vm, Val var, Val val, Val env);
 Result Lookup(VM *vm, Val var, Val env);
+Val FrameMap(VM *vm, Val env);

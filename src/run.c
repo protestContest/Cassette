@@ -1,4 +1,6 @@
 #include "run.h"
+#include "module.h"
+#include "compile.h"
 
 void REPL(VM *vm)
 {
@@ -14,23 +16,16 @@ void REPL(VM *vm)
   }
 }
 
-char *ReadFile(const char *path)
+void RunFile(VM *vm, char *path)
 {
-  FILE *file = fopen(path, "rb");
-  fseek(file, 0L, SEEK_END);
-  size_t size = ftell(file);
-  rewind(file);
+  Chunk chunk;
+  InitChunk(&chunk);
 
-  char *buffer = (char*)malloc(size + 1);
-  size_t num_read = fread(buffer, sizeof(char), size, file);
-  buffer[num_read] = '\0';
-  fclose(file);
-  return buffer;
-}
+  LoadModules(".", path, &chunk);
 
-void RunFile(VM *vm, const char *path)
-{
   char *src = ReadFile(path);
-  Interpret(vm, src);
+  Compile(src, &chunk);
+  RunChunk(vm, &chunk);
+
   free(src);
 }

@@ -19,23 +19,20 @@ void InitVM(VM *vm)
   VecPush(vm->heap, nil);
   VecPush(vm->heap, nil);
   vm->env = ExtendEnv(vm, nil);
+  vm->modules = nil;
 }
 
 void ResetVM(VM *vm)
 {
-  vm->status = VM_Ok;
-  FreeVec(vm->stack);
-  vm->stack = NULL;
-  FreeVec(vm->heap);
-  vm->heap = NULL;
-  VecPush(vm->heap, nil);
-  VecPush(vm->heap, nil);
-  vm->env = nil;
-  vm->pc = 0;
+  Chunk *chunk = vm->chunk;
 
-  if (vm->chunk) {
+  FreeVec(vm->stack);
+  FreeVec(vm->heap);
+  InitVM(vm);
+
+  if (chunk != NULL) {
+    vm->chunk = chunk;
     vm->heap = AppendVec(vm->heap, vm->chunk->constants, sizeof(Val));
-    vm->env = ExtendEnv(vm, vm->env);
   }
 }
 
@@ -69,19 +66,20 @@ Val ReadConst(VM *vm)
   return GetConst(vm->chunk, ReadByte(vm));
 }
 
-static void PrintStackLine(VM *vm, u32 bufsize)
+static u32 PrintStackLine(VM *vm, u32 bufsize)
 {
   u32 written = 0;
   for (u32 i = 0; i < VecCount(vm->stack); i++) {
     if (written + 8 >= bufsize) {
       if (i < VecCount(vm->stack) - 1) printf("...");
-      return;
+      return written;
     }
 
     written += PrintVal(vm->heap, vm->chunk->symbols, vm->stack[VecCount(vm->stack)-1-i]);
     written += printf(" ");
   }
-  printf("▪︎");
+  written += printf("▪︎");
+  return written;
 }
 
 static void PrintStack(VM *vm)
@@ -196,21 +194,21 @@ void Run(VM *vm)
 
     if (TRACE) {
       PrintStackLine(vm, 100);
-      printf("\n");
+      printf(" e%d\n", ListLength(vm->heap, vm->env) - 1);
+      // printf("\n");
     }
 
     if (vm->status == VM_Debug || vm->status == VM_Error) {
       DebugVM(vm);
     }
 
-    if (count >= 100) exit(1);
+    // if (count >= 100) exit(1);
   }
 }
 
 void RunChunk(VM *vm, Chunk *chunk)
 {
   vm->chunk = chunk;
-  ResetVM(vm);
   Run(vm);
 }
 

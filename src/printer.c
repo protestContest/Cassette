@@ -17,13 +17,13 @@ u32 PrintVal(Val *mem, Symbol *symbols, Val value)
     return printf(":%s", SymbolName(symbols, value));
   } else if (IsTuple(value)) {
     return printf("t%d", RawObj(value));
-  } else if (IsDict(value)) {
+  } else if (IsMap(value)) {
     u32 count = printf("{");
-    for (u32 i = 0; i < DictSize(mem, value); i++) {
-      count += PrintVal(mem, symbols, DictKeyAt(mem, value, i));
+    for (u32 i = 0; i < MapSize(mem, value); i++) {
+      count += printf("%s", SymbolName(symbols, MapKeyAt(mem, value, i)));
       count += printf(": ");
-      count += PrintVal(mem, symbols, DictValAt(mem, value, i));
-      if (i != DictSize(mem, value) - 1) {
+      count += PrintVal(mem, symbols, MapValAt(mem, value, i));
+      if (i != MapSize(mem, value) - 1) {
         count += printf(", ");
       }
     }

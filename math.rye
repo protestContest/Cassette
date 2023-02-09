@@ -4,4 +4,4 @@ module Math do
   end
 end
 
-Math.combo 3 4 5
+; Math.combo 3 4 5

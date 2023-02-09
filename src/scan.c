@@ -177,18 +177,20 @@ Token IdentifierToken(Parser *p)
 {
   u32 start = p->source.cur;
 
-  if (MatchKeyword(p, "true"))  return MakeToken(p, TOKEN_TRUE, 4);
-  if (MatchKeyword(p, "false")) return MakeToken(p, TOKEN_FALSE, 5);
-  if (MatchKeyword(p, "nil"))   return MakeToken(p, TOKEN_NIL, 3);
-  if (MatchKeyword(p, "and"))   return MakeToken(p, TOKEN_AND, 3);
-  if (MatchKeyword(p, "not"))   return MakeToken(p, TOKEN_NOT, 3);
-  if (MatchKeyword(p, "cond"))  return MakeToken(p, TOKEN_COND, 4);
-  if (MatchKeyword(p, "def"))   return MakeToken(p, TOKEN_DEF, 3);
-  if (MatchKeyword(p, "if"))    return MakeToken(p, TOKEN_IF, 2);
-  if (MatchKeyword(p, "do"))    return MakeToken(p, TOKEN_DO, 2);
-  if (MatchKeyword(p, "else"))  return MakeToken(p, TOKEN_ELSE, 4);
-  if (MatchKeyword(p, "end"))   return MakeToken(p, TOKEN_END, 3);
-  if (MatchKeyword(p, "or"))    return MakeToken(p, TOKEN_OR, 2);
+  if (MatchKeyword(p, "module"))  return MakeToken(p, TOKEN_MODULE, 6);
+  if (MatchKeyword(p, "import"))  return MakeToken(p, TOKEN_IMPORT, 6);
+  if (MatchKeyword(p, "true"))    return MakeToken(p, TOKEN_TRUE, 4);
+  if (MatchKeyword(p, "false"))   return MakeToken(p, TOKEN_FALSE, 5);
+  if (MatchKeyword(p, "nil"))     return MakeToken(p, TOKEN_NIL, 3);
+  if (MatchKeyword(p, "and"))     return MakeToken(p, TOKEN_AND, 3);
+  if (MatchKeyword(p, "not"))     return MakeToken(p, TOKEN_NOT, 3);
+  if (MatchKeyword(p, "cond"))    return MakeToken(p, TOKEN_COND, 4);
+  if (MatchKeyword(p, "def"))     return MakeToken(p, TOKEN_DEF, 3);
+  if (MatchKeyword(p, "if"))      return MakeToken(p, TOKEN_IF, 2);
+  if (MatchKeyword(p, "do"))      return MakeToken(p, TOKEN_DO, 2);
+  if (MatchKeyword(p, "else"))    return MakeToken(p, TOKEN_ELSE, 4);
+  if (MatchKeyword(p, "end"))     return MakeToken(p, TOKEN_END, 3);
+  if (MatchKeyword(p, "or"))      return MakeToken(p, TOKEN_OR, 2);
 
   while (IsSymChar(Peek(p))) Advance(p);
 
@@ -296,6 +298,8 @@ const char *TokenStr(TokenType type)
   case TOKEN_NEWLINE:     return "NEWLINE";
   case TOKEN_EOF:         return "EOF";
   case TOKEN_ERROR:       return "ERROR";
+  case TOKEN_MODULE:      return "MODULE";
+  case TOKEN_IMPORT:      return "IMPORT";
   }
 }
 
