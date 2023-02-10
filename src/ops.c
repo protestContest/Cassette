@@ -402,7 +402,7 @@ static void ImportOp(VM *vm, OpCode op)
     modules = Tail(vm->heap, modules);
   }
 
-  RuntimeError(vm, "Module not defined: %s\n", SymbolName(vm->chunk->symbols, name));
+  RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->chunk->strings, name));
 }
 
 static void BranchOp(VM *vm, OpCode op)

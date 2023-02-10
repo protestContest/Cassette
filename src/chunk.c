@@ -15,7 +15,6 @@ Chunk *InitChunk(Chunk *chunk)
 {
   chunk->code = NULL;
   chunk->constants = NULL;
-  chunk->symbols = NULL;
   InitStringMap(&chunk->strings);
 
   PutSymbol(chunk, "true", 4);
@@ -31,7 +30,6 @@ void ResetChunk(Chunk *chunk)
   FreeVec(chunk->code);
   FreeVec(chunk->constants);
   FreeStringMap(&chunk->strings);
-  FreeVec(chunk->symbols);
   InitChunk(chunk);
 }
 
@@ -40,7 +38,6 @@ void FreeChunk(Chunk *chunk)
   FreeVec(chunk->code);
   FreeVec(chunk->constants);
   FreeStringMap(&chunk->strings);
-  FreeVec(chunk->symbols);
   free(chunk);
 }
 
@@ -82,7 +79,7 @@ Val GetConst(Chunk *chunk, u32 i)
 
 Val PutSymbol(Chunk *chunk, char *name, u32 length)
 {
-  return MakeSymbolFromSlice(&chunk->symbols, name, length);
+  return MakeSymbolFromSlice(&chunk->strings, name, length);
 }
 
 u32 PutInst(Chunk *chunk, OpCode op, ...)
@@ -110,7 +107,7 @@ u32 DisassembleInstruction(Chunk *chunk, u32 i)
   switch (OpFormat(op)) {
   case ARGS_VAL:
     written += printf("%02X %02X %s ", GetByte(chunk, i), GetByte(chunk, i+1), OpStr(op));
-    written += PrintVal(chunk->constants, chunk->symbols, &chunk->strings, GetConst(chunk, GetByte(chunk, i + 1)));
+    written += PrintVal(chunk->constants, &chunk->strings, GetConst(chunk, GetByte(chunk, i + 1)));
     break;
   case ARGS_INT:
     written += printf("%02X %02X %s %d", GetByte(chunk, i), GetByte(chunk, i+1), OpStr(op), GetByte(chunk, i + 1));
@@ -171,7 +168,7 @@ void DumpConstants(Chunk *chunk)
 {
   for (u32 i = 0; i < VecCount(chunk->constants); i++) {
     printf("%02d  ", i);
-    PrintVal(chunk->constants, chunk->symbols, &chunk->strings, chunk->constants[i]);
+    PrintVal(chunk->constants, &chunk->strings, chunk->constants[i]);
     printf("\n");
   }
 }

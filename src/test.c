@@ -60,9 +60,9 @@ void CompileTests(void)
   ResetChunk(&chunk);
 
   WriteChunk(&chunk, 37,
-    OP_CONST, MakeSymbol(&chunk.symbols, "foo"),
-    OP_CONST, MakeSymbol(&chunk.symbols, "x"),
-    OP_CONST, MakeSymbol(&chunk.symbols, "sum"),
+    OP_CONST, MakeSymbol(&chunk.strings, "foo"),
+    OP_CONST, MakeSymbol(&chunk.strings, "x"),
+    OP_CONST, MakeSymbol(&chunk.strings, "sum"),
     OP_JUMP, 33,
     OP_CONST, SymbolFor("x"),
     OP_LOOKUP,

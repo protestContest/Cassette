@@ -58,7 +58,6 @@ u32 StringLength(StringMap *map, Val str)
 
   while (!IsNil(map->items[index].key)) {
     if (Eq(map->items[index].key, str)) return map->items[index].length;
-
     index = (index + 1) % map->capacity;
   }
 
@@ -71,9 +70,32 @@ char *StringData(StringMap *map, Val str)
 
   while (!IsNil(map->items[index].key)) {
     if (Eq(map->items[index].key, str)) return map->items[index].data;
-
     index = (index + 1) % map->capacity;
   }
 
   return NULL;
 }
+
+Val MakeSymbol(StringMap *map, char *src)
+{
+  return MakeSymbolFromSlice(map, src, strlen(src));
+}
+
+Val MakeSymbolFromSlice(StringMap *map, char *src, u32 len)
+{
+  Val str = PutString(map, src, len);
+  return SymVal(RawObj(str));
+}
+
+Val SymbolFor(char *src)
+{
+  u32 hash = HashSize(src, strlen(src), objBits);
+  return SymVal(hash);
+}
+
+char *SymbolName(StringMap *map, Val sym)
+{
+  Val str = BinVal(RawObj(sym));
+  return StringData(map, str);
+}
+

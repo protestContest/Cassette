@@ -153,7 +153,7 @@ static void PrintTraceEnd(VM *vm)
 
 u32 PrintVMVal(VM *vm, Val val)
 {
-  return PrintVal(vm->heap, vm->chunk->symbols, &vm->chunk->strings, val);
+  return PrintVal(vm->heap, &vm->chunk->strings, val);
 }
 
 static u32 PrintStackLine(VM *vm, u32 bufsize)
@@ -244,14 +244,10 @@ static void DebugPrompt(VM *vm)
       vm->status = VM_Ok;
       printf("\n");
       return;
-    } else if (DebugCmd(line, "help")) {
-      printf("c       continue\nst      stack dump\nhd      heap dump\nsm      symbol dump\nr       reset/run\np       print chunk\ne       dump environment\n[enter] step\n");
     } else if (DebugCmd(line, "st")) {
       PrintStack(vm);
     } else if (DebugCmd(line, "hd")) {
-      PrintHeap(vm->heap, vm->chunk->symbols, &vm->chunk->strings);
-    } else if (DebugCmd(line, "sm")) {
-      DumpSymbols(vm->chunk->symbols);
+      PrintHeap(vm->heap, &vm->chunk->strings);
     } else if (DebugCmd(line, "r")) {
       ResetVM(vm);
       return;

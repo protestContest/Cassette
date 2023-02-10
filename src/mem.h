@@ -35,14 +35,7 @@ u32 TupleLength(Val *mem, Val tuple);
 Val TupleAt(Val *mem, Val tuple, u32 i);
 void TupleSet(Val *mem, Val tuple, u32 i, Val val);
 
-Val MakeSymbol(Symbol **symbols, char *src);
-Val MakeSymbolFromSlice(Symbol **symbols, char *src, u32 len);
-// Val BoolSymbol(bool val);
-Val SymbolFor(char *src);
-char *SymbolName(Symbol *symbols, Val sym);
-void DumpSymbols(Symbol *symbols);
-
-void PrintHeap(Val *mem, Symbol *symbols, StringMap *strings);
+void PrintHeap(Val *mem, StringMap *strings);
 
 Val MakeMap(Val **mem, u32 count);
 void MapPut(Val *mem, Val map, Val key, Val val);

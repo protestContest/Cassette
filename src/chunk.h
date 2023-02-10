@@ -8,7 +8,6 @@ typedef struct {
   u8 *code;
   Val *constants;
   StringMap strings;
-  Symbol *symbols;
 } Chunk;
 
 Chunk *NewChunk(void);

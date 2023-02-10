@@ -163,55 +163,6 @@ void TupleSet(Val *mem, Val tuple, u32 i, Val val)
   mem[index + i + 1] = val;
 }
 
-Val MakeSymbol(Symbol **symbols, char *src)
-{
-  return MakeSymbolFromSlice(symbols, src, strlen(src));
-}
-
-Val MakeSymbolFromSlice(Symbol **symbols, char *src, u32 len)
-{
-  Val key = SymVal(Hash(src, len));
-
-  for (u32 i = 0; i < VecCount(*symbols); i++) {
-    if (Eq((*symbols)[i].key, key)) {
-      return key;
-    }
-  }
-
-  Symbol sym;
-  sym.key = key;
-  sym.name = malloc(len+1);
-  memcpy(sym.name, src, len);
-  sym.name[len] = '\0';
-
-  VecPush(*symbols, sym);
-
-  return key;
-}
-
-Val SymbolFor(char *src)
-{
-  return SymVal(Hash(src, strlen(src)));
-}
-
-char *SymbolName(Symbol *symbols, Val sym)
-{
-  for (u32 i = 0; i < VecCount(symbols); i++) {
-    if (Eq(symbols[i].key, sym)) {
-      return symbols[i].name;
-    }
-  }
-  return "<s?>";
-}
-
-void DumpSymbols(Symbol *symbols)
-{
-  printf("Symbols\n");
-  for (u32 i = 0; i < VecCount(symbols); i++) {
-    printf("  0x%0X %s\n", symbols[i].key.as_v, symbols[i].name);
-  }
-}
-
 Val MakeMap(Val **mem, u32 count)
 {
   Val map = MapVal(VecCount(*mem));
@@ -295,13 +246,13 @@ Val MapValAt(Val *mem, Val map, u32 i)
   return mem[base + i*2 + 1];
 }
 
-void PrintHeap(Val *mem, Symbol *symbols, StringMap *strings)
+void PrintHeap(Val *mem, StringMap *strings)
 {
   printf("───╴Heap╶───\n");
 
   for (u32 i = 0; i < VecCount(mem) && i < 100; i++) {
     printf("%4u │ ", i);
-    PrintVal(mem, symbols, strings, mem[i]);
+    PrintVal(mem, strings, mem[i]);
     printf("\n");
   }
 }

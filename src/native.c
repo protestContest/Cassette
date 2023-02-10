@@ -69,7 +69,7 @@ void DefineNatives(VM *vm)
   InitNativeMap(&vm->natives);
 
   for (u32 i = 0; i < ArrayCount(natives); i++) {
-    Val name = MakeSymbol(&vm->chunk->symbols, natives[i].name);
+    Val name = MakeSymbol(&vm->chunk->strings, natives[i].name);
     NativeMapPut(&vm->natives, name, natives[i].impl);
     Define(vm, name, MakePair(&vm->heap, SymbolFor("native"), name), vm->env);
   }
@@ -79,7 +79,7 @@ void DoNative(VM *vm, Val name)
 {
   NativeFn fn = NativeMapGet(&vm->natives, name);
   if (fn == NULL) {
-    RuntimeError(vm, "Undefined native function \"%s\"", SymbolName(vm->chunk->symbols, name));
+    RuntimeError(vm, "Undefined native function \"%s\"", SymbolName(&vm->chunk->strings, name));
     return;
   }
 
@@ -91,6 +91,6 @@ void DoNative(VM *vm, Val name)
 static void NativePrint(VM *vm)
 {
   Val val = StackPop(vm);
-  PrintVal(vm->heap, vm->chunk->symbols, &vm->chunk->strings, val);
+  PrintVal(vm->heap, &vm->chunk->strings, val);
   printf("\n");
 }

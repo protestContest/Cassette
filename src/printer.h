@@ -3,4 +3,4 @@
 #include "mem.h"
 #include "string.h"
 
-u32 PrintVal(Val *mem, Symbol *symbols, StringMap *strings, Val value);
+u32 PrintVal(Val *mem, StringMap *strings, Val value);

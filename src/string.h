@@ -19,3 +19,8 @@ void FreeStringMap(StringMap *map);
 Val PutString(StringMap *map, char *str, u32 length);
 u32 StringLength(StringMap *map, Val str);
 char *StringData(StringMap *map, Val str);
+
+Val MakeSymbol(StringMap *map, char *src);
+Val MakeSymbolFromSlice(StringMap *map, char *src, u32 len);
+Val SymbolFor(char *src);
+char *SymbolName(StringMap *map, Val sym);
