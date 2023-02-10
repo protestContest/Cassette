@@ -23,3 +23,8 @@ u32 Hash(void *data, u32 size)
 {
     return FoldXor(FNV(data, size, FNV_BASIS), 21);
 }
+
+u32 HashSize(void *data, u32 size, u32 bits)
+{
+    return FoldXor(FNV(data, size, FNV_BASIS), bits);
+}

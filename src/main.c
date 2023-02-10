@@ -8,6 +8,7 @@ int main(int argc, char *argv[])
 {
   VM vm;
   InitVM(&vm);
+  DebugVM(&vm);
 
   if (argc > 1) {
     RunFile(&vm, argv[1]);

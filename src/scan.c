@@ -191,6 +191,7 @@ Token IdentifierToken(Parser *p)
   if (MatchKeyword(p, "else"))    return MakeToken(p, TOKEN_ELSE, 4);
   if (MatchKeyword(p, "end"))     return MakeToken(p, TOKEN_END, 3);
   if (MatchKeyword(p, "or"))      return MakeToken(p, TOKEN_OR, 2);
+  if (MatchKeyword(p, "let"))     return MakeToken(p, TOKEN_LET, 3);
 
   while (IsSymChar(Peek(p))) Advance(p);
 
@@ -300,6 +301,7 @@ const char *TokenStr(TokenType type)
   case TOKEN_ERROR:       return "ERROR";
   case TOKEN_MODULE:      return "MODULE";
   case TOKEN_IMPORT:      return "IMPORT";
+  case TOKEN_LET:         return "LET";
   }
 }
 

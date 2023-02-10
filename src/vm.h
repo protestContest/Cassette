@@ -1,6 +1,7 @@
 #pragma once
 #include "value.h"
 #include "chunk.h"
+#include "native.h"
 
 typedef enum {
   VM_Ok,
@@ -17,10 +18,12 @@ typedef struct VM {
   Val *heap;
   Val env;
   Val modules;
+  NativeMap natives;
 } VM;
 
 void InitVM(VM *vm);
 void ResetVM(VM *vm);
+void DebugVM(VM *vm);
 
 void StackPush(VM *vm, Val val);
 Val StackPop(VM *vm);
@@ -33,3 +36,5 @@ void RunChunk(VM *vm, Chunk *chunk);
 void Interpret(VM *vm, char *src);
 void RuntimeError(VM *vm, char *fmt, ...);
 void PrintEnv(VM *vm);
+
+u32 PrintVMVal(VM *vm, Val val);

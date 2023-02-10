@@ -6,8 +6,17 @@
 #include "printer.h"
 #include "mem.h"
 #include "env.h"
+#include "native.h"
 
 #define TRACE 1
+
+static void DebugPrompt(VM *vm);
+void PrintEnv(VM *vm);
+static bool DebugCmd(char *cmd, const char *name);
+static void PrintStack(VM *vm);
+static u32 PrintStackLine(VM *vm, u32 bufsize);
+static void PrintTraceStart(VM *vm);
+static void PrintTraceEnd(VM *vm);
 
 void InitVM(VM *vm)
 {
@@ -24,16 +33,21 @@ void InitVM(VM *vm)
 
 void ResetVM(VM *vm)
 {
-  Chunk *chunk = vm->chunk;
-
   FreeVec(vm->stack);
   FreeVec(vm->heap);
   InitVM(vm);
+}
 
-  if (chunk != NULL) {
-    vm->chunk = chunk;
-    vm->heap = AppendVec(vm->heap, vm->chunk->constants, sizeof(Val));
-  }
+void SetChunk(VM *vm, Chunk *chunk)
+{
+  ResetVM(vm);
+  vm->chunk = chunk;
+  DefineNatives(vm);
+}
+
+void DebugVM(VM *vm)
+{
+  vm->status = VM_Debug;
 }
 
 void StackPush(VM *vm, Val val)
@@ -66,6 +80,82 @@ Val ReadConst(VM *vm)
   return GetConst(vm->chunk, ReadByte(vm));
 }
 
+void Run(VM *vm)
+{
+  if (TRACE) printf("─────┬╴Instruction╶─────────┬╴Stack╶───\n");
+
+  while (vm->pc < VecCount(vm->chunk->code)) {
+    if (TRACE) PrintTraceStart(vm);
+
+    DoOp(vm, ReadByte(vm));
+
+    if (TRACE) PrintTraceEnd(vm);
+
+    if (vm->status == VM_Debug || vm->status == VM_Error) {
+      DebugPrompt(vm);
+    }
+  }
+}
+
+void RunChunk(VM *vm, Chunk *chunk)
+{
+  SetChunk(vm, chunk);
+  Run(vm);
+}
+
+void Interpret(VM *vm, char *src)
+{
+  Chunk chunk;
+  InitChunk(&chunk);
+
+  if (Compile(src, &chunk) == Error) {
+    ResetChunk(&chunk);
+    return;
+  }
+
+  Disassemble("Chunk", &chunk);
+
+  vm->chunk = &chunk;
+  vm->pc = 0;
+  Run(vm);
+}
+
+void RuntimeError(VM *vm, char *fmt, ...)
+{
+  va_list args;
+  va_start(args, fmt);
+  fprintf(stderr, "Runtime error: ");
+  vfprintf(stderr, fmt, args);
+  va_end(args);
+  fprintf(stderr, "\n");
+
+  ResetVM(vm);
+  vm->status = VM_Error;
+}
+
+static void PrintTraceStart(VM *vm)
+{
+  u32 written = DisassembleInstruction(vm->chunk, vm->pc);
+  if (written < 30) {
+    for (u32 i = 0; i < 30 - written; i++) printf(" ");
+  }
+  printf("│ ");
+}
+
+
+static void PrintTraceEnd(VM *vm)
+{
+  PrintStackLine(vm, 100);
+  printf(" e%d ", ListLength(vm->heap, vm->env) - 1);
+  PrintVMVal(vm, FrameMap(vm, vm->env));
+  printf("\n");
+}
+
+u32 PrintVMVal(VM *vm, Val val)
+{
+  return PrintVal(vm->heap, vm->chunk->symbols, &vm->chunk->strings, val);
+}
+
 static u32 PrintStackLine(VM *vm, u32 bufsize)
 {
   u32 written = 0;
@@ -75,7 +165,7 @@ static u32 PrintStackLine(VM *vm, u32 bufsize)
       return written;
     }
 
-    written += PrintVal(vm->heap, vm->chunk->symbols, vm->stack[VecCount(vm->stack)-1-i]);
+    written += PrintVMVal(vm, vm->stack[VecCount(vm->stack)-1-i]);
     written += printf(" ");
   }
   written += printf("▪︎");
@@ -92,7 +182,7 @@ static void PrintStack(VM *vm)
 
   for (u32 i = 0; i < VecCount(vm->stack) && i < 100; i++) {
     printf("%4u │ ", i);
-    PrintVal(vm->heap, vm->chunk->symbols, vm->stack[i]);
+    PrintVMVal(vm, vm->stack[i]);
     printf("\n");
   }
 }
@@ -125,10 +215,10 @@ void PrintEnv(VM *vm)
       Val var = Head(vm->heap, pair);
       Val val = Tail(vm->heap, pair);
 
-      i32 written = PrintVal(vm->heap, vm->chunk->symbols, var);
+      i32 written = PrintVMVal(vm, var);
       for (i32 i = 0; i < 10 - written; i++) printf(" ");
       printf("│ ");
-      PrintVal(vm->heap, vm->chunk->symbols, val);
+      PrintVMVal(vm, val);
       printf("\n");
 
       frame = Tail(vm->heap, frame);
@@ -139,7 +229,7 @@ void PrintEnv(VM *vm)
   }
 }
 
-void DebugVM(VM *vm)
+static void DebugPrompt(VM *vm)
 {
   char line[1024];
   while (true) {
@@ -159,7 +249,7 @@ void DebugVM(VM *vm)
     } else if (DebugCmd(line, "st")) {
       PrintStack(vm);
     } else if (DebugCmd(line, "hd")) {
-      PrintHeap(vm->heap, vm->chunk->symbols);
+      PrintHeap(vm->heap, vm->chunk->symbols, &vm->chunk->strings);
     } else if (DebugCmd(line, "sm")) {
       DumpSymbols(vm->chunk->symbols);
     } else if (DebugCmd(line, "r")) {
@@ -173,71 +263,4 @@ void DebugVM(VM *vm)
       return;
     }
   }
-}
-
-void Run(VM *vm)
-{
-  u32 count = 0;
-
-  if (TRACE) printf("─────┬╴Instruction╶─────────┬╴Stack╶───\n");
-
-  while (vm->pc < VecCount(vm->chunk->code)) {
-    count++;
-    if (TRACE) {
-      if (count % 30 == 0) printf("─────┼╴Instruction╶─────────┼╴Stack╶───\n");
-      u32 written = DisassembleInstruction(vm->chunk, vm->pc);
-      for (u32 i = 0; i < 30 - written; i++) printf(" ");
-      printf("│ ");
-    }
-
-    DoOp(vm, ReadByte(vm));
-
-    if (TRACE) {
-      PrintStackLine(vm, 100);
-      printf(" e%d\n", ListLength(vm->heap, vm->env) - 1);
-      // printf("\n");
-    }
-
-    if (vm->status == VM_Debug || vm->status == VM_Error) {
-      DebugVM(vm);
-    }
-
-    // if (count >= 100) exit(1);
-  }
-}
-
-void RunChunk(VM *vm, Chunk *chunk)
-{
-  vm->chunk = chunk;
-  Run(vm);
-}
-
-void Interpret(VM *vm, char *src)
-{
-  Chunk chunk;
-  InitChunk(&chunk);
-
-  if (Compile(src, &chunk) == Error) {
-    ResetChunk(&chunk);
-    return;
-  }
-
-  Disassemble("Chunk", &chunk);
-
-  vm->chunk = &chunk;
-  vm->pc = 0;
-  Run(vm);
-}
-
-void RuntimeError(VM *vm, char *fmt, ...)
-{
-  va_list args;
-  va_start(args, fmt);
-  fprintf(stderr, "Runtime error: ");
-  vfprintf(stderr, fmt, args);
-  va_end(args);
-  fprintf(stderr, "\n");
-
-  ResetVM(vm);
-  vm->status = VM_Error;
 }

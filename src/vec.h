@@ -8,7 +8,7 @@
 #define VecCount(vec)         ((vec) ? RawVecCount(vec) : 0)
 #define VecPush(vec, value)   (VecMaybeGrow(vec, 1), (vec)[RawVecCount(vec)++] = value)
 #define VecPop(vec)           ((vec) && VecCount(vec) > 0 ? (vec)[--RawVecCount(vec)] : nil)
-#define VecEnd(vec)           &(vec[RawVecCount(vec)])
+#define VecEnd(vec)           &((vec)[RawVecCount(vec)])
 #define VecNext(vec)          (VecMaybeGrow(vec, 1), &(vec[RawVecCount(vec)++]))
 #define VecLast(vec)          (vec[VecCount(vec) - 1])
 #define EmptyVec(vec)         (RawVecCount(vec) = 0)

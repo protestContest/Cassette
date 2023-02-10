@@ -5,8 +5,9 @@
 #include "scan.h"
 #include "vec.h"
 #include "vm.h"
+#include "printer.h"
 
-#define DEBUG_COMPILE 0
+#define DEBUG_COMPILE 1
 
 typedef enum Precedence {
   PREC_NONE,
@@ -56,6 +57,8 @@ Status Compile(char *src, Chunk *chunk)
   AdvanceToken(&p);
   Script(&p);
 
+  if (DEBUG_COMPILE) Disassemble("Script", chunk);
+
   return Ok;
 }
 
@@ -72,6 +75,8 @@ Status CompileModule(char *src, Chunk *chunk)
     if (CurToken(&p) == TOKEN_EOF) break;
     Module(&p);
   }
+
+  if (DEBUG_COMPILE) Disassemble("Module", chunk);
 
   return Ok;
 }
@@ -150,6 +155,7 @@ static void Operator(Parser *p);
 static void Access(Parser *p);
 static void Logic(Parser *p);
 static void Import(Parser *p);
+static void Let(Parser *p);
 
 ParseRule rules[] = {
   [TOKEN_DOT] =         { NULL,             Access,         PREC_ACCESS   },
@@ -183,6 +189,7 @@ ParseRule rules[] = {
   [TOKEN_NIL] =         { Literal,          NULL,           PREC_NONE     },
   [TOKEN_MODULE] =      { Module,           NULL,           PREC_NONE     },
   [TOKEN_IMPORT] =      { Import,           NULL,           PREC_NONE     },
+  [TOKEN_LET] =         { Let,              NULL,           PREC_NONE     },
   [TOKEN_RPAREN] =      { NULL,             NULL,           PREC_NONE     },
   [TOKEN_RBRACKET] =    { NULL,             NULL,           PREC_NONE     },
   [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
@@ -291,7 +298,7 @@ static void Lambda(Parser *p)
   u32 start = ChunkSize(p->chunk);
 
   // compile body
-  Expression(p, PREC_EXPR + 1, false);
+  Call(p, false);
 
   // if the last op was a function call, make it a tail-recursive apply instead
   if (VecLast(p->chunk->code) == OP_CALL) {
@@ -334,7 +341,8 @@ static void Define(Parser *p)
     u32 start = ChunkSize(p->chunk);
 
     // compile body
-    Expression(p, PREC_EXPR + 1, false);
+    // Expression(p, PREC_EXPR + 1, false);
+    Call(p, false);
 
     // if the last op was a function call, make it a tail-recursive apply instead
     if (VecLast(p->chunk->code) == OP_CALL) {
@@ -352,7 +360,7 @@ static void Define(Parser *p)
     PutInst(p->chunk, OP_LAMBDA, num_params);
   } else {
     ConsumeSymbol(p);
-    Expression(p, PREC_EXPR + 1, false);
+    Call(p, false);
   }
 
   PutInst(p->chunk, OP_DEFINE);
@@ -550,8 +558,8 @@ static void String(Parser *p)
 {
   if (DEBUG_COMPILE) printf("String\n");
 
-  Val bin = MakeBinary(p->chunk->constants, p->token.lexeme, p->token.length);
-  PutInst(p->chunk, OP_CONST, PutConst(p->chunk, bin));
+  Val bin = PutString(&p->chunk->strings, p->token.lexeme + 1, p->token.length - 2);
+  PutInst(p->chunk, OP_CONST, bin);
   AdvanceToken(p);
 }
 
@@ -729,6 +737,31 @@ static void Import(Parser *p)
   ExpectToken(p, TOKEN_IMPORT);
   ConsumeSymbol(p);
   PutInst(p->chunk, OP_IMPORT);
+}
+
+static void Let(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Let\n");
+
+  ExpectToken(p, TOKEN_LET);
+  ExpectToken(p, TOKEN_LBRACE);
+
+  PutInst(p->chunk, OP_SCOPE);
+
+  u32 num = 0;
+  while (!MatchToken(p, TOKEN_RBRACE)) {
+    ConsumeSymbol(p);
+    ExpectToken(p, TOKEN_COLON);
+    Call(p, true);
+    num++;
+    MatchToken(p, TOKEN_COMMA);
+    PutInst(p->chunk, OP_DEFINE);
+    PutInst(p->chunk, OP_POP);
+  }
+
+  Do(p);
+
+  PutInst(p->chunk, OP_UNSCOPE);
 }
 
 /* Helpers */

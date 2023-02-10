@@ -23,6 +23,9 @@ typedef struct {
 #define tupleMask     0xFFE00000
 #define mapMask       0xFFF00000
 
+#define immBits       21
+#define objBits       20
+
 #define IsType1(v)    (((v).as_v & 0x80000000) == 0x0)
 #define NumVal(n)     (Val)(float)(n)
 #define IsNum(n)      (((n).as_v & nanMask) != nanMask)

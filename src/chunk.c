@@ -16,10 +16,12 @@ Chunk *InitChunk(Chunk *chunk)
   chunk->code = NULL;
   chunk->constants = NULL;
   chunk->symbols = NULL;
+  InitStringMap(&chunk->strings);
 
   PutSymbol(chunk, "true", 4);
   PutSymbol(chunk, "false", 5);
   PutSymbol(chunk, "ok", 2);
+  PutSymbol(chunk, "native", 6);
 
   return chunk;
 }
@@ -28,13 +30,17 @@ void ResetChunk(Chunk *chunk)
 {
   FreeVec(chunk->code);
   FreeVec(chunk->constants);
+  FreeStringMap(&chunk->strings);
   FreeVec(chunk->symbols);
   InitChunk(chunk);
 }
 
 void FreeChunk(Chunk *chunk)
 {
-  ResetChunk(chunk);
+  FreeVec(chunk->code);
+  FreeVec(chunk->constants);
+  FreeStringMap(&chunk->strings);
+  FreeVec(chunk->symbols);
   free(chunk);
 }
 
@@ -104,7 +110,7 @@ u32 DisassembleInstruction(Chunk *chunk, u32 i)
   switch (OpFormat(op)) {
   case ARGS_VAL:
     written += printf("%02X %02X %s ", GetByte(chunk, i), GetByte(chunk, i+1), OpStr(op));
-    written += PrintVal(chunk->constants, chunk->symbols, GetConst(chunk, GetByte(chunk, i + 1)));
+    written += PrintVal(chunk->constants, chunk->symbols, &chunk->strings, GetConst(chunk, GetByte(chunk, i + 1)));
     break;
   case ARGS_INT:
     written += printf("%02X %02X %s %d", GetByte(chunk, i), GetByte(chunk, i+1), OpStr(op), GetByte(chunk, i + 1));
@@ -165,7 +171,7 @@ void DumpConstants(Chunk *chunk)
 {
   for (u32 i = 0; i < VecCount(chunk->constants); i++) {
     printf("%02d  ", i);
-    PrintVal(chunk->constants, chunk->symbols, chunk->constants[i]);
+    PrintVal(chunk->constants, chunk->symbols, &chunk->strings, chunk->constants[i]);
     printf("\n");
   }
 }

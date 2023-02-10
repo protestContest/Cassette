@@ -6,6 +6,7 @@
 #include "printer.h"
 #include "env.h"
 #include "vm.h"
+#include "native.h"
 
 typedef void (*OpFn)(VM *vm, OpCode op);
 
@@ -126,7 +127,7 @@ static void StatusOp(VM *vm, OpCode op)
 static void PrintOp(VM *vm, OpCode op)
 {
   Val val = StackPop(vm);
-  PrintVal(vm->heap, vm->chunk->symbols, val);
+  PrintVMVal(vm, val);
 }
 
 static void PopOp(VM *vm, OpCode op)
@@ -452,6 +453,12 @@ static void CallOp(VM *vm, OpCode op)
   if (!IsPair(StackPeek(vm, 0))) return;
 
   Val proc = StackPop(vm);
+
+  if (Eq(Head(vm->heap, proc), SymbolFor("native"))) {
+    DoNative(vm, Tail(vm->heap, proc));
+    return;
+  }
+
   Val code = First(vm->heap, proc);
   Val params = Second(vm->heap, proc);
   Val env = Third(vm->heap, proc);

@@ -1,5 +1,6 @@
 #pragma once
 #include "value.h"
+#include "string.h"
 
 typedef struct {
   Val key;
@@ -41,13 +42,7 @@ Val SymbolFor(char *src);
 char *SymbolName(Symbol *symbols, Val sym);
 void DumpSymbols(Symbol *symbols);
 
-Val MakeBinary(Val *mem, char *src, u32 len);
-u32 BinaryLength(Val *mem, Val binary);
-char *BinaryData(Val *mem, Val binary);
-char *BinToCStr(Val *mem, Val binary);
-Val BinaryAt(Val *mem, Val binary, u32 i);
-
-void PrintHeap(Val *mem, Symbol *symbols);
+void PrintHeap(Val *mem, Symbol *symbols, StringMap *strings);
 
 Val MakeMap(Val **mem, u32 count);
 void MapPut(Val *mem, Val map, Val key, Val val);

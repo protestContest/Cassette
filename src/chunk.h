@@ -2,10 +2,12 @@
 #include "ops.h"
 #include "value.h"
 #include "mem.h"
+#include "string.h"
 
 typedef struct {
   u8 *code;
   Val *constants;
+  StringMap strings;
   Symbol *symbols;
 } Chunk;
 

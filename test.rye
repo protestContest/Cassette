@@ -1,13 +1,1 @@
-import Math
-
-def (f x sum) do
-  if x = 0 do
-    sum
-  else
-    f (x - 1) (sum + x)
-  end
-end
-
-f 4 0
-
-Math.combo 3 4 5
+print "Hello world!"
