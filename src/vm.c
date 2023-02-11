@@ -140,14 +140,18 @@ static void PrintTraceStart(VM *vm)
     for (u32 i = 0; i < 30 - written; i++) printf(" ");
   }
   printf("│ ");
+  fflush(stdout);
 }
 
 
 static void PrintTraceEnd(VM *vm)
 {
   PrintStackLine(vm, 100);
-  printf(" e%d ", ListLength(vm->heap, vm->env) - 1);
+  printf(" e%d ", RawObj(vm->env));
   PrintVMVal(vm, FrameMap(vm, vm->env));
+  if (!IsNil(ParentEnv(vm, vm->env))) {
+    printf(" <- e%d", RawObj(ParentEnv(vm, vm->env)));
+  }
   printf("\n");
 }
 
@@ -198,37 +202,6 @@ static bool DebugCmd(char *cmd, const char *name)
   return true;
 }
 
-void PrintEnv(VM *vm)
-{
-  printf("─────╴Environment╶──────\n");
-  if (IsNil(vm->env)) {
-    printf("(empty)\n");
-    return;
-  }
-
-  Val env = vm->env;
-  u32 frame_num = 0;
-  while (!IsNil(env)) {
-    Val frame = Head(vm->heap, env);
-    while (!IsNil(frame)) {
-      Val pair = Head(vm->heap, frame);
-      Val var = Head(vm->heap, pair);
-      Val val = Tail(vm->heap, pair);
-
-      i32 written = PrintVMVal(vm, var);
-      for (i32 i = 0; i < 10 - written; i++) printf(" ");
-      printf("│ ");
-      PrintVMVal(vm, val);
-      printf("\n");
-
-      frame = Tail(vm->heap, frame);
-    }
-    frame_num++;
-    env = Tail(vm->heap, env);
-    printf("────────────────────────\n");
-  }
-}
-
 static void DebugPrompt(VM *vm)
 {
   char line[1024];
@@ -259,4 +232,35 @@ static void DebugPrompt(VM *vm)
       return;
     }
   }
+}
+
+Val GetModule(VM *vm, Val name)
+{
+  Val modules = vm->modules;
+  while (!IsNil(modules)) {
+    Val item = Head(vm->heap, modules);
+
+    if (Eq(Head(vm->heap, item), name)) {
+      return Tail(vm->heap, item);
+    }
+    modules = Tail(vm->heap, modules);
+  }
+  return nil;
+}
+
+void PutModule(VM *vm, Val name, Val mod)
+{
+  Val modules = vm->modules;
+
+  while (!IsNil(modules)) {
+    if (Eq(Head(vm->heap, modules), name)) {
+      SetTail(&vm->heap, modules, mod);
+      return;
+    }
+
+    modules = Tail(vm->heap, modules);
+  }
+
+  Val item = MakePair(&vm->heap, name, mod);
+  vm->modules = MakePair(&vm->heap, item, vm->modules);
 }

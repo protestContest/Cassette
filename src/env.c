@@ -76,3 +76,30 @@ Val FrameMap(VM *vm, Val env)
 
   return map;
 }
+
+void PrintEnv(VM *vm)
+{
+  printf("─────╴Environment╶──────\n");
+
+  Val env = vm->env;
+
+  u32 frame_num = 0;
+
+  while (!IsNil(env)) {
+    Val frame = Head(vm->heap, env);
+    while (!IsNil(frame)) {
+      Val pair = Head(vm->heap, frame);
+      Val var = Head(vm->heap, pair);
+      Val val = Tail(vm->heap, pair);
+      PrintVMVal(vm, var);
+      printf(": ");
+      PrintVMVal(vm, val);
+      printf("\n");
+
+      frame = Tail(vm->heap, frame);
+    }
+    env = Tail(vm->heap, env);
+    frame_num++;
+    printf("────────╴e%03d╶──────────\n", RawObj(env));
+  }
+}

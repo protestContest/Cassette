@@ -38,6 +38,7 @@ typedef enum {
   OP_ACCESS,
   OP_MODULE,
   OP_IMPORT,
+  OP_USE,
   OP_SCOPE,
   OP_UNSCOPE,
 

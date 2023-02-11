@@ -35,6 +35,8 @@ Val ReadConst(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
 void Interpret(VM *vm, char *src);
 void RuntimeError(VM *vm, char *fmt, ...);
-void PrintEnv(VM *vm);
 
 u32 PrintVMVal(VM *vm, Val val);
+
+Val GetModule(VM *vm, Val name);
+void PutModule(VM *vm, Val name, Val mod);

@@ -1,1 +1,3 @@
-print "Hello world!"
+import Kernel
+
+map [1, 2, 3] (n) -> n * 2

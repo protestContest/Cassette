@@ -34,6 +34,7 @@ static void LookupOp(VM *vm, OpCode op);
 static void AccessOp(VM *vm, OpCode op);
 static void ModuleOp(VM *vm, OpCode op);
 static void ImportOp(VM *vm, OpCode op);
+static void UseOp(VM *vm, OpCode op);
 static void PushScopeOp(VM *vm, OpCode op);
 static void PopScopeOp(VM *vm, OpCode op);
 static void BranchOp(VM *vm, OpCode op);
@@ -71,6 +72,7 @@ static OpInfo ops[] = {
   [OP_ACCESS] =   { "access",   ARGS_NONE,  &AccessOp     },
   [OP_MODULE] =   { "module",   ARGS_NONE,  &ModuleOp     },
   [OP_IMPORT] =   { "import",   ARGS_NONE,  &ImportOp     },
+  [OP_USE] =      { "use",      ARGS_NONE,  &UseOp        },
   [OP_SCOPE] =    { "scope",    ARGS_NONE,  &PushScopeOp  },
   [OP_UNSCOPE] =  { "unscope",  ARGS_NONE,  &PopScopeOp   },
   [OP_BRANCH] =   { "branch",   ARGS_INT,   &BranchOp     },
@@ -338,6 +340,7 @@ static void LookupOp(VM *vm, OpCode op)
     StackPush(vm, result.value);
   } else {
     RuntimeError(vm, "Undefined symbol");
+    PrintEnv(vm);
   }
 }
 
@@ -370,39 +373,39 @@ static void ModuleOp(VM *vm, OpCode op)
 {
   Val name = StackPop(vm);
   Val mod = FrameMap(vm, vm->env);
-
-  Val modules = vm->modules;
-  while (!IsNil(modules)) {
-    if (Eq(Head(vm->heap, modules), name)) {
-      SetTail(&vm->heap, modules, mod);
-      vm->env = ParentEnv(vm, vm->env);
-      return;
-    }
-  }
-
-  Val item = MakePair(&vm->heap, name, mod);
-  vm->modules = MakePair(&vm->heap, item, vm->modules);
+  PutModule(vm, name, mod);
   vm->env = ParentEnv(vm, vm->env);
 }
 
 static void ImportOp(VM *vm, OpCode op)
 {
   Val name = StackPop(vm);
-
-  Val modules = vm->modules;
-  while (!IsNil(modules)) {
-    Val item = Head(vm->heap, modules);
-
-    if (Eq(Head(vm->heap, item), name)) {
-      Val mod = Tail(vm->heap, item);
-      Define(vm, name, mod, vm->env);
-      StackPush(vm, SymbolFor("ok"));
-      return;
-    }
-    modules = Tail(vm->heap, modules);
+  Val mod = GetModule(vm, name);
+  if (IsNil(mod)) {
+    RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->chunk->strings, name));
+    return;
   }
 
-  RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->chunk->strings, name));
+  for (u32 i = 0; i < MapSize(vm->heap, mod); i++) {
+    Val key = MapKeyAt(vm->heap, mod, i);
+    if (!IsNil(key)) {
+      Val val = MapValAt(vm->heap, mod, i);
+      Define(vm, key, val, vm->env);
+    }
+  }
+}
+
+static void UseOp(VM *vm, OpCode op)
+{
+  Val name = StackPop(vm);
+  Val mod = GetModule(vm, name);
+  if (IsNil(mod)) {
+    RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->chunk->strings, name));
+    return;
+  }
+
+  Define(vm, name, mod, vm->env);
+  StackPush(vm, SymbolFor("ok"));
 }
 
 static void BranchOp(VM *vm, OpCode op)
@@ -421,7 +424,15 @@ static void JumpOp(VM *vm, OpCode op)
 
 static void ApplyOp(VM *vm, OpCode op)
 {
+  if (!IsPair(StackPeek(vm, 0))) return;
+
   Val proc = StackPop(vm);
+
+  if (Eq(Head(vm->heap, proc), SymbolFor("native"))) {
+    DoNative(vm, Tail(vm->heap, proc));
+    return;
+  }
+
   Val code = First(vm->heap, proc);
   Val params = Second(vm->heap, proc);
   Val env = Third(vm->heap, proc);
@@ -431,21 +442,12 @@ static void ApplyOp(VM *vm, OpCode op)
     Val var = Head(vm->heap, params);
     Val val = StackPop(vm);
     Define(vm, var, val, env);
+
     params = Tail(vm->heap, params);
   }
 
   vm->pc = RawInt(code);
   vm->env = env;
-}
-
-static void ReturnOp(VM *vm, OpCode op)
-{
-  Val result = StackPop(vm);
-  Val env = StackPop(vm);
-  Val cont = StackPop(vm);
-  StackPush(vm, result);
-  vm->env = env;
-  vm->pc = RawInt(cont);
 }
 
 static void CallOp(VM *vm, OpCode op)
@@ -476,4 +478,14 @@ static void CallOp(VM *vm, OpCode op)
   StackPush(vm, vm->env);
   vm->pc = RawInt(code);
   vm->env = env;
+}
+
+static void ReturnOp(VM *vm, OpCode op)
+{
+  Val result = StackPop(vm);
+  Val env = StackPop(vm);
+  Val cont = StackPop(vm);
+  StackPush(vm, result);
+  vm->env = env;
+  vm->pc = RawInt(cont);
 }

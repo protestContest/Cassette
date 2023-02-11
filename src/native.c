@@ -59,9 +59,17 @@ typedef struct {
 } NativeDef;
 
 static void NativePrint(VM *vm);
+static void NativeEq(VM *vm);
+static void NativeReverse(VM *vm);
+static void NativeHead(VM *vm);
+static void NativeTail(VM *vm);
 
 static NativeDef natives[] = {
-  { "print",    &NativePrint }
+  { "print",    &NativePrint    },
+  { "eq?",      &NativeEq       },
+  { "reverse",  &NativeReverse  },
+  { "head",     &NativeHead     },
+  { "tail",     &NativeTail     },
 };
 
 void DefineNatives(VM *vm)
@@ -93,4 +101,33 @@ static void NativePrint(VM *vm)
   Val val = StackPop(vm);
   PrintVal(vm->heap, &vm->chunk->strings, val);
   printf("\n");
+}
+
+static void NativeEq(VM *vm)
+{
+  Val a = StackPop(vm);
+  Val b = StackPop(vm);
+  if (Eq(a, b)) {
+    StackPush(vm, SymbolFor("true"));
+  } else {
+    StackPush(vm, SymbolFor("false"));
+  }
+}
+
+static void NativeReverse(VM *vm)
+{
+  Val list = StackPop(vm);
+  StackPush(vm, Reverse(&vm->heap, list));
+}
+
+static void NativeHead(VM *vm)
+{
+  Val pair = StackPop(vm);
+  StackPush(vm, Head(vm->heap, pair));
+}
+
+static void NativeTail(VM *vm)
+{
+  Val pair = StackPop(vm);
+  StackPush(vm, Tail(vm->heap, pair));
 }

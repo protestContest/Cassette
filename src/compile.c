@@ -155,6 +155,7 @@ static void Operator(Parser *p);
 static void Access(Parser *p);
 static void Logic(Parser *p);
 static void Import(Parser *p);
+static void Use(Parser *p);
 static void Let(Parser *p);
 
 ParseRule rules[] = {
@@ -190,6 +191,7 @@ ParseRule rules[] = {
   [TOKEN_MODULE] =      { Module,           NULL,           PREC_NONE     },
   [TOKEN_IMPORT] =      { Import,           NULL,           PREC_NONE     },
   [TOKEN_LET] =         { Let,              NULL,           PREC_NONE     },
+  [TOKEN_USE] =         { Use,              NULL,           PREC_NONE     },
   [TOKEN_RPAREN] =      { NULL,             NULL,           PREC_NONE     },
   [TOKEN_RBRACKET] =    { NULL,             NULL,           PREC_NONE     },
   [TOKEN_RBRACE] =      { NULL,             NULL,           PREC_NONE     },
@@ -301,6 +303,7 @@ static void Lambda(Parser *p)
   Call(p, false);
 
   // if the last op was a function call, make it a tail-recursive apply instead
+  // TODO: fix for conditionals
   if (VecLast(p->chunk->code) == OP_CALL) {
     SetByte(p->chunk, ChunkSize(p->chunk) - 1, OP_APPLY);
   }
@@ -737,6 +740,15 @@ static void Import(Parser *p)
   ExpectToken(p, TOKEN_IMPORT);
   ConsumeSymbol(p);
   PutInst(p->chunk, OP_IMPORT);
+}
+
+static void Use(Parser *p)
+{
+  if (DEBUG_COMPILE) printf("Use\n");
+
+  ExpectToken(p, TOKEN_USE);
+  ConsumeSymbol(p);
+  PutInst(p->chunk, OP_USE);
 }
 
 static void Let(Parser *p)
