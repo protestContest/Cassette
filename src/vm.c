@@ -15,6 +15,7 @@ void PrintEnv(VM *vm);
 static bool DebugCmd(char *cmd, const char *name);
 static void PrintStack(VM *vm);
 static u32 PrintStackLine(VM *vm, u32 bufsize);
+static void PrintTraceHeader(void);
 static void PrintTraceStart(VM *vm);
 static void PrintTraceEnd(VM *vm);
 
@@ -82,9 +83,9 @@ Val ReadConst(VM *vm)
 
 void Run(VM *vm)
 {
-  if (TRACE) printf("─────┬╴Instruction╶─────────┬╴Stack╶───\n");
+  if (TRACE) PrintTraceHeader();
 
-  while (vm->pc < VecCount(vm->chunk->code)) {
+  while (vm->pc < VecCount(vm->chunk->code) && vm->status != VM_Halted) {
     if (TRACE) PrintTraceStart(vm);
 
     DoOp(vm, ReadByte(vm));
@@ -131,6 +132,11 @@ void RuntimeError(VM *vm, char *fmt, ...)
 
   ResetVM(vm);
   vm->status = VM_Error;
+}
+
+static void PrintTraceHeader(void)
+{
+  printf("─────┬╴Instruction╶─────────┬╴Stack╶───\n");
 }
 
 static void PrintTraceStart(VM *vm)

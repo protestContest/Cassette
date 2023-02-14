@@ -74,6 +74,8 @@ static NativeDef natives[] = {
 
 void DefineNatives(VM *vm)
 {
+  // TODO: add natives under a module name parameter
+
   InitNativeMap(&vm->natives);
 
   for (u32 i = 0; i < ArrayCount(natives); i++) {
