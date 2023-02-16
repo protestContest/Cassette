@@ -1,3 +1,9 @@
-import Kernel
+def (foo n sum) do
+  if n = 0 do
+    sum
+  else
+    foo n - 1 sum + n
+  end
+end
 
-map [1, 2, 3] (n) -> n * 2
+foo 3 0

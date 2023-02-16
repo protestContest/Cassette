@@ -21,7 +21,7 @@ void RunFile(VM *vm, char *path)
   Chunk chunk;
   InitChunk(&chunk);
 
-  LoadModules(".", path, &chunk);
+  // LoadModules(".", path, &chunk);
 
   char *src = ReadFile(path);
   Compile(src, &chunk);

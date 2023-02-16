@@ -58,11 +58,11 @@ typedef struct {
   NativeFn impl;
 } NativeDef;
 
-static void NativePrint(VM *vm);
-static void NativeEq(VM *vm);
-static void NativeReverse(VM *vm);
-static void NativeHead(VM *vm);
-static void NativeTail(VM *vm);
+static void NativePrint(VM *vm, u32 num_args);
+static void NativeEq(VM *vm, u32 num_args);
+static void NativeReverse(VM *vm, u32 num_args);
+static void NativeHead(VM *vm, u32 num_args);
+static void NativeTail(VM *vm, u32 num_args);
 
 static NativeDef natives[] = {
   { "print",    &NativePrint    },
@@ -85,7 +85,7 @@ void DefineNatives(VM *vm)
   }
 }
 
-void DoNative(VM *vm, Val name)
+void DoNative(VM *vm, Val name, u32 num_args)
 {
   NativeFn fn = NativeMapGet(&vm->natives, name);
   if (fn == NULL) {
@@ -93,42 +93,60 @@ void DoNative(VM *vm, Val name)
     return;
   }
 
-  fn(vm);
+  fn(vm, num_args);
 }
 
 /* Native bindings */
 
-static void NativePrint(VM *vm)
+static void NativePrint(VM *vm, u32 num_args)
 {
-  Val val = StackPop(vm);
-  PrintVal(vm->heap, &vm->chunk->strings, val);
+  for (u32 i = 0; i < num_args; i++) {
+    Val val = StackPop(vm);
+    PrintVal(vm->heap, &vm->chunk->strings, val);
+  }
   printf("\n");
 }
 
-static void NativeEq(VM *vm)
+static void NativeEq(VM *vm, u32 num_args)
 {
-  Val a = StackPop(vm);
-  Val b = StackPop(vm);
-  if (Eq(a, b)) {
+  bool result;
+
+  if (num_args == 0) {
+    result = false;
+  } else if (num_args == 1) {
+    result = true;
+  } else {
+    Val a = StackPop(vm);
+    result = true;
+    for (u32 i = 0; i < num_args - 1; i++) {
+      Val b = StackPop(vm);
+      if (!Eq(a, b)) {
+        result = false;
+        break;
+      }
+    }
+  }
+
+  if (result) {
     StackPush(vm, SymbolFor("true"));
   } else {
     StackPush(vm, SymbolFor("false"));
   }
 }
 
-static void NativeReverse(VM *vm)
+static void NativeReverse(VM *vm, u32 num_args)
 {
   Val list = StackPop(vm);
   StackPush(vm, Reverse(&vm->heap, list));
 }
 
-static void NativeHead(VM *vm)
+static void NativeHead(VM *vm, u32 num_args)
 {
   Val pair = StackPop(vm);
   StackPush(vm, Head(vm->heap, pair));
 }
 
-static void NativeTail(VM *vm)
+static void NativeTail(VM *vm, u32 num_args)
 {
   Val pair = StackPop(vm);
   StackPush(vm, Tail(vm->heap, pair));

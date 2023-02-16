@@ -2,6 +2,7 @@
 #include "printer.h"
 #include "vec.h"
 #include "mem.h"
+#include "compile.h"
 
 Chunk *NewChunk(void)
 {
@@ -87,6 +88,10 @@ u32 PutInst(Chunk *chunk, OpCode op, ...)
   va_list args;
   va_start(args, op);
 
+#if DEBUG_COMPILE
+  u32 i = ChunkSize(chunk);
+#endif
+
   PutByte(chunk, op);
 
   if (op == OP_CONST) {
@@ -94,6 +99,11 @@ u32 PutInst(Chunk *chunk, OpCode op, ...)
   } else if (OpSize(op) > 1) {
     PutByte(chunk, va_arg(args, u32));
   }
+
+#if DEBUG_COMPILE
+  DisassembleInstruction(chunk, i);
+  printf("\n");
+#endif
 
   va_end(args);
   return VecCount(chunk->code) - OpSize(op);

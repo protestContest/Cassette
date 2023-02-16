@@ -77,9 +77,9 @@ static OpInfo ops[] = {
   [OP_UNSCOPE] =  { "unscope",  ARGS_NONE,  &PopScopeOp   },
   [OP_BRANCH] =   { "branch",   ARGS_INT,   &BranchOp     },
   [OP_JUMP] =     { "jump",     ARGS_INT,   &JumpOp       },
-  [OP_CALL] =     { "call",     ARGS_NONE,  &CallOp       },
+  [OP_CALL] =     { "call",     ARGS_INT,   &CallOp       },
   [OP_RETURN] =   { "return",   ARGS_NONE,  &ReturnOp     },
-  [OP_APPLY] =    { "apply",    ARGS_NONE,  &ApplyOp      },
+  [OP_APPLY] =    { "apply",    ARGS_INT,   &ApplyOp      },
 };
 
 void DoOp(VM *vm, OpCode op)
@@ -422,29 +422,45 @@ static void JumpOp(VM *vm, OpCode op)
   vm->pc += (i8)ReadByte(vm);
 }
 
-static void ApplyOp(VM *vm, OpCode op)
+static void Bind(VM *vm, Val params, Val env, u32 num_args)
 {
-  if (!IsPair(StackPeek(vm, 0))) return;
-
-  Val proc = StackPop(vm);
-
-  if (Eq(Head(vm->heap, proc), SymbolFor("native"))) {
-    DoNative(vm, Tail(vm->heap, proc));
-    return;
-  }
-
-  Val code = First(vm->heap, proc);
-  Val params = Second(vm->heap, proc);
-  Val env = Third(vm->heap, proc);
-
-  env = ExtendEnv(vm, env);
   while (!IsNil(params)) {
+    if (num_args == 0) {
+      // error: too few args
+    }
+    num_args--;
+
     Val var = Head(vm->heap, params);
     Val val = StackPop(vm);
     Define(vm, var, val, env);
 
     params = Tail(vm->heap, params);
   }
+
+  for (u32 i = 0; i < num_args; i++) {
+    // too many args
+    StackPop(vm);
+  }
+}
+
+static void ApplyOp(VM *vm, OpCode op)
+{
+  u8 num_args = ReadByte(vm);
+  Val proc = StackPeek(vm, num_args);
+
+  if (!IsPair(proc)) return;
+
+  if (Eq(Head(vm->heap, proc), SymbolFor("native"))) {
+    DoNative(vm, Tail(vm->heap, proc), num_args);
+    StackPop(vm); // pop the proc
+    return;
+  }
+
+  Val code = First(vm->heap, proc);
+  Val params = Second(vm->heap, proc);
+  Val env = ExtendEnv(vm, Third(vm->heap, proc));
+  Bind(vm, params, env, num_args);
+  StackPop(vm); // pop the proc
 
   vm->pc = RawInt(code);
   vm->env = env;
@@ -452,27 +468,23 @@ static void ApplyOp(VM *vm, OpCode op)
 
 static void CallOp(VM *vm, OpCode op)
 {
-  if (!IsPair(StackPeek(vm, 0))) return;
+  u8 num_args = ReadByte(vm);
+  Val proc = StackPeek(vm, num_args);
 
-  Val proc = StackPop(vm);
+  if (!IsPair(proc)) return;
 
   if (Eq(Head(vm->heap, proc), SymbolFor("native"))) {
-    DoNative(vm, Tail(vm->heap, proc));
+    DoNative(vm, Tail(vm->heap, proc), num_args);
+    StackPop(vm); // pop the proc
     return;
   }
 
   Val code = First(vm->heap, proc);
   Val params = Second(vm->heap, proc);
-  Val env = Third(vm->heap, proc);
+  Val env = ExtendEnv(vm, Third(vm->heap, proc));
 
-  env = ExtendEnv(vm, env);
-  while (!IsNil(params)) {
-    Val var = Head(vm->heap, params);
-    Val val = StackPop(vm);
-    Define(vm, var, val, env);
-
-    params = Tail(vm->heap, params);
-  }
+  Bind(vm, params, env, num_args);
+  StackPop(vm); // pop the proc
 
   StackPush(vm, IntVal(vm->pc));
   StackPush(vm, vm->env);

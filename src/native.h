@@ -3,7 +3,7 @@
 
 typedef struct VM VM;
 
-typedef void (*NativeFn)(VM *vm);
+typedef void (*NativeFn)(VM *vm, u32 num_args);
 
 typedef struct {
   Val name;
@@ -17,4 +17,4 @@ typedef struct {
 } NativeMap;
 
 void DefineNatives(VM *vm);
-void DoNative(VM *vm, Val name);
+void DoNative(VM *vm, Val name, u32 num_args);
