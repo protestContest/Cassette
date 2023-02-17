@@ -8,8 +8,8 @@ typedef struct {
 } ModuleMapItem;
 
 typedef struct {
-  u32 count;
   u32 capacity;
+  u32 count;
   ModuleMapItem *items;
 } ModuleMap;
 

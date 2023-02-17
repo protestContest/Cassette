@@ -1,7 +1,7 @@
 #include "env.h"
 #include "mem.h"
 #include "print.h"
-#include "../console.h"
+#include "io.h"
 
 Val ExtendEnv(Val **mem, Val env)
 {

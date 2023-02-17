@@ -1,7 +1,8 @@
 #include "module.h"
-#include "../vec.h"
-#include "../platform/allocate.h"
-#include "../console.h"
+#include "vec.h"
+#include "allocate.h"
+#include "io.h"
+#include "string.h"
 #include "../runtime/print.h"
 #include <stdarg.h>
 

@@ -1,5 +1,4 @@
--O0
--g
+-Os
 -Wall
 -Wextra
 -Werror

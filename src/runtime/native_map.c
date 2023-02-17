@@ -1,5 +1,5 @@
 #include "native_map.h"
-#include "../platform/allocate.h"
+#include "allocate.h"
 
 void InitNativeMap(NativeMap *map)
 {

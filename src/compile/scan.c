@@ -1,7 +1,8 @@
 #include "scan.h"
 #include "compile.h"
-#include "../platform/allocate.h"
-#include "../console.h"
+#include "allocate.h"
+#include "io.h"
+#include "string.h"
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)      ((c) == '\n' || (c) == '\r')
@@ -339,7 +340,7 @@ void PrintSourceContext(Parser *p, u32 num_lines)
     if (c == p->token.lexeme + p->token.length) {
       Print("\x1B[0m");
     }
-    AppendByte(outbuf, *c++);
+    AppendByte(output, *c++);
   }
   Print("\x1B[0m");
   Print("\n");
@@ -353,7 +354,7 @@ void PrintSourceContext(Parser *p, u32 num_lines)
     PrintInt(line, gutter);
     Print(" │ ");
     while (!IsNewline(*c) && !IsEnd(*c)) {
-      AppendByte(outbuf, *c++);
+      AppendByte(output, *c++);
     }
 
     Print("\n");
@@ -374,7 +375,7 @@ void PrintParser(Parser *p)
   PrintInt(p->source.col, 0);
   Print(" ");
   Print(TokenStr(p->token.type));
-  Append(outbuf, (u8*)p->token.lexeme, p->token.length);
+  Append(output, (u8*)p->token.lexeme, p->token.length);
   Print("\n");
   PrintSourceContext(p, 0);
 }

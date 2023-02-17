@@ -8,8 +8,8 @@ typedef struct {
 } StringMapItem;
 
 typedef struct StringMap {
-  u32 count;
   u32 capacity;
+  u32 count;
   StringMapItem *items;
 } StringMap;
 

@@ -1,10 +1,9 @@
 #include "mem.h"
-#include "../hash.h"
-#include "../vec.h"
+#include "hash.h"
+#include "vec.h"
 #include "env.h"
 #include "print.h"
-#include "../platform/error.h"
-#include "../console.h"
+#include "io.h"
 
 void InitMem(Val *mem)
 {
@@ -38,14 +37,14 @@ Val Tail(Val *mem, Val pair)
 
 void SetHead(Val **mem, Val pair, Val val)
 {
-  if (IsNil(pair)) Fatal("Can't change nil");
+  Assert(!IsNil(pair));
   u32 index = RawObj(pair);
   (*mem)[index] = val;
 }
 
 void SetTail(Val **mem, Val pair, Val val)
 {
-  if (IsNil(pair)) Fatal("Can't change nil");
+  Assert(!IsNil(pair));
   u32 index = RawObj(pair);
   (*mem)[index+1] = val;
 }

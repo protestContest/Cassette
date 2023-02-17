@@ -1,8 +1,8 @@
 #pragma once
 
 typedef struct {
-  u32 count;
   u32 capacity;
+  u32 count;
   void *items;
 } Map;
 

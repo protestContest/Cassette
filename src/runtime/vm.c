@@ -1,8 +1,8 @@
 #include "vm.h"
 #include "native.h"
 #include "ops.h"
-#include "../vec.h"
-#include "../console.h"
+#include "vec.h"
+#include "io.h"
 
 #define TRACE 1
 

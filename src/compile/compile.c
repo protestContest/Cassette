@@ -1,7 +1,6 @@
 #include "compile.h"
-#include "../vec.h"
-#include "../console.h"
-#include "../platform/error.h"
+#include "vec.h"
+#include "io.h"
 
 static void InitParser(Parser *p, char *src, Image *image)
 {
@@ -509,7 +508,7 @@ static bool Unary(Parser *p, bool tail)
   } else if (op == TOKEN_NOT) {
     PutInst(p->module, OP_NOT);
   } else {
-    Fatal("Invalid unary op: %s", TokenStr(op));
+    Assert(false);
   }
 
   return false;

@@ -1,7 +1,8 @@
 #include "print.h"
 #include "mem.h"
 #include "../image/string_map.h"
-#include "../console.h"
+#include "io.h"
+#include "string.h"
 
 u32 PrintVal(Val *mem, StringMap *strings, Val value)
 {
@@ -19,7 +20,7 @@ u32 PrintVal(Val *mem, StringMap *strings, Val value)
     PrintInt(RawInt(value), 0);
     return NumDigits(RawInt(value));
   } else if (IsBin(value)) {
-    Append(outbuf, (u8*)StringData(strings, value), StringLength(strings, value));
+    Append(output, (u8*)StringData(strings, value), StringLength(strings, value));
     return StringLength(strings, value);
   } else if (IsSym(value)) {
     Print(":");
