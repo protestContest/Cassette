@@ -11,10 +11,8 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 CC = clang
 DBG = lldb
 INCLUDE_FLAGS = -I$(INC_DIR) -include $(INC_DIR)/base.h
-CFLAGS = -O0 -g -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
-LDFLAGS = -L$(LIB_DIR) -lpthread
-
-TEST_ARG = test.rye
+CFLAGS = -Os -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
+LDFLAGS = -L$(LIB_DIR)
 
 $(BIN_DIR)/$(TARGET): $(OBJS)
 	$(MKDIR_P) $(dir $@)
@@ -27,10 +25,6 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 .PHONY: run
 run: $(BIN_DIR)/$(TARGET)
 	@$(BIN_DIR)/$(TARGET)
-
-.PHONY: test
-test: $(BIN_DIR)/$(TARGET)
-	@$(BIN_DIR)/$(TARGET) $(TEST_ARG)
 
 .PHONY: debug
 debug: $(BIN_DIR)/$(TARGET)

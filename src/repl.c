@@ -1,5 +1,5 @@
 #include "repl.h"
-#include "platform/console.h"
+#include "console.h"
 
 void REPL(VM *vm, Image *image)
 {

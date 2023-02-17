@@ -2,7 +2,7 @@
 #include "native.h"
 #include "ops.h"
 #include "../vec.h"
-#include "../platform/console.h"
+#include "../console.h"
 
 #define TRACE 1
 

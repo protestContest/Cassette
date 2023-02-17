@@ -1,7 +1,7 @@
 #include "module.h"
 #include "../vec.h"
 #include "../platform/allocate.h"
-#include "../platform/console.h"
+#include "../console.h"
 #include "../runtime/print.h"
 #include <stdarg.h>
 
@@ -69,19 +69,28 @@ u32 PutInst(Module *module, OpCode op, ...)
 
 u32 DisassembleInstruction(Module *module, StringMap *strings, u32 i)
 {
-  u32 written = Print("%4u │ ", i);
+  PrintInt(i, 4);
+  Print(" │ ");
+  u32 written = 7;
 
   OpCode op = module->code[i];
   switch (OpFormat(op)) {
   case ARGS_VAL:
-    written += Print("%02X %02X %s ", GetByte(module, i), GetByte(module, i+1), OpStr(op));
+    Print(OpStr(op));
+    Print(" ");
+    written += StrLen(OpStr(op)) + 1;
     written += PrintVal(module->constants, strings, GetConst(module, GetByte(module, i + 1)));
     break;
   case ARGS_INT:
-    written += Print("%02X %02X %s %d", GetByte(module, i), GetByte(module, i+1), OpStr(op), GetByte(module, i + 1));
+    Print(OpStr(op));
+    Print(" ");
+    written += StrLen(OpStr(op)) + 1;
+    PrintInt(GetByte(module, i + 1), 0);
+    written += NumDigits(GetByte(module, i + 1));
     break;
   default:
-    written += Print("%02X    %s", GetByte(module, i), OpStr(op));
+    Print(OpStr(op));
+    written += StrLen(OpStr(op));
     break;
   }
 
@@ -90,7 +99,9 @@ u32 DisassembleInstruction(Module *module, StringMap *strings, u32 i)
 
 void Disassemble(char *title, StringMap *strings, Module *module)
 {
-  Print("───╴%s╶───\n", title);
+  Print("───╴");
+  Print(title);
+  Print("╶───\n");
 
   for (u32 i = 0; i < VecCount(module->code); i += OpSize(module->code[i])) {
     DisassembleInstruction(module, strings, i);

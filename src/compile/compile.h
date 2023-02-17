@@ -2,7 +2,7 @@
 #include "scan.h"
 #include "../image/image.h"
 
-#define DEBUG_COMPILE 1
+#define DEBUG_COMPILE 0
 
 typedef struct Parser {
   Status status;

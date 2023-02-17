@@ -4,7 +4,7 @@
 #include "env.h"
 #include "print.h"
 #include "../platform/error.h"
-#include "../platform/console.h"
+#include "../console.h"
 
 void InitMem(Val *mem)
 {
@@ -231,7 +231,8 @@ void PrintHeap(Val *mem, StringMap *strings)
   Print("───╴Heap╶───\n");
 
   for (u32 i = 0; i < VecCount(mem) && i < 100; i++) {
-    Print("%4u │ ", i);
+    PrintInt(i, 4);
+    Print(" │ ");
     PrintVal(mem, strings, mem[i]);
     Print("\n");
   }

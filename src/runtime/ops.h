@@ -53,7 +53,7 @@ typedef enum {
   ARGS_INT,
 } ArgFormat;
 
-const char *OpStr(OpCode op);
+char *OpStr(OpCode op);
 ArgFormat OpFormat(OpCode op);
 u32 OpSize(OpCode op);
 void DoOp(VM *vm, OpCode op);

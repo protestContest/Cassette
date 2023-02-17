@@ -1,7 +1,7 @@
 #include "env.h"
 #include "mem.h"
 #include "print.h"
-#include "../platform/console.h"
+#include "../console.h"
 
 Val ExtendEnv(Val **mem, Val env)
 {
@@ -100,6 +100,8 @@ void PrintEnv(Val *mem, StringMap *strings, Val env)
     }
     env = Tail(mem, env);
     frame_num++;
-    Print("────────╴e%03d╶──────────\n", RawObj(env));
+    Print("────────╴e");
+    PrintInt(RawObj(env), 3);
+    Print("╶──────────\n");
   }
 }

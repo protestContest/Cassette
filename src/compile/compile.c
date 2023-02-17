@@ -1,6 +1,6 @@
 #include "compile.h"
 #include "../vec.h"
-#include "../platform/console.h"
+#include "../console.h"
 #include "../platform/error.h"
 
 static void InitParser(Parser *p, char *src, Image *image)
@@ -121,7 +121,8 @@ ParseRule rules[] = {
 static i32 Expr(Parser *p, bool tail)
 {
 #if DEBUG_COMPILE
-  Print("Expression %s\n", tail ? "(tail)" : "");
+  Print("Expression ");
+  if (tail) Print("(tail)");
 #endif
 
   Parser saved = *p;

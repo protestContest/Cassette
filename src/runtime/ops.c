@@ -84,7 +84,7 @@ void DoOp(VM *vm, OpCode op)
   fn(vm, op);
 }
 
-const char *OpStr(OpCode op)
+char *OpStr(OpCode op)
 {
   return ops[op].name;
 }

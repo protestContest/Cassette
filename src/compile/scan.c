@@ -1,8 +1,7 @@
 #include "scan.h"
 #include "compile.h"
-#include "../platform/console.h"
-#include "../platform/string.h"
 #include "../platform/allocate.h"
+#include "../console.h"
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)      ((c) == '\n' || (c) == '\r')
@@ -75,7 +74,7 @@ static bool IsSymChar(char c)
 
 static bool Check(Parser *p, char *expect)
 {
-  u32 len = Strlen(expect);
+  u32 len = StrLen(expect);
 
   for (u32 i = 0; i < len; i++) {
     if IsEnd(LookAhead(p, i)) return false;
@@ -88,7 +87,7 @@ static bool Check(Parser *p, char *expect)
 static bool Match(Parser *p, char *expect)
 {
   if (Check(p, expect)) {
-    for (u32 i = 0; i < Strlen(expect); i++) {
+    for (u32 i = 0; i < StrLen(expect); i++) {
       if (IsNewline(Peek(p))) AdvanceLine(p);
       else Advance(p);
     }
@@ -101,7 +100,7 @@ static bool Match(Parser *p, char *expect)
 bool CheckKeyword(Parser *p, char *expect)
 {
   if (!Check(p, expect)) return false;
-  if (IsSymChar(LookAhead(p, Strlen(expect)))) return false;
+  if (IsSymChar(LookAhead(p, StrLen(expect)))) return false;
   return true;
 }
 
@@ -223,6 +222,7 @@ static Token ScanToken(Parser *p)
   if (IsSymChar(Peek(p))) return IdentifierToken(p);
 
   p->status = Error;
+  return MakeToken(p, TOKEN_ERROR, 0);
 }
 
 void AdvanceToken(Parser *p)
@@ -330,7 +330,8 @@ void PrintSourceContext(Parser *p, u32 num_lines)
     c++;
   }
 
-  Print("  %*d │ ", gutter, line);
+  Print("  ");
+  PrintInt(line, gutter);
   while (!IsNewline(*c) && !IsEnd(*c)) {
     if (c == p->token.lexeme) {
       Print("\x1B[4m");
@@ -338,19 +339,21 @@ void PrintSourceContext(Parser *p, u32 num_lines)
     if (c == p->token.lexeme + p->token.length) {
       Print("\x1B[0m");
     }
-    Print("%c", *c++);
+    AppendByte(outbuf, *c++);
   }
   Print("\x1B[0m");
   Print("\n");
-  Print("%*s↑\n", p->source.col + gutter + 4, "");
+  for (u32 i = 0; i < p->source.col + gutter + 4; i++) Print(" ");
+  Print("↑\n");
   line++;
   c++;
 
   while (line < (i32)p->source.line + (i32)after + 1 && !IsEnd(*c)) {
-    Print("  %*d │ ", gutter, line);
+    Print("  ");
+    PrintInt(line, gutter);
+    Print(" │ ");
     while (!IsNewline(*c) && !IsEnd(*c)) {
-      Print("%c", *c);
-      c++;
+      AppendByte(outbuf, *c++);
     }
 
     Print("\n");
@@ -365,7 +368,14 @@ void PrintSourceContext(Parser *p, u32 num_lines)
 
 void PrintParser(Parser *p)
 {
-  Print("[%d:%d] %s %.*s\n", p->source.line, p->source.col, TokenStr(p->token.type), p->token.length, p->token.lexeme);
+  Print("[");
+  PrintInt(p->source.line, 0);
+  Print(":");
+  PrintInt(p->source.col, 0);
+  Print(" ");
+  Print(TokenStr(p->token.type));
+  Append(outbuf, (u8*)p->token.lexeme, p->token.length);
+  Print("\n");
   PrintSourceContext(p, 0);
 }
 

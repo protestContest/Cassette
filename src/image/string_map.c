@@ -2,7 +2,7 @@
 #include "../hash.h"
 #include "../map.h"
 #include "../platform/allocate.h"
-#include "../platform/string.h"
+#include "../string.h"
 
 #define ItemSize  sizeof(Val)
 
@@ -67,7 +67,7 @@ char *StringData(StringMap *map, Val str)
 
 Val MakeSymbol(StringMap *map, char *src)
 {
-  return MakeSymbolFromSlice(map, src, Strlen(src));
+  return MakeSymbolFromSlice(map, src, StrLen(src));
 }
 
 Val MakeSymbolFromSlice(StringMap *map, char *src, u32 len)
@@ -78,7 +78,7 @@ Val MakeSymbolFromSlice(StringMap *map, char *src, u32 len)
 
 Val SymbolFor(char *src)
 {
-  u32 hash = Hash(src, Strlen(src));
+  u32 hash = Hash(src, StrLen(src));
   return SymVal(hash);
 }
 
