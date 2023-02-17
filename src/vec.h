@@ -1,9 +1,10 @@
 #pragma once
+#include "platform/allocate.h"
 
 // a vec is an array prepended with two ints in memory for capacity and count
 
 #define NewVec(type, max)     ResizeVec(0, max, sizeof(type))
-#define FreeVec(vec)          ((vec) ? free(RawVec(vec)),0 : 0)
+#define FreeVec(vec)          ((vec) ? Free(RawVec(vec)),0 : 0)
 #define VecCapacity(vec)      ((vec) ? RawVecCapacity(vec) : 0)
 #define VecCount(vec)         ((vec) ? RawVecCount(vec) : 0)
 #define VecPush(vec, value)   (VecMaybeGrow(vec, 1), (vec)[RawVecCount(vec)++] = value)
