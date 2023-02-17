@@ -2,7 +2,7 @@
 #include "module.h"
 #include "compile.h"
 
-void REPL(VM *vm)
+void REPL(VM *vm, Image *image)
 {
   char line[1024];
   while (true) {
@@ -12,20 +12,20 @@ void REPL(VM *vm)
       break;
     }
 
-    Interpret(vm, line);
+    // Interpret(vm, line);
   }
 }
 
-void RunFile(VM *vm, char *path)
-{
-  Chunk chunk;
-  InitChunk(&chunk);
+// void RunFile(VM *vm, char *path)
+// {
+//   Chunk chunk;
+//   InitChunk(&chunk);
 
-  // LoadModules(".", path, &chunk);
+//   // LoadModules(".", path, &chunk);
 
-  char *src = ReadFile(path);
-  Compile(src, &chunk);
-  RunChunk(vm, &chunk);
+//   char *src = ReadFile(path);
+//   Compile(src, &chunk);
+//   RunChunk(vm, &chunk);
 
-  free(src);
-}
+//   free(src);
+// }

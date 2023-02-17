@@ -12,7 +12,7 @@ CC = clang
 DBG = lldb
 INCLUDE_FLAGS = -I$(INC_DIR) -include $(INC_DIR)/base.h
 CFLAGS = -O0 -g -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
-LDFLAGS = -L$(LIB_DIR)
+LDFLAGS = -L$(LIB_DIR) -lpthread
 
 TEST_ARG = test.rye
 

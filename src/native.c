@@ -1,59 +1,11 @@
 #include "native.h"
-#include "base.h"
 #include "mem.h"
 #include "vm.h"
 #include "env.h"
 #include "printer.h"
 
-static void InitNativeMap(NativeMap *map)
-{
-  map->count = 0;
-  map->capacity = 64;
-  map->items = malloc(sizeof(NativeMapItem)*map->capacity);
-  for (u32 i = 0; i < map->capacity; i++) {
-    map->items[i].name = nil;
-  }
-}
-
-static void ResizeNativeMap(NativeMap *map, u32 capacity)
-{
-  map->capacity = capacity;
-  map->items = realloc(map->items, capacity*sizeof(NativeMapItem));
-}
-
-void NativeMapPut(NativeMap *map, Val key, NativeFn impl)
-{
-  u32 index = RawSym(key) % map->capacity;
-  while (!IsNil(map->items[index].name)) {
-    if (Eq(map->items[index].name, key)) {
-      map->items[index].impl = impl;
-      return;
-    }
-    index = (index + 1) % map->capacity;
-  }
-
-  map->items[index].name = key;
-  map->items[index].impl = impl;
-  map->count++;
-
-  if (map->count > 0.8*map->capacity) {
-    ResizeNativeMap(map, 2*map->capacity);
-  }
-}
-
-static NativeFn NativeMapGet(NativeMap *map, Val key)
-{
-  u32 index = RawSym(key) % map->capacity;
-  while (!IsNil(map->items[index].name)) {
-    if (Eq(map->items[index].name, key)) {
-      return map->items[index].impl;
-    }
-  }
-
-  return NULL;
-}
-
 typedef struct {
+  char *module;
   char *name;
   NativeFn impl;
 } NativeDef;
@@ -65,11 +17,11 @@ static void NativeHead(VM *vm, u32 num_args);
 static void NativeTail(VM *vm, u32 num_args);
 
 static NativeDef natives[] = {
-  { "print",    &NativePrint    },
-  { "eq?",      &NativeEq       },
-  { "reverse",  &NativeReverse  },
-  { "head",     &NativeHead     },
-  { "tail",     &NativeTail     },
+  { "Kernel", "print",    &NativePrint    },
+  { "Kernel", "eq?",      &NativeEq       },
+  { "Kernel", "reverse",  &NativeReverse  },
+  { "Kernel", "head",     &NativeHead     },
+  { "Kernel", "tail",     &NativeTail     },
 };
 
 void DefineNatives(VM *vm)
@@ -79,9 +31,9 @@ void DefineNatives(VM *vm)
   InitNativeMap(&vm->natives);
 
   for (u32 i = 0; i < ArrayCount(natives); i++) {
-    Val name = MakeSymbol(&vm->chunk->strings, natives[i].name);
+    Val name = MakeSymbol(&vm->image->strings, natives[i].name);
     NativeMapPut(&vm->natives, name, natives[i].impl);
-    Define(vm, name, MakePair(&vm->heap, SymbolFor("native"), name), vm->env);
+    Define(vm, name, MakePair(&vm->image->heap, SymbolFor("native"), name), vm->image->env);
   }
 }
 
@@ -89,7 +41,7 @@ void DoNative(VM *vm, Val name, u32 num_args)
 {
   NativeFn fn = NativeMapGet(&vm->natives, name);
   if (fn == NULL) {
-    RuntimeError(vm, "Undefined native function \"%s\"", SymbolName(&vm->chunk->strings, name));
+    RuntimeError(vm, "Undefined native function \"%s\"", SymbolName(&vm->image->strings, name));
     return;
   }
 
@@ -102,7 +54,7 @@ static void NativePrint(VM *vm, u32 num_args)
 {
   for (u32 i = 0; i < num_args; i++) {
     Val val = StackPop(vm);
-    PrintVal(vm->heap, &vm->chunk->strings, val);
+    PrintVal(vm->image->heap, &vm->image->strings, val);
   }
   printf("\n");
 }
@@ -137,17 +89,17 @@ static void NativeEq(VM *vm, u32 num_args)
 static void NativeReverse(VM *vm, u32 num_args)
 {
   Val list = StackPop(vm);
-  StackPush(vm, Reverse(&vm->heap, list));
+  StackPush(vm, Reverse(&vm->image->heap, list));
 }
 
 static void NativeHead(VM *vm, u32 num_args)
 {
   Val pair = StackPop(vm);
-  StackPush(vm, Head(vm->heap, pair));
+  StackPush(vm, Head(vm->image->heap, pair));
 }
 
 static void NativeTail(VM *vm, u32 num_args)
 {
   Val pair = StackPop(vm);
-  StackPush(vm, Tail(vm->heap, pair));
+  StackPush(vm, Tail(vm->image->heap, pair));
 }

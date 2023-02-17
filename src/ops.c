@@ -1,7 +1,4 @@
 #include "ops.h"
-#include "vec.h"
-#include "value.h"
-#include "vm.h"
 #include "mem.h"
 #include "printer.h"
 #include "env.h"
@@ -129,7 +126,7 @@ static void StatusOp(VM *vm, OpCode op)
 static void PrintOp(VM *vm, OpCode op)
 {
   Val val = StackPop(vm);
-  PrintVMVal(vm, val);
+  PrintVal(vm->image->heap, &vm->image->strings, val);
 }
 
 static void PopOp(VM *vm, OpCode op)
@@ -271,7 +268,7 @@ static void PairOp(VM *vm, OpCode op)
 {
   Val tail = StackPop(vm);
   Val head = StackPop(vm);
-  Val pair = MakePair(&vm->heap, head, tail);
+  Val pair = MakePair(&vm->image->heap, head, tail);
   StackPush(vm, pair);
 }
 
@@ -282,7 +279,7 @@ static void ListOp(VM *vm, OpCode op)
   Val list = nil;
   for (u32 i = 0; i < num; i++) {
     Val item = StackPop(vm);
-    list = MakePair(&vm->heap, item, list);
+    list = MakePair(&vm->image->heap, item, list);
   }
   StackPush(vm, list);
 }
@@ -291,12 +288,12 @@ static void MapOp(VM *vm, OpCode op)
 {
   u32 num = ReadByte(vm);
 
-  Val map = MakeMap(&vm->heap, num);
+  Val map = MakeMap(&vm->image->heap, num);
 
   for (u32 i = 0; i < num; i++) {
     Val val = StackPop(vm);
     Val key = StackPop(vm);
-    MapPut(vm->heap, map, key, val);
+    MapPut(vm->image->heap, map, key, val);
   }
 
   StackPush(vm, map);
@@ -310,14 +307,14 @@ static void LambdaOp(VM *vm, OpCode op)
   Val params = nil;
   for (u32 i = 0; i < num_params; i++) {
     Val param = StackPeek(vm, num_params - 1 - i);
-    params = MakePair(&vm->heap, param, params);
+    params = MakePair(&vm->image->heap, param, params);
   }
   StackTrunc(vm, num_params);
 
   Val proc = nil;
-  proc = MakePair(&vm->heap, vm->env, proc);
-  proc = MakePair(&vm->heap, params, proc);
-  proc = MakePair(&vm->heap, code, proc);
+  proc = MakePair(&vm->image->heap, vm->image->env, proc);
+  proc = MakePair(&vm->image->heap, params, proc);
+  proc = MakePair(&vm->image->heap, code, proc);
 
   StackPush(vm, proc);
 }
@@ -327,7 +324,7 @@ static void DefineOp(VM *vm, OpCode op)
   Val val = StackPop(vm);
   Val var = StackPop(vm);
 
-  Define(vm, var, val, vm->env);
+  Define(vm, var, val, vm->image->env);
   StackPush(vm, SymbolFor("ok"));
 }
 
@@ -335,7 +332,7 @@ static void LookupOp(VM *vm, OpCode op)
 {
   Val var = StackPop(vm);
 
-  Result result = Lookup(vm, var, vm->env);
+  Result result = Lookup(vm, var, vm->image->env);
   if (result.status == Ok) {
     StackPush(vm, result.value);
   } else {
@@ -351,46 +348,49 @@ static void AccessOp(VM *vm, OpCode op)
 
   if (!IsMap(dict)) {
     RuntimeError(vm, "Can't access this");
-  } else if (!MapHasKey(vm->heap, dict, var)) {
+  } else if (!MapHasKey(vm->image->heap, dict, var)) {
     StackPush(vm, nil);
   } else {
-    Val val = MapGet(vm->heap, dict, var);
+    Val val = MapGet(vm->image->heap, dict, var);
     StackPush(vm, val);
   }
 }
 
 static void PushScopeOp(VM *vm, OpCode op)
 {
-  vm->env = ExtendEnv(vm, vm->env);
+  vm->image->env = ExtendEnv(vm, vm->image->env);
 }
 
 static void PopScopeOp(VM *vm, OpCode op)
 {
-  vm->env = ParentEnv(vm, vm->env);
+  vm->image->env = ParentEnv(vm, vm->image->env);
 }
 
 static void ModuleOp(VM *vm, OpCode op)
 {
-  Val name = StackPop(vm);
-  Val mod = FrameMap(vm, vm->env);
-  PutModule(vm, name, mod);
-  vm->env = ParentEnv(vm, vm->env);
+  RuntimeError(vm, "Not implemented");
+  // Val name = StackPop(vm);
+  // Val env = FrameMap(vm, vm->image->env);
+  // PutModule(vm, name, env);
+  // vm->image->env = ParentEnv(vm, vm->image->env);
 }
 
 static void ImportOp(VM *vm, OpCode op)
 {
   Val name = StackPop(vm);
-  Val mod = GetModule(vm, name);
-  if (IsNil(mod)) {
-    RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->chunk->strings, name));
+  Module *module = GetModule(&vm->image->modules, name);
+  Val env = module->env;
+
+  if (IsNil(env)) {
+    RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->image->strings, name));
     return;
   }
 
-  for (u32 i = 0; i < MapSize(vm->heap, mod); i++) {
-    Val key = MapKeyAt(vm->heap, mod, i);
+  for (u32 i = 0; i < MapSize(vm->image->heap, env); i++) {
+    Val key = MapKeyAt(vm->image->heap, env, i);
     if (!IsNil(key)) {
-      Val val = MapValAt(vm->heap, mod, i);
-      Define(vm, key, val, vm->env);
+      Val val = MapValAt(vm->image->heap, env, i);
+      Define(vm, key, val, vm->image->env);
     }
   }
 }
@@ -398,13 +398,15 @@ static void ImportOp(VM *vm, OpCode op)
 static void UseOp(VM *vm, OpCode op)
 {
   Val name = StackPop(vm);
-  Val mod = GetModule(vm, name);
-  if (IsNil(mod)) {
-    RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->chunk->strings, name));
+  Module *module = GetModule(&vm->image->modules, name);
+  Val env = module->env;
+
+  if (IsNil(env)) {
+    RuntimeError(vm, "Module not defined: %s\n", SymbolName(&vm->image->strings, name));
     return;
   }
 
-  Define(vm, name, mod, vm->env);
+  Define(vm, name, env, vm->image->env);
   StackPush(vm, SymbolFor("ok"));
 }
 
@@ -430,11 +432,11 @@ static void Bind(VM *vm, Val params, Val env, u32 num_args)
     }
     num_args--;
 
-    Val var = Head(vm->heap, params);
+    Val var = Head(vm->image->heap, params);
     Val val = StackPop(vm);
     Define(vm, var, val, env);
 
-    params = Tail(vm->heap, params);
+    params = Tail(vm->image->heap, params);
   }
 
   for (u32 i = 0; i < num_args; i++) {
@@ -450,20 +452,20 @@ static void ApplyOp(VM *vm, OpCode op)
 
   if (!IsPair(proc)) return;
 
-  if (Eq(Head(vm->heap, proc), SymbolFor("native"))) {
-    DoNative(vm, Tail(vm->heap, proc), num_args);
+  if (Eq(Head(vm->image->heap, proc), SymbolFor("native"))) {
+    DoNative(vm, Tail(vm->image->heap, proc), num_args);
     StackPop(vm); // pop the proc
     return;
   }
 
-  Val code = First(vm->heap, proc);
-  Val params = Second(vm->heap, proc);
-  Val env = ExtendEnv(vm, Third(vm->heap, proc));
+  Val code = First(vm->image->heap, proc);
+  Val params = Second(vm->image->heap, proc);
+  Val env = ExtendEnv(vm, Third(vm->image->heap, proc));
   Bind(vm, params, env, num_args);
   StackPop(vm); // pop the proc
 
   vm->pc = RawInt(code);
-  vm->env = env;
+  vm->image->env = env;
 }
 
 static void CallOp(VM *vm, OpCode op)
@@ -473,23 +475,23 @@ static void CallOp(VM *vm, OpCode op)
 
   if (!IsPair(proc)) return;
 
-  if (Eq(Head(vm->heap, proc), SymbolFor("native"))) {
-    DoNative(vm, Tail(vm->heap, proc), num_args);
+  if (Eq(Head(vm->image->heap, proc), SymbolFor("native"))) {
+    DoNative(vm, Tail(vm->image->heap, proc), num_args);
     StackPop(vm); // pop the proc
     return;
   }
 
-  Val code = First(vm->heap, proc);
-  Val params = Second(vm->heap, proc);
-  Val env = ExtendEnv(vm, Third(vm->heap, proc));
+  Val code = First(vm->image->heap, proc);
+  Val params = Second(vm->image->heap, proc);
+  Val env = ExtendEnv(vm, Third(vm->image->heap, proc));
 
   Bind(vm, params, env, num_args);
   StackPop(vm); // pop the proc
 
   StackPush(vm, IntVal(vm->pc));
-  StackPush(vm, vm->env);
+  StackPush(vm, vm->image->env);
   vm->pc = RawInt(code);
-  vm->env = env;
+  vm->image->env = env;
 }
 
 static void ReturnOp(VM *vm, OpCode op)
@@ -498,6 +500,6 @@ static void ReturnOp(VM *vm, OpCode op)
   Val env = StackPop(vm);
   Val cont = StackPop(vm);
   StackPush(vm, result);
-  vm->env = env;
+  vm->image->env = env;
   vm->pc = RawInt(cont);
 }

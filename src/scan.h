@@ -1,7 +1,5 @@
 #pragma once
 #include "value.h"
-#include "compile.h"
-#include "chunk.h"
 
 typedef enum {
   TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACKET, TOKEN_RBRACKET, TOKEN_LBRACE,
@@ -27,20 +25,8 @@ typedef struct {
   u32 length;
 } Token;
 
-typedef struct {
-  Status status;
-  struct {
-    u32 line;
-    u32 col;
-    u32 cur;
-    char *data;
-  } source;
-  Chunk *chunk;
-  Token token;
-  char *error;
-} Parser;
+typedef struct Parser Parser;
 
-void InitParser(Parser *parser, char *src, Chunk *chunk);
 void AdvanceToken(Parser *p);
 void PrintSourceContext(Parser *p, u32 num_lines);
 const char *TokenStr(TokenType type);

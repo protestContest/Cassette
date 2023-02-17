@@ -1,6 +1,7 @@
 #include "scan.h"
 #include "mem.h"
 #include "printer.h"
+#include "compile.h"
 #include <stdio.h>
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\t')
@@ -199,17 +200,6 @@ Token IdentifierToken(Parser *p)
   if (p->source.cur == start) return ErrorToken(p, "Expected symbol");
 
   return MakeToken(p, TOKEN_IDENTIFIER, p->source.cur - start);
-}
-
-void InitParser(Parser *p, char *src, Chunk *chunk)
-{
-  p->status = Ok;
-  p->source.line = 1;
-  p->source.col = 1;
-  p->source.data = src;
-  p->source.cur = 0;
-  p->chunk = chunk;
-  p->error = NULL;
 }
 
 static Token ScanToken(Parser *p)

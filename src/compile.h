@@ -1,9 +1,23 @@
 #pragma once
-#include "value.h"
+#include "image.h"
 #include "scan.h"
-#include "chunk.h"
+#include "image.h"
 
 #define DEBUG_COMPILE 1
 
-Status Compile(char *src, Chunk *chunk);
-Status CompileModule(char *src, Chunk *chunk);
+typedef struct Parser {
+  Status status;
+  struct {
+    u32 line;
+    u32 col;
+    u32 cur;
+    char *data;
+  } source;
+  Token token;
+  char *error;
+  Image *image;
+  Module *module;
+} Parser;
+
+Status Compile(char *src, Image *image);
+Status CompileModules(char *src, Image *image);

@@ -1,11 +1,22 @@
 #include "compile.h"
-#include "chunk.h"
-#include "mem.h"
-#include "ops.h"
-#include "scan.h"
 #include "vec.h"
-#include "vm.h"
-#include "printer.h"
+// #include "chunk.h"
+// #include "mem.h"
+// #include "ops.h"
+// #include "vm.h"
+// #include "printer.h"
+
+static void InitParser(Parser *p, char *src, Image *image)
+{
+  p->status = Ok;
+  p->source.line = 1;
+  p->source.col = 1;
+  p->source.data = src;
+  p->source.cur = 0;
+  p->error = NULL;
+  p->image = image;
+  p->module = NULL;
+}
 
 typedef enum Precedence {
   PREC_NONE,
@@ -29,7 +40,7 @@ typedef struct {
 } ParseRule;
 
 static void Script(Parser *p);
-static bool Module(Parser *p, bool tail);
+static bool Mod(Parser *p, bool tail);
 static i32 Expr(Parser *p, bool tail);
 static bool Subexpr(Parser *p, Precedence prec, bool tail);
 static bool Block(Parser *p, bool tail);
@@ -90,7 +101,7 @@ ParseRule rules[] = {
   [TOKEN_TRUE] =        { Literal,          NULL,           PREC_NONE     },
   [TOKEN_FALSE] =       { Literal,          NULL,           PREC_NONE     },
   [TOKEN_NIL] =         { Literal,          NULL,           PREC_NONE     },
-  [TOKEN_MODULE] =      { Module,           NULL,           PREC_NONE     },
+  [TOKEN_MODULE] =      { Mod,              NULL,           PREC_NONE     },
   [TOKEN_IMPORT] =      { Import,           NULL,           PREC_NONE     },
   [TOKEN_LET] =         { Let,              NULL,           PREC_NONE     },
   [TOKEN_USE] =         { Use,              NULL,           PREC_NONE     },
@@ -117,7 +128,7 @@ static i32 Expr(Parser *p, bool tail)
 #endif
 
   Parser saved = *p;
-  u32 start = ChunkSize(p->chunk);
+  u32 start = ChunkSize(p->module);
 
   bool callable = Subexpr(p, PREC_EXPR + 1, tail);
 
@@ -130,7 +141,7 @@ static i32 Expr(Parser *p, bool tail)
     printf("Recompiling operator\n");
 #endif
     *p = saved;
-    RewindVec(p->chunk->code, ChunkSize(p->chunk) - start);
+    RewindVec(p->module->code, ChunkSize(p->module) - start);
     callable = Subexpr(p, PREC_EXPR + 1, false);
   }
 
@@ -180,7 +191,7 @@ static bool Subexpr(Parser *p, Precedence prec, bool tail)
 #endif
 
   Parser saved = *p;
-  u32 start = ChunkSize(p->chunk);
+  u32 start = ChunkSize(p->module);
 
   ParseRule *rule = GetRule(p);
   if (rule->prefix == NULL) {
@@ -200,7 +211,7 @@ static bool Subexpr(Parser *p, Precedence prec, bool tail)
 #endif
     // recompile prefix
     *p = saved;
-    RewindVec(p->chunk->code, ChunkSize(p->chunk) - start);
+    RewindVec(p->module->code, ChunkSize(p->module) - start);
     GetRule(p)->prefix(p, false);
   }
 
@@ -228,16 +239,16 @@ static bool Grouping(Parser *p, bool tail)
 
   // save state
   Parser saved = *p;
-  u32 start = ChunkSize(p->chunk);
+  u32 start = ChunkSize(p->module);
 
   ExpectToken(p, TOKEN_LPAREN);
 
   i32 num_args = Expr(p, tail);
   if (num_args >= 0) {
     if (tail) {
-      PutInst(p->chunk, OP_APPLY, num_args);
+      PutInst(p->module, OP_APPLY, num_args);
     } else {
-      PutInst(p->chunk, OP_CALL, num_args);
+      PutInst(p->module, OP_CALL, num_args);
     }
   }
 
@@ -246,44 +257,46 @@ static bool Grouping(Parser *p, bool tail)
   if (CurToken(p) == TOKEN_ARROW) {
     // restore state
     *p = saved;
-    RewindVec(p->chunk->code, ChunkSize(p->chunk) - start);
+    RewindVec(p->module->code, ChunkSize(p->module) - start);
     return Lambda(p, tail);
   } else {
     return num_args >= 0;
   }
 }
 
-Status Compile(char *src, Chunk *chunk)
+Status Compile(char *src, Image *image)
 {
   Parser p;
-  InitParser(&p, src, chunk);
+  InitParser(&p, src, image);
+  p.module = CreateModule();
+  PutModule(&image->modules, SymbolFor("Main"), p.module);
 
   // Prime the parser
   AdvanceToken(&p);
   Block(&p, false);
 
-#if DEBUG_COMPILE
-  Disassemble("Script", chunk);
-#endif
+// #if DEBUG_COMPILE
+//   Disassemble("Script", chunk);
+// #endif
 
   return Ok;
 }
 
-Status CompileModule(char *src, Chunk *chunk)
+Status CompileModules(char *src, Image *image)
 {
   Parser p;
-  InitParser(&p, src, chunk);
+  InitParser(&p, src, image);
 
   AdvanceToken(&p);
   while (CurToken(&p) != TOKEN_EOF) {
     while (CurToken(&p) != TOKEN_MODULE && CurToken(&p) != TOKEN_EOF) AdvanceToken(&p);
     if (CurToken(&p) == TOKEN_EOF) break;
-    Module(&p, false);
+    Mod(&p, false);
   }
 
-#if DEBUG_COMPILE
-  Disassemble("Module", chunk);
-#endif
+// #if DEBUG_COMPILE
+//   Disassemble("Module", chunk);
+// #endif
 
   return Ok;
 }
@@ -295,20 +308,22 @@ static bool Block(Parser *p, bool tail)
   bool callable;
 
   SkipNewlines(p);
+  if (!CanParse(p)) return false;
+
   while (CanParse(p)) {
     callable = false;
     saved = *p;
-    start = ChunkSize(p->chunk);
+    start = ChunkSize(p->module);
 
     i32 num_args = Expr(p, false);
     if (num_args > 0) {
-      PutInst(p->chunk, OP_CALL, num_args);
+      PutInst(p->module, OP_CALL, num_args);
       callable = true;
     }
 
     MatchToken(p, TOKEN_COMMA);
     SkipNewlines(p);
-    PutInst(p->chunk, OP_POP);
+    PutInst(p->module, OP_POP);
   }
 
   if (tail) {
@@ -318,17 +333,17 @@ static bool Block(Parser *p, bool tail)
 
     // recompile last expr
     *p = saved;
-    RewindVec(p->chunk->code, ChunkSize(p->chunk) - start);
+    RewindVec(p->module->code, ChunkSize(p->module) - start);
     i32 num_args = Expr(p, true);
     if (num_args > 0) {
-      PutInst(p->chunk, OP_APPLY, num_args);
+      PutInst(p->module, OP_APPLY, num_args);
     }
 
     MatchToken(p, TOKEN_COMMA);
     SkipNewlines(p);
   } else {
     // don't pop the final value
-    RewindVec(p->chunk->code, 1);
+    RewindVec(p->module->code, 1);
   }
 
   return callable;
@@ -348,16 +363,16 @@ static u32 LambdaParams(Parser *p)
 static u32 LambdaBody(Parser *p)
 {
   // jump past the body
-  PutInst(p->chunk, OP_JUMP, 0);
-  u32 start = ChunkSize(p->chunk);
+  PutInst(p->module, OP_JUMP, 0);
+  u32 start = ChunkSize(p->module);
 
   // compile body
   Subexpr(p, PREC_EXPR + 1, true);
 
-  PutInst(p->chunk, OP_RETURN);
+  PutInst(p->module, OP_RETURN);
 
   // patch jump op
-  SetByte(p->chunk, start - 1, ChunkSize(p->chunk) - start);
+  SetByte(p->module, start - 1, ChunkSize(p->module) - start);
 
   return start;
 }
@@ -374,8 +389,8 @@ static bool Lambda(Parser *p, bool tail)
   SkipNewlines(p);
   u32 start = LambdaBody(p);
 
-  PutInst(p->chunk, OP_CONST, IntVal(start));
-  PutInst(p->chunk, OP_LAMBDA, num_params);
+  PutInst(p->module, OP_CONST, IntVal(start));
+  PutInst(p->module, OP_LAMBDA, num_params);
 
   return false;
 }
@@ -396,14 +411,14 @@ static bool Define(Parser *p, bool tail)
     SkipNewlines(p);
     u32 start = LambdaBody(p);
 
-    PutInst(p->chunk, OP_CONST, IntVal(start));
-    PutInst(p->chunk, OP_LAMBDA, num_params);
+    PutInst(p->module, OP_CONST, IntVal(start));
+    PutInst(p->module, OP_LAMBDA, num_params);
   } else {
     ConsumeSymbol(p);
     Subexpr(p, PREC_EXPR + 1, false);
   }
 
-  PutInst(p->chunk, OP_DEFINE);
+  PutInst(p->module, OP_DEFINE);
   return false;
 }
 
@@ -431,9 +446,9 @@ static bool If(Parser *p, bool tail)
   Subexpr(p, PREC_EXPR + 1, false);
 
   // jump past the consequent if it's false
-  PutInst(p->chunk, OP_NOT);
-  PutInst(p->chunk, OP_BRANCH, 0);
-  u32 consequent = ChunkSize(p->chunk);
+  PutInst(p->module, OP_NOT);
+  PutInst(p->module, OP_BRANCH, 0);
+  u32 consequent = ChunkSize(p->module);
 
   bool callable = false;
 
@@ -449,18 +464,18 @@ static bool If(Parser *p, bool tail)
   }
 
   // jump past the alternative
-  PutInst(p->chunk, OP_JUMP, 0);
+  PutInst(p->module, OP_JUMP, 0);
 
   // patch jump over consequent to here
-  u32 alternative = ChunkSize(p->chunk);
-  SetByte(p->chunk, consequent - 1, alternative - consequent);
+  u32 alternative = ChunkSize(p->module);
+  SetByte(p->module, consequent - 1, alternative - consequent);
 
   // alternative (nil unless using a do/else block)
   if (do_else) {
     if (MatchToken(p, TOKEN_ELSE)) {
       callable = callable || Block(p, tail);
     } else {
-      PutInst(p->chunk, OP_NIL);
+      PutInst(p->module, OP_NIL);
     }
     ExpectToken(p, TOKEN_END);
   } else {
@@ -468,8 +483,8 @@ static bool If(Parser *p, bool tail)
   }
 
   // patch jump over alternative to here
-  u32 after = ChunkSize(p->chunk);
-  SetByte(p->chunk, alternative - 1, after - alternative);
+  u32 after = ChunkSize(p->module);
+  SetByte(p->module, alternative - 1, after - alternative);
 
   return callable;
 }
@@ -492,9 +507,9 @@ static bool Unary(Parser *p, bool tail)
   Subexpr(p, PREC_UNARY, false);
 
   if (op == TOKEN_MINUS) {
-    PutInst(p->chunk, OP_NEG);
+    PutInst(p->module, OP_NEG);
   } else if (op == TOKEN_NOT) {
-    PutInst(p->chunk, OP_NOT);
+    PutInst(p->module, OP_NOT);
   } else {
     Fatal("Invalid unary op: %s", TokenStr(op));
   }
@@ -515,7 +530,7 @@ static bool List(Parser *p, bool tail)
     num++;
     MatchToken(p, TOKEN_COMMA);
   }
-  PutInst(p->chunk, OP_LIST, num);
+  PutInst(p->module, OP_LIST, num);
 
   return false;
 }
@@ -535,7 +550,7 @@ static bool Dict(Parser *p, bool tail)
     num++;
     MatchToken(p, TOKEN_COMMA);
   }
-  PutInst(p->chunk, OP_DICT, num);
+  PutInst(p->module, OP_DICT, num);
 
   return false;
 }
@@ -547,7 +562,7 @@ static bool Variable(Parser *p, bool tail)
 #endif
 
   ConsumeSymbol(p);
-  PutInst(p->chunk, OP_LOOKUP);
+  PutInst(p->module, OP_LOOKUP);
 
   return true;
 }
@@ -570,8 +585,8 @@ static bool String(Parser *p, bool tail)
   printf("String %s\n", tail ? "(tail)" : "");
 #endif
 
-  Val bin = PutString(&p->chunk->strings, p->token.lexeme + 1, p->token.length - 2);
-  PutInst(p->chunk, OP_CONST, bin);
+  Val bin = PutString(&p->image->strings, p->token.lexeme + 1, p->token.length - 2);
+  PutInst(p->module, OP_CONST, bin);
   AdvanceToken(p);
 
   return false;
@@ -599,7 +614,7 @@ static bool Number(Parser *p, bool tail)
       }
 
       float f = (float)num + frac;
-      PutInst(p->chunk, OP_CONST, NumVal(f));
+      PutInst(p->module, OP_CONST, NumVal(f));
       return false;
     }
 
@@ -608,9 +623,9 @@ static bool Number(Parser *p, bool tail)
   }
 
   if (num == 0) {
-    PutInst(p->chunk, OP_ZERO);
+    PutInst(p->module, OP_ZERO);
   } else {
-    PutInst(p->chunk, OP_CONST, IntVal(num));
+    PutInst(p->module, OP_CONST, IntVal(num));
   }
 
   return false;
@@ -624,13 +639,13 @@ static bool Literal(Parser *p, bool tail)
 
   switch (CurToken(p)) {
   case TOKEN_TRUE:
-    PutInst(p->chunk, OP_TRUE);
+    PutInst(p->module, OP_TRUE);
     break;
   case TOKEN_FALSE:
-    PutInst(p->chunk, OP_FALSE);
+    PutInst(p->module, OP_FALSE);
     break;
   case TOKEN_NIL:
-    PutInst(p->chunk, OP_NIL);
+    PutInst(p->module, OP_NIL);
     break;
   default:
     // error
@@ -649,7 +664,7 @@ static bool Access(Parser *p, bool tail)
 
   ExpectToken(p, TOKEN_DOT);
   ConsumeSymbol(p);
-  PutInst(p->chunk, OP_ACCESS);
+  PutInst(p->module, OP_ACCESS);
 
   return true;
 }
@@ -668,40 +683,40 @@ static bool Operator(Parser *p, bool tail)
 
   switch (op) {
   case TOKEN_PLUS:
-    PutInst(p->chunk, OP_ADD);
+    PutInst(p->module, OP_ADD);
     break;
   case TOKEN_MINUS:
-    PutInst(p->chunk, OP_SUB);
+    PutInst(p->module, OP_SUB);
     break;
   case TOKEN_STAR:
-    PutInst(p->chunk, OP_MUL);
+    PutInst(p->module, OP_MUL);
     break;
   case TOKEN_SLASH:
-    PutInst(p->chunk, OP_DIV);
+    PutInst(p->module, OP_DIV);
     break;
   case TOKEN_BAR:
-    PutInst(p->chunk, OP_PAIR);
+    PutInst(p->module, OP_PAIR);
     break;
   case TOKEN_EQ:
-    PutInst(p->chunk, OP_EQUAL);
+    PutInst(p->module, OP_EQUAL);
     break;
   case TOKEN_NEQ:
-    PutInst(p->chunk, OP_EQUAL);
-    PutInst(p->chunk, OP_NOT);
+    PutInst(p->module, OP_EQUAL);
+    PutInst(p->module, OP_NOT);
     break;
   case TOKEN_GT:
-    PutInst(p->chunk, OP_GT);
+    PutInst(p->module, OP_GT);
     break;
   case TOKEN_GTE:
-    PutInst(p->chunk, OP_LT);
-    PutInst(p->chunk, OP_NOT);
+    PutInst(p->module, OP_LT);
+    PutInst(p->module, OP_NOT);
     break;
   case TOKEN_LT:
-    PutInst(p->chunk, OP_LT);
+    PutInst(p->module, OP_LT);
     break;
   case TOKEN_LTE:
-    PutInst(p->chunk, OP_GT);
-    PutInst(p->chunk, OP_NOT);
+    PutInst(p->module, OP_GT);
+    PutInst(p->module, OP_NOT);
     break;
   default:
     // error
@@ -718,27 +733,27 @@ static bool Logic(Parser *p, bool tail)
 #endif
 
   if (CurToken(p) == TOKEN_AND) {
-    PutInst(p->chunk, OP_NOT);
+    PutInst(p->module, OP_NOT);
   }
 
   // duplicate stack top, so our branch doesn't consume it
-  PutInst(p->chunk, OP_DUP);
-  PutInst(p->chunk, OP_BRANCH, 0);
-  u32 branch = ChunkSize(p->chunk);
+  PutInst(p->module, OP_DUP);
+  PutInst(p->module, OP_BRANCH, 0);
+  u32 branch = ChunkSize(p->module);
 
   // if we get to the second clause, we can discard the result from the first
-  PutInst(p->chunk, OP_POP);
+  PutInst(p->module, OP_POP);
 
   ParseRule *rule = GetRule(p);
   AdvanceToken(p);
   Subexpr(p, rule->prec + 1, tail);
 
-  SetByte(p->chunk, branch - 1, ChunkSize(p->chunk) - branch);
+  SetByte(p->module, branch - 1, ChunkSize(p->module) - branch);
 
   return true;
 }
 
-static bool Module(Parser *p, bool tail)
+static bool Mod(Parser *p, bool tail)
 {
 #if DEBUG_COMPILE
   printf("Module %s\n", tail ? "(tail)" : "");
@@ -747,10 +762,10 @@ static bool Module(Parser *p, bool tail)
   ExpectToken(p, TOKEN_MODULE);
   ConsumeSymbol(p);
 
-  PutInst(p->chunk, OP_SCOPE);
+  PutInst(p->module, OP_SCOPE);
   Do(p, false);
-  PutInst(p->chunk, OP_POP);
-  PutInst(p->chunk, OP_MODULE);
+  PutInst(p->module, OP_POP);
+  PutInst(p->module, OP_MODULE);
 
   return false;
 }
@@ -763,7 +778,7 @@ static bool Import(Parser *p, bool tail)
 
   ExpectToken(p, TOKEN_IMPORT);
   ConsumeSymbol(p);
-  PutInst(p->chunk, OP_IMPORT);
+  PutInst(p->module, OP_IMPORT);
   return false;
 }
 
@@ -775,7 +790,7 @@ static bool Use(Parser *p, bool tail)
 
   ExpectToken(p, TOKEN_USE);
   ConsumeSymbol(p);
-  PutInst(p->chunk, OP_USE);
+  PutInst(p->module, OP_USE);
   return false;
 }
 
@@ -788,7 +803,7 @@ static bool Let(Parser *p, bool tail)
   ExpectToken(p, TOKEN_LET);
   ExpectToken(p, TOKEN_LBRACE);
 
-  PutInst(p->chunk, OP_SCOPE);
+  PutInst(p->module, OP_SCOPE);
 
   u32 num = 0;
   while (!MatchToken(p, TOKEN_RBRACE)) {
@@ -797,21 +812,26 @@ static bool Let(Parser *p, bool tail)
     Expr(p, false);
     num++;
     MatchToken(p, TOKEN_COMMA);
-    PutInst(p->chunk, OP_DEFINE);
-    PutInst(p->chunk, OP_POP);
+    PutInst(p->module, OP_DEFINE);
+    PutInst(p->module, OP_POP);
   }
 
   bool callable = Do(p, false);
-  PutInst(p->chunk, OP_UNSCOPE);
+  PutInst(p->module, OP_UNSCOPE);
   return callable;
 }
 
 /* Helpers */
 
+static Val PutSymbol(Module *module, StringMap *strings, char *name, u32 length)
+{
+  return MakeSymbolFromSlice(strings, name, length);
+}
+
 static void ConsumeSymbol(Parser *p)
 {
-  Val sym = PutSymbol(p->chunk, p->token.lexeme, p->token.length);
-  PutInst(p->chunk, OP_CONST, sym);
+  Val sym = PutSymbol(p->module, &p->image->strings, p->token.lexeme, p->token.length);
+  PutInst(p->module, OP_CONST, sym);
   AdvanceToken(p);
 }
 
