@@ -1,6 +1,8 @@
 #include "compile.h"
-#include "vec.h"
-#include "io.h"
+#include <univ/vec.h>
+#include <univ/io.h>
+
+#define DEBUG_COMPILE
 
 static void InitParser(Parser *p, char *src, Image *image)
 {
@@ -119,10 +121,12 @@ ParseRule rules[] = {
 
 static i32 Expr(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Expression ");
+#ifdef DEBUG_COMPILE
+  Print("Expression");
   if (tail) Print("(tail)");
+  Print("\n");
 #endif
+
 
   Parser saved = *p;
   u32 start = ChunkSize(p->module);
@@ -134,7 +138,7 @@ static i32 Expr(Parser *p, bool tail)
   }
 
   if (CanParse(p) && tail) {
-#if DEBUG_COMPILE
+#ifdef DEBUG_COMPILE
     Print("Recompiling operator\n");
 #endif
     *p = saved;
@@ -181,9 +185,14 @@ static bool Subexpr(Parser *p, Precedence prec, bool tail)
 {
   // if (skip_newlines) SkipNewlines(p);
 
-#if DEBUG_COMPILE
-    Print("%-10s ", PrecStr(prec));
-    Print("%d Prefix %s \"%.*s\"\n", indent++, TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
+#ifdef DEBUG_COMPILE
+    Print("%-10s ");
+    Print(PrecStr(prec));
+    Print("Prefix ");
+    Print(TokenStr(CurToken(p)));
+    Print(" \"");
+    PrintN(p->token.lexeme, p->token.length);
+    Print("\"\n");
     PrintSourceContext(p, 0);
 #endif
 
@@ -203,7 +212,7 @@ static bool Subexpr(Parser *p, Precedence prec, bool tail)
   rule = GetRule(p);
 
   if (rule->prec >= prec && tail) {
-#if DEBUG_COMPILE
+#ifdef DEBUG_COMPILE
     Print("Recompiling prefix\n");
 #endif
     // recompile prefix
@@ -213,9 +222,13 @@ static bool Subexpr(Parser *p, Precedence prec, bool tail)
   }
 
   while (rule->prec >= prec) {
-#if DEBUG_COMPILE
-    Print("%-10s ", PrecStr(prec));
-    Print("Infix %s \"%.*s\"\n", TokenStr(CurToken(p)), p->token.length, p->token.lexeme);
+#ifdef DEBUG_COMPILE
+    Print(PrecStr(prec));
+    Print(" Infix ");
+    Print(TokenStr(CurToken(p)));
+    Print("\"");
+    PrintN(p->token.lexeme, p->token.length);
+    Print("\"\n");
 #endif
 
     callable = rule->infix(p, false);
@@ -230,8 +243,10 @@ static bool Subexpr(Parser *p, Precedence prec, bool tail)
 
 static bool Grouping(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Grouping %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Grouping");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   // save state
@@ -272,9 +287,9 @@ Status Compile(char *src, Image *image)
   AdvanceToken(&p);
   Block(&p, false);
 
-// #if DEBUG_COMPILE
-//   Disassemble("Script", chunk);
-// #endif
+#ifdef DEBUG_COMPILE
+  Disassemble("Script", NULL, p.module);
+#endif
 
   return Ok;
 }
@@ -291,7 +306,7 @@ Status CompileModules(char *src, Image *image)
     Mod(&p, false);
   }
 
-// #if DEBUG_COMPILE
+// #ifdef DEBUG_COMPILE
 //   Disassemble("Module", chunk);
 // #endif
 
@@ -324,7 +339,7 @@ static bool Block(Parser *p, bool tail)
   }
 
   if (tail) {
-#if DEBUG_COMPILE
+#ifdef DEBUG_COMPILE
     Print("Recompiling last expr\n");
 #endif
 
@@ -376,8 +391,10 @@ static u32 LambdaBody(Parser *p)
 
 static bool Lambda(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Lambda %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Lambda");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_LPAREN);
@@ -394,8 +411,10 @@ static bool Lambda(Parser *p, bool tail)
 
 static bool Define(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Define %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Define");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_DEF);
@@ -421,8 +440,10 @@ static bool Define(Parser *p, bool tail)
 
 static bool Do(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Do %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Do");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_DO);
@@ -433,8 +454,10 @@ static bool Do(Parser *p, bool tail)
 
 static bool If(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("If %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("If");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_IF);
@@ -494,8 +517,10 @@ static bool Cond(Parser *p, bool tail)
 
 static bool Unary(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Unary %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Unary");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   TokenType op = CurToken(p);
@@ -516,8 +541,10 @@ static bool Unary(Parser *p, bool tail)
 
 static bool List(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("List %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("List");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_LBRACKET);
@@ -534,8 +561,10 @@ static bool List(Parser *p, bool tail)
 
 static bool Dict(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Dict %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Dict");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_LBRACE);
@@ -554,8 +583,10 @@ static bool Dict(Parser *p, bool tail)
 
 static bool Variable(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Variable %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Variable");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ConsumeSymbol(p);
@@ -566,8 +597,10 @@ static bool Variable(Parser *p, bool tail)
 
 static bool Sym(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Symbol %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Symbol");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_COLON);
@@ -578,8 +611,10 @@ static bool Sym(Parser *p, bool tail)
 
 static bool String(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("String %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("String");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   Val bin = PutString(&p->image->strings, p->token.lexeme + 1, p->token.length - 2);
@@ -591,8 +626,10 @@ static bool String(Parser *p, bool tail)
 
 static bool Number(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Number %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Number");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   Token token = p->token;
@@ -630,8 +667,10 @@ static bool Number(Parser *p, bool tail)
 
 static bool Literal(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Literal %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Literal");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   switch (CurToken(p)) {
@@ -655,8 +694,10 @@ static bool Literal(Parser *p, bool tail)
 
 static bool Access(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Access %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Access");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_DOT);
@@ -668,8 +709,10 @@ static bool Access(Parser *p, bool tail)
 
 static bool Operator(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Operator %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Operator");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   TokenType op = CurToken(p);
@@ -725,8 +768,10 @@ static bool Operator(Parser *p, bool tail)
 
 static bool Logic(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Logic %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Logic");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   if (CurToken(p) == TOKEN_AND) {
@@ -752,8 +797,10 @@ static bool Logic(Parser *p, bool tail)
 
 static bool Mod(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Module %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Module");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_MODULE);
@@ -769,8 +816,10 @@ static bool Mod(Parser *p, bool tail)
 
 static bool Import(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Import %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Import");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_IMPORT);
@@ -781,8 +830,10 @@ static bool Import(Parser *p, bool tail)
 
 static bool Use(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Use %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Use");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_USE);
@@ -793,8 +844,10 @@ static bool Use(Parser *p, bool tail)
 
 static bool Let(Parser *p, bool tail)
 {
-#if DEBUG_COMPILE
-  Print("Let %s\n", tail ? "(tail)" : "");
+#ifdef DEBUG_COMPILE
+  Print("Let");
+  if (tail) Print(" (tail)");
+  Print("\n");
 #endif
 
   ExpectToken(p, TOKEN_LET);

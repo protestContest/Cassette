@@ -1,19 +1,18 @@
 #include "vm.h"
 #include "native.h"
 #include "ops.h"
-#include "vec.h"
-#include "io.h"
+#include <univ/vec.h>
+#include <univ/io.h>
+#include "print.h"
+#include "env.h"
 
-#define TRACE 1
+#define TRACE
 
-// static void DebugPrompt(VM *vm);
-// void PrintEnv(VM *vm);
-// static bool DebugCmd(char *cmd, const char *name);
-// static void PrintStack(VM *vm);
-// static u32 PrintStackLine(VM *vm, u32 bufsize);
-// static void PrintTraceHeader(void);
-// static void PrintTraceStart(VM *vm);
-// static void PrintTraceEnd(VM *vm);
+static void DebugPrompt(VM *vm);
+static u32 PrintStackLine(VM *vm, u32 bufsize);
+static void PrintTraceHeader(void);
+static void PrintTraceStart(VM *vm);
+static void PrintTraceEnd(VM *vm);
 
 static void Run(VM *vm);
 
@@ -44,16 +43,20 @@ void RunImage(VM *vm, Image *image)
 
 static void Run(VM *vm)
 {
-  while (vm->pc < VecCount(vm->module->code) && vm->status != VM_Halted) {
-    // if (TRACE) PrintTraceStart(vm);
+#ifdef TRACE
+  PrintTraceHeader();
+#endif
+
+  while (vm->pc < VecCount(vm->module->code) && vm->status == VM_Ok) {
+#ifdef TRACE
+    PrintTraceStart(vm);
+#endif
 
     DoOp(vm, ReadByte(vm));
 
-    // if (TRACE) PrintTraceEnd(vm);
-
-    // if (vm->status == VM_Debug || vm->status == VM_Error) {
-    //   DebugPrompt(vm);
-    // }
+#ifdef TRACE
+    PrintTraceEnd(vm);
+#endif
   }
 }
 
@@ -92,69 +95,53 @@ void RuntimeError(VM *vm, char *msg)
   Print("Runtime error: ");
   Print(msg);
   Print("\n");
-
-  ResetVM(vm);
   vm->status = VM_Error;
 }
 
-// void Interpret(VM *vm, char *src)
-// {
-//   Chunk chunk;
-//   InitChunk(&chunk);
+static void PrintTraceHeader(void)
+{
+  Print("─────┬╴Instruction╶─────────┬╴Stack╶───\n");
+}
 
-//   if (Compile(src, &chunk) == Error) {
-//     ResetChunk(&chunk);
-//     return;
-//   }
-
-//   if (VecCount(chunk.code) == 0) return;
-
-//   Disassemble("Chunk", &chunk);
-
-//   vm->chunk = &chunk;
-//   vm->pc = 0;
-//   Run(vm);
-// }
-
-// static void PrintTraceHeader(void)
-// {
-//   Print("─────┬╴Instruction╶─────────┬╴Stack╶───\n");
-// }
-
-// static void PrintTraceStart(VM *vm)
-// {
-//   u32 written = DisassembleInstruction(vm->chunk, vm->pc);
-//   if (written < 30) {
-//     for (u32 i = 0; i < 30 - written; i++) Print(" ");
-//   }
-//   Print("│ ");
-//   fflush(stdout);
-// }
+static void PrintTraceStart(VM *vm)
+{
+  u32 written = DisassembleInstruction(vm->module, &vm->image->strings, vm->pc);
+  if (written < 30) {
+    for (u32 i = 0; i < 30 - written; i++) Print(" ");
+  }
+  Print("│ ");
+}
 
 
-// static void PrintTraceEnd(VM *vm)
-// {
-//   PrintStackLine(vm, 100);
-//   Print(" e%d ", RawObj(vm->env));
-//   PrintVMVal(vm, FrameMap(vm, vm->env));
-//   if (!IsNil(ParentEnv(vm, vm->env))) {
-//     Print(" <- e%d", RawObj(ParentEnv(vm, vm->env)));
-//   }
-//   Print("\n");
-// }
+static void PrintTraceEnd(VM *vm)
+{
+  PrintStackLine(vm, 100);
+  Print(" e");
+  PrintInt(RawObj(vm->image->env), 3);
+  Print(" ");
+  PrintVal(vm->image->heap, &vm->image->strings, FrameMap(vm->image->heap, vm->image->env));
+  if (!IsNil(ParentEnv(vm->image->heap, vm->image->env))) {
+    Print(" <- e");
+    PrintInt(RawObj(ParentEnv(vm->image->heap, vm->image->env)), 3);
+  }
+  Print("\n");
+  Flush(output);
+}
 
-// static u32 PrintStackLine(VM *vm, u32 bufsize)
-// {
-//   u32 written = 0;
-//   for (u32 i = 0; i < VecCount(vm->stack); i++) {
-//     if (written + 8 >= bufsize) {
-//       if (i < VecCount(vm->stack) - 1) Print("...");
-//       return written;
-//     }
+static u32 PrintStackLine(VM *vm, u32 bufsize)
+{
+  u32 written = 0;
+  for (u32 i = 0; i < VecCount(vm->stack); i++) {
+    if (written + 8 >= bufsize) {
+      if (i < VecCount(vm->stack) - 1) Print("...");
+      return written;
+    }
 
-//     written += PrintVMVal(vm, vm->stack[VecCount(vm->stack)-1-i]);
-//     written += Print(" ");
-//   }
-//   written += Print("▪︎");
-//   return written;
-// }
+    written += PrintVal(vm->image->heap, &vm->image->strings, vm->stack[VecCount(vm->stack)-1-i]);
+    Print(" ");
+    written++;
+  }
+  Print("▪︎");
+  written++;
+  return written;
+}

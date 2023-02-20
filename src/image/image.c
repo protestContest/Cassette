@@ -1,7 +1,7 @@
 #include "image.h"
-#include "vec.h"
+#include <univ/vec.h>
 #include "../runtime/env.h"
-#include "io.h"
+#include <univ/io.h>
 
 void InitImage(Image *image)
 {

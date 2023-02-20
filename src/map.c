@@ -1,5 +1,5 @@
 #include "map.h"
-#include "allocate.h"
+#include <univ/allocate.h>
 
 void ResizeMap(void *map, u32 capacity, u32 item_size)
 {

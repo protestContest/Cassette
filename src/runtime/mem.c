@@ -1,9 +1,9 @@
 #include "mem.h"
-#include "hash.h"
-#include "vec.h"
+#include <univ/hash.h>
+#include <univ/vec.h>
 #include "env.h"
 #include "print.h"
-#include "io.h"
+#include <univ/io.h>
 
 void InitMem(Val *mem)
 {

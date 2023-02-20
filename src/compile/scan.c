@@ -1,8 +1,8 @@
 #include "scan.h"
 #include "compile.h"
-#include "allocate.h"
-#include "io.h"
-#include "string.h"
+#include <univ/allocate.h>
+#include <univ/io.h>
+#include <univ/str.h>
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)      ((c) == '\n' || (c) == '\r')

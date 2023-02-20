@@ -3,7 +3,7 @@
 #include "vm.h"
 #include "env.h"
 #include "print.h"
-#include "io.h"
+#include <univ/io.h>
 
 typedef struct {
   char *module;

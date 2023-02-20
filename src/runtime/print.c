@@ -1,8 +1,9 @@
 #include "print.h"
+#include "../value.h"
 #include "mem.h"
 #include "../image/string_map.h"
-#include "io.h"
-#include "string.h"
+#include <univ/io.h>
+#include <univ/str.h>
 
 u32 PrintVal(Val *mem, StringMap *strings, Val value)
 {
@@ -20,9 +21,17 @@ u32 PrintVal(Val *mem, StringMap *strings, Val value)
     PrintInt(RawInt(value), 0);
     return NumDigits(RawInt(value));
   } else if (IsBin(value)) {
+    if (!strings) {
+      Print("<binary>");
+      return 8;
+    }
     Append(output, (u8*)StringData(strings, value), StringLength(strings, value));
     return StringLength(strings, value);
   } else if (IsSym(value)) {
+    if (!strings) {
+      Print("<symbol>");
+      return 8;
+    }
     Print(":");
     Print(SymbolName(strings, value));
     return StrLen(SymbolName(strings, value)) + 1;
@@ -34,9 +43,14 @@ u32 PrintVal(Val *mem, StringMap *strings, Val value)
     Print("{");
     u32 count = 1;
     for (u32 i = 0; i < MapSize(mem, value); i++) {
-      char *key = SymbolName(strings, MapKeyAt(mem, value, i));
-      Print(key);
-      count += StrLen(key);
+      if (!strings) {
+        Print("<symbol>");
+        count += 8;
+      } else {
+        char *key = SymbolName(strings, MapKeyAt(mem, value, i));
+        Print(key);
+        count += StrLen(key);
+      }
       Print(": ");
       count += 2;
       count += PrintVal(mem, strings, MapValAt(mem, value, i));

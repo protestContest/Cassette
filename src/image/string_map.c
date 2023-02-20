@@ -1,8 +1,8 @@
 #include "string_map.h"
-#include "hash.h"
+#include <univ/hash.h>
 #include "../map.h"
-#include "allocate.h"
-#include "string.h"
+#include <univ/allocate.h>
+#include <univ/str.h>
 
 #define ItemSize  sizeof(Val)
 

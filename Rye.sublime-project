@@ -5,16 +5,16 @@
 			"binary_file_patterns": [
 				"build/",
 				".elixir_ls/"
-			]
+			],
 		}
 	],
 	"settings": {
 		"lsp_format_on_save": false,
 		"LSP": {
 			"clangd": {
-				"enabled": true
-			}
-		}
+				"enabled": true,
+			},
+		},
 	},
 	"build_systems":
 	[
@@ -25,13 +25,13 @@
 			"variants": [
 				{
 					"name": "Run",
-					"cmd": ["build/rye", "$file"]
+					"cmd": ["build/rye", "$file"],
 				},
 				{
 					"name": "Clean",
-					"cmd": ["make", "clean"]
+					"cmd": ["make", "clean"],
 				}
-			]
+			],
 		}
-	]
+	],
 }

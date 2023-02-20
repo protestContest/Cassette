@@ -1,8 +1,8 @@
-def (foo n sum) do
+def (foo n prod) do
   if n = 0 do
-    sum
+    prod
   else
-    foo n - 1 sum + n
+    foo n - 1 prod * n
   end
 end
 

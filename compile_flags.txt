@@ -1,8 +1,10 @@
--Os
 -Wall
 -Wextra
 -Werror
 -Wno-unused-function
 -Wno-unused-parameter
--include include/base.h
+-isystem
+/Users/zack/.local/include/
 -Iinclude
+-include
+univ/base.h

@@ -9,9 +9,9 @@ SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 CC = clang
-INCLUDE_FLAGS = -I$(INC_DIR) -I$(PREFIX)/include -include base.h
-CFLAGS = -Os -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
-LDFLAGS = -L$(PREFIX)/lib -luniv
+INCLUDE_FLAGS = -isystem $(PREFIX)/include -I$(INC_DIR) -include univ/base.h
+CFLAGS = -g -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
+LDFLAGS = -L$(PREFIX)/lib -lbase
 
 $(TARGET): $(OBJS)
 	$(MKDIR_P) $(dir $@)

@@ -21,3 +21,4 @@ u32 PutInst(Module *module, OpCode op, ...);
 typedef struct StringMap StringMap;
 
 u32 DisassembleInstruction(Module *module, StringMap *strings, u32 i);
+void Disassemble(char *title, StringMap *strings, Module *module);

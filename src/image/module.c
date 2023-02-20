@@ -1,8 +1,8 @@
 #include "module.h"
-#include "vec.h"
-#include "allocate.h"
-#include "io.h"
-#include "string.h"
+#include <univ/vec.h>
+#include <univ/allocate.h>
+#include <univ/io.h>
+#include <univ/str.h>
 #include "../runtime/print.h"
 #include <stdarg.h>
 
@@ -110,11 +110,3 @@ void Disassemble(char *title, StringMap *strings, Module *module)
   }
   Print("\n");
 }
-
-
-
-
-
-
-
-
