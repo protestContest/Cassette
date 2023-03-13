@@ -1,6 +1,4 @@
 #include "scan.h"
-#include "compile.h"
-#include <univ/allocate.h>
 #include <univ/io.h>
 #include <univ/str.h>
 
@@ -10,42 +8,67 @@
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
 #define IsEnd(c)          ((c) == '\0')
 #define IsBoundary(c)     (IsSpace(c) || IsNewline(c) || IsEnd(c))
+static bool IsSymChar(char c);
 
-#define LookAhead(p, i)   ((p)->source.data[(p)->source.cur + (i)])
-#define Peek(p)           LookAhead(p, 0)
-#define PeekNext(p)       LookAhead(p, 1)
+#define LookAhead(s, i)   ((s)->data[(s)->cur + (i)])
+#define Peek(s)           LookAhead(s, 0)
+#define PeekNext(s)       LookAhead(s, 1)
 
-TokenType CurToken(Parser *p)
+static void Advance(Source *source);
+static void SkipSpace(Source *source);
+static bool Check(Source *source, char *expect);
+static bool Match(Source *source, char *expect);
+static bool CheckKeyword(Source *source, char *expect);
+static bool MatchKeyword(Source *source, char *expect);
+
+static Token MakeToken(Source *source, TokenType type, u32 length);
+static Token ErrorToken(Source *source, char *msg);
+static Token NumberToken(Source *source);
+static Token StringToken(Source *source);
+static Token IdentToken(Source *source);
+
+void InitSource(Source *source, char *data)
 {
-  return p->token.type;
+  source->line = 1;
+  source->col = 1;
+  source->cur = 0;
+  source->data = data;
 }
 
-static char Advance(Parser *p)
+Token ScanToken(Source *source)
 {
-  p->source.col++;
-  return p->source.data[p->source.cur++];
-}
+  SkipSpace(source);
 
-static void AdvanceLine(Parser *p)
-{
-  p->source.line++;
-  p->source.col = 1;
-  p->source.cur++;
-}
+  if (IsEnd(Peek(source))) return MakeToken(source, TOKEN_EOF, 0);
 
-static void SkipSpace(Parser *p)
-{
-  while (IsSpace(Peek(p))) {
-    Advance(p);
-  }
+  if (IsDigit(Peek(source)))    return NumberToken(source);
+  if (Check(source, "\""))      return StringToken(source);
 
-  if (Peek(p) == ';') {
-    while (!IsNewline(Peek(p))) {
-      Advance(p);
-    }
-    AdvanceLine(p);
-    SkipSpace(p);
-  }
+  if (Match(source, "("))       return MakeToken(source, TOKEN_LPAREN, 1);
+  if (Match(source, ")"))       return MakeToken(source, TOKEN_RPAREN, 1);
+  if (Match(source, "["))       return MakeToken(source, TOKEN_LBRACKET, 1);
+  if (Match(source, "]"))       return MakeToken(source, TOKEN_RBRACKET, 1);
+  if (Match(source, "{"))       return MakeToken(source, TOKEN_LBRACE, 1);
+  if (Match(source, "}"))       return MakeToken(source, TOKEN_RBRACE, 1);
+
+  if (Match(source, "->"))      return MakeToken(source, TOKEN_ARROW, 1);
+  if (Match(source, "."))       return MakeToken(source, TOKEN_DOT, 1);
+  if (Match(source, "*"))       return MakeToken(source, TOKEN_STAR, 1);
+  if (Match(source, "/"))       return MakeToken(source, TOKEN_SLASH, 1);
+  if (Match(source, "-"))       return MakeToken(source, TOKEN_MINUS, 1);
+  if (Match(source, "+"))       return MakeToken(source, TOKEN_PLUS, 1);
+  if (Match(source, "|"))       return MakeToken(source, TOKEN_BAR, 1);
+  if (Match(source, ">"))       return MakeToken(source, TOKEN_GREATER, 1);
+  if (Match(source, "<"))       return MakeToken(source, TOKEN_LESS, 1);
+  if (Match(source, "="))       return MakeToken(source, TOKEN_EQUAL, 1);
+  if (Match(source, ","))       return MakeToken(source, TOKEN_COMMA, 1);
+  if (Match(source, ":"))       return MakeToken(source, TOKEN_COLON, 1);
+  if (Match(source, "\n"))      return MakeToken(source, TOKEN_NEWLINE, 1);
+  if (Match(source, "\r"))      return MakeToken(source, TOKEN_NEWLINE, 1);
+
+  if (IsSymChar(Peek(source)))  return IdentToken(source);
+
+  return ErrorToken(source, "Unexpected character");
 }
 
 static bool IsSymChar(char c)
@@ -63,34 +86,57 @@ static bool IsSymChar(char c)
   case '[':
   case ']':
   case '"':
+  case ',':
+  case '.':
   case ':':
   case ';':
-  case '.':
-  case ',':
     return false;
   default:
     return true;
   }
 }
 
-static bool Check(Parser *p, char *expect)
+static void Advance(Source *source)
+{
+  if (IsNewline(Peek(source))) {
+    source->line++;
+    source->col = 1;
+  } else {
+    source->col++;
+  }
+  source->cur++;
+}
+
+static void SkipSpace(Source *source)
+{
+  while (IsSpace(Peek(source))) {
+    Advance(source);
+  }
+
+  if (Peek(source) == ';') {
+    while (!IsNewline(Peek(source))) {
+      Advance(source);
+    }
+  }
+}
+
+static bool Check(Source *source, char *expect)
 {
   u32 len = StrLen(expect);
 
   for (u32 i = 0; i < len; i++) {
-    if IsEnd(LookAhead(p, i)) return false;
-    if (LookAhead(p, i) != expect[i]) return false;
+    if IsEnd(LookAhead(source, i)) return false;
+    if (LookAhead(source, i) != expect[i]) return false;
   }
 
   return true;
 }
 
-static bool Match(Parser *p, char *expect)
+static bool Match(Source *source, char *expect)
 {
-  if (Check(p, expect)) {
+  if (Check(source, expect)) {
     for (u32 i = 0; i < StrLen(expect); i++) {
-      if (IsNewline(Peek(p))) AdvanceLine(p);
-      else Advance(p);
+      Advance(source);
     }
     return true;
   } else {
@@ -98,215 +144,143 @@ static bool Match(Parser *p, char *expect)
   }
 }
 
-bool CheckKeyword(Parser *p, char *expect)
+static bool MatchKeyword(Source *source, char *expect)
 {
-  if (!Check(p, expect)) return false;
-  if (IsSymChar(LookAhead(p, StrLen(expect)))) return false;
-  return true;
-}
-
-bool MatchKeyword(Parser *p, char *expect)
-{
-  if (CheckKeyword(p, expect)) {
-    Match(p, expect);
-    return true;
-  } else {
-    return false;
+  u32 len = StrLen(expect);
+  for (u32 i = 0; i < len; i++) {
+    if (IsEnd(Peek(source))) return false;
+    if (Peek(source) != expect[i]) return false;
+    Advance(source);
   }
+  return !IsSymChar(Peek(source));
 }
 
-static Token MakeToken(Parser *p, TokenType type, u32 length)
+static Token MakeToken(Source *source, TokenType type, u32 length)
 {
   Token token;
   token.type = type;
-  token.line = p->source.line;
-  token.col = p->source.col;
-  token.lexeme = p->source.data + p->source.cur - length;
+  token.line = source->line;
+  token.col = source->col;
+  token.lexeme = source->data + source->cur - length;
   token.length = length;
   return token;
 }
 
-static Token NumberToken(Parser *p)
+static Token ErrorToken(Source *source, char *msg)
 {
-  u32 start = p->source.cur;
-
-  while (IsDigit(Peek(p)) || Peek(p) == '_') Advance(p);
-  if (Check(p, ".") && IsDigit(PeekNext(p))) {
-    Match(p, ".");
-    while (IsDigit(Peek(p)) || Peek(p) == '_') Advance(p);
-  }
-
-  return MakeToken(p, TOKEN_NUMBER, p->source.cur - start);
+  Token token;
+  token.type = TOKEN_ERROR;
+  token.line = source->line;
+  token.col = source->col;
+  token.lexeme = msg;
+  token.length = StrLen(msg);
+  return token;
 }
 
-static Token StringToken(Parser *p)
+static Token NumberToken(Source *source)
 {
-  u32 start = p->source.cur - 1;
-  while (Peek(p) != '"' && !IsEnd(Peek(p))) {
-    if (Peek(p) == '\n') AdvanceLine(p);
-    else Advance(p);
+  u32 start = source->cur;
+
+  while (IsDigit(Peek(source)) || Peek(source) == '_') Advance(source);
+  if (Check(source, ".") && IsDigit(PeekNext(source))) {
+    Match(source, ".");
+    while (IsDigit(Peek(source)) || Peek(source) == '_') Advance(source);
   }
 
-  if (IsEnd(Peek(p))) {
-    p->status = Error;
+  return MakeToken(source, TOKEN_NUMBER, source->cur - start);
+}
+
+static Token StringToken(Source *source)
+{
+  u32 start = source->cur;
+  Match(source, "\"");
+  while (!Check(source, "\"") && !IsEnd(Peek(source))) {
+    Advance(source);
   }
 
-  Advance(p);
-  return MakeToken(p, TOKEN_STRING, p->source.cur - start);
-}
-
-Token IdentifierToken(Parser *p)
-{
-  u32 start = p->source.cur;
-
-  if (MatchKeyword(p, "module"))  return MakeToken(p, TOKEN_MODULE, 6);
-  if (MatchKeyword(p, "import"))  return MakeToken(p, TOKEN_IMPORT, 6);
-  if (MatchKeyword(p, "true"))    return MakeToken(p, TOKEN_TRUE, 4);
-  if (MatchKeyword(p, "false"))   return MakeToken(p, TOKEN_FALSE, 5);
-  if (MatchKeyword(p, "nil"))     return MakeToken(p, TOKEN_NIL, 3);
-  if (MatchKeyword(p, "and"))     return MakeToken(p, TOKEN_AND, 3);
-  if (MatchKeyword(p, "not"))     return MakeToken(p, TOKEN_NOT, 3);
-  if (MatchKeyword(p, "cond"))    return MakeToken(p, TOKEN_COND, 4);
-  if (MatchKeyword(p, "def"))     return MakeToken(p, TOKEN_DEF, 3);
-  if (MatchKeyword(p, "if"))      return MakeToken(p, TOKEN_IF, 2);
-  if (MatchKeyword(p, "do"))      return MakeToken(p, TOKEN_DO, 2);
-  if (MatchKeyword(p, "else"))    return MakeToken(p, TOKEN_ELSE, 4);
-  if (MatchKeyword(p, "end"))     return MakeToken(p, TOKEN_END, 3);
-  if (MatchKeyword(p, "or"))      return MakeToken(p, TOKEN_OR, 2);
-  if (MatchKeyword(p, "let"))     return MakeToken(p, TOKEN_LET, 3);
-  if (MatchKeyword(p, "use"))     return MakeToken(p, TOKEN_USE, 3);
-
-  while (IsSymChar(Peek(p))) Advance(p);
-
-  if (p->source.cur == start) {
-    p->status = Error;
+  if (IsEnd(Peek(source))) {
+    return ErrorToken(source, "Unterminated string");
   }
 
-  return MakeToken(p, TOKEN_IDENTIFIER, p->source.cur - start);
+  Advance(source);
+  return MakeToken(source, TOKEN_STRING, source->cur - start);
 }
 
-static Token ScanToken(Parser *p)
+static Token IdentToken(Source *source)
 {
-  SkipSpace(p);
+  u32 start = source->cur;
+  TokenType type = TOKEN_IDENT;
 
-  if (IsEnd(Peek(p))) return MakeToken(p, TOKEN_EOF, 0);
+  if (MatchKeyword(source, "and")) {
+    type = TOKEN_AND;
+  } else if (MatchKeyword(source, "cond")) {
+    type = TOKEN_COND;
+  } else if (MatchKeyword(source, "d")) {
+    if (MatchKeyword(source, "ef")) {
+      type = TOKEN_DEF;
+    } else if (MatchKeyword(source, "o")) {
+      type = TOKEN_DO;
+    }
+  } else if (MatchKeyword(source, "e")) {
+    if (MatchKeyword(source, "lse")) {
+      type = TOKEN_ELSE;
+    } else if (MatchKeyword(source, "nd")) {
+      type = TOKEN_END;
+    }
+  } else if (MatchKeyword(source, "if")) {
+    type = TOKEN_IF;
+  } else if (MatchKeyword(source, "not")) {
+    type = TOKEN_NOT;
+  } else if (MatchKeyword(source, "or")) {
+    type = TOKEN_OR;
+  }
 
-  if (IsDigit(Peek(p))) return NumberToken(p);
-  if (Match(p, "\""))   return StringToken(p);
-
-  if (Match(p, "!=")) return MakeToken(p, TOKEN_NEQ, 2);
-  if (Match(p, ">=")) return MakeToken(p, TOKEN_GTE, 2);
-  if (Match(p, "|>")) return MakeToken(p, TOKEN_PIPE, 2);
-  if (Match(p, "->")) return MakeToken(p, TOKEN_ARROW, 2);
-  if (Match(p, "<=")) return MakeToken(p, TOKEN_LTE, 2);
-
-  if (Match(p, "("))  return MakeToken(p, TOKEN_LPAREN, 1);
-  if (Match(p, ")"))  return MakeToken(p, TOKEN_RPAREN, 1);
-  if (Match(p, "["))  return MakeToken(p, TOKEN_LBRACKET, 1);
-  if (Match(p, "]"))  return MakeToken(p, TOKEN_RBRACKET, 1);
-  if (Match(p, "{"))  return MakeToken(p, TOKEN_LBRACE, 1);
-  if (Match(p, "}"))  return MakeToken(p, TOKEN_RBRACE, 1);
-  if (Match(p, ","))  return MakeToken(p, TOKEN_COMMA, 1);
-  if (Match(p, "."))  return MakeToken(p, TOKEN_DOT, 1);
-  if (Match(p, "-"))  return MakeToken(p, TOKEN_MINUS, 1);
-  if (Match(p, "+"))  return MakeToken(p, TOKEN_PLUS, 1);
-  if (Match(p, "*"))  return MakeToken(p, TOKEN_STAR, 1);
-  if (Match(p, "/"))  return MakeToken(p, TOKEN_SLASH, 1);
-  if (Match(p, "|"))  return MakeToken(p, TOKEN_BAR, 1);
-  if (Match(p, "="))  return MakeToken(p, TOKEN_EQ, 1);
-  if (Match(p, ">"))  return MakeToken(p, TOKEN_GT, 1);
-  if (Match(p, "<"))  return MakeToken(p, TOKEN_LT, 1);
-  if (Match(p, ":"))  return MakeToken(p, TOKEN_COLON, 1);
-  if (Match(p, "\n")) return MakeToken(p, TOKEN_NEWLINE, 1);
-  if (Match(p, "\r")) return MakeToken(p, TOKEN_NEWLINE, 1);
-
-  if (IsSymChar(Peek(p))) return IdentifierToken(p);
-
-  p->status = Error;
-  return MakeToken(p, TOKEN_ERROR, 0);
-}
-
-void AdvanceToken(Parser *p)
-{
-  p->token = ScanToken(p);
+  while (IsSymChar(Peek(source))) Advance(source);
+  return MakeToken(source, type, source->cur - start);
 }
 
 char *TokenStr(TokenType type)
 {
   switch (type) {
-  case TOKEN_COLON:       return "COLON";
+  case TOKEN_EOF:         return "EOF";
+  case TOKEN_ERROR:       return "ERROR";
+  case TOKEN_NUMBER:      return "NUMBER";
+  case TOKEN_STRING:      return "STRING";
+  case TOKEN_IDENT:       return "IDENT";
   case TOKEN_LPAREN:      return "LPAREN";
   case TOKEN_RPAREN:      return "RPAREN";
   case TOKEN_LBRACKET:    return "LBRACKET";
   case TOKEN_RBRACKET:    return "RBRACKET";
   case TOKEN_LBRACE:      return "LBRACE";
   case TOKEN_RBRACE:      return "RBRACE";
-  case TOKEN_COMMA:       return "COMMA";
   case TOKEN_DOT:         return "DOT";
-  case TOKEN_MINUS:       return "MINUS";
-  case TOKEN_PLUS:        return "PLUS";
   case TOKEN_STAR:        return "STAR";
   case TOKEN_SLASH:       return "SLASH";
+  case TOKEN_MINUS:       return "MINUS";
+  case TOKEN_PLUS:        return "PLUS";
   case TOKEN_BAR:         return "BAR";
-  case TOKEN_EQ:          return "EQ";
-  case TOKEN_NEQ:         return "NEQ";
-  case TOKEN_GT:          return "GT";
-  case TOKEN_GTE:         return "GTE";
-  case TOKEN_LT:          return "LT";
-  case TOKEN_LTE:         return "LTE";
-  case TOKEN_PIPE:        return "PIPE";
+  case TOKEN_GREATER:     return "GREATER";
+  case TOKEN_LESS:        return "LESS";
+  case TOKEN_EQUAL:       return "EQUAL";
+  case TOKEN_COMMA:       return "COMMA";
+  case TOKEN_COLON:       return "COLON";
+  case TOKEN_NEWLINE:     return "NEWLINE";
   case TOKEN_ARROW:       return "ARROW";
-  case TOKEN_IDENTIFIER:  return "IDENTIFIER";
-  case TOKEN_STRING:      return "STRING";
-  case TOKEN_NUMBER:      return "NUMBER";
   case TOKEN_AND:         return "AND";
-  case TOKEN_NOT:         return "NOT";
-  case TOKEN_OR:          return "OR";
-  case TOKEN_DEF:         return "DEF";
   case TOKEN_COND:        return "COND";
-  case TOKEN_IF:          return "IF";
+  case TOKEN_DEF:         return "DEF";
   case TOKEN_DO:          return "DO";
   case TOKEN_ELSE:        return "ELSE";
   case TOKEN_END:         return "END";
-  case TOKEN_TRUE:        return "TRUE";
-  case TOKEN_FALSE:       return "FALSE";
-  case TOKEN_NIL:         return "NIL";
-  case TOKEN_NEWLINE:     return "NEWLINE";
-  case TOKEN_EOF:         return "EOF";
-  case TOKEN_ERROR:       return "ERROR";
-  case TOKEN_MODULE:      return "MODULE";
-  case TOKEN_IMPORT:      return "IMPORT";
-  case TOKEN_LET:         return "LET";
-  case TOKEN_USE:         return "USE";
+  case TOKEN_IF:          return "IF";
+  case TOKEN_NOT:         return "NOT";
+  case TOKEN_OR:          return "OR";
   }
 }
 
-bool MatchToken(Parser *p, TokenType type)
+void PrintSourceContext(Source *source, Token cur_token, u32 num_lines)
 {
-  if (p->token.type == type) {
-    AdvanceToken(p);
-    return true;
-  }
-  return false;
-}
-
-void ExpectToken(Parser *p, TokenType type)
-{
-  if (p->token.type == type) {
-    AdvanceToken(p);
-  } else {
-    p->status = Error;
-  }
-}
-
-bool TokenEnd(Parser *p, TokenType type)
-{
-  return p->token.type == type || p->token.type == TOKEN_EOF;
-}
-
-void PrintSourceContext(Parser *p, u32 num_lines)
-{
-  char *c = &Peek(p);
+  char *c = &Peek(source);
   u32 after = 0;
   while (!IsEnd(*c) && after < num_lines / 2) {
     if (IsNewline(*c)) after++;
@@ -314,18 +288,18 @@ void PrintSourceContext(Parser *p, u32 num_lines)
   }
 
   u32 before = num_lines - after;
-  if (before > p->source.line) {
-    before = p->source.line;
-    after = num_lines - p->source.line;
+  if (before > source->line) {
+    before = source->line;
+    after = num_lines - source->line;
   }
 
-  u32 gutter = (p->source.line >= 1000) ? 4 : (p->source.line >= 100) ? 3 : (p->source.line >= 10) ? 2 : 1;
+  u32 gutter = (source->line >= 1000) ? 4 : (source->line >= 100) ? 3 : (source->line >= 10) ? 2 : 1;
   if (gutter < 2) gutter = 2;
 
-  c = p->source.data;
+  c = source->data;
   i32 line = 1;
 
-  while (line < (i32)p->source.line - (i32)before) {
+  while (line < (i32)source->line - (i32)before) {
     if (IsEnd(*c)) return;
     if (IsNewline(*c)) line++;
     c++;
@@ -333,23 +307,24 @@ void PrintSourceContext(Parser *p, u32 num_lines)
 
   Print("  ");
   PrintInt(line, gutter);
+  Print(" ");
   while (!IsNewline(*c) && !IsEnd(*c)) {
-    if (c == p->token.lexeme) {
+    if (c == cur_token.lexeme) {
       Print("\x1B[4m");
     }
-    if (c == p->token.lexeme + p->token.length) {
+    if (c == cur_token.lexeme + cur_token.length) {
       Print("\x1B[0m");
     }
     AppendByte(output, *c++);
   }
   Print("\x1B[0m");
   Print("\n");
-  for (u32 i = 0; i < p->source.col + gutter + 4; i++) Print(" ");
+  for (u32 i = 0; i < source->col + gutter + 1; i++) Print(" ");
   Print("↑\n");
   line++;
   c++;
 
-  while (line < (i32)p->source.line + (i32)after + 1 && !IsEnd(*c)) {
+  while (line < (i32)source->line + (i32)after + 1 && !IsEnd(*c)) {
     Print("  ");
     PrintInt(line, gutter);
     Print(" │ ");
@@ -362,25 +337,7 @@ void PrintSourceContext(Parser *p, u32 num_lines)
     c++;
   }
 
-  if (IsEnd(*c) && c > p->source.data && !IsNewline(*(c-1))) {
+  if (IsEnd(*c) && c > source->data && !IsNewline(*(c-1))) {
     Print("\n");
   }
-}
-
-void PrintParser(Parser *p)
-{
-  Print("[");
-  PrintInt(p->source.line, 0);
-  Print(":");
-  PrintInt(p->source.col, 0);
-  Print(" ");
-  Print(TokenStr(p->token.type));
-  Append(output, (u8*)p->token.lexeme, p->token.length);
-  Print("\n");
-  PrintSourceContext(p, 0);
-}
-
-void SkipNewlines(Parser *p)
-{
-  while (CurToken(p) == TOKEN_NEWLINE) AdvanceToken(p);
 }

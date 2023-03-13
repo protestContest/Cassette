@@ -5,55 +5,56 @@
 #include <univ/io.h>
 #include <univ/str.h>
 
-u32 PrintVal(Val *mem, StringMap *strings, Val value)
+u32 PrintVal(Val *mem, Val symbols, Val value)
 {
   if (IsNil(value)) {
     Print("nil");
     return 3;
-  } else if (IsPair(value)) {
-    Print("p");
-    PrintInt(RawObj(value), 0);
-    return NumDigits(RawObj(value)) + 1;
   } else if (IsNum(value)) {
     PrintFloat(value.as_f);
     return NumDigits(value.as_f);
   } else if (IsInt(value)) {
     PrintInt(RawInt(value), 0);
     return NumDigits(RawInt(value));
-  } else if (IsBin(value)) {
-    if (!strings) {
-      Print("<binary>");
-      return 8;
-    }
-    Append(output, (u8*)StringData(strings, value), StringLength(strings, value));
-    return StringLength(strings, value);
   } else if (IsSym(value)) {
-    if (!strings) {
-      Print("<symbol>");
-      return 8;
+    if (!IsNil(symbols)) {
+      Print(":");
+      Val bin = MapGet(mem, symbols, value);
+      Append(output, BinaryData(mem, bin), BinaryLength(mem, bin));
+      return BinaryLength(mem, bin) + 1;
+    } else {
+      Print("<sym>");
+      return 5;
     }
-    Print(":");
-    Print(SymbolName(strings, value));
-    return StrLen(SymbolName(strings, value)) + 1;
+  } else if (IsPair(value)) {
+    Print("p");
+    PrintInt(RawVal(value), 0);
+    return NumDigits(RawVal(value)) + 1;
+  } else if (IsBin(value)) {
+    Append(output, BinaryData(mem, value), BinaryLength(mem, value));
+    return BinaryLength(mem, value);
   } else if (IsTuple(value)) {
     Print("t");
-    PrintInt(RawObj(value), 0);
-    return NumDigits(RawObj(value)) + 1;
+    PrintInt(RawVal(value), 0);
+    return NumDigits(RawVal(value)) + 1;
   } else if (IsMap(value)) {
     Print("{");
     u32 count = 1;
     for (u32 i = 0; i < MapSize(mem, value); i++) {
-      if (!strings) {
-        Print("<symbol>");
-        count += 8;
+      Val key = MapKeyAt(mem, value, i);
+
+      if (!IsNil(symbols)) {
+        Val bin = MapGet(mem, symbols, key);
+        Append(output, BinaryData(mem, bin), BinaryLength(mem, bin));
+        count += BinaryLength(mem, bin);
       } else {
-        char *key = SymbolName(strings, MapKeyAt(mem, value, i));
-        Print(key);
-        count += StrLen(key);
+        Print("<sym>");
+        count += 5;
       }
+
       Print(": ");
       count += 2;
-      count += PrintVal(mem, strings, MapValAt(mem, value, i));
+      count += PrintVal(mem, symbols, MapValAt(mem, value, i));
       if (i != MapSize(mem, value) - 1) {
         Print(", ");
         count += 2;
@@ -63,7 +64,9 @@ u32 PrintVal(Val *mem, StringMap *strings, Val value)
     count += 1;
     return count;
   } else {
-    Print("<value>");
+    Print("<v");
+    PrintInt(RawVal(value), 4);
+    Print(">");
     return 7;
   }
 }

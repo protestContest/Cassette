@@ -79,7 +79,7 @@ Val FrameMap(Val *mem, Val env)
   return map;
 }
 
-void PrintEnv(Val *mem, StringMap *strings, Val env)
+void PrintEnv(Val *mem, Val symbols, Val env)
 {
   Print("─────╴Environment╶──────\n");
 
@@ -91,9 +91,9 @@ void PrintEnv(Val *mem, StringMap *strings, Val env)
       Val pair = Head(mem, frame);
       Val var = Head(mem, pair);
       Val val = Tail(mem, pair);
-      PrintVal(mem, strings, var);
+      PrintVal(mem, symbols, var);
       Print(": ");
-      PrintVal(mem, strings, val);
+      PrintVal(mem, symbols, val);
       Print("\n");
 
       frame = Tail(mem, frame);
@@ -101,7 +101,7 @@ void PrintEnv(Val *mem, StringMap *strings, Val env)
     env = Tail(mem, env);
     frame_num++;
     Print("────────╴e");
-    PrintInt(RawObj(env), 3);
+    PrintInt(RawVal(env), 3);
     Print("╶──────────\n");
   }
 }

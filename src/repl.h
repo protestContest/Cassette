@@ -2,4 +2,4 @@
 #include "runtime/vm.h"
 #include "image/image.h"
 
-void REPL(VM *vm, Image *image);
+void REPL(VM *vm);

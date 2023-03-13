@@ -1,6 +1,5 @@
 #pragma once
-#include "../image/module.h"
-#include "../image/image.h"
+#include "../compile/chunk.h"
 #include "native_map.h"
 
 typedef enum {
@@ -12,15 +11,17 @@ typedef enum {
 
 typedef struct VM {
   VMStatus status;
-  Image *image;
   Val *stack;
-  Module *module;
+  Val *heap;
+  Val env;
+  Val symbols;
   u32 pc;
   NativeMap natives;
+  Chunk *chunk;
 } VM;
 
 void InitVM(VM *vm);
-void RunImage(VM *vm, Image *image);
+void RunChunk(VM *vm, Chunk *chunk);
 
 void StackPush(VM *vm, Val val);
 Val StackPop(VM *vm);
@@ -31,17 +32,3 @@ u8 ReadByte(VM *vm);
 Val ReadConst(VM *vm);
 
 void RuntimeError(VM *vm, char *fmt);
-
-
-
-// void ResetVM(VM *vm);
-// void DebugVM(VM *vm);
-
-
-// void RunChunk(VM *vm, Chunk *chunk);
-// void Interpret(VM *vm, char *src);
-
-// u32 PrintVMVal(VM *vm, Val val);
-
-// Val GetModuleEnv(VM *vm, Val name);
-// void PutModule(VM *vm, Val name, Val env);

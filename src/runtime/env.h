@@ -17,4 +17,4 @@ Val ParentEnv(Val *mem, Val env);
 void Define(Val **mem, Val var, Val val, Val env);
 Result Lookup(Val *mem, Val var, Val env);
 Val FrameMap(Val *mem, Val env);
-void PrintEnv(Val *mem, StringMap *strings, Val env);
+void PrintEnv(Val *mem, Val symbols, Val env);

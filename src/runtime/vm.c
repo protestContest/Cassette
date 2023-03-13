@@ -1,6 +1,7 @@
 #include "vm.h"
 #include "native.h"
 #include "ops.h"
+#include "mem.h"
 #include <univ/vec.h>
 #include <univ/io.h>
 #include "print.h"
@@ -19,25 +20,18 @@ static void Run(VM *vm);
 void InitVM(VM *vm)
 {
   vm->status = VM_Ok;
-  vm->image = NULL;
   vm->stack = NULL;
-  vm->module = NULL;
+  InitMem(&vm->heap);
+  vm->symbols = MakeMap(&vm->heap, 32);
+  vm->chunk = NULL;
   vm->pc = 0;
   InitNativeMap(&vm->natives);
 }
 
-void ResetVM(VM *vm)
+void RunChunk(VM *vm, Chunk *chunk)
 {
-  FreeVec(vm->stack);
-  InitVM(vm);
-}
-
-void RunImage(VM *vm, Image *image)
-{
-  InitVM(vm);
-  vm->image = image;
+  vm->chunk = chunk;
   DefineNatives(vm);
-  vm->module = GetModule(&image->modules, SymbolFor("Main"));
   Run(vm);
 }
 
@@ -47,7 +41,7 @@ static void Run(VM *vm)
   PrintTraceHeader();
 #endif
 
-  while (vm->pc < VecCount(vm->module->code) && vm->status == VM_Ok) {
+  while (vm->pc < VecCount(vm->chunk->code) && vm->status == VM_Ok) {
 #ifdef TRACE
     PrintTraceStart(vm);
 #endif
@@ -82,12 +76,12 @@ void StackTrunc(VM *vm, u32 amount)
 
 u8 ReadByte(VM *vm)
 {
-  return vm->module->code[vm->pc++];
+  return vm->chunk->code[vm->pc++];
 }
 
 Val ReadConst(VM *vm)
 {
-  return GetConst(vm->module, ReadByte(vm));
+  return GetConst(vm->chunk, ReadByte(vm));
 }
 
 void RuntimeError(VM *vm, char *msg)
@@ -105,7 +99,7 @@ static void PrintTraceHeader(void)
 
 static void PrintTraceStart(VM *vm)
 {
-  u32 written = DisassembleInstruction(vm->module, &vm->image->strings, vm->pc);
+  u32 written = DisassembleInstruction(vm->chunk, vm->pc);
   if (written < 30) {
     for (u32 i = 0; i < 30 - written; i++) Print(" ");
   }
@@ -117,12 +111,12 @@ static void PrintTraceEnd(VM *vm)
 {
   PrintStackLine(vm, 100);
   Print(" e");
-  PrintInt(RawObj(vm->image->env), 3);
+  PrintInt(RawVal(vm->env), 3);
   Print(" ");
-  PrintVal(vm->image->heap, &vm->image->strings, FrameMap(vm->image->heap, vm->image->env));
-  if (!IsNil(ParentEnv(vm->image->heap, vm->image->env))) {
+  PrintVal(vm->heap, vm->symbols, FrameMap(vm->heap, vm->env));
+  if (!IsNil(ParentEnv(vm->heap, vm->env))) {
     Print(" <- e");
-    PrintInt(RawObj(ParentEnv(vm->image->heap, vm->image->env)), 3);
+    PrintInt(RawVal(ParentEnv(vm->heap, vm->env)), 3);
   }
   Print("\n");
   Flush(output);
@@ -137,7 +131,7 @@ static u32 PrintStackLine(VM *vm, u32 bufsize)
       return written;
     }
 
-    written += PrintVal(vm->image->heap, &vm->image->strings, vm->stack[VecCount(vm->stack)-1-i]);
+    written += PrintVal(vm->heap, vm->symbols, vm->stack[VecCount(vm->stack)-1-i]);
     Print(" ");
     written++;
   }

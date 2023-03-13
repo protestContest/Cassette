@@ -1,5 +1,5 @@
 *.sublime-workspace
 build/*
-bin/*
+dist/*
 *.DS_Store
 .elixir_ls

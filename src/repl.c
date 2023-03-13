@@ -1,7 +1,7 @@
 #include "repl.h"
 #include <univ/io.h>
 
-void REPL(VM *vm, Image *image)
+void REPL(VM *vm)
 {
   char line[1024];
   while (true) {

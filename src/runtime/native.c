@@ -32,9 +32,10 @@ void DefineNatives(VM *vm)
   InitNativeMap(&vm->natives);
 
   for (u32 i = 0; i < ArrayCount(natives); i++) {
-    Val name = MakeSymbol(&vm->image->strings, natives[i].name);
+    // Val name = MakeSymbol(&vm->image->strings, natives[i].name);
+    Val name = SymbolFor(natives[i].name);
     NativeMapPut(&vm->natives, name, natives[i].impl);
-    Define(&vm->image->heap, name, MakePair(&vm->image->heap, SymbolFor("native"), name), vm->image->env);
+    Define(&vm->heap, name, MakePair(&vm->heap, SymbolFor("native"), name), vm->env);
   }
 }
 
@@ -55,7 +56,7 @@ static void NativePrint(VM *vm, u32 num_args)
 {
   for (u32 i = 0; i < num_args; i++) {
     Val val = StackPop(vm);
-    PrintVal(vm->image->heap, &vm->image->strings, val);
+    PrintVal(vm->heap, nil, val);
   }
   Print("\n");
 }
@@ -90,17 +91,17 @@ static void NativeEq(VM *vm, u32 num_args)
 static void NativeReverse(VM *vm, u32 num_args)
 {
   Val list = StackPop(vm);
-  StackPush(vm, Reverse(&vm->image->heap, list));
+  StackPush(vm, Reverse(&vm->heap, list));
 }
 
 static void NativeHead(VM *vm, u32 num_args)
 {
   Val pair = StackPop(vm);
-  StackPush(vm, Head(vm->image->heap, pair));
+  StackPush(vm, Head(vm->heap, pair));
 }
 
 static void NativeTail(VM *vm, u32 num_args)
 {
   Val pair = StackPop(vm);
-  StackPush(vm, Tail(vm->image->heap, pair));
+  StackPush(vm, Tail(vm->heap, pair));
 }

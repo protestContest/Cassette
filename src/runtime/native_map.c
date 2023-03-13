@@ -19,7 +19,7 @@ static void ResizeNativeMap(NativeMap *map, u32 capacity)
 
 void NativeMapPut(NativeMap *map, Val key, NativeFn impl)
 {
-  u32 index = RawSym(key) % map->capacity;
+  u32 index = RawVal(key) % map->capacity;
   while (!IsNil(map->items[index].name)) {
     if (Eq(map->items[index].name, key)) {
       map->items[index].impl = impl;
@@ -39,7 +39,7 @@ void NativeMapPut(NativeMap *map, Val key, NativeFn impl)
 
 NativeFn NativeMapGet(NativeMap *map, Val key)
 {
-  u32 index = RawSym(key) % map->capacity;
+  u32 index = RawVal(key) % map->capacity;
   while (!IsNil(map->items[index].name)) {
     if (Eq(map->items[index].name, key)) {
       return map->items[index].impl;

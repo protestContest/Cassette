@@ -1,9 +1,10 @@
+NAME = rye
 BUILD_DIR := build
 SRC_DIR := src
 INC_DIR := include
-BIN_DIR := bin
+DIST_DIR := dist
 PREFIX := $(HOME)/.local
-TARGET = $(BIN_DIR)/rye
+TARGET = $(DIST_DIR)/$(NAME)
 
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
@@ -14,19 +15,17 @@ CFLAGS = -g -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(I
 LDFLAGS = -L$(PREFIX)/lib -lbase
 
 $(TARGET): $(OBJS)
-	$(MKDIR_P) $(dir $@)
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	$(MKDIR_P) $(dir $@)
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
-
-.PHONY: run
-run: $(TARGET)
-	@$(BIN_DIR)/$(TARGET)
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR) $(BIN_DIR)/*
+	rm -rf $(BUILD_DIR) $(DIST_DIR)
 
-MKDIR_P ?= mkdir -p
+.PHONY: run
+run: $(TARGET)
+	@$(TARGET)
