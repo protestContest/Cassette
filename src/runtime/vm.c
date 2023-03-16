@@ -61,7 +61,7 @@ void StackPush(VM *vm, Val val)
 
 Val StackPop(VM *vm)
 {
-  return VecPop(vm->stack);
+  return VecPop(vm->stack, nil);
 }
 
 Val StackPeek(VM *vm, u32 pos)

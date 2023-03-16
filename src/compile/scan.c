@@ -275,6 +275,7 @@ char *TokenStr(TokenType type)
   case TOKEN_IF:          return "IF";
   case TOKEN_NOT:         return "NOT";
   case TOKEN_OR:          return "OR";
+  default:                return "";
   }
 }
 
