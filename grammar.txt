@@ -15,14 +15,14 @@ terminals: num, var '+', '(', ')', '->'
 12. params    → ε
 13. params    → params var
 
-0.  program   → • expr                      shift 1
-    expr      → • value                     shift 2
-    expr      → • infix                     shift 3
-    expr      → • call                      shift 4
-    expr      → • lambda                    shift 5
+0.  program   → • expr                      goto 1
+    expr      → • value                     goto 2
+    expr      → • infix                     goto 3
+    expr      → • call                      goto 4
+    expr      → • lambda                    goto 5
     value     → • num                       shift 6
     value     → • var                       shift 7
-    infix     → • expr '+' expr             shift 1
+    infix     → • expr '+' expr             goto 1
     call      → • '(' expr call-args ')'    shift 8
     lambda    → • '(' params ')' '->' expr  shift 8
 

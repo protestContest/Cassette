@@ -1,15 +1,32 @@
-// #pragma once
-// #include "../value.h"
-// #include "scan.h"
-// #include "chunk.h"
-// #include "ast.h"
+#pragma once
+#include "lex.h"
 
-// typedef struct {
-//   Source source;
-//   Token token;
-//   char *error;
-//   int *stack;
-// } Parser;
+typedef enum {
+  Number,
+  Identifier,
+  Value,
+  Primary,
+  Sum,
+  Product,
+  Expr,
+} ParseSymbol;
+#define NUM_PARSE_SYM 7
 
-// void InitParser(Parser *p);
-// bool Parse(Parser *p, char *src);
+typedef struct ASTNode {
+  ParseSymbol symbol;
+  Token token;
+  struct ASTNode *children;
+} ASTNode;
+
+typedef struct {
+  u32 id;
+  Token token;
+} ParseState;
+
+typedef struct {
+  Lexer lex;
+  Token next_token;
+  ParseState *stack;
+} Parser;
+
+bool Parse(char *src);
