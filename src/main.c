@@ -1,20 +1,20 @@
-#include "compile/parse.h"
+#include "lex.h"
 #include <univ/io.h>
+#include <stdio.h>
+#include <string.h>
 
 int main(int argc, char *argv[])
 {
-  char *src = "-3 * (4 + 1)";
-  PrintLn(src);
-  Parser p;
-  InitParser(&p);
-  Parse(&p, src);
+  char *src = "-0x3 * (4 + 0b101)";
+  printf("\n%s\n\n", src);
 
-  // Assert(p.error == NULL);
+  Lexer lex;
+  InitLexer(&lex, src);
 
-  // if (p.error != NULL) {
-  //   PrintLn(p.error);
-  //   PrintSourceContext(&p.source, p.token, 0);
-  // } else {
-  //   // PrintAST(ast);
-  // }
+  Token token = NextToken(&lex);
+  while (token.type != TOKEN_EOF) {
+    PrintToken(token);
+    printf("\n");
+    token = NextToken(&lex);
+  }
 }
