@@ -196,7 +196,7 @@ int PrintToken(Token token)
   // case TOKEN_COMMA: return printf("COMMA");
   // case TOKEN_COLON: return printf("COLON");
   // case TOKEN_NEWLINE: return printf("NEWLINE");
-  // case TOKEN_ARROW: return printf("ARROW");
+  case TOKEN_ARROW: return printf("ARROW");
   // case TOKEN_AND: return printf("AND");
   // case TOKEN_COND: return printf("COND");
   // case TOKEN_DEF: return printf("DEF");

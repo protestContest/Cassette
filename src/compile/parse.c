@@ -1,294 +1,202 @@
 #include "parse.h"
+#include "lex.h"
+#include <univ/base.h>
 #include <univ/vec.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef enum {
-  ParseError,
-  ParseStop,
-  ParseShift,
-  ParseReduce
-} ParseAction;
+#define NUM_STATES 43
 
-static char *ParseSymbolStr(ParseSymbol sym)
-{
-  switch (sym) {
-  case Number:      return "Number";
-  case Identifier:  return "Identifier";
-  case Value:       return "Value";
-  case Primary:     return "Primary";
-  case Sum:         return "Sum";
-  case Product:     return "Product";
-  case Expr:        return "Expr";
-  }
-}
+#define ParseSymbolStr(sym) parse_symbol_names[sym]
+static char *parse_symbol_names[] = {"End", "Error", "ID", "Num", "Arrow", "LParen", "RParen", "Minus", "Star", "Accept", "Expr", "Lambda", "Call", "IDs", "Args", "Group", "Sum", "Product", "Negative"};
 
-static ParseSymbol TokenToParseSymbol(TokenType type)
-{
-  switch (type) {
-  case TOKEN_EOF:
-  case TOKEN_NUMBER:  return Number;
-  case TOKEN_ID:      return Identifier;
-  case TOKEN_LPAREN:  return Primary;
-  case TOKEN_RPAREN:  return Primary;
-  case TOKEN_STAR:    return Product;
-  case TOKEN_SLASH:   return Product;
-  case TOKEN_MINUS:   return Sum;
-  case TOKEN_PLUS:    return Sum;
-  }
-  exit(1);
-}
-
-#define Shift(state)  (((state) << 2) + 2)
-#define Reduce(rule)  (((rule) << 2) + 3)
-
-#define ActionFor(n)  ((n) & 0x3)
-#define ActionVal(n)  ((n) >> 2)
-
-static u32 actions[][NUM_TOKENS] = {
-  [0] = { // $accept: . expr $end
-    [TOKEN_EOF]     = ParseError,
-    [TOKEN_NUMBER]  = Shift(2),
-    [TOKEN_ID]      = Shift(1),
-    [TOKEN_LPAREN]  = Shift(3),
-    [TOKEN_RPAREN]  = ParseError,
-    [TOKEN_STAR]    = ParseError,
-    [TOKEN_SLASH]   = ParseError,
-    [TOKEN_MINUS]   = ParseError,
-    [TOKEN_PLUS]    = ParseError,
-  },
-  [1] = { // value: id .
-    [TOKEN_EOF]     = Reduce(11),
-    [TOKEN_NUMBER]  = Reduce(11),
-    [TOKEN_ID]      = Reduce(11),
-    [TOKEN_LPAREN]  = Reduce(11),
-    [TOKEN_RPAREN]  = Reduce(11),
-    [TOKEN_STAR]    = Reduce(11),
-    [TOKEN_SLASH]   = Reduce(11),
-    [TOKEN_MINUS]   = Reduce(11),
-    [TOKEN_PLUS]    = Reduce(11),
-  },
-  [2] = { // value: num .
-    [TOKEN_EOF]     = Reduce(12),
-    [TOKEN_NUMBER]  = Reduce(12),
-    [TOKEN_ID]      = Reduce(12),
-    [TOKEN_LPAREN]  = Reduce(12),
-    [TOKEN_RPAREN]  = Reduce(12),
-    [TOKEN_STAR]    = Reduce(12),
-    [TOKEN_SLASH]   = Reduce(12),
-    [TOKEN_MINUS]   = Reduce(12),
-    [TOKEN_PLUS]    = Reduce(12),
-  },
-  [3] = { // primary: '(' . expr ')'
-    [TOKEN_EOF]     = Reduce(2),
-    [TOKEN_NUMBER]  = Shift(2),
-    [TOKEN_ID]      = Shift(1),
-    [TOKEN_LPAREN]  = Shift(3),
-    [TOKEN_RPAREN]  = Reduce(2),
-    [TOKEN_STAR]    = Reduce(2),
-    [TOKEN_SLASH]   = Reduce(2),
-    [TOKEN_MINUS]   = Reduce(2),
-    [TOKEN_PLUS]    = Reduce(2),
-  },
-  [4] = { // $accept: expr . $end
-    [TOKEN_EOF]     = Shift(10),
-    [TOKEN_NUMBER]  = ParseError,
-    [TOKEN_ID]      = ParseError,
-    [TOKEN_LPAREN]  = ParseError,
-    [TOKEN_RPAREN]  = ParseError,
-    [TOKEN_STAR]    = ParseError,
-    [TOKEN_SLASH]   = ParseError,
-    [TOKEN_MINUS]   = ParseError,
-    [TOKEN_PLUS]    = ParseError,
-  },
-  [5] = { // expr: product .
-    [TOKEN_EOF]     = Reduce(1),
-    [TOKEN_NUMBER]  = Reduce(1),
-    [TOKEN_ID]      = Reduce(1),
-    [TOKEN_LPAREN]  = Reduce(1),
-    [TOKEN_RPAREN]  = Reduce(1),
-    [TOKEN_STAR]    = Shift(11),
-    [TOKEN_SLASH]   = Shift(12),
-    [TOKEN_MINUS]   = Reduce(1),
-    [TOKEN_PLUS]    = Reduce(1),
-  },
-  [6] = { // product: sum .
-    [TOKEN_EOF]     = Reduce(5),
-    [TOKEN_NUMBER]  = Reduce(5),
-    [TOKEN_ID]      = Reduce(5),
-    [TOKEN_LPAREN]  = Reduce(5),
-    [TOKEN_RPAREN]  = Reduce(5),
-    [TOKEN_STAR]    = Reduce(5),
-    [TOKEN_SLASH]   = Reduce(5),
-    [TOKEN_MINUS]   = Shift(14),
-    [TOKEN_PLUS]    = Shift(13),
-  },
-  [7] = { // sum: primary .
-    [TOKEN_EOF]     = Reduce(8),
-    [TOKEN_NUMBER]  = Reduce(8),
-    [TOKEN_ID]      = Reduce(8),
-    [TOKEN_LPAREN]  = Reduce(8),
-    [TOKEN_RPAREN]  = Reduce(8),
-    [TOKEN_STAR]    = Reduce(8),
-    [TOKEN_SLASH]   = Reduce(8),
-    [TOKEN_MINUS]   = Reduce(8),
-    [TOKEN_PLUS]    = Reduce(8),
-  },
-  [8] = { // primary: value .
-    [TOKEN_EOF]     = Reduce(9),
-    [TOKEN_NUMBER]  = Reduce(9),
-    [TOKEN_ID]      = Reduce(9),
-    [TOKEN_LPAREN]  = Reduce(9),
-    [TOKEN_RPAREN]  = Reduce(9),
-    [TOKEN_STAR]    = Reduce(9),
-    [TOKEN_SLASH]   = Reduce(9),
-    [TOKEN_MINUS]   = Reduce(9),
-    [TOKEN_PLUS]    = Reduce(9),
-  },
-  [9] = { // primary: '(' expr . ')'
-    [TOKEN_EOF]     = ParseError,
-    [TOKEN_NUMBER]  = ParseError,
-    [TOKEN_ID]      = ParseError,
-    [TOKEN_LPAREN]  = ParseError,
-    [TOKEN_RPAREN]  = Shift(15),
-    [TOKEN_STAR]    = ParseError,
-    [TOKEN_SLASH]   = ParseError,
-    [TOKEN_MINUS]   = ParseError,
-    [TOKEN_PLUS]    = ParseError,
-  },
-  [10] = { // $accept: expr $end .
-    [TOKEN_EOF]     = ParseStop,
-    [TOKEN_NUMBER]  = ParseStop,
-    [TOKEN_ID]      = ParseStop,
-    [TOKEN_LPAREN]  = ParseStop,
-    [TOKEN_RPAREN]  = ParseStop,
-    [TOKEN_STAR]    = ParseStop,
-    [TOKEN_SLASH]   = ParseStop,
-    [TOKEN_MINUS]   = ParseStop,
-    [TOKEN_PLUS]    = ParseStop,
-  },
-  [11] = { // product: product '*' . sum
-    [TOKEN_EOF]     = ParseError,
-    [TOKEN_NUMBER]  = Shift(2),
-    [TOKEN_ID]      = Shift(1),
-    [TOKEN_LPAREN]  = Shift(3),
-    [TOKEN_RPAREN]  = ParseError,
-    [TOKEN_STAR]    = ParseError,
-    [TOKEN_SLASH]   = ParseError,
-    [TOKEN_MINUS]   = ParseError,
-    [TOKEN_PLUS]    = ParseError,
-  },
-  [12] = { // product: product '/' . sum
-    [TOKEN_EOF]     = ParseError,
-    [TOKEN_NUMBER]  = Shift(2),
-    [TOKEN_ID]      = Shift(1),
-    [TOKEN_LPAREN]  = Shift(3),
-    [TOKEN_RPAREN]  = ParseError,
-    [TOKEN_STAR]    = ParseError,
-    [TOKEN_SLASH]   = ParseError,
-    [TOKEN_MINUS]   = ParseError,
-    [TOKEN_PLUS]    = ParseError,
-  },
-  [13] = { // sum: sum '+' . primary
-    [TOKEN_EOF]     = ParseError,
-    [TOKEN_NUMBER]  = Shift(2),
-    [TOKEN_ID]      = Shift(1),
-    [TOKEN_LPAREN]  = Shift(3),
-    [TOKEN_RPAREN]  = ParseError,
-    [TOKEN_STAR]    = ParseError,
-    [TOKEN_SLASH]   = ParseError,
-    [TOKEN_MINUS]   = ParseError,
-    [TOKEN_PLUS]    = ParseError,
-  },
-  [14] = { // sum: sum '-' . primary
-    [TOKEN_EOF]     = ParseError,
-    [TOKEN_NUMBER]  = Shift(2),
-    [TOKEN_ID]      = Shift(1),
-    [TOKEN_LPAREN]  = Shift(3),
-    [TOKEN_RPAREN]  = ParseError,
-    [TOKEN_STAR]    = ParseError,
-    [TOKEN_SLASH]   = ParseError,
-    [TOKEN_MINUS]   = ParseError,
-    [TOKEN_PLUS]    = ParseError,
-  },
-  [15] = { // primary: '(' expr ')' .
-    [TOKEN_EOF]     = Reduce(10),
-    [TOKEN_NUMBER]  = Reduce(10),
-    [TOKEN_ID]      = Reduce(10),
-    [TOKEN_LPAREN]  = Reduce(10),
-    [TOKEN_RPAREN]  = Reduce(10),
-    [TOKEN_STAR]    = Reduce(10),
-    [TOKEN_SLASH]   = Reduce(10),
-    [TOKEN_MINUS]   = Reduce(10),
-    [TOKEN_PLUS]    = Reduce(10),
-  },
-  [16] = { // product: product '*' sum .
-    [TOKEN_EOF]     = Reduce(3),
-    [TOKEN_NUMBER]  = Reduce(3),
-    [TOKEN_ID]      = Reduce(3),
-    [TOKEN_LPAREN]  = Reduce(3),
-    [TOKEN_RPAREN]  = Reduce(3),
-    [TOKEN_STAR]    = Reduce(3),
-    [TOKEN_SLASH]   = Reduce(3),
-    [TOKEN_MINUS]   = Shift(14),
-    [TOKEN_PLUS]    = Shift(13),
-  },
-  [17] = { // product: product '/' sum .
-    [TOKEN_EOF]     = Reduce(4),
-    [TOKEN_NUMBER]  = Reduce(4),
-    [TOKEN_ID]      = Reduce(4),
-    [TOKEN_LPAREN]  = Reduce(4),
-    [TOKEN_RPAREN]  = Reduce(4),
-    [TOKEN_STAR]    = Reduce(4),
-    [TOKEN_SLASH]   = Reduce(4),
-    [TOKEN_MINUS]   = Shift(14),
-    [TOKEN_PLUS]    = Shift(13),
-  },
-  [18] = { // sum: sum '+' primary .
-    [TOKEN_EOF]     = Reduce(6),
-    [TOKEN_NUMBER]  = Reduce(6),
-    [TOKEN_ID]      = Reduce(6),
-    [TOKEN_LPAREN]  = Reduce(6),
-    [TOKEN_RPAREN]  = Reduce(6),
-    [TOKEN_STAR]    = Reduce(6),
-    [TOKEN_SLASH]   = Reduce(6),
-    [TOKEN_MINUS]   = Reduce(6),
-    [TOKEN_PLUS]    = Reduce(6),
-  },
-  [19] = { // sum: sum '-' primary .
-    [TOKEN_EOF]     = Reduce(7),
-    [TOKEN_NUMBER]  = Reduce(7),
-    [TOKEN_ID]      = Reduce(7),
-    [TOKEN_LPAREN]  = Reduce(7),
-    [TOKEN_RPAREN]  = Reduce(7),
-    [TOKEN_STAR]    = Reduce(7),
-    [TOKEN_SLASH]   = Reduce(7),
-    [TOKEN_MINUS]   = Reduce(7),
-    [TOKEN_PLUS]    = Reduce(7),
-  },
+#define TokenSym(token) token_syms[token]
+static ParseSymbol token_syms[] = {
+  [TOKEN_EOF] = SymEnd,
+  [TOKEN_NUMBER] = SymNum,
+  [TOKEN_ID] = SymID,
+  [TOKEN_LPAREN] = SymLParen,
+  [TOKEN_RPAREN] = SymRParen,
+  [TOKEN_STAR] = SymStar,
+  [TOKEN_SLASH] = SymSlash,
+  [TOKEN_MINUS] = SymMinus,
+  [TOKEN_PLUS] = SymPlus,
 };
 
-static char *state_descriptions[] = {
-  [0]   = "S → · expr $",
-  [1]   = "value → id ·",
-  [2]   = "value → num ·",
-  [3]   = "primary → ( · expr )",
-  [4]   = "S → expr · $",
-  [5]   = "exp → product ·",
-  [6]   = "product → sum ·",
-  [7]   = "sum → primary ·",
-  [8]   = "primary → value ·",
-  [9]   = "primary → ( expr · )",
-  [10]  = "S → expr $ ·",
-  [11]  = "product → product * · sum",
-  [12]  = "product → product / · sum",
-  [13]  = "sum → sum + · primary",
-  [14]  = "sum → sum - · primary",
-  [15]  = "primary → ( expr ) ·",
-  [16]  = "product → product * sum ·",
-  [17]  = "product → product / sum ·",
-  [18]  = "sum → sum + primary ·",
-  [19]  = "sum → sum - primary ·",
+#define Shift(n)  -n
+#define Reduce(n) n
+
+static u32 default_table[NUM_STATES] = {
+  0,    3,    4,    0,    0,    1,    2,    5,   12,   14,
+  0,    0,   23,   17,   16,    0,    0,   15,    0,    0,
+  0,    0,    0,   22,   11,   14,    8,   17,   16,    0,
+ 15,   10,   13,   18,   19,    0,    0,    7,    0,    9,
+ 20,   21,    6
+};
+
+static i32 parse_table[][NUM_TOKENS] = {
+  [0] = {
+    [TOKEN_ID] =      Shift(1),
+    [TOKEN_NUMBER] =  Shift(2),
+    [TOKEN_LPAREN] =  Shift(3),
+  },
+  [3] = {
+    [TOKEN_ID]      = Shift(8),
+    [TOKEN_NUMBER]  = Shift(9),
+    [TOKEN_LPAREN]  = Shift(3),
+    [TOKEN_RPAREN]  = Shift(10),
+    [TOKEN_MINUS]   = Shift(11),
+  },
+  [4] = {
+    [TOKEN_EOF]     = Shift(21)
+  },
+  [8] = {
+    [TOKEN_STAR]    = Reduce(3)
+  },
+  [9] = {
+    [TOKEN_STAR]    = Reduce(4)
+  },
+  [10] = {
+    [TOKEN_ARROW]   = Shift(22)
+  },
+  [11] = {
+    [TOKEN_ID]      = Shift(1),
+    [TOKEN_NUMBER]  = Shift(2),
+    [TOKEN_LPAREN]  = Shift(3),
+  },
+  [13] = {
+    [TOKEN_STAR]    = Reduce(1)
+  },
+  [14] = {
+    [TOKEN_STAR]    = Reduce(2)
+  },
+  [15] = {
+    [TOKEN_ID]      = Shift(24),
+    [TOKEN_NUMBER]  = Shift(25),
+    [TOKEN_LPAREN]  = Shift(3),
+    [TOKEN_RPAREN]  = Shift(26),
+  },
+  [16] = {
+    [TOKEN_ID]      = Shift(1),
+    [TOKEN_NUMBER]  = Shift(2),
+    [TOKEN_LPAREN]  = Shift(3),
+    [TOKEN_RPAREN]  = Shift(31),
+  },
+  [17] = {
+    [TOKEN_STAR]    = Reduce(5)
+  },
+  [18] = {
+    [TOKEN_RPAREN]  = Shift(33)
+  },
+  [19] = {
+    [TOKEN_RPAREN]  = Shift(34),
+    [TOKEN_MINUS]   = Shift(35),
+  },
+  [20] = {
+    [TOKEN_STAR]    = Shift(36)
+  },
+  [22] = {
+    [TOKEN_ID]      = Shift(1),
+    [TOKEN_NUMBER]  = Shift(2),
+    [TOKEN_LPAREN]  = Shift(3),
+  },
+  [26] = {
+    [TOKEN_ARROW]   = Shift(38)
+  },
+  [29] = {
+    [TOKEN_ID]      = Shift(1),
+    [TOKEN_NUMBER]  = Shift(2),
+    [TOKEN_LPAREN]  = Shift(3),
+    [TOKEN_RPAREN]  = Shift(39),
+  },
+  [35] = {
+    [TOKEN_ID]      = Shift(1),
+    [TOKEN_NUMBER]  = Shift(2),
+    [TOKEN_LPAREN]  = Shift(3),
+    [TOKEN_MINUS]   = Shift(11),
+  },
+  [36] = {
+    [TOKEN_ID]      = Shift(1),
+    [TOKEN_NUMBER]  = Shift(2),
+    [TOKEN_LPAREN]  = Shift(3),
+    [TOKEN_MINUS]   = Shift(11),
+  },
+  [38] = {
+    [TOKEN_ID]      = Shift(1),
+    [TOKEN_NUMBER]  = Shift(2),
+    [TOKEN_LPAREN]  = Shift(3),
+  }
+};
+
+static u32 goto_table[][NUM_PARSE_SYM] = {
+  [0] = {
+    [SymExpr]     = 4,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7
+  },
+  [3] = {
+    [SymExpr]     = 12,
+    [SymLambda]   = 13,
+    [SymCall]     = 14,
+    [SymIDs]      = 15,
+    [SymArgs]     = 16,
+    [SymGroup]    = 17,
+    [SymSum]      = 18,
+    [SymProduct]  = 19,
+    [SymNegative] = 20,
+  },
+  [11] = {
+    [SymExpr]     = 23,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7
+  },
+  [15] = {
+    [SymLambda]   = 27,
+    [SymCall]     = 28,
+    [SymArgs]     = 29,
+    [SymGroup]    = 30,
+  },
+  [16] = {
+    [SymExpr]     = 32,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7
+  },
+  [22] = {
+    [SymExpr]     = 37,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7
+  },
+  [29] = {
+    [SymExpr]     = 32,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7
+  },
+  [35] = {
+    [SymExpr]     = 12,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7,
+    [SymProduct]  = 40,
+    [SymNegative] = 20,
+  },
+  [36] = {
+    [SymExpr]     = 12,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7,
+    [SymNegative] = 41,
+  },
+  [38] = {
+    [SymExpr]     = 42,
+    [SymLambda]   = 5,
+    [SymCall]     = 6,
+    [SymGroup]    = 7
+  },
 };
 
 typedef struct {
@@ -296,141 +204,118 @@ typedef struct {
   ParseSymbol result;
 } ReduceRule;
 
-static ReduceRule reduce[] = {
-  [0]   = {0, Expr},
-  [1]   = {1, Expr},
-  [2]   = {0, Expr},
-  [3]   = {3, Product},
-  [4]   = {3, Product},
-  [5]   = {1, Product},
-  [6]   = {3, Sum},
-  [7]   = {3, Sum},
-  [8]   = {1, Sum},
-  [9]   = {1, Primary},
-  [10]  = {3, Primary},
-  [11]  = {1, Value},
-  [12]  = {1, Value},
+static ReduceRule rules[] = {
+  [0]   = { 2, SymAccept },
+  [1]   = { 1, SymExpr },
+  [2]   = { 1, SymExpr },
+  [3]   = { 1, SymExpr },
+  [4]   = { 1, SymExpr },
+  [5]   = { 1, SymExpr },
+  [6]   = { 5, SymLambda },
+  [7]   = { 4, SymLambda },
+  [8]   = { 3, SymCall },
+  [9]   = { 4, SymCall },
+  [10]  = { 3, SymCall },
+  [11]  = { 2, SymIDs },
+  [12]  = { 1, SymIDs },
+  [13]  = { 2, SymArgs },
+  [14]  = { 1, SymArgs },
+  [15]  = { 1, SymArgs },
+  [16]  = { 1, SymArgs },
+  [17]  = { 1, SymArgs },
+  [18]  = { 3, SymGroup },
+  [19]  = { 3, SymGroup },
+  [20]  = { 3, SymSum },
+  [21]  = { 3, SymProduct },
+  [22]  = { 2, SymNegative },
+  [23]  = { 1, SymNegative },
 };
 
-static u32 goto_table[][NUM_PARSE_SYM] = {
-  [0] = {
-    [Expr]    = 4,
-    [Product] = 5,
-    [Sum]     = 6,
-    [Primary] = 7,
-    [Value]   = 8
-  },
-  [3] = {
-    [Expr]    = 9,
-    [Product] = 5,
-    [Sum]     = 6,
-    [Primary] = 7,
-    [Value]   = 8
-  },
-  [11] = {
-    [Sum]     = 16,
-    [Primary] = 7,
-    [Value]   = 8
-  },
-  [12] = {
-    [Sum]     = 17,
-    [Primary] = 7,
-    [Value]   = 8
-  },
-  [13] = {
-    [Primary] = 18,
-    [Value]   = 8
-  },
-  [14] = {
-    [Primary] = 19,
-    [Value]   = 8
-  }
-};
-
-static void ShiftState(Parser *p, u32 state_id)
+static u32 MakeNode(Parser *p, ParseSymbol sym, Token token)
 {
-  printf("Shift %d\n", state_id);
-  ParseState next_state = {state_id, p->next_token};
-  VecPush(p->stack, next_state);
-  p->next_token = NextToken(&p->lex);
+  ASTNode node = {sym, token, NULL};
+  VecPush(p->nodes, node);
+  return VecCount(p->nodes) - 1;
 }
 
-static bool ReduceState(Parser *p, u32 rule_id)
+void ParseNext(Parser *p)
 {
-  ReduceRule rule = reduce[rule_id];
-
-  // ASTNode *node = malloc(sizeof(ASTNode));
-  // *node = (ASTNode){rule.result, NULL};
-  printf("(%d, %d)\n", VecCount(p->stack), rule.num);
-  printf("Reducing to %s: ", ParseSymbolStr(rule.result));
-  for (u32 i = 0; i < rule.num; i++) {
-    printf("%d ", VecPeek(p->stack, i).id);
-  }
-  printf("\n");
-
-  RewindVec(p->stack, rule.num);
-
-  ParseState prev_state = VecLast(p->stack);
-
-  ParseState next_state = {
-    goto_table[prev_state.id][rule.result],
-    {TOKEN_EOF, 1, 1, p->lex.src, 0}
-  };
-
-  if (next_state.id == 0) {
-    printf("Undefined goto for state %d, terminal %d\n", prev_state.id, rule.result);
-    return false;
-  }
-
-  printf("    Goto %d\n", next_state.id);
-
-  VecPush(p->stack, next_state);
-  return true;
-}
-
-bool ParseNext(Parser *p)
-{
-  ParseState state = VecLast(p->stack);
-  u32 action = actions[state.id][p->next_token.type];
-
-  for (u32 i = 0; i < VecCount(p->stack); i++) {
-    printf("%d[", p->stack[i].id);
-    PrintToken(p->stack[i].token);
-    printf("] ");
-  }
-  printf("    ");
+  u32 state = VecLast(p->stack);
+  printf("State %d: ", state);
   PrintToken(p->next_token);
-  printf("\n    ");
-  printf("%s\n    ", state_descriptions[state.id]);
 
-  if (ActionFor(action) == ParseStop) {
-    printf("Accept\n");
-    return true;
+  if (state > ArrayCount(parse_table)) {
+    printf("Undefined state: %d\n", state);
+    exit(1);
   }
 
-  if (ActionFor(action) == ParseShift) {
-    ShiftState(p, ActionVal(action));
-    return ParseNext(p);
+  i32 action = default_table[state];
+  if (action == 0) action = parse_table[state][p->next_token.type];
+
+  if (action < 0) {
+    // shift
+    VecPush(p->stack, -action);
+    printf("  Shift %d\n", -action);
+    u32 sym = MakeNode(p, TokenSym(p->next_token.type), p->next_token);
+    VecPush(p->symbols, sym);
+    p->next_token = NextToken(&p->lex);
+    ParseNext(p);
+  } else if (action > 0) {
+    // reduce
+    printf("  Reduce %d\n", action);
+    ReduceRule rule = rules[action];
+    u32 sym = MakeNode(p, rule.result, p->next_token);
+    for (u32 i = 0; i < rule.num; i++) {
+      VecPush(p->nodes[sym].children, VecPeek(p->symbols, i));
+    }
+    RewindVec(p->symbols, rule.num);
+    VecPush(p->symbols, sym);
+
+    RewindVec(p->stack, rule.num);
+    VecPush(p->stack, goto_table[VecLast(p->stack)][rule.result]);
+    ParseNext(p);
+  } else {
+    printf("  Undefined action for token ");
+    PrintToken(p->next_token);
+    printf("\n");
   }
-
-  if (ActionFor(action) == ParseReduce) {
-    if (!ReduceState(p, ActionVal(action))) return false;
-    return ParseNext(p);
-  }
-
-  printf("Error at %d:%d\n", p->lex.line, p->lex.col);
-
-  return false;
 }
 
-bool Parse(char *src)
+AST Parse(char *src)
 {
   Parser p;
   InitLexer(&p.lex, src);
   p.next_token = NextToken(&p.lex);
-
   p.stack = NULL;
-  ParseState initial_state = {0, {TOKEN_EOF, 1, 1, src, 0}};
-  VecPush(p.stack, initial_state);
-  return ParseNext(&p);
+  p.symbols = NULL;
+  p.nodes = NULL;
+  VecPush(p.stack, 0);
+
+  ParseNext(&p);
+  AST ast = { p.nodes, VecLast(p.symbols) };
+
+  FreeVec(p.stack);
+  FreeVec(p.symbols);
+  return ast;
+}
+
+static void PrintASTNode(AST ast, u32 node_id, u32 indent)
+{
+  for (u32 i = 0; i < indent; i++) printf("  ");
+
+  ParseSymbol sym = ast.nodes[node_id].sym;
+  printf("%s", parse_symbol_names[sym]);
+  if (sym == SymID || sym == SymNum) {
+    printf(" %.*s", ast.nodes[node_id].token.length, ast.nodes[node_id].token.lexeme);
+  }
+  printf("\n");
+
+  for (u32 i = 0; i < VecCount(ast.nodes[node_id].children); i++) {
+    PrintASTNode(ast, ast.nodes[node_id].children[i], indent + 1);
+  }
+}
+
+void PrintAST(AST ast)
+{
+  PrintASTNode(ast, ast.root, 0);
 }

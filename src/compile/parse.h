@@ -2,31 +2,48 @@
 #include "lex.h"
 
 typedef enum {
-  Number,
-  Identifier,
-  Value,
-  Primary,
-  Sum,
-  Product,
-  Expr,
+  SymEnd,
+  SymError,
+  SymID,
+  SymNum,
+  SymArrow,
+  SymLParen,
+  SymRParen,
+  SymMinus,
+  SymPlus,
+  SymStar,
+  SymSlash,
+  SymAccept,
+  SymExpr,
+  SymLambda,
+  SymCall,
+  SymIDs,
+  SymArgs,
+  SymGroup,
+  SymSum,
+  SymProduct,
+  SymNegative,
 } ParseSymbol;
-#define NUM_PARSE_SYM 7
+#define NUM_PARSE_SYM (SymNegative + 1)
 
-typedef struct ASTNode {
-  ParseSymbol symbol;
+typedef struct {
+  ParseSymbol sym;
   Token token;
-  struct ASTNode *children;
+  u32 *children;
 } ASTNode;
 
 typedef struct {
-  u32 id;
-  Token token;
-} ParseState;
+  ASTNode *nodes;
+  u32 root;
+} AST;
 
 typedef struct {
   Lexer lex;
   Token next_token;
-  ParseState *stack;
+  u32 *stack;
+  u32 *symbols;
+  ASTNode *nodes;
 } Parser;
 
-bool Parse(char *src);
+AST Parse(char *src);
+void PrintAST(AST ast);

@@ -5,12 +5,10 @@
 
 int main(int argc, char *argv[])
 {
-  char *src = "(4 + 1)";
+  char *src = "(a b) -> 3";
+  // char *src = "foo";
   printf("\n%s\n\n", src);
 
-  if (Parse(src)) {
-    printf("Ok\n");
-  } else {
-    printf("Error\n");
-  }
+  AST ast = Parse(src);
+  PrintAST(ast);
 }

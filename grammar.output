@@ -1,0 +1,484 @@
+Grammar
+
+    0 $accept: expr $end
+
+    1 expr: lambda
+    2     | call
+    3     | id
+    4     | num
+    5     | group
+
+    6 lambda: '(' ids ')' arrow expr
+    7       | '(' ')' arrow expr
+
+    8 call: '(' ids ')'
+    9     | '(' ids args ')'
+   10     | '(' args ')'
+
+   11 ids: ids id
+   12    | id
+
+   13 args: args expr
+   14     | num
+   15     | group
+   16     | call
+   17     | lambda
+
+   18 group: '(' sum ')'
+   19      | '(' product ')'
+
+   20 sum: product '-' product
+
+   21 product: negative '*' negative
+
+   22 negative: '-' expr
+   23         | expr
+
+
+Terminals, with rules where they appear
+
+$end (0) 0
+'(' (40) 6 7 8 9 10 18 19
+')' (41) 6 7 8 9 10 18 19
+'*' (42) 21
+'-' (45) 20 22
+error (256)
+id (258) 3 11 12
+num (259) 4 14
+arrow (260) 6 7
+
+
+Nonterminals, with rules where they appear
+
+$accept (10)
+    on left: 0
+expr (11)
+    on left: 1 2 3 4 5, on right: 0 6 7 13 22 23
+lambda (12)
+    on left: 6 7, on right: 1 17
+call (13)
+    on left: 8 9 10, on right: 2 16
+ids (14)
+    on left: 11 12, on right: 6 8 9 11
+args (15)
+    on left: 13 14 15 16 17, on right: 9 10 13
+group (16)
+    on left: 18 19, on right: 5 15
+sum (17)
+    on left: 20, on right: 18
+product (18)
+    on left: 21, on right: 19 20
+negative (19)
+    on left: 22 23, on right: 21
+
+
+state 0
+
+    0 $accept: . expr $end
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+
+    expr    go to state 4
+    lambda  go to state 5
+    call    go to state 6
+    group   go to state 7
+
+
+state 1
+
+    3 expr: id .
+
+    $default  reduce using rule 3 (expr)
+
+
+state 2
+
+    4 expr: num .
+
+    $default  reduce using rule 4 (expr)
+
+
+state 3
+
+    6 lambda: '(' . ids ')' arrow expr
+    7       | '(' . ')' arrow expr
+    8 call: '(' . ids ')'
+    9     | '(' . ids args ')'
+   10     | '(' . args ')'
+   18 group: '(' . sum ')'
+   19      | '(' . product ')'
+
+    id   shift, and go to state 8
+    num  shift, and go to state 9
+    '('  shift, and go to state 3
+    ')'  shift, and go to state 10
+    '-'  shift, and go to state 11
+
+    expr      go to state 12
+    lambda    go to state 13
+    call      go to state 14
+    ids       go to state 15
+    args      go to state 16
+    group     go to state 17
+    sum       go to state 18
+    product   go to state 19
+    negative  go to state 20
+
+
+state 4
+
+    0 $accept: expr . $end
+
+    $end  shift, and go to state 21
+
+
+state 5
+
+    1 expr: lambda .
+
+    $default  reduce using rule 1 (expr)
+
+
+state 6
+
+    2 expr: call .
+
+    $default  reduce using rule 2 (expr)
+
+
+state 7
+
+    5 expr: group .
+
+    $default  reduce using rule 5 (expr)
+
+
+state 8
+
+    3 expr: id .
+   12 ids: id .
+
+    '*'       reduce using rule 3 (expr)
+    $default  reduce using rule 12 (ids)
+
+
+state 9
+
+    4 expr: num .
+   14 args: num .
+
+    '*'       reduce using rule 4 (expr)
+    $default  reduce using rule 14 (args)
+
+
+state 10
+
+    7 lambda: '(' ')' . arrow expr
+
+    arrow  shift, and go to state 22
+
+
+state 11
+
+   22 negative: '-' . expr
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+
+    expr    go to state 23
+    lambda  go to state 5
+    call    go to state 6
+    group   go to state 7
+
+
+state 12
+
+   23 negative: expr .
+
+    $default  reduce using rule 23 (negative)
+
+
+state 13
+
+    1 expr: lambda .
+   17 args: lambda .
+
+    '*'       reduce using rule 1 (expr)
+    $default  reduce using rule 17 (args)
+
+
+state 14
+
+    2 expr: call .
+   16 args: call .
+
+    '*'       reduce using rule 2 (expr)
+    $default  reduce using rule 16 (args)
+
+
+state 15
+
+    6 lambda: '(' ids . ')' arrow expr
+    8 call: '(' ids . ')'
+    9     | '(' ids . args ')'
+   11 ids: ids . id
+
+    id   shift, and go to state 24
+    num  shift, and go to state 25
+    '('  shift, and go to state 3
+    ')'  shift, and go to state 26
+
+    lambda  go to state 27
+    call    go to state 28
+    args    go to state 29
+    group   go to state 30
+
+
+state 16
+
+   10 call: '(' args . ')'
+   13 args: args . expr
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+    ')'  shift, and go to state 31
+
+    expr    go to state 32
+    lambda  go to state 5
+    call    go to state 6
+    group   go to state 7
+
+
+state 17
+
+    5 expr: group .
+   15 args: group .
+
+    '*'       reduce using rule 5 (expr)
+    $default  reduce using rule 15 (args)
+
+
+state 18
+
+   18 group: '(' sum . ')'
+
+    ')'  shift, and go to state 33
+
+
+state 19
+
+   19 group: '(' product . ')'
+   20 sum: product . '-' product
+
+    ')'  shift, and go to state 34
+    '-'  shift, and go to state 35
+
+
+state 20
+
+   21 product: negative . '*' negative
+
+    '*'  shift, and go to state 36
+
+
+state 21
+
+    0 $accept: expr $end .
+
+    $default  accept
+
+
+state 22
+
+    7 lambda: '(' ')' arrow . expr
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+
+    expr    go to state 37
+    lambda  go to state 5
+    call    go to state 6
+    group   go to state 7
+
+
+state 23
+
+   22 negative: '-' expr .
+
+    $default  reduce using rule 22 (negative)
+
+
+state 24
+
+   11 ids: ids id .
+
+    $default  reduce using rule 11 (ids)
+
+
+state 25
+
+   14 args: num .
+
+    $default  reduce using rule 14 (args)
+
+
+state 26
+
+    6 lambda: '(' ids ')' . arrow expr
+    8 call: '(' ids ')' .
+
+    arrow  shift, and go to state 38
+
+    $default  reduce using rule 8 (call)
+
+
+state 27
+
+   17 args: lambda .
+
+    $default  reduce using rule 17 (args)
+
+
+state 28
+
+   16 args: call .
+
+    $default  reduce using rule 16 (args)
+
+
+state 29
+
+    9 call: '(' ids args . ')'
+   13 args: args . expr
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+    ')'  shift, and go to state 39
+
+    expr    go to state 32
+    lambda  go to state 5
+    call    go to state 6
+    group   go to state 7
+
+
+state 30
+
+   15 args: group .
+
+    $default  reduce using rule 15 (args)
+
+
+state 31
+
+   10 call: '(' args ')' .
+
+    $default  reduce using rule 10 (call)
+
+
+state 32
+
+   13 args: args expr .
+
+    $default  reduce using rule 13 (args)
+
+
+state 33
+
+   18 group: '(' sum ')' .
+
+    $default  reduce using rule 18 (group)
+
+
+state 34
+
+   19 group: '(' product ')' .
+
+    $default  reduce using rule 19 (group)
+
+
+state 35
+
+   20 sum: product '-' . product
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+    '-'  shift, and go to state 11
+
+    expr      go to state 12
+    lambda    go to state 5
+    call      go to state 6
+    group     go to state 7
+    product   go to state 40
+    negative  go to state 20
+
+
+state 36
+
+   21 product: negative '*' . negative
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+    '-'  shift, and go to state 11
+
+    expr      go to state 12
+    lambda    go to state 5
+    call      go to state 6
+    group     go to state 7
+    negative  go to state 41
+
+
+state 37
+
+    7 lambda: '(' ')' arrow expr .
+
+    $default  reduce using rule 7 (lambda)
+
+
+state 38
+
+    6 lambda: '(' ids ')' arrow . expr
+
+    id   shift, and go to state 1
+    num  shift, and go to state 2
+    '('  shift, and go to state 3
+
+    expr    go to state 42
+    lambda  go to state 5
+    call    go to state 6
+    group   go to state 7
+
+
+state 39
+
+    9 call: '(' ids args ')' .
+
+    $default  reduce using rule 9 (call)
+
+
+state 40
+
+   20 sum: product '-' product .
+
+    $default  reduce using rule 20 (sum)
+
+
+state 41
+
+   21 product: negative '*' negative .
+
+    $default  reduce using rule 21 (product)
+
+
+state 42
+
+    6 lambda: '(' ids ')' arrow expr .
+
+    $default  reduce using rule 6 (lambda)
