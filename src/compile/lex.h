@@ -36,6 +36,7 @@ typedef enum {
 //   TOKEN_EQUAL,
 //   TOKEN_COMMA,
 //   TOKEN_COLON,
+//   TOKEN_COLON_COLON,
 //   TOKEN_NEWLINE,
 //   TOKEN_ARROW,
 //   TOKEN_AND,
@@ -52,20 +53,44 @@ typedef enum {
 #define NUM_TOKENS 10
 
 typedef struct {
-  TokenType type;
+  u32 type;
   u32 line;
   u32 col;
   char *lexeme;
   u32 length;
 } Token;
 
-typedef struct {
+struct Lexer;
+typedef Token (*NextTokenFn)(struct Lexer *lexer);
+
+typedef struct Lexer {
   char *src;
+  u32 start;
   u32 pos;
   u32 line;
   u32 col;
+  NextTokenFn next_token;
 } Lexer;
 
-void InitLexer(Lexer *lexer, char *src);
+#define LexPeek(lexer, n) (lexer)->src[(lexer)->pos + n]
+#define IsWhitespace(c)   ((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
+#define IsNewline(c)      ((c) == '\r' || (c) == '\n')
+#define IsDigit(c)        ((c) >= '0' && (c) <= '9')
+#define IsHexDigit(c)     (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
+#define IsAlpha(c)        (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z'))
+
+#define IsErrorToken(t)   ((t).type == (u32)-1)
+
+void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src);
 Token NextToken(Lexer *lexer);
+Token RyeToken(Lexer *lexer);
 int PrintToken(Token token);
+int DebugToken(Token token);
+void PrintSourceContext(Lexer *lexer, u32 num_lines);
+
+Token MakeToken(u32 type, Lexer *lexer);
+Token ErrorToken(Lexer *lexer, char *msg);
+bool IsIDChar(char c);
+void SkipWhitespace(Lexer *lexer);
+bool Match(Lexer *lexer, char *expected);
+bool MatchKeyword(Lexer *lexer, char *expected);

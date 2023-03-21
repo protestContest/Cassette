@@ -284,7 +284,7 @@ void ParseNext(Parser *p)
 AST Parse(char *src)
 {
   Parser p;
-  InitLexer(&p.lex, src);
+  InitLexer(&p.lex, RyeToken, src);
   p.next_token = NextToken(&p.lex);
   p.stack = NULL;
   p.symbols = NULL;

@@ -1,14 +1,9 @@
 #include "lex.h"
+#include <univ/io.h>
 #include <stdio.h>
 #include <assert.h>
 
-#define Peek(lexer, n)    (lexer)->src[(lexer)->pos + n]
-#define IsWhitespace(c)   ((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
-#define IsNewline(c)      ((c) == '\r' || (c) == '\n')
-#define IsDigit(c)        ((c) >= '0' && (c) <= '9')
-#define IsHexDigit(c)     (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
-
-static bool IsIDChar(char c)
+bool IsIDChar(char c)
 {
   if (IsWhitespace(c)) return false;
 
@@ -33,10 +28,10 @@ static bool IsIDChar(char c)
   }
 }
 
-static void SkipWhitespace(Lexer *lexer)
+void SkipWhitespace(Lexer *lexer)
 {
-  while (IsWhitespace(Peek(lexer, 0))) {
-    if (IsNewline(Peek(lexer, 0))) {
+  while (IsWhitespace(LexPeek(lexer, 0))) {
+    if (IsNewline(LexPeek(lexer, 0))) {
       lexer->line++;
       lexer->col = 1;
     } else {
@@ -46,165 +41,201 @@ static void SkipWhitespace(Lexer *lexer)
   }
 }
 
-static bool Match(Lexer *lexer, char *expected)
+bool Match(Lexer *lexer, char *expected)
+{
+  u32 i = 0;
+  char *c = expected;
+  u32 lines = 0;
+  u32 col = lexer->col;
+  while (*c != '\0') {
+    if (LexPeek(lexer, i) != *c) return false;
+    i++;
+    c++;
+    if (IsNewline(*c)) {
+      col = 1;
+      lines++;
+    } else {
+      col++;
+    }
+  }
+  lexer->pos += i;
+  lexer->line += lines;
+  lexer->col = col;
+  return true;
+}
+
+bool MatchKeyword(Lexer *lexer, char *expected)
 {
   u32 i = 0;
   char *c = expected;
   while (*c != '\0') {
-    if (Peek(lexer, i) != *c) return false;
-    i++;
-    c++;
-  }
-  lexer->pos += i;
-  return true;
-}
-
-static bool MatchKeyword(Lexer *lexer, char *expected)
-{
-  u32 i = 0;
-  char *c = expected;
-  while (*c != '\0') {
-    if (Peek(lexer, i) != *c) return false;
+    if (LexPeek(lexer, i) != *c) return false;
     i++;
     c++;
   }
 
-  if (!IsWhitespace(Peek(lexer, i + 1))) return false;
+  if (!IsWhitespace(LexPeek(lexer, i + 1))) return false;
 
   lexer->pos += i;
   return true;
 }
 
-static Token MakeToken(TokenType type, u32 start, Lexer *lexer)
+Token MakeToken(u32 type, Lexer *lexer)
 {
-  Token token = (Token){type, lexer->line, lexer->col, lexer->src + start, lexer->pos - start};
+  Token token = (Token){type, lexer->line, lexer->col, lexer->src + lexer->start, lexer->pos - lexer->start};
+  return token;
+}
+
+Token ErrorToken(Lexer *lexer, char *msg)
+{
+  char *c = msg;
+  while (*c != '\0') c++;
+  Token token = {-1, lexer->line, lexer->col, msg, c - msg};
   return token;
 }
 
 static Token NumberToken(Lexer *lexer)
 {
-  u32 start = lexer->pos;
-
-  if (Match(lexer, "0x") && IsHexDigit(Peek(lexer, 2))) {
-    while (IsHexDigit(Peek(lexer, 0))) lexer->pos++;
-    return MakeToken(TOKEN_NUMBER, start, lexer);
-  } else if (Match(lexer, "0b") && (Peek(lexer, 2) == '0' || Peek(lexer, 2) == '1')) {
-    while (Peek(lexer, 0) == '0' || Peek(lexer, 0) == '1') lexer->pos++;
-    return MakeToken(TOKEN_NUMBER, start, lexer);
+  if (Match(lexer, "0x") && IsHexDigit(LexPeek(lexer, 2))) {
+    while (IsHexDigit(LexPeek(lexer, 0))) lexer->pos++;
+    return MakeToken(TOKEN_NUMBER, lexer);
+  } else if (Match(lexer, "0b") && (LexPeek(lexer, 2) == '0' || LexPeek(lexer, 2) == '1')) {
+    while (LexPeek(lexer, 0) == '0' || LexPeek(lexer, 0) == '1') lexer->pos++;
+    return MakeToken(TOKEN_NUMBER, lexer);
   }
 
-  while (IsDigit(Peek(lexer, 0))) lexer->pos++;
+  while (IsDigit(LexPeek(lexer, 0))) lexer->pos++;
 
-  if (Peek(lexer, 0) == '.' && IsDigit(Peek(lexer, 1))) {
+  if (LexPeek(lexer, 0) == '.' && IsDigit(LexPeek(lexer, 1))) {
     lexer->pos++;
-    while (IsDigit(Peek(lexer, 0))) lexer->pos++;
+    while (IsDigit(LexPeek(lexer, 0))) lexer->pos++;
   }
 
-  return MakeToken(TOKEN_NUMBER, start, lexer);
+  return MakeToken(TOKEN_NUMBER, lexer);
 }
 
 // static Token StringToken(Lexer *lexer)
 // {
-//   u32 start = lexer->pos;
 //   Match(lexer, "\"");
-//   while (Peek(lexer, 0) != '"') {
-//     if (Peek(lexer, 0) == '\\') lexer->pos++;
-//     if (Peek(lexer, 0) == '\0') break;
+//   while (LexPeek(lexer, 0) != '"') {
+//     if (LexPeek(lexer, 0) == '\\') lexer->pos++;
+//     if (LexPeek(lexer, 0) == '\0') break;
 //     lexer->pos++;
 //   }
 //   Match(lexer, "\"");
-//   return MakeToken(TOKEN_STRING, start, lexer);
+//   return MakeToken(TOKEN_STRING, lexer);
 // }
 
 static Token IDToken(Lexer *lexer)
 {
-  u32 start = lexer->pos;
-  while (IsIDChar(Peek(lexer, 0))) lexer->pos++;
-  return MakeToken(TOKEN_ID, start, lexer);
+  while (IsIDChar(LexPeek(lexer, 0))) lexer->pos++;
+  return MakeToken(TOKEN_ID, lexer);
 }
 
-void InitLexer(Lexer *lexer, char *src)
+void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src)
 {
-  *lexer = (Lexer){src, 0, 1, 1};
+  *lexer = (Lexer){src, 0, 0, 1, 1, next_token};
 }
 
 Token NextToken(Lexer *lexer)
 {
   SkipWhitespace(lexer);
+  lexer->start = lexer->pos;
+  return lexer->next_token(lexer);
+}
 
-  char c = Peek(lexer, 0);
+Token RyeToken(Lexer *lexer)
+{
+  char c = LexPeek(lexer, 0);
 
-  if (c == '\0') return MakeToken(TOKEN_EOF, lexer->pos, lexer);
+  if (c == '\0') return MakeToken(TOKEN_EOF, lexer);
   if (IsDigit(c)) return NumberToken(lexer);
 
-  u32 start = lexer->pos;
-  // if (Match(lexer, "->"))  return MakeToken(TOKEN_ARROW, start, lexer);
-  if (Match(lexer, "("))  return MakeToken(TOKEN_LPAREN, start, lexer);
-  if (Match(lexer, ")"))  return MakeToken(TOKEN_RPAREN, start, lexer);
-  // if (Match(lexer, "["))  return MakeToken(TOKEN_LBRACKET, start, lexer);
-  // if (Match(lexer, "]"))  return MakeToken(TOKEN_RBRACKET, start, lexer);
-  // if (Match(lexer, "{"))  return MakeToken(TOKEN_LBRACE, start, lexer);
-  // if (Match(lexer, "}"))  return MakeToken(TOKEN_RBRACE, start, lexer);
-  // if (Match(lexer, "."))  return MakeToken(TOKEN_DOT, start, lexer);
-  if (Match(lexer, "*"))  return MakeToken(TOKEN_STAR, start, lexer);
-  if (Match(lexer, "/"))  return MakeToken(TOKEN_SLASH, start, lexer);
-  if (Match(lexer, "-"))  return MakeToken(TOKEN_MINUS, start, lexer);
-  if (Match(lexer, "+"))  return MakeToken(TOKEN_PLUS, start, lexer);
-  // if (Match(lexer, "|"))  return MakeToken(TOKEN_BAR, start, lexer);
-  // if (Match(lexer, ">"))  return MakeToken(TOKEN_GREATER, start, lexer);
-  // if (Match(lexer, "<"))  return MakeToken(TOKEN_LESS, start, lexer);
-  // if (Match(lexer, "="))  return MakeToken(TOKEN_EQUAL, start, lexer);
-  // if (Match(lexer, ","))  return MakeToken(TOKEN_COMMA, start, lexer);
-  // if (Match(lexer, ":"))  return MakeToken(TOKEN_COLON, start, lexer);
-  // if (Match(lexer, "\n"))  return MakeToken(TOKEN_NEWLINE, start, lexer);
+  // if (Match(lexer, "->"))  return MakeToken(TOKEN_ARROW, lexer);
+  if (Match(lexer, "("))  return MakeToken(TOKEN_LPAREN, lexer);
+  if (Match(lexer, ")"))  return MakeToken(TOKEN_RPAREN, lexer);
+  // if (Match(lexer, "["))  return MakeToken(TOKEN_LBRACKET, lexer);
+  // if (Match(lexer, "]"))  return MakeToken(TOKEN_RBRACKET, lexer);
+  // if (Match(lexer, "{"))  return MakeToken(TOKEN_LBRACE, lexer);
+  // if (Match(lexer, "}"))  return MakeToken(TOKEN_RBRACE, lexer);
+  // if (Match(lexer, "."))  return MakeToken(TOKEN_DOT, lexer);
+  if (Match(lexer, "*"))  return MakeToken(TOKEN_STAR, lexer);
+  if (Match(lexer, "/"))  return MakeToken(TOKEN_SLASH, lexer);
+  if (Match(lexer, "-"))  return MakeToken(TOKEN_MINUS, lexer);
+  if (Match(lexer, "+"))  return MakeToken(TOKEN_PLUS, lexer);
+  // if (Match(lexer, "|"))  return MakeToken(TOKEN_BAR, lexer);
+  // if (Match(lexer, ">"))  return MakeToken(TOKEN_GREATER, lexer);
+  // if (Match(lexer, "<"))  return MakeToken(TOKEN_LESS, lexer);
+  // if (Match(lexer, "="))  return MakeToken(TOKEN_EQUAL, lexer);
+  // if (Match(lexer, ","))  return MakeToken(TOKEN_COMMA, lexer);
+  // if (Match(lexer, "::"))  return MakeToken(TOKEN_COLON_COLON, lexer);
+  // if (Match(lexer, ":"))  return MakeToken(TOKEN_COLON, lexer);
+  // if (Match(lexer, "\n"))  return MakeToken(TOKEN_NEWLINE, lexer);
 
-  // if (MatchKeyword(lexer, "and"))   return MakeToken(TOKEN_AND, start, lexer);
-  // if (MatchKeyword(lexer, "cond"))  return MakeToken(TOKEN_COND, start, lexer);
-  // if (MatchKeyword(lexer, "def"))   return MakeToken(TOKEN_DEF, start, lexer);
-  // if (MatchKeyword(lexer, "do"))    return MakeToken(TOKEN_DO, start, lexer);
-  // if (MatchKeyword(lexer, "else"))  return MakeToken(TOKEN_ELSE, start, lexer);
-  // if (MatchKeyword(lexer, "end"))   return MakeToken(TOKEN_END, start, lexer);
-  // if (MatchKeyword(lexer, "if"))    return MakeToken(TOKEN_IF, start, lexer);
-  // if (MatchKeyword(lexer, "not"))   return MakeToken(TOKEN_NOT, start, lexer);
+  // if (MatchKeyword(lexer, "and"))   return MakeToken(TOKEN_AND, lexer);
+  // if (MatchKeyword(lexer, "cond"))  return MakeToken(TOKEN_COND, lexer);
+  // if (MatchKeyword(lexer, "def"))   return MakeToken(TOKEN_DEF, lexer);
+  // if (MatchKeyword(lexer, "do"))    return MakeToken(TOKEN_DO, lexer);
+  // if (MatchKeyword(lexer, "else"))  return MakeToken(TOKEN_ELSE, lexer);
+  // if (MatchKeyword(lexer, "end"))   return MakeToken(TOKEN_END, lexer);
+  // if (MatchKeyword(lexer, "if"))    return MakeToken(TOKEN_IF, lexer);
+  // if (MatchKeyword(lexer, "not"))   return MakeToken(TOKEN_NOT, lexer);
 
   return IDToken(lexer);
 }
 
 int PrintToken(Token token)
 {
-  switch (token.type) {
-  case TOKEN_EOF: return printf("EOF");
-  // case TOKEN_ERROR: return printf("ERROR [%.*s]", token.length, token.lexeme);
-  case TOKEN_NUMBER: return printf("NUMBER [%.*s]", token.length, token.lexeme);
-  // case TOKEN_STRING: return printf("STRING [%.*s]", token.length, token.lexeme);
-  case TOKEN_ID: return printf("ID [%.*s]", token.length, token.lexeme);
-  case TOKEN_LPAREN: return printf("LPAREN");
-  case TOKEN_RPAREN: return printf("RPAREN");
-  // case TOKEN_LBRACKET: return printf("LBRACKET");
-  // case TOKEN_RBRACKET: return printf("RBRACKET");
-  // case TOKEN_LBRACE: return printf("LBRACE");
-  // case TOKEN_RBRACE: return printf("RBRACE");
-  // case TOKEN_DOT: return printf("DOT");
-  case TOKEN_STAR: return printf("STAR");
-  case TOKEN_SLASH: return printf("SLASH");
-  case TOKEN_MINUS: return printf("MINUS");
-  case TOKEN_PLUS: return printf("PLUS");
-  // case TOKEN_BAR: return printf("BAR");
-  // case TOKEN_GREATER: return printf("GREATER");
-  // case TOKEN_LESS: return printf("LESS");
-  // case TOKEN_EQUAL: return printf("EQUAL");
-  // case TOKEN_COMMA: return printf("COMMA");
-  // case TOKEN_COLON: return printf("COLON");
-  // case TOKEN_NEWLINE: return printf("NEWLINE");
-  case TOKEN_ARROW: return printf("ARROW");
-  // case TOKEN_AND: return printf("AND");
-  // case TOKEN_COND: return printf("COND");
-  // case TOKEN_DEF: return printf("DEF");
-  // case TOKEN_DO: return printf("DO");
-  // case TOKEN_ELSE: return printf("ELSE");
-  // case TOKEN_END: return printf("END");
-  // case TOKEN_IF: return printf("IF");
-  // case TOKEN_NOT: return printf("NOT");
-  // case TOKEN_OR: return printf("OR");
+  return printf("%.*s", token.length, token.lexeme);
+}
+
+int DebugToken(Token token)
+{
+  if (token.length > 0) {
+    return printf("[%d %.*s]", token.type, token.length, token.lexeme);
+  } else {
+    return printf("[%d]", token.type);
+  }
+}
+
+void PrintSourceContext(Lexer *lexer, u32 num_lines)
+{
+  u32 before = num_lines;
+  if (before > lexer->line - 1) before = lexer->line - 1;
+  u32 after = num_lines - before;
+
+  u32 start = lexer->line - before;
+  u32 end = lexer->line + after;
+
+  // printf("%d %d\n", before, after);
+
+  char *c = lexer->src;
+  u32 line = 1;
+  while (*c != '\0' && line < start) {
+    if (IsNewline(*c)) line++;
+    c++;
+  }
+
+  while (*c != '\0' && line <= end) {
+    if (line == lexer->line) {
+      printf("→%3d  ", line);
+    } else {
+      printf("%4d  ", line);
+    }
+
+    while (*c != '\0' && !IsNewline(*c)) {
+      if (c - lexer->src == lexer->start && lexer->start < lexer->pos) {
+        printf("%s", IOUnderline);
+      }
+      printf("%c", *c);
+      c++;
+      if (c - lexer->src == lexer->pos && lexer->start < lexer->pos) {
+        printf("%s", IONoUnderline);
+      }
+    }
+    printf("\n");
+    c++;
+
+    line++;
   }
 }

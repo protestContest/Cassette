@@ -1,14 +1,12 @@
-#include "compile/parse.h"
-#include <univ/io.h>
+#include "parse_gen.h"
 #include <stdio.h>
-#include <string.h>
 
 int main(int argc, char *argv[])
 {
-  char *src = "(a b) -> 3";
-  // char *src = "foo";
-  printf("\n%s\n\n", src);
+  if (argc < 2) {
+    printf("Usage: rye grammar.y\n");
+    return 1;
+  }
 
-  AST ast = Parse(src);
-  PrintAST(ast);
+  Generate(argv[1]);
 }

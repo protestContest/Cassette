@@ -1,41 +1,77 @@
-%token id
-%token num
-%token arrow
+%token ID
+%token NUM
+%token STR
+%token NEWLINE
+%token COND
+%token DEF
+%token DO
+%token ELSE
+%token END
+%token IF
+%token ARROW
+%token DCOLON
 
 %%
 
-expr: lambda;
+expr: do_block;
+expr: if_block;
+expr: cond_block;
+expr: define;
 expr: call;
-expr: id;
-expr: num;
-expr: group;
-//expr: list;
 
-lambda: '(' ids ')' arrow expr;
-lambda: '(' ')' arrow expr;
-call:   '(' ids ')';
-call:   '(' ids args ')';
-call:   '(' args ')';
+do_block: DO block END;
 
-ids: ids id;
-ids: id;
+if_block: IF arg DO block END;
+if_block: IF arg DO block ELSE block END;
+if_block: IF arg arg;
 
-args: args expr;
-args: num;
-args: group;
-args: call;
-args: lambda;
+cond_block: COND DO clauses END;
+clauses: clauses NEWLINE expr DCOLON expr;
+clauses: ;
 
-group: '(' sum ')';
-group: '(' product ')';
+define: DEF ID expr;
+define: DEF '(' params ')' expr;
+params: params ID;
+params: ;
 
-sum: product '-' product;
-//sum: product '+' product;
-product: negative '*' negative;
-//product: negative '/' negative;
-negative: '-' expr;
-negative: expr;
+block: block NEWLINE expr;
+block: expr;
 
-//list: '[' list_items ']';
-//list_items: list_items expr;
-//list_items: ;
+call: call arg;
+call: arg;
+arg: equal;
+arg: entry;
+
+equal: equal '=' pair;
+equal: pair;
+pair: compare '|' compare;
+pair: compare;
+compare: sum '<' sum;
+compare: sum '>' sum;
+compare: sum;
+sum: sum '+' product;
+sum: sum '-' product;
+sum: product;
+product: product '*' primary;
+product: product '/' primary;
+product: primary;
+
+primary: ID;
+primary: NUM;
+primary: STR;
+primary: group;
+primary: lambda;
+primary: list;
+primary: dict;
+
+group: '(' expr ')';
+lambda: group ARROW primary;
+
+list: '[' items ']';
+items: items primary;
+items: primary;
+
+dict: '{' entries '}';
+entries: entries entry;
+entries: ;
+entry: ID ':' equal;
