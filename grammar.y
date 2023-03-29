@@ -10,6 +10,7 @@
 %token IF
 %token ARROW
 %token DCOLON
+%token LET
 
 %%
 
@@ -17,6 +18,7 @@ expr: do_block;
 expr: if_block;
 expr: cond_block;
 expr: define;
+expr: let;
 expr: call;
 
 do_block: DO block END;
@@ -33,6 +35,8 @@ define: DEF ID expr;
 define: DEF '(' params ')' expr;
 params: params ID;
 params: ;
+
+let: LET dict expr;
 
 block: block NEWLINE expr;
 block: expr;

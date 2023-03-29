@@ -8,14 +8,14 @@
 #include <stdio.h>
 
 typedef struct {
-  u32 left;
-  u32 *right;
-} Production;
-
-typedef struct {
   u32 id;
   Token token;
 } Symbol;
+
+typedef struct {
+  u32 left;
+  u32 *right;
+} Production;
 
 typedef struct {
   Production *productions;
@@ -26,13 +26,17 @@ typedef struct {
 typedef struct {
   u32 production;
   u32 position;
-  u32 successor;
 } Config;
 
 typedef struct {
-  u32 id;
+  u32 symbol;
   Config *items;
-} ConfigSet;
+  u32 next_state;
+} StateSymbol;
+
+typedef struct {
+  StateSymbol *symbols;
+} ParseState;
 
 typedef enum {
   YaccEOF,
@@ -69,15 +73,8 @@ static Token YaccToken(Lexer *lex)
   return ErrorToken(lex, "Invalid token");
 }
 
-static Symbol NullSymbol(void)
-{
-  return (Symbol){0, {YaccEOF, 0, 0, NULL, 0}};
-}
-
-static bool IsNullSymbol(Symbol sym)
-{
-  return sym.token.type == YaccEOF;
-}
+#define NullSymbol        ((Symbol){0, {YaccEOF, 0, 0, NULL, 0}})
+#define IsNullSymbol(sym) ((sym).token.type == YaccEOF)
 
 static u32 PutSymbol(Symbol *syms, Token token)
 {
@@ -111,7 +108,7 @@ static Grammar ParseGrammar(char *grammar_file)
   Grammar g = {NULL, NewVec(Symbol, 256), 4};
 
   for (u32 i = 0; i < VecCapacity(g.symbols); i++) {
-    g.symbols[i] = NullSymbol();
+    g.symbols[i] = NullSymbol;
   }
 
   u32 end_sym = PutSymbol(g.symbols, (Token){YaccTerminal, 0, 0, "$", 1});
@@ -251,190 +248,157 @@ static Symbol NextSymbol(Grammar g, Config item)
   if (item.position < VecCount(p.right)) {
     return GetSymbol(g.symbols, p.right[item.position]);
   } else {
-    return NullSymbol();
+    return NullSymbol;
   }
 }
 
-static void PrintConfigSet(Grammar g, ConfigSet set, u32 indent)
+// static void PrintConfigSet(Grammar g, ConfigSet set, u32 indent)
+// {
+//   for (u32 i = 0; i < indent; i++) printf("  ");
+//   PrintConfig(g, set.items[0]);
+//   printf("\n");
+
+//   // Symbol next = NextSymbol(g, set, set.items[0]);
+//   for (u32 i = 1; i < VecCount(set.items); i++) {
+//     // Production p = g.productions[set.items[i].production];
+//     // if (p.left == next.id || true) {
+//       for (u32 j = 0; j < indent; j++) printf("  ");
+//       PrintConfig(g, set.items[i]);
+//       printf("\n");
+//     // }
+//   }
+// }
+
+// static bool ConfigSetHasConfig(ConfigSet set, Config item)
+// {
+//   for (u32 i = 0; i < VecCount(set.items); i++) {
+//     if (set.items[i].production == item.production && set.items[i].position == item.position) {
+//       return true;
+//     }
+//   }
+
+//   return false;
+// }
+
+static void Closure(Grammar g, ParseState *state)
 {
-  for (u32 i = 0; i < indent; i++) printf("  ");
-  PrintConfig(g, set.items[0]);
-  printf("\n");
+  for (u32 i = 0; i < VecCount(state->symbols); i++) {
 
-  // Symbol next = NextSymbol(g, set, set.items[0]);
-  for (u32 i = 1; i < VecCount(set.items); i++) {
-    // Production p = g.productions[set.items[i].production];
-    // if (p.left == next.id || true) {
-      for (u32 j = 0; j < indent; j++) printf("  ");
-      PrintConfig(g, set.items[i]);
-      printf("\n");
-    // }
   }
 }
 
-static bool ConfigSetHasConfig(ConfigSet set, Config item)
-{
-  for (u32 i = 0; i < VecCount(set.items); i++) {
-    if (set.items[i].production == item.production && set.items[i].position == item.position) {
-      return true;
-    }
-  }
+// static u32 Successor(ConfigSet *family, u32 id)
+// {
+//   for (u32 i = 0; i < VecCount(family); i++) {
+//     if (family[i].id == id) {
+//       return i;
+//     }
+//   }
 
-  return false;
-}
+//   return 0;
+// }
 
-static ConfigSet CloseRest(Grammar g, ConfigSet set, Config item)
-{
-  if (ConfigSetHasConfig(set, item)) {
-    return set;
-  }
+// static void PrintFamily(Grammar g, ConfigSet *family)
+// {
+//   bool print_all = true;
 
-  VecPush(set.items, item);
+//   for (u32 i = 0; i < VecCount(family); i++) {
+//     printf("State %d (%d)\n", i, VecCount(family[i].items));
 
-  Symbol next = NextSymbol(g, item);
-  if (next.token.type == YaccSymbol) {
-    for (u32 i = 0; i < VecCount(g.productions); i++) {
-      if (i != item.production && g.productions[i].left == next.id) {
-        set = CloseRest(g, set, (Config){i, 0, 0});
-      }
-    }
-  }
+//     printf("  ");
+//     PrintConfig(g, family[i].items[0]);
+//     u32 succ = Successor(family, family[i].items[0].successor);
+//     if (succ == 0) {
+//       printf("    Reduce %d\n", family[i].items[0].production);
+//     } else {
+//       printf("    Successor: %d\n", succ);
+//     }
 
-  return set;
-}
+//     Symbol next = NextSymbol(g, family[i].items[0]);
+//     for (u32 j = 1; j < VecCount(family[i].items); j++) {
+//       Production p = g.productions[family[i].items[j].production];
+//       if ((p.left == next.id) || print_all) {
+//         printf("  ");
+//         PrintConfig(g, family[i].items[j]);
+//         printf("    Successor: %d\n", Successor(family, family[i].items[j].successor));
+//       }
+//     }
 
-static ConfigSet Closure(Grammar g, ConfigSet set)
-{
-  set.id = EmptyHash();
-  u32 num_items = VecCount(set.items);
-  for (u32 i = 0; i < num_items; i++) {
-    Config item = set.items[i];
-    set.id = AddHash(set.id, &item, sizeof(Config));
 
-    Symbol next = NextSymbol(g, item);
-    if (next.token.type == YaccSymbol) {
-      for (u32 j = 0; j < VecCount(g.productions); j++) {
-        if (j != item.production && g.productions[j].left == next.id) {
-          set = CloseRest(g, set, (Config){j, 0, 0});
-        }
-      }
-    }
+//   }
+// }
 
-  }
+// static bool FamilyHasSet(ConfigSet *family, ConfigSet set)
+// {
+//   for (u32 i = 0; i < VecCount(family); i++) {
+//     if (family[i].id == set.id) return true;
+//   }
+//   return false;
+// }
 
-  return set;
-}
+// static bool SymbolSeen(Symbol sym, u32 *seen)
+// {
+//   for (u32 i = 0; i < VecCount(seen); i++) {
+//     if (seen[i] == sym.id) return true;
+//   }
+//   return false;
+// }
 
-static u32 Successor(ConfigSet *family, u32 id)
-{
-  for (u32 i = 0; i < VecCount(family); i++) {
-    if (family[i].id == id) {
-      return i;
-    }
-  }
+// static ConfigSet NextSet(ConfigSet *family, Grammar g, ConfigSet set, Symbol sym)
+// {
+//   ConfigSet next_set = {EmptyHash(), NULL};
 
-  return 0;
-}
+//   for (u32 k = 0; k < VecCount(set.items); k++) {
+//     if (NextSymbol(g, set.items[k]).id == sym.id) {
+//       Config item = {set.items[k].production, set.items[k].position + 1, 0};
+//       VecPush(next_set.items, item);
+//       next_set.id = AddHash(next_set.id, &item, sizeof(Config));
+//     }
+//   }
 
-static void PrintFamily(Grammar g, ConfigSet *family)
-{
-  bool print_all = true;
+//   return next_set;
+// }
 
-  for (u32 i = 0; i < VecCount(family); i++) {
-    printf("State %d (%d)\n", i, VecCount(family[i].items));
+// static ConfigSet *BuildFamilyRest(ConfigSet *family, Grammar g, ConfigSet set)
+// {
+//   VecPush(family, set);
 
-    printf("  ");
-    PrintConfig(g, family[i].items[0]);
-    u32 succ = Successor(family, family[i].items[0].successor);
-    if (succ == 0) {
-      printf("    Reduce %d\n", family[i].items[0].production);
-    } else {
-      printf("    Successor: %d\n", succ);
-    }
+//   u32 *seen = NULL;
+//   for (u32 i = 0; i < VecCount(set.items); i++) {
+//     Symbol sym = NextSymbol(g, set.items[i]);
+//     if (IsNullSymbol(sym)) continue;
+//     if (SymbolSeen(sym, seen)) continue;
+//     VecPush(seen, sym.id);
 
-    Symbol next = NextSymbol(g, family[i].items[0]);
-    for (u32 j = 1; j < VecCount(family[i].items); j++) {
-      Production p = g.productions[family[i].items[j].production];
-      if ((p.left == next.id) || print_all) {
-        printf("  ");
-        PrintConfig(g, family[i].items[j]);
-        printf("    Successor: %d\n", Successor(family, family[i].items[j].successor));
-      }
-    }
-  }
-}
+//     ConfigSet next_set = NextSet(family, g, set, sym);
 
-static bool FamilyHasSet(ConfigSet *family, ConfigSet set)
-{
-  for (u32 i = 0; i < VecCount(family); i++) {
-    if (family[i].id == set.id) return true;
-  }
-  return false;
-}
+//     if (!FamilyHasSet(family, next_set)) {
+//       for (u32 k = i; k < VecCount(set.items); k++) {
+//         if (NextSymbol(g, set.items[k]).id == sym.id) {
+//           set.items[k].successor = next_set.id;
+//         }
+//       }
 
-static bool SymbolSeen(Symbol sym, u32 *seen)
-{
-  for (u32 i = 0; i < VecCount(seen); i++) {
-    if (seen[i] == sym.id) return true;
-  }
-  return false;
-}
+//       family = BuildFamilyRest(family, g, next_set);
+//     }
+//   }
+//   FreeVec(seen);
 
-static ConfigSet NextSet(ConfigSet *family, Grammar g, ConfigSet set, Symbol sym)
-{
-  ConfigSet next_set = {EmptyHash(), NULL};
+//   return family;
+// }
 
-  for (u32 k = 0; k < VecCount(set.items); k++) {
-    if (NextSymbol(g, set.items[k]).id == sym.id) {
-      Config item = {set.items[k].production, set.items[k].position + 1, 0};
-      VecPush(next_set.items, item);
-      next_set.id = AddHash(next_set.id, &item, sizeof(Config));
-    }
-  }
+// static ConfigSet *BuildFamily(Grammar g)
+// {
+//   Config initial_item = (Config){0, 0, 0};
+//   ConfigSet initial_set = {0, NULL};
+//   VecPush(initial_set.items, initial_item);
+//   initial_set = Closure(g, initial_set);
 
-  return next_set;
-}
+//   // ConfigSet *family = NULL;
+//   // VecPush(family, Closure(g, initial_set));
 
-static ConfigSet *BuildFamilyRest(ConfigSet *family, Grammar g, ConfigSet set)
-{
-  VecPush(family, set);
-
-  u32 *seen = NULL;
-  for (u32 i = 0; i < VecCount(set.items); i++) {
-    Symbol sym = NextSymbol(g, set.items[i]);
-    if (IsNullSymbol(sym)) continue;
-    if (SymbolSeen(sym, seen)) continue;
-    VecPush(seen, sym.id);
-
-    ConfigSet next_set = NextSet(family, g, set, sym);
-
-    if (!FamilyHasSet(family, next_set)) {
-      for (u32 k = i; k < VecCount(set.items); k++) {
-        if (NextSymbol(g, set.items[k]).id == sym.id) {
-          set.items[k].successor = next_set.id;
-        }
-      }
-
-      family = BuildFamilyRest(family, g, next_set);
-    }
-  }
-  FreeVec(seen);
-
-  return family;
-}
-
-static ConfigSet *BuildFamily(Grammar g)
-{
-  Config initial_item = (Config){0, 0, 0};
-  ConfigSet initial_set = {0, NULL};
-  VecPush(initial_set.items, initial_item);
-  initial_set = Closure(g, initial_set);
-
-  // ConfigSet *family = NULL;
-  // VecPush(family, Closure(g, initial_set));
-
-  return BuildFamilyRest(NULL, g, initial_set);
-}
+//   return BuildFamilyRest(NULL, g, initial_set);
+// }
 
 void Generate(char *grammar)
 {

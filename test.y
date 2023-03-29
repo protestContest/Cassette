@@ -1,8 +1,10 @@
-%token ID
-
 %%
 
-E: E '+' T;
-E: T;
-T: '(' E ')';
-T: ID;
+L: L ';' E;
+L: E;
+E: E ',' P;
+E: P;
+P: 'a';
+P: '(' M ')';
+M: L;
+M: ;
