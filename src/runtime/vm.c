@@ -111,12 +111,12 @@ static void PrintTraceEnd(VM *vm)
 {
   PrintStackLine(vm, 100);
   Print(" e");
-  PrintInt(RawVal(vm->env), 3);
+  PrintInt(RawPair(vm->env), 3);
   Print(" ");
   PrintVal(vm->heap, vm->symbols, FrameMap(vm->heap, vm->env));
   if (!IsNil(ParentEnv(vm->heap, vm->env))) {
     Print(" <- e");
-    PrintInt(RawVal(ParentEnv(vm->heap, vm->env)), 3);
+    PrintInt(RawPair(ParentEnv(vm->heap, vm->env)), 3);
   }
   Print("\n");
   Flush(output);

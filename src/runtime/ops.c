@@ -27,7 +27,7 @@ static void NotOp(VM *vm, OpCode op);
 static void CompareOp(VM *vm, OpCode op);
 static void DefineOp(VM *vm, OpCode op);
 static void LookupOp(VM *vm, OpCode op);
-static void AccessOp(VM *vm, OpCode op);
+// static void AccessOp(VM *vm, OpCode op);
 static void ModuleOp(VM *vm, OpCode op);
 static void ImportOp(VM *vm, OpCode op);
 static void UseOp(VM *vm, OpCode op);
@@ -64,7 +64,7 @@ static OpInfo ops[] = {
   [OP_LT] =       { "lt",       ARGS_NONE,  &CompareOp    },
   [OP_DEFINE] =   { "define",   ARGS_NONE,  &DefineOp     },
   [OP_LOOKUP] =   { "lookup",   ARGS_NONE,  &LookupOp     },
-  [OP_ACCESS] =   { "access",   ARGS_NONE,  &AccessOp     },
+  // [OP_ACCESS] =   { "access",   ARGS_NONE,  &AccessOp     },
   [OP_MODULE] =   { "module",   ARGS_NONE,  &ModuleOp     },
   [OP_IMPORT] =   { "import",   ARGS_NONE,  &ImportOp     },
   [OP_USE] =      { "use",      ARGS_NONE,  &UseOp        },
@@ -330,20 +330,20 @@ static void LookupOp(VM *vm, OpCode op)
   }
 }
 
-static void AccessOp(VM *vm, OpCode op)
-{
-  Val var = StackPop(vm);
-  Val dict = StackPop(vm);
+// static void AccessOp(VM *vm, OpCode op)
+// {
+//   Val var = StackPop(vm);
+//   Val dict = StackPop(vm);
 
-  if (!IsMap(dict)) {
-    RuntimeError(vm, "Can't access this");
-  } else if (!MapHasKey(vm->heap, dict, var)) {
-    StackPush(vm, nil);
-  } else {
-    Val val = MapGet(vm->heap, dict, var);
-    StackPush(vm, val);
-  }
-}
+//   if (!IsMap(dict)) {
+//     RuntimeError(vm, "Can't access this");
+//   } else if (!MapHasKey(vm->heap, dict, var)) {
+//     StackPush(vm, nil);
+//   } else {
+//     Val val = MapGet(vm->heap, dict, var);
+//     StackPush(vm, val);
+//   }
+// }
 
 static void PushScopeOp(VM *vm, OpCode op)
 {

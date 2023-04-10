@@ -11,7 +11,7 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 CC = clang
 INCLUDE_FLAGS = -isystem $(PREFIX)/include -I$(INC_DIR) -include univ/base.h
-CFLAGS = -g -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
+CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
 LDFLAGS = -L$(PREFIX)/lib -lbase
 
 $(TARGET): $(OBJS)

@@ -1,56 +1,27 @@
 #pragma once
+#include "../value.h"
 
 typedef enum {
-  TOKEN_EOF,
-  TOKEN_NUMBER,
-  TOKEN_ID,
-  TOKEN_LPAREN,
-  TOKEN_RPAREN,
-  TOKEN_STAR,
-  TOKEN_SLASH,
-  TOKEN_MINUS,
-  TOKEN_PLUS,
-  TOKEN_ARROW,
-} TokenType;
-
-// typedef enum {
-//   TOKEN_EOF,
-//   TOKEN_ERROR,
-//   TOKEN_NUMBER,
-//   TOKEN_STRING,
-//   TOKEN_ID,
-//   TOKEN_LPAREN,
-//   TOKEN_RPAREN,
-//   TOKEN_LBRACKET,
-//   TOKEN_RBRACKET,
-//   TOKEN_LBRACE,
-//   TOKEN_RBRACE,
-//   TOKEN_DOT,
-//   TOKEN_STAR,
-//   TOKEN_SLASH,
-//   TOKEN_MINUS,
-//   TOKEN_PLUS,
-//   TOKEN_BAR,
-//   TOKEN_GREATER,
-//   TOKEN_LESS,
-//   TOKEN_EQUAL,
-//   TOKEN_COMMA,
-//   TOKEN_COLON,
-//   TOKEN_COLON_COLON,
-//   TOKEN_NEWLINE,
-//   TOKEN_ARROW,
-//   TOKEN_AND,
-//   TOKEN_COND,
-//   TOKEN_DEF,
-//   TOKEN_DO,
-//   TOKEN_ELSE,
-//   TOKEN_END,
-//   TOKEN_IF,
-//   TOKEN_NOT,
-//   TOKEN_OR
-// } TokenType;
-
-#define NUM_TOKENS 10
+  ParseSymEOF = 0,
+  ParseSymPlus = 1,
+  ParseSymMinus = 2,
+  ParseSymStar = 3,
+  ParseSymSlash = 4,
+  ParseSymNum = 5,
+  ParseSymID = 6,
+  ParseSymLParen = 7,
+  ParseSymRParen = 8,
+  ParseSymArrow = 9,
+  ParseSymProgram = 10,
+  ParseSymExpr = 11,
+  ParseSymCall = 12,
+  ParseSymArg = 13,
+  ParseSymSum = 14,
+  ParseSymProduct = 15,
+  ParseSymPrimary = 16,
+  ParseSymGroup = 17,
+  ParseSymLambda = 18,
+} ParseSymbol;
 
 typedef struct {
   u32 type;
@@ -58,6 +29,7 @@ typedef struct {
   u32 col;
   char *lexeme;
   u32 length;
+  Val value;
 } Token;
 
 struct Lexer;
@@ -77,7 +49,9 @@ typedef struct Lexer {
 #define IsNewline(c)      ((c) == '\r' || (c) == '\n')
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
 #define IsHexDigit(c)     (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
-#define IsAlpha(c)        (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z'))
+#define IsUppercase(c)    ((c) >= 'A' && (c) <= 'Z')
+#define IsLowercase(c)    ((c) >= 'a' && (c) <= 'z')
+#define IsAlpha(c)        (IsUpper(c) || IsLower(c))
 
 #define IsErrorToken(t)   ((t).type == (u32)-1)
 
@@ -88,7 +62,7 @@ int PrintToken(Token token);
 int DebugToken(Token token);
 void PrintSourceContext(Lexer *lexer, u32 num_lines);
 
-Token MakeToken(u32 type, Lexer *lexer);
+Token MakeToken(u32 type, Lexer *lexer, Val value);
 Token ErrorToken(Lexer *lexer, char *msg);
 bool IsIDChar(char c);
 void SkipWhitespace(Lexer *lexer);

@@ -83,7 +83,7 @@ void PrintEnv(Val *mem, Val symbols, Val env)
 {
   Print("─────╴Environment╶──────\n");
 
-  u32 frame_num = 0;
+  // u32 frame_num = 0;
 
   while (!IsNil(env)) {
     Val frame = Head(mem, env);
@@ -99,9 +99,9 @@ void PrintEnv(Val *mem, Val symbols, Val env)
       frame = Tail(mem, frame);
     }
     env = Tail(mem, env);
-    frame_num++;
+    // frame_num++;
     Print("────────╴e");
-    PrintInt(RawVal(env), 3);
+    PrintInt(RawPair(env), 3);
     Print("╶──────────\n");
   }
 }

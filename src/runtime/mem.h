@@ -36,6 +36,7 @@ u32 BinaryLength(Val *mem, Val bin);
 u8 *BinaryData(Val *mem, Val bin);
 
 Val SymbolFor(char *src);
+Val SymbolFrom(char *src, u32 length);
 Val BinToSym(Val *mem, Val bin);
 
 Val MakeMap(Val **mem, u32 count);

@@ -31,28 +31,28 @@ Val MakePair(Val **mem, Val head, Val tail)
 Val Head(Val *mem, Val pair)
 {
   if (IsNil(pair)) return nil;
-  u32 index = RawVal(pair);
+  u32 index = RawPair(pair);
   return mem[index];
 }
 
 Val Tail(Val *mem, Val pair)
 {
   if (IsNil(pair)) return nil;
-  u32 index = RawVal(pair);
+  u32 index = RawPair(pair);
   return mem[index+1];
 }
 
 void SetHead(Val **mem, Val pair, Val val)
 {
   Assert(!IsNil(pair));
-  u32 index = RawVal(pair);
+  u32 index = RawPair(pair);
   (*mem)[index] = val;
 }
 
 void SetTail(Val **mem, Val pair, Val val)
 {
   Assert(!IsNil(pair));
-  u32 index = RawVal(pair);
+  u32 index = RawPair(pair);
   (*mem)[index+1] = val;
 }
 
@@ -121,8 +121,8 @@ void ListAppend(Val **mem, Val list1, Val list2)
 
 Val MakeTuple(Val **mem, u32 count)
 {
-  Val tuple = TupleVal(VecCount(*mem));
-  VecPush(*mem, TupHdr(count));
+  Val tuple = ObjVal(VecCount(*mem));
+  VecPush(*mem, TupleHeader(count));
 
   for (u32 i = 0; i < count; i++) {
     VecPush(*mem, nil);
@@ -133,26 +133,26 @@ Val MakeTuple(Val **mem, u32 count)
 
 u32 TupleLength(Val *mem, Val tuple)
 {
-  u32 index = RawVal(tuple);
-  return HdrVal(mem[index]);
+  u32 index = RawObj(tuple);
+  return HeaderVal(mem[index]);
 }
 
 Val TupleAt(Val *mem, Val tuple, u32 i)
 {
-  u32 index = RawVal(tuple);
+  u32 index = RawObj(tuple);
   return mem[index + i + 1];
 }
 
 void TupleSet(Val *mem, Val tuple, u32 i, Val val)
 {
-  u32 index = RawVal(tuple);
+  u32 index = RawObj(tuple);
   mem[index + i + 1] = val;
 }
 
 Val MakeBinary(Val **mem, char *src, u32 len)
 {
-  Val bin = BinVal(VecCount(*mem));
-  VecPush(*mem, BinHdr(len));
+  Val bin = ObjVal(VecCount(*mem));
+  VecPush(*mem, BinaryHeader(len));
 
   u8 *data = BinaryData(*mem, bin);
   for (u32 i = 0; i < len; i++) {
@@ -167,19 +167,25 @@ Val MakeBinary(Val **mem, char *src, u32 len)
 
 u32 BinaryLength(Val *mem, Val bin)
 {
-  u32 index = RawVal(bin);
-  return HdrVal(mem[index]);
+  u32 index = RawObj(bin);
+  return HeaderVal(mem[index]);
 }
 
 u8 *BinaryData(Val *mem, Val bin)
 {
-  u32 index = RawVal(bin);
+  u32 index = RawObj(bin);
   return (u8*)(&mem[index + 1]);
 }
 
 Val SymbolFor(char *src)
 {
   u32 hash = HashBits(src, StrLen(src), valBits);
+  return SymVal(hash);
+}
+
+Val SymbolFrom(char *src, u32 length)
+{
+  u32 hash = HashBits(src, length, valBits);
   return SymVal(hash);
 }
 
@@ -191,9 +197,9 @@ Val BinToSym(Val *mem, Val bin)
 
 Val MakeMap(Val **mem, u32 count)
 {
-  Val map = MapVal(VecCount(*mem));
+  Val map = ObjVal(VecCount(*mem));
 
-  VecPush(*mem, MapHdr(count));
+  VecPush(*mem, DictHeader(count));
 
   for (u32 i = 0; i < count; i++) {
     VecPush(*mem, nil);
@@ -206,8 +212,8 @@ Val MakeMap(Val **mem, u32 count)
 void MapPut(Val *mem, Val map, Val key, Val val)
 {
   u32 size = MapSize(mem, map);
-  u32 base = RawVal(map) + 1;
-  u32 index = RawVal(key) % size;
+  u32 base = RawObj(map) + 1;
+  u32 index = RawObj(key) % size;
 
   while (!IsNil(MapKeyAt(mem, map, index))) {
     if (Eq(MapKeyAt(mem, map, index), key)) {
@@ -225,8 +231,8 @@ void MapPut(Val *mem, Val map, Val key, Val val)
 bool MapHasKey(Val *mem, Val map, Val key)
 {
   u32 size = MapSize(mem, map);
-  u32 base = RawVal(map) + 1;
-  u32 index = (RawVal(key) * 2) % size;
+  u32 base = RawObj(map) + 1;
+  u32 index = (RawObj(key) * 2) % size;
 
   while (!IsNil(mem[base+index])) {
     if (Eq(MapKeyAt(mem, map, index), key)) {
@@ -242,7 +248,7 @@ bool MapHasKey(Val *mem, Val map, Val key)
 Val MapGet(Val *mem, Val map, Val key)
 {
   u32 size = MapSize(mem, map);
-  u32 index = RawVal(key) % size;
+  u32 index = RawObj(key) % size;
 
   while (!IsNil(MapKeyAt(mem, map, index))) {
     if (Eq(MapKeyAt(mem, map, index), key)) {
@@ -257,18 +263,18 @@ Val MapGet(Val *mem, Val map, Val key)
 
 u32 MapSize(Val *mem, Val map)
 {
-  return HdrVal(mem[RawVal(map)]);
+  return HeaderVal(mem[RawObj(map)]);
 }
 
 Val MapKeyAt(Val *mem, Val map, u32 i)
 {
-  u32 base = RawVal(map) + 1;
+  u32 base = RawObj(map) + 1;
   return mem[base + i*2];
 }
 
 Val MapValAt(Val *mem, Val map, u32 i)
 {
-  u32 base = RawVal(map) + 1;
+  u32 base = RawObj(map) + 1;
   return mem[base + i*2 + 1];
 }
 

@@ -1,4 +1,14 @@
-// #pragma once
+#pragma once
+#include "../value.h"
+#include "parse.h"
+
+typedef struct {
+  u8 *code;
+  Val *constants;
+} Chunk;
+
+Chunk *Compile(ASTNode *ast);
+
 // #include "../value.h"
 // #include "chunk.h"
 

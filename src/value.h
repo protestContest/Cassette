@@ -10,60 +10,56 @@ typedef struct {
   Val value;
 } Result;
 
-#define nanMask       0x7FC00000
-
-#define typeMask      0xFFF00000
-#define intMask       0xFFE00000
-
-#define posIntMask    0x7FE00000
-#define negIntMask    0x7FF00000
-
-#define symMask       0x7FC00000
-#define pairMask      0xFFC00000
-#define binMask       0xFFD00000
-#define tupleMask     0xFFE00000
-#define mapMask       0xFFF00000
-
+#define SignExt(n)    ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits       20
 
-#define NumVal(n)     (Val)(float)(n)
-#define IsNum(n)      (((n).as_v & nanMask) != nanMask)
+#define nanMask       0x7FC00000
+#define typeMask      0xFFF00000
+#define intMask       0x7FC00000
+#define symMask       0x7FD00000
+#define pairMask      0x7FE00000
+#define objMask       0x7FF00000
 
-#define IntVal(i)     (Val)(i32)(((i) & ~typeMask) | ((i < 0) ? negIntMask : posIntMask))
-#define IsInt(i)      (((i).as_v & intMask) == intMask)
-#define RawInt(v)     -(((v).as_v & ~intMask)^intMask + 1)
+#define NumVal(n)     (Val){.as_f = (float)(n)}
+#define IntVal(n)     (Val){.as_v = ((n) & ~typeMask) | intMask}
+#define SymVal(n)     (Val){.as_v = ((n) & ~typeMask) | symMask}
+#define PairVal(n)    (Val){.as_v = ((n) & ~typeMask) | pairMask}
+#define ObjVal(n)     (Val){.as_v = ((n) & ~typeMask) | objMask}
+
+#define IsNum(v)      (((v).as_v & nanMask) != nanMask)
+#define IsInt(v)      (((v).as_v & typeMask) == intMask)
+#define IsSym(v)      (((v).as_v & typeMask) == symMask)
+#define IsPair(v)     (((v).as_v & typeMask) == pairMask)
+#define IsObj(v)      (((v).as_v & typeMask) == objMask)
+
+#define RawNum(v)     (v).as_f
+#define RawInt(v)     SignExt((v).as_v)
+#define RawSym(v)     ((v).as_v & ~typeMask)
+#define RawPair(v)    ((v).as_v & ~typeMask)
+#define RawObj(v)     ((v).as_v & ~typeMask)
 
 #define IsNumeric(n)  (IsNum(n) || IsInt(n))
 
-#define SymVal(s)     (Val)(i32)(((s) & ~typeMask) | symMask)
-#define IsSym(s)      (((s).as_v & typeMask) == symMask)
+#define headerMask    0xE0000000
+#define tupleMask     0x00000000
+#define bigIntMask    0x20000000
+#define dictMask      0x40000000
+#define bigDictMask   0x60000000
+#define procMask      0x80000000
+#define binaryMask    0xA0000000
+// #define xMask         0xC0000000
+// #define yMask         0xE0000000
 
-#define PairVal(p)    (Val)(i32)(((p) & ~typeMask) | pairMask)
-#define IsPair(p)     (((p).as_v & typeMask) == pairMask)
-#define TupleVal(t)   (Val)(i32)(((t) & ~typeMask) | tupleMask)
-#define IsTuple(t)    (((t).as_v & typeMask) == tupleMask)
-#define BinVal(b)     (Val)(i32)(((b) & ~typeMask) | binMask)
-#define IsBin(b)      (((b).as_v & typeMask) == binMask)
-#define MapVal(d)     (Val)(i32)(((d) & ~typeMask) | mapMask)
-#define IsMap(d)      (((d).as_v & typeMask) == mapMask)
+#define TupleHeader(n)    (Val){((n) & ~headerMask) | tupleMask}
+#define BigIntHeader(n)   (Val){((n) & ~headerMask) | bigIntMask}
+#define DictHeader(n)     (Val){((n) & ~headerMask) | dictMask}
+#define BigDictHeader(n)  (Val){((n) & ~headerMask) | bigDictMask}
+#define ProcHeader(n)     (Val){((n) & ~headerMask) | procMask}
+#define BinaryHeader(n)   (Val){((n) & ~headerMask) | binaryMask}
 
-#define RawNum(v)     (IsNum(v) ? (v).as_f : RawInt(v))
-#define RawVal(v)     ((v).as_v & ~typeMask)
-
-#define hdrMask       0xF0000000
-#define binHdrMask    0xD0000000
-#define tupHdrMask    0xE0000000
-#define mapHdrMask    0xF0000000
-
-#define BinHdr(n)     (Val)(i32)(((n) & ~hdrMask) | binHdrMask)
-#define IsBinHdr(h)   (((h) & hdrMask) == binHdrMask)
-#define TupHdr(n)     (Val)(i32)(((n) & ~hdrMask) | tupHdrMask)
-#define IsTupHdr(h)   (((h) & hdrMask) == tupHdrMask)
-#define MapHdr(n)     (Val)(i32)(((n) & ~hdrMask) | mapHdrMask)
-#define IsMapHdr(h)   (((h) & hdrMask) == mapHdrMask)
-#define HdrVal(h)     ((h).as_v & ~hdrMask)
+#define HeaderVal(h)      (u32)((h).as_v & ~headerMask)
 
 #define Eq(v1, v2)    ((v1).as_v == (v2).as_v)
 
-#define nil           ((Val)(i32)0xFFC00000)
+#define nil           PairVal(0)
 #define IsNil(v)      (Eq(v, nil))
