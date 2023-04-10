@@ -1,9 +1,8 @@
 #include "interpret.h"
 #include "mem.h"
 #include "print.h"
-#include "univ/io.h"
+#include <univ/io.h>
 #include <stdlib.h>
-#include "stdio.h"
 
 Val Eval(ASTNode *node, Val env, Val *heap);
 Val Apply(ASTNode *call, Val env, Val *heap);

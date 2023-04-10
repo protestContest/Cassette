@@ -1,9 +1,17 @@
 #include "parse.h"
 #include "parse_table.h"
 #include "lex.h"
-#include "univ/vec.h"
-#include "univ/io.h"
+#include "mem.h"
+#include <univ/vec.h>
+#include <univ/io.h>
 #include <stdlib.h>
+
+typedef struct {
+  Lexer lex;
+  i32 *stack;
+  ASTNode **nodes;
+  Val *mem;
+} Parser;
 
 static ASTNode *NewNode(u32 sym, u32 num_children, ASTNode **children)
 {
@@ -107,11 +115,12 @@ static ASTNode *ParseNext(Parser *p, Token token)
   }
 }
 
-void InitParser(Parser *p, char *src)
+static void InitParser(Parser *p, char *src)
 {
   InitLexer(&p->lex, RyeToken, src);
   p->stack = NULL;
   p->nodes = NULL;
+  InitMem(&p->mem);
 }
 
 static ASTNode *AbstractNode(ASTNode *node);

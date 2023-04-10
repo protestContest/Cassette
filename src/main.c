@@ -1,9 +1,8 @@
-#include "compile/parse.h"
-#include "runtime/interpret.h"
-#include "runtime/print.h"
-#include "runtime/mem.h"
-#include "univ/io.h"
-#include <stdio.h>
+#include "parse.h"
+#include "interpret.h"
+#include "print.h"
+#include "mem.h"
+#include <univ/io.h>
 
 int main(int argc, char *argv[])
 {

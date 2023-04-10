@@ -1,4 +1,4 @@
 #pragma once
-#include "../compile/parse.h"
+#include "parse.h"
 
 Val Interpret(ASTNode *node, Val *mem);

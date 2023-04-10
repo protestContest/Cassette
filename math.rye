@@ -1,7 +1,0 @@
-module Math do
-  def (combo a b c) do
-    a * b + a * c
-  end
-end
-
-; Math.combo 3 4 5

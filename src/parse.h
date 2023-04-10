@@ -15,11 +15,5 @@ typedef struct {
   ASTNode value;
 } ParseState;
 
-typedef struct {
-  Lexer lex;
-  i32 *stack;
-  ASTNode **nodes;
-} Parser;
-
 ASTNode *Parse(char *src);
 void PrintAST(ASTNode *ast);

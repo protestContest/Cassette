@@ -1,7 +1,6 @@
 #include "print.h"
-#include "../value.h"
+#include "value.h"
 #include "mem.h"
-#include "../image/string_map.h"
 #include <univ/io.h>
 #include <univ/str.h>
 

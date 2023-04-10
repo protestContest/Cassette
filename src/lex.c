@@ -1,8 +1,7 @@
 #include "lex.h"
-#include "../runtime/mem.h"
+#include "mem.h"
 #include <univ/io.h>
 #include <stdio.h>
-#include <assert.h>
 
 bool IsIDChar(char c)
 {
