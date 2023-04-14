@@ -179,7 +179,7 @@ u32 PrintVal(Mem *mem, Val value)
     PrintFloat(value.as_f);
     return NumDigits(value.as_f);
   } else if (IsInt(value)) {
-    PrintInt(RawInt(value), 0);
+    PrintInt(RawInt(value));
     return NumDigits(RawInt(value));
   } else if (IsSym(value)) {
     Print(":");
@@ -187,12 +187,57 @@ u32 PrintVal(Mem *mem, Val value)
     Print(str);
     return StrLen(str) + 1;
   } else if (IsPair(value)) {
-    Print("[");
-    return PrintTail(mem, value, 1);
+    if (IsTagged(mem, value, SymbolFor("proc"))) {
+      Print("[λ");
+      Val params = ListAt(mem, value, 1);
+      while (!IsNil(params)) {
+        Print(" ");
+        Print(SymbolName(mem, Head(mem, params)));
+        params = Tail(mem, params);
+      }
+      Print("]");
+      return 0;
+    } else {
+      Print("[");
+      return PrintTail(mem, value, 1);
+    }
   } else {
     Print("<v");
-    PrintInt(RawObj(value), 4);
+    PrintIntN(RawObj(value), 4);
     Print(">");
     return 7;
+  }
+}
+
+void DebugVal(Mem *mem, Val value)
+{
+  if (IsNil(value)) {
+    Print("nil");
+  } else if (IsNum(value)) {
+    PrintFloat(value.as_f);
+  } else if (IsInt(value)) {
+    PrintInt(RawInt(value));
+  } else if (IsSym(value)) {
+    Print(":");
+    char *str = SymbolName(mem, value);
+    Print(str);
+  } else if (IsPair(value)) {
+    Print("p");
+    PrintInt(RawPair(value));
+  } else {
+    Print("<v");
+    PrintIntN(RawObj(value), 4);
+    Print(">");
+  }
+}
+
+void PrintMem(Mem *mem)
+{
+  for (u32 i = 0; i < VecCount(mem->values); i++) {
+    Print("[");
+    PrintIntN(i, 4);
+    Print("] ");
+    DebugVal(mem, mem->values[i]);
+    Print("\n");
   }
 }

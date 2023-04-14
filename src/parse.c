@@ -6,7 +6,7 @@
 #include <univ/io.h>
 #include <stdlib.h>
 
-// #define DEBUG_PARSE
+#define DEBUG_PARSE
 
 typedef struct {
   Lexer lex;
@@ -36,8 +36,14 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
 
   if (sym == ParseSymProgram) {
     node = MakePair(p->mem, MakeSymbol(p->mem, "do"), Head(p->mem, children));
+  } else if (sym == ParseSymCall) {
+    if (IsPair(Head(p->mem, children))) {
+      node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, children));
+    } else {
+      node = children;
+    }
   } else if (sym == ParseSymExpr) {
-    node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, children));
+    node = children;
     if (ListLength(p->mem, node) == 1 && IsOperator(p->mem, Head(p->mem, node))) {
       node = Head(p->mem, node);
     }
@@ -55,12 +61,15 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
     node = Head(p->mem, children);
   } else if (sym == ParseSymBlock) {
     node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, children));
+  } else if (sym == ParseSymDo_block) {
+    node = ListAt(p->mem, children, 1);
   } else {
     Print("Unknown symbol \"");
     Print(symbol_names[sym]);
     Print("\", ");
     PrintVal(p->mem, children);
     Print("\n");
+    exit(1);
   }
 
   return node;
@@ -115,7 +124,7 @@ static Val Reduce(Parser *p, u32 sym, u32 num, Token token)
     Print("Did not expect ");
     Print((char*)symbol_names[sym]);
     Print(" from state ");
-    PrintInt(VecPeek(p->stack, 0), 0);
+    PrintInt(VecPeek(p->stack, 0));
     Print("\n");
     return nil;
   }
@@ -142,14 +151,14 @@ static Val ParseNext(Parser *p, Token token)
   PrintToken(token);
   Print("\"\t");
   Print("State ");
-  PrintInt(state, 0);
+  PrintInt(state);
   Print(": ");
 #endif
 
   if (next_state >= 0) {
 #ifdef DEBUG_PARSE
     Print("s");
-    PrintInt(next_state, 0);
+    PrintInt(next_state);
     Print("\n");
 #endif
     return Shift(p, next_state, token);
@@ -157,7 +166,7 @@ static Val ParseNext(Parser *p, Token token)
     u32 num = reduction_sizes[state];
 #ifdef DEBUG_PARSE
     Print("r");
-    PrintInt(reduction, 0);
+    PrintInt(reduction);
     Print(" (");
     Print(symbol_names[reduction]);
     Print(")\n");
@@ -167,7 +176,7 @@ static Val ParseNext(Parser *p, Token token)
     Print("No action for ");
     Print((char*)symbol_names[token.type]);
     Print(" in state ");
-    PrintInt(state, 0);
+    PrintInt(state);
     Print("\n");
     return nil;
   }

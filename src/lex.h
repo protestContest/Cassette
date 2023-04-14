@@ -4,25 +4,31 @@
 
 enum {
   ParseSymEOF,
-  ParseSymNL,
+  ParseSymDef,
+  ParseSymID,
   ParseSymPlus,
   ParseSymMinus,
   ParseSymStar,
   ParseSymSlash,
   ParseSymNUM,
-  ParseSymID,
+  ParseSymDo,
+  ParseSymEnd,
   ParseSymLParen,
   ParseSymRParen,
   ParseSymArrow,
+  ParseSymNL,
   ParseSymProgram,
   ParseSymBlock,
   ParseSymStmt,
   ParseSymExpr,
+  ParseSymCall,
   ParseSymSum,
   ParseSymProduct,
   ParseSymPrimary,
+  ParseSymDo_block,
   ParseSymGroup,
   ParseSymLambda,
+  ParseSymNewlines,
 };
 
 typedef struct {

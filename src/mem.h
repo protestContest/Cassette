@@ -32,3 +32,4 @@ Val MakeSymbol(Mem *mem, char *str);
 char *SymbolName(Mem *mem, Val symbol);
 
 u32 PrintVal(Mem *mem, Val value);
+void PrintMem(Mem *mem);

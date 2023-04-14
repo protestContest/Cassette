@@ -1,0 +1,7 @@
+def add (a b) -> do
+  a + b
+end
+
+def foo (add 1 2)
+
+3 * foo

@@ -8,7 +8,8 @@ int main(int argc, char *argv[])
   char *src;
   // src = "foo (1 + x) * 3 bar";
   // src = "4.1 * (1 + 2)\n3 - 2\n";
-  src = "(a b) -> (a - b) 1 4";
+  // src = "(a b) -> (a - b) 1 4";
+  src = ReadFile("test.rye");
 
   Print("Source: ");
   Print(src);

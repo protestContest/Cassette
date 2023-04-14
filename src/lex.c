@@ -6,6 +6,7 @@
 bool IsIDChar(char c)
 {
   if (IsWhitespace(c)) return false;
+  if (IsNewline(c)) return false;
 
   switch (c) {
   case '(':   return false;
@@ -209,6 +210,9 @@ Token RyeToken(Lexer *lexer)
   if (IsDigit(c)) return NumberToken(lexer);
 
   if (Match(lexer, "\n")) return NewlinesToken(lexer);
+  if (Match(lexer, "def")) return MakeToken(ParseSymDef, lexer, MakeSymbol(lexer->mem, "def"));
+  if (Match(lexer, "do")) return MakeToken(ParseSymDo, lexer, MakeSymbol(lexer->mem, "do"));
+  if (Match(lexer, "end")) return MakeToken(ParseSymEnd, lexer, MakeSymbol(lexer->mem, "end"));
   if (Match(lexer, "->")) return MakeToken(ParseSymArrow, lexer, MakeSymbol(lexer->mem, "->"));
   if (Match(lexer, "+"))  return MakeToken(ParseSymPlus, lexer, MakeSymbol(lexer->mem, "+"));
   if (Match(lexer, "-"))  return MakeToken(ParseSymMinus, lexer, MakeSymbol(lexer->mem, "-"));
@@ -222,7 +226,10 @@ Token RyeToken(Lexer *lexer)
 
 int PrintToken(Token token)
 {
-  PrintN(token.lexeme, token.length);
+  for (u32 i = 0; i < token.length; i++) {
+    if (IsNewline(token.lexeme[i])) Print("⏎");
+    else PrintN(token.lexeme + i, 1);
+  }
   return token.length;
 }
 
