@@ -108,19 +108,22 @@ static u32 ParseDigit(char c)
 static Val ParseInt(char *src, u32 length, u32 base)
 {
   i32 num = 0;
-  u32 place = 1;
+  // u32 place = 1;
   for (u32 i = 0; i < length; i++) {
+    num *= base;
     u32 digit = ParseDigit(src[i]);
-    num += digit * place;
-    place *= base;
+    num += digit;
+    // place *= base;
   }
+
+  printf("%d\n", num);
   return IntVal(num);
 }
 
 static Val ParseFloat(char *src, u32 length)
 {
   u32 whole = 0;
-  u32 place = 1;
+
   for (u32 i = 0; i < length; i++) {
     if (src[i] == '.') {
       float frac = 0;
@@ -134,9 +137,9 @@ static Val ParseFloat(char *src, u32 length)
       return NumVal((float)whole + frac);
     }
 
+    whole *= 10;
     u32 digit = ParseDigit(src[i]);
-    whole += digit * place;
-    place *= 10;
+    whole += digit;
   }
   return NumVal((float)whole);
 }
@@ -210,8 +213,10 @@ Token RyeToken(Lexer *lexer)
   if (IsDigit(c)) return NumberToken(lexer);
 
   if (Match(lexer, "\n")) return NewlinesToken(lexer);
+  if (Match(lexer, "if")) return MakeToken(ParseSymIf, lexer, MakeSymbol(lexer->mem, "if"));
   if (Match(lexer, "def")) return MakeToken(ParseSymDef, lexer, MakeSymbol(lexer->mem, "def"));
   if (Match(lexer, "do")) return MakeToken(ParseSymDo, lexer, MakeSymbol(lexer->mem, "do"));
+  if (Match(lexer, "else")) return MakeToken(ParseSymElse, lexer, MakeSymbol(lexer->mem, "else"));
   if (Match(lexer, "end")) return MakeToken(ParseSymEnd, lexer, MakeSymbol(lexer->mem, "end"));
   if (Match(lexer, "->")) return MakeToken(ParseSymArrow, lexer, MakeSymbol(lexer->mem, "->"));
   if (Match(lexer, "+"))  return MakeToken(ParseSymPlus, lexer, MakeSymbol(lexer->mem, "+"));

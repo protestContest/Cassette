@@ -17,6 +17,7 @@ Val EvalApply(Val exp, Val env, Mem *mem);
 Val EvalEach(Val exps, Val env, Mem *mem);
 Val EvalBlock(Val exps, Val env, Mem *mem);
 Val EvalDefine(Val exps, Val env, Mem *mem);
+Val EvalIf(Val exps, Val env, Mem *mem);
 Val RuntimeError(char *message, Val exp, Mem *mem);
 void PrintEnv(Val env, Mem *mem);
 
@@ -31,6 +32,9 @@ Val InitialEnv(Mem *mem)
 {
   MakeSymbol(mem, "primitive");
   Val env = MakePair(mem, nil, nil);
+  Define(env, MakeSymbol(mem, "nil"), nil, mem);
+  Define(env, MakeSymbol(mem, "true"), SymbolFor("true"), mem);
+  Define(env, MakeSymbol(mem, "false"), SymbolFor("false"), mem);
   Define(env, MakeSymbol(mem, "+"), MakePair(mem, SymbolFor("primitive"), SymbolFor("+")), mem);
   Define(env, MakeSymbol(mem, "-"), MakePair(mem, SymbolFor("primitive"), SymbolFor("-")), mem);
   Define(env, MakeSymbol(mem, "*"), MakePair(mem, SymbolFor("primitive"), SymbolFor("*")), mem);
@@ -63,6 +67,8 @@ Val Eval(Val exp, Val env, Mem *mem)
     result = EvalBlock(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("def"))) {
     result = EvalDefine(exp, env, mem);
+  } else if (IsTagged(mem, exp, SymbolFor("if"))) {
+    result = EvalIf(exp, env, mem);
   } else {
     result = EvalApply(exp, env, mem);
   }
@@ -264,6 +270,20 @@ Val EvalDefine(Val exp, Val env, Mem *mem)
   Val val = Eval(ListAt(mem, exp, 2), env, mem);
   Define(env, var, val, mem);
   return val;
+}
+
+Val EvalIf(Val exps, Val env, Mem *mem)
+{
+  Val condition = ListAt(mem, exps, 1);
+  Val consequent = ListAt(mem, exps, 2);
+  Val alternative = ListAt(mem, exps, 3);
+
+  Val test = Eval(condition, env, mem);
+  if (IsNil(test) || Eq(test, SymbolFor("false"))) {
+    return Eval(alternative, env, mem);
+  } else {
+    return Eval(consequent, env, mem);
+  }
 }
 
 Val RuntimeError(char *message, Val exp, Mem *mem)

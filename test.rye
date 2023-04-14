@@ -4,4 +4,8 @@ end
 
 def foo (add 1 2)
 
-3 * foo
+if false do
+  3 * foo
+else
+  34
+end

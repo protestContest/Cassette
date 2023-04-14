@@ -47,6 +47,12 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
     if (ListLength(p->mem, node) == 1 && IsOperator(p->mem, Head(p->mem, node))) {
       node = Head(p->mem, node);
     }
+  } else if (sym == ParseSymIf_block) {
+    PrintVal(p->mem, children);
+    Val condition = ListAt(p->mem, children, 1);
+    Val consequent = MakePair(p->mem, SymbolFor("do"), ListAt(p->mem, children, 3));
+    Val alternative = MakePair(p->mem, SymbolFor("do"), ListAt(p->mem, children, 5));
+    node = MakeList(p->mem, 4, SymbolFor("if"), condition, consequent, alternative);
   } else if (sym == ParseSymSum ||
              sym == ParseSymProduct ||
              sym == ParseSymLambda) {
