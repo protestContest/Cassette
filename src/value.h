@@ -1,4 +1,6 @@
 #pragma once
+#include <univ/hash.h>
+#include <univ/str.h>
 
 typedef union {
   float as_f;
@@ -45,10 +47,10 @@ typedef struct {
 #define bigIntMask    0x20000000
 #define dictMask      0x40000000
 #define bigDictMask   0x60000000
-#define procMask      0x80000000
-#define binaryMask    0xA0000000
-// #define xMask         0xC0000000
-// #define yMask         0xE0000000
+#define binaryMask    0x80000000
+// #define xMask      0xA0000000
+// #define yMask      0xC0000000
+// #define zMask      0xE0000000
 
 #define TupleHeader(n)    (Val){((n) & ~headerMask) | tupleMask}
 #define BigIntHeader(n)   (Val){((n) & ~headerMask) | bigIntMask}
@@ -63,3 +65,6 @@ typedef struct {
 
 #define nil           PairVal(0)
 #define IsNil(v)      (Eq(v, nil))
+
+#define SymbolFrom(str, len)  SymVal(HashBits(str, len, valBits))
+#define SymbolFor(str)        SymbolFrom(str, StrLen(str))

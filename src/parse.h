@@ -1,19 +1,7 @@
 #pragma once
+#include "value.h"
+#include "mem.h"
 #include "lex.h"
 
-typedef struct ASTNode {
-  u32 symbol;
-  u32 length;
-  union {
-    Token token;
-    struct ASTNode **children;
-  };
-} ASTNode;
-
-typedef struct {
-  i32 id;
-  ASTNode value;
-} ParseState;
-
-ASTNode *Parse(char *src);
-void PrintAST(ASTNode *ast);
+Val Parse(char *src, Mem *mem);
+void PrintAST(Val ast, Mem *mem);

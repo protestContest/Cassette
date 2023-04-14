@@ -1,26 +1,32 @@
 #include "parse.h"
 #include "interpret.h"
-#include "print.h"
 #include "mem.h"
 #include <univ/io.h>
 
 int main(int argc, char *argv[])
 {
-  // char *src = "foo (1 + x) * 3 bar";
-  char *src = "4.1 * (1 + ((2 - 3 * 8) / 2))";
+  char *src;
+  // src = "foo (1 + x) * 3 bar";
+  // src = "4.1 * (1 + 2)\n3 - 2\n";
+  src = "(a b) -> (a - b) 1 4";
+
   Print("Source: ");
   Print(src);
-  Print("\n\n");
-
-  ASTNode *ast = Parse(src);
-  PrintAST(ast);
   Print("\n");
 
-  Val *mem = NULL;
+  Mem mem;
   InitMem(&mem);
-  Val result = Interpret(ast, mem);
+  Val ast = Parse(src, &mem);
+
+  Print("AST: ");
+  PrintVal(&mem, ast);
+  Print("\n");
+  PrintAST(ast, &mem);
+  Print("\n");
+
+  Val result = Interpret(ast, &mem);
 
   Print("Result: ");
-  PrintVal(mem, nil, result);
+  PrintVal(&mem, result);
   Print("\n");
 }

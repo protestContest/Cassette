@@ -31,12 +31,7 @@ bool IsIDChar(char c)
 void SkipWhitespace(Lexer *lexer)
 {
   while (IsWhitespace(LexPeek(lexer, 0))) {
-    if (IsNewline(LexPeek(lexer, 0))) {
-      lexer->line++;
-      lexer->col = 1;
-    } else {
-      lexer->col++;
-    }
+    lexer->col++;
     lexer->pos++;
   }
 }
@@ -150,12 +145,8 @@ static Token NumberToken(Lexer *lexer)
   if (Match(lexer, "0x") && IsHexDigit(LexPeek(lexer, 2))) {
     while (IsHexDigit(LexPeek(lexer, 0))) lexer->pos++;
     Val value = ParseInt(lexer->src + lexer->start + 2, lexer->pos - lexer->start + 2, 16);
-    return MakeToken(ParseSymNum, lexer, value);
+    return MakeToken(ParseSymNUM, lexer, value);
   }
-  // else if (Match(lexer, "0b") && (LexPeek(lexer, 2) == '0' || LexPeek(lexer, 2) == '1')) {
-  //   while (LexPeek(lexer, 0) == '0' || LexPeek(lexer, 0) == '1') lexer->pos++;
-  //   return MakeToken(ParseSymNum, lexer);
-  // }
 
   while (IsDigit(LexPeek(lexer, 0))) lexer->pos++;
 
@@ -168,7 +159,7 @@ static Token NumberToken(Lexer *lexer)
     value = ParseInt(lexer->src + lexer->start, lexer->pos - lexer->start, 10);
   }
 
-  return MakeToken(ParseSymNum, lexer, value);
+  return MakeToken(ParseSymNUM, lexer, value);
 }
 
 // static Token StringToken(Lexer *lexer)
@@ -186,13 +177,21 @@ static Token NumberToken(Lexer *lexer)
 static Token IDToken(Lexer *lexer)
 {
   while (LexPeek(lexer, 0) != '\0' && IsIDChar(LexPeek(lexer, 0))) lexer->pos++;
-  Val value = SymbolFrom(lexer->src + lexer->start, lexer->pos - lexer->start);
+  Val value = MakeSymbolFrom(lexer->mem, lexer->src + lexer->start, lexer->pos - lexer->start);
   return MakeToken(ParseSymID, lexer, value);
 }
 
-void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src)
+static Token NewlinesToken(Lexer *lexer)
 {
-  *lexer = (Lexer){src, 0, 0, 1, 1, next_token};
+  while (Match(lexer, "\n")) {
+    SkipWhitespace(lexer);
+  }
+  return MakeToken(ParseSymNL, lexer, nil);
+}
+
+void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src, Mem *mem)
+{
+  *lexer = (Lexer){src, 0, 0, 1, 1, mem, next_token};
 }
 
 Token NextToken(Lexer *lexer)
@@ -209,12 +208,14 @@ Token RyeToken(Lexer *lexer)
   if (c == '\0') return MakeToken(ParseSymEOF, lexer, nil);
   if (IsDigit(c)) return NumberToken(lexer);
 
-  if (Match(lexer, "("))  return MakeToken(ParseSymLParen, lexer, SymbolFor("("));
-  if (Match(lexer, ")"))  return MakeToken(ParseSymRParen, lexer, SymbolFor(")"));
-  if (Match(lexer, "*"))  return MakeToken(ParseSymStar, lexer, SymbolFor("*"));
-  if (Match(lexer, "/"))  return MakeToken(ParseSymSlash, lexer, SymbolFor("/"));
-  if (Match(lexer, "-"))  return MakeToken(ParseSymMinus, lexer, SymbolFor("-"));
-  if (Match(lexer, "+"))  return MakeToken(ParseSymPlus, lexer, SymbolFor("+"));
+  if (Match(lexer, "\n")) return NewlinesToken(lexer);
+  if (Match(lexer, "->")) return MakeToken(ParseSymArrow, lexer, MakeSymbol(lexer->mem, "->"));
+  if (Match(lexer, "+"))  return MakeToken(ParseSymPlus, lexer, MakeSymbol(lexer->mem, "+"));
+  if (Match(lexer, "-"))  return MakeToken(ParseSymMinus, lexer, MakeSymbol(lexer->mem, "-"));
+  if (Match(lexer, "*"))  return MakeToken(ParseSymStar, lexer, MakeSymbol(lexer->mem, "*"));
+  if (Match(lexer, "/"))  return MakeToken(ParseSymSlash, lexer, MakeSymbol(lexer->mem, "/"));
+  if (Match(lexer, "("))  return MakeToken(ParseSymLParen, lexer, MakeSymbol(lexer->mem, "("));
+  if (Match(lexer, ")"))  return MakeToken(ParseSymRParen, lexer, MakeSymbol(lexer->mem, ")"));
 
   return IDToken(lexer);
 }

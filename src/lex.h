@@ -1,27 +1,29 @@
 #pragma once
 #include "value.h"
+#include "mem.h"
 
-typedef enum {
-  ParseSymEOF = 0,
-  ParseSymPlus = 1,
-  ParseSymMinus = 2,
-  ParseSymStar = 3,
-  ParseSymSlash = 4,
-  ParseSymNum = 5,
-  ParseSymID = 6,
-  ParseSymLParen = 7,
-  ParseSymRParen = 8,
-  ParseSymArrow = 9,
-  ParseSymProgram = 10,
-  ParseSymExpr = 11,
-  ParseSymCall = 12,
-  ParseSymArg = 13,
-  ParseSymSum = 14,
-  ParseSymProduct = 15,
-  ParseSymPrimary = 16,
-  ParseSymGroup = 17,
-  ParseSymLambda = 18,
-} ParseSymbol;
+enum {
+  ParseSymEOF,
+  ParseSymNL,
+  ParseSymPlus,
+  ParseSymMinus,
+  ParseSymStar,
+  ParseSymSlash,
+  ParseSymNUM,
+  ParseSymID,
+  ParseSymLParen,
+  ParseSymRParen,
+  ParseSymArrow,
+  ParseSymProgram,
+  ParseSymBlock,
+  ParseSymStmt,
+  ParseSymExpr,
+  ParseSymSum,
+  ParseSymProduct,
+  ParseSymPrimary,
+  ParseSymGroup,
+  ParseSymLambda,
+};
 
 typedef struct {
   u32 type;
@@ -41,11 +43,12 @@ typedef struct Lexer {
   u32 pos;
   u32 line;
   u32 col;
+  Mem *mem;
   NextTokenFn next_token;
 } Lexer;
 
 #define LexPeek(lexer, n) (lexer)->src[(lexer)->pos + n]
-#define IsWhitespace(c)   ((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
+#define IsWhitespace(c)   ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)      ((c) == '\r' || (c) == '\n')
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
 #define IsHexDigit(c)     (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
@@ -55,7 +58,7 @@ typedef struct Lexer {
 
 #define IsErrorToken(t)   ((t).type == (u32)-1)
 
-void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src);
+void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src, Mem *mem);
 Token NextToken(Lexer *lexer);
 Token RyeToken(Lexer *lexer);
 int PrintToken(Token token);

@@ -1,76 +1,71 @@
 #include "mem.h"
-#include "print.h"
+#include <stdarg.h>
 #include <univ/vec.h>
 #include <univ/hash.h>
 #include <univ/io.h>
 #include <univ/str.h>
+#include <univ/allocate.h>
 
-void InitMem(Val **mem)
+void InitMem(Mem *mem)
 {
-  *mem = NULL;
-  VecPush(*mem, nil);
-  VecPush(*mem, nil);
+  mem->values = NULL;
+  VecPush(mem->values, nil);
+  VecPush(mem->values, nil);
+  InitMap(&mem->symbols);
 }
 
-void InitHeap(Heap *heap)
+Val MakePair(Mem *mem, Val head, Val tail)
 {
-  InitMem(&heap->mem);
-  heap->symbols = MakeMap(&heap->mem, 32);
-}
+  Val pair = PairVal(VecCount(mem->values));
 
-Val MakePair(Val **mem, Val head, Val tail)
-{
-  Val pair = PairVal(VecCount(*mem));
-
-  VecPush(*mem, head);
-  VecPush(*mem, tail);
+  VecPush(mem->values, head);
+  VecPush(mem->values, tail);
 
   return pair;
 }
 
-Val Head(Val *mem, Val pair)
+Val Head(Mem *mem, Val pair)
 {
   if (IsNil(pair)) return nil;
   u32 index = RawPair(pair);
-  return mem[index];
+  return mem->values[index];
 }
 
-Val Tail(Val *mem, Val pair)
+Val Tail(Mem *mem, Val pair)
 {
   if (IsNil(pair)) return nil;
   u32 index = RawPair(pair);
-  return mem[index+1];
+  return mem->values[index+1];
 }
 
-void SetHead(Val **mem, Val pair, Val val)
+void SetHead(Mem *mem, Val pair, Val val)
 {
   Assert(!IsNil(pair));
   u32 index = RawPair(pair);
-  (*mem)[index] = val;
+  mem->values[index] = val;
 }
 
-void SetTail(Val **mem, Val pair, Val val)
+void SetTail(Mem *mem, Val pair, Val val)
 {
   Assert(!IsNil(pair));
   u32 index = RawPair(pair);
-  (*mem)[index+1] = val;
+  mem->values[index+1] = val;
 }
 
-Val ReverseOnto(Val **mem, Val list, Val tail)
+Val MakeList(Mem *mem, u32 num, ...)
 {
-  if (IsNil(list)) return tail;
-
-  Val rest = Tail(*mem, list);
-  SetTail(mem, list, tail);
-  return ReverseOnto(mem, rest, list);
-}
-
-Val Reverse(Val **mem, Val list)
-{
+  va_list args;
+  va_start(args, num);
+  Val list = nil;
+  for (u32 i = 0; i < num; i++) {
+    Val arg = va_arg(args, Val);
+    list = MakePair(mem, arg, list);
+  }
+  va_end(args);
   return ReverseOnto(mem, list, nil);
 }
 
-u32 ListLength(Val *mem, Val list)
+u32 ListLength(Mem *mem, Val list)
 {
   u32 length = 0;
   while (!IsNil(list)) {
@@ -80,230 +75,124 @@ u32 ListLength(Val *mem, Val list)
   return length;
 }
 
-Val ListAt(Val *mem, Val list, u32 index)
+Val ListAt(Mem *mem, Val list, u32 index)
 {
   if (IsNil(list)) return nil;
   if (index == 0) return Head(mem, list);
   return ListAt(mem, Tail(mem, list), index - 1);
 }
 
-Val First(Val *mem, Val list)
+Val ReverseOnto(Mem *mem, Val list, Val tail)
 {
-  return ListAt(mem, list, 0);
+  if (IsNil(list)) return tail;
+  return ReverseOnto(mem, Tail(mem, list), MakePair(mem, Head(mem, list), tail));
 }
 
-Val Second(Val *mem, Val list)
+Val ListAppend(Mem *mem, Val list1, Val list2)
 {
-  return ListAt(mem, list, 1);
+  list1 = ReverseOnto(mem, list1, nil);
+  return ReverseOnto(mem, list1, list2);
 }
 
-Val Third(Val *mem, Val list)
+bool IsTagged(Mem *mem, Val list, Val tag)
 {
-  return ListAt(mem, list, 2);
+  if (!IsPair(list)) return false;
+  return Eq(Head(mem, list), tag);
 }
 
-Val ListLast(Val *mem, Val list)
+Val MakeTuple(Mem *mem, u32 count)
 {
-  while (!IsNil(Tail(mem, list))) {
-    list = Tail(mem, list);
-  }
-  return Head(mem, list);
-}
-
-void ListAppend(Val **mem, Val list1, Val list2)
-{
-  while (!IsNil(Tail(*mem, list1))) {
-    list1 = Tail(*mem, list1);
-  }
-
-  SetTail(mem, list1, list2);
-}
-
-Val MakeTuple(Val **mem, u32 count)
-{
-  Val tuple = ObjVal(VecCount(*mem));
-  VecPush(*mem, TupleHeader(count));
+  Val tuple = ObjVal(VecCount(mem->values));
+  VecPush(mem->values, TupleHeader(count));
 
   for (u32 i = 0; i < count; i++) {
-    VecPush(*mem, nil);
+    VecPush(mem->values, nil);
   }
 
   return tuple;
 }
 
-u32 TupleLength(Val *mem, Val tuple)
+u32 TupleLength(Mem *mem, Val tuple)
 {
   u32 index = RawObj(tuple);
-  return HeaderVal(mem[index]);
+  return HeaderVal(mem->values[index]);
 }
 
-Val TupleAt(Val *mem, Val tuple, u32 i)
+Val TupleAt(Mem *mem, Val tuple, u32 i)
 {
   u32 index = RawObj(tuple);
-  return mem[index + i + 1];
+  return mem->values[index + i + 1];
 }
 
-void TupleSet(Val *mem, Val tuple, u32 i, Val val)
+void TupleSet(Mem *mem, Val tuple, u32 i, Val val)
 {
   u32 index = RawObj(tuple);
-  mem[index + i + 1] = val;
+  mem->values[index + i + 1] = val;
 }
 
-Val MakeBinary(Val **mem, char *src, u32 len)
+Val MakeSymbolFrom(Mem *mem, char *str, u32 length)
 {
-  Val bin = ObjVal(VecCount(*mem));
-  VecPush(*mem, BinaryHeader(len));
-
-  u8 *data = BinaryData(*mem, bin);
-  for (u32 i = 0; i < len; i++) {
-    data[i] = src[i];
+  Val sym = SymbolFrom(str, length);
+  if (!MapContains(&mem->symbols, sym.as_v)) {
+    char *sym_str = Allocate(length + 1);
+    for (u32 i = 0; i < length; i++) sym_str[i] = str[i];
+    sym_str[length] = '\0';
+    MapSet(&mem->symbols, sym.as_v, sym_str);
   }
-
-  u32 num_slots = (len - 1) / 4 + 1;
-  GrowVec(*mem, num_slots);
-
-  return bin;
+  return sym;
 }
 
-u32 BinaryLength(Val *mem, Val bin)
+Val MakeSymbol(Mem *mem, char *str)
 {
-  u32 index = RawObj(bin);
-  return HeaderVal(mem[index]);
+  return MakeSymbolFrom(mem, str, StrLen(str));
 }
 
-u8 *BinaryData(Val *mem, Val bin)
+char *SymbolName(Mem *mem, Val symbol)
 {
-  u32 index = RawObj(bin);
-  return (u8*)(&mem[index + 1]);
+  return MapGet(&mem->symbols, symbol.as_v);
 }
 
-Val SymbolFor(char *src)
+static u32 PrintTail(Mem *mem, Val tail, u32 length)
 {
-  u32 hash = HashBits(src, StrLen(src), valBits);
-  return SymVal(hash);
-}
-
-Val SymbolFrom(char *src, u32 length)
-{
-  u32 hash = HashBits(src, length, valBits);
-  return SymVal(hash);
-}
-
-Val BinToSym(Val *mem, Val bin)
-{
-  u32 hash = HashBits(BinaryData(mem, bin), BinaryLength(mem, bin), valBits);
-  return SymVal(hash);
-}
-
-Val MakeMap(Val **mem, u32 count)
-{
-  Val map = ObjVal(VecCount(*mem));
-
-  VecPush(*mem, DictHeader(count));
-
-  for (u32 i = 0; i < count; i++) {
-    VecPush(*mem, nil);
-    VecPush(*mem, nil);
+  length += PrintVal(mem, Head(mem, tail));
+  if (IsNil(Tail(mem, tail))) {
+    Print("]");
+    return length + 1;
   }
-
-  return map;
-}
-
-void MapPut(Val *mem, Val map, Val key, Val val)
-{
-  u32 size = MapSize(mem, map);
-  u32 base = RawObj(map) + 1;
-  u32 index = RawObj(key) % size;
-
-  while (!IsNil(MapKeyAt(mem, map, index))) {
-    if (Eq(MapKeyAt(mem, map, index), key)) {
-      mem[base+index*2+1] = val;
-      return;
-    }
-
-    index = (index + 1) % size;
+  if (!IsPair(Tail(mem, tail))) {
+    Print(" . ");
+    length += 3;
+    length += PrintVal(mem, Tail(mem, tail));
+    Print("]");
+    return length + 1;
   }
-
-  mem[base+index*2] = key;
-  mem[base+index*2+1] = val;
+  Print(", ");
+  return PrintTail(mem, Tail(mem, tail), length + 2);
 }
 
-bool MapHasKey(Val *mem, Val map, Val key)
+u32 PrintVal(Mem *mem, Val value)
 {
-  u32 size = MapSize(mem, map);
-  u32 base = RawObj(map) + 1;
-  u32 index = (RawObj(key) * 2) % size;
-
-  while (!IsNil(mem[base+index])) {
-    if (Eq(MapKeyAt(mem, map, index), key)) {
-      return true;
-    }
-
-    index = (index + 1) % size;
-  }
-
-  return false;
-}
-
-Val MapGet(Val *mem, Val map, Val key)
-{
-  u32 size = MapSize(mem, map);
-  u32 index = RawObj(key) % size;
-
-  while (!IsNil(MapKeyAt(mem, map, index))) {
-    if (Eq(MapKeyAt(mem, map, index), key)) {
-      return MapValAt(mem, map, index);
-    }
-
-    index = (index + 1) % size;
-  }
-
-  return nil;
-}
-
-u32 MapSize(Val *mem, Val map)
-{
-  return HeaderVal(mem[RawObj(map)]);
-}
-
-Val MapKeyAt(Val *mem, Val map, u32 i)
-{
-  u32 base = RawObj(map) + 1;
-  return mem[base + i*2];
-}
-
-Val MapValAt(Val *mem, Val map, u32 i)
-{
-  u32 base = RawObj(map) + 1;
-  return mem[base + i*2 + 1];
-}
-
-static void PrintTreeLevel(Val *mem, Val symbols, Val root, u32 indent);
-
-static void PrintTreeList(Val *mem, Val symbols, Val list, u32 indent)
-{
-  if (IsNil(list)) return;
-
-  PrintTreeLevel(mem, symbols, Head(mem, list), indent);
-  if (IsPair(Tail(mem, list))) {
-    PrintTreeList(mem, symbols, Tail(mem, list), indent);
+  if (IsNil(value)) {
+    Print("nil");
+    return 3;
+  } else if (IsNum(value)) {
+    PrintFloat(value.as_f);
+    return NumDigits(value.as_f);
+  } else if (IsInt(value)) {
+    PrintInt(RawInt(value), 0);
+    return NumDigits(RawInt(value));
+  } else if (IsSym(value)) {
+    Print(":");
+    char *str = SymbolName(mem, value);
+    Print(str);
+    return StrLen(str) + 1;
+  } else if (IsPair(value)) {
+    Print("[");
+    return PrintTail(mem, value, 1);
   } else {
-    Print("| ");
-    PrintTreeLevel(mem, symbols, Tail(mem, list), indent);
+    Print("<v");
+    PrintInt(RawObj(value), 4);
+    Print(">");
+    return 7;
   }
-}
-
-static void PrintTreeLevel(Val *mem, Val symbols, Val root, u32 indent)
-{
-  for (u32 i = 0; i < indent; i++) Print("  ");
-  PrintVal(mem, symbols, root);
-  Print("\n");
-  if (IsPair(root)) {
-    PrintTreeList(mem, symbols, root, indent + 1);
-  }
-}
-
-void PrintTree(Val *mem, Val symbols, Val root)
-{
-  PrintTreeLevel(mem, symbols, root, 0);
 }
