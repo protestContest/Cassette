@@ -213,12 +213,18 @@ Token RyeToken(Lexer *lexer)
   if (IsDigit(c)) return NumberToken(lexer);
 
   if (Match(lexer, "\n")) return NewlinesToken(lexer);
+  if (Match(lexer, "and")) return MakeToken(ParseSymAnd, lexer, MakeSymbol(lexer->mem, "if"));
+  if (Match(lexer, "or")) return MakeToken(ParseSymOr, lexer, MakeSymbol(lexer->mem, "if"));
   if (Match(lexer, "if")) return MakeToken(ParseSymIf, lexer, MakeSymbol(lexer->mem, "if"));
   if (Match(lexer, "def")) return MakeToken(ParseSymDef, lexer, MakeSymbol(lexer->mem, "def"));
   if (Match(lexer, "do")) return MakeToken(ParseSymDo, lexer, MakeSymbol(lexer->mem, "do"));
   if (Match(lexer, "else")) return MakeToken(ParseSymElse, lexer, MakeSymbol(lexer->mem, "else"));
   if (Match(lexer, "end")) return MakeToken(ParseSymEnd, lexer, MakeSymbol(lexer->mem, "end"));
+  if (Match(lexer, "==")) return MakeToken(ParseSymEqualEqual, lexer, MakeSymbol(lexer->mem, "=="));
   if (Match(lexer, "->")) return MakeToken(ParseSymArrow, lexer, MakeSymbol(lexer->mem, "->"));
+  if (Match(lexer, "|"))  return MakeToken(ParseSymBar, lexer, MakeSymbol(lexer->mem, "|"));
+  if (Match(lexer, "<"))  return MakeToken(ParseSymLessThan, lexer, MakeSymbol(lexer->mem, "<"));
+  if (Match(lexer, ">"))  return MakeToken(ParseSymGreaterThan, lexer, MakeSymbol(lexer->mem, ">"));
   if (Match(lexer, "+"))  return MakeToken(ParseSymPlus, lexer, MakeSymbol(lexer->mem, "+"));
   if (Match(lexer, "-"))  return MakeToken(ParseSymMinus, lexer, MakeSymbol(lexer->mem, "-"));
   if (Match(lexer, "*"))  return MakeToken(ParseSymStar, lexer, MakeSymbol(lexer->mem, "*"));

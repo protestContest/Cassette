@@ -66,5 +66,7 @@ typedef struct {
 #define nil           PairVal(0)
 #define IsNil(v)      (Eq(v, nil))
 
+#define BoolVal(v)    ((v) ? SymbolFor("true") : SymbolFor("false"))
+
 #define SymbolFrom(str, len)  SymVal(HashBits(str, len, valBits))
 #define SymbolFor(str)        SymbolFrom(str, StrLen(str))

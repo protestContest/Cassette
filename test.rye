@@ -1,11 +1,5 @@
-def add (a b) -> do
-  a + b
+def (dist a b) do
+  if a > b (a - b) (b - a)
 end
 
-def foo (add 1 2)
-
-if false do
-  3 * foo
-else
-  34
-end
+dist 4 3

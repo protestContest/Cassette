@@ -1,4 +1,5 @@
 #include "interpret.h"
+#include "mem.h"
 #include <univ/io.h>
 #include <univ/sys.h>
 #include <univ/vec.h>
@@ -6,6 +7,7 @@
 #define DEBUG_EVAL
 
 Val InitialEnv(Mem *mem);
+void DefinePrimitive(Val env, char *name, Mem *mem);
 Val Eval(Val exp, Val env, Mem *mem);
 Val Apply(Val exp, Val env, Mem *mem);
 Val ApplyPrimitive(Val proc, Val args, Mem *mem);
@@ -18,6 +20,7 @@ Val EvalEach(Val exps, Val env, Mem *mem);
 Val EvalBlock(Val exps, Val env, Mem *mem);
 Val EvalDefine(Val exps, Val env, Mem *mem);
 Val EvalIf(Val exps, Val env, Mem *mem);
+bool IsTrue(Val value);
 Val RuntimeError(char *message, Val exp, Mem *mem);
 void PrintEnv(Val env, Mem *mem);
 
@@ -32,14 +35,25 @@ Val InitialEnv(Mem *mem)
 {
   MakeSymbol(mem, "primitive");
   Val env = MakePair(mem, nil, nil);
-  Define(env, MakeSymbol(mem, "nil"), nil, mem);
-  Define(env, MakeSymbol(mem, "true"), SymbolFor("true"), mem);
-  Define(env, MakeSymbol(mem, "false"), SymbolFor("false"), mem);
-  Define(env, MakeSymbol(mem, "+"), MakePair(mem, SymbolFor("primitive"), SymbolFor("+")), mem);
-  Define(env, MakeSymbol(mem, "-"), MakePair(mem, SymbolFor("primitive"), SymbolFor("-")), mem);
-  Define(env, MakeSymbol(mem, "*"), MakePair(mem, SymbolFor("primitive"), SymbolFor("*")), mem);
-  Define(env, MakeSymbol(mem, "/"), MakePair(mem, SymbolFor("primitive"), SymbolFor("/")), mem);
+  DefinePrimitive(env, "nil", mem);
+  DefinePrimitive(env, "true", mem);
+  DefinePrimitive(env, "false", mem);
+  DefinePrimitive(env, "+", mem);
+  DefinePrimitive(env, "-", mem);
+  DefinePrimitive(env, "*", mem);
+  DefinePrimitive(env, "/", mem);
+  DefinePrimitive(env, "and", mem);
+  DefinePrimitive(env, "or", mem);
+  DefinePrimitive(env, "<", mem);
+  DefinePrimitive(env, ">", mem);
+  DefinePrimitive(env, "==", mem);
+  DefinePrimitive(env, "|", mem);
   return env;
+}
+
+void DefinePrimitive(Val env, char *name, Mem *mem)
+{
+  Define(env, MakeSymbol(mem, name), MakePair(mem, MakeSymbol(mem, "primitive"), SymbolFor(name)), mem);
 }
 
 static u32 indent = 0;
@@ -117,7 +131,9 @@ Val ApplyPrimitive(Val proc, Val args, Mem *mem)
     } else {
       return NumVal(RawNum(a) + RawNum(b));
     }
-  } else if (Eq(op, SymbolFor("-"))) {
+  }
+
+  if (Eq(op, SymbolFor("-"))) {
     if (ListLength(mem, args) != 2) RuntimeError("Wrong number of args for '-'", args, mem);
     Val a = ListAt(mem, args, 0);
     Val b = ListAt(mem, args, 1);
@@ -130,7 +146,9 @@ Val ApplyPrimitive(Val proc, Val args, Mem *mem)
     } else {
       return NumVal(RawNum(a) - RawNum(b));
     }
-  } else if (Eq(op, SymbolFor("*"))) {
+  }
+
+  if (Eq(op, SymbolFor("*"))) {
     if (ListLength(mem, args) != 2) RuntimeError("Wrong number of args for '*'", args, mem);
     Val a = ListAt(mem, args, 0);
     Val b = ListAt(mem, args, 1);
@@ -143,7 +161,9 @@ Val ApplyPrimitive(Val proc, Val args, Mem *mem)
     } else {
       return NumVal(RawNum(a) * RawNum(b));
     }
-  } else if (Eq(op, SymbolFor("/"))) {
+  }
+
+  if (Eq(op, SymbolFor("/"))) {
     if (ListLength(mem, args) != 2) RuntimeError("Wrong number of args for '/'", args, mem);
     Val a = ListAt(mem, args, 0);
     Val b = ListAt(mem, args, 1);
@@ -156,6 +176,69 @@ Val ApplyPrimitive(Val proc, Val args, Mem *mem)
     } else {
       return NumVal(RawNum(a) / RawNum(b));
     }
+  }
+
+  if (Eq(op, SymbolFor("and"))) {
+    Val a = ListAt(mem, args, 0);
+    Val b = ListAt(mem, args, 1);
+    return BoolVal(IsTrue(a) && IsTrue(b));
+  }
+
+  if (Eq(op, SymbolFor("or"))) {
+    Val a = ListAt(mem, args, 0);
+    Val b = ListAt(mem, args, 1);
+    return BoolVal(IsTrue(a) || IsTrue(b));
+  }
+
+  if (Eq(op, SymbolFor("<"))) {
+    Val a = ListAt(mem, args, 0);
+    Val b = ListAt(mem, args, 1);
+    if (!IsNumeric(a)) return RuntimeError("Bad argument to <", a, mem);
+    if (!IsNumeric(b)) return RuntimeError("Bad argument to <", b, mem);
+
+    if (IsInt(a) && IsInt(b)) {
+      return BoolVal(RawInt(a) < RawInt(b));
+    } else {
+      float raw_a = IsInt(a) ? (float)RawInt(a) : RawNum(a);
+      float raw_b = IsInt(b) ? (float)RawInt(b) : RawNum(b);
+      return BoolVal(raw_a < raw_b);
+    }
+  }
+
+  if (Eq(op, SymbolFor(">"))) {
+    Val a = ListAt(mem, args, 0);
+    Val b = ListAt(mem, args, 1);
+    if (!IsNumeric(a)) return RuntimeError("Bad argument to >", a, mem);
+    if (!IsNumeric(b)) return RuntimeError("Bad argument to >", b, mem);
+
+    if (IsInt(a) && IsInt(b)) {
+      return BoolVal(RawInt(a) > RawInt(b));
+    } else {
+      float raw_a = IsInt(a) ? (float)RawInt(a) : RawNum(a);
+      float raw_b = IsInt(b) ? (float)RawInt(b) : RawNum(b);
+      return BoolVal(raw_a > raw_b);
+    }
+  }
+
+  if (Eq(op, SymbolFor("=="))) {
+    Val a = ListAt(mem, args, 0);
+    Val b = ListAt(mem, args, 1);
+
+    if (IsInt(a) && IsInt(b)) {
+      return BoolVal(RawInt(a) == RawInt(b));
+    } else if (IsNumeric(a) && IsNumeric(b)) {
+      float raw_a = IsInt(a) ? (float)RawInt(a) : RawNum(a);
+      float raw_b = IsInt(b) ? (float)RawInt(b) : RawNum(b);
+      return BoolVal(raw_a == raw_b);
+    } else {
+      return BoolVal(Eq(a, b));
+    }
+  }
+
+  if (Eq(op, SymbolFor("|"))) {
+    Val a = ListAt(mem, args, 0);
+    Val b = ListAt(mem, args, 1);
+    return MakePair(mem, a, b);
   }
 
   return RuntimeError("Unimplemented primitive", proc, mem);
@@ -279,11 +362,16 @@ Val EvalIf(Val exps, Val env, Mem *mem)
   Val alternative = ListAt(mem, exps, 3);
 
   Val test = Eval(condition, env, mem);
-  if (IsNil(test) || Eq(test, SymbolFor("false"))) {
-    return Eval(alternative, env, mem);
-  } else {
+  if (IsTrue(test)) {
     return Eval(consequent, env, mem);
+  } else {
+    return Eval(alternative, env, mem);
   }
+}
+
+bool IsTrue(Val value)
+{
+  return !(IsNil(value) || Eq(value, SymbolFor("false")));
 }
 
 Val RuntimeError(char *message, Val exp, Mem *mem)

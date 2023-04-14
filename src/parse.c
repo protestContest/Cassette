@@ -30,6 +30,25 @@ static bool IsOperator(Mem *mem, Val node)
   return false;
 }
 
+static bool IsOperatorExpr(u32 sym)
+{
+  switch (sym) {
+  case ParseSymSum:
+  case ParseSymProduct:
+  case ParseSymLambda:
+  case ParseSymCompare:
+  case ParseSymPair:
+  case ParseSymEquals:
+  case ParseSymLogic:
+    return true;
+  default:
+    return false;
+  }
+  return sym == ParseSymSum ||
+         sym == ParseSymProduct ||
+         sym == ParseSymLambda;
+}
+
 static Val AbstractNode(Parser *p, u32 sym, Val children)
 {
   Val node = nil;
@@ -42,20 +61,43 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
     } else {
       node = children;
     }
+  } else if (sym == ParseSymDefine) {
+    if (Eq(ListAt(p->mem, children, 1), SymbolFor("("))) {
+      Val ids = ListAt(p->mem, children, 2);
+      Val var = Head(p->mem, ids);
+      Val params = Tail(p->mem, ids);
+      Val body = ListAt(p->mem, children, 4);
+      Val lambda = MakeList(p->mem, 3, MakeSymbol(p->mem, "->"), params, body);
+      node = MakeList(p->mem, 3, SymbolFor("def"), var, lambda);
+    } else {
+      node = children;
+    }
   } else if (sym == ParseSymExpr) {
     node = children;
     if (ListLength(p->mem, node) == 1 && IsOperator(p->mem, Head(p->mem, node))) {
       node = Head(p->mem, node);
     }
+  } else if (sym == ParseSymParams) {
+    if (IsPair(Head(p->mem, children))) {
+      node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, children));
+    } else {
+      node = children;
+    }
   } else if (sym == ParseSymIf_block) {
-    PrintVal(p->mem, children);
     Val condition = ListAt(p->mem, children, 1);
-    Val consequent = MakePair(p->mem, SymbolFor("do"), ListAt(p->mem, children, 3));
-    Val alternative = MakePair(p->mem, SymbolFor("do"), ListAt(p->mem, children, 5));
+
+    Val consequent = ListAt(p->mem, children, 2);
+    Val alternative = ListAt(p->mem, children, 3);
+    if (Eq(consequent, SymbolFor("do"))) {
+      consequent = MakePair(p->mem, SymbolFor("do"), ListAt(p->mem, children, 3));
+      alternative = ListAt(p->mem, children, 4);
+    }
+    if (Eq(alternative, SymbolFor("else"))) {
+      alternative = MakePair(p->mem, SymbolFor("do"), ListAt(p->mem, children, 5));
+    }
+
     node = MakeList(p->mem, 4, SymbolFor("if"), condition, consequent, alternative);
-  } else if (sym == ParseSymSum ||
-             sym == ParseSymProduct ||
-             sym == ParseSymLambda) {
+  } else if (IsOperatorExpr(sym)) {
     node = Tail(p->mem, children);
     SetTail(p->mem, children, Tail(p->mem, node));
     SetTail(p->mem, node, children);
