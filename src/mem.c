@@ -1,10 +1,5 @@
 #include "mem.h"
 #include <stdarg.h>
-#include <univ/vec.h>
-#include <univ/hash.h>
-#include <univ/io.h>
-#include <univ/str.h>
-#include <univ/allocate.h>
 
 void InitMem(Mem *mem)
 {

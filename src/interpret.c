@@ -1,8 +1,5 @@
 #include "interpret.h"
 #include "mem.h"
-#include <univ/io.h>
-#include <univ/sys.h>
-#include <univ/vec.h>
 
 #define DEBUG_EVAL
 

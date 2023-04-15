@@ -1,7 +1,6 @@
 #include "parse.h"
 #include "interpret.h"
 #include "mem.h"
-#include <univ/io.h>
 
 int main(int argc, char *argv[])
 {

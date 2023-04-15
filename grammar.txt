@@ -1,102 +1,41 @@
-terminals: num, var '+', '(', ')', '->'
-
-0.  program   → expr
-1.  expr      → value
-2.  expr      → infix
-3.  expr      → call
-4.  expr      → lambda
-5.  value     → num
-6.  value     → var
-7.  infix     → expr '+' expr
-8.  call      → '(' expr call-args ')'
-9.  call-args → ε
-10. call-args → expr call-args
-11. lambda    → '(' params ')' '->' expr
-12. params    → ε
-13. params    → params var
-
-0.  program   → • expr                      goto 1
-    expr      → • value                     goto 2
-    expr      → • infix                     goto 3
-    expr      → • call                      goto 4
-    expr      → • lambda                    goto 5
-    value     → • num                       shift 6
-    value     → • var                       shift 7
-    infix     → • expr '+' expr             goto 1
-    call      → • '(' expr call-args ')'    shift 8
-    lambda    → • '(' params ')' '->' expr  shift 8
-
-# S/R conflict
-1.  program   → expr •                      reduce 0
-    infix     → expr • '+' expr             shift 9
-
-2.  expr      → value •                     reduce 1
-3.  expr      → infix •                     reduce 2
-4.  expr      → call •                      reduce 3
-5.  expr      → lambda •                    reduce 4
-6.  value     → num •                       reduce 5
-7.  value     → var •                       reduce 6
-
-8.  call      → '(' • expr call-args ')'    shift 10
-    lambda    → '(' • params ')' '->' expr  shift 11
-    expr      → • value                     shift 2
-    expr      → • infix                     shift 3
-    expr      → • call                      shift 4
-    expr      → • lambda                    shift 5
-    value     → • num                       shift 6
-    value     → • var                       shift 7
-    infix     → • expr '+' expr             shift 10
-    call      → • '(' expr call-args ')'    shift 8
-    lambda    → • '(' params ')' '->' expr  shift 8
-    params    → • ε                         shift 12
-    params    → • params var                shift 11
-
-9.  infix     → expr '+' • expr             shift 13
-    expr      → • value                     shift 2
-    expr      → • infix                     shift 3
-    expr      → • call                      shift 4
-    expr      → • lambda                    shift 5
-    value     → • num                       shift 6
-    value     → • var                       shift 7
-    infix     → • expr '+' expr             shift 13
-    call      → • '(' expr call-args ')'    shift 8
-    lambda    → • '(' params ')' '->' expr  shift 8
-
-10. call      → '(' expr • call-args ')'    shift 14
-    infix     → expr • '+' expr             shift 9
-    call-args → • ε                         shift 15
-    call-args → • expr call-args            shift 16
-    expr      → • value                     shift 2
-    expr      → • infix                     shift 3
-    expr      → • call                      shift 4
-    expr      → • lambda                    shift 5
-    value     → • num                       shift 6
-    value     → • var                       shift 7
-    infix     → • expr '+' expr             shift 16
-    call      → • '(' expr call-args ')'    shift 8
-    lambda    → • '(' params ')' '->' expr  shift 8
-
-11. lambda    → '(' params • ')' '->' expr  shift 17
-    params    → params • var                shift 19
-
-12. params    → ε •                         reduce 12
-
-# S/R conflict
-13. infix     → expr '+' expr •             reduce 7
-    infix     → expr • '+' expr             shift 9
-
-14. call      → '(' expr call-args • ')'    shift 20
-
-15. call-args → ε •                         reduce 9
-
-16. call-args → expr • call-args            shift 21
-    infix     → expr • '+' expr             shift 9
-    call-args → • ε                         shift 12
-    call-args → • expr call-args            shift 16
-
-17. lambda    → '(' params ')' • '->' expr  shift 18
-18. lambda    → '(' params ')' '->' • expr  shift 22
-19. params    → params var •                reduce 13
-20. call      → '(' expr call-args ')' •    reduce 8
-21. call-args → expr call-args •            reduce 10
-22. lambda    → '(' params ')' '->' expr •  reduce 11
+block         → block stmt
+block         → newlines
+block         → ε
+stmt          → expr newlines
+expr          → define
+expr          → if_block
+expr          → call
+define        → "def" ID logic
+define        → "def" "(" params ")" do_block
+params        → params ID
+params        → ID
+if_block      → "if" logic "do" block "else" block "end"
+if_block      → "if" logic primary primary
+call          → call logic
+call          → logic
+logic         → logic "and" equals
+logic         → logic "or" equals
+logic         → equals
+equals        → pair "==" pair
+equals        → pair
+pair          → compare "|" compare
+pair          → compare
+compare       → sum "<" sum
+compare       → sum ">" sum
+compare       → sum
+sum           → sum "+" product
+sum           → sum "-" product
+sum           → product
+product       → product "*" primary
+product       → product "/" primary
+product       → primary
+primary       → NUM
+primary       → ID
+primary       → group
+primary       → lambda
+primary       → do_block
+do_block      → "do" block "end"
+group         → "(" expr ")"
+lambda        → group "->" primary
+newlines      → NL
+newlines      → $

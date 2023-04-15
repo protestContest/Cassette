@@ -1,6 +1,4 @@
 #pragma once
-#include <univ/hash.h>
-#include <univ/str.h>
 
 typedef union {
   float as_f;

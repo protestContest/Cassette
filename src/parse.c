@@ -2,8 +2,6 @@
 #include "parse_table.h"
 #include "lex.h"
 #include "mem.h"
-#include <univ/vec.h>
-#include <univ/io.h>
 #include <stdlib.h>
 
 #define DEBUG_PARSE

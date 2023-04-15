@@ -1,6 +1,5 @@
 #include "lex.h"
 #include "mem.h"
-#include <univ/io.h>
 #include <stdio.h>
 
 bool IsIDChar(char c)
