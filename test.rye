@@ -1,5 +1,32 @@
-def (dist a b) do
-  if a > b (a - b) (b - a)
+def (reverse list) do
+  def (reverse-onto list rest) do
+    if list == nil do
+      rest
+    else
+      reverse-onto (tail list) (head list) | rest
+    end
+  end
+
+  reverse-onto list nil
 end
 
-dist 4 3
+def (reduce list acc fn) do
+  if (nil? list) do
+    acc
+  else
+    reduce (tail list) (fn (head list) acc) fn
+  end
+end
+
+def (map list fn) do
+  let mapped = reduce list nil (item acc) -> (fn item) | acc
+  reverse mapped
+end
+
+map [1 2 3 4 5] (num acc) -> do
+  if (even? num) do
+    num / 2
+  else
+    3 * num + 1
+  end
+end

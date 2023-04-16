@@ -1,4 +1,5 @@
 #include "lex.h"
+#include "parse_syms.h"
 #include "mem.h"
 #include <stdio.h>
 
@@ -31,8 +32,19 @@ bool IsIDChar(char c)
 void SkipWhitespace(Lexer *lexer)
 {
   while (IsWhitespace(LexPeek(lexer, 0))) {
-    lexer->col++;
     lexer->pos++;
+    lexer->col++;
+  }
+
+  if (LexPeek(lexer, 0) == ';') {
+    while (!IsNewline(LexPeek(lexer, 0))) {
+      if (LexPeek(lexer, 0) == '\0') return;
+      lexer->pos++;
+    }
+    lexer->pos++;
+    lexer->col = 1;
+    lexer->line++;
+    SkipWhitespace(lexer);
   }
 }
 
@@ -69,7 +81,7 @@ bool MatchKeyword(Lexer *lexer, char *expected)
     c++;
   }
 
-  if (!IsWhitespace(LexPeek(lexer, i + 1))) return false;
+  if (IsIDChar(LexPeek(lexer, i + 1))) return false;
 
   lexer->pos += i;
   return true;
@@ -107,15 +119,12 @@ static u32 ParseDigit(char c)
 static Val ParseInt(char *src, u32 length, u32 base)
 {
   i32 num = 0;
-  // u32 place = 1;
   for (u32 i = 0; i < length; i++) {
     num *= base;
     u32 digit = ParseDigit(src[i]);
     num += digit;
-    // place *= base;
   }
 
-  printf("%d\n", num);
   return IntVal(num);
 }
 
@@ -165,17 +174,20 @@ static Token NumberToken(Lexer *lexer)
   return MakeToken(ParseSymNUM, lexer, value);
 }
 
-// static Token StringToken(Lexer *lexer)
-// {
-//   Match(lexer, "\"");
-//   while (LexPeek(lexer, 0) != '"') {
-//     if (LexPeek(lexer, 0) == '\\') lexer->pos++;
-//     if (LexPeek(lexer, 0) == '\0') break;
-//     lexer->pos++;
-//   }
-//   Match(lexer, "\"");
-//   return MakeToken(TOKEN_STRING, lexer);
-// }
+static Token StringToken(Lexer *lexer)
+{
+  Match(lexer, "\"");
+  while (LexPeek(lexer, 0) != '"') {
+    if (LexPeek(lexer, 0) == '\\') lexer->pos++;
+    if (LexPeek(lexer, 0) == '\0') break;
+    lexer->pos++;
+  }
+  Match(lexer, "\"");
+  char *lexeme = lexer->src + lexer->start + 1;
+  u32 length = lexer->pos - lexer->start - 2;
+  Val binary = MakeBinaryFrom(lexer->mem, lexeme, length);
+  return MakeToken(ParseSymSTR, lexer, binary);
+}
 
 static Token IDToken(Lexer *lexer)
 {
@@ -184,52 +196,55 @@ static Token IDToken(Lexer *lexer)
   return MakeToken(ParseSymID, lexer, value);
 }
 
+static Token SymbolToken(Lexer *lexer)
+{
+  lexer->pos++;
+  while (LexPeek(lexer, 0) != '\0' && IsIDChar(LexPeek(lexer, 0))) lexer->pos++;
+  char *lexeme = lexer->src + lexer->start + 1;
+  u32 length = lexer->pos - lexer->start - 1;
+  Val value = MakeSymbolFrom(lexer->mem, lexeme, length);
+  return MakeToken(ParseSymSYM, lexer, value);
+}
+
 static Token NewlinesToken(Lexer *lexer)
 {
+  lexer->line++;
+  lexer->col = 1;
   while (Match(lexer, "\n")) {
+    lexer->line++;
     SkipWhitespace(lexer);
   }
   return MakeToken(ParseSymNL, lexer, nil);
 }
 
-void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src, Mem *mem)
+void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, Mem *mem)
 {
-  *lexer = (Lexer){src, 0, 0, 1, 1, mem, next_token};
+  for (u32 i = 0; i < num_literals; i++) {
+    MakeSymbol(mem, literals[i].lexeme);
+  }
+  *lexer = (Lexer){src, 0, 0, 1, 1, mem, num_literals, literals};
 }
 
 Token NextToken(Lexer *lexer)
 {
   SkipWhitespace(lexer);
   lexer->start = lexer->pos;
-  return lexer->next_token(lexer);
-}
 
-Token RyeToken(Lexer *lexer)
-{
   char c = LexPeek(lexer, 0);
 
-  if (c == '\0') return MakeToken(ParseSymEOF, lexer, nil);
+  if (c == '\0') return MakeToken(ParseSymEOF, lexer, MakeSymbol(lexer->mem, "$"));
   if (IsDigit(c)) return NumberToken(lexer);
-
+  if (Match(lexer, "\"")) return StringToken(lexer);
   if (Match(lexer, "\n")) return NewlinesToken(lexer);
-  if (Match(lexer, "and")) return MakeToken(ParseSymAnd, lexer, MakeSymbol(lexer->mem, "if"));
-  if (Match(lexer, "or")) return MakeToken(ParseSymOr, lexer, MakeSymbol(lexer->mem, "if"));
-  if (Match(lexer, "if")) return MakeToken(ParseSymIf, lexer, MakeSymbol(lexer->mem, "if"));
-  if (Match(lexer, "def")) return MakeToken(ParseSymDef, lexer, MakeSymbol(lexer->mem, "def"));
-  if (Match(lexer, "do")) return MakeToken(ParseSymDo, lexer, MakeSymbol(lexer->mem, "do"));
-  if (Match(lexer, "else")) return MakeToken(ParseSymElse, lexer, MakeSymbol(lexer->mem, "else"));
-  if (Match(lexer, "end")) return MakeToken(ParseSymEnd, lexer, MakeSymbol(lexer->mem, "end"));
-  if (Match(lexer, "==")) return MakeToken(ParseSymEqualEqual, lexer, MakeSymbol(lexer->mem, "=="));
-  if (Match(lexer, "->")) return MakeToken(ParseSymArrow, lexer, MakeSymbol(lexer->mem, "->"));
-  if (Match(lexer, "|"))  return MakeToken(ParseSymBar, lexer, MakeSymbol(lexer->mem, "|"));
-  if (Match(lexer, "<"))  return MakeToken(ParseSymLessThan, lexer, MakeSymbol(lexer->mem, "<"));
-  if (Match(lexer, ">"))  return MakeToken(ParseSymGreaterThan, lexer, MakeSymbol(lexer->mem, ">"));
-  if (Match(lexer, "+"))  return MakeToken(ParseSymPlus, lexer, MakeSymbol(lexer->mem, "+"));
-  if (Match(lexer, "-"))  return MakeToken(ParseSymMinus, lexer, MakeSymbol(lexer->mem, "-"));
-  if (Match(lexer, "*"))  return MakeToken(ParseSymStar, lexer, MakeSymbol(lexer->mem, "*"));
-  if (Match(lexer, "/"))  return MakeToken(ParseSymSlash, lexer, MakeSymbol(lexer->mem, "/"));
-  if (Match(lexer, "("))  return MakeToken(ParseSymLParen, lexer, MakeSymbol(lexer->mem, "("));
-  if (Match(lexer, ")"))  return MakeToken(ParseSymRParen, lexer, MakeSymbol(lexer->mem, ")"));
+
+  if (LexPeek(lexer, 0) == ':' && IsIDChar(LexPeek(lexer, 1))) return SymbolToken(lexer);
+
+  for (u32 i = 0; i < lexer->num_literals; i++) {
+    char *lexeme = lexer->literals[i].lexeme;
+    if (Match(lexer, lexeme)) {
+      return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+    }
+  }
 
   return IDToken(lexer);
 }

@@ -6,6 +6,18 @@ Rye is a homebrew programming language inspired by Lisp and Elixir. Here's what
 it looks like:
 
 ```
+def (reverse list) do
+  def (reverse-onto list rest) do
+    if list == nil do
+      rest
+    else
+      reverse-onto (tail list) (head list) | rest
+    end
+  end
+
+  reverse-onto list nil
+end
+
 def (reduce list acc fn) do
   if (nil? list) do
     acc
@@ -21,9 +33,9 @@ end
 
 map [1 2 3 4 5] (num acc) -> do
   if (even? num) do
-    (num / 2)
+    num / 2
   else
-    (3 * num + 1)
+    3 * num + 1
   end
 end
 

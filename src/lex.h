@@ -2,50 +2,6 @@
 #include "value.h"
 #include "mem.h"
 
-enum {
-  ParseSymEOF,
-  ParseSymDef,
-  ParseSymID,
-  ParseSymLParen,
-  ParseSymRParen,
-  ParseSymIf,
-  ParseSymDo,
-  ParseSymElse,
-  ParseSymEnd,
-  ParseSymAnd,
-  ParseSymOr,
-  ParseSymEqualEqual,
-  ParseSymBar,
-  ParseSymLessThan,
-  ParseSymGreaterThan,
-  ParseSymPlus,
-  ParseSymMinus,
-  ParseSymStar,
-  ParseSymSlash,
-  ParseSymNUM,
-  ParseSymArrow,
-  ParseSymNL,
-  ParseSymProgram,
-  ParseSymBlock,
-  ParseSymStmt,
-  ParseSymExpr,
-  ParseSymDefine,
-  ParseSymParams,
-  ParseSymIf_block,
-  ParseSymCall,
-  ParseSymLogic,
-  ParseSymEquals,
-  ParseSymPair,
-  ParseSymCompare,
-  ParseSymSum,
-  ParseSymProduct,
-  ParseSymPrimary,
-  ParseSymDo_block,
-  ParseSymGroup,
-  ParseSymLambda,
-  ParseSymNewlines,
-};
-
 typedef struct {
   u32 type;
   u32 line;
@@ -58,6 +14,11 @@ typedef struct {
 struct Lexer;
 typedef Token (*NextTokenFn)(struct Lexer *lexer);
 
+typedef struct {
+  char *lexeme;
+  u32 symbol;
+} Literal;
+
 typedef struct Lexer {
   char *src;
   u32 start;
@@ -65,7 +26,8 @@ typedef struct Lexer {
   u32 line;
   u32 col;
   Mem *mem;
-  NextTokenFn next_token;
+  u32 num_literals;
+  Literal *literals;
 } Lexer;
 
 #define LexPeek(lexer, n) (lexer)->src[(lexer)->pos + n]
@@ -79,7 +41,7 @@ typedef struct Lexer {
 
 #define IsErrorToken(t)   ((t).type == (u32)-1)
 
-void InitLexer(Lexer *lexer, NextTokenFn next_token, char *src, Mem *mem);
+void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, Mem *mem);
 Token NextToken(Lexer *lexer);
 Token RyeToken(Lexer *lexer);
 int PrintToken(Token token);

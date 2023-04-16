@@ -1,41 +1,69 @@
-block         → block stmt
-block         → newlines
-block         → ε
-stmt          → expr newlines
-expr          → define
-expr          → if_block
-expr          → call
-define        → "def" ID logic
-define        → "def" "(" params ")" do_block
-params        → params ID
-params        → ID
-if_block      → "if" logic "do" block "else" block "end"
-if_block      → "if" logic primary primary
-call          → call logic
-call          → logic
-logic         → logic "and" equals
-logic         → logic "or" equals
+stmts         → stmts stmt NL
+stmts         → stmts stmt $
+stmts         → nl
+stmt          → let_stmt
+stmt          → def_block
+stmt          → call
+opt_stmt      → stmt
+opt_stmt      → ε
+let_stmt      → "let" nl assigns
+assigns       → assigns "," nl assign
+assigns       → assign
+assign        → ID "=" call
+def_block     → "def" "(" params nl ")" call
+params        → params nl ID
+params        → nl ID
+call          → call arg
+call          → arg
+ml_call       → ml_call nl arg
+ml_call       → arg
+arg           → lambda
+lambda        → group "->" nl logic
+lambda        → logic
+logic         → logic "and" nl equals
+logic         → logic "or" nl equals
 logic         → equals
-equals        → pair "==" pair
+equals        → pair "==" nl pair
 equals        → pair
-pair          → compare "|" compare
+pair          → compare "|" nl compare
 pair          → compare
-compare       → sum "<" sum
-compare       → sum ">" sum
+compare       → sum "<" nl sum
+compare       → sum ">" nl sum
 compare       → sum
-sum           → sum "+" product
-sum           → sum "-" product
+sum           → sum "+" nl product
+sum           → sum "-" nl product
 sum           → product
-product       → product "*" primary
-product       → product "/" primary
-product       → primary
+product       → product "*" nl block
+product       → product "/" nl block
+product       → block
+block         → do_block
+block         → if_block
+block         → cond_block
+block         → primary
+do_block      → "do" stmts opt_stmt "end"
+if_block      → "if" nl arg nl "do" stmts opt_stmt "else" stmts opt_stmt "end"
+if_block      → "if" nl arg nl "do" stmts opt_stmt "end"
+cond_block    → "cond" "do" clauses "end"
+clauses       → clauses clause
+clauses       → NL
+clause        → call "::" call NL
 primary       → NUM
 primary       → ID
+primary       → STR
+primary       → SYM
 primary       → group
-primary       → lambda
-primary       → do_block
-do_block      → "do" block "end"
-group         → "(" expr ")"
-lambda        → group "->" primary
-newlines      → NL
-newlines      → $
+primary       → list
+primary       → tuple
+primary       → dict
+group         → "(" ml_call ")"
+list          → "[" items "]"
+items         → items arg nl
+items         → nl
+tuple         → "#[" items "]"
+dict          → "{" entries "}"
+entries       → entries entry nl
+entries       → nl
+entry         → ID ":" nl arg
+nl            → NL
+nl            → $
+nl            → ε

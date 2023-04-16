@@ -18,15 +18,13 @@ int main(int argc, char *argv[])
   InitMem(&mem);
   Val ast = Parse(src, &mem);
 
-  Print("AST: ");
-  PrintVal(&mem, ast);
-  Print("\n");
+  Print("AST:\n");
   PrintAST(ast, &mem);
   Print("\n");
 
-  Val result = Interpret(ast, &mem);
+  // Val result = Interpret(ast, &mem);
 
-  Print("Result: ");
-  PrintVal(&mem, result);
-  Print("\n");
+  // Print("Result: ");
+  // PrintVal(&mem, result);
+  // Print("\n");
 }

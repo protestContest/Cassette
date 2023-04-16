@@ -23,7 +23,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR) $(DIST_DIR)
+	@rm -rf $(BUILD_DIR) $(DIST_DIR)
 
 .PHONY: run
 run: $(TARGET)
@@ -31,4 +31,4 @@ run: $(TARGET)
 
 .PHONY: parse
 parse: clean
-	gsi src/parse_gen.scm grammar.txt
+	@gsi src/parse_gen.scm grammar.txt

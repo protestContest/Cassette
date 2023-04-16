@@ -30,5 +30,9 @@ Val MakeSymbolFrom(Mem *mem, char *str, u32 length);
 Val MakeSymbol(Mem *mem, char *str);
 char *SymbolName(Mem *mem, Val symbol);
 
+Val MakeBinaryFrom(Mem *mem, char *str, u32 length);
+u32 BinaryLength(Mem *mem, Val binary);
+u8 *BinaryData(Mem *mem, Val binary);
+
 u32 PrintVal(Mem *mem, Val value);
 void PrintMem(Mem *mem);

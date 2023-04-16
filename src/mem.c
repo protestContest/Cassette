@@ -147,6 +147,34 @@ char *SymbolName(Mem *mem, Val symbol)
   return MapGet(&mem->symbols, symbol.as_v);
 }
 
+Val MakeBinaryFrom(Mem *mem, char *str, u32 length)
+{
+  Val binary = ObjVal(VecCount(mem->values));
+  VecPush(mem->values, TupleHeader(length));
+
+  u32 num_words = (length - 1) / sizeof(Val) + 1;
+  GrowVec(mem->values, num_words);
+
+  u8 *bytes = BinaryData(mem, binary);
+  for (u32 i = 0; i < length; i++) {
+    bytes[i] = str[i];
+  }
+
+  return binary;
+}
+
+u32 BinaryLength(Mem *mem, Val binary)
+{
+  u32 index = RawObj(binary);
+  return HeaderVal(mem->values[index]);
+}
+
+u8 *BinaryData(Mem *mem, Val binary)
+{
+  u32 index = RawObj(binary);
+  return (u8*)(mem->values + index + 1);
+}
+
 static u32 PrintTail(Mem *mem, Val tail, u32 length)
 {
   length += PrintVal(mem, Head(mem, tail));
@@ -155,14 +183,14 @@ static u32 PrintTail(Mem *mem, Val tail, u32 length)
     return length + 1;
   }
   if (!IsPair(Tail(mem, tail))) {
-    Print(" . ");
+    Print(" | ");
     length += 3;
     length += PrintVal(mem, Tail(mem, tail));
     Print("]");
     return length + 1;
   }
-  Print(", ");
-  return PrintTail(mem, Tail(mem, tail), length + 2);
+  Print(" ");
+  return PrintTail(mem, Tail(mem, tail), length + 1);
 }
 
 u32 PrintVal(Mem *mem, Val value)
