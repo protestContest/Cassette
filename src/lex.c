@@ -186,6 +186,7 @@ static Token StringToken(Lexer *lexer)
   char *lexeme = lexer->src + lexer->start + 1;
   u32 length = lexer->pos - lexer->start - 2;
   Val binary = MakeBinaryFrom(lexer->mem, lexeme, length);
+
   return MakeToken(ParseSymSTR, lexer, binary);
 }
 
@@ -194,16 +195,6 @@ static Token IDToken(Lexer *lexer)
   while (LexPeek(lexer, 0) != '\0' && IsIDChar(LexPeek(lexer, 0))) lexer->pos++;
   Val value = MakeSymbolFrom(lexer->mem, lexer->src + lexer->start, lexer->pos - lexer->start);
   return MakeToken(ParseSymID, lexer, value);
-}
-
-static Token SymbolToken(Lexer *lexer)
-{
-  lexer->pos++;
-  while (LexPeek(lexer, 0) != '\0' && IsIDChar(LexPeek(lexer, 0))) lexer->pos++;
-  char *lexeme = lexer->src + lexer->start + 1;
-  u32 length = lexer->pos - lexer->start - 1;
-  Val value = MakeSymbolFrom(lexer->mem, lexeme, length);
-  return MakeToken(ParseSymSYM, lexer, value);
 }
 
 static Token NewlinesToken(Lexer *lexer)
@@ -236,8 +227,6 @@ Token NextToken(Lexer *lexer)
   if (IsDigit(c)) return NumberToken(lexer);
   if (Match(lexer, "\"")) return StringToken(lexer);
   if (Match(lexer, "\n")) return NewlinesToken(lexer);
-
-  if (LexPeek(lexer, 0) == ':' && IsIDChar(LexPeek(lexer, 1))) return SymbolToken(lexer);
 
   for (u32 i = 0; i < lexer->num_literals; i++) {
     char *lexeme = lexer->literals[i].lexeme;

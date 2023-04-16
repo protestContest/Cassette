@@ -50,14 +50,15 @@ typedef struct {
 // #define yMask      0xC0000000
 // #define zMask      0xE0000000
 
-#define TupleHeader(n)    (Val){((n) & ~headerMask) | tupleMask}
-#define BigIntHeader(n)   (Val){((n) & ~headerMask) | bigIntMask}
-#define DictHeader(n)     (Val){((n) & ~headerMask) | dictMask}
-#define BigDictHeader(n)  (Val){((n) & ~headerMask) | bigDictMask}
-#define ProcHeader(n)     (Val){((n) & ~headerMask) | procMask}
-#define BinaryHeader(n)   (Val){((n) & ~headerMask) | binaryMask}
+#define TupleHeader(n)    (Val){.as_v = ((n) & ~headerMask) | tupleMask}
+#define BigIntHeader(n)   (Val){.as_v = ((n) & ~headerMask) | bigIntMask}
+#define DictHeader(n)     (Val){.as_v = ((n) & ~headerMask) | dictMask}
+#define BigDictHeader(n)  (Val){.as_v = ((n) & ~headerMask) | bigDictMask}
+#define ProcHeader(n)     (Val){.as_v = ((n) & ~headerMask) | procMask}
+#define BinaryHeader(n)   (Val){.as_v = ((n) & ~headerMask) | binaryMask}
 
 #define HeaderVal(h)      (u32)((h).as_v & ~headerMask)
+#define HeaderType(h)     (u32)((h).as_v & headerMask)
 
 #define Eq(v1, v2)    ((v1).as_v == (v2).as_v)
 

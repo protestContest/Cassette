@@ -93,6 +93,32 @@ Val TupleOp(Val op, Val args, Mem *mem)
   return tuple;
 }
 
+Val DictOp(Val op, Val args, Mem *mem)
+{
+  u32 length = ListLength(mem, args) / 2;
+  Val keys = MakeTuple(mem, length);
+  Val vals = MakeTuple(mem, length);
+  u32 i = 0;
+  while (!IsNil(args)) {
+    TupleSet(mem, keys, i, Head(mem, args));
+    args = Tail(mem, args);
+    TupleSet(mem, vals, i, Head(mem, args));
+    args = Tail(mem, args);
+    i++;
+  }
+  Val dict = MakeDict(mem, keys, vals);
+  return dict;
+}
+
+Val PrintOp(Val op, Val args, Mem *mem)
+{
+  while (!IsNil(args)) {
+    PrintVal(mem, Head(mem, args));
+    args = Tail(mem, args);
+  }
+  return nil;
+}
+
 static Primitive primitives[] = {
   {"*", NumberOp},
   {"/", NumberOp},
@@ -106,9 +132,11 @@ static Primitive primitives[] = {
   {"|", PairOp},
   {"list", ListOp},
   {"tuple", TupleOp},
+  {"dict", DictOp},
   {"head", HeadOp},
   {"tail", TailOp},
   {"rem", RemOp},
+  {"print", PrintOp},
 };
 
 Val DoPrimitive(Val op, Val args, Mem *mem)

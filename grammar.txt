@@ -51,11 +51,12 @@ clause        → call "::" call NL
 primary       → NUM
 primary       → ID
 primary       → STR
-primary       → SYM
+primary       → symbol
 primary       → group
 primary       → list
 primary       → tuple
 primary       → dict
+symbol        → ":" ID
 group         → "(" ml_call ")"
 list          → "[" items "]"
 items         → items arg nl

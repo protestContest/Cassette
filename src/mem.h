@@ -21,15 +21,26 @@ Val ReverseOnto(Mem *mem, Val list, Val tail);
 Val ListAppend(Mem *mem, Val list1, Val list2);
 bool IsTagged(Mem *mem, Val list, Val tag);
 
+bool IsTuple(Mem *mem, Val tuple);
 Val MakeTuple(Mem *mem, u32 count);
 u32 TupleLength(Mem *mem, Val tuple);
 Val TupleAt(Mem *mem, Val tuple, u32 i);
 void TupleSet(Mem *mem, Val tuple, u32 i, Val val);
 
+bool IsDict(Mem *mem, Val dict);
+Val MakeDict(Mem *mem, Val keys, Val vals);
+u32 DictSize(Mem *mem, Val dict);
+Val DictKeys(Mem *mem, Val dict);
+Val DictValues(Mem *mem, Val dict);
+bool InDict(Mem *mem, Val dict, Val key);
+Val DictGet(Mem *mem, Val dict, Val key);
+Val DictSet(Mem *mem, Val dict, Val key, Val value);
+
 Val MakeSymbolFrom(Mem *mem, char *str, u32 length);
 Val MakeSymbol(Mem *mem, char *str);
 char *SymbolName(Mem *mem, Val symbol);
 
+bool IsBinary(Mem *mem, Val binary);
 Val MakeBinaryFrom(Mem *mem, char *str, u32 length);
 u32 BinaryLength(Mem *mem, Val binary);
 u8 *BinaryData(Mem *mem, Val binary);

@@ -10,21 +10,21 @@ int main(int argc, char *argv[])
   // src = "(a b) -> (a - b) 1 4";
   src = ReadFile("test.rye");
 
-  Print("Source: ");
-  Print(src);
-  Print("\n");
+  // Print("Source: ");
+  // Print(src);
+  // Print("\n");
 
   Mem mem;
   InitMem(&mem);
   Val ast = Parse(src, &mem);
 
-  Print("AST:\n");
-  PrintAST(ast, &mem);
-  Print("\n");
+  // Print("AST:\n");
+  // PrintAST(ast, &mem);
+  // Print("\n");
 
   Val result = Interpret(ast, &mem);
 
-  Print("Result: ");
+  // Print("Result: ");
   PrintVal(&mem, result);
   Print("\n");
 }

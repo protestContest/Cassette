@@ -1,33 +1,33 @@
+print "hello world"
 
+; def (reverse list) do
+;   def (reverse-onto list rest) do
+;     if list == nil do
+;       rest
+;     else
+;       reverse-onto (tail list) (head list) | rest
+;     end
+;   end
 
-def (reverse list) do
-  def (reverse-onto list rest) do
-    if list == nil do
-      rest
-    else
-      reverse-onto (tail list) (head list) | rest
-    end
-  end
+;   reverse-onto list nil
+; end
 
-  reverse-onto list nil
-end
+; def (reduce list acc fn) do
+;   cond do
+;     list == nil :: acc
+;     true :: reduce (tail list) (fn (head list) acc) fn
+;   end
+; end
 
-def (reduce list acc fn) do
-  cond do
-    list == nil :: acc
-    true :: reduce (tail list) (fn (head list) acc) fn
-  end
-end
+; def (map list fn) do
+;   let mapped = reduce list nil (item acc) -> (fn item) | acc
+;   reverse mapped
+; end
 
-def (map list fn) do
-  let mapped = reduce list nil (item acc) -> (fn item) | acc
-  reverse mapped
-end
-
-map [1 2 3 4 5] (num) -> do
-  if (rem num 2) == 0 do
-    num / 2
-  else
-    3 * num + 1
-  end
-end
+; map [1 2 3 4 5] (num) -> do
+;   if (rem num 2) == 0 do
+;     num / 2
+;   else
+;     3 * num + 1
+;   end
+; end

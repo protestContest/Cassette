@@ -54,12 +54,14 @@ Val Eval(Val exp, Val env, Mem *mem)
   indent++;
   Val result;
 
-  if (IsNumeric(exp) || IsObj(exp)) {
+  if (IsNil(exp) || IsNumeric(exp) || IsObj(exp)) {
     result = exp;
   } else if (IsSym(exp)) {
     result = Lookup(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("->"))) {
     result = EvalLambda(exp, env, mem);
+  } else if (IsTagged(mem, exp, SymbolFor("quote"))) {
+    result = ListAt(mem, exp, 1);
   } else if (IsTagged(mem, exp, SymbolFor("do"))) {
     result = EvalBlock(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("def"))) {
