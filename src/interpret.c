@@ -1,23 +1,23 @@
 #include "interpret.h"
 #include "mem.h"
+#include "primitives.h"
 
 #define DEBUG_EVAL
 
 Val InitialEnv(Mem *mem);
-void DefinePrimitive(Val env, char *name, Mem *mem);
 Val Eval(Val exp, Val env, Mem *mem);
 Val Apply(Val exp, Val env, Mem *mem);
 Val ApplyPrimitive(Val proc, Val args, Mem *mem);
 Val ExtendEnv(Val env, Val vars, Val vals, Mem *mem);
 Val Lookup(Val exp, Val env, Mem *mem);
-void Define(Val env, Val var, Val value, Mem *mem);
-Val MakeProc(Val exp, Val env, Mem *mem);
+Val EvalLambda(Val exp, Val env, Mem *mem);
 Val EvalApply(Val exp, Val env, Mem *mem);
 Val EvalEach(Val exps, Val env, Mem *mem);
 Val EvalBlock(Val exps, Val env, Mem *mem);
 Val EvalDefine(Val exps, Val env, Mem *mem);
+Val EvalLet(Val exps, Val env, Mem *mem);
 Val EvalIf(Val exps, Val env, Mem *mem);
-bool IsTrue(Val value);
+Val EvalCond(Val exps, Val env, Mem *mem);
 Val RuntimeError(char *message, Val exp, Mem *mem);
 void PrintEnv(Val env, Mem *mem);
 
@@ -32,25 +32,11 @@ Val InitialEnv(Mem *mem)
 {
   MakeSymbol(mem, "primitive");
   Val env = MakePair(mem, nil, nil);
-  DefinePrimitive(env, "nil", mem);
-  DefinePrimitive(env, "true", mem);
-  DefinePrimitive(env, "false", mem);
-  DefinePrimitive(env, "+", mem);
-  DefinePrimitive(env, "-", mem);
-  DefinePrimitive(env, "*", mem);
-  DefinePrimitive(env, "/", mem);
-  DefinePrimitive(env, "and", mem);
-  DefinePrimitive(env, "or", mem);
-  DefinePrimitive(env, "<", mem);
-  DefinePrimitive(env, ">", mem);
-  DefinePrimitive(env, "==", mem);
-  DefinePrimitive(env, "|", mem);
+  Define(env, MakeSymbol(mem, "nil"), nil, mem);
+  Define(env, MakeSymbol(mem, "true"), SymbolFor("true"), mem);
+  Define(env, MakeSymbol(mem, "false"), SymbolFor("false"), mem);
+  DefinePrimitives(env, mem);
   return env;
-}
-
-void DefinePrimitive(Val env, char *name, Mem *mem)
-{
-  Define(env, MakeSymbol(mem, name), MakePair(mem, MakeSymbol(mem, "primitive"), SymbolFor(name)), mem);
 }
 
 static u32 indent = 0;
@@ -73,13 +59,17 @@ Val Eval(Val exp, Val env, Mem *mem)
   } else if (IsSym(exp)) {
     result = Lookup(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("->"))) {
-    result = MakeProc(exp, env, mem);
+    result = EvalLambda(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("do"))) {
     result = EvalBlock(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("def"))) {
     result = EvalDefine(exp, env, mem);
+  } else if (IsTagged(mem, exp, SymbolFor("let"))) {
+    result = EvalLet(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("if"))) {
     result = EvalIf(exp, env, mem);
+  } else if (IsTagged(mem, exp, SymbolFor("cond"))) {
+    result = EvalCond(exp, env, mem);
   } else {
     result = EvalApply(exp, env, mem);
   }
@@ -105,9 +95,27 @@ Val Apply(Val proc, Val args, Mem *mem)
   if (!IsTagged(mem, proc, SymbolFor("proc"))) {
     return RuntimeError("Not a procedure", proc, mem);
   }
+
   Val params = ListAt(mem, proc, 1);
   Val body = ListAt(mem, proc, 2);
-  Val env = ExtendEnv(ListAt(mem, proc, 3), params, args, mem);
+  Val env = MakePair(mem, nil, ListAt(mem, proc, 3));
+
+  if (IsSym(params)) {
+    Define(env, params, args, mem);
+  } else {
+    while (!IsNil(args)) {
+      if (IsNil(params)) {
+        return RuntimeError("Too many arguments", args, mem);
+      }
+      Define(env, Head(mem, params), Head(mem, args), mem);
+      params = Tail(mem, params);
+      args = Tail(mem, args);
+    }
+
+    if (!IsNil(params)) {
+      return MakeList(mem, 4, MakeSymbol(mem, "proc"), params, body , env);
+    }
+  }
 
   return Eval(body, env, mem);
 }
@@ -115,130 +123,7 @@ Val Apply(Val proc, Val args, Mem *mem)
 Val ApplyPrimitive(Val proc, Val args, Mem *mem)
 {
   Val op = Tail(mem, proc);
-  if (Eq(op, SymbolFor("+"))) {
-    if (ListLength(mem, args) != 2) RuntimeError("Wrong number of args for '+'", args, mem);
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    if (IsInt(a) && IsInt(b)) {
-      return IntVal(RawInt(a) + RawInt(b));
-    } else if (IsInt(a)) {
-      return NumVal(RawInt(a) + RawNum(b));
-    } else if IsInt(b) {
-      return NumVal(RawNum(a) + RawInt(b));
-    } else {
-      return NumVal(RawNum(a) + RawNum(b));
-    }
-  }
-
-  if (Eq(op, SymbolFor("-"))) {
-    if (ListLength(mem, args) != 2) RuntimeError("Wrong number of args for '-'", args, mem);
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    if (IsInt(a) && IsInt(b)) {
-      return IntVal(RawInt(a) - RawInt(b));
-    } else if (IsInt(a)) {
-      return NumVal(RawInt(a) - RawNum(b));
-    } else if IsInt(b) {
-      return NumVal(RawNum(a) - RawInt(b));
-    } else {
-      return NumVal(RawNum(a) - RawNum(b));
-    }
-  }
-
-  if (Eq(op, SymbolFor("*"))) {
-    if (ListLength(mem, args) != 2) RuntimeError("Wrong number of args for '*'", args, mem);
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    if (IsInt(a) && IsInt(b)) {
-      return IntVal(RawInt(a) * RawInt(b));
-    } else if (IsInt(a)) {
-      return NumVal(RawInt(a) * RawNum(b));
-    } else if IsInt(b) {
-      return NumVal(RawNum(a) * RawInt(b));
-    } else {
-      return NumVal(RawNum(a) * RawNum(b));
-    }
-  }
-
-  if (Eq(op, SymbolFor("/"))) {
-    if (ListLength(mem, args) != 2) RuntimeError("Wrong number of args for '/'", args, mem);
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    if (IsInt(a) && IsInt(b)) {
-      return NumVal((float)RawInt(a) / RawInt(b));
-    } else if (IsInt(a)) {
-      return NumVal(RawInt(a) / RawNum(b));
-    } else if IsInt(b) {
-      return NumVal(RawNum(a) / RawInt(b));
-    } else {
-      return NumVal(RawNum(a) / RawNum(b));
-    }
-  }
-
-  if (Eq(op, SymbolFor("and"))) {
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    return BoolVal(IsTrue(a) && IsTrue(b));
-  }
-
-  if (Eq(op, SymbolFor("or"))) {
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    return BoolVal(IsTrue(a) || IsTrue(b));
-  }
-
-  if (Eq(op, SymbolFor("<"))) {
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    if (!IsNumeric(a)) return RuntimeError("Bad argument to <", a, mem);
-    if (!IsNumeric(b)) return RuntimeError("Bad argument to <", b, mem);
-
-    if (IsInt(a) && IsInt(b)) {
-      return BoolVal(RawInt(a) < RawInt(b));
-    } else {
-      float raw_a = IsInt(a) ? (float)RawInt(a) : RawNum(a);
-      float raw_b = IsInt(b) ? (float)RawInt(b) : RawNum(b);
-      return BoolVal(raw_a < raw_b);
-    }
-  }
-
-  if (Eq(op, SymbolFor(">"))) {
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    if (!IsNumeric(a)) return RuntimeError("Bad argument to >", a, mem);
-    if (!IsNumeric(b)) return RuntimeError("Bad argument to >", b, mem);
-
-    if (IsInt(a) && IsInt(b)) {
-      return BoolVal(RawInt(a) > RawInt(b));
-    } else {
-      float raw_a = IsInt(a) ? (float)RawInt(a) : RawNum(a);
-      float raw_b = IsInt(b) ? (float)RawInt(b) : RawNum(b);
-      return BoolVal(raw_a > raw_b);
-    }
-  }
-
-  if (Eq(op, SymbolFor("=="))) {
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-
-    if (IsInt(a) && IsInt(b)) {
-      return BoolVal(RawInt(a) == RawInt(b));
-    } else if (IsNumeric(a) && IsNumeric(b)) {
-      float raw_a = IsInt(a) ? (float)RawInt(a) : RawNum(a);
-      float raw_b = IsInt(b) ? (float)RawInt(b) : RawNum(b);
-      return BoolVal(raw_a == raw_b);
-    } else {
-      return BoolVal(Eq(a, b));
-    }
-  }
-
-  if (Eq(op, SymbolFor("|"))) {
-    Val a = ListAt(mem, args, 0);
-    Val b = ListAt(mem, args, 1);
-    return MakePair(mem, a, b);
-  }
-
-  return RuntimeError("Unimplemented primitive", proc, mem);
+  return DoPrimitive(op, args, mem);
 }
 
 Val ExtendEnv(Val env, Val vars, Val vals, Mem *mem)
@@ -301,7 +186,7 @@ void Define(Val env, Val var, Val value, Mem *mem)
   }
 }
 
-Val MakeProc(Val exp, Val env, Mem *mem)
+Val EvalLambda(Val exp, Val env, Mem *mem)
 {
   Val params = ListAt(mem, exp, 1);
   Val body = ListAt(mem, exp, 2);
@@ -344,11 +229,27 @@ Val EvalBlock(Val exps, Val env, Mem *mem)
 
 Val EvalDefine(Val exp, Val env, Mem *mem)
 {
-  Val var = ListAt(mem, exp, 1);
+  Val ids = ListAt(mem, exp, 1);
+  Val var = Head(mem, ids);
+  Val params = Tail(mem, ids);
   if (!IsSym(var)) return RuntimeError("Define must be an ID", var, mem);
-
-  Val val = Eval(ListAt(mem, exp, 2), env, mem);
+  Val body = ListAt(mem, exp, 2);
+  Val val = MakeList(mem, 4, MakeSymbol(mem, "proc"), params, body, env);
   Define(env, var, val, mem);
+  return val;
+}
+
+Val EvalLet(Val exps, Val env, Mem *mem)
+{
+  Val pairs = Tail(mem, exps);
+  Val val;
+  while (!IsNil(pairs)) {
+    Val pair = Head(mem, pairs);
+    Val var = Head(mem, pair);
+    val = Eval(Tail(mem, pair), env, mem);
+    Define(env, var, val, mem);
+    pairs = Tail(mem, pairs);
+  }
   return val;
 }
 
@@ -364,6 +265,21 @@ Val EvalIf(Val exps, Val env, Mem *mem)
   } else {
     return Eval(alternative, env, mem);
   }
+}
+
+Val EvalCond(Val exps, Val env, Mem *mem)
+{
+  Val clauses = Tail(mem, exps);
+  while (!IsNil(clauses)) {
+    Val clause = Head(mem, clauses);
+    Val test = Eval(Head(mem, clause), env, mem);
+    if (IsTrue(test)) {
+      return Eval(Tail(mem, clause), env, mem);
+    }
+    clauses = Tail(mem, clauses);
+  }
+
+  return RuntimeError("Unmatched cond", clauses, mem);
 }
 
 bool IsTrue(Val value)

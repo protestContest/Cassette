@@ -19,6 +19,7 @@ ml_call       → ml_call nl arg
 ml_call       → arg
 arg           → lambda
 lambda        → group "->" nl logic
+lambda        → ID "->" nl logic
 lambda        → logic
 logic         → logic "and" nl equals
 logic         → logic "or" nl equals

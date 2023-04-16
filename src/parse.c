@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 // #define DEBUG_PARSE
+#define DEBUG_ABSTRACT
 
 typedef struct {
   Lexer lex;
@@ -19,32 +20,6 @@ static Val MakeNode(u32 parse_symbol, Val children, Mem *mem)
   return MakePair(mem, MakeSymbol(mem, (char*)symbol_names[parse_symbol]), children);
 }
 
-static bool IsOperator(Mem *mem, Val node)
-{
-  Val sym = Head(mem, node);
-  if (Eq(sym, SymbolFor("+"))) return true;
-  if (Eq(sym, SymbolFor("-"))) return true;
-  if (Eq(sym, SymbolFor("*"))) return true;
-  if (Eq(sym, SymbolFor("/"))) return true;
-  return false;
-}
-
-static bool IsInfix(u32 sym)
-{
-  switch (sym) {
-  case ParseSymLambda:
-  case ParseSymLogic:
-  case ParseSymEquals:
-  case ParseSymPair:
-  case ParseSymCompare:
-  case ParseSymSum:
-  case ParseSymProduct:
-    return true;
-  default:
-    return false;
-  }
-}
-
 static Val AbstractNode(Parser *p, u32 sym, Val children)
 {
   Val node = children;
@@ -52,6 +27,46 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
   switch (sym) {
   case ParseSymProgram:
     node = MakePair(p->mem, SymbolFor("do"), Head(p->mem, children));
+    break;
+
+  case ParseSymStmts:
+    if (ListLength(p->mem, children) == 1 && (IsNil(Head(p->mem, children)) || IsNil(Head(p->mem, Head(p->mem, children))))) {
+      node = nil;
+    } else {
+      Val tail = MakePair(p->mem, ListAt(p->mem, children, 1), nil);
+      node = ListAppend(p->mem, Head(p->mem, children), tail);
+    }
+    break;
+
+  case ParseSymStmt:
+    node = Head(p->mem, children);
+    break;
+
+  case ParseSymLet_stmt:
+    if (IsList(p->mem, ListAt(p->mem, children, 2))) {
+      node = MakeList(p->mem, 2, SymbolFor("let"), ListAt(p->mem, children, 2));
+    } else {
+      node = MakeList(p->mem, 2, SymbolFor("let"), MakePair(p->mem, ListAt(p->mem, children, 2), nil));
+    }
+    break;
+
+  case ParseSymAssigns:
+    if (IsList(p->mem, Head(p->mem, children))) {
+      node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, Tail(p->mem, Tail(p->mem, children))));
+    } else {
+      node = MakeList(p->mem, 2, ListAt(p->mem, children, 0), ListAt(p->mem, children, 3));
+    }
+    break;
+
+  case ParseSymAssign: {
+    node = MakePair(p->mem, ListAt(p->mem, children, 0), ListAt(p->mem, children, 2));
+    break;
+  }
+
+  case ParseSymDef_block:
+    node = MakeList(p->mem, 3, ListAt(p->mem, children, 0),
+                               ListAt(p->mem, children, 2),
+                               ListAt(p->mem, children, 5));
     break;
 
   case ParseSymParams:
@@ -62,20 +77,25 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
     }
     break;
 
-  case ParseSymDef_block:
-    node = MakeList(p->mem, 3, ListAt(p->mem, children, 0),
-                               ListAt(p->mem, children, 2),
-                               ListAt(p->mem, children, 5));
-    break;
-
   case ParseSymCall:
-    if (IsPair(Head(p->mem, children))) {
-      node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, children));
+    if (IsNil(Tail(p->mem, children))) {
+      node = Head(p->mem, children);
+      // node = children;
+    // } else if (ListLength(p->mem, children) > 1) {
+    } else {
+      if (IsList(p->mem, Head(p->mem, children))) {
+        node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, children));
+      } else {
+        node = children;
+      }
     }
+    // }
     break;
 
   case ParseSymMl_call:
-    if (IsPair(Head(p->mem, children))) {
+    if (ListLength(p->mem, children) == 1) {
+      node = children;
+    } else if (IsPair(Head(p->mem, children))) {
       node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, Tail(p->mem, children)));
     } else {
       node = MakeList(p->mem, 2, ListAt(p->mem, children, 0),
@@ -83,14 +103,26 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
     }
     break;
 
-  case ParseSymStmts: {
-    Val tail = MakePair(p->mem, ListAt(p->mem, children, 1), nil);
-    node = ListAppend(p->mem, Head(p->mem, children), tail);
+  case ParseSymLambda:
+  case ParseSymLogic:
+  case ParseSymEquals:
+  case ParseSymPair:
+  case ParseSymCompare:
+  case ParseSymSum:
+  case ParseSymProduct:
+    if (ListLength(p->mem, children) > 1) {
+      node = MakeList(p->mem, 3, ListAt(p->mem, children, 1),
+                                 ListAt(p->mem, children, 0),
+                                 ListAt(p->mem, children, 3));
+    } else {
+      node = Head(p->mem, children);
+    }
     break;
-  }
 
-  case ParseSymGroup:
-    node = ListAt(p->mem, children, 1);
+  case ParseSymArg:
+  case ParseSymPrimary:
+  case ParseSymBlock:
+    node = Head(p->mem, children);
     break;
 
   case ParseSymDo_block:
@@ -100,27 +132,6 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
       node = ListAppend(p->mem, MakePair(p->mem, SymbolFor("do"), nil),
                                 ListAt(p->mem, children, 1));
     }
-    break;
-
-  case ParseSymItems:
-  case ParseSymEntries:
-    node = ListAppend(p->mem, Head(p->mem, children), MakePair(p->mem, ListAt(p->mem, children, 1), nil));
-    break;
-
-  case ParseSymList:
-    node = MakePair(p->mem, MakeSymbol(p->mem, "list"), ListAt(p->mem, children, 1));
-    break;
-
-  case ParseSymTuple:
-    node = MakePair(p->mem, MakeSymbol(p->mem, "tuple"), ListAt(p->mem, children, 1));
-    break;
-
-  case ParseSymEntry:
-    node = MakePair(p->mem, ListAt(p->mem, children, 0), ListAt(p->mem, children, 3));
-    break;
-
-  case ParseSymDict:
-    node = MakePair(p->mem, MakeSymbol(p->mem, "dict"), ListAt(p->mem, children, 1));
     break;
 
   case ParseSymIf_block: {
@@ -144,9 +155,8 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
     break;
   }
 
-  case ParseSymClause:
-    node = MakePair(p->mem, ListAt(p->mem, children, 0),
-                            ListAt(p->mem, children, 2));
+  case ParseSymCond_block:
+    node = MakePair(p->mem, SymbolFor("cond"), ListAt(p->mem, children, 2));
     break;
 
   case ParseSymClauses:
@@ -154,46 +164,42 @@ static Val AbstractNode(Parser *p, u32 sym, Val children)
                               Tail(p->mem, children));
     break;
 
-  case ParseSymCond_block:
-    node = MakePair(p->mem, SymbolFor("cond"), ListAt(p->mem, children, 2));
+  case ParseSymClause:
+    node = MakePair(p->mem, ListAt(p->mem, children, 0),
+                            ListAt(p->mem, children, 2));
     break;
 
-
-  case ParseSymAssign: {
-    node = MakePair(p->mem, ListAt(p->mem, children, 0), ListAt(p->mem, children, 2));
+  case ParseSymGroup:
+    node = ListAt(p->mem, children, 1);
     break;
-  }
 
-  case ParseSymAssigns:
-    if (IsList(p->mem, Head(p->mem, children))) {
-      node = ListAppend(p->mem, Head(p->mem, children), Tail(p->mem, Tail(p->mem, Tail(p->mem, children))));
+  case ParseSymList:
+    node = MakePair(p->mem, MakeSymbol(p->mem, "list"), ListAt(p->mem, children, 1));
+    break;
+
+  case ParseSymItems:
+  case ParseSymEntries:
+    if (ListLength(p->mem, children) > 1) {
+      node = ListAppend(p->mem, Head(p->mem, children), MakePair(p->mem, ListAt(p->mem, children, 1), nil));
     } else {
-      node = MakeList(p->mem, 2, ListAt(p->mem, children, 0), ListAt(p->mem, children, 3));
+      node = nil;
     }
     break;
 
-  case ParseSymLet_stmt:
-    if (IsList(p->mem, ListAt(p->mem, children, 2))) {
-      node = MakeList(p->mem, 2, SymbolFor("let"), ListAt(p->mem, children, 2));
-    } else {
-      node = MakeList(p->mem, 2, SymbolFor("let"), MakePair(p->mem, ListAt(p->mem, children, 2), nil));
-    }
+  case ParseSymTuple:
+    node = MakePair(p->mem, MakeSymbol(p->mem, "tuple"), ListAt(p->mem, children, 1));
     break;
 
-  case ParseSymLambda:
-  case ParseSymLogic:
-  case ParseSymEquals:
-  case ParseSymPair:
-  case ParseSymCompare:
-  case ParseSymSum:
-  case ParseSymProduct:
-    node = MakeList(p->mem, 3, ListAt(p->mem, children, 1),
-                               ListAt(p->mem, children, 0),
-                               ListAt(p->mem, children, 3));
+  case ParseSymDict:
+    node = MakePair(p->mem, MakeSymbol(p->mem, "dict"), ListAt(p->mem, children, 1));
+    break;
+
+  case ParseSymEntry:
+    node = MakePair(p->mem, ListAt(p->mem, children, 0), ListAt(p->mem, children, 3));
     break;
   }
 
-#ifdef DEBUG_PARSE
+#ifdef DEBUG_ABSTRACT
   Print(symbol_names[sym]);
   Print(": ");
   PrintVal(p->mem, children);
@@ -261,13 +267,9 @@ static Val Reduce(Parser *p, u32 sym, u32 num, Token token)
     return nil;
   }
 
-  if (num == 1) {
-    p->stack[VecCount(p->stack) - 1] = next_state;
-  } else {
-    ReduceNodes(p, sym, num);
-    RewindVec(p->stack, num);
-    VecPush(p->stack, next_state);
-  }
+  ReduceNodes(p, sym, num);
+  RewindVec(p->stack, num);
+  VecPush(p->stack, next_state);
 
   return ParseNext(p, token);
 }
@@ -335,51 +337,56 @@ Val Parse(char *src, Mem *mem)
   return ParseNext(&p, NextToken(&p.lex));
 }
 
-static void Indent(u32 level, u32 lines, bool is_last)
+static void Indent(u32 level, u32 lines)
 {
   if (level == 0) return;
 
   for (u32 i = 0; i < level - 1; i++) {
     if ((lines >> (level - i - 1)) & 1) {
-      Print("│ ");
+      Print("│");
     } else {
-      Print("  ");
+      Print(" ");
     }
   }
-  if (is_last) Print("└─");
-  else Print("├─");
+  // if (is_last) Print("└");
+  // if (is_last) Print("└─");
+  // else Print("├");
 }
 
-static void PrintASTNode(Val node, u32 indent, u32 lines, bool last, Mem *mem)
+static void PrintASTNode(Val node, u32 indent, u32 lines, Mem *mem)
 {
   if (IsNil(node)) {
-    Indent(indent, lines, last);
+    Print("╴");
     Print("nil\n");
   } else if (IsList(mem, node)) {
-    Indent(indent, lines, last);
-    Print("┐\n");
+    Print("┬");
+    u32 next_lines = (lines << 1);
+    PrintASTNode(Head(mem, node), indent + 1, next_lines, mem);
+    node = Tail(mem, node);
     while (!IsNil(node)) {
       bool is_last = IsNil(Tail(mem, node)) || !IsList(mem, Tail(mem, node));
-      u32 next_lines = (lines << 1);
+      next_lines = (lines << 1);
       if (!is_last) {
         next_lines += 1;
       }
-      if (IsPair(node)) {
-        PrintASTNode(Head(mem, node), indent + 1, next_lines, is_last, mem);
+
+      Indent(indent + 1, next_lines);
+      if (is_last) {
+        Print("└");
       } else {
-        PrintLn(".");
-        PrintASTNode(node, indent + 1, next_lines, is_last, mem);
+        Print("├");
       }
+      PrintASTNode(Head(mem, node), indent + 1, next_lines, mem);
       node = Tail(mem, node);
     }
   } else if (IsPair(node)) {
-    Indent(indent, lines, last);
+    Print("╴");
     PrintVal(mem, Head(mem, node));
     Print(" | ");
     PrintVal(mem, Tail(mem, node));
     Print("\n");
   } else {
-    Indent(indent, lines, last);
+    Print("╴");
     PrintVal(mem, node);
     Print("\n");
   }
@@ -388,5 +395,5 @@ static void PrintASTNode(Val node, u32 indent, u32 lines, bool last, Mem *mem)
 void PrintAST(Val ast, Mem *mem)
 {
   if (IsNil(ast)) return;
-  PrintASTNode(ast, 0, 0, false, mem);
+  PrintASTNode(ast, 0, 0, mem);
 }

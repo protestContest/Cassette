@@ -32,7 +32,7 @@ typedef struct {
 #define IsPair(v)     (((v).as_v & typeMask) == pairMask)
 #define IsObj(v)      (((v).as_v & typeMask) == objMask)
 
-#define RawNum(v)     (v).as_f
+#define RawNum(v)     (IsNum(v) ? (v).as_f : RawInt(v))
 #define RawInt(v)     SignExt((v).as_v)
 #define RawSym(v)     ((v).as_v & ~typeMask)
 #define RawPair(v)    ((v).as_v & ~typeMask)
