@@ -2,6 +2,7 @@ stmts         → stmts stmt NL
 stmts         → stmts stmt $
 stmts         → nl
 stmt          → let_stmt
+stmt          → import_stmt
 stmt          → def_block
 stmt          → call
 opt_stmt      → stmt
@@ -10,6 +11,8 @@ let_stmt      → "let" nl assigns
 assigns       → assigns "," nl assign
 assigns       → assign
 assign        → ID "=" call
+import_stmt   → "import" STR
+import_stmt   → "import" STR "as" ID
 def_block     → "def" "(" params nl ")" call
 params        → params nl ID
 params        → nl ID
@@ -56,6 +59,9 @@ primary       → group
 primary       → list
 primary       → tuple
 primary       → dict
+primary       → access
+access        → access "." ID
+access        → ID "." ID
 symbol        → ":" ID
 group         → "(" ml_call ")"
 list          → "[" items "]"

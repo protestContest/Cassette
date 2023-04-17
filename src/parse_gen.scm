@@ -426,6 +426,7 @@
   (display "#define NUM_LITERALS ")
   (display (length (filter ((parser 'grammar) 'terminals) string?)))
   (newline)
+  (newline)
 
   (display "char *symbol_names[] = {")
   (newline)
@@ -440,7 +441,7 @@
   (newline)
   (newline)
 
-  (display "static unused struct {char *lexeme; u32 symbol;} literals[] = {")
+  (display "static unused struct {char *lexeme; u8 symbol;} literals[] = {")
   (newline)
   (each (sort (filter (with-index (symbols-in (parser 'grammar))) (lambda (isym)
                       (string? (tail isym))))
@@ -469,7 +470,7 @@
          ; (chunk-size (++ (div (length ids) (++ (div (length ids) 20))))))
     (display "// indexed by state")
     (newline)
-    (display "static unused i32 reduction_syms[] = {")
+    (display "static unused i8 reduction_syms[] = {")
     (newline)
 
     (++ (div (length ids) 16))
@@ -481,7 +482,7 @@
     (newline)
     (display "// indexed by state")
     (newline)
-    (display "static unused u32 reduction_sizes[] = {")
+    (display "static unused u8 reduction_sizes[] = {")
     (newline)
     (each (chunk-every lengths (chunk-size ids 20)) (lambda (chunk)
       (print-row chunk 4)
@@ -492,7 +493,7 @@
 
   (display "// indexed by state, symbol")
   (newline)
-  (display "static unused i32 actions[][NUM_SYMS] = {")
+  (display "static unused i16 actions[][NUM_SYMS] = {")
   (newline)
   (let ((rows (map (parser 'actions)
                    (lambda (items)

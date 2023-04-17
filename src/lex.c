@@ -1,7 +1,6 @@
 #include "lex.h"
 #include "parse_syms.h"
 #include "mem.h"
-#include <stdio.h>
 
 bool IsIDChar(char c)
 {
@@ -250,9 +249,16 @@ int PrintToken(Token token)
 int DebugToken(Token token)
 {
   if (token.length > 0) {
-    return printf("[%d %.*s]", token.type, token.length, token.lexeme);
+    Print("[");
+    PrintInt(token.type);
+    Print("] ");
+    PrintN(token.lexeme, token.length);
+    return 0;
   } else {
-    return printf("[%d]", token.type);
+    Print("[");
+    PrintInt(token.type);
+    Print("] ");
+    return 0;
   }
 }
 
@@ -274,22 +280,26 @@ void PrintSourceContext(Lexer *lexer, u32 num_lines)
 
   while (*c != '\0' && line <= end) {
     if (line == lexer->line) {
-      printf("→%3d  ", line);
+      Print("→");
+      PrintIntN(line, 3);
+      Print("  ");
     } else {
-      printf("%4d  ", line);
+      PrintIntN(line, 4);
+      Print("  ");
     }
 
     while (*c != '\0' && !IsNewline(*c)) {
-      if (c - lexer->src == lexer->start && lexer->start < lexer->pos) {
-        printf("%s", IOUnderline);
+      bool underline = c - lexer->src == lexer->start && lexer->start <= lexer->pos;
+      if (underline) {
+        Print(IOUnderline);
       }
-      printf("%c", *c);
+      PrintN(c, 1);
       c++;
-      if (c - lexer->src == lexer->pos && lexer->start < lexer->pos) {
-        printf("%s", IONoUnderline);
+      if (underline) {
+        Print(IONoUnderline);
       }
     }
-    printf("\n");
+    Print("\n");
     c++;
 
     line++;

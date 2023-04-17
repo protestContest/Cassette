@@ -17,6 +17,7 @@ void SetTail(Mem *mem, Val pair, Val val);
 Val MakeList(Mem *mem, u32 num, ...);
 u32 ListLength(Mem *mem, Val list);
 Val ListAt(Mem *mem, Val list, u32 index);
+Val ListFrom(Mem *mem, Val list, u32 index);
 Val ReverseOnto(Mem *mem, Val list, Val tail);
 Val ListAppend(Mem *mem, Val list1, Val list2);
 bool IsTagged(Mem *mem, Val list, Val tag);
@@ -28,7 +29,8 @@ Val TupleAt(Mem *mem, Val tuple, u32 i);
 void TupleSet(Mem *mem, Val tuple, u32 i, Val val);
 
 bool IsDict(Mem *mem, Val dict);
-Val MakeDict(Mem *mem, Val keys, Val vals);
+Val MakeDict(Mem *mem);
+Val DictFrom(Mem *mem, Val keys, Val vals);
 u32 DictSize(Mem *mem, Val dict);
 Val DictKeys(Mem *mem, Val dict);
 Val DictValues(Mem *mem, Val dict);
@@ -45,5 +47,7 @@ Val MakeBinaryFrom(Mem *mem, char *str, u32 length);
 u32 BinaryLength(Mem *mem, Val binary);
 u8 *BinaryData(Mem *mem, Val binary);
 
-u32 PrintVal(Mem *mem, Val value);
+bool IsTrue(Val value);
+
+void PrintVal(Mem *mem, Val value);
 void PrintMem(Mem *mem);

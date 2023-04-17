@@ -11,5 +11,4 @@ typedef struct {
 } Parser;
 
 Val Parse(char *src, Mem *mem);
-void PrintAST(Val ast, Mem *mem);
 char *GrammarSymbolName(u32 sym);

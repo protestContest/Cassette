@@ -6,7 +6,7 @@
 #include "ast.h"
 #include <stdlib.h>
 
-// #define DEBUG_PARSE
+#define DEBUG_PARSE
 
 static Val MakeNode(u32 parse_symbol, Val children, Mem *mem)
 {
@@ -110,13 +110,11 @@ static Val ParseNext(Parser *p, Token token)
     Print("Syntax error: Unexpected token ");
     Print((char*)symbol_names[token.type]);
     Print(" at ");
-    PrintInt(p->lex.line);
+    PrintInt(token.line);
     Print(":");
-    PrintInt(p->lex.col);
-    Print(" (");
-    PrintInt(p->lex.pos);
-    Print(")");
+    PrintInt(token.col);
     Print("\n");
+    PrintSourceContext(&p->lex, 5);
     return nil;
   }
 }
@@ -135,67 +133,6 @@ Val Parse(char *src, Mem *mem)
   Parser p;
   InitParser(&p, src, mem);
   return ParseNext(&p, NextToken(&p.lex));
-}
-
-static void Indent(u32 level, u32 lines)
-{
-  if (level == 0) return;
-
-  for (u32 i = 0; i < level - 1; i++) {
-    if ((lines >> (level - i - 1)) & 1) {
-      Print("│");
-    } else {
-      Print(" ");
-    }
-  }
-  // if (is_last) Print("└");
-  // if (is_last) Print("└─");
-  // else Print("├");
-}
-
-static void PrintASTNode(Val node, u32 indent, u32 lines, Mem *mem)
-{
-  if (IsNil(node)) {
-    Print("╴");
-    Print("nil\n");
-  } else if (IsList(mem, node)) {
-    Print("┬");
-    u32 next_lines = (lines << 1);
-    PrintASTNode(Head(mem, node), indent + 1, next_lines, mem);
-    node = Tail(mem, node);
-    while (!IsNil(node)) {
-      bool is_last = IsNil(Tail(mem, node)) || !IsList(mem, Tail(mem, node));
-      next_lines = (lines << 1);
-      if (!is_last) {
-        next_lines += 1;
-      }
-
-      Indent(indent + 1, next_lines);
-      if (is_last) {
-        Print("└");
-      } else {
-        Print("├");
-      }
-      PrintASTNode(Head(mem, node), indent + 1, next_lines, mem);
-      node = Tail(mem, node);
-    }
-  } else if (IsPair(node)) {
-    Print("╴");
-    PrintVal(mem, Head(mem, node));
-    Print(" | ");
-    PrintVal(mem, Tail(mem, node));
-    Print("\n");
-  } else {
-    Print("╴");
-    PrintVal(mem, node);
-    Print("\n");
-  }
-}
-
-void PrintAST(Val ast, Mem *mem)
-{
-  if (IsNil(ast)) return;
-  PrintASTNode(ast, 0, 0, mem);
 }
 
 char *GrammarSymbolName(u32 sym)

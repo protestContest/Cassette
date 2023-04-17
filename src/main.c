@@ -1,6 +1,7 @@
 #include "parse.h"
 #include "interpret.h"
 #include "mem.h"
+#include "ast.h"
 
 int main(int argc, char *argv[])
 {
@@ -9,6 +10,10 @@ int main(int argc, char *argv[])
   // src = "4.1 * (1 + 2)\n3 - 2\n";
   // src = "(a b) -> (a - b) 1 4";
   src = ReadFile("test.rye");
+  if (!src) {
+    Print("Could not open file");
+    Exit();
+  }
 
   // Print("Source: ");
   // Print(src);
@@ -18,13 +23,11 @@ int main(int argc, char *argv[])
   InitMem(&mem);
   Val ast = Parse(src, &mem);
 
-  // Print("AST:\n");
-  // PrintAST(ast, &mem);
-  // Print("\n");
+  Print("AST:\n");
+  PrintAST(ast, &mem);
+  Print("\n");
 
   Val result = Interpret(ast, &mem);
-
-  // Print("Result: ");
   PrintVal(&mem, result);
   Print("\n");
 }

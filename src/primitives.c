@@ -1,7 +1,7 @@
 #include "primitives.h"
+#include "env.h"
 #include "interpret.h"
 #include "value.h"
-#include <univ/base.h>
 
 typedef Val (*PrimitiveFn)(Val op, Val args, Mem *mem);
 
@@ -106,7 +106,7 @@ Val DictOp(Val op, Val args, Mem *mem)
     args = Tail(mem, args);
     i++;
   }
-  Val dict = MakeDict(mem, keys, vals);
+  Val dict = DictFrom(mem, keys, vals);
   return dict;
 }
 
@@ -155,6 +155,6 @@ void DefinePrimitives(Val env, Mem *mem)
   Val prim = MakeSymbol(mem, "primitive");
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
     Val sym = MakeSymbol(mem, primitives[i].name);
-    Define(env, sym, MakePair(mem, prim, sym), mem);
+    Define(sym, MakePair(mem, prim, sym), env, mem);
   }
 }
