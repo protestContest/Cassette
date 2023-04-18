@@ -11,7 +11,7 @@ def (reverse list) do
     if list == nil do
       rest
     else
-      reverse-onto (tail list) (head list) | rest
+      reverse-onto (tail list) [(head list) | rest]
     end
   end
 
@@ -19,7 +19,7 @@ def (reverse list) do
 end
 
 def (reduce list acc fn) do
-  if (nil? list) do
+  if list == nil do
     acc
   else
     reduce (tail list) (fn (head list) acc) fn
@@ -27,11 +27,13 @@ def (reduce list acc fn) do
 end
 
 def (map list fn) do
-  let mapped = reduce list nil (item acc) -> (fn item) | acc
+  let mapped = reduce list [] (item acc) -> [(fn item) | acc]
   reverse mapped
 end
 
-map [1 2 3 4 5] (num acc) -> do
+def (even? n) do (rem n 2) == 0 end
+
+map [1 2 3 4 5] (num) -> do
   if (even? num) do
     num / 2
   else
@@ -42,7 +44,10 @@ end
 ; => [4 1 10 2 16]
 ```
 
+See [grammar.txt](https://git.sr.ht/~zjm/Rye/tree/master/item/grammar.txt) for
+details on the syntax.
+
 ## Building
 
-Use `make` to build this project. This project requires the `univ` library,
-which can be found [here](https://git.sr.ht/~zjm/univ).
+Use `make` to build this project. This project uses the `univ` library, which is
+included for convenience, and can be found [here](https://git.sr.ht/~zjm/univ).

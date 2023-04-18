@@ -5,8 +5,6 @@
 
 #define DEBUG_EVAL
 
-Val Eval(Val exp, Val env, Mem *mem);
-Val Apply(Val proc, Val args, Mem *mem);
 Val ApplyPrimitive(Val proc, Val args, Mem *mem);
 Val EvalAccess(Val exp, Val env, Mem *mem);
 Val EvalLambda(Val exp, Val env, Mem *mem);
@@ -20,6 +18,19 @@ Val EvalCond(Val exps, Val env, Mem *mem);
 Val EvalImport(Val exps, Val env, Mem *mem);
 Val RuntimeError(char *message, Val exp, Mem *mem);
 void PrintEnv(Val env, Mem *mem);
+
+Val RunFile(char *filename, Mem *mem)
+{
+  char *src;
+  src = ReadFile("test.rye");
+  if (!src) {
+    Print("Could not open file");
+    Exit();
+  }
+
+  Val ast = Parse(src, mem);
+  return Interpret(ast, mem);
+}
 
 Val Interpret(Val ast, Mem *mem)
 {
@@ -49,7 +60,7 @@ Val Eval(Val exp, Val env, Mem *mem)
     result = Lookup(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("->"))) {
     result = EvalLambda(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("quote"))) {
+  } else if (IsTagged(mem, exp, SymbolFor("__keyword_quote"))) {
     result = ListAt(mem, exp, 1);
   } else if (IsTagged(mem, exp, SymbolFor("do"))) {
     result = EvalBlock(exp, env, mem);
@@ -81,15 +92,33 @@ Val Eval(Val exp, Val env, Mem *mem)
   return result;
 }
 
+Val ListAccess(Val list, Val index, Mem *mem)
+{
+  if (!IsInt(index)) {
+    return RuntimeError("Must access lists with integers", index, mem);
+  }
+
+  return ListAt(mem, list, RawInt(index));
+}
+
 Val Apply(Val proc, Val args, Mem *mem)
 {
-  if (IsTagged(mem, proc, SymbolFor("primitive"))) {
+  if (IsTagged(mem, proc, SymbolFor("__primitive"))) {
     return ApplyPrimitive(proc, args, mem);
   }
 
-  if (!IsTagged(mem, proc, SymbolFor("proc"))) {
+  if (!IsTagged(mem, proc, SymbolFor("__procedure"))) {
+    if (ListLength(mem, args) == 1) return ListAccess(proc, Head(mem, args), mem);
     return RuntimeError("Not a procedure", proc, mem);
   }
+
+#ifdef DEBUG_EVAL
+  Print("Apply ");
+  PrintVal(mem, proc);
+  Print(" ");
+  PrintVal(mem, args);
+  Print("\n");
+#endif
 
   Val params = ListAt(mem, proc, 1);
   Val body = ListAt(mem, proc, 2);
@@ -108,7 +137,7 @@ Val Apply(Val proc, Val args, Mem *mem)
     }
 
     if (!IsNil(params)) {
-      return MakeList(mem, 4, MakeSymbol(mem, "proc"), params, body , env);
+      return MakeProcedure(params, body , env, mem);
     }
   }
 
@@ -136,7 +165,7 @@ Val EvalLambda(Val exp, Val env, Mem *mem)
 {
   Val params = ListAt(mem, exp, 1);
   Val body = ListAt(mem, exp, 2);
-  return MakeList(mem, 4, MakeSymbol(mem, "proc"), params, body, env);
+  return MakeList(mem, 4, MakeSymbol(mem, "__procedure"), params, body, env);
 }
 
 Val EvalApply(Val exp, Val env, Mem *mem)
@@ -148,11 +177,11 @@ Val EvalApply(Val exp, Val env, Mem *mem)
     return proc;
   }
 
-  if (IsDict(mem, proc)) {
+  if (IsDict(mem, proc) && ListLength(mem, args) == 1) {
     return DictGet(mem, proc, Head(mem, args));
   }
 
-  if (IsTuple(mem, proc)) {
+  if (IsTuple(mem, proc) && ListLength(mem, args) == 1) {
     Val index = Head(mem, args);
     if (!IsInt(index)) {
       return RuntimeError("Must access tuples with integers", index, mem);
@@ -160,7 +189,7 @@ Val EvalApply(Val exp, Val env, Mem *mem)
     return TupleAt(mem, proc, RawInt(index));
   }
 
-  if (IsBinary(mem, proc)) {
+  if (IsBinary(mem, proc) && ListLength(mem, args) == 1) {
     Val index = Head(mem, args);
     if (!IsInt(index)) {
       return RuntimeError("Must access binaries with integers", index, mem);
@@ -195,12 +224,8 @@ Val EvalBlock(Val exps, Val env, Mem *mem)
 
 Val EvalDefine(Val exp, Val env, Mem *mem)
 {
-  Val ids = ListAt(mem, exp, 1);
-  Val var = Head(mem, ids);
-  Val params = Tail(mem, ids);
-  if (!IsSym(var)) return RuntimeError("Define must be an ID", var, mem);
-  Val body = ListAt(mem, exp, 2);
-  Val val = MakeList(mem, 4, MakeSymbol(mem, "proc"), params, body, env);
+  Val var = ListAt(mem, exp, 1);
+  Val val = Eval(ListAt(mem, exp, 2), env, mem);
   Define(var, val, env, mem);
   return SymbolFor("ok");
 }
@@ -210,11 +235,11 @@ Val EvalLet(Val exps, Val env, Mem *mem)
   Val pairs = Tail(mem, exps);
   Val val;
   while (!IsNil(pairs)) {
-    Val pair = Head(mem, pairs);
-    Val var = Head(mem, pair);
-    val = Eval(Tail(mem, pair), env, mem);
-    Define(var, val, env, mem);
+    Val var = Head(mem, pairs);
     pairs = Tail(mem, pairs);
+    val = Eval(Head(mem, pairs), env, mem);
+    pairs = Tail(mem, pairs);
+    Define(var, val, env, mem);
   }
   return SymbolFor("ok");
 }
@@ -264,7 +289,7 @@ Val EvalImport(Val exps, Val env, Mem *mem)
   Val stmts = Tail(mem, ast);
   while (!IsNil(stmts)) {
     Val stmt = Head(mem, stmts);
-    if (IsTagged(mem, stmt, SymbolFor("def"))) {
+    if (IsTagged(mem, stmt, SymbolFor("__keyword_def"))) {
       EvalDefine(stmt, import_env, mem);
     }
     stmts = Tail(mem, stmts);
@@ -290,6 +315,5 @@ Val RuntimeError(char *message, Val exp, Mem *mem)
   Print(": ");
   PrintVal(mem, exp);
   Print("\n");
-  Exit();
   return nil;
 }

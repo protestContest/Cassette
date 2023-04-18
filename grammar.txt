@@ -3,7 +3,7 @@ stmts         → stmts stmt $
 stmts         → nl
 stmt          → let_stmt
 stmt          → import_stmt
-stmt          → def_block
+stmt          → def_stmt
 stmt          → call
 opt_stmt      → stmt
 opt_stmt      → ε
@@ -13,9 +13,10 @@ assigns       → assign
 assign        → ID "=" call
 import_stmt   → "import" STR
 import_stmt   → "import" STR "as" ID
-def_block     → "def" "(" params nl ")" call
-params        → params nl ID
-params        → nl ID
+def_stmt      → "def" "(" params ")" do_block
+def_stmt      → "def" ID arg
+params        → params ID
+params        → ID
 call          → call arg
 call          → arg
 ml_call       → ml_call nl arg
@@ -27,12 +28,13 @@ lambda        → logic
 logic         → logic "and" nl equals
 logic         → logic "or" nl equals
 logic         → equals
-equals        → pair "==" nl pair
-equals        → pair
-pair          → compare "|" nl compare
-pair          → compare
+equals        → compare "==" nl compare
+equals        → compare "!=" nl compare
+equals        → compare
 compare       → sum "<" nl sum
+compare       → sum "<=" nl sum
 compare       → sum ">" nl sum
+compare       → sum ">=" nl sum
 compare       → sum
 sum           → sum "+" nl product
 sum           → sum "-" nl product
@@ -45,12 +47,12 @@ block         → if_block
 block         → cond_block
 block         → primary
 do_block      → "do" stmts opt_stmt "end"
-if_block      → "if" nl arg nl "do" stmts opt_stmt "else" stmts opt_stmt "end"
-if_block      → "if" nl arg nl "do" stmts opt_stmt "end"
+if_block      → "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
+if_block      → "if" arg do_block
 cond_block    → "cond" "do" clauses "end"
 clauses       → clauses clause
 clauses       → NL
-clause        → call "::" call NL
+clause        → call "::" nl call NL
 primary       → NUM
 primary       → ID
 primary       → STR
@@ -64,14 +66,18 @@ access        → access "." ID
 access        → ID "." ID
 symbol        → ":" ID
 group         → "(" ml_call ")"
-list          → "[" items "]"
-items         → items arg nl
+list          → "[" items update "]"
+items         → items arg opt_comma nl
 items         → nl
 tuple         → "#[" items "]"
-dict          → "{" entries "}"
-entries       → entries entry nl
+dict          → "{" entries update "}"
+entries       → entries entry opt_comma nl
 entries       → nl
 entry         → ID ":" nl arg
+update        → "|" nl arg
+update        → ε
 nl            → NL
 nl            → $
 nl            → ε
+opt_comma     → ","
+opt_comma     → ε

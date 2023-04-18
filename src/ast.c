@@ -1,7 +1,16 @@
 #include "ast.h"
 #include "parse_syms.h"
 
-#define DEBUG_ABSTRACT
+#define DEBUG_AST
+
+static bool IsInfix(Val sym)
+{
+  char *infixes[] = {"+", "-", "*", "/", "<", "<=", ">", ">=", "|", "==", "!=", "and", "or", "->"};
+  for (u32 i = 0; i < ArrayCount(infixes); i++) {
+    if (Eq(sym, SymbolFor(infixes[i]))) return true;
+  }
+  return false;
+}
 
 Val AbstractNode(Parser *p, u32 sym, Val children)
 {
@@ -18,12 +27,15 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
       node = nil;
     } else {
       Val tail = MakePair(mem, ListAt(mem, children, 1), nil);
-      node = ListAppend(mem, Head(mem, children), tail);
+      node = ListConcat(mem, Head(mem, children), tail);
     }
     break;
 
   case ParseSymStmt:
     node = Head(mem, children);
+    if (IsNil(Tail(mem, node))) {
+      node = Head(mem, node);
+    }
     break;
 
   case ParseSymLet_stmt:
@@ -32,187 +44,180 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
 
   case ParseSymAssigns:
     if (IsNil(Tail(mem, children))) {
-      node = children;
+      node = Head(mem, children);
     } else {
-      Val new_assign = ListFrom(mem, children, 3);
-      node = ListAppend(mem, Head(mem, children), new_assign);
+      node = ListConcat(mem, ListAt(mem, children, 0), ListAt(mem, children, 3));
     }
     break;
 
   case ParseSymAssign: {
-    node = MakePair(mem, ListAt(mem, children, 0), ListAt(mem, children, 2));
+    Val value = ListAt(mem, children, 2);
+    if (IsNil(Tail(mem, value))) {
+      value = Head(mem, value);
+    }
+    node = MakeList(mem, 2, ListAt(mem, children, 0), value);
     break;
   }
 
-  case ParseSymImport_stmt:
-    if (ListLength(mem, children) > 2) {
-      node = MakeList(mem, 3, ListAt(mem, children, 0),
-                              ListAt(mem, children, 1),
-                              ListAt(mem, children, 3));
+  case ParseSymDef_stmt:
+    if (ListLength(mem, children) > 3) {
+      Val ids = ListAt(mem, children, 2);
+      Val var = Head(mem, ids);
+      Val params = Tail(mem, ids);
+      Val body = ListAt(mem, children, 4);
+      Val lambda = MakeList(mem, 3, SymbolFor("->"), params, body);
+      node = MakeList(mem, 3, SymbolFor("def"), var, lambda);
     }
     break;
 
-  case ParseSymDef_block:
-    node = MakeList(mem, 3, ListAt(mem, children, 0),
-                               ListAt(mem, children, 2),
-                               ListAt(mem, children, 5));
-    break;
-
   case ParseSymParams:
-    if (IsNil(Head(mem, children))) {
-      node = Tail(mem, children);
-    } else {
-      node = ListAppend(mem, Head(mem, children), ListFrom(mem, children, 2));
+    if (!IsNil(Tail(mem, children))) {
+      node = ListConcat(mem, Head(mem, children), Tail(mem, children));
     }
     break;
 
   case ParseSymCall:
     if (!IsNil(Tail(mem, children))) {
-      node = ListAppend(mem, Head(mem, children), Tail(mem, children));
+      node = ListConcat(mem, Head(mem, children), Tail(mem, children));
     }
-    // if (IsNil(Tail(mem, children))) {
-    //   node = Head(mem, children);
-    //   // node = children;
-    // // } else if (ListLength(mem, children) > 1) {
-    // } else {
-    //   if (IsList(mem, Head(mem, children))) {
-    //     node = ListAppend(mem, Head(mem, children), Tail(mem, children));
-    //   } else {
-    //     node = children;
-    //   }
-    // }
-    // // }
     break;
 
   case ParseSymMl_call:
-    if (ListLength(mem, children) == 1) {
-      node = children;
-    } else if (IsPair(Head(mem, children))) {
-      node = ListAppend(mem, Head(mem, children), ListFrom(mem, children, 2));
-    } else {
-      node = MakeList(mem, 2, ListAt(mem, children, 0),
-                                 ListAt(mem, children, 2));
+    if (!IsNil(Tail(mem, children))) {
+      node = ListConcat(mem, Head(mem, children), ListFrom(mem, children, 2));
     }
     break;
 
   case ParseSymLambda:
   case ParseSymLogic:
   case ParseSymEquals:
-  case ParseSymPair:
   case ParseSymCompare:
   case ParseSymSum:
   case ParseSymProduct:
-    if (ListLength(mem, children) > 1) {
-      node = MakeList(mem, 3, ListAt(mem, children, 1),
-                                 ListAt(mem, children, 0),
-                                 ListAt(mem, children, 3));
-    } else {
+    if (IsNil(Tail(mem, children))) {
       node = Head(mem, children);
+    } else {
+      node = MakeList(mem, 3, ListAt(mem, children, 1),
+                              ListAt(mem, children, 0),
+                              ListAt(mem, children, 3));
     }
     break;
 
   case ParseSymArg:
   case ParseSymPrimary:
   case ParseSymBlock:
-    node = Head(mem, children);
+    if (IsNil(Tail(mem, children))) {
+      node = Head(mem, children);
+    }
     break;
 
   case ParseSymAccess:
     node = MakeList(mem, 3, ListAt(mem, children, 1),
-                               ListAt(mem, children, 0),
-                               ListAt(mem, children, 2));
+                            ListAt(mem, children, 0),
+                            ListAt(mem, children, 2));
     break;
 
   case ParseSymSymbol:
-    node = MakeList(mem, 2, MakeSymbol(mem, "quote"), ListAt(mem, children, 1));
+    node = MakeList(mem, 2, MakeSymbol(mem, "__quote"), ListAt(mem, children, 1));
     break;
 
   case ParseSymDo_block:
-    if (ListLength(mem, ListAt(mem, children, 1)) == 1) {
-      node = Head(mem, ListAt(mem, children, 1));
-    } else {
-      node = ListAppend(mem, MakePair(mem, SymbolFor("do"), nil),
-                                ListAt(mem, children, 1));
-    }
+    node = MakePair(mem, SymbolFor("do"), ListConcat(mem, ListAt(mem, children, 1), ListAt(mem, children, 2)));
     break;
 
-  case ParseSymIf_block: {
-    Val condition = ListAt(mem, children, 2);
-    Val consequent = ListAt(mem, children, 5);
-    if (ListLength(mem, consequent) == 1) {
-      consequent = Head(mem, consequent);
+  case ParseSymIf_block:
+    if (ListLength(mem, children) > 3) {
+      Val condition = ListAt(mem, children, 1);
+      Val consequent = MakePair(mem, SymbolFor("do"), ListAt(mem, children, 3));
+      Val alternative = MakePair(mem, SymbolFor("do"), ListAt(mem, children, 6));
+      node = MakeList(mem, 4, SymbolFor("if"), condition, consequent, alternative);
     } else {
-      consequent = MakePair(mem, SymbolFor("do"), consequent);
+      node = ListAppend(mem, children, nil);
     }
-    Val alternative = nil;
-    if (ListLength(mem, children) > 8) {
-      alternative = ListAt(mem, children, 8);
-      if (ListLength(mem, alternative) == 1) {
-        alternative = Head(mem, alternative);
-      } else {
-        alternative = MakePair(mem, SymbolFor("do"), alternative);
-      }
-    }
-    node = MakeList(mem, 4, SymbolFor("if"), condition, consequent, alternative);
     break;
-  }
 
   case ParseSymCond_block:
     node = MakePair(mem, SymbolFor("cond"), ListAt(mem, children, 2));
     break;
 
   case ParseSymClauses:
-    node = ListAppend(mem, Head(mem, children),
-                              Tail(mem, children));
+    node = ListConcat(mem, Head(mem, children), Tail(mem, children));
     break;
 
-  case ParseSymClause:
-    node = MakePair(mem, ListAt(mem, children, 0),
-                            ListAt(mem, children, 2));
+  case ParseSymClause: {
+    Val condition = ListAt(mem, children, 0);
+    if (IsNil(Tail(mem, condition))) condition = Head(mem, condition);
+    Val consequent = ListAt(mem, children, 3);
+    if (IsNil(Tail(mem, consequent))) consequent = Head(mem, consequent);
+    node = MakeList(mem, 2, condition, consequent);
     break;
+  }
 
   case ParseSymGroup:
     node = ListAt(mem, children, 1);
+    if (IsPair(Head(mem, node)) && IsInfix(Head(mem, Head(mem, node)))) {
+      node = Head(mem, node);
+    }
     break;
 
   case ParseSymList:
-    node = MakePair(mem, MakeSymbol(mem, "list"), ListAt(mem, children, 1));
+    if (IsNil(ListAt(mem, children, 2))) {
+      node = MakePair(mem, MakeSymbol(mem, "__list"), ListAt(mem, children, 1));
+    } else if (ListLength(mem, ListAt(mem, children, 1)) == 1) {
+      node = MakeList(mem, 3, MakeSymbol(mem, "__pair"),
+                              Head(mem, ListAt(mem, children, 1)),
+                              ListAt(mem, children, 2));
+    } else {
+      node = MakeList(mem, 3, MakeSymbol(mem, "concat"),
+                              MakePair(mem, MakeSymbol(mem, "__list"), ListAt(mem, children, 1)),
+                              ListAt(mem, children, 2));
+    }
     break;
 
   case ParseSymItems:
-    if (ListLength(mem, children) > 1) {
-      node = ListAppend(mem, Head(mem, children), MakePair(mem, ListAt(mem, children, 1), nil));
-    } else {
+    if (IsNil(Tail(mem, children))) {
       node = nil;
+    } else {
+      node = ListAppend(mem, ListAt(mem, children, 0), ListAt(mem, children, 1));
     }
     break;
 
   case ParseSymEntries:
-    if (ListLength(mem, children) > 1) {
-      node = ListAppend(mem, Head(mem, children), ListAt(mem, children, 1));
-    } else {
+    if (IsNil(Tail(mem, children))) {
       node = nil;
+    } else {
+      node = ListConcat(mem, Head(mem, children), ListAt(mem, children, 1));
     }
     break;
 
   case ParseSymTuple:
-    node = MakePair(mem, MakeSymbol(mem, "tuple"), ListAt(mem, children, 1));
+    node = MakePair(mem, MakeSymbol(mem, "__tuple"), ListAt(mem, children, 1));
     break;
 
-  case ParseSymDict: {
-    node = MakePair(mem, MakeSymbol(mem, "dict"), ListAt(mem, children, 1));
+  case ParseSymDict:
+    node = MakePair(mem, MakeSymbol(mem, "__dict"), ListAt(mem, children, 1));
+    if (!IsNil(ListAt(mem, children, 2))) {
+      node = MakeList(mem, 3, MakeSymbol(mem, "__dict-merge"),
+                              ListAt(mem, children, 2),
+                              node);
+    }
+    break;
+
+  case ParseSymEntry:
+    node = MakeList(mem, 2, MakeList(mem, 2, MakeSymbol(mem, "__quote"), Head(mem, children)),
+                            ListAt(mem, children, 3));
+    break;
+
+  case ParseSymUpdate:
+    node = ListAt(mem, children, 2);
+    break;
+
+  case ParseSymNl:
+    node = nil;
     break;
   }
 
-  case ParseSymEntry: {
-    Val key = ListAt(mem, children, 0);
-    key = MakeList(mem, 2, MakeSymbol(mem, "quote"), key);
-    node = MakeList(mem, 2, key, ListAt(mem, children, 3));
-    break;
-  }
-  }
-
-#ifdef DEBUG_ABSTRACT
+#ifdef DEBUG_AST
   Print(GrammarSymbolName(sym));
   Print(": ");
   PrintVal(mem, children);

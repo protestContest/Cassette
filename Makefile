@@ -1,6 +1,7 @@
 NAME = rye
 BUILD_DIR := build
 SRC_DIR := src
+LIB_DIR := lib
 DIST_DIR := dist
 PREFIX := $(HOME)/.local
 TARGET = $(DIST_DIR)/$(NAME)
@@ -11,7 +12,7 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 CC = clang
 INCLUDE_FLAGS = -isystem $(PREFIX)/include -include univ/base.h
 CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS)
-LDFLAGS = -L$(PREFIX)/lib -lbase
+LDFLAGS = -L$(PREFIX)/lib -L$(LIB_DIR) -lbase
 
 $(TARGET): $(OBJS)
 	mkdir -p $(dir $@)

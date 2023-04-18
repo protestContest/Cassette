@@ -92,7 +92,13 @@ Val ReverseOnto(Mem *mem, Val list, Val tail)
   return ReverseOnto(mem, Tail(mem, list), MakePair(mem, Head(mem, list), tail));
 }
 
-Val ListAppend(Mem *mem, Val list1, Val list2)
+Val ListAppend(Mem *mem, Val list, Val value)
+{
+  list = ReverseOnto(mem, list, nil);
+  return ReverseOnto(mem, MakePair(mem, value, list), nil);
+}
+
+Val ListConcat(Mem *mem, Val list1, Val list2)
 {
   list1 = ReverseOnto(mem, list1, nil);
   return ReverseOnto(mem, list1, list2);
@@ -305,6 +311,11 @@ Val MakeBinaryFrom(Mem *mem, char *str, u32 length)
   return binary;
 }
 
+Val MakeBinary(Mem *mem, char *str)
+{
+  return MakeBinaryFrom(mem, str, StrLen(str));
+}
+
 u32 BinaryLength(Mem *mem, Val binary)
 {
   Assert(IsBinary(mem, binary));
@@ -352,7 +363,7 @@ void PrintVal(Mem *mem, Val value)
     char *str = SymbolName(mem, value);
     Print(str);
   } else if (IsPair(value)) {
-    if (IsTagged(mem, value, SymbolFor("proc"))) {
+    if (IsTagged(mem, value, SymbolFor("__procedure"))) {
       Print("[λ");
       Val params = ListAt(mem, value, 1);
       while (!IsNil(params)) {
@@ -370,7 +381,7 @@ void PrintVal(Mem *mem, Val value)
     for (u32 i = 0; i < TupleLength(mem, value); i++) {
       PrintVal(mem, TupleAt(mem, value, i));
       if (i != TupleLength(mem, value) - 1) {
-        Print(" ");
+        Print(", ");
       }
     }
     Print("]");
@@ -389,7 +400,7 @@ void PrintVal(Mem *mem, Val value)
       }
       PrintVal(mem, TupleAt(mem, vals, i));
       if (i != DictSize(mem, value) - 1) {
-        Print(" ");
+        Print(", ");
       }
     }
     Print("}");

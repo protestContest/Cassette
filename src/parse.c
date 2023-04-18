@@ -132,7 +132,11 @@ Val Parse(char *src, Mem *mem)
 {
   Parser p;
   InitParser(&p, src, mem);
-  return ParseNext(&p, NextToken(&p.lex));
+  Val ast = ParseNext(&p, NextToken(&p.lex));
+#ifdef DEBUG_PARSE
+  PrintAST(ast, mem);
+#endif
+  return ast;
 }
 
 char *GrammarSymbolName(u32 sym)

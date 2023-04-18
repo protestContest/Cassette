@@ -4,7 +4,6 @@
 
 Val InitialEnv(Mem *mem)
 {
-  MakeSymbol(mem, "primitive");
   MakeSymbol(mem, "ok");
   MakeSymbol(mem, "error");
   Val env = ExtendEnv(nil, mem);
@@ -74,4 +73,9 @@ void PrintEnv(Val env, Mem *mem)
 
     env = Tail(mem, env);
   }
+}
+
+Val MakeProcedure(Val params, Val body, Val env, Mem *mem)
+{
+  return MakeList(mem, 4, MakeSymbol(mem, "__procedure"), params, body, env);
 }

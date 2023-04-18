@@ -19,7 +19,8 @@ u32 ListLength(Mem *mem, Val list);
 Val ListAt(Mem *mem, Val list, u32 index);
 Val ListFrom(Mem *mem, Val list, u32 index);
 Val ReverseOnto(Mem *mem, Val list, Val tail);
-Val ListAppend(Mem *mem, Val list1, Val list2);
+Val ListAppend(Mem *mem, Val list, Val value);
+Val ListConcat(Mem *mem, Val list1, Val list2);
 bool IsTagged(Mem *mem, Val list, Val tag);
 
 bool IsTuple(Mem *mem, Val tuple);
@@ -44,6 +45,7 @@ char *SymbolName(Mem *mem, Val symbol);
 
 bool IsBinary(Mem *mem, Val binary);
 Val MakeBinaryFrom(Mem *mem, char *str, u32 length);
+Val MakeBinary(Mem *mem, char *str);
 u32 BinaryLength(Mem *mem, Val binary);
 u8 *BinaryData(Mem *mem, Val binary);
 

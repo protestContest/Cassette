@@ -2,32 +2,37 @@
 #include "interpret.h"
 #include "mem.h"
 #include "ast.h"
+#include "env.h"
+#include <stdio.h>
+
+void REPL(Mem *mem)
+{
+  Val env = InitialEnv(mem);
+  char src[1024];
+
+  while (true) {
+    Print("> ");
+    fgets(src, 1024, stdin);
+    if (feof(stdin)) break;
+
+    Val ast = Parse(src, mem);
+    PrintVal(mem, Eval(ast, env, mem));
+    Print("\n");
+  }
+}
 
 int main(int argc, char *argv[])
 {
-  char *src;
-  // src = "foo (1 + x) * 3 bar";
-  // src = "4.1 * (1 + 2)\n3 - 2\n";
-  // src = "(a b) -> (a - b) 1 4";
-  src = ReadFile("test.rye");
+  Mem mem;
+  InitMem(&mem);
+
+  char *src = ReadFile("test.rye");
   if (!src) {
     Print("Could not open file");
     Exit();
   }
 
-  // Print("Source: ");
-  // Print(src);
-  // Print("\n");
-
-  Mem mem;
-  InitMem(&mem);
   Val ast = Parse(src, &mem);
-
-  Print("AST:\n");
   PrintAST(ast, &mem);
-  Print("\n");
-
-  Val result = Interpret(ast, &mem);
-  PrintVal(&mem, result);
-  Print("\n");
+  Interpret(ast, &mem);
 }
