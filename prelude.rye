@@ -1,11 +1,4 @@
-def pair __pair
-def concat __concat
-def dict-merge __dict-merge
-def list __list
-def tuple __tuple
-def dict __dict
-
-def (identity x do x) end
+def (identity x) do x end
 
 def (reverse-onto list rest) do
   if list == nil do
@@ -23,7 +16,7 @@ def (append list1 list2) do
   reverse-onto (reverse list1) list2
 end
 
-def (prepend list1 list2 do append list2 list1) end
+def (prepend list1 list2) do append list2 list1 end
 
 def (reduce list acc fn) do
   if list == nil do

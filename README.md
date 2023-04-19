@@ -47,7 +47,17 @@ end
 See [grammar.txt](https://git.sr.ht/~zjm/Rye/tree/master/item/grammar.txt) for
 details on the syntax.
 
-## Building
+## Getting Started
 
-Use `make` to build this project. This project uses the `univ` library, which is
-included for convenience, and can be found [here](https://git.sr.ht/~zjm/univ).
+You can build this project with `make`:
+
+```
+$ git clone https://git.sr.ht/~zjm/Rye
+Cloning into 'Rye'...
+
+$ cd Rye/
+$ make
+...
+
+$ dist/rye test.rye
+```

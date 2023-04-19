@@ -3,7 +3,7 @@
 #include "primitives.h"
 #include "env.h"
 
-#define DEBUG_EVAL
+// #define DEBUG_EVAL
 
 Val ApplyPrimitive(Val proc, Val args, Mem *mem);
 Val EvalAccess(Val exp, Val env, Mem *mem);
@@ -60,7 +60,7 @@ Val Eval(Val exp, Val env, Mem *mem)
     result = Lookup(exp, env, mem);
   } else if (IsTagged(mem, exp, SymbolFor("->"))) {
     result = EvalLambda(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("__keyword_quote"))) {
+  } else if (IsTagged(mem, exp, SymbolFor(":"))) {
     result = ListAt(mem, exp, 1);
   } else if (IsTagged(mem, exp, SymbolFor("do"))) {
     result = EvalBlock(exp, env, mem);

@@ -6,7 +6,7 @@
 #include "ast.h"
 #include <stdlib.h>
 
-#define DEBUG_PARSE
+// #define DEBUG_PARSE
 
 static Val MakeNode(u32 parse_symbol, Val children, Mem *mem)
 {

@@ -26,13 +26,9 @@ int main(int argc, char *argv[])
   Mem mem;
   InitMem(&mem);
 
-  char *src = ReadFile("test.rye");
-  if (!src) {
-    Print("Could not open file");
-    Exit();
+  if (argc > 1) {
+    RunFile(argv[1], &mem);
+  } else {
+    REPL(&mem);
   }
-
-  Val ast = Parse(src, &mem);
-  PrintAST(ast, &mem);
-  Interpret(ast, &mem);
 }

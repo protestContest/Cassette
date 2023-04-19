@@ -1,7 +1,7 @@
 #include "ast.h"
 #include "parse_syms.h"
 
-#define DEBUG_AST
+// #define DEBUG_AST
 
 static bool IsInfix(Val sym)
 {
@@ -106,6 +106,7 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
   case ParseSymArg:
   case ParseSymPrimary:
   case ParseSymBlock:
+  case ParseSymLiteral:
     if (IsNil(Tail(mem, children))) {
       node = Head(mem, children);
     }
@@ -118,7 +119,7 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
     break;
 
   case ParseSymSymbol:
-    node = MakeList(mem, 2, MakeSymbol(mem, "__quote"), ListAt(mem, children, 1));
+    node = MakeList(mem, 2, MakeSymbol(mem, ":"), ListAt(mem, children, 1));
     break;
 
   case ParseSymDo_block:
@@ -162,14 +163,14 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
 
   case ParseSymList:
     if (IsNil(ListAt(mem, children, 2))) {
-      node = MakePair(mem, MakeSymbol(mem, "__list"), ListAt(mem, children, 1));
+      node = MakePair(mem, MakeSymbol(mem, "["), ListAt(mem, children, 1));
     } else if (ListLength(mem, ListAt(mem, children, 1)) == 1) {
-      node = MakeList(mem, 3, MakeSymbol(mem, "__pair"),
+      node = MakeList(mem, 3, MakeSymbol(mem, "|"),
                               Head(mem, ListAt(mem, children, 1)),
                               ListAt(mem, children, 2));
     } else {
-      node = MakeList(mem, 3, MakeSymbol(mem, "concat"),
-                              MakePair(mem, MakeSymbol(mem, "__list"), ListAt(mem, children, 1)),
+      node = MakeList(mem, 3, MakeSymbol(mem, "[+"),
+                              MakePair(mem, MakeSymbol(mem, "["), ListAt(mem, children, 1)),
                               ListAt(mem, children, 2));
     }
     break;
@@ -191,20 +192,20 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
     break;
 
   case ParseSymTuple:
-    node = MakePair(mem, MakeSymbol(mem, "__tuple"), ListAt(mem, children, 1));
+    node = MakePair(mem, MakeSymbol(mem, "#["), ListAt(mem, children, 1));
     break;
 
   case ParseSymDict:
-    node = MakePair(mem, MakeSymbol(mem, "__dict"), ListAt(mem, children, 1));
+    node = MakePair(mem, MakeSymbol(mem, "{"), ListAt(mem, children, 1));
     if (!IsNil(ListAt(mem, children, 2))) {
-      node = MakeList(mem, 3, MakeSymbol(mem, "__dict-merge"),
+      node = MakeList(mem, 3, MakeSymbol(mem, "{|"),
                               ListAt(mem, children, 2),
                               node);
     }
     break;
 
   case ParseSymEntry:
-    node = MakeList(mem, 2, MakeList(mem, 2, MakeSymbol(mem, "__quote"), Head(mem, children)),
+    node = MakeList(mem, 2, MakeList(mem, 2, MakeSymbol(mem, ":"), Head(mem, children)),
                             ListAt(mem, children, 3));
     break;
 

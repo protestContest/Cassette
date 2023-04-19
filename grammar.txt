@@ -56,6 +56,7 @@ clause        → call "::" nl call NL
 primary       → NUM
 primary       → ID
 primary       → STR
+primary       → literal
 primary       → symbol
 primary       → group
 primary       → list
@@ -64,6 +65,9 @@ primary       → dict
 primary       → access
 access        → access "." ID
 access        → ID "." ID
+literal       → "true"
+literal       → "false"
+literal       → "nil"
 symbol        → ":" ID
 group         → "(" ml_call ")"
 list          → "[" items update "]"

@@ -310,12 +310,12 @@ static Primitive primitives[] = {
   {"or", LogicOp},
   {"==", LogicOp},
   {"!=", LogicOp},
-  {"__pair", PairOp},
-  {"__concat", ConcatOp},
-  {"__dict-merge", DictMergeOp},
-  {"__list", ListOp},
-  {"__tuple", TupleOp},
-  {"__dict", DictOp},
+  {"pair", PairOp},
+  {"[+", ConcatOp},
+  {"{|", DictMergeOp},
+  {"[", ListOp},
+  {"#[", TupleOp},
+  {"{", DictOp},
   {"head", HeadOp},
   {"tail", TailOp},
   {"rem", RemOp},
@@ -362,19 +362,3 @@ void DefinePrimitives(Val env, Mem *mem)
     Define(sym, MakePair(mem, prim, sym), env, mem);
   }
 }
-
-/*
-abs
-apply
-ceil
-floor
-div
-rem
-exit
-length
-max
-min
-not
-round
-to-string
-*/
