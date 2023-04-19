@@ -1,47 +1,169 @@
 %YAML 1.2
 ---
 name: Rye
-file_extensions: [rye]
 scope: source.rye
+file_extensions: [rye]
 variables:
-  symstart: '[^\s\(\)\[\]\{\};:,.<>=+*/|]'
+  symstart: '[^"0-9\s\(\)\[\]\{\};:,.<>=+*/|]'
   symchar: '[^\s\(\)\[\]\{\};:,.]'
+  identifier: '{{symstart}}{{symchar}}*'
 contexts:
   main:
-    - match: ';.*$'
-      scope: comment.line.character.rye
+    - include: stmt
 
-    - match: \b(def|do|cond|if|else|end|with)\b
-      scope: keyword.control.rye
+  stmt:
+    - include: let
+    - include: def
+    - include: arg
 
-    - match: \[
-      scope: punctuation.section.brackets.begin.rye
+  let:
+    - match: \blet\b
+      scope: keyword.declaration.rye
+      push:
+        - match: ',[\r\n]'
+          scope: punctuation.separator.comma.rye
+        - match: '[\r\n]'
+          pop: 1
+        - match: '({{identifier}})\s*(=)'
+          captures:
+            1: meta.binding.name.rye
+            2: keyword.operator.assignment.rye
+        - include: arg
 
-    - match: \]
-      scope: punctuation.section.brackets.end.rye
+  def:
+    - match: \b(def)\s+\(\s*({{identifier}})
+      captures:
+        1: keyword.declaration.function.rye
+        2: entity.name.function.rye
+      push:
+        - meta_scope: meta.function.rye
+        - match: \b{{identifier}}\b
+          scope: variable.parameter.rye
+        - match: '\)\s*(do)\b'
+          captures:
+            1: keyword.control.block.do.rye
+          set: do-body
 
-    - match: ->
+  arg:
+    - include: do-block
+    - include: if-block
+    - include: cond-block
+    - include: primary
+
+  do-block:
+    - match: \bdo\b
+      scope: keyword.control.block.do.rye
+      push: do-body
+
+  do-body:
+    - match: \bend\b
+      scope: keyword.control.block.end.rye
+      pop: true
+    - include: stmt
+
+  if-block:
+    - match: \bif\b
+      scope: keyword.control.conditional.if.rye
+      push:
+        - match: \bdo\b
+          scope: keyword.control.block.do.rye
+        - match: \belse\b
+          scope: keyword.control.conditional.if.rye
+        - match: \bend\b
+          scope: keyword.control.block.end.rye
+          pop: 1
+        - include: stmt
+
+  cond-block:
+    - match: \bcond\b
+      scope: keyword.control.conditional.cond.rye
+      push:
+        - match: \bdo\b
+          scope: keyword.control.block.do.rye
+        - match: \bend\b
+          scope: keyword.control.block.end.rye
+          pop: 1
+        - include: clause
+
+  clause:
+    - match: '::'
       scope: keyword.operator.other.rye
+    - include: arg
 
-    - match: '[-+*/]'
+  primary:
+    - include: group
+    - include: operators
+    - include: number
+    - include: symbol
+    - include: list
+    - include: dict
+    - include: string
+    - include: identifier
+
+  group:
+    - match: '\('
+      scope: punctuation.section.group.begin.rye
+      push:
+        - meta_scope: meta.group.rye
+        - match: '\)'
+          scope: punctuation.section.group.end.rye
+          pop: 1
+        - include: arg
+
+  list:
+    - match: '\['
+      scope: punctuation.section.sequence.begin.rye
+      push:
+        - meta_scope: meta.sequence.rye
+        - match: '\]'
+          scope: punctuation.section.seqence.end.rye
+          pop: 1
+        - match: ','
+          scope: punctuation.separator.comma
+        - include: arg
+
+  dict:
+    - match: '\{'
+      scope: punctuation.section.mapping.begin.rye
+      push:
+        - meta_content_scope: meta.mapping.rye
+        - match: '\}'
+          scope: punctuation.section.mapping.end.rye
+          pop: 1
+        - match: '{{identifier}}'
+          scope: meta.mapping.key.rye
+        - match: ':'
+          scope: punctuation.separator.key-value.rye
+        - match: ','
+          scope: punctuation.separator.comma
+        - include: arg
+
+  operators:
+    - match: ==|!=|<|>|<=|>=|
+      scope: keyword.operator.comparison.rye
+    - match: '\|'
+      scope: keyword.operator.other.rye
+    - match: '[+\-*/]'
       scope: keyword.operator.arithmetic.rye
+    - match: and|or
+      scope: keyword.operator.word.rye
 
-    - match: \b[0-9]+(\.[0-9]+)?
+  number:
+    - match: '[0-9]+(\.[0-9]+)?'
       scope: constant.numeric.value.rye
 
-    - match: :{{symstart}}{{symchar}}*
+  identifier:
+    - match: '{{identifier}}'
+
+  symbol:
+    - match: ':{{identifier}}'
       scope: constant.other.symbol.rye
 
-    - match: \(({{symstart}}{{symchar}}*)
-      captures:
-        1: entity.name.function.rye
-
-    - match: '"'
-      scope: punctuation.definition.string.begin.rye
-      push: string
-
   string:
-    - meta_scope: string.quoted.double.rye
-    - match: '"'
-      scope: punctuation.definition.string.end.rye
-      pop: true
+    - match: '\"'
+      scope: punctuation.definition.string.begin.rye
+      set:
+        - meta_scope: string.quoted.double.rye
+        - match: '"'
+          scope: punctuation.definition.string.end.rye
+          pop: 1

@@ -234,7 +234,9 @@ Token NextToken(Lexer *lexer)
     }
   }
 
-  return IDToken(lexer);
+  if (IsIDChar(c)) return IDToken(lexer);
+
+  return ErrorToken(lexer, "Invalid identifier");
 }
 
 int PrintToken(Token token)
