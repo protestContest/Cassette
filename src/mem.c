@@ -1,11 +1,17 @@
 #include "mem.h"
 #include <stdarg.h>
 
-#define Free(mem)   VecCount(mem->values)
+// #define DEBUG_MEM
 
-void InitMem(Mem *mem)
+#define NextFree(mem)   VecCount(mem->values)
+
+void InitMem(Mem *mem, u32 size)
 {
-  mem->values = NULL;
+  if (size > 0) {
+    mem->values = NewVec(Val, size);
+  } else {
+    mem->values = NULL;
+  }
   VecPush(mem->values, nil);
   VecPush(mem->values, nil);
   InitMap(&mem->symbols);
@@ -13,7 +19,7 @@ void InitMem(Mem *mem)
 
 Val MakePair(Mem *mem, Val head, Val tail)
 {
-  Val pair = PairVal(Free(mem));
+  Val pair = PairVal(NextFree(mem));
 
   VecPush(mem->values, head);
   VecPush(mem->values, tail);
@@ -112,13 +118,14 @@ bool IsTagged(Mem *mem, Val list, Val tag)
 
 bool IsTuple(Mem *mem, Val tuple)
 {
+  if (!IsObj(tuple)) return false;
   u32 index = RawObj(tuple);
   return HeaderType(mem->values[index]) == tupleMask;
 }
 
 Val MakeTuple(Mem *mem, u32 count)
 {
-  Val tuple = ObjVal(Free(mem));
+  Val tuple = ObjVal(NextFree(mem));
   VecPush(mem->values, TupleHeader(count));
 
   for (u32 i = 0; i < count; i++) {
@@ -152,6 +159,7 @@ void TupleSet(Mem *mem, Val tuple, u32 i, Val val)
 
 bool IsDict(Mem *mem, Val dict)
 {
+  if (!IsObj(dict)) return false;
   u32 index = RawObj(dict);
   return HeaderType(mem->values[index]) == dictMask;
 }
@@ -169,7 +177,7 @@ Val DictFrom(Mem *mem, Val keys, Val vals)
   Assert(IsTuple(mem, vals));
 
   u32 size = TupleLength(mem, keys);
-  Val dict = ObjVal(Free(mem));
+  Val dict = ObjVal(NextFree(mem));
   VecPush(mem->values, DictHeader(size));
   VecPush(mem->values, keys);
   VecPush(mem->values, vals);
@@ -291,13 +299,14 @@ char *SymbolName(Mem *mem, Val symbol)
 
 bool IsBinary(Mem *mem, Val binary)
 {
+  if (!IsObj(binary)) return false;
   u32 index = RawObj(binary);
   return HeaderType(mem->values[index]) == binaryMask;
 }
 
 Val MakeBinaryFrom(Mem *mem, char *str, u32 length)
 {
-  Val binary = ObjVal(Free(mem));
+  Val binary = ObjVal(NextFree(mem));
   VecPush(mem->values, BinaryHeader(length));
 
   u32 num_words = (length - 1) / sizeof(Val) + 1;
@@ -424,6 +433,7 @@ void PrintVal(Mem *mem, Val value)
   }
 }
 
+#ifdef DEBUG
 void DebugVal(Mem *mem, Val value)
 {
   if (IsNil(value)) {
@@ -448,7 +458,7 @@ void DebugVal(Mem *mem, Val value)
 
 void PrintMem(Mem *mem)
 {
-  for (u32 i = 0; i < Free(mem); i++) {
+  for (u32 i = 0; i < NextFree(mem); i++) {
     Print("[");
     PrintIntN(i, 4);
     Print("] ");
@@ -456,5 +466,4 @@ void PrintMem(Mem *mem)
     Print("\n");
   }
 }
-
-#undef Free
+#endif

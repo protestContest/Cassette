@@ -47,6 +47,12 @@ Val Lookup(Val var, Val env, Mem *mem)
   return RuntimeError("Unbound variable", var, mem);
 }
 
+Val MakeProcedure(Val params, Val body, Val env, Mem *mem)
+{
+  return MakeList(mem, 4, MakeSymbol(mem, "λ"), params, body, env);
+}
+
+#ifdef DEBUG_EVAL
 void PrintEnv(Val env, Mem *mem)
 {
   if (IsNil(env)) Print("<empty env>");
@@ -74,8 +80,4 @@ void PrintEnv(Val env, Mem *mem)
     env = Tail(mem, env);
   }
 }
-
-Val MakeProcedure(Val params, Val body, Val env, Mem *mem)
-{
-  return MakeList(mem, 4, MakeSymbol(mem, "__procedure"), params, body, env);
-}
+#endif

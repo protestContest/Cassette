@@ -173,7 +173,7 @@ Val CeilOp(Val op, Val args, Mem *mem)
 {
   Val arg = Head(mem, args);
   if (IsInt(arg)) return arg;
-  // if (IsNum(arg)) return NumVal(Ceil(RawNum(arg)));
+  if (IsNum(arg)) return NumVal(Ceil(RawNum(arg)));
   return RuntimeError("Bad argument to ceil", arg, mem);
 }
 
@@ -181,7 +181,7 @@ Val FloorOp(Val op, Val args, Mem *mem)
 {
   Val arg = Head(mem, args);
   if (IsInt(arg)) return arg;
-  // if (IsNum(arg)) return NumVal(Floor(RawNum(arg)));
+  if (IsNum(arg)) return NumVal(Floor(RawNum(arg)));
   return RuntimeError("Bad argument to floor", arg, mem);
 }
 
@@ -356,7 +356,7 @@ Val DoPrimitive(Val op, Val args, Mem *mem)
 
 void DefinePrimitives(Val env, Mem *mem)
 {
-  Val prim = MakeSymbol(mem, "__primitive");
+  Val prim = MakeSymbol(mem, "α");
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
     Val sym = MakeSymbol(mem, primitives[i].name);
     Define(sym, MakePair(mem, prim, sym), env, mem);

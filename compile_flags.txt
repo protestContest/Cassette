@@ -3,8 +3,6 @@
 -Werror
 -Wno-unused-function
 -Wno-unused-parameter
--isystem
-/Users/zack/.local/include/
 -Iinclude
 -include
-univ/base.h
+base.h

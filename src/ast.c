@@ -1,8 +1,6 @@
 #include "ast.h"
 #include "parse_syms.h"
 
-// #define DEBUG_AST
-
 static bool IsInfix(Val sym)
 {
   char *infixes[] = {"+", "-", "*", "/", "<", "<=", ">", ">=", "|", "==", "!=", "and", "or", "->"};
@@ -232,6 +230,7 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
   return node;
 }
 
+#ifdef DEBUG
 static void Indent(u32 level, u32 lines)
 {
   if (level == 0) return;
@@ -295,3 +294,4 @@ void PrintAST(Val ast, Mem *mem)
   if (IsNil(ast)) return;
   PrintASTNode(ast, 0, 0, mem);
 }
+#endif

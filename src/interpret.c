@@ -3,8 +3,6 @@
 #include "primitives.h"
 #include "env.h"
 
-// #define DEBUG_EVAL
-
 Val ApplyPrimitive(Val proc, Val args, Mem *mem);
 Val EvalAccess(Val exp, Val env, Mem *mem);
 Val EvalLambda(Val exp, Val env, Mem *mem);
@@ -22,7 +20,7 @@ void PrintEnv(Val env, Mem *mem);
 Val RunFile(char *filename, Mem *mem)
 {
   char *src;
-  src = ReadFile("test.rye");
+  src = ReadFile(filename);
   if (!src) {
     Print("Could not open file");
     Exit();
@@ -39,7 +37,10 @@ Val Interpret(Val ast, Mem *mem)
   return Eval(ast, env, mem);
 }
 
+#ifdef DEBUG_EVAL
 static u32 indent = 0;
+#endif
+
 Val Eval(Val exp, Val env, Mem *mem)
 {
 #ifdef DEBUG_EVAL
@@ -49,9 +50,9 @@ Val Eval(Val exp, Val env, Mem *mem)
   PrintVal(mem, exp);
   // Print("\nEnv:\n");
   // PrintEnv(env, mem);
+  indent++;
 #endif
 
-  indent++;
   Val result;
 
   if (IsNil(exp) || IsNumeric(exp) || IsObj(exp)) {
@@ -80,9 +81,9 @@ Val Eval(Val exp, Val env, Mem *mem)
     result = EvalApply(exp, env, mem);
   }
 
-  indent--;
 
 #ifdef DEBUG_EVAL
+  indent--;
   for (u32 i = 0; i < indent; i++) Print("  ");
   Print("=> ");
   PrintVal(mem, result);
@@ -103,11 +104,11 @@ Val ListAccess(Val list, Val index, Mem *mem)
 
 Val Apply(Val proc, Val args, Mem *mem)
 {
-  if (IsTagged(mem, proc, SymbolFor("__primitive"))) {
+  if (IsTagged(mem, proc, SymbolFor("α"))) {
     return ApplyPrimitive(proc, args, mem);
   }
 
-  if (!IsTagged(mem, proc, SymbolFor("__procedure"))) {
+  if (!IsTagged(mem, proc, SymbolFor("λ"))) {
     if (ListLength(mem, args) == 1) return ListAccess(proc, Head(mem, args), mem);
     return RuntimeError("Not a procedure", proc, mem);
   }
@@ -155,7 +156,7 @@ Val EvalAccess(Val exp, Val env, Mem *mem)
   Val dict = Eval(ListAt(mem, exp, 1), env, mem);
   Val key = ListAt(mem, exp, 2);
   if (!IsDict(mem, dict)) {
-    return RuntimeError("Cannot access this", dict, mem);
+    return RuntimeError("Can't access this", dict, mem);
   }
 
   return DictGet(mem, dict, key);
@@ -165,7 +166,7 @@ Val EvalLambda(Val exp, Val env, Mem *mem)
 {
   Val params = ListAt(mem, exp, 1);
   Val body = ListAt(mem, exp, 2);
-  return MakeList(mem, 4, MakeSymbol(mem, "__procedure"), params, body, env);
+  return MakeList(mem, 4, MakeSymbol(mem, "λ"), params, body, env);
 }
 
 Val EvalApply(Val exp, Val env, Mem *mem)
@@ -190,6 +191,7 @@ Val EvalApply(Val exp, Val env, Mem *mem)
   }
 
   if (IsBinary(mem, proc) && ListLength(mem, args) == 1) {
+    PrintVal(mem, proc);
     Val index = Head(mem, args);
     if (!IsInt(index)) {
       return RuntimeError("Must access binaries with integers", index, mem);
@@ -289,7 +291,7 @@ Val EvalImport(Val exps, Val env, Mem *mem)
   Val stmts = Tail(mem, ast);
   while (!IsNil(stmts)) {
     Val stmt = Head(mem, stmts);
-    if (IsTagged(mem, stmt, SymbolFor("__keyword_def"))) {
+    if (IsTagged(mem, stmt, SymbolFor("def"))) {
       EvalDefine(stmt, import_env, mem);
     }
     stmts = Tail(mem, stmts);

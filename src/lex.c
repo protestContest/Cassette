@@ -2,7 +2,7 @@
 #include "parse_syms.h"
 #include "mem.h"
 
-bool IsIDChar(char c)
+static bool IsIDChar(char c)
 {
   if (IsWhitespace(c)) return false;
   if (IsNewline(c)) return false;
@@ -28,7 +28,7 @@ bool IsIDChar(char c)
   }
 }
 
-void SkipWhitespace(Lexer *lexer)
+static void SkipWhitespace(Lexer *lexer)
 {
   while (IsWhitespace(LexPeek(lexer, 0))) {
     lexer->pos++;
@@ -47,7 +47,7 @@ void SkipWhitespace(Lexer *lexer)
   }
 }
 
-bool Match(Lexer *lexer, char *expected)
+static bool Match(Lexer *lexer, char *expected)
 {
   u32 i = 0;
   char *c = expected;
@@ -70,23 +70,7 @@ bool Match(Lexer *lexer, char *expected)
   return true;
 }
 
-bool MatchKeyword(Lexer *lexer, char *expected)
-{
-  u32 i = 0;
-  char *c = expected;
-  while (*c != '\0') {
-    if (LexPeek(lexer, i) != *c) return false;
-    i++;
-    c++;
-  }
-
-  if (IsIDChar(LexPeek(lexer, i + 1))) return false;
-
-  lexer->pos += i;
-  return true;
-}
-
-Token MakeToken(u32 type, Lexer *lexer, Val value)
+static Token MakeToken(u32 type, Lexer *lexer, Val value)
 {
   Token token = (Token){
     type,
@@ -99,7 +83,7 @@ Token MakeToken(u32 type, Lexer *lexer, Val value)
   return token;
 }
 
-Token ErrorToken(Lexer *lexer, char *msg)
+static Token ErrorToken(Lexer *lexer, char *msg)
 {
   char *c = msg;
   while (*c != '\0') c++;
@@ -246,22 +230,6 @@ int PrintToken(Token token)
     else PrintN(token.lexeme + i, 1);
   }
   return token.length;
-}
-
-int DebugToken(Token token)
-{
-  if (token.length > 0) {
-    Print("[");
-    PrintInt(token.type);
-    Print("] ");
-    PrintN(token.lexeme, token.length);
-    return 0;
-  } else {
-    Print("[");
-    PrintInt(token.type);
-    Print("] ");
-    return 0;
-  }
 }
 
 void PrintSourceContext(Lexer *lexer, u32 num_lines)

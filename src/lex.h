@@ -43,14 +43,5 @@ typedef struct Lexer {
 
 void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, Mem *mem);
 Token NextToken(Lexer *lexer);
-Token RyeToken(Lexer *lexer);
 int PrintToken(Token token);
-int DebugToken(Token token);
 void PrintSourceContext(Lexer *lexer, u32 num_lines);
-
-Token MakeToken(u32 type, Lexer *lexer, Val value);
-Token ErrorToken(Lexer *lexer, char *msg);
-bool IsIDChar(char c);
-void SkipWhitespace(Lexer *lexer);
-bool Match(Lexer *lexer, char *expected);
-bool MatchKeyword(Lexer *lexer, char *expected);

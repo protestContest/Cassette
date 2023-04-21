@@ -143,4 +143,3 @@ char *GrammarSymbolName(u32 sym)
 {
   return symbol_names[sym];
 }
-

@@ -24,7 +24,7 @@ void REPL(Mem *mem)
 int main(int argc, char *argv[])
 {
   Mem mem;
-  InitMem(&mem);
+  InitMem(&mem, 0);
 
   if (argc > 1) {
     RunFile(argv[1], &mem);

@@ -6,7 +6,7 @@ typedef struct Mem {
   Map symbols;
 } Mem;
 
-void InitMem(Mem *mem);
+void InitMem(Mem *mem, u32 size);
 
 Val MakePair(Mem *mem, Val head, Val tail);
 Val Head(Mem *mem, Val pair);
