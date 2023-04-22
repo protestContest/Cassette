@@ -3,11 +3,12 @@
 #include "mem.h"
 #include "ast.h"
 #include "env.h"
-#include <stdio.h>
+#include "vm.h"
 
 void REPL(Mem *mem)
 {
   Val env = InitialEnv(mem);
+  VM vm = {mem, NULL, env};
   char src[1024];
 
   while (true) {
@@ -16,7 +17,7 @@ void REPL(Mem *mem)
     if (feof(stdin)) break;
 
     Val ast = Parse(src, mem);
-    PrintVal(mem, Eval(ast, env, mem));
+    PrintVal(mem, Eval(ast, &vm));
     Print("\n");
   }
 }

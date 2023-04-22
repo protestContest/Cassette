@@ -3,17 +3,17 @@
 #include "primitives.h"
 #include "env.h"
 
-Val ApplyPrimitive(Val proc, Val args, Mem *mem);
-Val EvalAccess(Val exp, Val env, Mem *mem);
-Val EvalLambda(Val exp, Val env, Mem *mem);
-Val EvalApply(Val exp, Val env, Mem *mem);
-Val EvalEach(Val exps, Val env, Mem *mem);
-Val EvalBlock(Val exps, Val env, Mem *mem);
-Val EvalDefine(Val exps, Val env, Mem *mem);
-Val EvalLet(Val exps, Val env, Mem *mem);
-Val EvalIf(Val exps, Val env, Mem *mem);
-Val EvalCond(Val exps, Val env, Mem *mem);
-Val EvalImport(Val exps, Val env, Mem *mem);
+Val ApplyPrimitive(Val proc, Val args, VM *vm);
+Val EvalAccess(Val exp, VM *vm);
+Val EvalLambda(Val exp, VM *vm);
+Val EvalApply(Val exp, VM *vm);
+Val EvalEach(Val exps, VM *vm);
+Val EvalBlock(Val exps, VM *vm);
+Val EvalDefine(Val exps, VM *vm);
+Val EvalLet(Val exps, VM *vm);
+Val EvalIf(Val exps, VM *vm);
+Val EvalCond(Val exps, VM *vm);
+Val EvalImport(Val exps, VM *vm);
 Val RuntimeError(char *message, Val exp, Mem *mem);
 void PrintEnv(Val env, Mem *mem);
 
@@ -27,21 +27,22 @@ Val RunFile(char *filename, Mem *mem)
   }
 
   Val ast = Parse(src, mem);
-  return Interpret(ast, mem);
+  VM vm = {mem, NULL, nil};
+  return Interpret(ast, &vm);
 }
 
-Val Interpret(Val ast, Mem *mem)
+Val Interpret(Val ast, VM *vm)
 {
   if (IsNil(ast)) return nil;
-  Val env = InitialEnv(mem);
-  return Eval(ast, env, mem);
+  vm->env = InitialEnv(vm->mem);
+  return Eval(ast, vm);
 }
 
 #ifdef DEBUG_EVAL
 static u32 indent = 0;
 #endif
 
-Val Eval(Val exp, Val env, Mem *mem)
+Val Eval(Val exp, VM *vm)
 {
 #ifdef DEBUG_EVAL
   Print("\n");
@@ -58,27 +59,27 @@ Val Eval(Val exp, Val env, Mem *mem)
   if (IsNil(exp) || IsNumeric(exp) || IsObj(exp)) {
     result = exp;
   } else if (IsSym(exp)) {
-    result = Lookup(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("->"))) {
-    result = EvalLambda(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor(":"))) {
-    result = ListAt(mem, exp, 1);
-  } else if (IsTagged(mem, exp, SymbolFor("do"))) {
-    result = EvalBlock(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("def"))) {
-    result = EvalDefine(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("let"))) {
-    result = EvalLet(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("if"))) {
-    result = EvalIf(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("cond"))) {
-    result = EvalCond(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("."))) {
-    result = EvalAccess(exp, env, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("import"))) {
-    result = EvalImport(exp, env, mem);
+    result = Lookup(exp, vm->env, vm->mem);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("->"))) {
+    result = EvalLambda(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor(":"))) {
+    result = ListAt(vm->mem, exp, 1);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("do"))) {
+    result = EvalBlock(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("def"))) {
+    result = EvalDefine(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("let"))) {
+    result = EvalLet(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("if"))) {
+    result = EvalIf(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("cond"))) {
+    result = EvalCond(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("."))) {
+    result = EvalAccess(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("import"))) {
+    result = EvalImport(exp, vm);
   } else {
-    result = EvalApply(exp, env, mem);
+    result = EvalApply(exp, vm);
   }
 
 
@@ -102,15 +103,15 @@ Val ListAccess(Val list, Val index, Mem *mem)
   return ListAt(mem, list, RawInt(index));
 }
 
-Val Apply(Val proc, Val args, Mem *mem)
+Val Apply(Val proc, Val args, VM *vm)
 {
-  if (IsTagged(mem, proc, SymbolFor("α"))) {
-    return ApplyPrimitive(proc, args, mem);
+  if (IsTagged(vm->mem, proc, SymbolFor("α"))) {
+    return ApplyPrimitive(proc, args, vm);
   }
 
-  if (!IsTagged(mem, proc, SymbolFor("λ"))) {
-    if (ListLength(mem, args) == 1) return ListAccess(proc, Head(mem, args), mem);
-    return RuntimeError("Not a procedure", proc, mem);
+  if (!IsTagged(vm->mem, proc, SymbolFor("λ"))) {
+    if (ListLength(vm->mem, args) == 1) return ListAccess(proc, Head(vm->mem, args), vm->mem);
+    return RuntimeError("Not a procedure", proc, vm->mem);
   }
 
 #ifdef DEBUG_EVAL
@@ -121,191 +122,201 @@ Val Apply(Val proc, Val args, Mem *mem)
   Print("\n");
 #endif
 
-  Val params = ListAt(mem, proc, 1);
-  Val body = ListAt(mem, proc, 2);
-  Val env = ExtendEnv(ListAt(mem, proc, 3), mem);
+  Val params = ListAt(vm->mem, proc, 1);
+  Val body = ListAt(vm->mem, proc, 2);
+  Val env = ExtendEnv(ListAt(vm->mem, proc, 3), vm->mem);
 
   if (IsSym(params)) {
-    Define(params, args, env, mem);
+    Define(params, args, env, vm->mem);
   } else {
     while (!IsNil(args)) {
       if (IsNil(params)) {
-        return RuntimeError("Too many arguments", args, mem);
+        return RuntimeError("Too many arguments", args, vm->mem);
       }
-      Define(Head(mem, params), Head(mem, args), env, mem);
-      params = Tail(mem, params);
-      args = Tail(mem, args);
+      Define(Head(vm->mem, params), Head(vm->mem, args), env, vm->mem);
+      params = Tail(vm->mem, params);
+      args = Tail(vm->mem, args);
     }
 
     if (!IsNil(params)) {
-      return MakeProcedure(params, body , env, mem);
+      return MakeProcedure(params, body , env, vm->mem);
     }
   }
 
-  return Eval(body, env, mem);
+  VecPush(vm->stack, vm->env);
+  vm->env = env;
+
+  Val result = Eval(body, vm);
+
+  vm->env = VecPop(vm->stack, nil);
+
+  return result;
 }
 
-Val ApplyPrimitive(Val proc, Val args, Mem *mem)
+Val ApplyPrimitive(Val proc, Val args, VM *vm)
 {
-  Val op = Tail(mem, proc);
-  return DoPrimitive(op, args, mem);
+  Val op = Tail(vm->mem, proc);
+  return DoPrimitive(op, args, vm);
 }
 
-Val EvalAccess(Val exp, Val env, Mem *mem)
+Val EvalAccess(Val exp, VM *vm)
 {
-  Val dict = Eval(ListAt(mem, exp, 1), env, mem);
-  Val key = ListAt(mem, exp, 2);
-  if (!IsDict(mem, dict)) {
-    return RuntimeError("Can't access this", dict, mem);
+  Val dict = Eval(ListAt(vm->mem, exp, 1), vm);
+  Val key = ListAt(vm->mem, exp, 2);
+  if (!IsDict(vm->mem, dict)) {
+    return RuntimeError("Can't access this", dict, vm->mem);
   }
 
-  return DictGet(mem, dict, key);
+  return DictGet(vm->mem, dict, key);
 }
 
-Val EvalLambda(Val exp, Val env, Mem *mem)
+Val EvalLambda(Val exp, VM *vm)
 {
-  Val params = ListAt(mem, exp, 1);
-  Val body = ListAt(mem, exp, 2);
-  return MakeList(mem, 4, MakeSymbol(mem, "λ"), params, body, env);
+  Val params = ListAt(vm->mem, exp, 1);
+  Val body = ListAt(vm->mem, exp, 2);
+  return MakeList(vm->mem, 4, MakeSymbol(vm->mem, "λ"), params, body, vm->env);
 }
 
-Val EvalApply(Val exp, Val env, Mem *mem)
+Val EvalApply(Val exp, VM *vm)
 {
-  Val proc = Eval(Head(mem, exp), env, mem);
-  Val args = EvalEach(Tail(mem, exp), env, mem);
+  Val proc = Eval(Head(vm->mem, exp), vm);
+  Val args = EvalEach(Tail(vm->mem, exp), vm);
 
   if (IsNumeric(proc) && IsNil(args)) {
     return proc;
   }
 
-  if (IsDict(mem, proc) && ListLength(mem, args) == 1) {
-    return DictGet(mem, proc, Head(mem, args));
+  if (IsDict(vm->mem, proc) && ListLength(vm->mem, args) == 1) {
+    return DictGet(vm->mem, proc, Head(vm->mem, args));
   }
 
-  if (IsTuple(mem, proc) && ListLength(mem, args) == 1) {
-    Val index = Head(mem, args);
+  if (IsTuple(vm->mem, proc) && ListLength(vm->mem, args) == 1) {
+    Val index = Head(vm->mem, args);
     if (!IsInt(index)) {
-      return RuntimeError("Must access tuples with integers", index, mem);
+      return RuntimeError("Must access tuples with integers", index, vm->mem);
     }
-    return TupleAt(mem, proc, RawInt(index));
+    return TupleAt(vm->mem, proc, RawInt(index));
   }
 
-  if (IsBinary(mem, proc) && ListLength(mem, args) == 1) {
-    PrintVal(mem, proc);
-    Val index = Head(mem, args);
+  if (IsBinary(vm->mem, proc) && ListLength(vm->mem, args) == 1) {
+    PrintVal(vm->mem, proc);
+    Val index = Head(vm->mem, args);
     if (!IsInt(index)) {
-      return RuntimeError("Must access binaries with integers", index, mem);
+      return RuntimeError("Must access binaries with integers", index, vm->mem);
     }
-    return IntVal(BinaryData(mem, proc)[RawInt(index)]);
+    return IntVal(BinaryData(vm->mem, proc)[RawInt(index)]);
   }
 
-  return Apply(proc, args, mem);
+  return Apply(proc, args, vm);
 }
 
-Val EvalEach(Val exps, Val env, Mem *mem)
+Val EvalEach(Val exps, VM *vm)
 {
   Val vals = nil;
   while (!IsNil(exps)) {
-    Val val = Eval(Head(mem, exps), env, mem);
-    vals = MakePair(mem, val, vals);
-    exps = Tail(mem, exps);
+    Val val = Eval(Head(vm->mem, exps), vm);
+    vals = MakePair(vm->mem, val, vals);
+    exps = Tail(vm->mem, exps);
   }
-  return ReverseOnto(mem, vals, nil);
+  return ReverseOnto(vm->mem, vals, nil);
 }
 
-Val EvalBlock(Val exps, Val env, Mem *mem)
+Val EvalBlock(Val exps, VM *vm)
 {
-  Val block = Tail(mem, exps);
+  Val block = Tail(vm->mem, exps);
   Val result = nil;
   while (!IsNil(block)) {
-    result = Eval(Head(mem, block), env, mem);
-    block = Tail(mem, block);
+    result = Eval(Head(vm->mem, block), vm);
+    block = Tail(vm->mem, block);
   }
   return result;
 }
 
-Val EvalDefine(Val exp, Val env, Mem *mem)
+Val EvalDefine(Val exp, VM *vm)
 {
-  Val var = ListAt(mem, exp, 1);
-  Val val = Eval(ListAt(mem, exp, 2), env, mem);
-  Define(var, val, env, mem);
+  Val var = ListAt(vm->mem, exp, 1);
+  Val val = Eval(ListAt(vm->mem, exp, 2), vm);
+  Define(var, val, vm->env, vm->mem);
   return SymbolFor("ok");
 }
 
-Val EvalLet(Val exps, Val env, Mem *mem)
+Val EvalLet(Val exps, VM *vm)
 {
-  Val pairs = Tail(mem, exps);
+  Val pairs = Tail(vm->mem, exps);
   Val val;
   while (!IsNil(pairs)) {
-    Val var = Head(mem, pairs);
-    pairs = Tail(mem, pairs);
-    val = Eval(Head(mem, pairs), env, mem);
-    pairs = Tail(mem, pairs);
-    Define(var, val, env, mem);
+    Val var = Head(vm->mem, pairs);
+    pairs = Tail(vm->mem, pairs);
+    val = Eval(Head(vm->mem, pairs), vm);
+    pairs = Tail(vm->mem, pairs);
+    Define(var, val, vm->env, vm->mem);
   }
   return SymbolFor("ok");
 }
 
-Val EvalIf(Val exps, Val env, Mem *mem)
+Val EvalIf(Val exps, VM *vm)
 {
-  Val condition = ListAt(mem, exps, 1);
-  Val consequent = ListAt(mem, exps, 2);
-  Val alternative = ListAt(mem, exps, 3);
+  Val condition = ListAt(vm->mem, exps, 1);
+  Val consequent = ListAt(vm->mem, exps, 2);
+  Val alternative = ListAt(vm->mem, exps, 3);
 
-  Val test = Eval(condition, env, mem);
+  Val test = Eval(condition, vm);
   if (IsTrue(test)) {
-    return Eval(consequent, env, mem);
+    return Eval(consequent, vm);
   } else {
-    return Eval(alternative, env, mem);
+    return Eval(alternative, vm);
   }
 }
 
-Val EvalCond(Val exps, Val env, Mem *mem)
+Val EvalCond(Val exps, VM *vm)
 {
-  Val clauses = Tail(mem, exps);
+  Val clauses = Tail(vm->mem, exps);
   while (!IsNil(clauses)) {
-    Val clause = Head(mem, clauses);
-    Val test = Eval(Head(mem, clause), env, mem);
+    Val clause = Head(vm->mem, clauses);
+    Val test = Eval(Head(vm->mem, clause), vm);
     if (IsTrue(test)) {
-      return Eval(Tail(mem, clause), env, mem);
+      return Eval(Tail(vm->mem, clause), vm);
     }
-    clauses = Tail(mem, clauses);
+    clauses = Tail(vm->mem, clauses);
   }
 
-  return RuntimeError("Unmatched cond", clauses, mem);
+  return RuntimeError("Unmatched cond", clauses, vm->mem);
 }
 
-Val EvalImport(Val exps, Val env, Mem *mem)
+Val EvalImport(Val exps, VM *vm)
 {
-  Val file_arg = ListAt(mem, exps, 1);
-  Val name_arg = ListAt(mem, exps, 2);
+  Val file_arg = ListAt(vm->mem, exps, 1);
+  Val name_arg = ListAt(vm->mem, exps, 2);
 
-  char *filename = (char*)BinaryData(mem, file_arg);
+  char *filename = (char*)BinaryData(vm->mem, file_arg);
   char *src = ReadFile(filename);
   if (!filename) {
-    return RuntimeError("Could not open", file_arg, mem);
+    return RuntimeError("Could not open", file_arg, vm->mem);
   }
-  Val ast = Parse(src, mem);
-  Val import_env = ExtendEnv(TopEnv(mem, env), mem);
+  Val ast = Parse(src, vm->mem);
+  Val import_env = ExtendEnv(TopEnv(vm->mem, vm->env), vm->mem);
 
-  Val stmts = Tail(mem, ast);
+  Val old_env = vm->env;
+  Val stmts = Tail(vm->mem, ast);
   while (!IsNil(stmts)) {
-    Val stmt = Head(mem, stmts);
-    if (IsTagged(mem, stmt, SymbolFor("def"))) {
-      EvalDefine(stmt, import_env, mem);
+    Val stmt = Head(vm->mem, stmts);
+    if (IsTagged(vm->mem, stmt, SymbolFor("def"))) {
+      vm->env = import_env;
+      EvalDefine(stmt, vm);
     }
-    stmts = Tail(mem, stmts);
+    stmts = Tail(vm->mem, stmts);
   }
+  vm->env = old_env;
 
-  Val frame = Head(mem, import_env);
+  Val frame = Head(vm->mem, import_env);
   if (IsNil(name_arg)) {
-    Val keys = DictKeys(mem, frame);
-    Val vals = DictValues(mem, frame);
-    for (u32 i = 0; i < DictSize(mem, frame); i++) {
-      Define(TupleAt(mem, keys, i), TupleAt(mem, vals, i), env, mem);
+    Val keys = DictKeys(vm->mem, frame);
+    Val vals = DictValues(vm->mem, frame);
+    for (u32 i = 0; i < DictSize(vm->mem, frame); i++) {
+      Define(TupleAt(vm->mem, keys, i), TupleAt(vm->mem, vals, i), vm->env, vm->mem);
     }
   } else {
-    Define(name_arg, frame, env, mem);
+    Define(name_arg, frame, vm->env, vm->mem);
   }
 
   return SymbolFor("ok");
