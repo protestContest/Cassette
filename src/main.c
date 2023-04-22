@@ -1,14 +1,13 @@
-#include "parse.h"
-#include "interpret.h"
-#include "mem.h"
-#include "ast.h"
-#include "env.h"
 #include "vm.h"
+#include "parse.h"
+#include "eval.h"
+#include <univ/window.h>
 
 void REPL(Mem *mem)
 {
-  Val env = InitialEnv(mem);
-  VM vm = {mem, NULL, env};
+  VM vm;
+  InitVM(&vm, mem);
+
   char src[1024];
 
   while (true) {
@@ -19,6 +18,8 @@ void REPL(Mem *mem)
     Val ast = Parse(src, mem);
     PrintVal(mem, Eval(ast, &vm));
     Print("\n");
+
+    HandleEvents();
   }
 }
 

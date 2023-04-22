@@ -1,7 +1,7 @@
 #include "primitives.h"
 #include "env.h"
-#include "interpret.h"
 #include "value.h"
+#include "port.h"
 
 typedef Val (*PrimitiveFn)(Val op, Val args, VM *vm);
 
@@ -128,12 +128,15 @@ Val DictOp(Val op, Val args, VM *vm)
 Val PrintOp(Val op, Val args, VM *vm)
 {
   while (!IsNil(args)) {
-    PrintVal(vm->mem, Head(vm->mem, args));
+    Val message = Head(vm->mem, args);
+    if (!ValToString(vm->mem, message, output)) {
+      return RuntimeError("Could not print", message, vm->mem);
+    }
     args = Tail(vm->mem, args);
-    if (!IsNil(args)) Print(" ");
   }
   Print("\n");
-  return nil;
+
+  return SymbolFor("ok");
 }
 
 Val TypeOp(Val op, Val args, VM *vm)
@@ -296,6 +299,22 @@ Val ToStringOp(Val op, Val args, VM *vm)
   return RuntimeError("Not string representable", arg, vm->mem);
 }
 
+Val OpenOp(Val op, Val args, VM *vm)
+{
+  Val type = ListAt(vm->mem, args, 0);
+  Val name = ListAt(vm->mem, args, 1);
+  Val opts = ListAt(vm->mem, args, 2);
+
+  return OpenPort(vm, type, name, opts);
+}
+
+Val SendOp(Val op, Val args, VM *vm)
+{
+  Val port = ListAt(vm->mem, args, 0);
+  Val message = ListAt(vm->mem, args, 1);
+  return SendPort(vm, port, message);
+}
+
 static Primitive primitives[] = {
   {"*", NumberOp},
   {"/", NumberOp},
@@ -310,6 +329,7 @@ static Primitive primitives[] = {
   {"==", LogicOp},
   {"!=", LogicOp},
   {"pair", PairOp},
+  {"|", PairOp},
   {"[+", ConcatOp},
   {"{|", DictMergeOp},
   {"[", ListOp},
@@ -340,6 +360,8 @@ static Primitive primitives[] = {
   {"not", NotOp},
   {"round", RoundOp},
   {"to-string", ToStringOp},
+  {"open", OpenOp},
+  {"send", SendOp},
 };
 
 Val DoPrimitive(Val op, Val args, VM *vm)

@@ -4,6 +4,7 @@
 typedef struct Mem {
   Val *values;
   Map symbols;
+  char **symbol_names;
 } Mem;
 
 void InitMem(Mem *mem, u32 size);
@@ -48,8 +49,10 @@ Val MakeBinaryFrom(Mem *mem, char *str, u32 length);
 Val MakeBinary(Mem *mem, char *str);
 u32 BinaryLength(Mem *mem, Val binary);
 u8 *BinaryData(Mem *mem, Val binary);
+void BinaryToString(Mem *mem, Val binary, char *dst);
 
 bool IsTrue(Val value);
+bool ValToString(Mem *mem, Val val, Buf *buf);
 
 void PrintVal(Mem *mem, Val value);
 void PrintMem(Mem *mem);

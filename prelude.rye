@@ -68,6 +68,18 @@ def (flatmap list fn) do
   flatten (map list fn)
 end
 
+def (iota n) do
+  def (loop n list) do
+    if n == 0 do
+      [n | list]
+    else
+      loop n - 1 [n | list]
+    end
+  end
+
+  loop n - 1 nil
+end
+
 def (tail-from list n) do
   cond do
     list == nil :: nil

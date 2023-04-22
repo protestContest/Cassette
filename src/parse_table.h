@@ -182,7 +182,7 @@ char *symbol_names[] = {
   [81] = "opt_comma",
 };
 
-static unused struct {char *lexeme; u8 symbol;} literals[] = {
+static _unused struct {char *lexeme; u8 symbol;} literals[] = {
   { "import", 6 },
   { "false", 34 },
   { "true", 33 },
@@ -224,7 +224,7 @@ static unused struct {char *lexeme; u8 symbol;} literals[] = {
 };
 
 // indexed by state
-static unused i8 reduction_syms[] = {
+static _unused i8 reduction_syms[] = {
   80,  -1,  44,  80,  80,  -1,  43,  45,  45,  45,  45,  80,  -1,  -1,  53,  55,  68,  68,  56,  -1,
   57,  58,  59,  60,  61,  62,  62,  62,  62,  80,  -1,  -1,  68,  68,  68,  68,  68,  68,  68,  68,
   70,  70,  70,  -1,  80,  80,  80,  44,  44,  53,  -1,  50,  -1,  -1,  80,  -1,  80,  80,  80,  80,
@@ -237,7 +237,7 @@ static unused i8 reduction_syms[] = {
 };
 
 // indexed by state
-static unused u8 reduction_sizes[] = {
+static _unused u8 reduction_sizes[] = {
    0,   0,   1,   1,   1,   0,   2,   1,   1,   1,   1,   0,   0,   0,   1,   1,   1,   1,   1,   0,
    1,   1,   1,   1,   1,   1,   1,   1,   1,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,
    1,   1,   1,   0,   0,   0,   0,   3,   3,   2,   0,   2,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -250,7 +250,7 @@ static unused u8 reduction_sizes[] = {
 };
 
 // indexed by state, symbol
-static unused i16 actions[][NUM_SYMS] = {
+static _unused i16 actions[][NUM_SYMS] = {
   {   4,   3,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
      -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
      -1,  -1,   1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,

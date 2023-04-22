@@ -13,9 +13,9 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 # DEBUG = -D DEBUG
 
 CC = clang
-INCLUDE_FLAGS = -isystem $(PREFIX)/include -include univ/base.h
+INCLUDE_FLAGS = -isystem $(PREFIX)/include -include univ/base.h -I/opt/homebrew/include/SDL2
 CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS) $(DEBUG)
-LDFLAGS = -L$(PREFIX)/lib -L$(LIB_DIR) -lbase
+LDFLAGS = -L$(PREFIX)/lib -L$(LIB_DIR) -L/opt/homebrew/lib -lbase -lcanvas -lwindow -lSDL2
 
 $(TARGET): $(OBJS)
 	mkdir -p $(dir $@)

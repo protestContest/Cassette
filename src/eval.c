@@ -1,4 +1,4 @@
-#include "interpret.h"
+#include "eval.h"
 #include "mem.h"
 #include "primitives.h"
 #include "env.h"
@@ -27,7 +27,8 @@ Val RunFile(char *filename, Mem *mem)
   }
 
   Val ast = Parse(src, mem);
-  VM vm = {mem, NULL, nil};
+  VM vm;
+  InitVM(&vm, mem);
   return Interpret(ast, &vm);
 }
 
@@ -48,7 +49,7 @@ Val Eval(Val exp, VM *vm)
   Print("\n");
   for (u32 i = 0; i < indent; i++) Print("  ");
   Print("Eval: ");
-  PrintVal(mem, exp);
+  PrintVal(vm->mem, exp);
   // Print("\nEnv:\n");
   // PrintEnv(env, mem);
   indent++;
@@ -87,7 +88,7 @@ Val Eval(Val exp, VM *vm)
   indent--;
   for (u32 i = 0; i < indent; i++) Print("  ");
   Print("=> ");
-  PrintVal(mem, result);
+  PrintVal(vm->mem, result);
   Print("\n");
 #endif
 
@@ -116,9 +117,9 @@ Val Apply(Val proc, Val args, VM *vm)
 
 #ifdef DEBUG_EVAL
   Print("Apply ");
-  PrintVal(mem, proc);
+  PrintVal(vm->mem, proc);
   Print(" ");
-  PrintVal(mem, args);
+  PrintVal(vm->mem, args);
   Print("\n");
 #endif
 
@@ -328,5 +329,5 @@ Val RuntimeError(char *message, Val exp, Mem *mem)
   Print(": ");
   PrintVal(mem, exp);
   Print("\n");
-  return nil;
+  return SymbolFor("error");
 }

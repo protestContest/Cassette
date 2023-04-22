@@ -1,5 +1,5 @@
 #include "env.h"
-#include "interpret.h"
+#include "eval.h"
 #include "primitives.h"
 
 Val InitialEnv(Mem *mem)

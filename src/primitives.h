@@ -1,5 +1,5 @@
 #pragma once
-#include "interpret.h"
+#include "eval.h"
 #include "mem.h"
 #include "vm.h"
 

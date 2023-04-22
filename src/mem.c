@@ -15,6 +15,7 @@ void InitMem(Mem *mem, u32 size)
   VecPush(mem->values, nil);
   VecPush(mem->values, nil);
   InitMap(&mem->symbols);
+  mem->symbol_names = NULL;
 }
 
 Val MakePair(Mem *mem, Val head, Val tail)
@@ -279,9 +280,11 @@ Val MakeSymbolFrom(Mem *mem, char *str, u32 length)
   Val sym = SymbolFrom(str, length);
   if (!MapContains(&mem->symbols, sym.as_v)) {
     char *sym_str = Allocate(length + 1);
+    u32 name_num = VecCount(mem->symbol_names);
+    VecPush(mem->symbol_names, sym_str);
     for (u32 i = 0; i < length; i++) sym_str[i] = str[i];
     sym_str[length] = '\0';
-    MapSet(&mem->symbols, sym.as_v, sym_str);
+    MapSet(&mem->symbols, sym.as_v, name_num);
   }
   return sym;
 }
@@ -294,7 +297,8 @@ Val MakeSymbol(Mem *mem, char *str)
 char *SymbolName(Mem *mem, Val symbol)
 {
   Assert(IsSym(symbol));
-  return MapGet(&mem->symbols, symbol.as_v);
+  u32 index = MapGet(&mem->symbols, symbol.as_v);
+  return mem->symbol_names[index];
 }
 
 bool IsBinary(Mem *mem, Val binary)
@@ -339,9 +343,63 @@ u8 *BinaryData(Mem *mem, Val binary)
   return (u8*)(mem->values + index + 1);
 }
 
+void BinaryToString(Mem *mem, Val binary, char *dst)
+{
+  Assert(IsBinary(mem, binary));
+
+  u32 length = BinaryLength(mem, binary);
+  for (u32 i = 0; i < length; i++) {
+    dst[i] = BinaryData(mem, binary)[i];
+  }
+  dst[length] = '\0';
+}
+
 bool IsTrue(Val value)
 {
   return !(IsNil(value) || Eq(value, SymbolFor("false")));
+}
+
+bool IOListToString(Mem *mem, Val list, Buf *buf)
+{
+  while (!IsNil(list)) {
+    Val val = Head(mem, list);
+    if (IsInt(val)) {
+      u8 c = RawInt(val);
+      AppendByte(buf, c);
+    } else if (IsBinary(mem, val)) {
+      Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
+    } else if (IsList(mem, val)) {
+      if (!IOListToString(mem, val, buf)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+    list = Tail(mem, list);
+  }
+  return true;
+}
+
+bool ValToString(Mem *mem, Val val, Buf *buf)
+{
+  if (IsNil(val)) {
+    Append(buf, (u8*)"nil", 3);
+  } else if (IsNum(val)) {
+    AppendFloat(buf, RawNum(val));
+  } else if (IsInt(val)) {
+    AppendInt(buf, RawInt(val));
+  } else if (IsSym(val)) {
+    char *str = SymbolName(mem, val);
+    Append(buf, (u8*)str, StrLen(str));
+  } else if (IsBinary(mem, val)) {
+    Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
+  } else if (IsList(mem, val)) {
+    return IOListToString(mem, val, buf);
+  } else {
+    return false;
+  }
+
+  return true;
 }
 
 static void PrintTail(Mem *mem, Val tail, u32 length)
@@ -372,7 +430,7 @@ void PrintVal(Mem *mem, Val value)
     char *str = SymbolName(mem, value);
     Print(str);
   } else if (IsPair(value)) {
-    if (IsTagged(mem, value, SymbolFor("__procedure"))) {
+    if (IsTagged(mem, value, SymbolFor("λ"))) {
       Print("[λ");
       Val params = ListAt(mem, value, 1);
       while (!IsNil(params)) {

@@ -3,6 +3,9 @@
 -Werror
 -Wno-unused-function
 -Wno-unused-parameter
+-isystem
+/Users/zack/.local/include
 -Iinclude
 -include
-base.h
+univ/base.h
+-I/opt/homebrew/include/SDL2

@@ -1,10 +1,13 @@
 #pragma once
 #include "mem.h"
-#include <univ/window.h>
 
 typedef struct {
   Mem *mem;
   Val *stack;
   Val env;
+  Map ports;
+  Buf *buffers;
+  void **windows;
 } VM;
 
+void InitVM(VM *vm, Mem *mem);
