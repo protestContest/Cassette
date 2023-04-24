@@ -50,8 +50,6 @@ Val LogicOp(Val op, Val args, VM *vm)
 
   if (Eq(op, SymbolFor("=="))) return BoolVal(Eq(a, b));
   if (Eq(op, SymbolFor("!="))) return BoolVal(!Eq(a, b));
-  if (Eq(op, SymbolFor("and"))) return BoolVal(IsTrue(a) && IsTrue(b));
-  if (Eq(op, SymbolFor("or"))) return BoolVal(IsTrue(a) || IsTrue(b));
 
   return RuntimeError("Unimplemented primitive", op, vm->mem);
 }
@@ -324,11 +322,8 @@ static Primitive primitives[] = {
   {"<", NumberOp},
   {">=", NumberOp},
   {"<=", NumberOp},
-  {"and", LogicOp},
-  {"or", LogicOp},
   {"==", LogicOp},
   {"!=", LogicOp},
-  {"pair", PairOp},
   {"|", PairOp},
   {"[+", ConcatOp},
   {"{|", DictMergeOp},

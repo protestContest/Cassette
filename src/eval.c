@@ -13,6 +13,8 @@ Val EvalDefine(Val exps, VM *vm);
 Val EvalLet(Val exps, VM *vm);
 Val EvalIf(Val exps, VM *vm);
 Val EvalCond(Val exps, VM *vm);
+Val EvalAnd(Val exps, VM *vm);
+Val EvalOr(Val exps, VM *vm);
 Val EvalImport(Val exps, VM *vm);
 Val RuntimeError(char *message, Val exp, Mem *mem);
 void PrintEnv(Val env, Mem *mem);
@@ -75,6 +77,10 @@ Val Eval(Val exp, VM *vm)
     result = EvalIf(exp, vm);
   } else if (IsTagged(vm->mem, exp, SymbolFor("cond"))) {
     result = EvalCond(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("and"))) {
+    result = EvalAnd(exp, vm);
+  } else if (IsTagged(vm->mem, exp, SymbolFor("or"))) {
+    result = EvalOr(exp, vm);
   } else if (IsTagged(vm->mem, exp, SymbolFor("."))) {
     result = EvalAccess(exp, vm);
   } else if (IsTagged(vm->mem, exp, SymbolFor("import"))) {
@@ -282,6 +288,34 @@ Val EvalCond(Val exps, VM *vm)
   }
 
   return RuntimeError("Unmatched cond", clauses, vm->mem);
+}
+
+Val EvalAnd(Val exps, VM *vm)
+{
+  Val a = ListAt(vm->mem, exps, 1);
+  Val b = ListAt(vm->mem, exps, 1);
+
+  Val test = Eval(a, vm);
+  if (!IsTrue(test)) {
+    return BoolVal(false);
+  }
+
+  test = Eval(b, vm);
+  return BoolVal(IsTrue(test));
+}
+
+Val EvalOr(Val exps, VM *vm)
+{
+  Val a = ListAt(vm->mem, exps, 1);
+  Val b = ListAt(vm->mem, exps, 1);
+
+  Val test = Eval(a, vm);
+  if (IsTrue(test)) {
+    return BoolVal(true);
+  }
+
+  test = Eval(b, vm);
+  return BoolVal(IsTrue(test));
 }
 
 Val EvalImport(Val exps, VM *vm)

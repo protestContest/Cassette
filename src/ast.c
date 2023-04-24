@@ -64,7 +64,7 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
       Val params = Tail(mem, ids);
       Val body = ListAt(mem, children, 4);
       Val lambda = MakeList(mem, 3, SymbolFor("->"), params, body);
-      node = MakeList(mem, 3, SymbolFor("def"), var, lambda);
+      node = MakeList(mem, 3, SymbolFor("let"), var, lambda);
     }
     break;
 
