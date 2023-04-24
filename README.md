@@ -1,5 +1,45 @@
 # Cassette
 
+Cassette is a small language intended for casual solo programming on simple
+systems. It looks like this:
+
+```
+def (fizzbuzz n) do
+  def (loop m) do
+    cond do
+      (rem m 3) == 0 and
+          (rem m 5) == 0  :: print "FizzBuzz"
+      (rem m 3) == 0      :: print "Fizz"
+      (rem m 5) == 0      :: print "Buzz"
+      else                :: print m
+    end
+
+    if m < n do
+      loop m + 1
+    end
+  end
+
+  loop 1
+end
+
+fizzbuzz 100
+```
+
+## To Do
+
+- Error recovery in parser
+- Stack-based bytecode VM
+- Compilation
+- Garbage collection
+- Better module loading
+- Error handling for primitives
+- Persistent data structures
+- Standard library
+  - Collections (transducers?)
+  - Math
+  - I/O ports
+  - Graphics
+
 ## Values and Memory
 
 The base of the runtime is the memory representation. Values are 32-bit NaN-boxed floats: any floating point number represents itself, except when it's NaN, the unused 23 bits encode a type and value.

@@ -23,7 +23,6 @@ void REPL(Mem *mem)
   }
 }
 
-#include <stdio.h>
 int main(int argc, char *argv[])
 {
   Mem mem;
