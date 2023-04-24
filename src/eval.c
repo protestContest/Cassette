@@ -21,8 +21,8 @@ void PrintEnv(Val env, Mem *mem);
 
 Val RunFile(char *filename, Mem *mem)
 {
-  char *src;
-  src = ReadFile(filename);
+  char *src = (char*)ReadFile(filename);
+
   if (!src) {
     Print("Could not open file");
     Exit();
@@ -326,7 +326,7 @@ Val EvalImport(Val exps, VM *vm)
   char filename[BinaryLength(vm->mem, file_arg) + 1];
   BinaryToString(vm->mem, file_arg, filename);
 
-  char *src = ReadFile(filename);
+  char *src = (char*)ReadFile(filename);
   if (!src) {
     return RuntimeError("Could not open", file_arg, vm->mem);
   }

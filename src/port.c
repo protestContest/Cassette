@@ -55,7 +55,7 @@ static Val OpenFilePort(VM *vm, Val name, Val opts)
   char path[BinaryLength(vm->mem, name) + 1];
   BinaryToString(vm->mem, name, path);
 
-  Buf buffer = Open(path);
+  Buf buffer = OpenFile(path);
   if (buffer.error) {
     return RuntimeError("Could not open file", name, vm->mem);
   }

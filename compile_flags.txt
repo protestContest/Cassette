@@ -6,6 +6,5 @@
 -isystem
 /Users/zack/.local/include
 -I/opt/homebrew/include
--Iinclude
 -include
 univ/base.h

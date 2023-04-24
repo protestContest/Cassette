@@ -1,8 +1,8 @@
 NAME = cassette
 BUILD_DIR := build
 SRC_DIR := src
-INC_DIR := include
-LIB_DIR := lib
+# INC_DIR := include
+# LIB_DIR := lib
 DIST_DIR := dist
 PREFIX := $(HOME)/.local
 TARGET = $(DIST_DIR)/$(NAME)
@@ -14,9 +14,9 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 # DEBUG = -D DEBUG
 
 CC = clang
-INCLUDE_FLAGS = -isystem $(PREFIX)/include -I/opt/homebrew/include -I$(INC_DIR) -include univ/base.h
+INCLUDE_FLAGS = -isystem $(PREFIX)/include -include univ/base.h -I/opt/homebrew/include
 CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS) $(DEBUG)
-LDFLAGS = -L$(PREFIX)/lib -L/opt/homebrew/lib -L$(LIB_DIR) -lbase -lcanvas -lwindow -lSDL2
+LDFLAGS = -L$(PREFIX)/lib -L/opt/homebrew/lib -lbase -lcanvas -lwindow -lSDL2
 
 $(TARGET): $(OBJS)
 	mkdir -p $(dir $@)

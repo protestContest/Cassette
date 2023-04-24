@@ -4,7 +4,6 @@
 #include "lex.h"
 #include "mem.h"
 #include "ast.h"
-#include <stdlib.h>
 
 // #define DEBUG_PARSE
 

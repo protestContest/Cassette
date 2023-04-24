@@ -2,7 +2,6 @@
 #include "parse.h"
 #include "eval.h"
 #include <univ/window.h>
-#include <stdio.h>
 
 void REPL(Mem *mem)
 {
@@ -13,8 +12,7 @@ void REPL(Mem *mem)
 
   while (true) {
     Print("> ");
-    fgets(src, 1024, stdin);
-    if (feof(stdin)) break;
+    if (!ReadLine(src, 1024)) break;
 
     Val ast = Parse(src, StrLen(src), mem);
     PrintVal(mem, Eval(ast, &vm));
