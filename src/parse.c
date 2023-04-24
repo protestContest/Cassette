@@ -119,19 +119,19 @@ static Val ParseNext(Parser *p, Token token)
   }
 }
 
-static void InitParser(Parser *p, char *src, Mem *mem)
+static void InitParser(Parser *p, char *src, u32 length, Mem *mem)
 {
-  InitLexer(&p->lex, NUM_LITERALS, (Literal*)literals, src, mem);
+  InitLexer(&p->lex, NUM_LITERALS, (Literal*)literals, src, length, mem);
   p->stack = NULL;
   p->nodes = NULL;
   p->mem = mem;
   VecPush(p->stack, 0);
 }
 
-Val Parse(char *src, Mem *mem)
+Val Parse(char *src, u32 length, Mem *mem)
 {
   Parser p;
-  InitParser(&p, src, mem);
+  InitParser(&p, src, length, mem);
   Val ast = ParseNext(&p, NextToken(&p.lex));
 #ifdef DEBUG_PARSE
   PrintAST(ast, mem);

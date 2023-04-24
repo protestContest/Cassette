@@ -286,6 +286,8 @@ A `:window` port represents a graphics window. Window ports are opened by name, 
 
 A window can be sent drawing commands. Currently, only the `:line` command is supported.
 
+When a window is opened or gains focus, it becomes the "top window". The top window can be found with the `top-window` function. Some functions implicitly send to and receive from the top window.
+
 Events can be received from a window. The format of an event message is not yet defined.
 
 ```
@@ -295,3 +297,57 @@ send win #[:line 20 30 300 100]
 let event = receive win
 ; ¯\_(ツ)_/¯
 ```
+
+## Standard Library
+
+### Kernel
+
+Functions in the kernel are defined in the global environment.
+
+- `head list` returns the head of a pair
+- `tail list` returns the tail of a pair
+- `nth list n` returns the nth value from a list or tuple
+- `length v` returns the length of a list, tuple, binary, or dict
+- `nil? v` returns whether a value is nil
+- `integer? v` returns whether a value is a integer
+- `float? v` returns whether a value is a float
+- `number? v` returns whether a value is a number
+- `symbol? v` returns whether a value is a symbol
+- `list? v` returns whether a value is a list
+- `tuple? v` returns whether a value is a tuple
+- `dict? v` returns whether a value is a dict
+- `binary? v` returns whether a value is a binary
+- `true? v` returns whether a value is truthy
+- `not v` logical negation
+- `to-string v` returns a binary representation of a number or symbol, or flat-maps a list of them
+
+- `abs x` absolute value
+- `ceil x` integer ceiling
+- `floor x` integer floor
+- `div a b` truncated integer division
+- `rem a b` remainder (via truncated division)
+- `mod a b` modulo (via floored division)
+- `max ...` returns the largest value
+- `min ...` returns the smallest value
+- `round x` rounds to the nearest integer
+- `random` returns a random number between 0 and 1
+- `rand-int lower upper` returns a random integer between lower and upper
+
+- `bit-and`
+- `bit-or`
+- `bit-not`
+- `bit-xor`
+- `bit-test`
+- `bit-set`
+- `bit-clear`
+- `bit-shift`
+
+- `open type name [opts]` opens an I/O port
+- `send port message` sends a message to a port
+- `recv port` returns a message received from a port
+- `print v` prints a value to the console
+- `line x1 y1 x2 y2` draws a line in the top window
+- `text str x y` draws text in the top window
+
+- `eval v` evaluates a string or AST
+- `apply proc args` applies a procedure to arguments

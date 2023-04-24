@@ -15,7 +15,7 @@ void REPL(Mem *mem)
     fgets(src, 1024, stdin);
     if (feof(stdin)) break;
 
-    Val ast = Parse(src, mem);
+    Val ast = Parse(src, StrLen(src), mem);
     PrintVal(mem, Eval(ast, &vm));
     Print("\n");
 
@@ -23,6 +23,7 @@ void REPL(Mem *mem)
   }
 }
 
+#include <stdio.h>
 int main(int argc, char *argv[])
 {
   Mem mem;

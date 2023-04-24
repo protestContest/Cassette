@@ -21,6 +21,7 @@ typedef struct {
 
 typedef struct Lexer {
   char *src;
+  u32 length;
   u32 start;
   u32 pos;
   u32 line;
@@ -41,7 +42,7 @@ typedef struct Lexer {
 
 #define IsErrorToken(t)   ((t).type == (u32)-1)
 
-void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, Mem *mem);
+void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, u32 length, Mem *mem);
 Token NextToken(Lexer *lexer);
 int PrintToken(Token token);
 void PrintSourceContext(Lexer *lexer, u32 num_lines);

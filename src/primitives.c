@@ -90,6 +90,13 @@ Val TailOp(Val op, Val args, VM *vm)
   return Tail(vm->mem, Head(vm->mem, args));
 }
 
+Val NthOp(Val op, Val args, VM *vm)
+{
+  Val list = ListAt(vm->mem, args, 0);
+  Val n = ListAt(vm->mem, args, 1);
+  return ListAt(vm->mem, list, RawInt(n));
+}
+
 Val ListOp(Val op, Val args, VM *vm)
 {
   return args;
@@ -150,6 +157,7 @@ Val TypeOp(Val op, Val args, VM *vm)
   if (Eq(op, SymbolFor("tuple?"))) return BoolVal(IsTuple(vm->mem, arg));
   if (Eq(op, SymbolFor("dict?"))) return BoolVal(IsDict(vm->mem, arg));
   if (Eq(op, SymbolFor("binary?"))) return BoolVal(IsBinary(vm->mem, arg));
+  if (Eq(op, SymbolFor("true?"))) return BoolVal(IsTrue(arg));
 
   return RuntimeError("Unimplemented primitive", op, vm->mem);
 }
@@ -167,6 +175,17 @@ Val ApplyOp(Val op, Val args, VM *vm)
   Val proc = ListAt(vm->mem, args, 0);
   args = ListAt(vm->mem, args, 1);
   return Apply(proc, args, vm);
+}
+
+Val EvalOp(Val op, Val args, VM *vm)
+{
+  Val exp = ListAt(vm->mem, args, 0);
+
+  if (IsBinary(vm->mem, exp)) {
+    exp = Parse((char*)BinaryData(vm->mem, exp), BinaryLength(vm->mem, exp), vm->mem);
+  }
+
+  return Eval(exp, vm);
 }
 
 Val CeilOp(Val op, Val args, VM *vm)
@@ -189,18 +208,30 @@ Val DivOp(Val op, Val args, VM *vm)
 {
   Val a = ListAt(vm->mem, args, 0);
   Val b = ListAt(vm->mem, args, 1);
-  if (!IsInt(a)) return RuntimeError("Bad argument to rem", a, vm->mem);
-  if (!IsInt(b)) return RuntimeError("Bad argument to rem", b, vm->mem);
-  return IntVal(RawInt(a) / RawInt(b));
-}
+  if (!IsInt(a)) return RuntimeError("Bad division argument", a, vm->mem);
+  if (!IsInt(b)) return RuntimeError("Bad division argument", b, vm->mem);
 
-Val RemOp(Val op, Val args, VM *vm)
-{
-  Val a = ListAt(vm->mem, args, 0);
-  Val b = ListAt(vm->mem, args, 1);
-  if (!IsInt(a)) return RuntimeError("Bad argument to rem", a, vm->mem);
-  if (!IsInt(b)) return RuntimeError("Bad argument to rem", b, vm->mem);
-  return IntVal(RawInt(a) % RawInt(b));
+  i32 ra = RawInt(a);
+  i32 rb = RawInt(b);
+
+  if (Eq(op, SymbolFor("div"))) {
+    return IntVal(ra / rb);
+  }
+
+  if (Eq(op, SymbolFor("rem"))) {
+    i32 div = ra / rb;
+    return IntVal(ra - rb*div);
+  }
+
+  if (Eq(op, SymbolFor("mod"))) {
+    i32 div = ra / rb;
+    if ((ra < 0 && rb >= 0) || (ra >= 0 && rb < 0)) {
+      --div;
+    }
+    return IntVal(ra - rb*div);
+  }
+
+  return RuntimeError("Unimplemented primitive", op, vm->mem);
 }
 
 Val LengthOp(Val op, Val args, VM *vm)
@@ -259,6 +290,23 @@ Val MinOp(Val op, Val args, VM *vm)
   }
 }
 
+Val RandOp(Val op, Val args, VM *vm)
+{
+  float r = (float)Random() / MaxUInt;
+
+  if (Eq(op, SymbolFor("random"))) {
+    return NumVal(r);
+  }
+
+  if (Eq(op, SymbolFor("random-int"))) {
+    i32 min = RawInt(ListAt(vm->mem, args, 0));
+    i32 max = RawInt(ListAt(vm->mem, args, 1));
+    return IntVal(Floor(r*(max - min) + min));
+  }
+
+  return RuntimeError("Unimplemented primitive", op, vm->mem);
+}
+
 Val NotOp(Val op, Val args, VM *vm)
 {
   Val arg = Head(vm->mem, args);
@@ -271,8 +319,13 @@ Val RoundOp(Val op, Val args, VM *vm)
   if (IsInt(arg)) {
     return arg;
   } else if (IsNum(arg)) {
-    // return NumVal()
-    return arg;
+    float n = RawNum(arg);
+    float frac = n - Floor(n);
+    if (frac == 0.5) {
+      return IntVal(Floor(n) + (n > 0));
+    }
+
+    return IntVal(Floor(n) + (frac > 0.5));
   } else {
     return RuntimeError("Bad argument to round", arg, vm->mem);
   }
@@ -313,6 +366,12 @@ Val SendOp(Val op, Val args, VM *vm)
   return SendPort(vm, port, message);
 }
 
+Val RecvOp(Val op, Val args, VM *vm)
+{
+  Val port = ListAt(vm->mem, args, 0);
+  return RecvPort(vm, port);
+}
+
 static Primitive primitives[] = {
   {"*", NumberOp},
   {"/", NumberOp},
@@ -332,7 +391,8 @@ static Primitive primitives[] = {
   {"{", DictOp},
   {"head", HeadOp},
   {"tail", TailOp},
-  {"rem", RemOp},
+  {"nth", NthOp},
+  {"length", LengthOp},
   {"nil?", TypeOp},
   {"integer?", TypeOp},
   {"float?", TypeOp},
@@ -342,21 +402,26 @@ static Primitive primitives[] = {
   {"tuple?", TypeOp},
   {"dict?", TypeOp},
   {"binary?", TypeOp},
-  {"print", PrintOp},
+  {"true?", TypeOp},
+  {"not", NotOp},
+  {"to-string", ToStringOp},
   {"abs", AbsOp},
-  {"apply", ApplyOp},
   {"ceil", CeilOp},
   {"floor", FloorOp},
   {"div", DivOp},
-  {"rem", RemOp},
-  {"length", LengthOp},
+  {"mod", DivOp},
+  {"rem", DivOp},
   {"max", MaxOp},
   {"min", MinOp},
-  {"not", NotOp},
   {"round", RoundOp},
-  {"to-string", ToStringOp},
+  {"random", RandOp},
+  {"random-int", RandOp},
   {"open", OpenOp},
   {"send", SendOp},
+  {"recv", RecvOp},
+  {"print", PrintOp},
+  {"apply", ApplyOp},
+  {"eval", EvalOp},
 };
 
 Val DoPrimitive(Val op, Val args, VM *vm)

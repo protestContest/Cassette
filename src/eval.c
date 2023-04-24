@@ -28,7 +28,7 @@ Val RunFile(char *filename, Mem *mem)
     Exit();
   }
 
-  Val ast = Parse(src, mem);
+  Val ast = Parse(src, StrLen(src), mem);
   VM vm;
   InitVM(&vm, mem);
   return Interpret(ast, &vm);
@@ -323,19 +323,22 @@ Val EvalImport(Val exps, VM *vm)
   Val file_arg = ListAt(vm->mem, exps, 1);
   Val name_arg = ListAt(vm->mem, exps, 2);
 
-  char *filename = (char*)BinaryData(vm->mem, file_arg);
+  char filename[BinaryLength(vm->mem, file_arg) + 1];
+  BinaryToString(vm->mem, file_arg, filename);
+
   char *src = ReadFile(filename);
-  if (!filename) {
+  if (!src) {
     return RuntimeError("Could not open", file_arg, vm->mem);
   }
-  Val ast = Parse(src, vm->mem);
+
+  Val ast = Parse(src, StrLen(src), vm->mem);
   Val import_env = ExtendEnv(TopEnv(vm->mem, vm->env), vm->mem);
 
   Val old_env = vm->env;
   Val stmts = Tail(vm->mem, ast);
   while (!IsNil(stmts)) {
     Val stmt = Head(vm->mem, stmts);
-    if (IsTagged(vm->mem, stmt, SymbolFor("def"))) {
+    if (IsTagged(vm->mem, stmt, SymbolFor("let"))) {
       vm->env = import_env;
       EvalDefine(stmt, vm);
     }

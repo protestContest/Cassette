@@ -190,3 +190,14 @@ Val SendPort(VM *vm, Val port, Val message)
 
   return nil;
 }
+
+Val RecvPort(VM *vm, Val port)
+{
+  Val type = PortType(vm->mem, port);
+
+  if (Eq(type, SymbolFor("file"))) {
+
+  }
+  // TODO: Implement
+  return nil;
+}

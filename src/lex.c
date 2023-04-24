@@ -137,9 +137,12 @@ static Val ParseFloat(char *src, u32 length)
 
 static Token NumberToken(Lexer *lexer)
 {
+  bool neg = Match(lexer, "-");
+
   if (Match(lexer, "0x") && IsHexDigit(LexPeek(lexer, 2))) {
     while (IsHexDigit(LexPeek(lexer, 0))) lexer->pos++;
     Val value = ParseInt(lexer->src + lexer->start + 2, lexer->pos - lexer->start + 2, 16);
+    if (neg) value = IntVal(-RawInt(value));
     return MakeToken(ParseSymNUM, lexer, value);
   }
 
@@ -150,8 +153,10 @@ static Token NumberToken(Lexer *lexer)
     lexer->pos++;
     while (IsDigit(LexPeek(lexer, 0))) lexer->pos++;
     value = ParseFloat(lexer->src + lexer->start, lexer->pos - lexer->start);
+    if (neg) value = NumVal(-RawNum(value));
   } else {
     value = ParseInt(lexer->src + lexer->start, lexer->pos - lexer->start, 10);
+    if (neg) value = IntVal(-RawInt(value));
   }
 
   return MakeToken(ParseSymNUM, lexer, value);
@@ -191,12 +196,12 @@ static Token NewlinesToken(Lexer *lexer)
   return MakeToken(ParseSymNL, lexer, nil);
 }
 
-void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, Mem *mem)
+void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, u32 length, Mem *mem)
 {
   for (u32 i = 0; i < num_literals; i++) {
     MakeSymbol(mem, literals[i].lexeme);
   }
-  *lexer = (Lexer){src, 0, 0, 1, 1, mem, num_literals, literals};
+  *lexer = (Lexer){src, length, 0, 0, 1, 1, mem, num_literals, literals};
 }
 
 Token NextToken(Lexer *lexer)
@@ -207,7 +212,7 @@ Token NextToken(Lexer *lexer)
   char c = LexPeek(lexer, 0);
 
   if (c == '\0') return MakeToken(ParseSymEOF, lexer, MakeSymbol(lexer->mem, "$"));
-  if (IsDigit(c)) return NumberToken(lexer);
+  if (IsDigit(c) || (c == '-' && IsDigit(LexPeek(lexer, 1)))) return NumberToken(lexer);
   if (Match(lexer, "\"")) return StringToken(lexer);
   if (Match(lexer, "\n")) return NewlinesToken(lexer);
 

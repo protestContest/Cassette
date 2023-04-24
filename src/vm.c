@@ -11,5 +11,7 @@ void InitVM(VM *vm, Mem *mem)
   vm->buffers = NULL;
   vm->windows = NULL;
 
+  Seed(Microtime());
+
   OpenPort(vm, SymbolFor("console"), nil, nil);
 }

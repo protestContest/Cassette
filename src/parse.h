@@ -10,5 +10,5 @@ typedef struct {
   Mem *mem;
 } Parser;
 
-Val Parse(char *src, Mem *mem);
+Val Parse(char *src, u32 length, Mem *mem);
 char *GrammarSymbolName(u32 sym);
