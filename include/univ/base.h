@@ -23,19 +23,20 @@ typedef unsigned char byte;
 
 #define Assert(c) if (!(c)) __builtin_trap()
 
-#define unused __attribute__((unused))
+#define _unused __attribute__((unused))
 /* buf.h */
 #pragma once
 
-#define MemBuf(data, cap)       { 0, cap, (u8*)data, -1, false }
-#define IOBuf(file, data, cap)  { 0, cap, data, file, false }
+#define MemBuf(data, cap)       (Buf){ 0, cap, (u8*)data, -1, false, false }
+#define IOBuf(file, data, cap)  (Buf){ 0, cap, data, file, false, false }
 
 typedef struct Buf {
   u32 count;
   u32 capacity;
   u8 *data;
-  int file;
+  i32 file;
   bool error;
+  bool end;
 } Buf;
 
 u32 Append(Buf *buf, u8 *src, u32 len);
@@ -43,7 +44,12 @@ u32 Append(Buf *buf, u8 *src, u32 len);
 u32 AppendByte(Buf *buf, u8 byte);
 u32 AppendInt(Buf *buf, i32 num);
 u32 AppendFloat(Buf *buf, float num);
+void ClearBuffer(Buf *buf);
 void Flush(Buf *buf);
+
+u8 ReadByte(Buf *buf);
+// char *ReadLine(Buf *buf);
+// char *ReadFile(Buf *buf);
 
 u32 IntToString(i32 num, char *str, u32 max);
 u32 FloatToString(float num, char *str, u32 max);
@@ -76,6 +82,7 @@ void PrintIntN(i32 num, u32 size);
 void PrintFloat(float num);
 void FlushIO(void);
 
+char ReadChar(struct Buf buffer);
 char *ReadLine(char *buf, u32 size);
 char *ReadFile(char *path);
 /* map.h */
@@ -91,9 +98,9 @@ typedef struct Map {
 
 void InitMap(Map *map);
 void FreeMap(Map *map);
-void MapSet(Map *map, u32 key, void *value);
+void MapSet(Map *map, u32 key, u32 value);
 bool MapContains(Map *map, u32 key);
-void *MapGet(Map *map, u32 key);
+u32 MapGet(Map *map, u32 key);
 void MapDelete(Map *map, u32 key);
 /* math.h */
 #pragma once
@@ -104,15 +111,19 @@ void MapDelete(Map *map, u32 key);
 #define Infinity        ((float)0x7F800000)
 #define MinInt          ((i32)0x80000000)
 #define MaxInt          ((i32)0x7FFFFFFF)
+#define MaxUInt         ((u32)0xFFFFFFFF)
 
 #define Abs(x)          ((x)*(((x) > 0) - ((x) < 0)))
 #define Min(a, b)       ((a) < (b) ? (a) : (b))
 #define Max(a, b)       ((a) > (b) ? (a) : (b))
 #define Ceil(x)         ((i32)(x) + ((x) > 0))
 #define Floor(x)        ((i32)(x) - ((x) < 0))
-#define Clamp(x, a, b)  min(max((x), a), b)
+#define Clamp(x, a, b)  Min(Max((x), a), b)
 #define Lerp(a, b, w)   (((b) - (a))*(w) + (a))
 #define Norm(a, b, w)   (((w) - (a)) / ((b) - (a)))
+
+void Seed(u32 seed);
+u32 Random(void);
 /* str.h */
 #pragma once
 
@@ -121,13 +132,18 @@ u32 NumDigits(i32 num);
 /* sys.h */
 #pragma once
 
+struct Buf;
+
 void *Allocate(u32 size);
 void *Reallocate(void *ptr, u32 size);
 void Free(void *ptr);
+struct Buf Open(char *path);
 bool Read(int file, void *data, u32 length);
 bool Write(int file, void *data, u32 length);
 void Error(char *message);
 void Exit(void);
+u32 Time(void);
+u32 Microtime(void);
 /* vec.h */
 #pragma once
 

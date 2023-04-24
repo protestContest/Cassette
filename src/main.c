@@ -2,6 +2,7 @@
 #include "parse.h"
 #include "eval.h"
 #include <univ/window.h>
+#include <stdio.h>
 
 void REPL(Mem *mem)
 {

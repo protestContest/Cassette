@@ -5,7 +5,7 @@
 -Wno-unused-parameter
 -isystem
 /Users/zack/.local/include
+-I/opt/homebrew/include
 -Iinclude
 -include
 univ/base.h
--I/opt/homebrew/include/SDL2

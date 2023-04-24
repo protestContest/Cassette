@@ -40,6 +40,15 @@ fizzbuzz 100
   - I/O ports
   - Graphics
 
+## Building
+
+Building Cassette requires SDL2—edit the makefile to ensure it can find SDL2's
+library and headers.
+
+Use `make` to build the project. This creates the executable `dist/cassette`,
+which can be called with a file to execute, or with no arguments to start a
+REPL.
+
 ## Values and Memory
 
 The base of the runtime is the memory representation. Values are 32-bit NaN-boxed floats: any floating point number represents itself, except when it's NaN, the unused 23 bits encode a type and value.
