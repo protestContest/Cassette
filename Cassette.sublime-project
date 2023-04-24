@@ -25,7 +25,7 @@
 			"variants": [
 				{
 					"name": "Run",
-					"cmd": ["dist/rye", "$file"],
+					"cmd": ["dist/cassette", "$file"],
 				},
 				{
 					"name": "Clean",

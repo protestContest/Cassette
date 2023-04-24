@@ -1,4 +1,4 @@
-NAME = rye
+NAME = cassette
 BUILD_DIR := build
 SRC_DIR := src
 LIB_DIR := lib

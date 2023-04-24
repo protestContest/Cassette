@@ -2,8 +2,8 @@ stmts         → stmts stmt NL
 stmts         → stmts stmt $
 stmts         → nl
 stmt          → let_stmt
-stmt          → import_stmt
 stmt          → def_stmt
+stmt          → import_stmt
 stmt          → call
 opt_stmt      → stmt
 opt_stmt      → ε
@@ -11,12 +11,11 @@ let_stmt      → "let" nl assigns
 assigns       → assigns "," nl assign
 assigns       → assign
 assign        → ID "=" call
-import_stmt   → "import" STR
-import_stmt   → "import" STR "as" ID
 def_stmt      → "def" "(" params ")" do_block
-def_stmt      → "def" ID arg
 params        → params ID
 params        → ID
+import_stmt   → "import" STR
+import_stmt   → "import" STR "as" ID
 call          → call arg
 call          → arg
 ml_call       → ml_call nl arg
