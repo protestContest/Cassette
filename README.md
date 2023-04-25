@@ -1,3 +1,5 @@
+![Cassette Logo](https://zjm.me/content/uploads/2023/04/Cassette_banner-wide.svg)
+
 # Cassette
 
 Cassette is a small language intended for casual solo programming on simple
