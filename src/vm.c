@@ -2,7 +2,7 @@
 #include "env.h"
 #include "port.h"
 
-void InitVM(VM *vm, Mem *mem)
+void InitVM(VM *vm, Mem *mem, Source src)
 {
   vm->mem = mem;
   vm->stack = NULL;
@@ -10,6 +10,7 @@ void InitVM(VM *vm, Mem *mem)
   InitMap(&vm->ports);
   vm->buffers = NULL;
   vm->windows = NULL;
+  vm->src = src;
 
   Seed(Microtime());
 

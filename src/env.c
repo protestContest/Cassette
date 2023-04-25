@@ -33,18 +33,18 @@ void Define(Val var, Val value, Val env, Mem *mem)
   SetHead(mem, env, DictSet(mem, frame, var, value));
 }
 
-Val Lookup(Val var, Val env, Mem *mem)
+Val Lookup(Val var, Val env, VM *vm)
 {
   while (!IsNil(env)) {
-    Val frame = Head(mem, env);
-    if (InDict(mem, frame, var)) {
-      return DictGet(mem, frame, var);
+    Val frame = Head(vm->mem, env);
+    if (InDict(vm->mem, frame, var)) {
+      return DictGet(vm->mem, frame, var);
     }
 
-    env = Tail(mem, env);
+    env = Tail(vm->mem, env);
   }
 
-  return RuntimeError("Unbound variable", var, mem);
+  return RuntimeError("Unbound variable", var, vm);
 }
 
 Val MakeProcedure(Val params, Val body, Val env, Mem *mem)

@@ -6,6 +6,6 @@
 
 Val RunFile(char *filename, Mem *mem);
 Val Interpret(Val ast, VM *vm);
-Val RuntimeError(char *message, Val exp, Mem *mem);
+Val RuntimeError(char *message, Val exp, VM *vm);
 Val Eval(Val exp, VM *vm);
 Val Apply(Val proc, Val args, VM *vm);

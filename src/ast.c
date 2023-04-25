@@ -230,7 +230,7 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
   return node;
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_AST
 static void Indent(u32 level, u32 lines)
 {
   if (level == 0) return;

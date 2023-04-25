@@ -7,6 +7,8 @@
 
 // #define DEBUG_PARSE
 
+static Val SyntaxError(Source src, Token token);
+
 static Val MakeNode(u32 parse_symbol, Val children, Mem *mem)
 {
   return MakePair(mem, MakeSymbol(mem, (char*)symbol_names[parse_symbol]), children);
@@ -106,31 +108,23 @@ static Val ParseNext(Parser *p, Token token)
 #endif
     return Reduce(p, (u32)reduction, num, token);
   } else {
-    Print("Syntax error: Unexpected token ");
-    Print((char*)symbol_names[token.type]);
-    Print(" at ");
-    PrintInt(token.line);
-    Print(":");
-    PrintInt(token.col);
-    Print("\n");
-    PrintSourceContext(&p->lex, 5);
-    return nil;
+    return SyntaxError(p->lex.src, token);
   }
 }
 
-static void InitParser(Parser *p, char *src, u32 length, Mem *mem)
+static void InitParser(Parser *p, Source src, Mem *mem)
 {
-  InitLexer(&p->lex, NUM_LITERALS, (Literal*)literals, src, length, mem);
+  InitLexer(&p->lex, NUM_LITERALS, (Literal*)literals, src, mem);
   p->stack = NULL;
   p->nodes = NULL;
   p->mem = mem;
   VecPush(p->stack, 0);
 }
 
-Val Parse(char *src, u32 length, Mem *mem)
+Val Parse(Source src, Mem *mem)
 {
   Parser p;
-  InitParser(&p, src, length, mem);
+  InitParser(&p, src, mem);
   Val ast = ParseNext(&p, NextToken(&p.lex));
 #ifdef DEBUG_PARSE
   PrintAST(ast, mem);
@@ -141,4 +135,23 @@ Val Parse(char *src, u32 length, Mem *mem)
 char *GrammarSymbolName(u32 sym)
 {
   return symbol_names[sym];
+}
+
+static Val SyntaxError(Source src, Token token)
+{
+  Print(IOFGRed);
+  Print("(Syntax Error) ");
+  if (token.type == 0) {
+    Print("Unexpected end of input");
+  } else {
+    Print("Unexpected token '");
+    PrintToken(token);
+    Print("'");
+  }
+  Print("\n  ");
+  PrintTokenPosition(src, token);
+  Print("\n");
+  PrintTokenContext(src, token, 5);
+  Print(IOFGReset);
+  return nil;
 }

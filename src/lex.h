@@ -19,9 +19,14 @@ typedef struct {
   u32 symbol;
 } Literal;
 
-typedef struct Lexer {
-  char *src;
+typedef struct {
+  char *name;
+  char *data;
   u32 length;
+} Source;
+
+typedef struct Lexer {
+  Source src;
   u32 start;
   u32 pos;
   u32 line;
@@ -31,7 +36,7 @@ typedef struct Lexer {
   Literal *literals;
 } Lexer;
 
-#define LexPeek(lexer, n) (lexer)->src[(lexer)->pos + n]
+#define LexPeek(lexer, n) (lexer)->src.data[(lexer)->pos + n]
 #define IsWhitespace(c)   ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)      ((c) == '\r' || (c) == '\n')
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
@@ -42,7 +47,8 @@ typedef struct Lexer {
 
 #define IsErrorToken(t)   ((t).type == (u32)-1)
 
-void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, u32 length, Mem *mem);
+void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, Source src, Mem *mem);
 Token NextToken(Lexer *lexer);
 int PrintToken(Token token);
-void PrintSourceContext(Lexer *lexer, u32 num_lines);
+void PrintTokenPosition(Source src, Token token);
+void PrintTokenContext(Source src, Token token, u32 num_lines);

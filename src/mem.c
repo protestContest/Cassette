@@ -486,7 +486,7 @@ void PrintVal(Mem *mem, Val value)
     Print("\"");
   } else {
     Print("<v");
-    PrintIntN(RawObj(value), 4);
+    PrintIntN(RawObj(value), 4, ' ');
     Print(">");
   }
 }
@@ -509,7 +509,7 @@ void DebugVal(Mem *mem, Val value)
     PrintInt(RawPair(value));
   } else {
     Print("<v");
-    PrintIntN(RawObj(value), 4);
+    PrintIntN(RawObj(value), 4, ' ');
     Print(">");
   }
 }
@@ -518,7 +518,7 @@ void PrintMem(Mem *mem)
 {
   for (u32 i = 0; i < NextFree(mem); i++) {
     Print("[");
-    PrintIntN(i, 4);
+    PrintIntN(i, 4, ' ');
     Print("] ");
     DebugVal(mem, mem->values[i]);
     Print("\n");

@@ -16,21 +16,22 @@ Val EvalCond(Val exps, VM *vm);
 Val EvalAnd(Val exps, VM *vm);
 Val EvalOr(Val exps, VM *vm);
 Val EvalImport(Val exps, VM *vm);
-Val RuntimeError(char *message, Val exp, Mem *mem);
 void PrintEnv(Val env, Mem *mem);
 
 Val RunFile(char *filename, Mem *mem)
 {
-  char *src = (char*)ReadFile(filename);
+  char *data = (char*)ReadFile(filename);
 
-  if (!src) {
+  if (!data) {
     Print("Could not open file");
     Exit();
   }
 
-  Val ast = Parse(src, StrLen(src), mem);
+  Source src = {filename, data, StrLen(data)};
+
+  Val ast = Parse(src, mem);
   VM vm;
-  InitVM(&vm, mem);
+  InitVM(&vm, mem, src);
   return Interpret(ast, &vm);
 }
 
@@ -62,7 +63,7 @@ Val Eval(Val exp, VM *vm)
   if (IsNil(exp) || IsNumeric(exp) || IsObj(exp)) {
     result = exp;
   } else if (IsSym(exp)) {
-    result = Lookup(exp, vm->env, vm->mem);
+    result = Lookup(exp, vm->env, vm);
   } else if (IsTagged(vm->mem, exp, SymbolFor("->"))) {
     result = EvalLambda(exp, vm);
   } else if (IsTagged(vm->mem, exp, SymbolFor(":"))) {
@@ -101,13 +102,13 @@ Val Eval(Val exp, VM *vm)
   return result;
 }
 
-Val ListAccess(Val list, Val index, Mem *mem)
+static Val ListAccess(Val list, Val index, VM *vm)
 {
   if (!IsInt(index)) {
-    return RuntimeError("Must access lists with integers", index, mem);
+    return RuntimeError("Must access lists with integers", index, vm);
   }
 
-  return ListAt(mem, list, RawInt(index));
+  return ListAt(vm->mem, list, RawInt(index));
 }
 
 Val Apply(Val proc, Val args, VM *vm)
@@ -117,9 +118,9 @@ Val Apply(Val proc, Val args, VM *vm)
   }
 
   if (!IsTagged(vm->mem, proc, SymbolFor("λ"))) {
-    if (ListLength(vm->mem, args) == 1) return ListAccess(proc, Head(vm->mem, args), vm->mem);
+    if (ListLength(vm->mem, args) == 1) return ListAccess(proc, Head(vm->mem, args), vm);
     if (ListLength(vm->mem, args) == 0) return proc;
-    return RuntimeError("Not a procedure", proc, vm->mem);
+    return RuntimeError("Not a procedure", proc, vm);
   }
 
 #ifdef DEBUG_EVAL
@@ -139,7 +140,7 @@ Val Apply(Val proc, Val args, VM *vm)
   } else {
     while (!IsNil(args)) {
       if (IsNil(params)) {
-        return RuntimeError("Too many arguments", args, vm->mem);
+        return RuntimeError("Too many arguments", args, vm);
       }
       Define(Head(vm->mem, params), Head(vm->mem, args), env, vm->mem);
       params = Tail(vm->mem, params);
@@ -172,7 +173,7 @@ Val EvalAccess(Val exp, VM *vm)
   Val dict = Eval(ListAt(vm->mem, exp, 1), vm);
   Val key = ListAt(vm->mem, exp, 2);
   if (!IsDict(vm->mem, dict)) {
-    return RuntimeError("Can't access this", dict, vm->mem);
+    return RuntimeError("Can't access this", dict, vm);
   }
 
   return DictGet(vm->mem, dict, key);
@@ -201,7 +202,7 @@ Val EvalApply(Val exp, VM *vm)
   if (IsTuple(vm->mem, proc) && ListLength(vm->mem, args) == 1) {
     Val index = Head(vm->mem, args);
     if (!IsInt(index)) {
-      return RuntimeError("Must access tuples with integers", index, vm->mem);
+      return RuntimeError("Must access tuples with integers", index, vm);
     }
     return TupleAt(vm->mem, proc, RawInt(index));
   }
@@ -210,7 +211,7 @@ Val EvalApply(Val exp, VM *vm)
     PrintVal(vm->mem, proc);
     Val index = Head(vm->mem, args);
     if (!IsInt(index)) {
-      return RuntimeError("Must access binaries with integers", index, vm->mem);
+      return RuntimeError("Must access binaries with integers", index, vm);
     }
     return IntVal(BinaryData(vm->mem, proc)[RawInt(index)]);
   }
@@ -288,7 +289,7 @@ Val EvalCond(Val exps, VM *vm)
     clauses = Tail(vm->mem, clauses);
   }
 
-  return RuntimeError("Unmatched cond", clauses, vm->mem);
+  return RuntimeError("Unmatched cond", clauses, vm);
 }
 
 Val EvalAnd(Val exps, VM *vm)
@@ -327,12 +328,14 @@ Val EvalImport(Val exps, VM *vm)
   char filename[BinaryLength(vm->mem, file_arg) + 1];
   BinaryToString(vm->mem, file_arg, filename);
 
-  char *src = (char*)ReadFile(filename);
-  if (!src) {
-    return RuntimeError("Could not open", file_arg, vm->mem);
+  char *data = (char*)ReadFile(filename);
+  if (!data) {
+    return RuntimeError("Could not open", file_arg, vm);
   }
 
-  Val ast = Parse(src, StrLen(src), vm->mem);
+  Source src = {filename, data, StrLen(data)};
+
+  Val ast = Parse(src, vm->mem);
   Val import_env = ExtendEnv(TopEnv(vm->mem, vm->env), vm->mem);
 
   Val old_env = vm->env;
@@ -361,11 +364,14 @@ Val EvalImport(Val exps, VM *vm)
   return SymbolFor("ok");
 }
 
-Val RuntimeError(char *message, Val exp, Mem *mem)
+Val RuntimeError(char *message, Val exp, VM *vm)
 {
+  Print(IOFGRed);
+  Print("(Runtime error) ");
   Print(message);
   Print(": ");
-  PrintVal(mem, exp);
+  PrintVal(vm->mem, exp);
+  Print(IOFGReset);
   Print("\n");
   return SymbolFor("error");
 }

@@ -29,8 +29,7 @@ fizzbuzz 100
 
 ## To Do
 
-- Error recovery in parser
-- Stack-based bytecode VM
+- Virtual machine
 - Compilation
 - Garbage collection
 - Better module loading

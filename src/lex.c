@@ -70,24 +70,26 @@ static bool Match(Lexer *lexer, char *expected)
   return true;
 }
 
+static bool MatchKeyword(Lexer *lexer, char *expected)
+{
+  if (!IsIDChar(expected[0])) return false;
+
+  u32 keyword_length = StrLen(expected);
+  if (IsIDChar(LexPeek(lexer, keyword_length))) return false;
+
+  return Match(lexer, expected);
+}
+
 static Token MakeToken(u32 type, Lexer *lexer, Val value)
 {
   Token token = (Token){
     type,
     lexer->line,
     lexer->col,
-    lexer->src + lexer->start,
+    lexer->src.data + lexer->start,
     lexer->pos - lexer->start,
     value
   };
-  return token;
-}
-
-static Token ErrorToken(Lexer *lexer, char *msg)
-{
-  char *c = msg;
-  while (*c != '\0') c++;
-  Token token = {-1, lexer->line, lexer->col, msg, c - msg, nil};
   return token;
 }
 
@@ -141,7 +143,7 @@ static Token NumberToken(Lexer *lexer)
 
   if (Match(lexer, "0x") && IsHexDigit(LexPeek(lexer, 2))) {
     while (IsHexDigit(LexPeek(lexer, 0))) lexer->pos++;
-    Val value = ParseInt(lexer->src + lexer->start + 2, lexer->pos - lexer->start + 2, 16);
+    Val value = ParseInt(lexer->src.data + lexer->start + 2, lexer->pos - lexer->start + 2, 16);
     if (neg) value = IntVal(-RawInt(value));
     return MakeToken(ParseSymNUM, lexer, value);
   }
@@ -152,10 +154,10 @@ static Token NumberToken(Lexer *lexer)
   if (LexPeek(lexer, 0) == '.' && IsDigit(LexPeek(lexer, 1))) {
     lexer->pos++;
     while (IsDigit(LexPeek(lexer, 0))) lexer->pos++;
-    value = ParseFloat(lexer->src + lexer->start, lexer->pos - lexer->start);
+    value = ParseFloat(lexer->src.data + lexer->start, lexer->pos - lexer->start);
     if (neg) value = NumVal(-RawNum(value));
   } else {
-    value = ParseInt(lexer->src + lexer->start, lexer->pos - lexer->start, 10);
+    value = ParseInt(lexer->src.data + lexer->start, lexer->pos - lexer->start, 10);
     if (neg) value = IntVal(-RawInt(value));
   }
 
@@ -171,7 +173,7 @@ static Token StringToken(Lexer *lexer)
     lexer->pos++;
   }
   Match(lexer, "\"");
-  char *lexeme = lexer->src + lexer->start + 1;
+  char *lexeme = lexer->src.data + lexer->start + 1;
   u32 length = lexer->pos - lexer->start - 2;
   Val binary = MakeBinaryFrom(lexer->mem, lexeme, length);
 
@@ -181,7 +183,7 @@ static Token StringToken(Lexer *lexer)
 static Token IDToken(Lexer *lexer)
 {
   while (LexPeek(lexer, 0) != '\0' && IsIDChar(LexPeek(lexer, 0))) lexer->pos++;
-  Val value = MakeSymbolFrom(lexer->mem, lexer->src + lexer->start, lexer->pos - lexer->start);
+  Val value = MakeSymbolFrom(lexer->mem, lexer->src.data + lexer->start, lexer->pos - lexer->start);
   return MakeToken(ParseSymID, lexer, value);
 }
 
@@ -196,12 +198,12 @@ static Token NewlinesToken(Lexer *lexer)
   return MakeToken(ParseSymNL, lexer, nil);
 }
 
-void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, char *src, u32 length, Mem *mem)
+void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, Source src, Mem *mem)
 {
   for (u32 i = 0; i < num_literals; i++) {
     MakeSymbol(mem, literals[i].lexeme);
   }
-  *lexer = (Lexer){src, length, 0, 0, 1, 1, mem, num_literals, literals};
+  *lexer = (Lexer){src, 0, 0, 1, 1, mem, num_literals, literals};
 }
 
 Token NextToken(Lexer *lexer)
@@ -218,14 +220,14 @@ Token NextToken(Lexer *lexer)
 
   for (u32 i = 0; i < lexer->num_literals; i++) {
     char *lexeme = lexer->literals[i].lexeme;
-    if (Match(lexer, lexeme)) {
+    if (MatchKeyword(lexer, lexeme)) {
+      return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+    } else if (Match(lexer, lexeme)) {
       return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
     }
   }
 
-  if (IsIDChar(c)) return IDToken(lexer);
-
-  return ErrorToken(lexer, "Invalid identifier");
+  return IDToken(lexer);
 }
 
 int PrintToken(Token token)
@@ -237,46 +239,67 @@ int PrintToken(Token token)
   return token.length;
 }
 
-void PrintSourceContext(Lexer *lexer, u32 num_lines)
+static bool AtEnd(Source src, u32 pos)
 {
-  u32 before = num_lines;
-  if (before > lexer->line - 1) before = lexer->line - 1;
-  u32 after = num_lines - before;
+  return pos >= src.length || src.data[pos] == '\0';
+}
 
-  u32 start = lexer->line - before;
-  u32 end = lexer->line + after;
+void PrintTokenPosition(Source src, Token token)
+{
+  Print(src.name);
+  Print(":");
+  PrintInt(token.line);
+  Print(":");
+  PrintInt(token.col);
+}
 
-  char *c = lexer->src;
-  u32 line = 1;
-  while (*c != '\0' && line < start) {
-    if (IsNewline(*c)) line++;
-    c++;
+void PrintTokenContext(Source src, Token token, u32 num_lines)
+{
+  u32 token_pos = token.lexeme - src.data;
+
+  u32 before = num_lines / 2;
+  u32 after = num_lines - before - 1;
+  if (before > token.line - 1) {
+    before = token.line - 1;
+    after = num_lines - before - 1;
   }
 
-  while (*c != '\0' && line <= end) {
-    if (line == lexer->line) {
-      Print("→");
-      PrintIntN(line, 3);
-      Print("  ");
+  u32 start_line = token.line - before;
+  u32 end_line = token.line + after;
+
+  u32 pos = 0;
+  u32 cur_line = 1;
+
+  // skip lines before start_line
+  while (!AtEnd(src, pos) && cur_line < start_line) {
+    if (IsNewline(src.data[pos])) cur_line++;
+    pos++;
+  }
+
+  // print lines
+  while (!AtEnd(src, pos) && cur_line <= end_line) {
+    if (cur_line == token.line) {
+      Print(" →");
     } else {
-      PrintIntN(line, 4);
       Print("  ");
     }
+    PrintIntN(cur_line, 4, ' ');
+    Print("│ ");
 
-    while (*c != '\0' && !IsNewline(*c)) {
-      bool underline = c - lexer->src == lexer->start && lexer->start <= lexer->pos;
-      if (underline) {
-        Print(IOUnderline);
+    while (!AtEnd(src, pos)) {
+      if (pos == token_pos) Print(IOUnderline);
+      if (pos == token_pos + token.length) Print(IONoUnderline);
+
+      PrintChar(src.data[pos]);
+      if (IsNewline(src.data[pos])) {
+        cur_line++;
+        pos++;
+        break;
       }
-      PrintN(c, 1);
-      c++;
-      if (underline) {
-        Print(IONoUnderline);
-      }
+
+      pos++;
     }
-    Print("\n");
-    c++;
-
-    line++;
   }
+
+  if (AtEnd(src, pos)) Print("\n");
 }

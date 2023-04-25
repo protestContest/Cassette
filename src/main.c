@@ -1,20 +1,23 @@
 #include "vm.h"
 #include "parse.h"
+#include "ast.h"
 #include "eval.h"
 #include <univ/window.h>
 
 void REPL(Mem *mem)
 {
-  VM vm;
-  InitVM(&vm, mem);
+  char line[1024];
+  Source src = {"repl", line, 0};
 
-  char src[1024];
+  VM vm;
+  InitVM(&vm, mem, src);
 
   while (true) {
     Print("> ");
-    if (!ReadLine(src, 1024)) break;
+    if (!ReadLine(line, 1024)) break;
+    src.length = StrLen(line);
 
-    Val ast = Parse(src, StrLen(src), mem);
+    Val ast = Parse(src, mem);
     PrintVal(mem, Eval(ast, &vm));
     Print("\n");
 

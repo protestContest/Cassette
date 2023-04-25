@@ -57,7 +57,7 @@ static Val OpenFilePort(VM *vm, Val name, Val opts)
 
   Buf buffer = OpenFile(path);
   if (buffer.error) {
-    return RuntimeError("Could not open file", name, vm->mem);
+    return RuntimeError("Could not open file", name, vm);
   }
 
   Val buf_num = IntVal(VecCount(vm->buffers));
@@ -87,7 +87,7 @@ static Val OpenWindowPort(VM *vm, Val name, Val opts)
   u32 height = 300;
   if (!IsNil(opts)) {
     if (!IsDict(vm->mem, opts)) {
-      return RuntimeError("Expected window arguments to be a dict", opts, vm->mem);
+      return RuntimeError("Expected window arguments to be a dict", opts, vm);
     }
 
     if (InDict(vm->mem, opts, SymbolFor("width"))) {
@@ -138,7 +138,7 @@ Val OpenPort(VM *vm, Val type, Val name, Val opts)
 static Val SendToConsole(VM *vm, Val message)
 {
   if (!ValToString(vm->mem, message, output)) {
-    return RuntimeError("Could not print", message, vm->mem);
+    return RuntimeError("Could not print", message, vm);
   }
 
   return SymbolFor("ok");
@@ -168,7 +168,7 @@ static Val SendToFile(VM *vm, Val port, Val message)
   Buf *buffer = PortBuffer(vm, port);
 
   if (!ValToString(vm->mem, message, buffer)) {
-    return RuntimeError("Could not print", message, vm->mem);
+    return RuntimeError("Could not print", message, vm);
   }
 
   Flush(buffer);
