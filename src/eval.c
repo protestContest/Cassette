@@ -118,6 +118,7 @@ Val Apply(Val proc, Val args, VM *vm)
 
   if (!IsTagged(vm->mem, proc, SymbolFor("λ"))) {
     if (ListLength(vm->mem, args) == 1) return ListAccess(proc, Head(vm->mem, args), vm->mem);
+    if (ListLength(vm->mem, args) == 0) return proc;
     return RuntimeError("Not a procedure", proc, vm->mem);
   }
 
@@ -293,7 +294,7 @@ Val EvalCond(Val exps, VM *vm)
 Val EvalAnd(Val exps, VM *vm)
 {
   Val a = ListAt(vm->mem, exps, 1);
-  Val b = ListAt(vm->mem, exps, 1);
+  Val b = ListAt(vm->mem, exps, 2);
 
   Val test = Eval(a, vm);
   if (!IsTrue(test)) {
@@ -307,7 +308,7 @@ Val EvalAnd(Val exps, VM *vm)
 Val EvalOr(Val exps, VM *vm)
 {
   Val a = ListAt(vm->mem, exps, 1);
-  Val b = ListAt(vm->mem, exps, 1);
+  Val b = ListAt(vm->mem, exps, 2);
 
   Val test = Eval(a, vm);
   if (IsTrue(test)) {

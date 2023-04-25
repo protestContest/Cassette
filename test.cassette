@@ -1,36 +1,19 @@
-def (reverse list) do
-  def (reverse-onto list rest) do
-    if list == nil do
-      rest
-    else
-      reverse-onto (tail list) [(head list) | rest]
+def (fizzbuzz n) do
+  def (loop m) do
+    cond do
+      (rem m 3) == 0 and
+          (rem m 5) == 0  :: print "FizzBuzz"
+      (rem m 3) == 0      :: print "Fizz"
+      (rem m 5) == 0      :: print "Buzz"
+      true                :: print m
+    end
+
+    if m < n do
+      loop m + 1
     end
   end
 
-  reverse-onto list nil
+  loop 1
 end
 
-def (reduce list acc fn) do
-  if list == nil do
-    acc
-  else
-    reduce (tail list) (fn (head list) acc) fn
-  end
-end
-
-def (map list fn) do
-  let mapped = reduce list [] (item acc) -> [(fn item) | acc]
-  reverse mapped
-end
-
-def (even? n) do (rem n 2) == 0 end
-
-map [1 2 3 4 5] (num) -> do
-  if (even? num) do
-    num / 2
-  else
-    3 * num + 1
-  end
-end
-
-; => [4 1 10 2 16]
+fizzbuzz 100
