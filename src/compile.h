@@ -2,4 +2,7 @@
 #include "mem.h"
 #include "vm.h"
 
-// bool Compile(Val exp, Register target, Val linkage, Mem *mem);
+// #define DEBUG_COMPILE
+
+Val Compile(Val exp, Mem *mem);
+void PrintSeq(Val stmts, Mem *mem);

@@ -6,6 +6,4 @@
 
 Val AbstractNode(Parser *p, u32 sym, Val children);
 
-#ifdef DEBUG_AST
 void PrintAST(Val ast, Mem *mem);
-#endif

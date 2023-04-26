@@ -230,7 +230,6 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
   return node;
 }
 
-#ifdef DEBUG_AST
 static void Indent(u32 level, u32 lines)
 {
   if (level == 0) return;
@@ -294,4 +293,3 @@ void PrintAST(Val ast, Mem *mem)
   if (IsNil(ast)) return;
   PrintASTNode(ast, 0, 0, mem);
 }
-#endif
