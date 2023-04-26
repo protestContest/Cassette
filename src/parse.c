@@ -153,5 +153,5 @@ static Val SyntaxError(Source src, Token token)
   Print("\n");
   PrintTokenContext(src, token, 5);
   Print(IOFGReset);
-  return nil;
+  return SymbolFor("error");
 }

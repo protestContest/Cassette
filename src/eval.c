@@ -31,15 +31,8 @@ Val RunFile(char *filename, Mem *mem)
 
   Val ast = Parse(src, mem);
   VM vm;
-  InitVM(&vm, mem, src);
-  return Interpret(ast, &vm);
-}
-
-Val Interpret(Val ast, VM *vm)
-{
-  if (IsNil(ast)) return nil;
-  vm->env = InitialEnv(vm->mem);
-  return Eval(ast, vm);
+  InitVM(&vm, mem);
+  return Eval(ast, &vm);
 }
 
 #ifdef DEBUG_EVAL

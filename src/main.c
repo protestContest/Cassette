@@ -10,7 +10,7 @@ void REPL(Mem *mem)
   Source src = {"repl", line, 0};
 
   VM vm;
-  InitVM(&vm, mem, src);
+  InitVM(&vm, mem);
 
   while (true) {
     Print("> ");

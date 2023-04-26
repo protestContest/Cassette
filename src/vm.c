@@ -2,7 +2,7 @@
 #include "env.h"
 #include "port.h"
 
-void InitVM(VM *vm, Mem *mem, Source src)
+void InitVM(VM *vm, Mem *mem)
 {
   vm->mem = mem;
   vm->stack = NULL;
@@ -10,9 +10,7 @@ void InitVM(VM *vm, Mem *mem, Source src)
   InitMap(&vm->ports);
   vm->buffers = NULL;
   vm->windows = NULL;
-  vm->src = src;
 
   Seed(Microtime());
-
   OpenPort(vm, SymbolFor("console"), nil, nil);
 }

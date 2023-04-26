@@ -9,7 +9,6 @@ typedef struct {
   Map ports;
   Buf *buffers;
   void **windows;
-  Source src;
 } VM;
 
-void InitVM(VM *vm, Mem *mem, Source src);
+void InitVM(VM *vm, Mem *mem);
