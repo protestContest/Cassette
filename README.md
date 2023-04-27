@@ -29,6 +29,7 @@ fizzbuzz 100
 
 ## To Do
 
+- String support
 - Compiler optimization
 - VM optimization
 - Garbage collection

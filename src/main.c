@@ -26,13 +26,16 @@ void RunFile(char *filename)
   RunChunk(&vm, &chunk);
 }
 
-// void REPL(Mem *mem)
+// void REPL(void)
 // {
 //   char line[1024];
 //   Source src = {"repl", line, 0};
 
+//   Mem mem;
+//   InitMem(&mem, 0);
+
 //   VM vm;
-//   InitVM(&vm, mem);
+//   InitVM(&vm, &mem);
 
 //   while (true) {
 //     Print("> ");
@@ -49,12 +52,13 @@ void RunFile(char *filename)
 
 int main(int argc, char *argv[])
 {
-  Seed(Microtime());
-
   if (argc > 1) {
-    RunFile(argv[1]);
+    if (StrEq(argv[1], "-h")) {
+      Print("Usage: cassette [file]\n");
+    } else {
+      RunFile(argv[1]);
+    }
   } else {
-    Print("Usage: cassette <file>\n");
     // REPL(&mem);
   }
 }

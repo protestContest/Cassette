@@ -1,7 +1,7 @@
 {
 	"folders": [
 		{
-			"path": ".",
+			"path": "..",
 			"binary_file_patterns": [
 				"build/",
 				".elixir_ls/"
@@ -10,9 +10,15 @@
 	],
 	"settings": {
 		"lsp_format_on_save": false,
-		"LSP": {
-			"clangd": {
+		"LSP":
+		{
+			"clangd":
+			{
 				"enabled": true,
+				"initializationOptions": {
+					"clangd.compile-commands-dir": "support",
+					"clangd.header-insertion": "never"
+				}
 			},
 		},
 	},

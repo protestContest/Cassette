@@ -5,3 +5,4 @@ dist/*
 .elixir_ls
 grammar.y
 bison*
+cassette

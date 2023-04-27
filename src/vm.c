@@ -168,8 +168,10 @@ void RuntimeError(char *message, Val exp, VM *vm)
 {
   Print(IOFGRed);
   Print("(Runtime Error) ");
+#ifdef DEBUG_VM
   PrintInt(vm->pc);
   Print(" ");
+#endif
   Print(message);
   Print(": ");
   PrintVal(vm->mem, exp);

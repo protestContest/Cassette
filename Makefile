@@ -3,7 +3,7 @@ BUILD_DIR := build
 SRC_DIR := src
 # INC_DIR := include
 # LIB_DIR := lib
-DIST_DIR := dist
+DIST_DIR := .
 PREFIX := $(HOME)/.local
 TARGET = $(DIST_DIR)/$(NAME)
 SHELL = bash
@@ -28,8 +28,12 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 .PHONY: clean
 clean:
-	@rm -rf $(BUILD_DIR) $(DIST_DIR)
-	@rm -f bison*
+	@rm -rf $(BUILD_DIR) $(TARGET)
+	@rm -f grammar/bison*
+
+.PHONY: test
+test: $(TARGET)
+	@$(TARGET) test/test.cassette
 
 .PHONY: run
 run: $(TARGET)
@@ -37,8 +41,8 @@ run: $(TARGET)
 
 .PHONY: parse
 parse: parse-check clean
-	@gsi src/parse_gen.scm grammar.txt src/parse_table.h src/parse_syms.h
+	@gsi grammar/parse_gen.scm grammar/grammar.txt src/parse_table.h src/parse_syms.h
 
 .PHONY: parse-check
 parse-check:
-	@! (bison -o bison -v <(cat tokens.y <(sed 's/→/:/g; s/ε//g; s/\$$/EOF/g; s/$$/;/g' grammar.txt)) 2>&1 | grep '.')
+	@! (bison -o grammar/bison -v <(cat grammar/tokens.y <(sed 's/→/:/g; s/ε//g; s/\$$/EOF/g; s/$$/;/g' grammar/grammar.txt)) 2>&1 | grep '.')

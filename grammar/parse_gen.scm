@@ -589,8 +589,8 @@
 ; Script
 
 (let* ((grammar-file (second (command-line)))
-       (output-file (either (third (command-line)) "src/parse_table.h"))
-       (symbols-file (either (fourth (command-line)) "src/parse_syms.h"))
+       (output-file (either (third (command-line)) "../src/parse_table.h"))
+       (symbols-file (either (fourth (command-line)) "../src/parse_syms.h"))
        (grammar (read-grammar grammar-file))
        (parser (Parser grammar)))
   (with-output-to-file output-file (lambda () (print-parse-tables parser)))
