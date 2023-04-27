@@ -23,6 +23,10 @@ typedef struct {
   u32 pc;
   Val regs[NUM_REGS];
   bool halted;
+  struct {
+    u32 stack_ops;
+    u32 reductions;
+  } stats;
 } VM;
 
 u32 PrintReg(i32 reg);

@@ -29,14 +29,14 @@ fizzbuzz 100
 
 ## To Do
 
-- Virtual machine
-- Compilation
+- Compiler optimization
+- VM optimization
 - Garbage collection
-- Better module loading
+- Module loading
 - Error handling for primitives
 - Persistent data structures
 - Standard library
-  - Collections (transducers?)
+  - Collections
   - Math
   - I/O ports
   - Graphics

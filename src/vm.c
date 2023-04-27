@@ -19,7 +19,7 @@ u32 PrintReg(i32 reg)
 
 void InitVM(VM *vm, Mem *mem)
 {
-  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil, nil}, true};
+  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil, nil}, true, {0, 0}};
   vm->regs[2] = InitialEnv(vm->mem);
 }
 
@@ -122,17 +122,19 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpApply:
+      vm->stats.reductions++;
       vm->pc = RawInt(ProcBody(vm->regs[4], vm->mem));
       break;
     // case OpMove:    break;
     case OpPush:
+      vm->stats.stack_ops++;
       VecPush(vm->stack, vm->regs[ChunkRef(chunk, vm->pc+1)]);
       vm->pc += OpLength(op);
       break;
     case OpPop:
+      vm->stats.stack_ops++;
       if (VecCount(vm->stack) == 0) {
         RuntimeError("Stack underflow", nil, vm);
-        return;
       } else {
         vm->regs[ChunkRef(chunk, vm->pc+1)] =
           VecPop(vm->stack, nil);
@@ -150,9 +152,17 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     default:
       RuntimeError("Invalid op code", IntVal(op), vm);
-      return;
+      break;
     }
   }
+
+#ifdef DEBUG_VM
+  Print("Stack operations: ");
+  PrintInt(vm->stats.stack_ops);
+  Print("\nReductions: ");
+  PrintInt(vm->stats.reductions);
+  Print("\n");
+#endif
 }
 
 void RuntimeError(char *message, Val exp, VM *vm)
