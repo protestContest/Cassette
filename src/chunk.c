@@ -176,11 +176,6 @@ Val ChunkConst(Chunk *chunk, u32 index)
   return chunk->constants[index];
 }
 
-static u32 PrintTarget(i32 reg)
-{
-  return PrintReg(IntToReg(reg));
-}
-
 u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
 {
   u32 printed = 0;
@@ -197,19 +192,19 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
     return printed;
   case ArgsReg:
     printed += Print(" ");
-    printed += PrintTarget(ChunkRef(chunk, i+1));
+    printed += PrintReg(ChunkRef(chunk, i+1));
     return printed;
   case ArgsConstReg:
     printed += Print(" ");
     printed += PrintVal(mem, ChunkConst(chunk, i+1));
     printed += Print(" ");
-    printed += PrintTarget(ChunkRef(chunk, i+2));
+    printed += PrintReg(ChunkRef(chunk, i+2));
     return printed;
   case ArgsRegReg:
     printed += Print(" ");
-    printed += PrintTarget(ChunkRef(chunk, i+1));
+    printed += PrintReg(ChunkRef(chunk, i+1));
     printed += Print(" ");
-    printed += PrintTarget(ChunkRef(chunk, i+2));
+    printed += PrintReg(ChunkRef(chunk, i+2));
     return printed;
   }
 }

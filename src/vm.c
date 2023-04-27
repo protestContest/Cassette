@@ -8,19 +8,18 @@ u32 PrintReg(i32 reg)
 {
   switch (reg) {
   case RegVal:  return Print("[val]");
-  case RegExp:  return Print("[exp]");
   case RegEnv:  return Print("[env]");
-  case RegCont: return Print("[con]");
-  case RegProc: return Print("[fun]");
-  case RegArgs: return Print("[arg]");
+  case RegCon:  return Print("[con]");
+  case RegFun:  return Print("[fun]");
+  case RegArg:  return Print("[arg]");
   default:      return Print("[???]");
   }
 }
 
 void InitVM(VM *vm, Mem *mem)
 {
-  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil, nil}, true, {0, 0}};
-  vm->regs[2] = InitialEnv(vm->mem);
+  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil}, true, {0, 0}};
+  vm->regs[RegEnv] = InitialEnv(vm->mem);
 }
 
 static void TraceInstruction(VM *vm, Chunk *chunk)
@@ -72,45 +71,45 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpLookup:
       vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        Lookup(ChunkConst(chunk, vm->pc+1), vm->regs[2], vm);
+        Lookup(ChunkConst(chunk, vm->pc+1), vm->regs[RegEnv], vm);
       vm->pc += OpLength(op);
       break;
     case OpDefine:
-      Define(ChunkConst(chunk, vm->pc+1), vm->regs[0], vm->regs[2], vm->mem);
-      vm->regs[0] = SymbolFor("ok");
+      Define(ChunkConst(chunk, vm->pc+1), vm->regs[RegVal], vm->regs[RegEnv], vm->mem);
+      vm->regs[RegVal] = SymbolFor("ok");
       vm->pc += OpLength(op);
       break;
     case OpBranch:
-      if (!IsTrue(vm->regs[0])) {
+      if (!IsTrue(vm->regs[RegVal])) {
         vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       } else {
         vm->pc += OpLength(op);
       }
       break;
     case OpNot:
-      vm->regs[0] = BoolVal(!IsTrue(vm->regs[0]));
+      vm->regs[RegVal] = BoolVal(!IsTrue(vm->regs[RegVal]));
       vm->pc += OpLength(op);
       break;
     case OpLambda:
       vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakeProcedure(ChunkConst(chunk, vm->pc+1), vm->regs[2], vm->mem);
+        MakeProcedure(ChunkConst(chunk, vm->pc+1), vm->regs[RegEnv], vm->mem);
       vm->pc += OpLength(op);
       break;
     case OpDefArg:
-      Define(ChunkConst(chunk, vm->pc+1), Head(vm->mem, vm->regs[5]), vm->regs[2], vm->mem);
-      vm->regs[5] = Tail(vm->mem, vm->regs[5]);
+      Define(ChunkConst(chunk, vm->pc+1), Head(vm->mem, vm->regs[RegArg]), vm->regs[RegEnv], vm->mem);
+      vm->regs[RegArg] = Tail(vm->mem, vm->regs[RegArg]);
       vm->pc += OpLength(op);
       break;
     case OpExtEnv:
-      vm->regs[2] = ExtendEnv(vm->regs[2], vm->mem);
+      vm->regs[RegEnv] = ExtendEnv(vm->regs[RegEnv], vm->mem);
       vm->pc++;
       break;
     case OpPushArg:
-      vm->regs[5] = MakePair(vm->mem, vm->regs[0], vm->regs[5]);
+      vm->regs[RegArg] = MakePair(vm->mem, vm->regs[RegVal], vm->regs[RegArg]);
       vm->pc++;
       break;
     case OpBrPrim:
-      if (IsPrimitive(vm->regs[4], vm->mem)) {
+      if (IsPrimitive(vm->regs[RegFun], vm->mem)) {
         vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       } else {
         vm->pc += OpLength(op);
@@ -118,12 +117,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpPrim:
       vm->regs[ChunkRef(chunk, vm->pc+1)] =
-        DoPrimitive(vm->regs[4], vm->regs[5], vm);
+        DoPrimitive(vm->regs[RegFun], vm->regs[RegArg], vm);
       vm->pc += OpLength(op);
       break;
     case OpApply:
       vm->stats.reductions++;
-      vm->pc = RawInt(ProcBody(vm->regs[4], vm->mem));
+      vm->pc = RawInt(ProcBody(vm->regs[RegFun], vm->mem));
       break;
     // case OpMove:    break;
     case OpPush:
@@ -145,7 +144,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       break;
     case OpReturn:
-      vm->pc = RawInt(vm->regs[3]);
+      vm->pc = RawInt(vm->regs[RegCon]);
       break;
     case OpHalt:
       vm->halted = true;

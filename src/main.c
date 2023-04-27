@@ -2,7 +2,6 @@
 #include "vm.h"
 #include "parse.h"
 #include "ast.h"
-#include "eval.h"
 #include "chunk.h"
 #include <univ/window.h>
 

@@ -5,17 +5,15 @@
 
 // #define DEBUG_VM
 
-#define RegVal    Bit(0)
-#define RegExp    Bit(1)
-#define RegEnv    Bit(2)
-#define RegCont   Bit(3)
-#define RegProc   Bit(4)
-#define RegArgs   Bit(5)
-#define RegAll    (RegVal | RegExp | RegEnv | RegCont | RegProc | RegArgs)
-#define NUM_REGS  6
-typedef i32 Reg;
+typedef enum {
+  RegVal,
+  RegEnv,
+  RegCon,
+  RegFun,
+  RegArg,
 
-#define IntToReg(i) (1 << (i))
+  NUM_REGS
+} Reg;
 
 typedef struct {
   Mem *mem;
