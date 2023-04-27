@@ -1,17 +1,19 @@
 #include "env.h"
 #include "eval.h"
 #include "primitives.h"
+#include "vm.h"
 
 Val InitialEnv(Mem *mem)
 {
   MakeSymbol(mem, "ok");
   MakeSymbol(mem, "error");
+  MakeSymbol(mem, "ε");
   Val env = ExtendEnv(nil, mem);
   Define(MakeSymbol(mem, "nil"), nil, env, mem);
   Define(MakeSymbol(mem, "true"), SymbolFor("true"), env, mem);
   Define(MakeSymbol(mem, "false"), SymbolFor("false"), env, mem);
   DefinePrimitives(env, mem);
-  return env;
+  return ExtendEnv(env, mem);
 }
 
 Val TopEnv(Mem *mem, Val env)
@@ -24,19 +26,20 @@ Val TopEnv(Mem *mem, Val env)
 
 Val ExtendEnv(Val env, Mem *mem)
 {
-  return MakePair(mem, MakeDict(mem), env);
+  return MakePair(mem, MakePair(mem, SymbolFor("ε"), MakeDict(mem)), env);
 }
 
 void Define(Val var, Val value, Val env, Mem *mem)
 {
   Val frame = Head(mem, env);
-  SetHead(mem, env, DictSet(mem, frame, var, value));
+  frame = MakePair(mem, SymbolFor("ε"), DictSet(mem, Tail(mem, frame), var, value));
+  SetHead(mem, env, frame);
 }
 
 Val Lookup(Val var, Val env, VM *vm)
 {
   while (!IsNil(env)) {
-    Val frame = Head(vm->mem, env);
+    Val frame = Tail(vm->mem, Head(vm->mem, env));
     if (InDict(vm->mem, frame, var)) {
       return DictGet(vm->mem, frame, var);
     }
@@ -44,21 +47,31 @@ Val Lookup(Val var, Val env, VM *vm)
     env = Tail(vm->mem, env);
   }
 
-  return RuntimeError("Unbound variable", var, vm);
+  RuntimeError("Unbound variable", var, vm);
+  return nil;
 }
 
-Val MakeProcedure(Val params, Val body, Val env, Mem *mem)
+Val MakeProcedure(Val body, Val env, Mem *mem)
 {
-  return MakeList(mem, 4, MakeSymbol(mem, "λ"), params, body, env);
+  return MakeList(mem, 3, MakeSymbol(mem, "λ"), body, env);
 }
 
-#ifdef DEBUG_EVAL
+Val ProcBody(Val proc, Mem *mem)
+{
+  return ListAt(mem, proc, 1);
+}
+
+Val ProcEnv(Val proc, Mem *mem)
+{
+  return ListAt(mem, proc, 2);
+}
+
 void PrintEnv(Val env, Mem *mem)
 {
   if (IsNil(env)) Print("<empty env>");
   while (!IsNil(env)) {
     Print("----------------\n");
-    Val frame = Head(mem, env);
+    Val frame = Tail(mem, Head(mem, env));
 
     Val vars = DictKeys(mem, frame);
     Val vals = DictValues(mem, frame);
@@ -80,4 +93,3 @@ void PrintEnv(Val env, Mem *mem)
     env = Tail(mem, env);
   }
 }
-#endif

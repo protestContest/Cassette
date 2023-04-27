@@ -10,6 +10,20 @@ static bool IsInfix(Val sym)
   return false;
 }
 
+static Val CondToIf(Val exp, Mem *mem)
+{
+  if (IsNil(exp)) return nil;
+
+  Val clause = Head(mem, exp);
+  Val predicate = ListAt(mem, clause, 0);
+  Val consequent = ListAt(mem, clause, 1);
+  return
+    MakePair(mem, SymbolFor("if"),
+    MakePair(mem, predicate,
+    MakePair(mem, consequent,
+    MakePair(mem, CondToIf(Tail(mem, exp), mem), nil))));
+}
+
 Val AbstractNode(Parser *p, u32 sym, Val children)
 {
   Mem *mem = p->mem;
@@ -136,7 +150,7 @@ Val AbstractNode(Parser *p, u32 sym, Val children)
     break;
 
   case ParseSymCond_block:
-    node = MakePair(mem, SymbolFor("cond"), ListAt(mem, children, 2));
+    node = CondToIf(ListAt(mem, children, 2), mem);
     break;
 
   case ParseSymClauses:
@@ -236,9 +250,9 @@ static void Indent(u32 level, u32 lines)
 
   for (u32 i = 0; i < level - 1; i++) {
     if ((lines >> (level - i - 1)) & 1) {
-      Print("│");
+      Print("│ ");
     } else {
-      Print(" ");
+      Print("  ");
     }
   }
 }
@@ -249,7 +263,7 @@ static void PrintASTNode(Val node, u32 indent, u32 lines, Mem *mem)
     Print("╴");
     Print("nil\n");
   } else if (IsList(mem, node)) {
-    Print("┬");
+    Print("┬─");
     u32 next_lines = (lines << 1);
     bool is_last = IsNil(Tail(mem, node)) || !IsList(mem, Tail(mem, node));
     next_lines = (lines << 1);
@@ -268,9 +282,9 @@ static void PrintASTNode(Val node, u32 indent, u32 lines, Mem *mem)
 
       Indent(indent + 1, next_lines);
       if (is_last) {
-        Print("└");
+        Print("└─");
       } else {
-        Print("├");
+        Print("├─");
       }
       PrintASTNode(Head(mem, node), indent + 1, next_lines, mem);
       node = Tail(mem, node);

@@ -1,18 +1,32 @@
 #include "chunk.h"
 #include "vm.h"
 
+typedef enum {
+  ArgsNone,
+  ArgsConst,
+  ArgsReg,
+  ArgsConstReg,
+  ArgsRegReg,
+} ArgInfo;
+
+typedef struct {
+  char *name;
+  ArgInfo args;
+} OpInfo;
+
 static OpInfo op_info[NUM_OPCODES] = {
   [OpNoop] =    { "noop",     ArgsNone },
   [OpConst] =   { "const",    ArgsConstReg },
   [OpLookup] =  { "lookup",   ArgsConstReg },
   [OpDefine] =  { "define",   ArgsConst },
   [OpBranch] =  { "branch",   ArgsConst },
+  [OpNot] =     { "not",      ArgsNone },
   [OpLambda] =  { "lambda",   ArgsConstReg },
   [OpDefArg] =  { "defarg",   ArgsConst },
   [OpExtEnv] =  { "extenv",   ArgsNone },
   [OpPushArg] = { "pusharg",  ArgsNone },
   [OpBrPrim] =  { "brprim",   ArgsConst },
-  [OpPrim] =    { "prim",     ArgsNone },
+  [OpPrim] =    { "prim",     ArgsReg },
   [OpApply] =   { "apply",    ArgsNone },
   [OpMove] =    { "move",     ArgsRegReg },
   [OpPush] =    { "push",     ArgsReg },
@@ -22,9 +36,15 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpHalt] =    { "halt",     ArgsNone },
 };
 
-OpInfo GetOpInfo(OpCode op)
+u32 OpLength(OpCode op)
 {
-  return op_info[op];
+  switch (op_info[op].args) {
+  case ArgsNone:      return 1;
+  case ArgsConst:     return 2;
+  case ArgsReg:       return 2;
+  case ArgsConstReg:  return 3;
+  case ArgsRegReg:    return 3;
+  }
 }
 
 static void PushOp(OpCode op, Chunk *chunk)
@@ -63,26 +83,64 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
 
   for (u32 i = 0; i < NUM_OPCODES; i++) {
     if (Eq(op, SymbolFor(op_info[i].name))) {
+#ifdef DEBUG_ASSEMBLE
+      u32 inst_start = VecCount(chunk->data);
+#endif
       PushOp(i, chunk);
 
+#ifdef DEBUG_ASSEMBLE
+      PrintVal(mem, op);
+      Print(" ");
+#endif
+
+      Val result;
       switch (op_info[i].args) {
       case ArgsNone:
-        return Tail(mem, stmts);
+        result = Tail(mem, stmts);
+        break;
       case ArgsConst:
+#ifdef DEBUG_ASSEMBLE
+        PrintVal(mem, ListAt(mem, stmts, 1));
+#endif
         PushConst(ListAt(mem, stmts, 1), chunk);
-        return ListFrom(mem, stmts, 2);
+        result = ListFrom(mem, stmts, 2);
+        break;
       case ArgsReg:
-        PushReg(ListAt(mem, stmts, 1), chunk);
-        return ListFrom(mem, stmts, 2);
+#ifdef DEBUG_ASSEMBLE
+        PrintVal(mem, ListAt(mem, stmts, 1));
+#endif
+        PushReg(Tail(mem, ListAt(mem, stmts, 1)), chunk);
+        result = ListFrom(mem, stmts, 2);
+        break;
       case ArgsConstReg:
+#ifdef DEBUG_ASSEMBLE
+        PrintVal(mem, ListAt(mem, stmts, 1));
+        Print(" ");
+        PrintVal(mem, ListAt(mem, stmts, 2));
+#endif
         PushConst(ListAt(mem, stmts, 1), chunk);
-        PushReg(ListAt(mem, stmts, 2), chunk);
-        return ListFrom(mem, stmts, 3);
+        PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
+        result = ListFrom(mem, stmts, 3);
+        break;
       case ArgsRegReg:
-        PushReg(ListAt(mem, stmts, 1), chunk);
-        PushReg(ListAt(mem, stmts, 2), chunk);
-        return ListFrom(mem, stmts, 3);
+#ifdef DEBUG_ASSEMBLE
+        PrintVal(mem, ListAt(mem, stmts, 1));
+        Print(" ");
+        PrintVal(mem, ListAt(mem, stmts, 2));
+#endif
+        PushReg(Tail(mem, ListAt(mem, stmts, 1)), chunk);
+        PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
+        result = ListFrom(mem, stmts, 3);
+        break;
       }
+
+#ifdef DEBUG_ASSEMBLE
+      Print(" -> ");
+      PrintInstruction(chunk, inst_start, mem);
+      Print("\n");
+#endif
+
+      return result;
     }
   }
 
@@ -104,51 +162,55 @@ Chunk Assemble(Val stmts, Mem *mem)
   return chunk;
 }
 
-static u8 ChunkRef(Chunk *chunk, u32 ref)
+u8 ChunkRef(Chunk *chunk, u32 index)
 {
-  Assert(ref < VecCount(chunk->data));
-  return chunk->data[ref];
+  Assert(index < VecCount(chunk->data));
+  return chunk->data[index];
 }
 
-static Val GetConst(Chunk *chunk, u32 index)
+Val ChunkConst(Chunk *chunk, u32 index)
 {
+  Assert(index < VecCount(chunk->data));
+  index = chunk->data[index];
   Assert(index < VecCount(chunk->constants));
   return chunk->constants[index];
 }
 
-static void PrintTarget(i32 reg)
+static u32 PrintTarget(i32 reg)
 {
-  PrintReg(IntToReg(reg));
+  return PrintReg(IntToReg(reg));
 }
 
 u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
 {
+  u32 printed = 0;
+
   OpCode op = chunk->data[i];
-  PrintOpCode(op);
+  printed += PrintOpCode(op);
 
   switch (op_info[op].args) {
   case ArgsNone:
-    return 1;
+    return printed;
   case ArgsConst:
-    Print(" ");
-    PrintVal(mem, GetConst(chunk, ChunkRef(chunk, i+1)));
-    return 2;
+    printed += Print(" ");
+    printed += PrintVal(mem, ChunkConst(chunk, i+1));
+    return printed;
   case ArgsReg:
-    Print(" ");
-    PrintTarget(ChunkRef(chunk, i+1));
-    return 2;
+    printed += Print(" ");
+    printed += PrintTarget(ChunkRef(chunk, i+1));
+    return printed;
   case ArgsConstReg:
-    Print(" ");
-    PrintVal(mem, GetConst(chunk, ChunkRef(chunk, i+1)));
-    Print(" ");
-    PrintTarget(ChunkRef(chunk, i+2));
-    return 3;
+    printed += Print(" ");
+    printed += PrintVal(mem, ChunkConst(chunk, i+1));
+    printed += Print(" ");
+    printed += PrintTarget(ChunkRef(chunk, i+2));
+    return printed;
   case ArgsRegReg:
-    Print(" ");
-    PrintTarget(ChunkRef(chunk, i+1));
-    Print(" ");
-    PrintTarget(ChunkRef(chunk, i+2));
-    return 3;
+    printed += Print(" ");
+    printed += PrintTarget(ChunkRef(chunk, i+1));
+    printed += Print(" ");
+    printed += PrintTarget(ChunkRef(chunk, i+2));
+    return printed;
   }
 }
 
@@ -158,8 +220,9 @@ void PrintChunk(Chunk *chunk, Mem *mem)
   while (i < VecCount(chunk->data)) {
     PrintIntN(i, 4, ' ');
     Print("│ ");
-    i += PrintInstruction(chunk, i, mem);
+    PrintInstruction(chunk, i, mem);
     Print("\n");
+    i += OpLength(ChunkRef(chunk, i));
   }
 }
 
@@ -173,7 +236,7 @@ void PrintChunkConstants(Chunk *chunk, Mem *mem)
   }
 }
 
-void PrintOpCode(OpCode op)
+u32 PrintOpCode(OpCode op)
 {
-  Print(op_info[op].name);
+  return Print(op_info[op].name);
 }

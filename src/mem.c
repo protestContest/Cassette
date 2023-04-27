@@ -1,4 +1,5 @@
 #include "mem.h"
+#include "env.h"
 #include <stdarg.h>
 
 // #define DEBUG_MEM
@@ -16,6 +17,13 @@ void InitMem(Mem *mem, u32 size)
   VecPush(mem->values, nil);
   InitMap(&mem->symbols);
   mem->symbol_names = NULL;
+}
+
+void DestroyMem(Mem *mem)
+{
+  FreeVec(mem->values);
+  FreeVec(mem->symbol_names);
+  DestroyMap(&mem->symbols);
 }
 
 Val MakePair(Mem *mem, Val head, Val tail)
@@ -402,96 +410,110 @@ bool ValToString(Mem *mem, Val val, Buf *buf)
   return true;
 }
 
-static void PrintTail(Mem *mem, Val tail, u32 length)
+static u32 PrintTail(Mem *mem, Val tail)
 {
-  PrintVal(mem, Head(mem, tail));
+  u32 printed = 0;
+  printed += PrintVal(mem, Head(mem, tail));
   if (IsNil(Tail(mem, tail))) {
-    Print("]");
+    printed += Print("]");
   } else if (!IsPair(Tail(mem, tail))) {
-    Print(" | ");
-    PrintVal(mem, Tail(mem, tail));
-    Print("]");
+    printed += Print(" | ");
+    printed += PrintVal(mem, Tail(mem, tail));
+    printed += Print("]");
   } else {
-    Print(" ");
-    PrintTail(mem, Tail(mem, tail), length + 1);
+    printed += Print(" ");
+    printed += PrintTail(mem, Tail(mem, tail));
   }
+  return printed;
 }
 
-void PrintVal(Mem *mem, Val value)
+u32 PrintVal(Mem *mem, Val value)
 {
+  u32 printed = 0;
   if (IsNil(value)) {
-    Print("nil");
+    printed += Print("nil");
   } else if (IsNum(value)) {
-    PrintFloat(value.as_f);
+    printed += PrintFloat(value.as_f);
   } else if (IsInt(value)) {
-    PrintInt(RawInt(value));
+    printed += PrintInt(RawInt(value));
   } else if (IsSym(value)) {
-    Print(":");
-    char *str = SymbolName(mem, value);
-    Print(str);
+    if (Eq(value, SymbolFor("true"))) {
+      printed += Print("true");
+    } else if (Eq(value, SymbolFor("false"))) {
+      printed += Print("false");
+    } else {
+      printed += Print(":");
+      char *str = SymbolName(mem, value);
+      printed += Print(str);
+    }
   } else if (IsPair(value)) {
     if (IsTagged(mem, value, SymbolFor("λ"))) {
-      Print("[λ");
-      Val params = ListAt(mem, value, 1);
-      while (!IsNil(params)) {
-        Print(" ");
-        Print(SymbolName(mem, Head(mem, params)));
-        params = Tail(mem, params);
-      }
-      Print("]");
+      printed += Print("[λ ") - 1;
+      Val body = ProcBody(value, mem);
+      printed += PrintVal (mem, body);
+      printed += Print("]");
+    } else if (IsTagged(mem, value, SymbolFor("α"))) {
+      printed += Print("[α ") - 1;
+      printed += Print(SymbolName(mem, Tail(mem, value)));
+      printed += Print("]");
+    } else if (IsTagged(mem, Head(mem, value), SymbolFor("ε"))) {
+      printed += Print("[ε") - 1;
+      printed += PrintInt(ListLength(mem, value) - 1);
+      printed += Print("]");
     } else {
-      Print("[");
-      PrintTail(mem, value, 1);
+      printed += Print("[");
+      printed += PrintTail(mem, value);
     }
   } else if (IsTuple(mem, value)) {
-    Print("#[");
+    printed += Print("#[");
     for (u32 i = 0; i < TupleLength(mem, value); i++) {
-      PrintVal(mem, TupleAt(mem, value, i));
+      printed += PrintVal(mem, TupleAt(mem, value, i));
       if (i != TupleLength(mem, value) - 1) {
-        Print(", ");
+        printed += Print(", ");
       }
     }
-    Print("]");
+    printed += Print("]");
   } else if (IsDict(mem, value)) {
-    Print("{");
+    printed += Print("{");
     Val keys = DictKeys(mem, value);
     Val vals = DictValues(mem, value);
     for (u32 i = 0; i < DictSize(mem, value); i++) {
       Val key = TupleAt(mem, keys, i);
       if (IsSym(key)) {
-        Print(SymbolName(mem, key));
-        Print(": ");
+        printed += Print(SymbolName(mem, key));
+        printed += Print(": ");
       } else if (!IsNil(key)) {
-        PrintVal(mem, key);
-        Print(" => ");
+        printed += PrintVal(mem, key);
+        printed += Print(" => ");
       }
-      PrintVal(mem, TupleAt(mem, vals, i));
+      printed += PrintVal(mem, TupleAt(mem, vals, i));
       if (i != DictSize(mem, value) - 1) {
-        Print(", ");
+        printed += Print(", ");
       }
     }
-    Print("}");
+    printed += Print("}");
   } else if (IsBinary(mem, value)) {
     u32 length = Min(16, BinaryLength(mem, value));
     u8 *data = BinaryData(mem, value);
-    Print("\"");
+    printed += Print("\"");
     for (u32 i = 0; i < length; i++) {
       if (data[i] > 31) {
         char c[2] = {data[i], '\0'};
-        Print(c);
+        printed += Print(c);
       } else {
-        Print(".");
+        printed += Print(".");
       }
     }
-    Print("\"");
+    printed += Print("\"");
   } else {
-    Print("<v");
-    PrintIntN(RawObj(value), 4, ' ');
-    Print(">");
+    printed += Print("<v");
+    printed += PrintIntN(RawObj(value), 4, ' ');
+    printed += Print(">");
   }
+
+  return printed;
 }
 
-#ifdef DEBUG
 void DebugVal(Mem *mem, Val value)
 {
   if (IsNil(value)) {
@@ -524,4 +546,3 @@ void PrintMem(Mem *mem)
     Print("\n");
   }
 }
-#endif

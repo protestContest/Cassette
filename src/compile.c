@@ -19,7 +19,9 @@ static Seq CompileSelf(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileVariable(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileDefinition(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileIf(Val exp, Reg target, Linkage linkage, Mem *mem);
-static Seq CompileCond(Val exp, Reg target, Linkage linkage, Mem *mem);
+static Seq CompileAnd(Val exp, Reg target, Linkage linkage, Mem *mem);
+static Seq CompileOr(Val exp, Reg target, Linkage linkage, Mem *mem);
+static Seq CompileAccess(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileSequence(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileLambda(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileLambdaBody(Val exp, Val label, Mem *mem);
@@ -50,6 +52,7 @@ Val Compile(Val exp, Mem *mem)
   MakeSymbol(mem, "lookup");
   MakeSymbol(mem, "define");
   MakeSymbol(mem, "branch");
+  MakeSymbol(mem, "not");
   MakeSymbol(mem, "lambda");
   MakeSymbol(mem, "defarg");
   MakeSymbol(mem, "extenv");
@@ -71,7 +74,6 @@ Val Compile(Val exp, Mem *mem)
   MakeSymbol(mem, ":");
   MakeSymbol(mem, "let");
   MakeSymbol(mem, "if");
-  MakeSymbol(mem, "cond");
   MakeSymbol(mem, "do");
   MakeSymbol(mem, "->");
   MakeSymbol(mem, "import");
@@ -131,11 +133,21 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Mem *mem)
     Print(" (If)");
 #endif
     result = CompileIf(Tail(mem, exp), target, linkage, mem);
-  } else if (IsTagged(mem, exp, SymbolFor("cond"))) {
+  } else if (IsTagged(mem, exp, SymbolFor("and"))) {
 #ifdef DEBUG_COMPILE
-    Print(" (Cond)");
+    Print(" (And)");
 #endif
-    result = CompileCond(Tail(mem, exp), target, linkage, mem);
+    result = CompileAnd(Tail(mem, exp), target, linkage, mem);
+  } else if (IsTagged(mem, exp, SymbolFor("or"))) {
+#ifdef DEBUG_COMPILE
+    Print(" (Or)");
+#endif
+    result = CompileOr(Tail(mem, exp), target, linkage, mem);
+  } else if (IsTagged(mem, exp, SymbolFor("."))) {
+#ifdef DEBUG_COMPILE
+    Print(" (Access)");
+#endif
+    result = CompileAccess(Tail(mem, exp), target, linkage, mem);
   } else if (IsTagged(mem, exp, SymbolFor("do"))) {
 #ifdef DEBUG_COMPILE
     Print(" (Sequence)");
@@ -250,9 +262,53 @@ static Seq CompileIf(Val exp, Reg target, Linkage linkage, Mem *mem)
                               LabelSeq(after_label, mem), mem), mem), mem);
 }
 
-static Seq CompileCond(Val exp, Reg target, Linkage linkage, Mem *mem)
+static Seq CompileAnd(Val exp, Reg target, Linkage linkage, Mem *mem)
 {
-  return EmptySeq(mem);
+  Val a = ListAt(mem, exp, 0);
+  Val b = ListAt(mem, exp, 1);
+  Val after_label = MakeLabel(mem);
+
+  Seq a_code = CompileExp(a, RegVal, LinkNext, mem);
+  Seq b_code = CompileExp(b, RegVal, LinkNext, mem);
+  Seq test_seq = MakeSeq(RegVal, 0,
+    MakePair(mem, SymbolFor("branch"),
+    MakePair(mem, LabelRef(after_label, mem), nil)));
+
+  return
+    AppendSeq(a_code,
+    AppendSeq(test_seq,
+    AppendSeq(b_code,
+      LabelSeq(after_label, mem), mem), mem), mem);
+}
+
+/*
+The `not` op tests the value in RegVal. If the value is true, it writes :false
+to RegVal, otherwise it writes :true
+*/
+static Seq CompileOr(Val exp, Reg target, Linkage linkage, Mem *mem)
+{
+  Val a = ListAt(mem, exp, 0);
+  Val b = ListAt(mem, exp, 1);
+  Val after_label = MakeLabel(mem);
+
+  Seq a_code = CompileExp(a, RegVal, LinkNext, mem);
+  Seq b_code = CompileExp(b, RegVal, LinkNext, mem);
+
+  Seq test_seq = MakeSeq(RegVal, RegVal,
+    MakePair(mem, SymbolFor("not"),
+    MakePair(mem, SymbolFor("branch"),
+    MakePair(mem, LabelRef(after_label, mem), nil))));
+
+  return
+    AppendSeq(a_code,
+    AppendSeq(test_seq,
+    AppendSeq(b_code,
+      LabelSeq(after_label, mem), mem), mem), mem);
+}
+
+static Seq CompileAccess(Val exp, Reg target, Linkage linkage, Mem *mem)
+{
+  return MakeSeq(0, 0, MakePair(mem, SymbolFor("noop"), nil));
 }
 
 static Seq CompileSequence(Val exp, Reg target, Linkage linkage, Mem *mem)
@@ -319,7 +375,7 @@ static Seq CompileLambdaBody(Val exp, Val label, Mem *mem)
 
 static Seq CompileImport(Val exp, Reg target, Linkage linkage, Mem *mem)
 {
-  return EmptySeq(mem);
+  return MakeSeq(0, 0, MakePair(mem, SymbolFor("noop"), nil));
 }
 
 /*
@@ -385,8 +441,8 @@ static Seq CompileArgs(Val exp, Mem *mem)
 /*
 The `brprim` op checks if the value in RegProc is a primitive, and
 branches to the given label if so.
-The `prim` op applies the primitive procedure in RegProc to the
-arguments in RegArgs
+The `prim` op has a register argument. It applies the primitive procedure in RegProc to the
+arguments in RegArgs, putting the result in the target register.
 */
 static Seq CompileCall(Reg target, Linkage linkage, Mem *mem)
 {
@@ -410,13 +466,13 @@ static Seq CompileCall(Reg target, Linkage linkage, Mem *mem)
           LabelSeq(primitive_label, mem),
           EndWithLinkage(linkage,
             MakeSeq(RegProc | RegArgs, target,
-              MakePair(mem, SymbolFor("prim"), nil)), mem), mem), mem), mem),
+              MakePair(mem, SymbolFor("prim"),
+              MakePair(mem, RegRef(target, mem), nil))), mem), mem), mem), mem),
     LabelSeq(after_label, mem), mem);
 }
 
 /*
-The `apply` op sets RegVal to the procedure body label for the procedure in
-RegProc, then jumps to RegVal.
+The `apply` op jumps to the label for the procedure in RegProc
 The `move` op has two register name parameters. It moves the value in the first
 register to the second register.
 */

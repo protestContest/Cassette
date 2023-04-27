@@ -8,6 +8,7 @@ typedef struct Mem {
 } Mem;
 
 void InitMem(Mem *mem, u32 size);
+void DestroyMem(Mem *mem);
 
 Val MakePair(Mem *mem, Val head, Val tail);
 Val Head(Mem *mem, Val pair);
@@ -54,5 +55,6 @@ void BinaryToString(Mem *mem, Val binary, char *dst);
 bool IsTrue(Val value);
 bool ValToString(Mem *mem, Val val, Buf *buf);
 
-void PrintVal(Mem *mem, Val value);
+u32 PrintVal(Mem *mem, Val value);
+void DebugVal(Mem *mem, Val value);
 void PrintMem(Mem *mem);

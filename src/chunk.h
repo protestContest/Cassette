@@ -1,18 +1,9 @@
 #pragma once
 #include "mem.h"
 
-typedef enum {
-  ArgsNone,
-  ArgsConst,
-  ArgsReg,
-  ArgsConstReg,
-  ArgsRegReg,
-} ArgInfo;
+// #define DEBUG_ASSEMBLE
 
-typedef struct {
-  char *name;
-  ArgInfo args;
-} OpInfo;
+
 
 typedef enum {
   OpNoop,
@@ -20,6 +11,7 @@ typedef enum {
   OpLookup,
   OpDefine,
   OpBranch,
+  OpNot,
   OpLambda,
   OpDefArg,
   OpExtEnv,
@@ -42,10 +34,14 @@ typedef struct {
   Val *constants;
 } Chunk;
 
-OpInfo GetOpInfo(OpCode op);
+u8 ChunkRef(Chunk *chunk, u32 index);
+Val ChunkConst(Chunk *chunk, u32 index);
+
+u32 OpLength(OpCode op);
 
 Chunk Assemble(Val stmts, Mem *mem);
 void PrintChunk(Chunk *chunk, Mem *mem);
+u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem);
 void PrintChunkConstants(Chunk *chunk, Mem *mem);
 
-void PrintOpCode(OpCode op);
+u32 PrintOpCode(OpCode op);
