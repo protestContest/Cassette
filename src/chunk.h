@@ -1,10 +1,6 @@
 #pragma once
 #include "mem.h"
 
-// #define DEBUG_ASSEMBLE
-
-
-
 typedef enum {
   OpNoop,
   OpConst,

@@ -3,8 +3,6 @@
 #include "lex.h"
 #include "chunk.h"
 
-// #define DEBUG_VM
-
 typedef enum {
   RegVal,
   RegEnv,

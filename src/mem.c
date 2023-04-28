@@ -2,8 +2,6 @@
 #include "env.h"
 #include <stdarg.h>
 
-// #define DEBUG_MEM
-
 #define NextFree(mem)   VecCount(mem->values)
 
 void InitMem(Mem *mem, u32 size)
@@ -320,6 +318,10 @@ Val MakeBinaryFrom(Mem *mem, char *str, u32 length)
 {
   Val binary = ObjVal(NextFree(mem));
   VecPush(mem->values, BinaryHeader(length));
+
+  if (length == 0) {
+    return binary;
+  }
 
   u32 num_words = (length - 1) / sizeof(Val) + 1;
   GrowVec(mem->values, num_words);

@@ -46,8 +46,10 @@ Token NextToken(Lexer *lexer)
 
   for (u32 i = 0; i < lexer->num_literals; i++) {
     char *lexeme = lexer->literals[i].lexeme;
-    if (MatchKeyword(lexer, lexeme)) {
-      return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+    if (IsIDChar(LexPeek(lexer, 0))) {
+      if (MatchKeyword(lexer, lexeme)) {
+        return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+      }
     } else if (Match(lexer, lexeme)) {
       return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
     }
@@ -207,12 +209,26 @@ static bool Match(Lexer *lexer, char *expected)
 
 static bool MatchKeyword(Lexer *lexer, char *expected)
 {
-  if (!IsIDChar(expected[0])) return false;
-
-  u32 keyword_length = StrLen(expected);
-  if (IsIDChar(LexPeek(lexer, keyword_length))) return false;
-
-  return Match(lexer, expected);
+  u32 i = 0;
+  char *c = expected;
+  u32 lines = 0;
+  u32 col = lexer->col;
+  while (*c != '\0') {
+    if (LexPeek(lexer, i) != *c) return false;
+    i++;
+    c++;
+    if (IsNewline(*c)) {
+      col = 1;
+      lines++;
+    } else {
+      col++;
+    }
+  }
+  if (IsIDChar(LexPeek(lexer, i))) return false;
+  lexer->pos += i;
+  lexer->line += lines;
+  lexer->col = col;
+  return true;
 }
 
 static bool IsIDChar(char c)
@@ -221,6 +237,7 @@ static bool IsIDChar(char c)
   if (IsNewline(c)) return false;
 
   switch (c) {
+  case '\0':  return false;
   case '(':   return false;
   case ')':   return false;
   case '[':   return false;

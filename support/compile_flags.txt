@@ -8,3 +8,6 @@
 -I/opt/homebrew/include
 -include
 univ/base.h
+-DDEBUG_PARSE
+-DDEBUG_AST
+-DDEBUG_VM

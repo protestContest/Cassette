@@ -11,19 +11,19 @@ SHELL = bash
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-# DEBUG = -D DEBUG
-
 CC = clang
+# DEFINES := DEBUG_PARSE DEBUG_AST DEBUG_COMPILE DEBUG_ASSEMBLE DEBUG_VM
+DEFINES := DEBUG_PARSE DEBUG_AST DEBUG_VM
 INCLUDE_FLAGS = -isystem $(PREFIX)/include -include univ/base.h -I/opt/homebrew/include
-CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS) $(DEBUG)
+CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS) $(DEFINES:%=-D%)
 LDFLAGS = -L$(PREFIX)/lib -L/opt/homebrew/lib -lbase -lcanvas -lwindow -lSDL2
 
 $(TARGET): $(OBJS)
-	mkdir -p $(dir $@)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	mkdir -p $(dir $@)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean

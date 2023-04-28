@@ -42,12 +42,6 @@
   (read-char)
   (str-loop ""))
 
-(define (read-sym)
-  (define (sym-loop str)
-    (if (or (whitespace? (peek-char)) (newline? (peek-char)) (eof-object? (peek-char)))
-        (string->symbol str)
-        (sym-loop (string-append str (string (read-char))))))
-  (sym-loop ""))
 
 (define (read-num)
   (define (read-num-loop numstr)
@@ -97,7 +91,19 @@
 ; Grammar
 
 (define Rule (struct '(Rule lhs rhs)))
-(define (rhs-head rule) (if (nil? (rule 'rhs)) nil (head (rule 'rhs))))
+
+(define (rule-part->str part)
+  (cond
+    ((string? part) (enclose part "\""))
+    ((tagged? part 'chaff) (enclose (tail part) "[]"))
+    (else (to-string part))))
+
+(define (rule-syms rule)
+  (map (rule 'rhs) (lambda (part)
+    (if (tagged? part 'chaff)
+        (tail part)
+        part))))
+
 (define (print-rule rule)
   (let ((padding (- 16 (string-length (symbol->string (rule 'lhs))))))
     (display (rule 'lhs))
@@ -107,14 +113,18 @@
         (display "ε")
         (display
           (join (map (rule 'rhs) (lambda (part)
-            (if (string? part)
-                (enclose part "\"")
-                (symbol->string part))))
+            (cond
+              ((string? part) (enclose part "\""))
+              ((tagged? part 'chaff)
+                (if (string? (tail part))
+                    (enclose (enclose (tail part) "\"") "[]")
+                    (enclose (tail part) "[]")))
+              (else (symbol->string part)))))
             " ")))))
 
 (define Grammar (struct '(Grammar rules terminals nonterminals) (lambda (rules)
   (let* ((nonterms (unique (map rules (lambda (r) (r 'lhs)))))
-         (syms (unique (flat-map rules (lambda (r) (r 'rhs)))))
+         (syms (unique (flat-map rules (lambda (r) (rule-syms r)))))
          (terms (reject syms (lambda (sym) (in-list? sym nonterms)))))
     (list rules terms nonterms)))))
 
@@ -129,12 +139,32 @@
 (define (read-grammar filename)
   (define (epsilon? char)     (and (char? char) (char=? char #\ε)))
   (define (arrow? char)       (and (char? char) (char=? char #\→)))
+  (define (lbracket? char)    (and (char? char) (char=? char #\[)))
+  (define (rbracket? char)    (and (char? char) (char=? char #\])))
+
+  (define (read-sym)
+    (define (sym-loop str)
+      (if (or (whitespace? (peek-char))
+              (newline? (peek-char))
+              (rbracket? (peek-char))
+              (eof-object? (peek-char)))
+          (string->symbol str)
+          (sym-loop (string-append str (string (read-char))))))
+    (sym-loop ""))
+
+
+  (define (read-chaff-part)
+    (read-char)
+    (let ((part (cons 'chaff (read-rule-part))))
+      (expect "]")
+      part))
 
   (define (read-rule-part)
     (skip-whitespace)
-    (if (quote? (peek-char))
-        (read-str)
-        (read-sym)))
+    (cond
+      ((quote? (peek-char)) (read-str))
+      ((lbracket? (peek-char)) (read-chaff-part))
+      (else (read-sym))))
 
   (define (read-rhs lhs)
     (define (rhs-loop rhs)
@@ -184,8 +214,8 @@
 ; Parser generator
 
 (define Config (struct '(Config rule position)))
-(define (next-sym config) (nth (config 'position) ((config 'rule) 'rhs)))
-(define (config-final? config) (= (config 'position) (length ((config 'rule) 'rhs))))
+(define (next-sym config) (nth (config 'position) (rule-syms (config 'rule))))
+(define (config-final? config) (= (config 'position) (length (rule-syms (config 'rule)))))
 (define (advance-config config)
   (if (config-final? config)
       config
@@ -209,8 +239,7 @@
 
 (define (print-config config)
   (define (format-parts parts)
-    (map parts (lambda (part)
-      (if (string? part) (enclose part "\"") (symbol->string part)))))
+    (map parts (lambda (part) (rule-part->str part))))
 
   (let* ((rule (config 'rule))
          (padding (- 16 (string-length (symbol->string (rule 'lhs))))))
@@ -311,10 +340,10 @@
       (display ")")
       (newline))))
 
-(define Reduction (struct '(Reduction id sym num) (lambda (rule grammar)
+(define Reduction (struct '(Reduction id sym num rule) (lambda (rule grammar)
   (let ((id (rule-id rule grammar))
         (num (length (rule 'rhs))))
-    (list id (rule 'lhs) num)))))
+    (list id (rule 'lhs) num rule)))))
 
 (define Parser (struct '(Parser grammar states actions reductions) (lambda (grammar)
   (define (action-table states)
@@ -346,6 +375,19 @@
       (newline)))))
 
 (define (print-parse-syms parser)
+  (define (snake->camel str)
+    (define (loop chars acc)
+      (cond
+        ((nil? chars)
+          acc)
+        ((nil? acc)
+          (loop (tail chars) (cons (char-upcase (head chars)) acc)))
+        ((char=? (head chars) #\_)
+          (loop (tail (tail chars)) (cons (char-upcase (head (tail chars))) acc)))
+        (else
+          (loop (tail chars) (cons (head chars) acc)))))
+    (list->string (reverse (loop (string->list str) '()))))
+
   (define (parse-sym-name sym)
     (cond
       ((eq? sym '$) "EOF")
@@ -375,9 +417,8 @@
       ((and (string? sym) (string=? sym "}")) "RBrace")
       ((and (string? sym) (string=? sym ",")) "Comma")
       ((and (string? sym) (string=? sym ".")) "Dot")
-      (else
-        (let ((str (to-string sym)))
-          (string-set str 0 (char-upcase (string-ref str 0)))))))
+      (else (snake->camel (to-string sym)))))
+
   (display "#pragma once")
   (newline)
   (newline)
@@ -470,13 +511,12 @@
          (lengths (map reductions
                        (lambda (reduction)
                          (if (nil? reduction) 0 (reduction 'num))))))
-         ; (chunk-size (++ (div (length ids) (++ (div (length ids) 20))))))
     (display "// indexed by state")
     (newline)
     (display "static _unused i8 reduction_syms[] = {")
     (newline)
 
-    (++ (div (length ids) 16))
+    ; (++ (div (length ids) 16))
     (each (chunk-every ids (chunk-size ids 20)) (lambda (chunk)
       (print-row chunk 4)
       (newline)))
@@ -595,4 +635,4 @@
        (parser (Parser grammar)))
   (with-output-to-file output-file (lambda () (print-parse-tables parser)))
   (with-output-to-file symbols-file (lambda () (print-parse-syms parser)))
-  (print-parse-states parser))
+  (with-output-to-file "grammar/parse_states.txt" (lambda () (print-parse-states parser))))

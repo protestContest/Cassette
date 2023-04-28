@@ -135,8 +135,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       if (VecCount(vm->stack) == 0) {
         RuntimeError("Stack underflow", nil, vm);
       } else {
-        vm->regs[ChunkRef(chunk, vm->pc+1)] =
-          VecPop(vm->stack, nil);
+        vm->regs[ChunkRef(chunk, vm->pc+1)] = VecPop(vm->stack);
       }
       vm->pc += OpLength(op);
       break;

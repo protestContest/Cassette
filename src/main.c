@@ -17,13 +17,13 @@ void RunFile(char *filename)
   }
 
   Source src = {filename, data, StrLen(data)};
-  Val ast = Parse(src, &mem);
-  Val compiled = Compile(ast, &mem);
-  Chunk chunk = Assemble(compiled, &mem);
+  Parse(src, &mem);
+  // Val compiled = Compile(ast, &mem);
+  // Chunk chunk = Assemble(compiled, &mem);
 
-  VM vm;
-  InitVM(&vm, &mem);
-  RunChunk(&vm, &chunk);
+  // VM vm;
+  // InitVM(&vm, &mem);
+  // RunChunk(&vm, &chunk);
 }
 
 // void REPL(void)
@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
       RunFile(argv[1]);
     }
   } else {
+      Print("Usage: cassette [file]\n");
     // REPL(&mem);
   }
 }

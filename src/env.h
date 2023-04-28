@@ -11,6 +11,4 @@ Val MakeProcedure(Val body, Val env, Mem *mem);
 Val ProcBody(Val proc, Mem *mem);
 Val ProcEnv(Val proc, Mem *mem);
 
-#ifdef DEBUG_EVAL
 void PrintEnv(Val env, Mem *mem);
-#endif

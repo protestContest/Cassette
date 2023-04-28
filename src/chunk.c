@@ -83,12 +83,12 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
 
   for (u32 i = 0; i < NUM_OPCODES; i++) {
     if (Eq(op, SymbolFor(op_info[i].name))) {
-#ifdef DEBUG_ASSEMBLE
+#if DEBUG_ASSEMBLE
       u32 inst_start = VecCount(chunk->data);
 #endif
       PushOp(i, chunk);
 
-#ifdef DEBUG_ASSEMBLE
+#if DEBUG_ASSEMBLE
       PrintVal(mem, op);
       Print(" ");
 #endif
@@ -99,21 +99,21 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
         result = Tail(mem, stmts);
         break;
       case ArgsConst:
-#ifdef DEBUG_ASSEMBLE
+#if DEBUG_ASSEMBLE
         PrintVal(mem, ListAt(mem, stmts, 1));
 #endif
         PushConst(ListAt(mem, stmts, 1), chunk);
         result = ListFrom(mem, stmts, 2);
         break;
       case ArgsReg:
-#ifdef DEBUG_ASSEMBLE
+#if DEBUG_ASSEMBLE
         PrintVal(mem, ListAt(mem, stmts, 1));
 #endif
         PushReg(Tail(mem, ListAt(mem, stmts, 1)), chunk);
         result = ListFrom(mem, stmts, 2);
         break;
       case ArgsConstReg:
-#ifdef DEBUG_ASSEMBLE
+#if DEBUG_ASSEMBLE
         PrintVal(mem, ListAt(mem, stmts, 1));
         Print(" ");
         PrintVal(mem, ListAt(mem, stmts, 2));
@@ -123,7 +123,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
         result = ListFrom(mem, stmts, 3);
         break;
       case ArgsRegReg:
-#ifdef DEBUG_ASSEMBLE
+#if DEBUG_ASSEMBLE
         PrintVal(mem, ListAt(mem, stmts, 1));
         Print(" ");
         PrintVal(mem, ListAt(mem, stmts, 2));
@@ -134,7 +134,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
         break;
       }
 
-#ifdef DEBUG_ASSEMBLE
+#if DEBUG_ASSEMBLE
       Print(" -> ");
       PrintInstruction(chunk, inst_start, mem);
       Print("\n");
