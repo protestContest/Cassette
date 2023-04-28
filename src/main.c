@@ -17,13 +17,17 @@ void RunFile(char *filename)
   }
 
   Source src = {filename, data, StrLen(data)};
-  Parse(src, &mem);
-  // Val compiled = Compile(ast, &mem);
-  // Chunk chunk = Assemble(compiled, &mem);
+  Val parsed = Parse(src, &mem);
+  if (!IsTagged(&mem, parsed, "ok")) return;
+  Val compiled = Compile(Tail(&mem, parsed), &mem);
+  Chunk chunk = Assemble(compiled, &mem);
 
-  // VM vm;
-  // InitVM(&vm, &mem);
-  // RunChunk(&vm, &chunk);
+  Disassemble(&chunk, &mem);
+  Print("\n");
+
+  VM vm;
+  InitVM(&vm, &mem);
+  RunChunk(&vm, &chunk);
 }
 
 // void REPL(void)

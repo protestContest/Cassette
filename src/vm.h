@@ -6,9 +6,9 @@
 typedef enum {
   RegVal,
   RegEnv,
-  RegCon,
   RegFun,
   RegArg,
+  RegCon,
 
   NUM_REGS
 } Reg;
@@ -18,12 +18,14 @@ typedef struct {
   Val *stack;
   u32 pc;
   Val regs[NUM_REGS];
-  bool halted;
+  Chunk *chunk;
   struct {
     u32 stack_ops;
     u32 reductions;
   } stats;
 } VM;
+
+#define Halt(vm)  ((vm)->pc = VecCount((vm)->chunk->data))
 
 u32 PrintReg(i32 reg);
 

@@ -15,7 +15,7 @@ static Val Shift(Parser *p, i32 state, Token token)
     VecPush(p->nodes, nil);
   } else {
     VecPush(p->nodes,
-      MakeNode(token.value,
+      MakeTerm(token.value,
               IntVal(token.line),
               IntVal(token.col), p->mem));
   }
@@ -28,8 +28,8 @@ static void ReduceNodes(Parser *p, u32 sym, u32 num)
   Val children = nil;
   for (u32 i = 0; i < num; i++) {
     Val child = VecPop(p->nodes);
-
-    if (!IsNil(child) && (!IsNode(child, p->mem) || !IsNil(NodeVal(child, p->mem)))) {
+    bool is_nil = IsNil(child) || (IsTerm(child, p->mem) && IsNil(TermVal(child, p->mem)));
+    if (!is_nil) {
       children = MakePair(p->mem, child, children);
     }
   }
@@ -40,14 +40,14 @@ static void ReduceNodes(Parser *p, u32 sym, u32 num)
 #if DEBUG_PARSE
   Print(GrammarSymbolName(sym));
   Print(": ");
-  PrintNodes(children, p->mem);
+  PrintTerms(children, p->mem);
   Print(" -> ");
-  PrintNode(node, p->mem);
+  PrintTerm(node, p->mem);
   Print("\n");
   Print("Stack:\n");
   for (u32 i = 0; i < VecCount(p->nodes); i++) {
     Print("  ");
-    PrintNode(p->nodes[i], p->mem);
+    PrintTerm(p->nodes[i], p->mem);
     Print("\n");
   }
   Print("\n");
@@ -67,8 +67,7 @@ static Val Reduce(Parser *p, u32 sym, u32 num, Token token)
 
   i32 next_state = actions[VecPeek(p->stack, num)][sym];
   if (next_state < 0) {
-    SyntaxError(p->lex.src, "Unexpected token", token);
-    return nil;
+    return SyntaxError(p->lex.src, "Unexpected token", token);
   }
 
   ReduceNodes(p, sym, num);
@@ -138,7 +137,7 @@ Val Parse(Source src, Mem *mem)
 #if DEBUG_AST
   PrintAST(ast, mem);
 #endif
-  return ast;
+  return MakePair(mem, SymbolFor("ok"), ast);
 }
 
 char *GrammarSymbolName(u32 sym)

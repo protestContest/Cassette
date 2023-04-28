@@ -21,6 +21,7 @@ call          → arg
 ml_call       → ml_call nl arg
 ml_call       → arg
 arg           → lambda
+lambda        → "(" ")" "->" nl logic
 lambda        → group "->" nl logic
 lambda        → ID "->" nl logic
 lambda        → logic

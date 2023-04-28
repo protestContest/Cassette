@@ -16,14 +16,13 @@ Val Tail(Mem *mem, Val pair);
 void SetHead(Mem *mem, Val pair, Val val);
 void SetTail(Mem *mem, Val pair, Val val);
 
-Val MakeList(Mem *mem, u32 num, ...);
 u32 ListLength(Mem *mem, Val list);
 Val ListAt(Mem *mem, Val list, u32 index);
 Val ListFrom(Mem *mem, Val list, u32 index);
 Val ReverseOnto(Mem *mem, Val list, Val tail);
 Val ListAppend(Mem *mem, Val list, Val value);
 Val ListConcat(Mem *mem, Val list1, Val list2);
-bool IsTagged(Mem *mem, Val list, Val tag);
+bool IsTagged(Mem *mem, Val list, char *tag);
 
 bool IsTuple(Mem *mem, Val tuple);
 Val MakeTuple(Mem *mem, u32 count);

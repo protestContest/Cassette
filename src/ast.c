@@ -2,63 +2,68 @@
 #include "parse.h"
 #include "parse_syms.h"
 
-Val MakeNode(Val value, Val line, Val col, Mem *mem)
+Val MakeTerm(Val value, Val line, Val col, Mem *mem)
 {
   return
-    MakePair(mem, MakeSymbol(mem, "node"),
+    MakePair(mem, MakeSymbol(mem, "term"),
     MakePair(mem, value,
     MakePair(mem, line,
     MakePair(mem, col, nil))));
 }
 
-bool IsNode(Val node, Mem *mem)
+bool IsTerm(Val term, Mem *mem)
 {
-  return IsTagged(mem, node, SymbolFor("node"));
+  return IsTagged(mem, term, "term");
 }
 
-bool IsTaggedNode(Mem *mem, Val list, Val tag)
+bool IsTaggedTerm(Mem *mem, Val list, Val tag)
 {
   if (!IsList(mem, list)) return false;
-  Val node = Head(mem, list);
-  if (!IsNode(node, mem)) return false;
-  return Eq(NodeVal(node, mem), tag);
+  Val term = Head(mem, list);
+  if (!IsTerm(term, mem)) return false;
+  return Eq(TermVal(term, mem), tag);
 }
 
-Val NodeVal(Val node, Mem *mem)
+Val TermVal(Val term, Mem *mem)
 {
-  if (IsNode(node, mem)) {
-    return ListAt(mem, node, 1);
+  if (IsTerm(term, mem)) {
+    return ListAt(mem, term, 1);
   } else {
-    return node;
+    return term;
   }
 }
 
-Val NodeLine(Val node, Mem *mem)
+Val TermLine(Val term, Mem *mem)
 {
-  return ListAt(mem, node, 2);
+  return ListAt(mem, term, 2);
 }
 
-Val NodeCol(Val node, Mem *mem)
+Val TermCol(Val term, Mem *mem)
 {
-  return ListAt(mem, node, 3);
+  return ListAt(mem, term, 3);
 }
 
-void PrintNode(Val node, Mem *mem)
+void PrintTerm(Val term, Mem *mem)
 {
-  if (IsTagged(mem, node, SymbolFor("node"))) {
-    PrintVal(mem, NodeVal(node, mem));
-  } else if (IsList(mem, node)) {
-    PrintNodes(node, mem);
+  if (IsTagged(mem, term, "term")) {
+    PrintVal(mem, TermVal(term, mem));
+    Print("[");
+    PrintVal(mem, TermLine(term, mem));
+    Print(":");
+    PrintVal(mem, TermCol(term, mem));
+    Print("]");
+  } else if (IsList(mem, term)) {
+    PrintTerms(term, mem);
   } else {
-    PrintVal(mem, node);
+    PrintVal(mem, term);
   }
 }
 
-void PrintNodes(Val children, Mem *mem)
+void PrintTerms(Val children, Mem *mem)
 {
   Print("[ ");
   while (!IsNil(children)) {
-    PrintNode(Head(mem, children), mem);
+    PrintTerm(Head(mem, children), mem);
     Print(" ");
     children = Tail(mem, children);
   }
@@ -99,8 +104,15 @@ static Val ParseStmt(Val children, Mem *mem)
   }
 }
 
+static Val ParseLetStmt(Val children, Mem *mem)
+{
+  return MakePair(mem, SymbolFor("let"), ListAt(mem, children, 1));
+}
+
 static Val ParseAssigns(Val children, Mem *mem)
 {
+  PrintVal(mem, children);
+  Print("\n");
   if (ListLength(mem, children) > 1) {
     return ListAppend(mem, ListAt(mem, children, 0), ListAt(mem, children, 2));
   } else {
@@ -114,7 +126,9 @@ static Val ParseAssign(Val children, Mem *mem)
   if (IsNil(Tail(mem, value))) {
     value = Head(mem, value);
   }
-  return MakeList(mem, 2, ListAt(mem, children, 0), value);
+  return
+    MakePair(mem, ListAt(mem, children, 0),
+    MakePair(mem, value, nil));
 }
 
 static Val ParseDefStmt(Val children, Mem *mem)
@@ -132,9 +146,8 @@ static Val ParseDefStmt(Val children, Mem *mem)
   return
     MakePair(mem, SymbolFor("let"),
     MakePair(mem,
-      MakePair(mem,
-        MakePair(mem, var,
-        MakePair(mem, lambda, nil)), nil), nil));
+      MakePair(mem, var,
+      MakePair(mem, lambda, nil)), nil));
 }
 
 static Val ParseImportStmt(Val children, Mem *mem)
@@ -147,7 +160,7 @@ static Val ParseImportStmt(Val children, Mem *mem)
       MakePair(mem, filename,
       MakePair(mem, var, nil)));
   } else {
-    return children;
+    return MakePair(mem, SymbolFor("import"), Tail(mem, children));
   }
 }
 
@@ -156,15 +169,50 @@ static Val ParseInfix(Val children, Mem *mem)
   if (IsNil(Tail(mem, children))) {
     return Head(mem, children);
   } else {
-    return MakeList(mem, 3, ListAt(mem, children, 1),
-                            ListAt(mem, children, 0),
-                            ListAt(mem, children, 2));
+    Val op = ListAt(mem, children, 1);
+    if (IsTerm(op, mem)) op = TermVal(op, mem);
+    return
+      MakePair(mem, op,
+      MakePair(mem, ListAt(mem, children, 0),
+      MakePair(mem, ListAt(mem, children, 2), nil)));
   }
+}
+
+static Val ParseLambda(Val children, Mem *mem)
+{
+  if (ListLength(mem, children) > 3) {
+    return
+      MakePair(mem, SymbolFor("->"),
+      MakePair(mem, nil,
+      MakePair(mem, ListAt(mem, children, 3), nil)));
+  }
+  return ParseInfix(children, mem);
+}
+
+static Val ParseAccess(Val children, Mem *mem)
+{
+  Val dict = ListAt(mem, children, 0);
+  Val key =
+    MakePair(mem, SymbolFor(":"),
+    MakePair(mem, ListAt(mem, children, 2), nil));
+
+  return
+    MakePair(mem, SymbolFor("."),
+    MakePair(mem, dict,
+    MakePair(mem, key, nil)));
 }
 
 static Val ParseSimple(Val children, Mem *mem)
 {
   return Head(mem, children);
+}
+
+static Val ParseSymbol(Val children, Mem *mem)
+{
+  Val name = TermVal(ListAt(mem, children, 1), mem);
+  return
+    MakePair(mem, SymbolFor(":"),
+    MakePair(mem, name, nil));
 }
 
 static Val ParseDoBlock(Val children, Mem *mem)
@@ -175,17 +223,29 @@ static Val ParseDoBlock(Val children, Mem *mem)
 static Val ParseIfBlock(Val children, Mem *mem)
 {
   if (ListLength(mem, children) == 3) {
-    return ListAppend(mem, children, nil);
+    return MakePair(mem, SymbolFor("if"), ListAppend(mem, Tail(mem, children), nil));
   }
 
   Val predicate = ListAt(mem, children, 1);
-  Val condition = ListAt(mem, children, 3);
+  Val consequent = ListAt(mem, children, 3);
   Val alternative = ListAt(mem, children, 5);
+
+  if (ListLength(mem, consequent) == 1) {
+    consequent = Head(mem, consequent);
+  } else {
+    consequent = MakePair(mem, SymbolFor("do"), consequent);
+  }
+
+  if (ListLength(mem, alternative) == 1) {
+    alternative = Head(mem, alternative);
+  } else {
+    alternative = MakePair(mem, SymbolFor("do"), alternative);
+  }
 
   return
     MakePair(mem, SymbolFor("if"),
     MakePair(mem, predicate,
-    MakePair(mem, condition,
+    MakePair(mem, consequent,
     MakePair(mem, alternative, nil))));
 }
 
@@ -226,7 +286,7 @@ static Val ParseGroup(Val children, Mem *mem)
   if (ListLength(mem, group) == 1) {
     // maybe an infix application
     Val op = Head(mem, group);
-    if (IsNode(Head(mem, op), mem) && IsInfix(NodeVal(Head(mem, op), mem))) {
+    if (IsTerm(Head(mem, op), mem) && IsInfix(TermVal(Head(mem, op), mem))) {
       // infix application, don't call the result
       return op;
     }
@@ -240,7 +300,7 @@ static Val ParseCollection(Val children, Mem *mem)
   Val items = ListAt(mem, children, 1);
   Val update = ListAt(mem, children, 2);
 
-  if (IsTaggedNode(mem, update, SymbolFor("|"))) {
+  if (IsTaggedTerm(mem, update, SymbolFor("|"))) {
     // reverse the list here so it's faster to prepend items at runtime
     return ListAppend(mem, update, ReverseOnto(mem, items, nil));
   } else {
@@ -271,37 +331,39 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
 
   switch (sym) {
   case ParseSymProgram:     return ParseProgram(children, mem);
-  case ParseSymItems:       return ParseSequence(children, mem);
   case ParseSymStmts:       return ParseSequence(children, mem);
+  case ParseSymStmt:        return ParseStmt(children, mem);
+  case ParseSymLetStmt:     return ParseLetStmt(children, mem);
   case ParseSymAssigns:     return ParseAssigns(children, mem);
   case ParseSymAssign:      return ParseAssign(children, mem);
   case ParseSymDefStmt:     return ParseDefStmt(children, mem);
   case ParseSymParams:      return ParseSequence(children, mem);
+  case ParseSymImportStmt:  return ParseImportStmt(children, mem);
   case ParseSymCall:        return ParseSequence(children, mem);
   case ParseSymMlCall:      return ParseSequence(children, mem);
-  case ParseSymLambda:      return ParseInfix(children, mem);
+  case ParseSymArg:         return ParseSimple(children, mem);
+  case ParseSymLambda:      return ParseLambda(children, mem);
   case ParseSymLogic:       return ParseInfix(children, mem);
   case ParseSymEquals:      return ParseInfix(children, mem);
   case ParseSymCompare:     return ParseInfix(children, mem);
   case ParseSymSum:         return ParseInfix(children, mem);
   case ParseSymProduct:     return ParseInfix(children, mem);
-  case ParseSymAccess:      return ParseInfix(children, mem);
-  case ParseSymStmt:        return ParseStmt(children, mem);
-  case ParseSymArg:         return ParseSimple(children, mem);
-  case ParseSymPrimary:     return ParseSimple(children, mem);
   case ParseSymBlock:       return ParseSimple(children, mem);
-  case ParseSymLiteral:     return ParseSimple(children, mem);
-  case ParseSymImportStmt:  return ParseImportStmt(children, mem);
   case ParseSymDoBlock:     return ParseDoBlock(children, mem);
   case ParseSymIfBlock:     return ParseIfBlock(children, mem);
   case ParseSymCondBlock:   return ParseCondBlock(children, mem);
   case ParseSymClauses:     return ParseSequence(children, mem);
   case ParseSymClause:      return ParseClause(children, mem);
+  case ParseSymPrimary:     return ParseSimple(children, mem);
+  case ParseSymAccess:      return ParseAccess(children, mem);
+  case ParseSymLiteral:     return ParseSimple(children, mem);
+  case ParseSymSymbol:      return ParseSymbol(children, mem);
   case ParseSymGroup:       return ParseGroup(children, mem);
   case ParseSymList:        return ParseCollection(children, mem);
-  case ParseSymEntries:     return ParseSequence(children, mem);
+  case ParseSymItems:       return ParseSequence(children, mem);
   case ParseSymTuple:       return ParseCollection(children, mem);
   case ParseSymDict:        return ParseCollection(children, mem);
+  case ParseSymEntries:     return ParseSequence(children, mem);
   case ParseSymEntry:       return ParseEntry(children, mem);
   case ParseSymOptComma:    return nil;
   default:                  return children;
@@ -326,7 +388,7 @@ static void PrintASTNode(Val node, u32 indent, u32 lines, Mem *mem)
   if (IsNil(node)) {
     Print("╴");
     Print("nil\n");
-  } else if (IsList(mem, node) && !IsNode(node, mem)) {
+  } else if (IsList(mem, node) && !IsTerm(node, mem)) {
     Print("┐\n");
     u32 next_lines = (lines << 1) + 1;
     while (!IsNil(node)) {
@@ -344,17 +406,19 @@ static void PrintASTNode(Val node, u32 indent, u32 lines, Mem *mem)
       PrintASTNode(Head(mem, node), indent + 1, next_lines, mem);
       node = Tail(mem, node);
     }
-  } else if (IsPair(node) && !IsNode(node, mem)) {
+  } else if (IsPair(node) && !IsTerm(node, mem)) {
     Print("╴");
     PrintVal(mem, Head(mem, node));
     Print(" | ");
     PrintVal(mem, Tail(mem, node));
     Print("\n");
   } else {
-    if (IsNode(node, mem)) node = NodeVal(node, mem);
-
     Print("╴");
-    PrintVal(mem, node);
+    if (IsTerm(node, mem)) {
+      PrintTerm(node, mem);
+    } else {
+      PrintVal(mem, node);
+    }
     Print("\n");
   }
 }

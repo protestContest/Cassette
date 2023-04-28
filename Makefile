@@ -13,7 +13,6 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 CC = clang
 # DEFINES := DEBUG_PARSE DEBUG_AST DEBUG_COMPILE DEBUG_ASSEMBLE DEBUG_VM
-DEFINES := DEBUG_PARSE DEBUG_AST DEBUG_VM
 INCLUDE_FLAGS = -isystem $(PREFIX)/include -include univ/base.h -I/opt/homebrew/include
 CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS) $(DEFINES:%=-D%)
 LDFLAGS = -L$(PREFIX)/lib -L/opt/homebrew/lib -lbase -lcanvas -lwindow -lSDL2

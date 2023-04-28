@@ -18,7 +18,7 @@ u32 PrintReg(i32 reg)
 
 void InitVM(VM *vm, Mem *mem)
 {
-  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil}, true, {0, 0}};
+  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil}, NULL, {0, 0}};
   vm->regs[RegEnv] = InitialEnv(vm->mem);
 }
 
@@ -52,9 +52,9 @@ static void TraceInstruction(VM *vm, Chunk *chunk)
 void RunChunk(VM *vm, Chunk *chunk)
 {
   vm->pc = 0;
-  vm->halted = false;
+  vm->chunk = chunk;
 
-  while (!vm->halted) {
+  while (vm->pc < VecCount(chunk->data)) {
     OpCode op = chunk->data[vm->pc];
 
 #ifdef DEBUG_VM
@@ -146,7 +146,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc = RawInt(vm->regs[RegCon]);
       break;
     case OpHalt:
-      vm->halted = true;
+      Halt(vm);
       break;
     default:
       RuntimeError("Invalid op code", IntVal(op), vm);
@@ -176,5 +176,5 @@ void RuntimeError(char *message, Val exp, VM *vm)
   PrintVal(vm->mem, exp);
   Print(IOFGReset);
   Print("\n");
-  vm->halted = true;
+  Halt(vm);
 }

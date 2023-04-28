@@ -52,7 +52,10 @@ Val Lookup(Val var, Val env, VM *vm)
 
 Val MakeProcedure(Val body, Val env, Mem *mem)
 {
-  return MakeList(mem, 3, MakeSymbol(mem, "λ"), body, env);
+  return
+    MakePair(mem, MakeSymbol(mem, "λ"),
+    MakePair(mem, body,
+    MakePair(mem, env, nil)));
 }
 
 Val ProcBody(Val proc, Mem *mem)

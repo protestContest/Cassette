@@ -135,6 +135,13 @@ Val DictOp(Val op, Val args, VM *vm)
   return dict;
 }
 
+Val AccessOp(Val op, Val args, VM *vm)
+{
+  Val dict = ListAt(vm->mem, args, 0);
+  Val key = ListAt(vm->mem, args, 1);
+  return DictGet(vm->mem, dict, key);
+}
+
 Val PrintOp(Val op, Val args, VM *vm)
 {
   while (!IsNil(args)) {
@@ -413,6 +420,7 @@ static Primitive primitives[] = {
   {"[", ListOp},
   {"#[", TupleOp},
   {"{", DictOp},
+  {".", AccessOp},
   {"head", HeadOp},
   {"tail", TailOp},
   {"nth", NthOp},
@@ -450,7 +458,7 @@ static Primitive primitives[] = {
 
 bool IsPrimitive(Val op, Mem *mem)
 {
-  return IsTagged(mem, op, SymbolFor("α"));
+  return IsTagged(mem, op, "α");
 }
 
 Val DoPrimitive(Val op, Val args, VM *vm)

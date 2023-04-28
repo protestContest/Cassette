@@ -67,14 +67,7 @@ static void PushConst(Val value, Chunk *chunk)
 
 static void PushReg(Val reg, Chunk *chunk)
 {
-  u32 i = 0;
-  i32 reg_val = RawInt(reg);
-  Assert(reg_val != 0);
-  while ((reg_val & 1) == 0) {
-    i++;
-    reg_val = reg_val >> 1;
-  }
-  VecPush(chunk->data, i);
+  VecPush(chunk->data, RawInt(reg));
 }
 
 static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
@@ -209,7 +202,7 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
   }
 }
 
-void PrintChunk(Chunk *chunk, Mem *mem)
+void Disassemble(Chunk *chunk, Mem *mem)
 {
   u32 i = 0;
   while (i < VecCount(chunk->data)) {
@@ -219,6 +212,8 @@ void PrintChunk(Chunk *chunk, Mem *mem)
     Print("\n");
     i += OpLength(ChunkRef(chunk, i));
   }
+  PrintIntN(i, 4, ' ');
+  Print("│ <end>\n");
 }
 
 void PrintChunkConstants(Chunk *chunk, Mem *mem)

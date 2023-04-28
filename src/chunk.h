@@ -36,7 +36,7 @@ Val ChunkConst(Chunk *chunk, u32 index);
 u32 OpLength(OpCode op);
 
 Chunk Assemble(Val stmts, Mem *mem);
-void PrintChunk(Chunk *chunk, Mem *mem);
+void Disassemble(Chunk *chunk, Mem *mem);
 u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem);
 void PrintChunkConstants(Chunk *chunk, Mem *mem);
 

@@ -30,12 +30,13 @@ fizzbuzz 100
 ## To Do
 
 - String support
-- Compiler optimization
-- VM optimization
-- Garbage collection
 - Module loading
-- Error handling for primitives
-- Persistent data structures
+- Compiler optimization
+  - Open code primitives
+  - Lexical variable lookup
+- Garbage collection
+- Better error handling for primitives
+- VM optimization
 - Standard library
   - Collections
   - Math

@@ -1,6 +1,5 @@
 #include "mem.h"
 #include "env.h"
-#include <stdarg.h>
 
 #define NextFree(mem)   VecCount(mem->values)
 
@@ -62,19 +61,6 @@ void SetTail(Mem *mem, Val pair, Val val)
   mem->values[index+1] = val;
 }
 
-Val MakeList(Mem *mem, u32 num, ...)
-{
-  va_list args;
-  va_start(args, num);
-  Val list = nil;
-  for (u32 i = 0; i < num; i++) {
-    Val arg = va_arg(args, Val);
-    list = MakePair(mem, arg, list);
-  }
-  va_end(args);
-  return ReverseOnto(mem, list, nil);
-}
-
 u32 ListLength(Mem *mem, Val list)
 {
   u32 length = 0;
@@ -117,10 +103,10 @@ Val ListConcat(Mem *mem, Val list1, Val list2)
   return ReverseOnto(mem, list1, list2);
 }
 
-bool IsTagged(Mem *mem, Val list, Val tag)
+bool IsTagged(Mem *mem, Val list, char *tag)
 {
   if (!IsPair(list)) return false;
-  return Eq(Head(mem, list), tag);
+  return Eq(Head(mem, list), SymbolFor(tag));
 }
 
 bool IsTuple(Mem *mem, Val tuple)
@@ -449,19 +435,16 @@ u32 PrintVal(Mem *mem, Val value)
       printed += Print(str);
     }
   } else if (IsPair(value)) {
-    if (IsTagged(mem, value, SymbolFor("λ"))) {
-      printed += Print("[λ ") - 1;
+    if (IsTagged(mem, value, "λ")) {
+      printed += Print("λ") - 1;
       Val body = ProcBody(value, mem);
       printed += PrintVal (mem, body);
-      printed += Print("]");
-    } else if (IsTagged(mem, value, SymbolFor("α"))) {
-      printed += Print("[α ") - 1;
+    } else if (IsTagged(mem, value, "α")) {
+      printed += Print("α") - 1;
       printed += Print(SymbolName(mem, Tail(mem, value)));
-      printed += Print("]");
-    } else if (IsTagged(mem, Head(mem, value), SymbolFor("ε"))) {
-      printed += Print("[ε") - 1;
+    } else if (IsTagged(mem, Head(mem, value), "ε")) {
+      printed += Print("ε") - 1;
       printed += PrintInt(ListLength(mem, value) - 1);
-      printed += Print("]");
     } else {
       printed += Print("[");
       printed += PrintTail(mem, value);
