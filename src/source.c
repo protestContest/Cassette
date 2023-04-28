@@ -15,6 +15,27 @@ void PrintTokenPosition(Source src, Token token)
   PrintInt(token.col);
 }
 
+void PrintSourceLine(Source src, u32 line, u32 start, u32 length)
+{
+  if (line == 0) return;
+
+  u32 cur_line = 1;
+  u32 pos = 0;
+  while (cur_line < line) if (src.data[pos++] == '\n') cur_line++;
+
+  PrintIntN(cur_line, 4, ' ');
+  Print("│ ");
+  u32 col = 1;
+  while (src.data[pos] != '\n' && src.data[pos] != '\0') {
+    if (col == start) Print(IOUnderline);
+    if (col == start + length) Print(IONoUnderline);
+    PrintChar(src.data[pos++]);
+    col++;
+  }
+  Print(IONoUnderline);
+  Print("\n");
+}
+
 void PrintTokenContext(Source src, Token token, u32 num_lines)
 {
   u32 token_pos = token.lexeme - src.data;

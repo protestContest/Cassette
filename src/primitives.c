@@ -142,6 +142,12 @@ Val AccessOp(Val op, Val args, VM *vm)
   return DictGet(vm->mem, dict, key);
 }
 
+Val StringOp(Val op, Val args, VM *vm)
+{
+  Val symbol = Head(vm->mem, args);
+  return MakeBinary(vm->mem, SymbolName(vm->mem, symbol));
+}
+
 Val PrintOp(Val op, Val args, VM *vm)
 {
   while (!IsNil(args)) {
@@ -421,6 +427,7 @@ static Primitive primitives[] = {
   {"#[", TupleOp},
   {"{", DictOp},
   {".", AccessOp},
+  {"\"", StringOp},
   {"head", HeadOp},
   {"tail", TailOp},
   {"nth", NthOp},

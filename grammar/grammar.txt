@@ -55,7 +55,7 @@ clauses       → NL
 clause        → call "::" nl call NL
 primary       → NUM
 primary       → ID
-primary       → STR
+primary       → string
 primary       → literal
 primary       → symbol
 primary       → group
@@ -63,6 +63,7 @@ primary       → list
 primary       → tuple
 primary       → dict
 primary       → access
+string        → STR
 access        → access "." ID
 access        → ID "." ID
 literal       → "true"

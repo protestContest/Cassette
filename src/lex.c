@@ -1,5 +1,6 @@
 #include "lex.h"
 #include "parse_syms.h"
+#include "parse.h"
 #include "mem.h"
 
 #define LexPeek(lexer, n) (lexer)->src.data[(lexer)->pos + n]
@@ -23,6 +24,7 @@ static Token NumberToken(Lexer *lexer);
 static Token StringToken(Lexer *lexer);
 static Token IDToken(Lexer *lexer);
 static Token NewlineToken(Lexer *lexer);
+static void Advance(Lexer *lexer);
 
 void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, Source src, Mem *mem)
 {
@@ -34,28 +36,50 @@ void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, Source src, Me
 
 Token NextToken(Lexer *lexer)
 {
+  Token token;
+
   SkipWhitespace(lexer);
   lexer->start = lexer->pos;
 
   char c = LexPeek(lexer, 0);
 
-  if (c == '\0') return MakeToken(ParseSymEOF, lexer, MakeSymbol(lexer->mem, "$"));
-  if (IsDigit(c) || (c == '-' && IsDigit(LexPeek(lexer, 1)))) return NumberToken(lexer);
-  if (Match(lexer, "\"")) return StringToken(lexer);
-  if (Match(lexer, "\n")) return NewlineToken(lexer);
-
-  for (u32 i = 0; i < lexer->num_literals; i++) {
-    char *lexeme = lexer->literals[i].lexeme;
-    if (IsIDChar(LexPeek(lexer, 0))) {
-      if (MatchKeyword(lexer, lexeme)) {
-        return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+  if (c == '\0') {
+    token = MakeToken(ParseSymEOF, lexer, MakeSymbol(lexer->mem, "$"));
+  } else if (IsDigit(c) || (c == '-' && IsDigit(LexPeek(lexer, 1)))) {
+    token = NumberToken(lexer);
+  } else if (Match(lexer, "\"")) {
+    token = StringToken(lexer);
+  } else if (Match(lexer, "\n")) {
+    token = NewlineToken(lexer);
+  } else {
+    bool found_literal = false;
+    for (u32 i = 0; i < lexer->num_literals; i++) {
+      char *lexeme = lexer->literals[i].lexeme;
+      if (IsIDChar(LexPeek(lexer, 0))) {
+        if (MatchKeyword(lexer, lexeme)) {
+          token = MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+          found_literal = true;
+          break;
+        }
+      } else if (Match(lexer, lexeme)) {
+        token = MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+        found_literal = true;
+        break;
       }
-    } else if (Match(lexer, lexeme)) {
-      return MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
+    }
+    if (!found_literal) {
+      token = IDToken(lexer);
     }
   }
 
-  return IDToken(lexer);
+#if DEBUG_LEXER
+  u32 printed = Print(GrammarSymbolName(token.type));
+  Assert(printed < 8);
+  for (u32 i = 0; i < 8 - printed; i++) Print(" ");
+  PrintSourceLine(lexer->src, lexer->line, token.col, token.length);
+#endif
+
+  return token;
 }
 
 void PrintToken(Token token)
@@ -68,12 +92,13 @@ void PrintToken(Token token)
 
 static Token MakeToken(u32 type, Lexer *lexer, Val value)
 {
+  u32 length = lexer->pos - lexer->start;
   Token token = (Token){
     type,
     lexer->line,
-    lexer->col,
+    lexer->col - length,
     lexer->src.data + lexer->start,
-    lexer->pos - lexer->start,
+    length,
     value
   };
   return token;
@@ -84,18 +109,18 @@ static Token NumberToken(Lexer *lexer)
   bool neg = Match(lexer, "-");
 
   if (Match(lexer, "0x") && IsHexDigit(LexPeek(lexer, 2))) {
-    while (IsHexDigit(LexPeek(lexer, 0))) lexer->pos++;
+    while (IsHexDigit(LexPeek(lexer, 0))) Advance(lexer);
     Val value = ParseInt(lexer->src.data + lexer->start + 2, lexer->pos - lexer->start + 2, 16);
     if (neg) value = IntVal(-RawInt(value));
     return MakeToken(ParseSymNUM, lexer, value);
   }
 
-  while (IsDigit(LexPeek(lexer, 0))) lexer->pos++;
+  while (IsDigit(LexPeek(lexer, 0))) Advance(lexer);
 
   Val value;
   if (LexPeek(lexer, 0) == '.' && IsDigit(LexPeek(lexer, 1))) {
-    lexer->pos++;
-    while (IsDigit(LexPeek(lexer, 0))) lexer->pos++;
+    Advance(lexer);
+    while (IsDigit(LexPeek(lexer, 0))) Advance(lexer);
     value = ParseFloat(lexer->src.data + lexer->start, lexer->pos - lexer->start);
     if (neg) value = NumVal(-RawNum(value));
   } else {
@@ -154,9 +179,9 @@ static Token StringToken(Lexer *lexer)
 {
   Match(lexer, "\"");
   while (LexPeek(lexer, 0) != '"') {
-    if (LexPeek(lexer, 0) == '\\') lexer->pos++;
+    if (LexPeek(lexer, 0) == '\\') Advance(lexer);
     if (LexPeek(lexer, 0) == '\0') break;
-    lexer->pos++;
+    Advance(lexer);
   }
   Match(lexer, "\"");
   char *lexeme = lexer->src.data + lexer->start + 1;
@@ -168,7 +193,7 @@ static Token StringToken(Lexer *lexer)
 
 static Token IDToken(Lexer *lexer)
 {
-  while (LexPeek(lexer, 0) != '\0' && IsIDChar(LexPeek(lexer, 0))) lexer->pos++;
+  while (LexPeek(lexer, 0) != '\0' && IsIDChar(LexPeek(lexer, 0))) Advance(lexer);
   Val value = MakeSymbolFrom(lexer->mem, lexer->src.data + lexer->start, lexer->pos - lexer->start);
   return MakeToken(ParseSymID, lexer, value);
 }
@@ -261,18 +286,25 @@ static bool IsIDChar(char c)
 static void SkipWhitespace(Lexer *lexer)
 {
   while (IsWhitespace(LexPeek(lexer, 0))) {
-    lexer->pos++;
-    lexer->col++;
+    Advance(lexer);
   }
 
   if (LexPeek(lexer, 0) == ';') {
     while (!IsNewline(LexPeek(lexer, 0))) {
       if (LexPeek(lexer, 0) == '\0') return;
-      lexer->pos++;
+      Advance(lexer);
     }
-    lexer->pos++;
+    Advance(lexer);
+    SkipWhitespace(lexer);
+  }
+}
+
+static void Advance(Lexer *lexer)
+{
+  lexer->pos++;
+  lexer->col++;
+  if (IsNewline(LexPeek(lexer, 0))) {
     lexer->col = 1;
     lexer->line++;
-    SkipWhitespace(lexer);
   }
 }

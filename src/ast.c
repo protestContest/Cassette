@@ -325,6 +325,17 @@ static Val ParseUpdate(Val children, Mem *mem)
   return ListAt(mem, children, 2);
 }
 
+static Val ParseString(Val children, Mem *mem)
+{
+  Val string = TermVal(Head(mem, children), mem);
+  Val symbol = MakeSymbolFrom(mem, (char*)BinaryData(mem, string), BinaryLength(mem, string));
+  return
+    MakePair(mem, MakeSymbol(mem, "\""),
+    MakePair(mem,
+      MakePair(mem, SymbolFor(":"),
+      MakePair(mem, symbol, nil)), nil));
+}
+
 Val ParseNode(u32 sym, Val children, Mem *mem)
 {
   if (IsNil(children)) return nil;
@@ -365,6 +376,7 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymDict:        return ParseCollection(children, mem);
   case ParseSymEntries:     return ParseSequence(children, mem);
   case ParseSymEntry:       return ParseEntry(children, mem);
+  case ParseSymString:      return ParseString(children, mem);
   case ParseSymOptComma:    return nil;
   default:                  return children;
   }

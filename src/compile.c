@@ -116,16 +116,11 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Mem *mem)
 #endif
 
   if (IsTerm(exp, mem)) {
-    Print("=== TERM === ");
-    PrintVal(mem, exp);
-    Print("\n");
+    exp = TermVal(exp, mem);
   }
-  exp = TermVal(exp, mem);
-
-  if (IsObj(exp)) return CompileError("Unsupported expression", exp, mem);
 
   Seq result;
-  if (IsNil(exp) || IsNumeric(exp) || IsObj(exp)) {
+  if (IsNil(exp) || IsNumeric(exp)) {
 #if DEBUG_COMPILE
     Print(" (Self)");
 #endif
