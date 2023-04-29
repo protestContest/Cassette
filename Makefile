@@ -6,6 +6,7 @@ INC_DIR := include
 LIB_DIR := lib
 PREFIX := $(HOME)/.local
 TARGET = ./$(NAME)
+SHELL = bash
 
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
@@ -24,11 +25,6 @@ $(TARGET): $(OBJS)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
-
-.PHONY: clean
-clean:
-	@rm -rf $(BUILD_DIR) $(TARGET)
-	@rm -f grammar/bison*
 
 .PHONY: test
 test: $(TARGET)
@@ -51,7 +47,20 @@ deps:
 	@rm -rf deps/univ
 	@mkdir -p deps
 	@git clone https://git.sr.ht/~zjm/univ/ deps/univ && cd deps/univ
-	@make -C deps/univ && cp deps/univ/dist/libuniv.a lib/ && cp deps/univ/dist/univ.h include/ && rm -rf deps/univ
+	@make -C deps/univ && cp deps/univ/dist/libuniv.a lib/ && cp deps/univ/dist/univ.h include/
+
+.PHONY:
+readme:
+	@mkdir -p $(BUILD_DIR)
+	@pandoc -s --template support/template.html --metadata title=Cassette README.md > $(BUILD_DIR)/index.html
+
+.PHONY: clean-all
+clean-all: clean clean-deps
+
+.PHONY: clean
+clean:
+	@rm -rf $(BUILD_DIR) $(TARGET)
+	@rm -f grammar/bison*
 
 .PHONY: clean-deps
 clean-deps:
