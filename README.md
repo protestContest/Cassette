@@ -29,7 +29,6 @@ fizzbuzz 100
 
 ## To Do
 
-- String support
 - Module loading
 - Compiler optimization
   - Open code primitives
@@ -45,6 +44,8 @@ fizzbuzz 100
 
 ## Building
 
+The source code can be found [here](https://sr.ht/~zjm/Cassette/).
+
 Building Cassette requires SDL2—edit the makefile to ensure it can find SDL2's
 library and headers.
 
@@ -59,7 +60,7 @@ The base of the runtime is the memory representation. Values are 32-bit NaN-boxe
 ```
          31      24       16       8       0
          ┌┴┬──────┴─┬──────┴───────┴───────┴┐
-   Float │S│EEEEEEEE│MMMMMMMMMMMMMMMMMMMMMMM│
+   Float │S│ <expnt>│       <mantissa>      │
      NaN │-│11111111│1----------------------│
          ├─┼────────┼───────────────────────┤
  Integer │0│11111111│100 <signed int value> │
