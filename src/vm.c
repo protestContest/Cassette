@@ -163,9 +163,9 @@ void RunChunk(VM *vm, Chunk *chunk)
 #endif
 }
 
-void RuntimeError(char *message, Val exp, VM *vm)
+Val RuntimeError(char *message, Val exp, VM *vm)
 {
-  Print(IOFGRed);
+  PrintEscape(IOFGRed);
   Print("(Runtime Error) ");
 #ifdef DEBUG_VM
   PrintInt(vm->pc);
@@ -174,7 +174,8 @@ void RuntimeError(char *message, Val exp, VM *vm)
   Print(message);
   Print(": ");
   PrintVal(vm->mem, exp);
-  Print(IOFGReset);
+  PrintEscape(IOFGReset);
   Print("\n");
   Halt(vm);
+  return SymbolFor("error");
 }

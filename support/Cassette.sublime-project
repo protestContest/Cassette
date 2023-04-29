@@ -3,8 +3,7 @@
 		{
 			"path": "..",
 			"binary_file_patterns": [
-				"build/",
-				".elixir_ls/"
+				"build/"
 			],
 		}
 	],
@@ -26,12 +25,12 @@
 	[
 		{
 			"name": "Make",
-			"working_dir": "${project_path}",
+			"working_dir": "${project_path}/..",
 			"cmd": ["make"],
 			"variants": [
 				{
 					"name": "Run",
-					"cmd": ["dist/cassette", "$file"],
+					"cmd": ["./cassette", "$file"],
 				},
 				{
 					"name": "Clean",

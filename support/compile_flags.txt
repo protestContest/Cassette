@@ -3,11 +3,8 @@
 -Werror
 -Wno-unused-function
 -Wno-unused-parameter
--isystem
-/Users/zack/.local/include
+-I/Users/zack/.local/include
 -I/opt/homebrew/include
+-Iinclude
 -include
-univ/base.h
--DDEBUG_PARSE
--DDEBUG_AST
--DDEBUG_VM
+univ.h

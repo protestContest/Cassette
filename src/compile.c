@@ -726,7 +726,7 @@ Val ExtractLabels(Val stmts, Mem *mem)
 
 Seq CompileError(char *message, Val val, Mem *mem)
 {
-  Print(IOFGRed);
+  PrintEscape(IOFGRed);
   Print("(Compile Error) ");
   Print(message);
 
@@ -739,6 +739,6 @@ Seq CompileError(char *message, Val val, Mem *mem)
     }
   }
   Print("\n");
-  Print(IOFGReset);
+  PrintEscape(IOFGReset);
   return (Seq){false, 0, 0, nil};
 }

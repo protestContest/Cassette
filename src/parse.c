@@ -147,7 +147,7 @@ char *GrammarSymbolName(u32 sym)
 
 Val SyntaxError(Source src, char *message, Token token)
 {
-  Print(IOFGRed);
+  PrintEscape(IOFGRed);
   Print("(Syntax Error) ");
   if (token.type == 0) {
     Print("Unexpected end of input");
@@ -161,6 +161,6 @@ Val SyntaxError(Source src, char *message, Token token)
   PrintTokenPosition(src, token);
   Print("\n");
   PrintTokenContext(src, token, 5);
-  Print(IOFGReset);
+  PrintEscape(IOFGReset);
   return SymbolFor("error");
 }

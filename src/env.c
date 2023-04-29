@@ -46,8 +46,7 @@ Val Lookup(Val var, Val env, VM *vm)
     env = Tail(vm->mem, env);
   }
 
-  RuntimeError("Unbound variable", var, vm);
-  return nil;
+  return RuntimeError("Unbound variable", var, vm);
 }
 
 Val MakeProcedure(Val body, Val env, Mem *mem)

@@ -1,9 +1,8 @@
-![Cassette Logo](https://zjm.me/content/uploads/2023/04/Cassette_banner-wide.svg)
+![Cassette Logo](http://cassette-lang.com/banner.svg)
 
 # Cassette
 
-Cassette is a small language intended for casual solo programming on simple
-systems. It looks like this:
+Cassette is a small language for solo programming on simple systems. It looks like this:
 
 ```
 def (fizzbuzz n) do
@@ -29,7 +28,7 @@ fizzbuzz 100
 
 ## To Do
 
-Cassette is in very early stages of development. Not everything described here has been implemented, and everything is subject to change.
+Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
 - Module loading
 - Compiler optimization
@@ -46,14 +45,13 @@ Cassette is in very early stages of development. Not everything described here h
 
 ## Building
 
-The source code can be found [here](https://sr.ht/~zjm/Cassette/).
+This project requires a C build toolchain. You may need to install `make` and `clang`.
 
-Building Cassette requires SDL2—edit the makefile to ensure it can find SDL2's
-library and headers.
+The source code can be found [here](https://git.sr.ht/~zjm/Cassette). This project depends on the [univ](https://git.sr.ht/~zjm/univ) library.
 
-Use `make` to build the project. This creates the executable `dist/cassette`,
-which can be called with a file to execute, or with no arguments to start a
-REPL.
+- Clone the repo with `git clone https://git.sr.ht/~zjm/Cassette`.
+- Run `make deps`. This clones, builds, and copys the univ library into this project. (Alternatively, build that library separately and copy the files into "lib" and "include".)
+- Run `make` to build the project. This creates the executable `cassette`, which can be called with a file to execute. `make test` will run the file `test/test.csst`
 
 ## Values and Memory
 

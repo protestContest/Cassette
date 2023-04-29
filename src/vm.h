@@ -31,4 +31,4 @@ u32 PrintReg(i32 reg);
 
 void InitVM(VM *vm, Mem *mem);
 void RunChunk(VM *vm, Chunk *chunk);
-void RuntimeError(char *message, Val exp, VM *vm);
+Val RuntimeError(char *message, Val exp, VM *vm);

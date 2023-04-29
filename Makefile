@@ -1,21 +1,21 @@
 NAME = cassette
+
 BUILD_DIR := build
 SRC_DIR := src
-# INC_DIR := include
-# LIB_DIR := lib
-DIST_DIR := .
+INC_DIR := include
+LIB_DIR := lib
 PREFIX := $(HOME)/.local
-TARGET = $(DIST_DIR)/$(NAME)
-SHELL = bash
+TARGET = ./$(NAME)
 
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
+# DEFINES := DEBUG_PARSE DEBUG_AST
+
 CC = clang
-DEFINES := DEBUG_PARSE DEBUG_AST
-INCLUDE_FLAGS = -isystem $(PREFIX)/include -include univ/base.h -I/opt/homebrew/include
+INCLUDE_FLAGS = -I$(PREFIX)/include -I$(INC_DIR) -include univ.h
 CFLAGS = -g -O0 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter $(INCLUDE_FLAGS) $(DEFINES:%=-D%)
-LDFLAGS = -L$(PREFIX)/lib -L/opt/homebrew/lib -lbase -lcanvas -lwindow -lSDL2
+LDFLAGS = -L$(PREFIX)/lib -L$(LIB_DIR) -luniv
 
 $(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
@@ -32,7 +32,7 @@ clean:
 
 .PHONY: test
 test: $(TARGET)
-	@$(TARGET) test/test.cassette
+	@$(TARGET) test/test.csst
 
 .PHONY: run
 run: $(TARGET)
@@ -45,3 +45,16 @@ parse: parse-check clean
 .PHONY: parse-check
 parse-check:
 	@! (bison -o grammar/bison -v <(cat grammar/tokens.y <(sed 's/→/:/g; s/ε//g; s/\$$/EOF/g; s/$$/;/g' grammar/grammar.txt)) 2>&1 | grep '.')
+
+.PHONY: deps
+deps:
+	@rm -rf deps/univ
+	@mkdir -p deps
+	@git clone https://git.sr.ht/~zjm/univ/ deps/univ && cd deps/univ
+	@make -C deps/univ && cp deps/univ/dist/libuniv.a lib/ && cp deps/univ/dist/univ.h include/ && rm -rf deps/univ
+
+.PHONY: clean-deps
+clean-deps:
+	@rm -rf deps
+	@rm include/univ.h
+	@rm lib/libuniv.a

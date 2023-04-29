@@ -2,7 +2,6 @@
 #include "env.h"
 #include "value.h"
 #include "port.h"
-#include <univ/base.h>
 
 typedef Val (*PrimitiveFn)(Val op, Val args, VM *vm);
 
@@ -20,12 +19,10 @@ Val NumberOp(Val op, Val args, VM *vm)
   Val b = ListAt(vm->mem, args, 1);
 
   if (!IsNumeric(a)) {
-    RuntimeError("Bad arithmetic argument", a, vm);
-    return nil;
+    return RuntimeError("Bad arithmetic argument", a, vm);
   }
   if (!IsNumeric(b)) {
-    RuntimeError("Bad arithmetic argument", b, vm);
-    return nil;
+    return RuntimeError("Bad arithmetic argument", b, vm);
   }
 
   if (IsInt(a) && IsInt(b)) {
@@ -43,8 +40,7 @@ Val NumberOp(Val op, Val args, VM *vm)
   if (Eq(op, SymbolFor(">="))) return BoolVal(NumOp(a, >=, b));
   if (Eq(op, SymbolFor("<="))) return BoolVal(NumOp(a, <=, b));
 
-  RuntimeError("Unimplemented primitive", op, vm);
-  return nil;
+  return RuntimeError("Unimplemented primitive", op, vm);
 }
 
 Val LogicOp(Val op, Val args, VM *vm)
@@ -55,8 +51,7 @@ Val LogicOp(Val op, Val args, VM *vm)
   if (Eq(op, SymbolFor("=="))) return BoolVal(Eq(a, b));
   if (Eq(op, SymbolFor("!="))) return BoolVal(!Eq(a, b));
 
-  RuntimeError("Unimplemented primitive", op, vm);
-  return nil;
+  return RuntimeError("Unimplemented primitive", op, vm);
 }
 
 Val PairOp(Val op, Val args, VM *vm)
@@ -153,8 +148,7 @@ Val PrintOp(Val op, Val args, VM *vm)
   while (!IsNil(args)) {
     Val message = Head(vm->mem, args);
     if (!ValToString(vm->mem, message, output)) {
-      RuntimeError("Could not print", message, vm);
-      return nil;
+      return RuntimeError("Could not print", message, vm);
     }
     args = Tail(vm->mem, args);
   }
@@ -178,8 +172,7 @@ Val TypeOp(Val op, Val args, VM *vm)
   if (Eq(op, SymbolFor("binary?"))) return BoolVal(IsBinary(vm->mem, arg));
   if (Eq(op, SymbolFor("true?"))) return BoolVal(IsTrue(arg));
 
-  RuntimeError("Unimplemented primitive", op, vm);
-  return nil;
+  return RuntimeError("Unimplemented primitive", op, vm);
 }
 
 Val AbsOp(Val op, Val args, VM *vm)
@@ -187,8 +180,7 @@ Val AbsOp(Val op, Val args, VM *vm)
   Val arg = Head(vm->mem, args);
   if (IsNum(arg)) return NumVal(Abs(RawNum(arg)));
   if (IsInt(arg)) return IntVal(Abs(RawInt(arg)));
-  RuntimeError("Bad argument to abs", arg, vm);
-  return nil;
+  return RuntimeError("Bad argument to abs", arg, vm);
 }
 
 // Val ApplyOp(Val op, Val args, VM *vm)
@@ -215,8 +207,7 @@ Val CeilOp(Val op, Val args, VM *vm)
   Val arg = Head(vm->mem, args);
   if (IsInt(arg)) return arg;
   if (IsNum(arg)) return NumVal(Ceil(RawNum(arg)));
-  RuntimeError("Bad argument to ceil", arg, vm);
-  return nil;
+  return RuntimeError("Bad argument to ceil", arg, vm);
 }
 
 Val FloorOp(Val op, Val args, VM *vm)
@@ -224,8 +215,7 @@ Val FloorOp(Val op, Val args, VM *vm)
   Val arg = Head(vm->mem, args);
   if (IsInt(arg)) return arg;
   if (IsNum(arg)) return NumVal(Floor(RawNum(arg)));
-  RuntimeError("Bad argument to floor", arg, vm);
-  return nil;
+  return RuntimeError("Bad argument to floor", arg, vm);
 }
 
 Val DivOp(Val op, Val args, VM *vm)
@@ -233,12 +223,10 @@ Val DivOp(Val op, Val args, VM *vm)
   Val a = ListAt(vm->mem, args, 0);
   Val b = ListAt(vm->mem, args, 1);
   if (!IsInt(a)) {
-    RuntimeError("Bad division argument", a, vm);
-    return nil;
+    return RuntimeError("Bad division argument", a, vm);
   }
   if (!IsInt(b)) {
-    RuntimeError("Bad division argument", b, vm);
-    return nil;
+    return RuntimeError("Bad division argument", b, vm);
   }
 
   i32 ra = RawInt(a);
@@ -261,8 +249,7 @@ Val DivOp(Val op, Val args, VM *vm)
     return IntVal(ra - rb*div);
   }
 
-  RuntimeError("Unimplemented primitive", op, vm);
-  return nil;
+  return RuntimeError("Unimplemented primitive", op, vm);
 }
 
 Val LengthOp(Val op, Val args, VM *vm)
@@ -272,8 +259,7 @@ Val LengthOp(Val op, Val args, VM *vm)
   if (IsTuple(vm->mem, arg)) return IntVal(TupleLength(vm->mem, arg));
   if (IsDict(vm->mem, arg)) return IntVal(DictSize(vm->mem, arg));
   if (IsBinary(vm->mem, arg)) return IntVal(BinaryLength(vm->mem, arg));
-  RuntimeError("Cannot take length of this", arg, vm);
-  return nil;
+  return RuntimeError("Cannot take length of this", arg, vm);
 }
 
 Val MaxOp(Val op, Val args, VM *vm)
@@ -288,8 +274,7 @@ Val MaxOp(Val op, Val args, VM *vm)
     } else if (IsInt(arg)) {
       max_int = Max(max_int, RawInt(arg));
     } else {
-      RuntimeError("Bad argument to max", arg, vm);
-      return nil;
+      return RuntimeError("Bad argument to max", arg, vm);
     }
   }
 
@@ -312,8 +297,7 @@ Val MinOp(Val op, Val args, VM *vm)
     } else if (IsInt(arg)) {
       min_int = Min(min_int, RawInt(arg));
     } else {
-      RuntimeError("Bad argument to min", arg, vm);
-      return nil;
+      return RuntimeError("Bad argument to min", arg, vm);
     }
   }
 
@@ -338,8 +322,7 @@ Val RandOp(Val op, Val args, VM *vm)
     return IntVal(Floor(r*(max - min) + min));
   }
 
-  RuntimeError("Unimplemented primitive", op, vm);
-  return nil;
+  return RuntimeError("Unimplemented primitive", op, vm);
 }
 
 Val NotOp(Val op, Val args, VM *vm)
@@ -362,8 +345,7 @@ Val RoundOp(Val op, Val args, VM *vm)
 
     return IntVal(Floor(n) + (frac > 0.5));
   } else {
-    RuntimeError("Bad argument to round", arg, vm);
-    return nil;
+    return RuntimeError("Bad argument to round", arg, vm);
   }
 }
 
@@ -383,31 +365,33 @@ Val ToStringOp(Val op, Val args, VM *vm)
     return MakeBinaryFrom(vm->mem, str, length);
   }
 
-  RuntimeError("Not string representable", arg, vm);
-  return nil;
+  return RuntimeError("Not string representable", arg, vm);
 }
 
-// Val OpenOp(Val op, Val args, VM *vm)
-// {
+Val OpenOp(Val op, Val args, VM *vm)
+{
+  return RuntimeError("IO unimplemented", op, vm);
 //   Val type = ListAt(vm->mem, args, 0);
 //   Val name = ListAt(vm->mem, args, 1);
 //   Val opts = ListAt(vm->mem, args, 2);
 
 //   return OpenPort(vm, type, name, opts);
-// }
+}
 
-// Val SendOp(Val op, Val args, VM *vm)
-// {
+Val SendOp(Val op, Val args, VM *vm)
+{
+  return RuntimeError("IO unimplemented", op, vm);
 //   Val port = ListAt(vm->mem, args, 0);
 //   Val message = ListAt(vm->mem, args, 1);
 //   return SendPort(vm, port, message);
-// }
+}
 
-// Val RecvOp(Val op, Val args, VM *vm)
-// {
+Val RecvOp(Val op, Val args, VM *vm)
+{
+  return RuntimeError("IO unimplemented", op, vm);
 //   Val port = ListAt(vm->mem, args, 0);
 //   return RecvPort(vm, port);
-// }
+}
 
 static Primitive primitives[] = {
   {"*", NumberOp},
@@ -455,9 +439,9 @@ static Primitive primitives[] = {
   {"round", RoundOp},
   {"random", RandOp},
   {"random-int", RandOp},
-  // {"open", OpenOp},
-  // {"send", SendOp},
-  // {"recv", RecvOp},
+  {"open", OpenOp},
+  {"send", SendOp},
+  {"recv", RecvOp},
   {"print", PrintOp},
   // {"apply", ApplyOp},
   // {"eval", EvalOp},
@@ -477,8 +461,7 @@ Val DoPrimitive(Val op, Val args, VM *vm)
     }
   }
 
-  RuntimeError("Unknown primitive", op, vm);
-  return nil;
+  return RuntimeError("Unknown primitive", op, vm);
 }
 
 void DefinePrimitives(Val env, Mem *mem)

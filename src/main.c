@@ -3,7 +3,6 @@
 #include "parse.h"
 #include "ast.h"
 #include "chunk.h"
-#include <univ/window.h>
 
 void RunFile(char *filename)
 {

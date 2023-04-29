@@ -27,12 +27,12 @@ void PrintSourceLine(Source src, u32 line, u32 start, u32 length)
   Print("│ ");
   u32 col = 1;
   while (src.data[pos] != '\n' && src.data[pos] != '\0') {
-    if (col == start) Print(IOUnderline);
-    if (col == start + length) Print(IONoUnderline);
+    if (col == start) PrintEscape(IOUnderline);
+    if (col == start + length) PrintEscape(IONoUnderline);
     PrintChar(src.data[pos++]);
     col++;
   }
-  Print(IONoUnderline);
+  // PrintEscape(IONoUnderline);
   Print("\n");
 }
 
@@ -70,8 +70,8 @@ void PrintTokenContext(Source src, Token token, u32 num_lines)
     Print("│ ");
 
     while (!AtEnd(src, pos)) {
-      if (pos == token_pos) Print(IOUnderline);
-      if (pos == token_pos + token.length) Print(IONoUnderline);
+      if (pos == token_pos) PrintEscape(IOUnderline);
+      if (pos == token_pos + token.length) PrintEscape(IONoUnderline);
 
       PrintChar(src.data[pos]);
       if (src.data[pos] == '\n') {
