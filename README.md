@@ -10,10 +10,10 @@ def (fizzbuzz n) do
   def (loop m) do
     cond do
       (rem m 3) == 0 and
-          (rem m 5) == 0  :: print "FizzBuzz"
-      (rem m 3) == 0      :: print "Fizz"
-      (rem m 5) == 0      :: print "Buzz"
-      true                :: print m
+          (rem m 5) == 0  -> print "FizzBuzz"
+      (rem m 3) == 0      -> print "Fizz"
+      (rem m 5) == 0      -> print "Buzz"
+      true                -> print m
     end
 
     if m < n do
@@ -28,6 +28,8 @@ fizzbuzz 100
 ```
 
 ## To Do
+
+Cassette is in very early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
 - Module loading
 - Compiler optimization
@@ -278,11 +280,10 @@ let x = if y == nil do 0 else y + 1 end
 
 ```
 cond do
-  x == y    :: print "They're equal!"
-  false     :: :impossible
-  y != nil  :: y + 1
-  else      :: 0
-  1 == 1    :: :impossible    ; since the `else` clause is always true
+  x == y    -> print "They're equal!"
+  false     -> :impossible
+  y != nil  -> y + 1
+  true      -> 0
 end
 ```
 

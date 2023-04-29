@@ -2503,15 +2503,7 @@ State 111
 State 112
   clauses         → clauses · clause
   cond_block      → "cond" "do" clauses · "end"
-  clause          → · call "::" nl call NL
-  call            → · call arg
-  call            → · arg
-  arg             → · lambda
-  lambda          → · "(" ")" "->" nl logic
-  lambda          → · group "->" nl logic
-  lambda          → · ID "->" nl logic
-  lambda          → · logic
-  group           → · "(" ml_call ")"
+  clause          → · logic "->" nl call NL
   logic           → · logic "and" nl equals
   logic           → · logic "or" nl equals
   logic           → · equals
@@ -2552,6 +2544,7 @@ State 112
   literal         → · "false"
   literal         → · "nil"
   symbol          → · ":" ID
+  group           → · "(" ml_call ")"
   list            → · "[" items update "]"
   tuple           → · "#[" items "]"
   dict            → · "{" entries update "}"
@@ -2559,13 +2552,7 @@ State 112
   access          → · ID "." ID
     On clause     → 148
     On "end"      → 149
-    On call       → 150
-    On arg        → 14
-    On lambda     → 15
-    On "("        → 57
-    On group      → 17
-    On ID         → 18
-    On logic      → 19
+    On logic      → 150
     On equals     → 20
     On compare    → 21
     On sum        → 22
@@ -2579,9 +2566,11 @@ State 112
     On "if"       → 75
     On "cond"     → 31
     On NUM        → 32
+    On ID         → 130
     On string     → 33
     On literal    → 34
     On symbol     → 35
+    On group      → 131
     On list       → 36
     On tuple      → 37
     On dict       → 38
@@ -2591,6 +2580,7 @@ State 112
     On "false"    → 42
     On "nil"      → 43
     On ":"        → 44
+    On "("        → 132
     On "["        → 45
     On "#["       → 46
     On "{"        → 47
@@ -3160,94 +3150,12 @@ State 149
     Reduce 53 (cond_block, 4)
 
 State 150
-  call            → call · arg
-  clause          → call · "::" nl call NL
-  arg             → · lambda
-  lambda          → · "(" ")" "->" nl logic
-  lambda          → · group "->" nl logic
-  lambda          → · ID "->" nl logic
-  lambda          → · logic
-  group           → · "(" ml_call ")"
-  logic           → · logic "and" nl equals
-  logic           → · logic "or" nl equals
-  logic           → · equals
-  equals          → · compare "==" nl compare
-  equals          → · compare "!=" nl compare
-  equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
-  sum             → · sum "+" nl product
-  sum             → · sum "-" nl product
-  sum             → · product
-  product         → · product "*" nl block
-  product         → · product "/" nl block
-  product         → · block
-  block           → · do_block
-  block           → · if_block
-  block           → · cond_block
-  block           → · primary
-  do_block        → · "do" stmts opt_stmt "end"
-  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
-  if_block        → · "if" arg do_block
-  cond_block      → · "cond" "do" clauses "end"
-  primary         → · NUM
-  primary         → · ID
-  primary         → · string
-  primary         → · literal
-  primary         → · symbol
-  primary         → · group
-  primary         → · list
-  primary         → · tuple
-  primary         → · dict
-  primary         → · access
-  string          → · STR
-  literal         → · "true"
-  literal         → · "false"
-  literal         → · "nil"
-  symbol          → · ":" ID
-  list            → · "[" items update "]"
-  tuple           → · "#[" items "]"
-  dict            → · "{" entries update "}"
-  access          → · access "." ID
-  access          → · ID "." ID
-    On arg        → 50
-    On "::"       → 163
-    On lambda     → 15
-    On "("        → 57
-    On group      → 17
-    On ID         → 18
-    On logic      → 19
-    On equals     → 20
-    On compare    → 21
-    On sum        → 22
-    On product    → 23
-    On block      → 24
-    On do_block   → 25
-    On if_block   → 26
-    On cond_block → 27
-    On primary    → 28
-    On "do"       → 29
-    On "if"       → 75
-    On "cond"     → 31
-    On NUM        → 32
-    On string     → 33
-    On literal    → 34
-    On symbol     → 35
-    On list       → 36
-    On tuple      → 37
-    On dict       → 38
-    On access     → 39
-    On STR        → 40
-    On "true"     → 41
-    On "false"    → 42
-    On "nil"      → 43
-    On ":"        → 44
-    On "["        → 45
-    On "#["       → 46
-    On "{"        → 47
+  logic           → logic · "or" nl equals
+  logic           → logic · "and" nl equals
+  clause          → logic · "->" nl call NL
+    On "or" → 61
+    On "and" → 62
+    On "->" → 163
 
 State 151
   items           → items arg opt_comma · nl
@@ -3494,7 +3402,7 @@ State 162
     On "else" → 169
 
 State 163
-  clause          → call "::" · nl call NL
+  clause          → logic "->" · nl call NL
   nl              → · NL
   nl              → · $
   nl              → ε
@@ -3622,7 +3530,7 @@ State 169
     Reduce 87 (nl, 0)
 
 State 170
-  clause          → call "::" nl · call NL
+  clause          → logic "->" nl · call NL
   call            → · call arg
   call            → · arg
   arg             → · lambda
@@ -3830,7 +3738,7 @@ State 172
 
 State 173
   call            → call · arg
-  clause          → call "::" nl call · NL
+  clause          → logic "->" nl call · NL
   arg             → · lambda
   lambda          → · "(" ")" "->" nl logic
   lambda          → · group "->" nl logic
@@ -3923,7 +3831,7 @@ State 174
     On "end" → 176
 
 State 175
-  clause          → call "::" nl call NL ·
+  clause          → logic "->" nl call NL ·
     Reduce 56 (clause, 5)
 
 State 176

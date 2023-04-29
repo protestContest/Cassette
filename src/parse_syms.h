@@ -31,7 +31,6 @@ enum {
   ParseSymIf,
   ParseSymElse,
   ParseSymCond,
-  ParseSymColonColon,
   ParseSymNUM,
   ParseSymDot,
   ParseSymTrue,
