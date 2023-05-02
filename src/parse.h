@@ -11,5 +11,6 @@ typedef struct {
 } Parser;
 
 Val Parse(Source src, Mem *mem);
+Val ParseFile(char *filename, Mem *mem);
 char *GrammarSymbolName(u32 sym);
 Val SyntaxError(Source src, char *message, Token token);

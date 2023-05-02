@@ -140,6 +140,17 @@ Val Parse(Source src, Mem *mem)
   return MakePair(mem, SymbolFor("ok"), ast);
 }
 
+Val ParseFile(char *filename, Mem *mem)
+{
+  Source src = ReadSourceFile(filename);
+  if (src.name == NULL) {
+    Print(src.data);
+    return SymbolFor("error");
+  }
+
+  return Parse(src, mem);
+}
+
 char *GrammarSymbolName(u32 sym)
 {
   return symbol_names[sym];

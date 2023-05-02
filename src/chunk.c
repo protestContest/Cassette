@@ -1,51 +1,6 @@
 #include "chunk.h"
 #include "vm.h"
-
-typedef enum {
-  ArgsNone,
-  ArgsConst,
-  ArgsReg,
-  ArgsConstReg,
-  ArgsRegReg,
-} ArgInfo;
-
-typedef struct {
-  char *name;
-  ArgInfo args;
-} OpInfo;
-
-static OpInfo op_info[NUM_OPCODES] = {
-  [OpNoop] =    { "noop",     ArgsNone },
-  [OpConst] =   { "const",    ArgsConstReg },
-  [OpLookup] =  { "lookup",   ArgsConstReg },
-  [OpDefine] =  { "define",   ArgsConst },
-  [OpBranch] =  { "branch",   ArgsConst },
-  [OpNot] =     { "not",      ArgsNone },
-  [OpLambda] =  { "lambda",   ArgsConstReg },
-  [OpDefArg] =  { "defarg",   ArgsConst },
-  [OpExtEnv] =  { "extenv",   ArgsNone },
-  [OpPushArg] = { "pusharg",  ArgsNone },
-  [OpBrPrim] =  { "brprim",   ArgsConst },
-  [OpPrim] =    { "prim",     ArgsReg },
-  [OpApply] =   { "apply",    ArgsNone },
-  [OpMove] =    { "move",     ArgsRegReg },
-  [OpPush] =    { "push",     ArgsReg },
-  [OpPop] =     { "pop",      ArgsReg },
-  [OpJump] =    { "jump",     ArgsConst },
-  [OpReturn] =  { "return",   ArgsNone },
-  [OpHalt] =    { "halt",     ArgsNone },
-};
-
-u32 OpLength(OpCode op)
-{
-  switch (op_info[op].args) {
-  case ArgsNone:      return 1;
-  case ArgsConst:     return 2;
-  case ArgsReg:       return 2;
-  case ArgsConstReg:  return 3;
-  case ArgsRegReg:    return 3;
-  }
-}
+#include "ops.h"
 
 static void PushOp(OpCode op, Chunk *chunk)
 {
@@ -75,7 +30,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
   Val op = Head(mem, stmts);
 
   for (u32 i = 0; i < NUM_OPCODES; i++) {
-    if (Eq(op, SymbolFor(op_info[i].name))) {
+    if (Eq(op, SymbolFor(OpName(i)))) {
 #if DEBUG_ASSEMBLE
       u32 inst_start = VecCount(chunk->data);
 #endif
@@ -87,7 +42,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
 #endif
 
       Val result;
-      switch (op_info[i].args) {
+      switch (OpArgs(i)) {
       case ArgsNone:
         result = Tail(mem, stmts);
         break;
@@ -176,7 +131,7 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
   OpCode op = chunk->data[i];
   printed += PrintOpCode(op);
 
-  switch (op_info[op].args) {
+  switch (OpArgs(op)) {
   case ArgsNone:
     return printed;
   case ArgsConst:
@@ -224,9 +179,4 @@ void PrintChunkConstants(Chunk *chunk, Mem *mem)
     PrintVal(mem, chunk->constants[i]);
     Print("\n");
   }
-}
-
-u32 PrintOpCode(OpCode op)
-{
-  return Print(op_info[op].name);
 }

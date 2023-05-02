@@ -19,6 +19,7 @@ typedef struct {
   u32 pc;
   Val regs[NUM_REGS];
   Chunk *chunk;
+  Val *modules;
   struct {
     u32 stack_ops;
     u32 reductions;

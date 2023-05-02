@@ -3,6 +3,7 @@
 #include "env.h"
 #include "port.h"
 #include "primitives.h"
+#include "ops.h"
 
 u32 PrintReg(i32 reg)
 {
@@ -18,7 +19,7 @@ u32 PrintReg(i32 reg)
 
 void InitVM(VM *vm, Mem *mem)
 {
-  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil}, NULL, {0, 0}};
+  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil}, NULL, NULL, {0, 0}};
   vm->regs[RegEnv] = InitialEnv(vm->mem);
 }
 
@@ -76,7 +77,6 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpDefine:
       Define(ChunkConst(chunk, vm->pc+1), vm->regs[RegVal], vm->regs[RegEnv], vm->mem);
-      vm->regs[RegVal] = SymbolFor("ok");
       vm->pc += OpLength(op);
       break;
     case OpBranch:
@@ -124,7 +124,10 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->stats.reductions++;
       vm->pc = RawInt(ProcBody(vm->regs[RegFun], vm->mem));
       break;
-    // case OpMove:    break;
+    case OpMove:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] = vm->regs[ChunkRef(chunk, vm->pc+1)];
+      vm->pc += OpLength(op);
+      break;
     case OpPush:
       vm->stats.stack_ops++;
       VecPush(vm->stack, vm->regs[ChunkRef(chunk, vm->pc+1)]);
@@ -147,6 +150,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpHalt:
       Halt(vm);
+      break;
+    case OpImport:
+      vm->regs[RegVal] = vm->modules[RawInt(ChunkConst(chunk, vm->pc+1))];
       break;
     default:
       RuntimeError("Invalid op code", IntVal(op), vm);

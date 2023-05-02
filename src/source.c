@@ -6,6 +6,17 @@ static bool AtEnd(Source src, u32 pos)
   return pos >= src.length || src.data[pos] == '\0';
 }
 
+Source ReadSourceFile(char *filename)
+{
+  char *data = (char*)ReadFile(filename);
+  if (!data) {
+    char *msg = "Could not open file";
+    return (Source){NULL, msg, StrLen(msg)};
+  }
+
+  return (Source){filename, data, StrLen(data)};
+}
+
 void PrintTokenPosition(Source src, Token token)
 {
   Print(src.name);

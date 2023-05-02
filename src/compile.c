@@ -1,5 +1,6 @@
 #include "compile.h"
 #include "ast.h"
+#include "ops.h"
 
 typedef Val Linkage;
 #define LinkReturn  SymbolFor("return")
@@ -57,25 +58,7 @@ Seq CompileError(char *message, Val val, Mem *mem);
 Val Compile(Val exp, Mem *mem)
 {
   // symbols for opcodes
-  MakeSymbol(mem, "noop");
-  MakeSymbol(mem, "const");
-  MakeSymbol(mem, "lookup");
-  MakeSymbol(mem, "define");
-  MakeSymbol(mem, "branch");
-  MakeSymbol(mem, "not");
-  MakeSymbol(mem, "lambda");
-  MakeSymbol(mem, "defarg");
-  MakeSymbol(mem, "extenv");
-  MakeSymbol(mem, "pusharg");
-  MakeSymbol(mem, "brprim");
-  MakeSymbol(mem, "prim");
-  MakeSymbol(mem, "apply");
-  MakeSymbol(mem, "move");
-  MakeSymbol(mem, "push");
-  MakeSymbol(mem, "pop");
-  MakeSymbol(mem, "jump");
-  MakeSymbol(mem, "return");
-  MakeSymbol(mem, "halt");
+  InitOps(mem);
 
   // next linkage
   MakeSymbol(mem, "next");
