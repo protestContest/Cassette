@@ -2,6 +2,7 @@
 #include "vm.h"
 #include "parse.h"
 #include "ast.h"
+#include "print_tree.h"
 #include "chunk.h"
 
 void RunFile(char *filename)
@@ -18,6 +19,9 @@ void RunFile(char *filename)
   Source src = {filename, data, StrLen(data)};
   Val parsed = Parse(src, &mem);
   if (!IsTagged(&mem, parsed, "ok")) return;
+
+  PrintTree(Tail(&mem, parsed), &mem);
+
   Val compiled = Compile(Tail(&mem, parsed), &mem);
   Chunk chunk = Assemble(compiled, &mem);
 
@@ -28,30 +32,6 @@ void RunFile(char *filename)
   InitVM(&vm, &mem);
   RunChunk(&vm, &chunk);
 }
-
-// void REPL(void)
-// {
-//   char line[1024];
-//   Source src = {"repl", line, 0};
-
-//   Mem mem;
-//   InitMem(&mem, 0);
-
-//   VM vm;
-//   InitVM(&vm, &mem);
-
-//   while (true) {
-//     Print("> ");
-//     if (!ReadLine(line, 1024)) break;
-//     src.length = StrLen(line);
-
-//     Val ast = Parse(src, mem);
-//     PrintVal(mem, Eval(ast, &vm));
-//     Print("\n");
-
-//     HandleEvents();
-//   }
-// }
 
 int main(int argc, char *argv[])
 {

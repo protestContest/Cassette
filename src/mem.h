@@ -52,7 +52,9 @@ u8 *BinaryData(Mem *mem, Val binary);
 void BinaryToString(Mem *mem, Val binary, char *dst);
 
 bool IsTrue(Val value);
-bool ValToString(Mem *mem, Val val, Buf *buf);
+u32 ValToString(Mem *mem, Val val, Buf *buf);
+u32 PrintValStr(Mem *mem, Val val);
+u32 ValStrLen(Mem *mem, Val val);
 
 u32 PrintVal(Mem *mem, Val value);
 void DebugVal(Mem *mem, Val value);

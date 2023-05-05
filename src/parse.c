@@ -83,7 +83,7 @@ static Val ParseNext(Parser *p, Token token)
   i32 next_state = actions[state][token.type];
   i32 reduction = reduction_syms[state];
 
-#if DEBUG_PARSE
+#if DEBUG_PARSE2
   if (token.type == ParseSymEOF) {
     Print("$\t");
   } else {
@@ -97,7 +97,7 @@ static Val ParseNext(Parser *p, Token token)
 #endif
 
   if (next_state >= 0) {
-#if DEBUG_PARSE
+#if DEBUG_PARSE2
     Print("s");
     PrintInt(next_state);
     Print("\n");
@@ -105,7 +105,7 @@ static Val ParseNext(Parser *p, Token token)
     return Shift(p, next_state, token);
   } else if (reduction >= 0) {
     u32 num = reduction_sizes[state];
-#if DEBUG_PARSE
+#if DEBUG_PARSE2
     Print("r");
     PrintInt(reduction);
     Print(" (");

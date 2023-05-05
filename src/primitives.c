@@ -147,7 +147,7 @@ Val PrintOp(Val op, Val args, VM *vm)
 {
   while (!IsNil(args)) {
     Val message = Head(vm->mem, args);
-    if (!ValToString(vm->mem, message, output)) {
+    if (ValToString(vm->mem, message, output) == 0) {
       return RuntimeError("Could not print", message, vm);
     }
     args = Tail(vm->mem, args);

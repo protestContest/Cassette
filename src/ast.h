@@ -11,4 +11,3 @@ void PrintTerm(Val node, Mem *mem);
 void PrintTerms(Val children, Mem *mem);
 
 Val ParseNode(u32 sym, Val children, Mem *mem);
-void PrintAST(Val ast, Mem *mem);

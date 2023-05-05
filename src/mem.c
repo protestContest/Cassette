@@ -355,47 +355,59 @@ bool IsTrue(Val value)
   return !(IsNil(value) || Eq(value, SymbolFor("false")));
 }
 
-bool IOListToString(Mem *mem, Val list, Buf *buf)
+static u32 IOListToString(Mem *mem, Val list, Buf *buf)
 {
+  u32 len = 0;
   while (!IsNil(list)) {
     Val val = Head(mem, list);
     if (IsInt(val)) {
       u8 c = RawInt(val);
-      AppendByte(buf, c);
+      len += AppendByte(buf, c);
     } else if (IsBinary(mem, val)) {
-      Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
+      len += Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
     } else if (IsList(mem, val)) {
       if (!IOListToString(mem, val, buf)) {
-        return false;
+        return len;
       }
     } else {
-      return false;
+      return len;
     }
     list = Tail(mem, list);
   }
-  return true;
+  return len;
 }
 
-bool ValToString(Mem *mem, Val val, Buf *buf)
+u32 ValToString(Mem *mem, Val val, Buf *buf)
 {
   if (IsNil(val)) {
-    Append(buf, (u8*)"nil", 3);
+    return Append(buf, (u8*)"nil", 3);
   } else if (IsNum(val)) {
-    AppendFloat(buf, RawNum(val));
+    return AppendFloat(buf, RawNum(val));
   } else if (IsInt(val)) {
-    AppendInt(buf, RawInt(val));
+    return AppendInt(buf, RawInt(val));
   } else if (IsSym(val)) {
     char *str = SymbolName(mem, val);
-    Append(buf, (u8*)str, StrLen(str));
+    return Append(buf, (u8*)str, StrLen(str));
   } else if (IsBinary(mem, val)) {
-    Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
+    return Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
   } else if (IsList(mem, val)) {
     return IOListToString(mem, val, buf);
   } else {
-    return false;
+    return 0;
   }
+}
 
-  return true;
+u32 PrintValStr(Mem *mem, Val val)
+{
+  return ValToString(mem, val, output);
+}
+
+u32 ValStrLen(Mem *mem, Val val)
+{
+  char str[255];
+  Buf buf = MemBuf(str, 255);
+  ValToString(mem, val, &buf);
+  return buf.count;
 }
 
 static u32 PrintTail(Mem *mem, Val tail)

@@ -28,7 +28,7 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileSelf(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileVariable(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Mem *mem);
-static Seq CompileDefinition(Val exp, Reg target, Linkage linkage, Mem *mem);
+static Seq CompileDefinition(Val var, Val val, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileIf(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileAnd(Val exp, Reg target, Linkage linkage, Mem *mem);
 static Seq CompileOr(Val exp, Reg target, Linkage linkage, Mem *mem);
@@ -205,9 +205,12 @@ static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Mem *mem)
 {
   Seq defs = EmptySeq();
   while (!IsNil(exp)) {
-    Seq def = CompileDefinition(Head(mem, exp), target, linkage, mem);
-    defs = AppendSeq(defs, def, mem);
+    Val var = Head(mem, exp);
     exp = Tail(mem, exp);
+    Val val = Head(mem, exp);
+    exp = Tail(mem, exp);
+    Seq def = CompileDefinition(var, val, target, linkage, mem);
+    defs = AppendSeq(defs, def, mem);
   }
   return defs;
 }
@@ -216,11 +219,8 @@ static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Mem *mem)
 The `define` op has one argument, a symbol. It defines the symbol as the value
 in RVal, in the environment pointed to by in REnv. It puts :ok in RVal.
 */
-static Seq CompileDefinition(Val exp, Reg target, Linkage linkage, Mem *mem)
+static Seq CompileDefinition(Val var, Val val, Reg target, Linkage linkage, Mem *mem)
 {
-  Val var = TermVal(ListAt(mem, exp, 0), mem);
-  Val val = ListAt(mem, exp, 1);
-
   return
     EndWithLinkage(linkage,
       Preserving(REnv,
