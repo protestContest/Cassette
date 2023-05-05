@@ -87,6 +87,7 @@ Val Compile(Val exp, Mem *mem)
 {
   Compiler c;
   InitCompiler(&c, mem);
+
   Seq compiled = CompileExp(exp, RVal, LinkNext, &c);
 
 #if DEBUG_COMPILE
@@ -365,7 +366,7 @@ result is saved in REnv.
 The `defarg` has a symbol argument. It pops a value from the list in RArg
 and defines the symbol to that value in the environment in REnv.
 */
-static Seq CompileLambdaBody(Val exp, Val label, Compiler *c)
+static Seq CompileLambdaBody(Val exp, Val proc_label, Compiler *c)
 {
   Mem *mem = c->mem;
   Val params = ListAt(mem, exp, 0);
@@ -374,7 +375,7 @@ static Seq CompileLambdaBody(Val exp, Val label, Compiler *c)
   Val bindings = nil;
   while (!IsNil(params)) {
     Val param = Head(mem, params);
-    if (IsTerm(param, mem)) param = TermVal(param, mem);
+
     bindings =
       MakePair(mem, SymbolFor("defarg"),
       MakePair(mem, param, bindings));
@@ -384,7 +385,7 @@ static Seq CompileLambdaBody(Val exp, Val label, Compiler *c)
   return
     AppendSeq(
       MakeSeq(REnv | RFun | RArg, REnv,
-        MakePair(mem, MakePair(mem, SymbolFor("label"), label),
+        MakePair(mem, MakePair(mem, SymbolFor("label"), proc_label),
         MakePair(mem, SymbolFor("extenv"), bindings))),
       CompileExp(body, RVal, LinkReturn, c), c);
 }
@@ -750,11 +751,7 @@ Seq CompileError(char *message, Val val, Compiler *c)
 
   if (!IsNil(val)) {
     Print(": ");
-    if (IsTerm(val, mem)) {
-      PrintTerm(val, mem);
-    } else {
-      PrintVal(mem, val);
-    }
+    PrintVal(mem, val);
   }
   Print("\n");
   PrintEscape(IOFGReset);

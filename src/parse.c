@@ -14,10 +14,7 @@ static Val Shift(Parser *p, i32 state, Token token)
   if (token.type == ParseSymEOF) {
     VecPush(p->nodes, nil);
   } else {
-    VecPush(p->nodes,
-      MakeTerm(token.value,
-              IntVal(token.line),
-              IntVal(token.col), p->mem));
+    VecPush(p->nodes, token.value);
   }
   VecPush(p->stack, state);
   return ParseNext(p, NextToken(&p->lex));
@@ -28,8 +25,7 @@ static void ReduceNodes(Parser *p, u32 sym, u32 num)
   Val children = nil;
   for (u32 i = 0; i < num; i++) {
     Val child = VecPop(p->nodes);
-    bool is_nil = IsNil(child) || (IsTerm(child, p->mem) && IsNil(TermVal(child, p->mem)));
-    if (!is_nil) {
+    if (!IsNil(child)) {
       children = MakePair(p->mem, child, children);
     }
   }
@@ -40,14 +36,14 @@ static void ReduceNodes(Parser *p, u32 sym, u32 num)
 #if DEBUG_PARSE
   Print(GrammarSymbolName(sym));
   Print(": ");
-  PrintTerms(children, p->mem);
+  PrintVal(p->mem, children);
   Print(" -> ");
-  PrintTerm(node, p->mem);
+  PrintVal(p->mem, node);
   Print("\n");
   Print("Stack:\n");
   for (u32 i = 0; i < VecCount(p->nodes); i++) {
     Print("  ");
-    PrintTerm(p->nodes[i], p->mem);
+    PrintVal(p->mem, p->nodes[i]);
     Print("\n");
   }
   Print("\n");

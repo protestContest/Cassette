@@ -2,79 +2,6 @@
 #include "parse.h"
 #include "parse_syms.h"
 
-Val MakeTerm(Val value, Val line, Val col, Mem *mem)
-{
-  return value;
-  // return
-  //   MakePair(mem, MakeSymbol(mem, "term"),
-  //   MakePair(mem, value,
-  //   MakePair(mem, line,
-  //   MakePair(mem, col, nil))));
-}
-
-bool IsTerm(Val term, Mem *mem)
-{
-  return false;
-  // return IsTagged(mem, term, "term");
-}
-
-bool IsTaggedTerm(Mem *mem, Val list, Val tag)
-{
-  if (!IsList(mem, list)) return false;
-  Val term = Head(mem, list);
-  if (!IsTerm(term, mem)) return false;
-  return Eq(TermVal(term, mem), tag);
-}
-
-Val TermVal(Val term, Mem *mem)
-{
-  return term;
-  // if (IsTerm(term, mem)) {
-  //   return ListAt(mem, term, 1);
-  // } else {
-  //   return term;
-  // }
-}
-
-Val TermLine(Val term, Mem *mem)
-{
-  return IntVal(0);
-  // return ListAt(mem, term, 2);
-}
-
-Val TermCol(Val term, Mem *mem)
-{
-  return IntVal(0);
-  // return ListAt(mem, term, 3);
-}
-
-void PrintTerm(Val term, Mem *mem)
-{
-  if (IsTagged(mem, term, "term")) {
-    PrintVal(mem, TermVal(term, mem));
-    Print("[");
-    PrintVal(mem, TermLine(term, mem));
-    Print(":");
-    PrintVal(mem, TermCol(term, mem));
-    Print("]");
-  } else if (IsList(mem, term)) {
-    PrintTerms(term, mem);
-  } else {
-    PrintVal(mem, term);
-  }
-}
-
-void PrintTerms(Val children, Mem *mem)
-{
-  Print("[ ");
-  while (!IsNil(children)) {
-    PrintTerm(Head(mem, children), mem);
-    Print(" ");
-    children = Tail(mem, children);
-  }
-  Print(" ]");
-}
-
 static bool IsInfix(Val sym)
 {
   char *infixes[] = {"+", "-", "*", "/", "<", "<=", ">", ">=", "|", "==", "!=", "and", "or", "->"};
@@ -179,7 +106,6 @@ static Val ParseInfix(Val children, Mem *mem)
     return Head(mem, children);
   } else {
     Val op = ListAt(mem, children, 1);
-    if (IsTerm(op, mem)) op = TermVal(op, mem);
     return
       MakePair(mem, op,
       MakePair(mem, ListAt(mem, children, 0),
@@ -218,7 +144,7 @@ static Val ParseSimple(Val children, Mem *mem)
 
 static Val ParseSymbol(Val children, Mem *mem)
 {
-  Val name = TermVal(ListAt(mem, children, 1), mem);
+  Val name = ListAt(mem, children, 1);
   return
     MakePair(mem, SymbolFor(":"),
     MakePair(mem, name, nil));
@@ -300,7 +226,7 @@ static Val ParseGroup(Val children, Mem *mem)
   if (ListLength(mem, group) == 1) {
     // maybe an infix application
     Val op = Head(mem, group);
-    if (IsTerm(Head(mem, op), mem) && IsInfix(TermVal(Head(mem, op), mem))) {
+    if (IsInfix(Head(mem, op))) {
       // infix application, don't call the result
       return op;
     }
@@ -314,7 +240,7 @@ static Val ParseCollection(Val children, Mem *mem)
   Val items = ListAt(mem, children, 1);
   Val update = ListAt(mem, children, 2);
 
-  if (IsTaggedTerm(mem, update, SymbolFor("|"))) {
+  if (IsTagged(mem, update, "|")) {
     // reverse the list here so it's faster to prepend items at runtime
     return ListAppend(mem, update, ReverseOnto(mem, items, nil));
   } else {
@@ -341,7 +267,7 @@ static Val ParseUpdate(Val children, Mem *mem)
 
 static Val ParseString(Val children, Mem *mem)
 {
-  Val string = TermVal(Head(mem, children), mem);
+  Val string = Head(mem, children);
   Val symbol = MakeSymbolFrom(mem, (char*)BinaryData(mem, string), BinaryLength(mem, string));
   return
     MakePair(mem, MakeSymbol(mem, "\""),
