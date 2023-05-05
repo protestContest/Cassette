@@ -20,6 +20,7 @@ typedef struct {
   Val regs[NUM_REGS];
   Chunk *chunk;
   Val *modules;
+  bool trace;
   struct {
     u32 stack_ops;
     u32 reductions;

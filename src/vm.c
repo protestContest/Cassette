@@ -19,7 +19,7 @@ u32 PrintReg(i32 reg)
 
 void InitVM(VM *vm, Mem *mem)
 {
-  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil}, NULL, NULL, {0, 0}};
+  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil}, NULL, NULL, false, {0, 0}};
   vm->regs[RegEnv] = InitialEnv(vm->mem);
 }
 
@@ -58,9 +58,9 @@ void RunChunk(VM *vm, Chunk *chunk)
   while (vm->pc < VecCount(chunk->data)) {
     OpCode op = chunk->data[vm->pc];
 
-#ifdef DEBUG_VM
-    TraceInstruction(vm, chunk);
-#endif
+    if (vm->trace) {
+      TraceInstruction(vm, chunk);
+    }
 
     switch (op) {
     case OpNoop:
@@ -150,6 +150,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpHalt:
       Halt(vm);
+      break;
+    case OpTrace:
+      vm->trace = true;
       break;
     case OpImport:
       vm->regs[RegVal] = vm->modules[RawInt(ChunkConst(chunk, vm->pc+1))];

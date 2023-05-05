@@ -22,6 +22,7 @@ typedef enum {
   OpJump,
   OpReturn,
   OpHalt,
+  OpTrace,
 
   NUM_OPCODES
 } OpCode;

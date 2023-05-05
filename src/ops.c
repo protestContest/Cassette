@@ -26,6 +26,7 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpJump] =    { "jump",     ArgsConst },
   [OpReturn] =  { "return",   ArgsNone },
   [OpHalt] =    { "halt",     ArgsNone },
+  [OpTrace] =   { "trace",    ArgsNone },
 };
 
 char *OpName(OpCode op)
