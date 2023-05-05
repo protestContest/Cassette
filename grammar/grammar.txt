@@ -1,88 +1,43 @@
-stmts         → stmts stmt NL
-stmts         → stmts stmt $
-stmts         → nl
-stmt          → let_stmt
-stmt          → def_stmt
-stmt          → import_stmt
-stmt          → call
-opt_stmt      → stmt
-opt_stmt      → ε
+stmts         → stmts stmt NL | stmts stmt $ | nl
+stmt          → let_stmt | def_stmt | import_stmt | call
+opt_stmt      → stmt | ε
 let_stmt      → "let" nl assigns
-assigns       → assigns "," nl assign
-assigns       → assign
+assigns       → assigns "," nl assign | assign
 assign        → ID "=" call
 def_stmt      → "def" "(" params ")" do_block
-params        → params ID
-params        → ID
-import_stmt   → "import" STR
-import_stmt   → "import" STR "as" ID
-call          → call arg
-call          → arg
-ml_call       → ml_call nl arg
-ml_call       → arg
+params        → params ID | ID
+import_stmt   → "import" STR | "import" STR "as" ID
+call          → call arg | arg
+ml_call       → ml_call nl arg | arg
 arg           → lambda
 lambda        → "(" ")" "->" nl logic
 lambda        → group "->" nl logic
 lambda        → ID "->" nl logic
 lambda        → logic
-logic         → logic "and" nl equals
-logic         → logic "or" nl equals
-logic         → equals
-equals        → compare "==" nl compare
-equals        → compare "!=" nl compare
-equals        → compare
-compare       → sum "<" nl sum
-compare       → sum "<=" nl sum
-compare       → sum ">" nl sum
-compare       → sum ">=" nl sum
-compare       → sum
-sum           → sum "+" nl product
-sum           → sum "-" nl product
-sum           → product
-product       → product "*" nl block
-product       → product "/" nl block
-product       → block
-block         → do_block
-block         → if_block
-block         → cond_block
-block         → primary
+logic         → logic "and" nl equals | logic "or" nl equals | equals
+equals        → compare "==" nl compare | compare "!=" nl compare | compare
+compare       → sum "<" nl sum | sum "<=" nl sum | sum ">" nl sum | sum ">=" nl sum | sum
+sum           → sum "+" nl product | sum "-" nl product | product
+product       → product "*" nl block | product "/" nl block | block
+block         → do_block | if_block | cond_block | primary
 do_block      → "do" stmts opt_stmt "end"
 if_block      → "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
 if_block      → "if" arg do_block
 cond_block    → "cond" "do" clauses "end"
-clauses       → clauses clause
-clauses       → NL
+clauses       → clauses clause | NL
 clause        → logic "->" nl call NL
-primary       → NUM
-primary       → ID
-primary       → string
-primary       → literal
-primary       → symbol
-primary       → group
-primary       → list
-primary       → tuple
-primary       → dict
-primary       → access
+primary       → NUM | ID | string | literal | symbol | group | list | tuple | dict | access
 string        → STR
-access        → access "." ID
-access        → ID "." ID
-literal       → "true"
-literal       → "false"
-literal       → "nil"
+access        → access "." ID | ID "." ID
+literal       → "true" | "false" | "nil"
 symbol        → ":" ID
 group         → "(" ml_call ")"
 list          → "[" items update "]"
-items         → items arg opt_comma nl
-items         → nl
+items         → items arg opt_comma nl | nl
 tuple         → "#[" items "]"
 dict          → "{" entries update "}"
-entries       → entries entry opt_comma nl
-entries       → nl
+entries       → entries entry opt_comma nl | nl
 entry         → ID ":" nl arg
-update        → "|" nl arg
-update        → ε
-nl            → NL
-nl            → $
-nl            → ε
-opt_comma     → ","
-opt_comma     → ε
+update        → "|" nl arg | ε
+nl            → NL | $ | ε
+opt_comma     → "," | ε

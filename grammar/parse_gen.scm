@@ -1,108 +1,13 @@
 #!/usr/bin/env gsi-script
 
-; Lexer
-
-(define (skip-char)         (read-char) (skip-whitespace))
-(define (skip-line)
-  (read-char)
-  (if (not (newline? (peek-char))) (skip-line)))
-(define (skip-whitespace)
-  (cond
-    ((whitespace? (peek-char)) (skip-char))
-    ((comment? (peek-char)) (skip-line))))
-
-(define (match str)
-  (define (match-loop chars str)
-    (cond
-      ((nil? chars) str)
-      ((char=? (head chars) (peek-char))
-        (match-loop (tail chars)
-                    (string-append str (string (read-char)))))
-      (else #f)))
-  (match-loop (string->list str) ""))
-
-(define (expect str)
-  (if (not (match str))
-      (error "Expected " str)))
-
-(define (skip-empty-lines n)
-  (skip-whitespace)
-  (if (newline? (peek-char))
-      (begin (skip-char) (skip-empty-lines (++ n)) n)
-      n))
-
-(define (quote? char)
-  (and (char? char) (char=? char #\")))
-
-(define (read-str)
-  (define (str-loop str)
-    (if (quote? (peek-char))
-        (begin (skip-char) str)
-        (str-loop (string-append str (string (read-char))))))
-  (read-char)
-  (str-loop ""))
-
-
-(define (read-num)
-  (define (read-num-loop numstr)
-    (if (digit? (peek-char))
-        (read-num-loop (string-append numstr (string (read-char))))
-        (string->number numstr)))
-  (read-num-loop ""))
-
-(define Lexer (lambda (grammar readers)
-  (let* ((terms (grammar 'terminals))
-         (literals (filter terms string?))
-         (syms (reject terms string?)))
-
-    (define (find-match)
-      (let ((matched (find-value literals match)))
-        (if (nil? matched)
-            nil
-            (Token matched matched))))
-
-    (define (read-token)
-      (find-value readers (lambda (reader) (reader))))
-
-    (lambda ()
-      (skip-empty-lines 0)
-      (if (eof-object? (peek-char))
-          (Token '$ nil)
-          (let ((matched (find-match)))
-            (if (nil? matched)
-                (read-token)
-                matched)))))))
-
-(define Token (struct '(Token type value)))
-(define end-symbol '$)
-(define (end-token? token) (equal? (token 'type) end-symbol))
-
-(define (print-token token)
-  (if (string? (token 'type))
-    (display (enclose (token 'type) "\""))
-    (display (token 'type)))
-  (if (not (nil? (token 'value)))
-      (begin
-        (display ": ")
-        (display (token 'value)))))
-
-
-
-; Grammar
-
 (define Rule (struct '(Rule lhs rhs)))
 
 (define (rule-part->str part)
   (cond
     ((string? part) (enclose part "\""))
-    ((tagged? part 'chaff) (enclose (tail part) "[]"))
     (else (to-string part))))
 
-(define (rule-syms rule)
-  (map (rule 'rhs) (lambda (part)
-    (if (tagged? part 'chaff)
-        (tail part)
-        part))))
+(define (rule-syms rule) (rule 'rhs))
 
 (define (print-rule rule)
   (let ((padding (- 16 (string-length (symbol->string (rule 'lhs))))))
@@ -115,10 +20,6 @@
           (join (map (rule 'rhs) (lambda (part)
             (cond
               ((string? part) (enclose part "\""))
-              ((tagged? part 'chaff)
-                (if (string? (tail part))
-                    (enclose (enclose (tail part) "\"") "[]")
-                    (enclose (tail part) "[]")))
               (else (symbol->string part)))))
             " ")))))
 
@@ -130,75 +31,11 @@
 
 (define (rules-for sym grammar) (filter (grammar 'rules) (lambda (rule) (equal? sym (rule 'lhs)))))
 (define (rule-id rule grammar) (++ (index-of rule (grammar 'rules))))
-(define (grammar-rule id grammar) (nth (-- id) (grammar 'rules)))
-(define (terminal? sym grammar) (in-list? sym (grammar 'terminals)))
+; (define (grammar-rule id grammar) (nth (-- id) (grammar 'rules)))
+; (define (terminal? sym grammar) (in-list? sym (grammar 'terminals)))
 (define (nonterminal? sym grammar) (in-list? sym (grammar 'nonterminals)))
 (define (top-symbol grammar) ((first (grammar 'rules)) 'lhs))
 (define (symbols-in grammar) (append (grammar 'terminals) (grammar 'nonterminals)))
-
-(define (read-grammar filename)
-  (define (epsilon? char)     (and (char? char) (char=? char #\ε)))
-  (define (arrow? char)       (and (char? char) (char=? char #\→)))
-  (define (lbracket? char)    (and (char? char) (char=? char #\[)))
-  (define (rbracket? char)    (and (char? char) (char=? char #\])))
-
-  (define (read-sym)
-    (define (sym-loop str)
-      (if (or (whitespace? (peek-char))
-              (newline? (peek-char))
-              (rbracket? (peek-char))
-              (eof-object? (peek-char)))
-          (string->symbol str)
-          (sym-loop (string-append str (string (read-char))))))
-    (sym-loop ""))
-
-
-  (define (read-chaff-part)
-    (read-char)
-    (let ((part (cons 'chaff (read-rule-part))))
-      (expect "]")
-      part))
-
-  (define (read-rule-part)
-    (skip-whitespace)
-    (cond
-      ((quote? (peek-char)) (read-str))
-      ((lbracket? (peek-char)) (read-chaff-part))
-      (else (read-sym))))
-
-  (define (read-rhs lhs)
-    (define (rhs-loop rhs)
-      (skip-whitespace)
-      (if (or (eof-object? (peek-char)) (newline? (peek-char)))
-          (Rule lhs (reverse rhs))
-          (rhs-loop (pair (read-rule-part) rhs))))
-    (rhs-loop '()))
-
-  (define (read-rule line)
-    (skip-whitespace)
-    (let ((lhs (read-rule-part)))
-      (skip-whitespace)
-      (if (not (arrow? (peek-char)))
-          (error "Expected \"→\" after rule left-hand-side on line" line))
-      (skip-char)
-      (if (epsilon? (peek-char))
-        (begin
-          (skip-char)
-          (Rule lhs nil))
-        (begin
-          (read-rhs lhs)))))
-
-  (define (loop rules line)
-    (let ((line (skip-empty-lines line)))
-      (if (eof-object? (peek-char))
-          (reverse rules)
-          (loop (pair (read-rule line) rules) line))))
-
-  (with-input-from-file filename (lambda ()
-    (let* ((rules (loop '() 1))
-           (top-sym ((first rules) 'lhs))
-           (top-rule (Rule 'program (list top-sym '$))))
-    (Grammar (pair top-rule rules))))))
 
 (define (print-grammar grammar)
   (each (grammar 'rules)
@@ -209,7 +46,90 @@
           (print-rule rule)
           (newline)))))
 
+(define (read-grammar filename)
+  (define (epsilon? char)     (and (char? char) (char=? char #\ε)))
+  (define (arrow? char)       (and (char? char) (char=? char #\→)))
+  (define (quote? char)       (and (char? char) (char=? char #\")))
+  (define (bar? char)         (and (char? char) (char=? char #\|)))
 
+  (define (skip-char)         (read-char) (skip-whitespace))
+  (define (skip-line)
+    (read-char)
+    (if (not (newline? (peek-char))) (skip-line)))
+  (define (skip-whitespace)
+    (cond
+      ((whitespace? (peek-char)) (skip-char))
+      ((comment? (peek-char)) (skip-line))))
+
+  (define (skip-empty-lines n)
+    (skip-whitespace)
+    (if (newline? (peek-char))
+        (begin (skip-char) (skip-empty-lines (++ n)) n)
+        n))
+
+  (define (read-sym)
+    (define (sym-loop str)
+      (if (or (whitespace? (peek-char))
+              (newline? (peek-char))
+              (eof-object? (peek-char)))
+          (string->symbol str)
+          (sym-loop (string-append str (string (read-char))))))
+    (sym-loop ""))
+
+  (define (read-str)
+    (define (str-loop str)
+      (if (quote? (peek-char))
+          (begin (skip-char) str)
+          (str-loop (string-append str (string (read-char))))))
+    (read-char)
+    (str-loop ""))
+
+  (define (read-rule-part)
+    (skip-whitespace)
+    (cond
+      ((quote? (peek-char)) (read-str))
+      (else (read-sym))))
+
+  (define (read-rhs lhs)
+    (define (rhs-loop2 rules)
+      (skip-whitespace)
+      (cond
+        ((eof-object? (peek-char)) rules)
+        ((newline? (peek-char)) rules)
+        ((bar? (peek-char))
+          (begin (skip-char) (rhs-loop2 rules)))
+        (else (rhs-loop2 (pair (rhs-loop '()) rules)))))
+
+    (define (rhs-loop rhs)
+      (skip-whitespace)
+      (cond
+        ((eof-object? (peek-char)) (Rule lhs (reverse rhs)))
+        ((newline? (peek-char)) (Rule lhs (reverse rhs)))
+        ((bar? (peek-char)) (Rule lhs (reverse rhs)))
+        ((epsilon? (peek-char)) (begin (skip-char) (rhs-loop rhs)))
+        (else (rhs-loop (pair (read-rule-part) rhs)))))
+    (rhs-loop2 '()))
+
+  (define (read-rule line)
+    (skip-whitespace)
+    (let ((lhs (read-sym)))
+      (skip-whitespace)
+      (if (not (arrow? (peek-char)))
+        (error "Expected \"→\" after rule left-hand-side on line" line))
+      (skip-char)
+      (read-rhs lhs)))
+
+  (define (loop rules line)
+    (let ((line (skip-empty-lines line)))
+      (if (eof-object? (peek-char))
+          (reverse rules)
+          (loop (append (read-rule line) rules) line))))
+
+  (with-input-from-file filename (lambda ()
+    (let* ((rules (loop '() 1))
+           (top-sym ((first rules) 'lhs))
+           (top-rule (Rule 'program (list top-sym '$))))
+    (Grammar (pair top-rule rules))))))
 
 ; Parser generator
 
@@ -224,18 +144,97 @@
   (and (equal? (config1 'rule) (config2 'rule))
        (equal? (config1 'position) (config2 'position))))
 
-(define (closure configs grammar)
-  (let* ((syms (unique (map configs next-sym)))
-         (syms (filter syms (lambda (sym) (nonterminal? sym grammar))))
-         (rules (flat-map syms (lambda (sym) (rules-for sym grammar))))
-         (new-configs (map rules (lambda (rule) (Config rule 0))))
-         (new-configs (reject new-configs (lambda (config) (in-list? config configs configs-equal?)))))
-    (if (empty? new-configs)
-        configs
-        (closure (append configs new-configs) grammar))))
+(define State (struct '(State id configs successors)))
 
-(define (successor sym configs grammar)
-  (closure (map configs advance-config) grammar))
+(define Reduction (struct '(Reduction id sym num rule) (lambda (rule grammar)
+  (let ((id (rule-id rule grammar))
+        (num (length (rule 'rhs))))
+    (list id (rule 'lhs) num rule)))))
+
+(define Parser (struct '(Parser grammar states actions reductions) (lambda (grammar)
+  (define (successor sym configs grammar)
+    (closure (map configs advance-config) grammar))
+
+  (define (closure configs grammar)
+    (let* ((syms (unique (map configs next-sym)))
+           (syms (filter syms (lambda (sym) (nonterminal? sym grammar))))
+           (rules (flat-map syms (lambda (sym) (rules-for sym grammar))))
+           (new-configs (map rules (lambda (rule) (Config rule 0))))
+           (new-configs (reject new-configs (lambda (config) (in-list? config configs configs-equal?)))))
+      (if (empty? new-configs)
+          configs
+          (closure (append configs new-configs) grammar))))
+
+  (define (grammar-states grammar)
+    (define (start-state grammar)
+      (let* ((rules (rules-for (top-symbol grammar) grammar))
+             (configs (map rules (lambda (rule) (Config rule 0))))
+             (configs (closure configs grammar)))
+        (State 0 configs '())))
+
+    (define (find-state configs states)
+      (find states (lambda (state)
+        (and (= (length configs) (length (state 'configs)))
+             (all? configs (lambda (config)
+                  (in-list? config (state 'configs) configs-equal?)))))))
+
+    (define (loop states queue)
+      (define (gen-successors sym-set acc)
+        (let* ((sym (head sym-set))
+               (configs (tail sym-set))
+               (successors (first acc))
+               (queue (second acc))
+               (next-id (third acc))
+               (state (either (find-state configs states)
+                              (find-state configs queue))))
+          (if (nil? state)
+              (let ((state (State next-id configs '())))
+                (list (keylist-set successors sym next-id)
+                      (pair state queue)
+                      (++ next-id)))
+              (list (keylist-set successors sym (state 'id))
+                    queue
+                    next-id))))
+
+        (let* ((next-id (+ (length states) (length queue)))
+               (state (head queue))
+               (queue (tail queue))
+               (configs (reject (state 'configs) config-final?))
+               (by-sym (group-by configs (lambda (config) (next-sym config))))
+               (sets (map by-sym (lambda (sym-configs)
+                        (let ((sym (head sym-configs)) (configs (tail sym-configs)))
+                          (pair sym (successor sym configs grammar))))))
+               (succ-queue (reduce sets (list '() (reverse queue) next-id) gen-successors))
+               (successors (first succ-queue))
+               (queue (reverse (second succ-queue)))
+               (state (State (state 'id) (state 'configs) (reverse successors))))
+          (if (empty? queue)
+              (reverse (pair state states))
+              (loop (pair state states) queue))))
+
+    (loop '() (list (start-state grammar))))
+
+  (define (action-table states)
+    (map (sort states (lambda (s1 s2) (s1 'id) < (s2 'id)))
+         (lambda (state)
+            (map (symbols-in grammar) (lambda (sym)
+              (pair sym (keylist-get (state 'successors) sym)))))))
+
+  (define (reduction-table states)
+    (map states (lambda (state)
+      (let ((configs (filter (state 'configs) config-final?)))
+        (cond
+          ((nil? configs) (pair (state 'id) nil))
+          ((= (length configs) 1)
+            (pair (state 'id) (Reduction ((head configs) 'rule) grammar)))
+          (else
+            (error "Reduce conflict in" (state 'id))))))))
+
+  (let ((states (grammar-states grammar)))
+    (list grammar
+          states
+          (action-table states)
+          (reduction-table states))))))
 
 (define (print-config config)
   (define (format-parts parts)
@@ -257,57 +256,6 @@
                       (list "·")
                       (format-parts after))
               " "))))))
-
-(define State (struct '(State id configs successors)))
-
-(define (grammar-states grammar)
-  (define (start-state grammar)
-    (let* ((rules (rules-for (top-symbol grammar) grammar))
-           (configs (map rules (lambda (rule) (Config rule 0))))
-           (configs (closure configs grammar)))
-      (State 0 configs '())))
-
-  (define (find-state configs states)
-    (find states (lambda (state)
-      (and (= (length configs) (length (state 'configs)))
-           (all? configs (lambda (config)
-                (in-list? config (state 'configs) configs-equal?)))))))
-
-  (define (loop states queue)
-    (define (gen-successors sym-set acc)
-      (let* ((sym (head sym-set))
-             (configs (tail sym-set))
-             (successors (first acc))
-             (queue (second acc))
-             (next-id (third acc))
-             (state (either (find-state configs states)
-                            (find-state configs queue))))
-        (if (nil? state)
-            (let ((state (State next-id configs '())))
-              (list (keylist-set successors sym next-id)
-                    (pair state queue)
-                    (++ next-id)))
-            (list (keylist-set successors sym (state 'id))
-                  queue
-                  next-id))))
-
-      (let* ((next-id (+ (length states) (length queue)))
-             (state (head queue))
-             (queue (tail queue))
-             (configs (reject (state 'configs) config-final?))
-             (by-sym (group-by configs (lambda (config) (next-sym config))))
-             (sets (map by-sym (lambda (sym-configs)
-                      (let ((sym (head sym-configs)) (configs (tail sym-configs)))
-                        (pair sym (successor sym configs grammar))))))
-             (succ-queue (reduce sets (list '() (reverse queue) next-id) gen-successors))
-             (successors (first succ-queue))
-             (queue (reverse (second succ-queue)))
-             (state (State (state 'id) (state 'configs) (reverse successors))))
-        (if (empty? queue)
-            (reverse (pair state states))
-            (loop (pair state states) queue))))
-
-  (loop '() (list (start-state grammar))))
 
 (define (print-state state reduction)
   (display (join (list "State" (state 'id)) " "))
@@ -339,34 +287,6 @@
       (display (reduction 'num))
       (display ")")
       (newline))))
-
-(define Reduction (struct '(Reduction id sym num rule) (lambda (rule grammar)
-  (let ((id (rule-id rule grammar))
-        (num (length (rule 'rhs))))
-    (list id (rule 'lhs) num rule)))))
-
-(define Parser (struct '(Parser grammar states actions reductions) (lambda (grammar)
-  (define (action-table states)
-    (map (sort states (lambda (s1 s2) (s1 'id) < (s2 'id)))
-         (lambda (state)
-            (map (symbols-in grammar) (lambda (sym)
-              (pair sym (keylist-get (state 'successors) sym)))))))
-
-  (define (reduction-table states)
-    (map states (lambda (state)
-      (let ((configs (filter (state 'configs) config-final?)))
-        (cond
-          ((nil? configs) (pair (state 'id) nil))
-          ((= (length configs) 1)
-            (pair (state 'id) (Reduction ((head configs) 'rule) grammar)))
-          (else
-            (error "Reduce conflict in" (state 'id))))))))
-
-  (let ((states (grammar-states grammar)))
-    (list grammar
-          states
-          (action-table states)
-          (reduction-table states))))))
 
 (define (print-parse-states parser)
   (each (parser 'states) (lambda (state)
@@ -553,78 +473,6 @@
         (newline))))
     (display "};")
     (newline)))
-
-(define Node (struct '(Node symbol length children)))
-(define (leaf-node token) (Node 'terminal 0 token))
-(define (inter-node symbol children) (Node symbol (length children) children))
-
-(define (print-ast ast)
-  (define (print-leaf node)
-    (print-token (node 'children))
-    (newline))
-
-  (define (print-node node indent)
-    (display (node 'symbol))
-    (newline)
-    (each (node 'children) (lambda (child)
-      (display (repeat ". " indent))
-      (loop child indent))))
-
-  (define (loop node indent)
-    (if (zero? (node 'length))
-        (print-leaf node)
-        (print-node node (++ indent))))
-
-  (loop ast 0))
-
-(define (parse file parser read-token)
-  (define (action-for state sym) (keylist-get (nth state (parser 'actions)) sym))
-  (define (reduction-for state) (keylist-get (parser 'reductions) state))
-  (define (peek-state stack n) (head (nth n stack)))
-  (define (cur-state stack) (head (head stack)))
-  (define (cur-node stack) (tail (head stack)))
-  (define (push state node stack) (pair (pair state node) stack))
-
-  (define (shift state stack token)
-    (let ((node (leaf-node token)))
-      (loop (push state node stack) (read-token))))
-
-  (define (reduce-nodes stack reduction)
-    (Node (reduction 'sym)
-          (reduction 'num)
-          (reverse (map (truncate stack (reduction 'num)) tail))))
-
-  (define (reduce reduction stack token)
-    (let ((next-state (action-for (peek-state stack (reduction 'num))
-                                  (reduction 'sym))))
-      (cond
-        ((equal? (reduction 'sym) (top-symbol (parser 'grammar)))
-          (reduce-nodes stack reduction))
-        ((nil? next-state)
-          (error "Did not expect" (reduction 'sym) 'from 'state (cur-state stack)))
-        ((= 1 (reduction 'num))
-          (let ((node (cur-node stack))
-                (stack (tail stack)))
-            (loop (push next-state node stack) token)))
-        (else
-          (let ((node (reduce-nodes stack reduction))
-                (stack (tail-from stack (reduction 'num))))
-            (loop (push next-state node stack) token))))))
-
-  (define (loop stack token)
-    (let ((next-state (action-for (cur-state stack) (token 'type)))
-          (reduction (reduction-for (cur-state stack))))
-      (cond
-        ((not (nil? next-state))
-          (shift next-state stack token))
-        ((not (nil? reduction))
-          (reduce reduction stack token))
-        (else (error "No action for" (token 'type) 'in 'state (head stack))))))
-
-  (with-input-from-file file (lambda ()
-    (loop (push 0 nil '()) (read-token)))))
-
-
 
 ; Script
 
