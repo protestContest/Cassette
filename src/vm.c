@@ -19,8 +19,25 @@ u32 PrintReg(i32 reg)
 
 void InitVM(VM *vm, Mem *mem)
 {
-  *vm = (VM){mem, NULL, 0, {nil, nil, nil, nil, nil}, NULL, NULL, false, {0, 0}};
+  vm->mem = mem;
+  vm->stack = NULL;
+  vm->pc = 0;
+  vm->chunk = NULL;
+  vm->modules = nil;
+  vm->trace = false;
+  vm->stats.stack_ops = 0;
+  vm->stats.reductions = 0;
+
+  vm->regs[RegVal] = nil;
   vm->regs[RegEnv] = InitialEnv(vm->mem);
+  vm->regs[RegFun] = nil;
+  vm->regs[RegArg] = nil;
+  vm->regs[RegCon] = nil;
+}
+
+void TraceVM(VM *vm)
+{
+  vm->trace = true;
 }
 
 static void TraceInstruction(VM *vm, Chunk *chunk)
@@ -153,9 +170,6 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpTrace:
       vm->trace = true;
-      break;
-    case OpImport:
-      vm->regs[RegVal] = vm->modules[RawInt(ChunkConst(chunk, vm->pc+1))];
       break;
     default:
       RuntimeError("Invalid op code", IntVal(op), vm);

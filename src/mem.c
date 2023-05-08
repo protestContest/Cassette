@@ -363,6 +363,8 @@ static u32 IOListToString(Mem *mem, Val list, Buf *buf)
     if (IsInt(val)) {
       u8 c = RawInt(val);
       len += AppendByte(buf, c);
+    } else if (IsSym(val)) {
+      len += Append(buf, (u8*)SymbolName(mem, val), StrLen(SymbolName(mem, val)));
     } else if (IsBinary(mem, val)) {
       len += Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
     } else if (IsList(mem, val)) {

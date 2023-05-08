@@ -26,7 +26,7 @@ static u32 NodeWidth(Val node, Mem *mem)
   }
 }
 
-u32 NodesWidth(Val nodes, Mem *mem)
+static u32 NodesWidth(Val nodes, Mem *mem)
 {
   Assert(IsList(mem, nodes));
   u32 width = 0;
@@ -115,12 +115,7 @@ static Val PrintTreeLevel(Val trees, Mem *mem)
       Val node = Head(mem, nodes);
       u32 start = pos;
       u32 len = PrintTreeNode(node, mem);
-      u32 node_width = NodeWidth(node, mem);
       if (IsList(mem, node)) {
-        u32 width = NodesWidth(Tail(mem, node), mem);
-        if (width < node_width) {
-          // start += (NodeWidth(node, mem)-1)/2;
-        }
         Val children = MakePair(mem, IntVal(start), Tail(mem, node));
         next = ListAppend(mem, next, children);
       }
@@ -152,6 +147,7 @@ static void PrintTreeLines(Val trees, Mem *mem)
       bool tail = IsNil(Tail(mem, nodes));
 
       u32 width = TreeWidth(node, mem);
+      Assert(NodeWidth(node, mem) > 0);
       u32 offset = NodeOffset(node, mem) + (NodeWidth(node, mem)-1)/2;
       if (head) {
         if (offset > parent_offset) {

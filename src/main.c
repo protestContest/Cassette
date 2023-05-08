@@ -21,15 +21,17 @@ void RunFile(char *filename)
   if (!IsTagged(&mem, parsed, "ok")) return;
 
   PrintTree(Tail(&mem, parsed), &mem);
+  Print("\n");
 
   Val compiled = Compile(Tail(&mem, parsed), &mem);
   Chunk chunk = Assemble(compiled, &mem);
 
-  Disassemble(&chunk, &mem);
-  Print("\n");
+  // Disassemble(&chunk, &mem);
+  // Print("\n");
 
   VM vm;
   InitVM(&vm, &mem);
+  TraceVM(&vm);
   RunChunk(&vm, &chunk);
 }
 

@@ -89,97 +89,38 @@ Val Compile(Val exp, Mem *mem)
   InitCompiler(&c, mem);
 
   Seq compiled = CompileExp(exp, RVal, LinkNext, &c);
-
-#if DEBUG_COMPILE
-  Print("\n");
-#endif
+  PrintSeq(compiled.stmts, mem);
 
   return ExtractLabels(compiled.stmts, &c);
 }
 
-#if DEBUG_COMPILE
-static u32 indent = 0;
-#endif
 static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
 
-#if DEBUG_COMPILE
-  Print("\n");
-  for (u32 i = 0; i < indent; i++) Print("  ");
-  Print("Compile: ");
-  PrintVal(mem, exp);
-  indent++;
-#endif
-
-  Seq result;
   if (IsNil(exp) || IsNumeric(exp)) {
-#if DEBUG_COMPILE
-    Print(" (Self)");
-#endif
-    result = CompileSelf(exp, target, linkage, c);
+    return CompileSelf(exp, target, linkage, c);
   } else if (IsTagged(mem, exp, ":")) {
-#if DEBUG_COMPILE
-    Print(" (Quote)");
-#endif
-    result = CompileSelf(ListAt(mem, exp, 1), target, linkage, c);
+    return CompileSelf(ListAt(mem, exp, 1), target, linkage, c);
   } else if (IsSym(exp)) {
-#if DEBUG_COMPILE
-    Print(" (Variable)");
-#endif
-    result = CompileVariable(exp, target, linkage, c);
+    return CompileVariable(exp, target, linkage, c);
   } else if (IsTagged(mem, exp, "let")) {
-#if DEBUG_COMPILE
-    Print(" (Definition)");
-#endif
-    result = CompileDefinitions(Tail(mem, exp), target, linkage, c);
+    return CompileDefinitions(Tail(mem, exp), target, linkage, c);
   } else if (IsTagged(mem, exp, "if")) {
-#if DEBUG_COMPILE
-    Print(" (If)");
-#endif
-    result = CompileIf(Tail(mem, exp), target, linkage, c);
+    return CompileIf(Tail(mem, exp), target, linkage, c);
   } else if (IsTagged(mem, exp, "and")) {
-#if DEBUG_COMPILE
-    Print(" (And)");
-#endif
-    result = CompileAnd(Tail(mem, exp), target, linkage, c);
+    return CompileAnd(Tail(mem, exp), target, linkage, c);
   } else if (IsTagged(mem, exp, "or")) {
-#if DEBUG_COMPILE
-    Print(" (Or)");
-#endif
-    result = CompileOr(Tail(mem, exp), target, linkage, c);
+    return CompileOr(Tail(mem, exp), target, linkage, c);
   } else if (IsTagged(mem, exp, "do")) {
-#if DEBUG_COMPILE
-    Print(" (Sequence)");
-#endif
-    result = CompileSequence(Tail(mem, exp), target, linkage, c);
+    return CompileSequence(Tail(mem, exp), target, linkage, c);
   } else if (IsTagged(mem, exp, "->")) {
-#if DEBUG_COMPILE
-    Print(" (Lambda)");
-#endif
-    result = CompileLambda(Tail(mem, exp), target, linkage, c);
+    return CompileLambda(Tail(mem, exp), target, linkage, c);
   } else if (IsTagged(mem, exp, "import")) {
-#if DEBUG_COMPILE
-    Print(" (Import)");
-#endif
-    result = CompileImport(Tail(mem, exp), target, linkage, c);
+    return CompileImport(Tail(mem, exp), target, linkage, c);
   } else {
-#if DEBUG_COMPILE
-    Print(" (Application)");
-#endif
-    result = CompileApplication(exp, target, linkage, c);
+    return CompileApplication(exp, target, linkage, c);
   }
-
-#if DEBUG_COMPILE
-  indent--;
-  Print("\n");
-  PrintVal(mem, exp);
-  Print(" => \n");
-  PrintSeq(result.stmts, mem);
-  Print("───────────────────────────");
-#endif
-
-  return result;
 }
 
 /*
@@ -230,7 +171,7 @@ static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Compiler *c)
 
 /*
 The `define` op has one argument, a symbol. It defines the symbol as the value
-in RVal, in the environment pointed to by in REnv. It puts :ok in RVal.
+in RVal, in the environment pointed to by in REnv.
 */
 static Seq CompileDefinition(Val var, Val val, Reg target, Linkage linkage, Compiler *c)
 {
