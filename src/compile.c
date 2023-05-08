@@ -6,12 +6,15 @@ typedef Val Linkage;
 #define LinkReturn  SymbolFor("return")
 #define LinkNext    SymbolFor("next")
 
-#define RVal  (1 << RegVal)
-#define REnv  (1 << RegEnv)
-#define RCon  (1 << RegCon)
-#define RFun  (1 << RegFun)
-#define RArg  (1 << RegArg)
-#define RAll  (RVal | REnv | RCon | RFun | RArg)
+#define RVal    (1 << RegVal)
+#define REnv    (1 << RegEnv)
+#define RCon    (1 << RegCont)
+#define RFun    (1 << RegFun)
+#define RArgs   (1 << RegArgs)
+#define RArg1   (1 << RegArg1)
+#define RArg2   (1 << RegArg2)
+#define RStack  (1 << RegStack)
+#define RAll    (RVal | REnv | RCon | RFun | RArgs | RArg1 | RArg2 | RStack)
 
 typedef struct {
   bool ok;
@@ -123,10 +126,6 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
   }
 }
 
-/*
-The `const` op has two parameters, a value and a register. It puts the value in
-the register.
-*/
 static Seq CompileSelf(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -138,11 +137,6 @@ static Seq CompileSelf(Val exp, Reg target, Linkage linkage, Compiler *c)
         MakePair(mem, RegRef(target, c), nil)))), c);
 }
 
-/*
-The `lookup` op has two arguments, a symbol and a register. It looks up the
-value of the symbol in the environment pointed to by REnv and puts it in the
-register.
-*/
 static Seq CompileVariable(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -169,10 +163,6 @@ static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Compiler *c)
   return defs;
 }
 
-/*
-The `define` op has one argument, a symbol. It defines the symbol as the value
-in RVal, in the environment pointed to by in REnv.
-*/
 static Seq CompileDefinition(Val var, Val val, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -185,10 +175,6 @@ static Seq CompileDefinition(Val var, Val val, Reg target, Linkage linkage, Comp
           MakePair(mem, var, nil))), c), c);
 }
 
-/*
-The `branch` op has one argument, a label. When the value in RVal is
-false, it branches to the label.
-*/
 static Seq CompileIf(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -239,10 +225,6 @@ static Seq CompileAnd(Val exp, Reg target, Linkage linkage, Compiler *c)
       LabelSeq(after_label, c), c), c), c);
 }
 
-/*
-The `not` op tests the value in RVal. If the value is true, it writes :false
-to RVal, otherwise it writes :true
-*/
 static Seq CompileOr(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -277,11 +259,6 @@ static Seq CompileSequence(Val exp, Reg target, Linkage linkage, Compiler *c)
                     CompileSequence(Tail(mem, exp), target, linkage, c), c);
 }
 
-/*
-The `lambda` op has two parameters, a label and a register name. It creates a
-procedure object with a body at the label and the environment in REnv. A
-pointer to the procedure is put in the target.
-*/
 static Seq CompileLambda(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -301,12 +278,6 @@ static Seq CompileLambda(Val exp, Reg target, Linkage linkage, Compiler *c)
       LabelSeq(after_label, c), c);
 }
 
-/*
-The `extenv` pushes a new empty frame as the head of the list in REnv. The
-result is saved in REnv.
-The `defarg` has a symbol argument. It pops a value from the list in RArg
-and defines the symbol to that value in the environment in REnv.
-*/
 static Seq CompileLambdaBody(Val exp, Val proc_label, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -325,7 +296,7 @@ static Seq CompileLambdaBody(Val exp, Val proc_label, Compiler *c)
 
   return
     AppendSeq(
-      MakeSeq(REnv | RFun | RArg, REnv,
+      MakeSeq(REnv | RFun | RArgs, REnv,
         MakePair(mem, MakePair(mem, SymbolFor("label"), proc_label),
         MakePair(mem, SymbolFor("extenv"), bindings))),
       CompileExp(body, RVal, LinkReturn, c), c);
@@ -336,10 +307,6 @@ static Seq CompileImport(Val exp, Reg target, Linkage linkage, Compiler *c)
   return CompileError("Imports not yet supported", nil, c);
 }
 
-/*
-The `pusharg` op takes the value in RVal and makes it the head of the list
-pointed to by RArg, storing the new list in RArg.
-*/
 static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -349,18 +316,18 @@ static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
   Seq args;
   if (IsNil(exp)) {
     args =
-      MakeSeq(0, RArg,
+      MakeSeq(0, RArgs,
         MakePair(mem, SymbolFor("const"),
         MakePair(mem, nil,
-        MakePair(mem, RegRef(RArg, c), nil))));
+        MakePair(mem, RegRef(RArgs, c), nil))));
   } else {
     Seq last_arg =
       AppendSeq(
         CompileExp(Head(mem, exp), RVal, LinkNext, c),
-        MakeSeq(RVal, RArg,
+        MakeSeq(RVal, RArgs,
           MakePair(mem, SymbolFor("const"),
           MakePair(mem, nil,
-          MakePair(mem, RegRef(RArg, c),
+          MakePair(mem, RegRef(RArgs, c),
           MakePair(mem, SymbolFor("pusharg"), nil))))), c);
 
     exp = Tail(mem, exp);
@@ -384,9 +351,9 @@ static Seq CompileArgs(Val exp, Compiler *c)
 {
   Mem *mem = c->mem;
   Seq next_arg =
-    Preserving(RArg,
+    Preserving(RArgs,
       CompileExp(Head(mem, exp), RVal, LinkNext, c),
-      MakeSeq(RVal | RArg, RArg,
+      MakeSeq(RVal | RArgs, RArgs,
         MakePair(mem, SymbolFor("pusharg"), nil)), c);
   if (IsNil(Tail(mem, exp))) {
     return next_arg;
@@ -398,12 +365,6 @@ static Seq CompileArgs(Val exp, Compiler *c)
   }
 }
 
-/*
-The `brprim` op checks if the value in RFun is a primitive, and
-branches to the given label if so.
-The `prim` op has a register argument. It applies the primitive procedure in RFun to the
-arguments in RArg, putting the result in the target register.
-*/
 static Seq CompileCall(Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -426,17 +387,12 @@ static Seq CompileCall(Reg target, Linkage linkage, Compiler *c)
         AppendSeq(
           LabelSeq(primitive_label, c),
           EndWithLinkage(linkage,
-            MakeSeq(RFun | RArg, target,
+            MakeSeq(RFun | RArgs, target,
               MakePair(mem, SymbolFor("prim"),
               MakePair(mem, RegRef(target, c), nil))), c), c), c), c),
     LabelSeq(after_label, c), c);
 }
 
-/*
-The `apply` op jumps to the label for the procedure in RFun
-The `move` op has two register name parameters. It moves the value in the first
-register to the second register.
-*/
 static Seq CompileProcAppl(Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -470,10 +426,6 @@ static Seq CompileProcAppl(Reg target, Linkage linkage, Compiler *c)
       MakePair(mem, SymbolFor("apply"), nil)))));
 }
 
-/*
-The `jump` op has one arg, a label. It jumps to that label.
-The `return` op jumps to the label in RCon
-*/
 static Seq CompileLinkage(Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -511,10 +463,6 @@ static Seq AppendSeq(Seq seq1, Seq seq2, Compiler *c)
   return MakeSeq(needs, modifies, ListConcat(mem, seq1.stmts, seq2.stmts));
 }
 
-/*
-The `push` and `pop` ops have one register argument. `push` pushes the value in
-the register on the stack, and `pop` pops the stack into the register.
-*/
 static Seq Preserving(Reg regs, Seq seq1, Seq seq2, Compiler *c)
 {
   Mem *mem = c->mem;

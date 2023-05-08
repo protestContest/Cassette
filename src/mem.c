@@ -350,11 +350,6 @@ void BinaryToString(Mem *mem, Val binary, char *dst)
   dst[length] = '\0';
 }
 
-bool IsTrue(Val value)
-{
-  return !(IsNil(value) || Eq(value, SymbolFor("false")));
-}
-
 static u32 IOListToString(Mem *mem, Val list, Buf *buf)
 {
   u32 len = 0;

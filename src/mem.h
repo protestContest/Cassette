@@ -51,7 +51,6 @@ u32 BinaryLength(Mem *mem, Val binary);
 u8 *BinaryData(Mem *mem, Val binary);
 void BinaryToString(Mem *mem, Val binary, char *dst);
 
-bool IsTrue(Val value);
 u32 ValToString(Mem *mem, Val val, Buf *buf);
 u32 PrintValStr(Mem *mem, Val val);
 u32 ValStrLen(Mem *mem, Val val);

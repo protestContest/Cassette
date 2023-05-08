@@ -31,7 +31,6 @@ void RunFile(char *filename)
 
   VM vm;
   InitVM(&vm, &mem);
-  TraceVM(&vm);
   RunChunk(&vm, &chunk);
 }
 
