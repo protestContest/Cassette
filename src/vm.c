@@ -5,28 +5,18 @@
 #include "primitives.h"
 #include "ops.h"
 
-u32 PrintReg(i32 reg)
-{
-  switch (reg) {
-  case RegVal:  return Print("[val]");
-  case RegEnv:  return Print("[env]");
-  case RegCont: return Print("[con]");
-  case RegFun:  return Print("[fun]");
-  case RegArgs: return Print("[arg]");
-  case RegArg1: return Print("[ar1]");
-  case RegArg2: return Print("[ar2]");
-  default:      return Print("[???]");
-  }
-}
+static void PrintOp(Val arg, VM *vm);
+static Val UnaryOp(OpCode op, Val arg, VM *vm);
+static Val ArithmeticOp(OpCode op, VM *vm);
+static void TraceInstruction(VM *vm, Chunk *chunk);
 
 void InitVM(VM *vm, Mem *mem)
 {
   vm->mem = mem;
   vm->pc = 0;
   vm->chunk = NULL;
-  vm->condition = false;
+  vm->halted = true;
   vm->stats.stack_ops = 0;
-  vm->stats.reductions = 0;
 
   vm->regs[RegVal] = nil;
   vm->regs[RegEnv] = InitialEnv(vm->mem);
@@ -36,6 +26,166 @@ void InitVM(VM *vm, Mem *mem)
   vm->regs[RegArg1] = nil;
   vm->regs[RegArg2] = nil;
   vm->regs[RegStack] = nil;
+}
+
+void RunChunk(VM *vm, Chunk *chunk)
+{
+  vm->pc = 0;
+  vm->chunk = chunk;
+  vm->halted = false;
+
+  while (!vm->halted && vm->pc < VecCount(chunk->data)) {
+    OpCode op = chunk->data[vm->pc];
+
+    TraceInstruction(vm, chunk);
+
+    switch (op) {
+    case OpNoop:
+      vm->pc++;
+      break;
+    case OpHalt:
+      vm->halted = true;
+      vm->pc++;
+      return;
+    case OpConst:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] = ChunkConst(chunk, vm->pc+1);
+      vm->pc += OpLength(op);
+      break;
+    case OpMove:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] =
+        vm->regs[ChunkRef(chunk, vm->pc+1)];
+      vm->pc += OpLength(op);
+      break;
+    case OpBranch:
+      if (IsTrue(vm->regs[ChunkRef(chunk, vm->pc+2)])) {
+        vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
+      } else {
+        vm->pc += OpLength(op);
+      }
+      break;
+    case OpJump:
+      vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
+      break;
+    case OpGoto:
+      vm->pc = RawInt(vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      break;
+    case OpPair:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] =
+        MakePair(vm->mem,
+                ChunkConst(chunk, vm->pc+1),
+                vm->regs[ChunkRef(chunk, vm->pc+2)]);
+      vm->pc += OpLength(op);
+      break;
+    case OpHead:
+      vm->regs[ChunkRef(chunk, vm->pc+1)] =
+        Head(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->pc += OpLength(op);
+      break;
+    case OpTail:
+      vm->regs[ChunkRef(chunk, vm->pc+1)] =
+        Tail(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->pc += OpLength(op);
+      break;
+    case OpPush:
+      if (ChunkRef(chunk, vm->pc+2) == RegStack) vm->stats.stack_ops++;
+      vm->regs[ChunkRef(chunk, vm->pc+2)] =
+        MakePair(vm->mem,
+                vm->regs[ChunkRef(chunk, vm->pc+1)],
+                vm->regs[ChunkRef(chunk, vm->pc+2)]);
+      vm->pc += OpLength(op);
+      break;
+    case OpPop:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] = Head(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->regs[ChunkRef(chunk, vm->pc+1)] = Tail(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->pc += OpLength(op);
+      break;
+    case OpLookup:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] =
+        Lookup(ChunkConst(chunk, vm->pc+1), vm->regs[RegEnv], vm->mem);
+      if (Eq(vm->regs[ChunkRef(chunk, vm->pc+2)], SymbolFor("__undefined__"))) {
+        RuntimeError("Undefined variable", ChunkConst(chunk, vm->pc+1), vm);
+      }
+      vm->pc += OpLength(op);
+      break;
+    case OpDefine:
+      Define(ChunkConst(chunk, vm->pc+1), vm->regs[ChunkRef(chunk, vm->pc+2)], vm->regs[RegEnv], vm->mem);
+      vm->pc += OpLength(op);
+      break;
+    case OpNot:
+      vm->regs[ChunkRef(chunk, vm->pc+1)] = BoolVal(!IsTrue(vm->regs[ChunkRef(chunk, vm->pc+1)]));
+      vm->pc += OpLength(op);
+      break;
+    case OpFloor:
+      vm->regs[ChunkRef(chunk, vm->pc+1)] = UnaryOp(op, vm->regs[ChunkRef(chunk, vm->pc+1)], vm);
+      vm->pc += OpLength(op);
+      break;
+    case OpPrint:
+      PrintOp(vm->regs[ChunkRef(chunk, vm->pc+1)], vm);
+      vm->pc += OpLength(op);
+      break;
+    case OpEqual:
+      vm->regs[ChunkRef(vm->chunk, vm->pc+1)] =
+        BoolVal(Eq(vm->regs[RegArg1], vm->regs[RegArg2]));
+      vm->pc += OpLength(op);
+      break;
+    case OpGt:
+    case OpLt:
+    case OpAdd:
+    case OpSub:
+    case OpMul:
+    case OpDiv:
+      vm->regs[ChunkRef(vm->chunk, vm->pc+1)] = ArithmeticOp(op, vm);
+      vm->pc += OpLength(op);
+      break;
+    case OpStr:
+      vm->regs[ChunkRef(vm->chunk, vm->pc+1)] =
+        MakeBinary(vm->mem, SymbolName(vm->mem, vm->regs[ChunkRef(vm->chunk, vm->pc+1)]));
+      vm->pc += OpLength(op);
+      break;
+    default:
+      RuntimeError("Unimplemented op code", OpSymbol(op), vm);
+      break;
+    }
+  }
+
+  if (!vm->halted) {
+    vm->halted = true;
+    TraceInstruction(vm, chunk);
+  }
+
+#ifdef DEBUG_VM
+  Print("Stack operations: ");
+  PrintInt(vm->stats.stack_ops);
+  Print("\n");
+#endif
+}
+
+Val RuntimeError(char *message, Val exp, VM *vm)
+{
+  vm->halted = true;
+  PrintEscape(IOFGRed);
+  Print("(Runtime Error) ");
+  Print(message);
+  Print(": ");
+  PrintVal(vm->mem, exp);
+  PrintEscape(IOFGReset);
+  Print("\n");
+  return SymbolFor("error");
+}
+
+u32 PrintReg(i32 reg)
+{
+  switch (reg) {
+  case RegVal:    return Print("[val]");
+  case RegEnv:    return Print("[env]");
+  case RegFun:    return Print("[fun]");
+  case RegArgs:   return Print("[arg]");
+  case RegCont:   return Print("[con]");
+  case RegArg1:   return Print("[ar1]");
+  case RegArg2:   return Print("[ar2]");
+  case RegStack:  return Print("[stk]");
+  default:        return Print("[???]");
+  }
 }
 
 static void TraceInstruction(VM *vm, Chunk *chunk)
@@ -49,97 +199,118 @@ static void TraceInstruction(VM *vm, Chunk *chunk)
 
   printed = 0;
   for (u32 i = 0; i < NUM_REGS; i++) {
-    printed += PrintVal(vm->mem, vm->regs[i]);
-    printed += Print(" ");
+    if (IsNil(vm->regs[i])) {
+      printed += Print("nil ");
+    } else if (IsPair(vm->regs[i])) {
+      printed += Print("[");
+      printed += PrintInt(ListLength(vm->mem, vm->regs[i]));
+      printed += Print("] ");
+    } else {
+      printed += PrintVal(vm->mem, vm->regs[i]);
+      printed += Print(" ");
+    }
   }
 
   for (i32 i = 0; i < 40 - printed; i++) Print(" ");
   Print("│ ");
 
-  Print("\n");
-}
-
-void RunChunk(VM *vm, Chunk *chunk)
-{
-  vm->pc = 0;
-  vm->chunk = chunk;
-
-  while (vm->pc < VecCount(chunk->data)) {
-    OpCode op = chunk->data[vm->pc];
-
-    TraceInstruction(vm, chunk);
-
-    switch (op) {
-    case OpNoop:
-      vm->pc++;
-      break;
-    case OpHalt:
-      vm->pc++;
-      return;
-    case OpConst:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] = ChunkConst(chunk, vm->pc+1);
-      vm->pc += OpLength(op);
-      break;
-    case OpTest:
-      vm->condition = IsTrue(vm->regs[vm->pc+1]);
-      vm->pc += OpLength(op);
-      break;
-    case OpNot:
-      vm->condition = !IsTrue(vm->regs[vm->pc+1]);
-      vm->pc += OpLength(op);
-      break;
-    case OpBranch:
-      if (vm->condition) {
-        vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
-      } else {
-        vm->pc += OpLength(op);
-      }
-      break;
-    case OpJump:
-      vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
-      break;
-    case OpGoto:
-      vm->pc += RawInt(vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      break;
-    case OpPush:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakePair(vm->mem,
-                vm->regs[ChunkRef(chunk, vm->pc+1)],
-                vm->regs[ChunkRef(chunk, vm->pc+2)]);
-      vm->pc += OpLength(op);
-      break;
-    case OpPop:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] = Head(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+2)]);
-      vm->regs[ChunkRef(chunk, vm->pc+2)] = Tail(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+2)]);
-      vm->pc += OpLength(op);
-      break;
-    default:
-      RuntimeError("Invalid op code", IntVal(op), vm);
-      break;
+  Val stack = vm->regs[RegStack];
+  for (i32 i = 0; i < 8 && !IsNil(stack); i++) {
+    Val val = Head(vm->mem, stack);
+    if (IsNil(val)) {
+      printed += Print("nil ");
+    } else if (IsPair(val)) {
+      printed += Print("[");
+      printed += PrintInt(ListLength(vm->mem, val));
+      printed += Print("] ");
+    } else {
+      printed += PrintVal(vm->mem, val);
+      printed += Print(" ");
     }
+
+    stack = Tail(vm->mem, stack);
   }
 
-#ifdef DEBUG_VM
-  Print("Stack operations: ");
-  PrintInt(vm->stats.stack_ops);
-  Print("\nReductions: ");
-  PrintInt(vm->stats.reductions);
   Print("\n");
-#endif
 }
 
-Val RuntimeError(char *message, Val exp, VM *vm)
+static void PrintOp(Val arg, VM *vm)
 {
-  PrintEscape(IOFGRed);
-  Print("(Runtime Error) ");
-#ifdef DEBUG_VM
-  PrintInt(vm->pc);
-  Print(" ");
-#endif
-  Print(message);
-  Print(": ");
-  PrintVal(vm->mem, exp);
-  PrintEscape(IOFGReset);
-  Print("\n");
-  return SymbolFor("error");
+  if (IsNil(arg)) {
+    return;
+  } else if (IsSym(arg) || IsNumeric(arg)) {
+    PrintVal(vm->mem, arg);
+    Print("\n");
+  } else if (IsBinary(vm->mem, arg)) {
+    PrintN((char*)BinaryData(vm->mem, arg), BinaryLength(vm->mem, arg));
+    Print("\n");
+  } else if (IsList(vm->mem, arg)) {
+    while (!IsNil(arg) && !vm->halted) {
+      Val item = Head(vm->mem, arg);
+      if (IsInt(item)) {
+        PrintChar(RawInt(item));
+      } else {
+        PrintOp(item, vm);
+      }
+      arg = Tail(vm->mem, arg);
+    }
+  } else {
+    RuntimeError("Unprintable value", arg, vm);
+  }
+}
+
+static Val UnaryOp(OpCode op, Val arg, VM *vm)
+{
+  if (!IsNumeric(arg)) {
+    return RuntimeError("Bad arithmetic argument", arg, vm);
+  }
+
+  if (op == OpFloor) {
+    i32 result = (i32)RawNum(arg) - (RawNum(arg) < 0);
+    return IntVal(result);
+  }
+
+  return RuntimeError("Unimplemented arithmetic op", OpSymbol(op), vm);
+}
+
+static Val ArithmeticOp(OpCode op, VM *vm)
+{
+  Val a_val = vm->regs[RegArg1];
+  Val b_val = vm->regs[RegArg2];
+
+  if (!IsNumeric(a_val)) {
+    return RuntimeError("Bad arithmetic argument", a_val, vm);
+  }
+  if (!IsNumeric(b_val)) {
+    return RuntimeError("Bad arithmetic argument", b_val, vm);
+  }
+
+  if (IsInt(a_val) && IsInt(b_val) && op != OpDiv) {
+    i32 a = RawInt(a_val);
+    i32 b = RawInt(b_val);
+    Val result;
+    switch (op) {
+    case OpAdd: result = IntVal(a + b); break;
+    case OpSub: result = IntVal(a - b); break;
+    case OpMul: result = IntVal(a * b); break;
+    case OpGt:  result = BoolVal(a > b); break;
+    case OpLt:  result = BoolVal(a < b); break;
+    default:    result = nil; break;
+    }
+    return result;
+  }
+
+  float a = (float)RawNum(a_val);
+  float b = (float)RawNum(b_val);
+  Val result;
+  switch (op) {
+  case OpAdd: result = NumVal(a + b); break;
+  case OpSub: result = NumVal(a - b); break;
+  case OpMul: result = NumVal(a * b); break;
+  case OpDiv: result = NumVal(a / b); break;
+  case OpGt: result = BoolVal(a > b); break;
+  case OpLt: result = BoolVal(a < b); break;
+  default:    result = nil; break;
+  }
+  return result;
 }

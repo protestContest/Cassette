@@ -26,8 +26,8 @@ void RunFile(char *filename)
   Val compiled = Compile(Tail(&mem, parsed), &mem);
   Chunk chunk = Assemble(compiled, &mem);
 
-  // Disassemble(&chunk, &mem);
-  // Print("\n");
+  Disassemble(&chunk, &mem);
+  Print("\n");
 
   VM vm;
   InitVM(&vm, &mem);

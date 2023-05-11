@@ -23,6 +23,10 @@ Val ReverseOnto(Mem *mem, Val list, Val tail);
 Val ListAppend(Mem *mem, Val list, Val value);
 Val ListConcat(Mem *mem, Val list1, Val list2);
 bool IsTagged(Mem *mem, Val list, char *tag);
+#define First(mem, list)  ListAt(mem, list, 0)
+#define Second(mem, list)  ListAt(mem, list, 1)
+#define Third(mem, list)  ListAt(mem, list, 2)
+#define Fourth(mem, list)  ListAt(mem, list, 3)
 
 bool IsTuple(Mem *mem, Val tuple);
 Val MakeTuple(Mem *mem, u32 count);

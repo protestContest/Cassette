@@ -30,7 +30,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
   Val op = Head(mem, stmts);
 
   for (u32 i = 0; i < NUM_OPCODES; i++) {
-    if (Eq(op, SymbolFor(OpName(i)))) {
+    if (Eq(op, OpSymbol(i))) {
 #if DEBUG_ASSEMBLE
       u32 inst_start = VecCount(chunk->data);
 #endif

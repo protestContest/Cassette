@@ -6,16 +6,31 @@ typedef struct {
 } OpInfo;
 
 static OpInfo op_info[NUM_OPCODES] = {
-  [OpNoop] =    { "noop",     ArgsNone },
-  [OpHalt] =    { "halt",     ArgsNone },
-  [OpConst] =   { "const",    ArgsConstReg },
-  [OpTest] =    { "test",     ArgsReg },
-  [OpNot] =     { "not",      ArgsReg },
-  [OpBranch] =  { "branch",   ArgsConst },
-  [OpJump] =    { "jump",     ArgsConst },
-  [OpGoto] =    { "goto",     ArgsReg },
-  [OpPush] =    { "push",     ArgsRegReg },
-  [OpPop] =     { "pop",      ArgsRegReg },
+  [OpNoop]    = { "noop",     ArgsNone      },
+  [OpHalt]    = { "halt",     ArgsNone      },
+  [OpConst]   = { "const",    ArgsConstReg  },
+  [OpMove]    = { "move",     ArgsRegReg    },
+  [OpBranch]  = { "branch",   ArgsConstReg  },
+  [OpJump]    = { "jump",     ArgsConst     },
+  [OpGoto]    = { "goto",     ArgsReg       },
+  [OpPair]    = { "pair",     ArgsConstReg  },
+  [OpHead]    = { "head",     ArgsReg       },
+  [OpTail]    = { "tail",     ArgsReg       },
+  [OpPush]    = { "push",     ArgsRegReg    },
+  [OpPop]     = { "pop",      ArgsRegReg    },
+  [OpLookup]  = { "lookup",   ArgsConstReg  },
+  [OpDefine]  = { "define",   ArgsConstReg  },
+  [OpNot]     = { "not",      ArgsReg       },
+  [OpFloor]   = { "floor",    ArgsReg       },
+  [OpPrint]   = { "print",    ArgsReg       },
+  [OpEqual]   = { "equal",    ArgsReg       },
+  [OpGt]      = { "gt",       ArgsReg       },
+  [OpLt]      = { "lt",       ArgsReg       },
+  [OpAdd]     = { "add",      ArgsReg       },
+  [OpSub]     = { "sub",      ArgsReg       },
+  [OpMul]     = { "mul",      ArgsReg       },
+  [OpDiv]     = { "div",      ArgsReg       },
+  [OpStr]     = { "str",      ArgsReg       },
 };
 
 char *OpName(OpCode op)
@@ -49,4 +64,9 @@ void InitOps(Mem *mem)
 u32 PrintOpCode(OpCode op)
 {
   return Print(OpName(op));
+}
+
+Val OpSymbol(OpCode op)
+{
+  return SymbolFor(op_info[op].name);
 }
