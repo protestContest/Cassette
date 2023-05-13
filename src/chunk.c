@@ -62,13 +62,26 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
         break;
       case ArgsConstReg:
 #if DEBUG_ASSEMBLE
-        PrintVal(mem, ListAt(mem, stmts, 1));
+        PrintVal(mem, Second(mem, stmts));
         Print(" ");
-        PrintVal(mem, ListAt(mem, stmts, 2));
+        PrintVal(mem, Third(mem, stmts));
 #endif
         PushConst(ListAt(mem, stmts, 1), chunk);
         PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
         result = ListFrom(mem, stmts, 3);
+        break;
+      case ArgsConstConstReg:
+#if DEBUG_ASSEMBLE
+        PrintVal(mem, Second(mem, stmts));
+        Print(" ");
+        PrintVal(mem, Third(mem, stmts));
+        Print(" ");
+        PrintVal(mem, Fourth(mem, stmts));
+#endif
+        PushConst(Second(mem, stmts), chunk);
+        PushConst(Third(mem, stmts), chunk);
+        PushReg(Tail(mem, Fourth(mem, stmts)), chunk);
+        result = ListFrom(mem, stmts, 4);
         break;
       case ArgsRegReg:
 #if DEBUG_ASSEMBLE
@@ -147,6 +160,14 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
     printed += PrintVal(mem, ChunkConst(chunk, i+1));
     printed += Print(" ");
     printed += PrintReg(ChunkRef(chunk, i+2));
+    return printed;
+  case ArgsConstConstReg:
+    printed += Print(" ");
+    printed += PrintVal(mem, ChunkConst(chunk, i+1));
+    printed += Print(" ");
+    printed += PrintVal(mem, ChunkConst(chunk, i+2));
+    printed += Print(" ");
+    printed += PrintReg(ChunkRef(chunk, i+3));
     return printed;
   case ArgsRegReg:
     printed += Print(" ");

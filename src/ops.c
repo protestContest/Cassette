@@ -19,6 +19,7 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpPush]    = { "push",     ArgsRegReg    },
   [OpPop]     = { "pop",      ArgsRegReg    },
   [OpLookup]  = { "lookup",   ArgsConstReg  },
+  [OpLookup2] = { "lookup2",  ArgsConstConstReg  },
   [OpDefine]  = { "define",   ArgsConstReg  },
   [OpNot]     = { "not",      ArgsReg       },
   [OpFloor]   = { "floor",    ArgsReg       },
@@ -50,6 +51,7 @@ u32 OpLength(OpCode op)
   case ArgsConst:     return 2;
   case ArgsReg:       return 2;
   case ArgsConstReg:  return 3;
+  case ArgsConstConstReg:  return 4;
   case ArgsRegReg:    return 3;
   }
 }
@@ -69,4 +71,14 @@ u32 PrintOpCode(OpCode op)
 Val OpSymbol(OpCode op)
 {
   return SymbolFor(op_info[op].name);
+}
+
+OpCode OpForSymbol(Val sym)
+{
+  for (u32 i = 0; i < ArrayCount(op_info); i++) {
+    if (Eq(sym, OpSymbol(i))) {
+      return i;
+    }
+  }
+  return OpNoop;
 }

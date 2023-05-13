@@ -407,9 +407,18 @@ u32 ValStrLen(Mem *mem, Val val)
   return buf.count;
 }
 
-static u32 PrintTail(Mem *mem, Val tail)
+#define PRINT_LIMIT 0
+static u32 PrintTail(Mem *mem, Val tail, u32 max)
 {
   u32 printed = 0;
+
+  if (PRINT_LIMIT && max == 0) {
+    printed += Print("...");
+    printed += PrintInt(ListLength(mem, tail));
+    printed += Print("]");
+    return printed;
+  }
+
   printed += PrintVal(mem, Head(mem, tail));
   if (IsNil(Tail(mem, tail))) {
     printed += Print("]");
@@ -419,7 +428,7 @@ static u32 PrintTail(Mem *mem, Val tail)
     printed += Print("]");
   } else {
     printed += Print(" ");
-    printed += PrintTail(mem, Tail(mem, tail));
+    printed += PrintTail(mem, Tail(mem, tail), max - 1);
   }
   return printed;
 }
@@ -444,20 +453,8 @@ u32 PrintVal(Mem *mem, Val value)
       printed += Print(str);
     }
   } else if (IsPair(value)) {
-    if (IsTagged(mem, value, "λ")) {
-      printed += Print("λ") - 1;
-      Val body = ProcBody(value, mem);
-      printed += PrintVal (mem, body);
-    } else if (IsTagged(mem, value, "α")) {
-      printed += Print("α") - 1;
-      printed += Print(SymbolName(mem, Tail(mem, value)));
-    } else if (IsTagged(mem, Head(mem, value), "ε")) {
-      printed += Print("ε") - 1;
-      printed += PrintInt(ListLength(mem, value) - 1);
-    } else {
-      printed += Print("[");
-      printed += PrintTail(mem, value);
-    }
+    printed += Print("[");
+    printed += PrintTail(mem, value, PRINT_LIMIT);
   } else if (IsTuple(mem, value)) {
     printed += Print("#[");
     for (u32 i = 0; i < TupleLength(mem, value); i++) {

@@ -3,4 +3,4 @@
 #include "vm.h"
 
 Val Compile(Val exp, Mem *mem);
-void PrintSeq(Val stmts, Mem *mem);
+void PrintStmts(Val stmts, Mem *mem);

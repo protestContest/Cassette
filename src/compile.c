@@ -1,6 +1,7 @@
 #include "compile.h"
 #include "ast.h"
 #include "ops.h"
+#include "env.h"
 
 typedef Val Linkage;
 #define LinkReturn  SymbolFor("return")
@@ -25,6 +26,7 @@ typedef struct {
 
 typedef struct {
   Mem *mem;
+  Val env;
 } Compiler;
 
 #define MakeSeq(needs, modifies, stmts)   (Seq){true, needs, modifies, stmts}
@@ -39,6 +41,7 @@ static Seq CompileIf(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileAnd(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileOr(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileAccess(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileBlock(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileSequence(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileLambda(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileLambdaBody(Val exp, Val label, Compiler *c);
@@ -46,6 +49,7 @@ static Seq CompileImport(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileUnaryPrimitive(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompilePrimitive(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileArguments(Val exp, Compiler *c);
 static Seq CompileCall(Reg target, Linkage linkage, Compiler *c);
 
 static Seq CompileLinkage(Linkage linkage, Compiler *c);
@@ -62,10 +66,12 @@ static Val RegRef(Reg reg, Compiler *c);
 Val ExtractLabels(Val stmts, Compiler *c);
 Seq CompileError(char *message, Val val, Compiler *c);
 static Val PrimitiveOp(Val name);
+static void PrintSeq(Seq seq, Mem *mem);
 
 void InitCompiler(Compiler *c, Mem *mem)
 {
   c->mem = mem;
+  c->env = InitialEnv(mem);
 
   // symbols for opcodes
   InitOps(mem);
@@ -92,8 +98,9 @@ Val Compile(Val exp, Mem *mem)
   Compiler c;
   InitCompiler(&c, mem);
 
-  Seq compiled = CompileExp(exp, RVal, LinkNext, &c);
-  // PrintSeq(compiled.stmts, mem);
+  Seq compiled = AppendSeq(
+    CompileExp(exp, RVal, LinkNext, &c),
+    MakeSeq(0, 0, MakePair(mem, OpSymbol(OpHalt), nil)), &c);
 
   return ExtractLabels(compiled.stmts, &c);
 }
@@ -134,35 +141,64 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
 
+  Print("Compiling ");
+  PrintVal(mem, exp);
+  Print("\n");
+
+  Seq result;
+
   if (IsSelfEvaluating(exp)) {
-    return CompileSelf(exp, target, linkage, c);
+    result = CompileSelf(exp, target, linkage, c);
+    Print("[self] ");
   } else if (IsSym(exp)) {
-    return CompileVariable(exp, target, linkage, c);
+    result = CompileVariable(exp, target, linkage, c);
+    Print("[var] ");
   } else if (IsTagged(mem, exp, ":")) {
-    return CompileSelf(Second(mem, exp), target, linkage, c);
+    result = CompileSelf(Second(mem, exp), target, linkage, c);
+    Print("[symbol] ");
   } else if (IsTagged(mem, exp, "[")) {
-    return CompileSelf(Tail(mem, exp), target, linkage, c);
+    result = CompileSelf(Tail(mem, exp), target, linkage, c);
+    Print("[list] ");
   } else if (IsTagged(mem, exp, "let")) {
-    return CompileDefinitions(Tail(mem, exp), target, linkage, c);
+    result = CompileDefinitions(Tail(mem, exp), target, linkage, c);
+    Print("[let] ");
   } else if (IsTagged(mem, exp, "if")) {
-    return CompileIf(Tail(mem, exp), target, linkage, c);
+    result = CompileIf(Tail(mem, exp), target, linkage, c);
+    Print("[if] ");
   } else if (IsTagged(mem, exp, "and")) {
-    return CompileAnd(Tail(mem, exp), target, linkage, c);
+    result = CompileAnd(Tail(mem, exp), target, linkage, c);
+    Print("[and] ");
   } else if (IsTagged(mem, exp, "or")) {
-    return CompileOr(Tail(mem, exp), target, linkage, c);
+    result = CompileOr(Tail(mem, exp), target, linkage, c);
+    Print("[or] ");
   } else if (IsTagged(mem, exp, "do")) {
-    return CompileSequence(Tail(mem, exp), target, linkage, c);
+    result = CompileBlock(Tail(mem, exp), target, linkage, c);
+    Print("[do] ");
   } else if (IsTagged(mem, exp, "->")) {
-    return CompileLambda(Tail(mem, exp), target, linkage, c);
+    result = CompileLambda(Tail(mem, exp), target, linkage, c);
+    Print("[lambda] ");
   } else if (IsTagged(mem, exp, "import")) {
-    return CompileImport(Tail(mem, exp), target, linkage, c);
+    result = CompileImport(Tail(mem, exp), target, linkage, c);
+    Print("[import] ");
   } else if (IsUnaryPrimitive(exp, mem)) {
-    return CompileUnaryPrimitive(exp, target, linkage, c);
+    result = CompileUnaryPrimitive(exp, target, linkage, c);
+    Print("[unary] ");
   } else if (IsPrimitive(exp, mem)) {
-    return CompilePrimitive(exp, target, linkage, c);
+    result = CompilePrimitive(exp, target, linkage, c);
+    Print("[primitive] ");
   } else {
-    return CompileApplication(exp, target, linkage, c);
+    result = CompileApplication(exp, target, linkage, c);
+    Print("[call] ");
   }
+
+#if DEBUG_COMPILE
+  PrintVal(mem, exp);
+  Print("\n");
+  PrintSeq(result, mem);
+  Print("───────────────────────────────────────────────────\n");
+#endif
+
+  return result;
 }
 
 static Seq CompileSelf(Val exp, Reg target, Linkage linkage, Compiler *c)
@@ -179,12 +215,24 @@ static Seq CompileSelf(Val exp, Reg target, Linkage linkage, Compiler *c)
 static Seq CompileVariable(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
-  return
-    EndWithLinkage(linkage,
-      MakeSeq(REnv, target,
-        MakePair(mem, OpSymbol(OpLookup),
-        MakePair(mem, exp,
-        MakePair(mem, RegRef(target, c), nil)))), c);
+  Val var_pos = LookupPosition(exp, c->env, c->mem);
+
+  if (IsNil(var_pos)) {
+    return
+      EndWithLinkage(linkage,
+        MakeSeq(REnv, target,
+          MakePair(mem, OpSymbol(OpLookup),
+          MakePair(mem, exp,
+          MakePair(mem, RegRef(target, c), nil)))), c);
+  } else {
+    return
+      EndWithLinkage(linkage,
+        MakeSeq(REnv, target,
+          MakePair(mem, OpSymbol(OpLookup2),
+          MakePair(mem, Head(mem, var_pos),
+          MakePair(mem, Tail(mem, var_pos),
+          MakePair(mem, RegRef(target, c), nil))))), c);
+  }
 }
 
 static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Compiler *c)
@@ -192,7 +240,9 @@ static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Compiler *c)
   Mem *mem = c->mem;
 
   Val var = First(mem, exp);
+
   Seq val_code = CompileExp(Second(mem, exp), RVal, LinkNext, c);
+  // Define(var, nil, c->env, c->mem);
   Seq def_code = MakeSeq(REnv | RVal, 0,
       MakePair(mem, OpSymbol(OpDefine),
       MakePair(mem, var,
@@ -222,7 +272,6 @@ static Seq CompileIf(Val exp, Reg target, Linkage linkage, Compiler *c)
   Seq predicate_code = CompileExp(First(mem, exp), RVal, LinkNext, c);
   Seq true_code = CompileExp(Second(mem, exp), target, linkage, c);
   Seq false_code = CompileExp(Third(mem, exp), target, false_linkage, c);
-
 
   Seq test_code =
     MakeSeq(RVal, 0,
@@ -289,6 +338,42 @@ static Seq CompileOr(Val exp, Reg target, Linkage linkage, Compiler *c)
         AppendSeq(b_code, LabelSeq(after_label, c), c), c), c), c);
 }
 
+static Seq CompileBlock(Val exp, Reg target, Linkage linkage, Compiler *c)
+{
+  Mem *mem = c->mem;
+
+  Val stmts = exp;
+  while (!IsNil(stmts)) {
+    Val stmt = Head(mem, stmts);
+    if (IsTagged(mem, stmt, "let")) {
+      Val defs = Tail(mem, stmt);
+      while (!IsNil(defs)) {
+        Val var = Head(mem, defs);
+        Define(var, nil, c->env, mem);
+        defs = ListFrom(mem, defs, 2);
+      }
+    }
+    stmts = Tail(mem, stmts);
+  }
+
+  // scan through block and define vars in the correct place
+  // Val stmts = exp;
+  // while (!IsNil(stmts)) {
+  //   Val stmt = Head(c->mem, stmts);
+  //   if (IsTagged(c->mem, stmt, "let")) {
+  //     Val defines = Tail(c->mem, stmt);
+  //     while (!IsNil(defines)) {
+  //       Val var = Head(c->mem, defines);
+  //       Define(var, nil, c->env, c->mem);
+  //       defines = ListFrom(c->mem, defines, 2);
+  //     }
+  //   }
+  //   stmts = Tail(c->mem, stmts);
+  // }
+
+  return CompileSequence(exp, target, linkage, c);
+}
+
 static Seq CompileSequence(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -337,6 +422,7 @@ static Seq CompileLambdaBody(Val exp, Val proc_label, Compiler *c)
   Val params = First(mem, exp);
 
   // extend environment
+  c->env = MakePair(mem, nil, c->env);
   Seq env_code =
     MakeSeq(REnv, REnv,
       MakePair(mem, OpSymbol(OpPair),
@@ -347,6 +433,7 @@ static Seq CompileLambdaBody(Val exp, Val proc_label, Compiler *c)
   Seq bind_code = EmptySeq(mem);
   while (!IsNil(params)) {
     Val param = Head(mem, params);
+    Define(param, nil, c->env, c->mem);
 
     // pop an argument into val, and define it
     bind_code = AppendSeq(
@@ -363,6 +450,8 @@ static Seq CompileLambdaBody(Val exp, Val proc_label, Compiler *c)
   }
 
   Seq body_code = CompileExp(Second(mem, exp), RVal, LinkReturn, c);
+
+  c->env = Tail(mem, c->env);
 
   return
     AppendSeq(LabelSeq(proc_label, c),
@@ -431,34 +520,7 @@ static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
 
-  // initialize RArgs with empty list
-  Seq args_code =
-    MakeSeq(0, RArgs,
-      MakePair(mem, OpSymbol(OpConst),
-      MakePair(mem, nil,
-      MakePair(mem, RegRef(RArgs, c), nil))));
-
-  // compile each arg into RVal, then push it onto RArgs list
-  Val args = ReverseOnto(mem, Tail(mem, exp), nil);
-  while (!IsNil(args)) {
-    Seq arg_code = CompileExp(Head(mem, args), RVal, LinkNext, c);
-
-    Seq push_code =
-      MakeSeq(RVal | RArgs, RArgs,
-        MakePair(mem, OpSymbol(OpPush),
-        MakePair(mem, RegRef(RVal, c),
-        MakePair(mem, RegRef(RArgs, c), nil))));
-
-    // last arg doesn't need to preserve REnv
-    Reg preserve = RArgs;
-    if (!IsNil(Tail(mem, args))) preserve = RArgs | REnv;
-
-    args_code =
-      AppendSeq(args_code,
-        Preserving(preserve, arg_code, push_code, c), c);
-
-    args = Tail(mem, args);
-  }
+  Seq args_code = CompileArguments(Tail(mem, exp), c);
 
   // compile the operator into RFun, then put the proc's env in REnv and the
   // code location in RFun
@@ -480,6 +542,45 @@ static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
       Preserving(RArgs | RCon,
         proc_code,
         call_code, c), c);
+}
+
+static Seq CompileArguments(Val exp, Compiler *c)
+{
+  if (IsNil(exp)) {
+    return EmptySeq();
+  }
+
+  Mem *mem = c->mem;
+   // initialize RArgs with empty list
+  Seq args_code =
+    MakeSeq(0, RArgs,
+      MakePair(mem, OpSymbol(OpConst),
+      MakePair(mem, nil,
+      MakePair(mem, RegRef(RArgs, c), nil))));
+
+  // compile each arg into RVal, then push it onto RArgs list
+  Val args = ReverseOnto(mem, exp, nil);
+  while (!IsNil(args)) {
+    Seq arg_code = CompileExp(Head(mem, args), RVal, LinkNext, c);
+
+    Seq push_code =
+      MakeSeq(RVal | RArgs, RArgs,
+        MakePair(mem, OpSymbol(OpPush),
+        MakePair(mem, RegRef(RVal, c),
+        MakePair(mem, RegRef(RArgs, c), nil))));
+
+    // last arg doesn't need to preserve REnv
+    Reg preserve = RArgs;
+    if (!IsNil(Tail(mem, args))) preserve = RArgs | REnv;
+
+    args_code =
+      AppendSeq(args_code,
+        Preserving(preserve, arg_code, push_code, c), c);
+
+    args = Tail(mem, args);
+  }
+
+  return args_code;
 }
 
 static Seq CompileCall(Reg target, Linkage linkage, Compiler *c)
@@ -666,7 +767,37 @@ static Val RegRef(u32 reg_flag, Compiler *c)
   return MakePair(mem, SymbolFor("reg"), IntVal(reg));
 }
 
-void PrintSeq(Val stmts, Mem *mem)
+static void PrintStmtArg(Val arg, Mem *mem)
+{
+  if (IsSym(arg)) {
+    Print(SymbolName(mem, arg));
+  } else if (IsTagged(mem, arg, "label-ref")) {
+    Print(":");
+    Print(SymbolName(mem, Tail(mem, arg)));
+  } else if (IsTagged(mem, arg, "reg")) {
+    i32 reg = RawInt(Tail(mem, arg));
+    PrintReg(reg);
+  } else {
+    PrintVal(mem, arg);
+  }
+}
+
+static u32 PrintStmt(Val stmts, Mem *mem)
+{
+  OpCode op = OpForSymbol(First(mem, stmts));
+  PrintOpCode(op);
+  stmts = Tail(mem, stmts);
+
+  for (u32 i = 0; i < OpLength(op) - 1; i++) {
+    Print(" ");
+    PrintStmtArg(Head(mem, stmts), mem);
+    stmts = Tail(mem, stmts);
+  }
+  Print("\n");
+  return OpLength(op);
+}
+
+void PrintStmts(Val stmts, Mem *mem)
 {
   i32 i = 0;
   while (!IsNil(stmts)) {
@@ -675,28 +806,52 @@ void PrintSeq(Val stmts, Mem *mem)
     if (IsTagged(mem, stmt, "label")) {
       Print(SymbolName(mem, Tail(mem, stmt)));
       Print("\n");
+      i++;
+      stmts = Tail(mem, stmts);
     } else {
       PrintIntN(i, 4, ' ');
       Print("│ ");
 
-      if (IsSym(stmt)) {
-        PrintLn(SymbolName(mem, stmt));
-      } else if (IsTagged(mem, stmt, "label-ref")) {
-        Print(":");
-        PrintLn(SymbolName(mem, Tail(mem, stmt)));
-      } else if (IsTagged(mem, stmt, "reg")) {
-        i32 reg = RawInt(Tail(mem, stmt));
-        PrintReg(reg);
-        Print("\n");
-      } else {
-        PrintVal(mem, stmt);
-        Print("\n");
-      }
+      u32 len = PrintStmt(stmts, mem);
+      i += len;
+      stmts = ListFrom(mem, stmts, len);
     }
-
-    i++;
-    stmts = Tail(mem, stmts);
   }
+}
+
+static void PrintSeq(Seq seq, Mem *mem)
+{
+  Print("Needs: ");
+  if (seq.needs == 0) {
+    Print("[] ");
+  } else {
+    i32 reg = 0;
+    while (seq.needs != 0) {
+      if (seq.needs & 1) {
+        PrintReg(reg);
+        Print(" ");
+      }
+      seq.needs >>= 1;
+      reg++;
+    }
+  }
+
+  Print("Modifies: ");
+  if (seq.modifies == 0) {
+    Print("[]");
+  } else {
+    i32 reg = 0;
+    while (seq.modifies != 0) {
+      if (seq.modifies & 1) {
+        PrintReg(reg);
+        Print(" ");
+      }
+      seq.modifies >>= 1;
+      reg++;
+    }
+  }
+  Print("\n");
+  PrintStmts(seq.stmts, mem);
 }
 
 Val ReplaceLabels(Val stmts, Map labels, Compiler *c)

@@ -17,6 +17,7 @@ push [reg1] [reg2]  extends list in reg2 with value in reg1 as the head
 pop [reg1] [reg2]   puts the head of list in reg1 into reg2; replaces reg1 with its tail
 
 lookup [n] [reg]    looks up constant #n (a symbol) in the env, and puts it in reg
+lookup2 [n] [m] [reg]    looks up a variable in the env at frame n, entry m, and puts it in reg
 define [n] [reg]    defines constant #n (a symbol) to the value in reg in the current env
 
 not [reg]           if reg is false or nil, sets reg to true; otherwise sets reg to false
@@ -48,6 +49,7 @@ typedef enum {
   OpPush,
   OpPop,
   OpLookup,
+  OpLookup2,
   OpDefine,
 
   OpNot,
@@ -72,6 +74,7 @@ typedef enum {
   ArgsConst,
   ArgsReg,
   ArgsConstReg,
+  ArgsConstConstReg,
   ArgsRegReg,
 } ArgInfo;
 
@@ -81,3 +84,4 @@ u32 OpLength(OpCode op);
 void InitOps(Mem *mem);
 u32 PrintOpCode(OpCode op);
 Val OpSymbol(OpCode op);
+OpCode OpForSymbol(Val sym);
