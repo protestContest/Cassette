@@ -63,6 +63,13 @@ void RunChunk(VM *vm, Chunk *chunk)
         vm->pc += OpLength(op);
       }
       break;
+    case OpBranchF:
+      if (!IsTrue(vm->regs[ChunkRef(chunk, vm->pc+2)])) {
+        vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
+      } else {
+        vm->pc += OpLength(op);
+      }
+      break;
     case OpJump:
       vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       break;

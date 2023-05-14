@@ -11,6 +11,7 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpConst]   = { "const",    ArgsConstReg  },
   [OpMove]    = { "move",     ArgsRegReg    },
   [OpBranch]  = { "branch",   ArgsConstReg  },
+  [OpBranchF] = { "branchf",  ArgsConstReg  },
   [OpJump]    = { "jump",     ArgsConst     },
   [OpGoto]    = { "goto",     ArgsReg       },
   [OpPair]    = { "pair",     ArgsConstReg  },

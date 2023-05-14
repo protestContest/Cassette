@@ -218,12 +218,7 @@ static Seq CompileVariable(Val exp, Reg target, Linkage linkage, Compiler *c)
   Val var_pos = LookupPosition(exp, c->env, c->mem);
 
   if (IsNil(var_pos)) {
-    return
-      EndWithLinkage(linkage,
-        MakeSeq(REnv, target,
-          MakePair(mem, OpSymbol(OpLookup),
-          MakePair(mem, exp,
-          MakePair(mem, RegRef(target, c), nil)))), c);
+    return CompileError("Undefined variable", exp, c);
   } else {
     return
       EndWithLinkage(linkage,
@@ -301,12 +296,10 @@ static Seq CompileAnd(Val exp, Reg target, Linkage linkage, Compiler *c)
   Seq b_code = CompileExp(Second(mem, exp), target, LinkNext, c);
 
   Seq test_code = MakeSeq(target, 0,
-    MakePair(mem, OpSymbol(OpNot),
-    MakePair(mem, RegRef(target, c),
-    MakePair(mem, OpSymbol(OpBranch),
+    MakePair(mem, OpSymbol(OpBranchF),
     MakePair(mem, LabelRef(after_label, c),
     MakePair(mem, RegRef(target, c),
-            nil))))));
+            nil))));
 
   return
     EndWithLinkage(linkage,

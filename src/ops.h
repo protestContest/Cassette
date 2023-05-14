@@ -8,6 +8,7 @@ halt                halts execution
 const [n] [reg]     loads constant #n into register reg
 move [reg1] [reg2]  copies value from reg1 to reg2
 branch [n] [reg]    jumps to position n when reg is not false or nil
+branchf [n] [reg]   jumps to position n when reg is false or nil
 jump [n]            jumps to position n
 goto [reg]          jumps to position in reg (error if not an int)
 pair [n] [reg]      extends list in reg with constant #n as the head
@@ -41,6 +42,7 @@ typedef enum {
   OpConst,
   OpMove,
   OpBranch,
+  OpBranchF,
   OpJump,
   OpGoto,
   OpPair,
