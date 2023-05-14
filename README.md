@@ -33,11 +33,7 @@ Comments and feedback are welcome, especially about this documentation. If anyth
 Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
 - Module loading
-- Compiler optimization
-  - Open code primitives
-  - Lexical variable lookup
 - Garbage collection
-- Better error handling for primitives
 - VM optimization
 - Standard library
   - Collections
@@ -207,6 +203,20 @@ let x = 8
 combine (5 + 1) * 2 (inc x) (val)   ; `combine` called with arguments 12, 9, 4
 combine 2 (inc x) val               ; `combine` called with arguments 2, 9, [λ val]
 combine                             ; not called, just the value [λ combine]
+```
+
+### [Foreign Functions](#foreign-functions)
+
+A foreign-function interface allows Cassette code to call native code. An identifier beginning with `@` represents a foreign function, and can be called with arguments like a regular function.
+
+The set of available foreign functions must be defined by the runtime before execution. A foreign function is registered in the C API with a name and a pointer to an implementation function. The C API is not yet fully defined.
+
+```
+def (print x) do
+  @print x                  ; calls foreign function "print" with arguments [x]
+end
+
+print "Hello, world!"       ; prints "Hello, world!"
 ```
 
 ### [Blocks & Conditionals](#blocks-conditionals)

@@ -17,6 +17,12 @@ typedef Val Linkage;
 #define RStack  (1 << RegStack)
 #define RAll    (RVal | REnv | RCon | RFun | RArgs | RArg1 | RArg2 | RStack)
 
+#if DEBUG_COMPILE
+#define DebugMsg(x)   Print(x)
+#else
+#define DebugMsg(x)   (void)0
+#endif
+
 typedef struct {
   bool ok;
   u32 needs;
@@ -46,8 +52,9 @@ static Seq CompileSequence(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileLambda(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileLambdaBody(Val exp, Val label, Compiler *c);
 static Seq CompileImport(Val exp, Reg target, Linkage linkage, Compiler *c);
-static Seq CompileUnaryPrimitive(Val exp, Reg target, Linkage linkage, Compiler *c);
-static Seq CompilePrimitive(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileUnaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileBinaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileArguments(Val exp, Compiler *c);
 static Seq CompileCall(Reg target, Linkage linkage, Compiler *c);
@@ -81,6 +88,7 @@ void InitCompiler(Compiler *c, Mem *mem)
 
   // AST tags
   MakeSymbol(mem, ":");
+  MakeSymbol(mem, "@");
   MakeSymbol(mem, "let");
   MakeSymbol(mem, "if");
   MakeSymbol(mem, "do");
@@ -114,16 +122,14 @@ static bool IsSelfEvaluating(Val exp)
     IsNumeric(exp);
 }
 
-static bool IsUnaryPrimitive(Val exp, Mem *mem)
+static bool IsUnaryOp(Val exp, Mem *mem)
 {
   return
     IsTagged(mem, exp, "not") ||
-    IsTagged(mem, exp, "\"") ||
-    IsTagged(mem, exp, "print") ||
-    IsTagged(mem, exp, "floor");
+    IsTagged(mem, exp, "\"");
 }
 
-static bool IsPrimitive(Val exp, Mem *mem)
+static bool IsBinaryOp(Val exp, Mem *mem)
 {
   return
     IsTagged(mem, exp, "==") ||
@@ -141,54 +147,59 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
 
+#if DEBUG_COMPILE
   Print("Compiling ");
   PrintVal(mem, exp);
   Print("\n");
+#endif
 
   Seq result;
 
   if (IsSelfEvaluating(exp)) {
     result = CompileSelf(exp, target, linkage, c);
-    Print("[self] ");
+    DebugMsg("[self] ");
   } else if (IsSym(exp)) {
     result = CompileVariable(exp, target, linkage, c);
-    Print("[var] ");
+    DebugMsg("[var] ");
   } else if (IsTagged(mem, exp, ":")) {
     result = CompileSelf(Second(mem, exp), target, linkage, c);
-    Print("[symbol] ");
+    DebugMsg("[symbol] ");
   } else if (IsTagged(mem, exp, "[")) {
     result = CompileSelf(Tail(mem, exp), target, linkage, c);
-    Print("[list] ");
+    DebugMsg("[list] ");
   } else if (IsTagged(mem, exp, "let")) {
     result = CompileDefinitions(Tail(mem, exp), target, linkage, c);
-    Print("[let] ");
+    DebugMsg("[let] ");
   } else if (IsTagged(mem, exp, "if")) {
     result = CompileIf(Tail(mem, exp), target, linkage, c);
-    Print("[if] ");
+    DebugMsg("[if] ");
   } else if (IsTagged(mem, exp, "and")) {
     result = CompileAnd(Tail(mem, exp), target, linkage, c);
-    Print("[and] ");
+    DebugMsg("[and] ");
   } else if (IsTagged(mem, exp, "or")) {
     result = CompileOr(Tail(mem, exp), target, linkage, c);
-    Print("[or] ");
+    DebugMsg("[or] ");
   } else if (IsTagged(mem, exp, "do")) {
     result = CompileBlock(Tail(mem, exp), target, linkage, c);
-    Print("[do] ");
+    DebugMsg("[do] ");
   } else if (IsTagged(mem, exp, "->")) {
     result = CompileLambda(Tail(mem, exp), target, linkage, c);
-    Print("[lambda] ");
+    DebugMsg("[lambda] ");
   } else if (IsTagged(mem, exp, "import")) {
     result = CompileImport(Tail(mem, exp), target, linkage, c);
-    Print("[import] ");
-  } else if (IsUnaryPrimitive(exp, mem)) {
-    result = CompileUnaryPrimitive(exp, target, linkage, c);
-    Print("[unary] ");
-  } else if (IsPrimitive(exp, mem)) {
-    result = CompilePrimitive(exp, target, linkage, c);
-    Print("[primitive] ");
+    DebugMsg("[import] ");
+  } else if (IsUnaryOp(exp, mem)) {
+    result = CompileUnaryOp(exp, target, linkage, c);
+    DebugMsg("[unary] ");
+  } else if (IsBinaryOp(exp, mem)) {
+    result = CompileBinaryOp(exp, target, linkage, c);
+    DebugMsg("[binary] ");
+  } else if (IsTagged(mem, exp, "@")) {
+    result = CompilePrimitiveCall(Tail(mem, exp), target, linkage, c);
+    DebugMsg("[primitive] ");
   } else {
     result = CompileApplication(exp, target, linkage, c);
-    Print("[call] ");
+    DebugMsg("[call] ");
   }
 
 #if DEBUG_COMPILE
@@ -457,7 +468,7 @@ static Seq CompileImport(Val exp, Reg target, Linkage linkage, Compiler *c)
   return CompileError("Imports not yet supported", nil, c);
 }
 
-static Seq CompileUnaryPrimitive(Val exp, Reg target, Linkage linkage, Compiler *c)
+static Seq CompileUnaryOp(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
   Seq arg = CompileExp(Second(mem, exp), target, LinkNext, c);
@@ -472,7 +483,7 @@ static Seq CompileUnaryPrimitive(Val exp, Reg target, Linkage linkage, Compiler 
       AppendSeq(arg, op_seq, c), c);
 }
 
-static Seq CompilePrimitive(Val exp, Reg target, Linkage linkage, Compiler *c)
+static Seq CompileBinaryOp(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
   Seq arg1 = CompileExp(Second(mem, exp), RArg1, LinkNext, c);
@@ -509,6 +520,23 @@ static Seq CompilePrimitive(Val exp, Reg target, Linkage linkage, Compiler *c)
           op_seq, c), c), c);
 }
 
+static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *c)
+{
+  Mem *mem = c->mem;
+  Val op_name = First(mem, exp);
+  Seq args_code = CompileArguments(Tail(mem, exp), c);
+
+  Seq call_code =
+    MakeSeq(RArgs, RFun | target,
+      MakePair(mem, OpSymbol(OpConst),
+      MakePair(mem, op_name,
+      MakePair(mem, RegRef(RFun, c),
+      MakePair(mem, OpSymbol(OpPrim),
+      MakePair(mem, RegRef(target, c), nil))))));
+
+  return EndWithLinkage(linkage, AppendSeq(args_code, call_code, c), c);
+}
+
 static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -539,20 +567,28 @@ static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
 
 static Seq CompileArguments(Val exp, Compiler *c)
 {
+  Mem *mem = c->mem;
+
   if (IsNil(exp)) {
     return EmptySeq();
   }
 
-  Mem *mem = c->mem;
-   // initialize RArgs with empty list
-  Seq args_code =
-    MakeSeq(0, RArgs,
-      MakePair(mem, OpSymbol(OpConst),
-      MakePair(mem, nil,
-      MakePair(mem, RegRef(RArgs, c), nil))));
+  Val args = ReverseOnto(mem, exp, nil);
+  Seq first_arg_code = CompileExp(Head(mem, args), RVal, LinkNext, c);
+  args = Tail(mem, args);
+
+  // initialize RArgs with empty list, push first arg
+  Seq init_code = MakeSeq(RVal, RArgs,
+    MakePair(mem, OpSymbol(OpConst),
+    MakePair(mem, nil,
+    MakePair(mem, RegRef(RArgs, c),
+    MakePair(mem, OpSymbol(OpPush),
+    MakePair(mem, RegRef(RVal, c),
+    MakePair(mem, RegRef(RArgs, c), nil)))))));
+
+  Seq args_code = AppendSeq(first_arg_code, init_code, c);
 
   // compile each arg into RVal, then push it onto RArgs list
-  Val args = ReverseOnto(mem, exp, nil);
   while (!IsNil(args)) {
     Seq arg_code = CompileExp(Head(mem, args), RVal, LinkNext, c);
 
@@ -859,11 +895,6 @@ Val ReplaceLabels(Val stmts, Map labels, Compiler *c)
 
   if (IsTagged(mem, stmt, "label-ref")) {
     Val label = Tail(mem, stmt);
-    if (!MapContains(&labels, label.as_v)) {
-      Print("Missing label: ");
-      PrintVal(mem, label);
-      Print("\n");
-    }
     Assert(MapContains(&labels, label.as_v));
     u32 pos = MapGet(&labels, label.as_v);
     return MakePair(mem, IntVal(pos), ReplaceLabels(Tail(mem, stmts), labels, c));

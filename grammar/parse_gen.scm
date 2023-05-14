@@ -337,6 +337,7 @@
       ((and (string? sym) (string=? sym "}")) "RBrace")
       ((and (string? sym) (string=? sym ",")) "Comma")
       ((and (string? sym) (string=? sym ".")) "Dot")
+      ((and (string? sym) (string=? sym "@")) "At")
       (else (snake->camel (to-string sym)))))
 
   (display "#pragma once")

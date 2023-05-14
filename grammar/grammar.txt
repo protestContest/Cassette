@@ -1,5 +1,5 @@
 stmts         → stmts stmt NL | stmts stmt $ | nl
-stmt          → let_stmt | def_stmt | import_stmt | call
+stmt          → let_stmt | def_stmt | import_stmt | prim_call | call
 opt_stmt      → stmt | ε
 let_stmt      → "let" nl assigns
 assigns       → assigns "," nl assign | assign
@@ -7,6 +7,7 @@ assign        → ID "=" call
 def_stmt      → "def" "(" params ")" do_block
 params        → params ID | ID
 import_stmt   → "import" STR | "import" STR "as" ID
+prim_call     → "@" ID call
 call          → call arg | arg
 ml_call       → ml_call nl arg | arg
 arg           → lambda

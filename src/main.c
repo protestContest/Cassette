@@ -5,6 +5,8 @@
 #include "print_tree.h"
 #include "chunk.h"
 
+#define DEBUG DEBUG_LEXER | DEBUG_PARSE | DEBUG_PARSE2 | DEBUG_COMPILE | DEBUG_ASSEMBLE | DEBUG_VM
+
 void RunFile(char *filename)
 {
   Mem mem;
@@ -20,15 +22,19 @@ void RunFile(char *filename)
   Val parsed = Parse(src, &mem);
   if (!IsTagged(&mem, parsed, "ok")) return;
 
+#if DEBUG
   PrintTree(Tail(&mem, parsed), &mem);
   Print("\n");
+#endif
 
   Val compiled = Compile(Tail(&mem, parsed), &mem);
   Chunk chunk = Assemble(compiled, &mem);
 
+#if DEBUG
   Print("Disassembled\n");
   Disassemble(&chunk, &mem);
   Print("\n");
+#endif
 
   VM vm;
   InitVM(&vm, &mem);

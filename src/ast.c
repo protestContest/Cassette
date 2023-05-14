@@ -150,6 +150,16 @@ static Val ParseSymbol(Val children, Mem *mem)
     MakePair(mem, name, nil));
 }
 
+static Val ParsePrimitiveCall(Val children, Mem *mem)
+{
+  Val name = Second(mem, children);
+  Val args = Third(mem, children);
+
+  return
+    MakePair(mem, SymbolFor("@"),
+    MakePair(mem, name, args));
+}
+
 static Val ParseDoBlock(Val children, Mem *mem)
 {
   Val stmts = ListAt(mem, children, 1);
@@ -292,6 +302,7 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymImportStmt:  return ParseImportStmt(children, mem);
   case ParseSymCall:        return ParseSequence(children, mem);
   case ParseSymMlCall:      return ParseSequence(children, mem);
+  case ParseSymPrimCall:    return ParsePrimitiveCall(children, mem);
   case ParseSymArg:         return ParseSimple(children, mem);
   case ParseSymLambda:      return ParseLambda(children, mem);
   case ParseSymLogic:       return ParseInfix(children, mem);

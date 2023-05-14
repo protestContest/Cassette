@@ -5,8 +5,6 @@
 #include "primitives.h"
 #include "ops.h"
 
-static void PrintOp(Val arg, VM *vm);
-static Val UnaryOp(OpCode op, Val arg, VM *vm);
 static Val ArithmeticOp(OpCode op, VM *vm);
 static void TraceInstruction(VM *vm, Chunk *chunk);
 
@@ -126,16 +124,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       Define(ChunkConst(chunk, vm->pc+1), vm->regs[ChunkRef(chunk, vm->pc+2)], vm->regs[RegEnv], vm->mem);
       vm->pc += OpLength(op);
       break;
+    case OpPrim:
+      vm->regs[ChunkRef(chunk, vm->pc+1)] = DoPrimitive(vm->regs[RegFun], vm->regs[RegArgs], vm);
+      vm->pc += OpLength(op);
+      break;
     case OpNot:
       vm->regs[ChunkRef(chunk, vm->pc+1)] = BoolVal(!IsTrue(vm->regs[ChunkRef(chunk, vm->pc+1)]));
-      vm->pc += OpLength(op);
-      break;
-    case OpFloor:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] = UnaryOp(op, vm->regs[ChunkRef(chunk, vm->pc+1)], vm);
-      vm->pc += OpLength(op);
-      break;
-    case OpPrint:
-      PrintOp(vm->regs[ChunkRef(chunk, vm->pc+1)], vm);
       vm->pc += OpLength(op);
       break;
     case OpEqual:
@@ -205,6 +199,7 @@ u32 PrintReg(i32 reg)
 
 static void TraceInstruction(VM *vm, Chunk *chunk)
 {
+#if DEBUG_VM
   PrintIntN(vm->pc, 4, ' ');
   Print("│ ");
   i32 printed = PrintInstruction(chunk, vm->pc, vm->mem);
@@ -247,45 +242,7 @@ static void TraceInstruction(VM *vm, Chunk *chunk)
   }
 
   Print("\n");
-}
-
-static void PrintOp(Val arg, VM *vm)
-{
-  if (IsNil(arg)) {
-    return;
-  } else if (IsSym(arg) || IsNumeric(arg)) {
-    PrintVal(vm->mem, arg);
-    Print("\n");
-  } else if (IsBinary(vm->mem, arg)) {
-    PrintN((char*)BinaryData(vm->mem, arg), BinaryLength(vm->mem, arg));
-    Print("\n");
-  } else if (IsList(vm->mem, arg)) {
-    while (!IsNil(arg) && !vm->halted) {
-      Val item = Head(vm->mem, arg);
-      if (IsInt(item)) {
-        PrintChar(RawInt(item));
-      } else {
-        PrintOp(item, vm);
-      }
-      arg = Tail(vm->mem, arg);
-    }
-  } else {
-    RuntimeError("Unprintable value", arg, vm);
-  }
-}
-
-static Val UnaryOp(OpCode op, Val arg, VM *vm)
-{
-  if (!IsNumeric(arg)) {
-    return RuntimeError("Bad arithmetic argument", arg, vm);
-  }
-
-  if (op == OpFloor) {
-    i32 result = (i32)RawNum(arg) - (RawNum(arg) < 0);
-    return IntVal(result);
-  }
-
-  return RuntimeError("Unimplemented arithmetic op", OpSymbol(op), vm);
+#endif
 }
 
 static Val ArithmeticOp(OpCode op, VM *vm)

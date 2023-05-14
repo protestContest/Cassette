@@ -1,6 +1,9 @@
 def (rem a b) do
-  let q = floor a / b
-  a - b * q
+  @rem a b
+end
+
+def (print x) do
+  @print x
 end
 
 def (fizzbuzz n) do

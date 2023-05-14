@@ -5,79 +5,11 @@
 
 typedef Val (*PrimitiveFn)(Val op, Val args, VM *vm);
 
-typedef struct {
-  char *name;
-  PrimitiveFn fn;
-} Primitive;
-
-#define NumOp(a, op, b)   RawNum(a) op RawNum(b)
-#define IntOp(a, op, b)   RawInt(a) op RawInt(b)
-
-Val NumberOp(Val op, Val args, VM *vm)
-{
-  Val a = ListAt(vm->mem, args, 0);
-  Val b = ListAt(vm->mem, args, 1);
-
-  if (!IsNumeric(a)) {
-    return RuntimeError("Bad arithmetic argument", a, vm);
-  }
-  if (!IsNumeric(b)) {
-    return RuntimeError("Bad arithmetic argument", b, vm);
-  }
-
-  if (IsInt(a) && IsInt(b)) {
-    if (Eq(op, SymbolFor("+"))) return IntVal(IntOp(a, +, b));
-    if (Eq(op, SymbolFor("-"))) return IntVal(IntOp(a, -, b));
-    if (Eq(op, SymbolFor("*"))) return IntVal(IntOp(a, *, b));
-  }
-
-  if (Eq(op, SymbolFor("+"))) return NumVal(NumOp(a, +, b));
-  if (Eq(op, SymbolFor("-"))) return NumVal(NumOp(a, -, b));
-  if (Eq(op, SymbolFor("*"))) return NumVal(NumOp(a, *, b));
-  if (Eq(op, SymbolFor("/"))) return NumVal(NumOp(a, /, b));
-  if (Eq(op, SymbolFor(">"))) return BoolVal(NumOp(a, >, b));
-  if (Eq(op, SymbolFor("<"))) return BoolVal(NumOp(a, <, b));
-  if (Eq(op, SymbolFor(">="))) return BoolVal(NumOp(a, >=, b));
-  if (Eq(op, SymbolFor("<="))) return BoolVal(NumOp(a, <=, b));
-
-  return RuntimeError("Unimplemented primitive", op, vm);
-}
-
-Val LogicOp(Val op, Val args, VM *vm)
-{
-  Val a = ListAt(vm->mem, args, 0);
-  Val b = ListAt(vm->mem, args, 1);
-
-  if (Eq(op, SymbolFor("=="))) return BoolVal(Eq(a, b));
-  if (Eq(op, SymbolFor("!="))) return BoolVal(!Eq(a, b));
-
-  return RuntimeError("Unimplemented primitive", op, vm);
-}
-
 Val PairOp(Val op, Val args, VM *vm)
 {
   Val a = ListAt(vm->mem, args, 0);
   Val b = ListAt(vm->mem, args, 1);
   return MakePair(vm->mem, a, b);
-}
-
-Val ConcatOp(Val op, Val args, VM *vm)
-{
-  Val a = ListAt(vm->mem, args, 0);
-  Val b = ListAt(vm->mem, args, 1);
-  return ListConcat(vm->mem, a, b);
-}
-
-Val DictMergeOp(Val op, Val args, VM *vm)
-{
-  Val dict = ListAt(vm->mem, args, 0);
-  Val updates = ListAt(vm->mem, args, 1);
-  Val keys = DictKeys(vm->mem, updates);
-  Val vals = DictValues(vm->mem, updates);
-  for (u32 i = 0; i < DictSize(vm->mem, updates); i++) {
-    dict = DictSet(vm->mem, dict, TupleAt(vm->mem, keys, i), TupleAt(vm->mem, vals, i));
-  }
-  return dict;
 }
 
 Val HeadOp(Val op, Val args, VM *vm)
@@ -100,6 +32,13 @@ Val NthOp(Val op, Val args, VM *vm)
 Val ListOp(Val op, Val args, VM *vm)
 {
   return args;
+}
+
+Val ConcatOp(Val op, Val args, VM *vm)
+{
+  Val a = ListAt(vm->mem, args, 0);
+  Val b = ListAt(vm->mem, args, 1);
+  return ListConcat(vm->mem, a, b);
 }
 
 Val TupleOp(Val op, Val args, VM *vm)
@@ -135,6 +74,18 @@ Val AccessOp(Val op, Val args, VM *vm)
   Val dict = ListAt(vm->mem, args, 0);
   Val key = ListAt(vm->mem, args, 1);
   return DictGet(vm->mem, dict, key);
+}
+
+Val DictMergeOp(Val op, Val args, VM *vm)
+{
+  Val dict = ListAt(vm->mem, args, 0);
+  Val updates = ListAt(vm->mem, args, 1);
+  Val keys = DictKeys(vm->mem, updates);
+  Val vals = DictValues(vm->mem, updates);
+  for (u32 i = 0; i < DictSize(vm->mem, updates); i++) {
+    dict = DictSet(vm->mem, dict, TupleAt(vm->mem, keys, i), TupleAt(vm->mem, vals, i));
+  }
+  return dict;
 }
 
 Val StringOp(Val op, Val args, VM *vm)
@@ -393,17 +344,12 @@ Val RecvOp(Val op, Val args, VM *vm)
 //   return RecvPort(vm, port);
 }
 
+typedef struct {
+  char *name;
+  PrimitiveFn fn;
+} Primitive;
+
 static Primitive primitives[] = {
-  {"*", NumberOp},
-  {"/", NumberOp},
-  {"+", NumberOp},
-  {"-", NumberOp},
-  {">", NumberOp},
-  {"<", NumberOp},
-  {">=", NumberOp},
-  {"<=", NumberOp},
-  {"==", LogicOp},
-  {"!=", LogicOp},
   {"|", PairOp},
   {"[+", ConcatOp},
   {"{|", DictMergeOp},
@@ -411,7 +357,6 @@ static Primitive primitives[] = {
   {"#[", TupleOp},
   {"{", DictOp},
   {".", AccessOp},
-  {"\"", StringOp},
   {"head", HeadOp},
   {"tail", TailOp},
   {"nth", NthOp},
@@ -447,28 +392,13 @@ static Primitive primitives[] = {
   // {"eval", EvalOp},
 };
 
-bool IsPrimitive(Val op, Mem *mem)
-{
-  return IsTagged(mem, op, "α");
-}
-
 Val DoPrimitive(Val op, Val args, VM *vm)
 {
-  Val name = Tail(vm->mem, op);
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
-    if (Eq(SymbolFor(primitives[i].name), name)) {
-      return primitives[i].fn(name, args, vm);
+    if (Eq(SymbolFor(primitives[i].name), op)) {
+      return primitives[i].fn(op, args, vm);
     }
   }
 
   return RuntimeError("Unknown primitive", op, vm);
-}
-
-void DefinePrimitives(Val env, Mem *mem)
-{
-  Val prim = MakeSymbol(mem, "α");
-  for (u32 i = 0; i < ArrayCount(primitives); i++) {
-    Val sym = MakeSymbol(mem, primitives[i].name);
-    Define(sym, MakePair(mem, prim, sym), env, mem);
-  }
 }

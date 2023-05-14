@@ -279,6 +279,7 @@ static bool IsIDChar(char c)
   case '=':   return false;
   case ',':   return false;
   case ':':   return false;
+  case '@':   return false;
   default:    return true;
   }
 }

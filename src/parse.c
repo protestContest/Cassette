@@ -130,9 +130,6 @@ Val Parse(Source src, Mem *mem)
   Parser p;
   InitParser(&p, src, mem);
   Val ast = ParseNext(&p, NextToken(&p.lex));
-#if DEBUG_AST
-  PrintAST(ast, mem);
-#endif
   return MakePair(mem, SymbolFor("ok"), ast);
 }
 

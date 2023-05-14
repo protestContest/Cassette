@@ -4,36 +4,33 @@
 /*
 Op codes
 
-halt                halts execution
-const [n] [reg]     loads constant #n into register reg
-move [reg1] [reg2]  copies value from reg1 to reg2
-branch [n] [reg]    jumps to position n when reg is not false or nil
-branchf [n] [reg]   jumps to position n when reg is false or nil
-jump [n]            jumps to position n
-goto [reg]          jumps to position in reg (error if not an int)
-pair [n] [reg]      extends list in reg with constant #n as the head
-head [reg]          replaces reg (a pair) with its head
-tail [reg]          replaces reg (a pair) with its tail
-push [reg1] [reg2]  extends list in reg2 with value in reg1 as the head
-pop [reg1] [reg2]   puts the head of list in reg1 into reg2; replaces reg1 with its tail
+halt                    halts execution
+const [n] [reg]         loads constant #n into register reg
+move [reg1] [reg2]      copies value from reg1 to reg2
+branch [n] [reg]        jumps to position n when reg is not false or nil
+branchf [n] [reg]       jumps to position n when reg is false or nil
+jump [n]                jumps to position n
+goto [reg]              jumps to position in reg (error if not an int)
+pair [n] [reg]          extends list in reg with constant #n as the head
+head [reg]              replaces reg (a pair) with its head
+tail [reg]              replaces reg (a pair) with its tail
+push [reg1] [reg2]      extends list in reg2 with value in reg1 as the head
+pop [reg1] [reg2]       puts the head of list in reg1 into reg2; replaces reg1 with its tail
 
-lookup [n] [reg]    looks up constant #n (a symbol) in the env, and puts it in reg
-lookup2 [n] [m] [reg]    looks up a variable in the env at frame n, entry m, and puts it in reg
-define [n] [reg]    defines constant #n (a symbol) to the value in reg in the current env
-
-not [reg]           if reg is false or nil, sets reg to true; otherwise sets reg to false
-floor [reg]         sets reg to its mathematical floor (must be numeric)
-print [reg]         prints the value in reg
-
-equal [reg]         sets reg to true when arg1 and arg2 are equal; false otherwise
-gt [reg]            sets reg to true when arg1 > arg2; false otherwise (args must be numeric)
-lt [reg]            sets reg to true when arg1 < arg2; false otherwise (args must be numeric)
-add [reg]           adds arg1 and arg2, result in reg (args must be numeric)
-sub [reg]           subtracts arg1 and arg2, result in reg (args must be numeric)
-mul [reg]           multiplies arg1 and arg2, result in reg (args must be numeric)
-div [reg]           divides arg1 and arg2, result in reg (args must be numeric)
-
-str [reg]           replaces reg (a symbol) with the binary symbol name
+lookup [n] [reg]        looks up constant #n (a symbol) in the env, and puts it in reg
+lookup2 [n] [m] [reg]   looks up a variable in the env at frame n, entry m, and puts it in reg
+define [n] [reg]        defines constant #n (a symbol) to the value in reg in the current env
+prim [reg]              given a symbol in RegFun and arguments in RegArgs,
+                            calls a primitive procedure and puts the result in reg
+not [reg]               if reg is false or nil, sets reg to true; otherwise sets reg to false
+equal [reg]             sets reg to true when arg1 and arg2 are equal; false otherwise
+gt [reg]                sets reg to true when arg1 > arg2; false otherwise (args must be numeric)
+lt [reg]                sets reg to true when arg1 < arg2; false otherwise (args must be numeric)
+add [reg]               adds arg1 and arg2, result in reg (args must be numeric)
+sub [reg]               subtracts arg1 and arg2, result in reg (args must be numeric)
+mul [reg]               multiplies arg1 and arg2, result in reg (args must be numeric)
+div [reg]               divides arg1 and arg2, result in reg (args must be numeric)
+str [reg]               replaces reg (a symbol) with the binary symbol name
 */
 
 typedef enum {
@@ -53,11 +50,10 @@ typedef enum {
   OpLookup,
   OpLookup2,
   OpDefine,
+  OpPrim,
 
   OpNot,
-  OpFloor,
-  OpPrint,
-
+  OpStr,
   OpEqual,
   OpGt,
   OpLt,
@@ -65,8 +61,6 @@ typedef enum {
   OpSub,
   OpMul,
   OpDiv,
-
-  OpStr,
 
   NUM_OPCODES
 } OpCode;
