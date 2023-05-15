@@ -105,14 +105,6 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpLookup:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        Lookup(ChunkConst(chunk, vm->pc+1), vm->regs[RegEnv], vm->mem);
-      if (Eq(vm->regs[ChunkRef(chunk, vm->pc+2)], SymbolFor("__undefined__"))) {
-        RuntimeError("Undefined variable", ChunkConst(chunk, vm->pc+1), vm);
-      }
-      vm->pc += OpLength(op);
-      break;
-    case OpLookup2:
       vm->regs[ChunkRef(chunk, vm->pc+3)] =
         LookupByPosition(ChunkConst(chunk, vm->pc+1), ChunkConst(chunk, vm->pc+2), vm->regs[RegEnv], vm->mem);
       if (Eq(vm->regs[ChunkRef(chunk, vm->pc+3)], SymbolFor("__undefined__"))) {

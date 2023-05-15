@@ -235,7 +235,7 @@ static Seq CompileVariable(Val exp, Reg target, Linkage linkage, Compiler *c)
     return
       EndWithLinkage(linkage,
         MakeSeq(REnv, target,
-          MakePair(mem, OpSymbol(OpLookup2),
+          MakePair(mem, OpSymbol(OpLookup),
           MakePair(mem, Head(mem, var_pos),
           MakePair(mem, Tail(mem, var_pos),
           MakePair(mem, RegRef(target, c), nil))))), c);

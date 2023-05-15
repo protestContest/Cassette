@@ -48,7 +48,6 @@ typedef enum {
   OpPush,
   OpPop,
   OpLookup,
-  OpLookup2,
   OpDefine,
   OpPrim,
 
