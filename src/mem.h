@@ -1,7 +1,7 @@
 #pragma once
 #include "value.h"
 
-typedef struct Mem {
+typedef struct {
   Val *values;
   Map symbols;
   char **symbol_names;
@@ -9,6 +9,10 @@ typedef struct Mem {
 
 void InitMem(Mem *mem, u32 size);
 void DestroyMem(Mem *mem);
+
+Val MakeSymbolFrom(Mem *mem, char *str, u32 length);
+Val MakeSymbol(Mem *mem, char *str);
+char *SymbolName(Mem *mem, Val symbol);
 
 Val MakePair(Mem *mem, Val head, Val tail);
 Val Head(Mem *mem, Val pair);
@@ -34,20 +38,6 @@ u32 TupleLength(Mem *mem, Val tuple);
 Val TupleAt(Mem *mem, Val tuple, u32 i);
 void TupleSet(Mem *mem, Val tuple, u32 i, Val val);
 
-bool IsDict(Mem *mem, Val dict);
-Val MakeDict(Mem *mem);
-Val DictFrom(Mem *mem, Val keys, Val vals);
-u32 DictSize(Mem *mem, Val dict);
-Val DictKeys(Mem *mem, Val dict);
-Val DictValues(Mem *mem, Val dict);
-bool InDict(Mem *mem, Val dict, Val key);
-Val DictGet(Mem *mem, Val dict, Val key);
-Val DictSet(Mem *mem, Val dict, Val key, Val value);
-
-Val MakeSymbolFrom(Mem *mem, char *str, u32 length);
-Val MakeSymbol(Mem *mem, char *str);
-char *SymbolName(Mem *mem, Val symbol);
-
 bool IsBinary(Mem *mem, Val binary);
 Val MakeBinaryFrom(Mem *mem, char *str, u32 length);
 Val MakeBinary(Mem *mem, char *str);
@@ -58,7 +48,3 @@ void BinaryToString(Mem *mem, Val binary, char *dst);
 u32 ValToString(Mem *mem, Val val, Buf *buf);
 u32 PrintValStr(Mem *mem, Val val);
 u32 ValStrLen(Mem *mem, Val val);
-
-u32 PrintVal(Mem *mem, Val value);
-void DebugVal(Mem *mem, Val value);
-void PrintMem(Mem *mem);

@@ -1,6 +1,7 @@
 #include "ast.h"
 #include "parse.h"
 #include "parse_syms.h"
+#include "print.h"
 
 static bool IsInfix(Val sym)
 {

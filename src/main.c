@@ -2,7 +2,7 @@
 #include "vm.h"
 #include "parse.h"
 #include "ast.h"
-#include "print_tree.h"
+#include "print.h"
 #include "chunk.h"
 
 #define DEBUG DEBUG_LEXER | DEBUG_PARSE | DEBUG_PARSE2 | DEBUG_COMPILE | DEBUG_ASSEMBLE | DEBUG_VM

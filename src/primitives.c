@@ -1,7 +1,6 @@
 #include "primitives.h"
 #include "env.h"
 #include "value.h"
-#include "port.h"
 
 typedef Val (*PrimitiveFn)(Val op, Val args, VM *vm);
 
@@ -52,42 +51,6 @@ Val TupleOp(Val op, Val args, VM *vm)
   return tuple;
 }
 
-Val DictOp(Val op, Val args, VM *vm)
-{
-  u32 length = ListLength(vm->mem, args) / 2;
-  Val keys = MakeTuple(vm->mem, length);
-  Val vals = MakeTuple(vm->mem, length);
-  u32 i = 0;
-  while (!IsNil(args)) {
-    TupleSet(vm->mem, keys, i, Head(vm->mem, args));
-    args = Tail(vm->mem, args);
-    TupleSet(vm->mem, vals, i, Head(vm->mem, args));
-    args = Tail(vm->mem, args);
-    i++;
-  }
-  Val dict = DictFrom(vm->mem, keys, vals);
-  return dict;
-}
-
-Val AccessOp(Val op, Val args, VM *vm)
-{
-  Val dict = ListAt(vm->mem, args, 0);
-  Val key = ListAt(vm->mem, args, 1);
-  return DictGet(vm->mem, dict, key);
-}
-
-Val DictMergeOp(Val op, Val args, VM *vm)
-{
-  Val dict = ListAt(vm->mem, args, 0);
-  Val updates = ListAt(vm->mem, args, 1);
-  Val keys = DictKeys(vm->mem, updates);
-  Val vals = DictValues(vm->mem, updates);
-  for (u32 i = 0; i < DictSize(vm->mem, updates); i++) {
-    dict = DictSet(vm->mem, dict, TupleAt(vm->mem, keys, i), TupleAt(vm->mem, vals, i));
-  }
-  return dict;
-}
-
 Val StringOp(Val op, Val args, VM *vm)
 {
   Val symbol = Head(vm->mem, args);
@@ -119,7 +82,6 @@ Val TypeOp(Val op, Val args, VM *vm)
   if (Eq(op, SymbolFor("symbol?"))) return BoolVal(IsSym(arg));
   if (Eq(op, SymbolFor("list?"))) return BoolVal(IsList(vm->mem, arg));
   if (Eq(op, SymbolFor("tuple?"))) return BoolVal(IsTuple(vm->mem, arg));
-  if (Eq(op, SymbolFor("dict?"))) return BoolVal(IsDict(vm->mem, arg));
   if (Eq(op, SymbolFor("binary?"))) return BoolVal(IsBinary(vm->mem, arg));
   if (Eq(op, SymbolFor("true?"))) return BoolVal(IsTrue(arg));
 
@@ -208,7 +170,6 @@ Val LengthOp(Val op, Val args, VM *vm)
   Val arg = Head(vm->mem, args);
   if (IsList(vm->mem, arg)) return IntVal(ListLength(vm->mem, arg));
   if (IsTuple(vm->mem, arg)) return IntVal(TupleLength(vm->mem, arg));
-  if (IsDict(vm->mem, arg)) return IntVal(DictSize(vm->mem, arg));
   if (IsBinary(vm->mem, arg)) return IntVal(BinaryLength(vm->mem, arg));
   return RuntimeError("Cannot take length of this", arg, vm);
 }
@@ -352,11 +313,8 @@ typedef struct {
 static Primitive primitives[] = {
   {"|", PairOp},
   {"[+", ConcatOp},
-  {"{|", DictMergeOp},
   {"[", ListOp},
   {"#[", TupleOp},
-  {"{", DictOp},
-  {".", AccessOp},
   {"head", HeadOp},
   {"tail", TailOp},
   {"nth", NthOp},

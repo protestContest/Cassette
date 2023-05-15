@@ -1,5 +1,5 @@
 #pragma once
 #include "mem.h"
 
+u32 PrintVal(Mem *mem, Val value);
 void PrintTree(Val tree, Mem *mem);
-u32 TreeWidth(Val tree, Mem *mem);

@@ -1,4 +1,6 @@
-#include "print_tree.h"
+#include "print.h"
+
+#define PRINT_LIMIT 4
 
 static u32 Pad(u32 printed, u32 size, char *str)
 {
@@ -14,6 +16,125 @@ static u32 Pad(u32 printed, u32 size, char *str)
 static u32 Indent(u32 size, char *str)
 {
   return Pad(0, size, str);
+}
+
+static u32 PrintSymbol(Val symbol, Mem *mem)
+{
+  u32 printed = 0;
+  if (Eq(symbol, SymbolFor("true"))) {
+    printed += Print("true");
+  } else if (Eq(symbol, SymbolFor("false"))) {
+    printed += Print("false");
+  } else {
+    printed += Print(":");
+    char *str = SymbolName(mem, symbol);
+    printed += Print(str);
+  }
+  return printed;
+}
+
+static u32 PrintTuple(Val tuple, Mem *mem)
+{
+  u32 printed = 0;
+  printed += Print("#[");
+  u32 limit = TupleLength(mem, tuple);
+  if (PRINT_LIMIT && PRINT_LIMIT < limit) limit = PRINT_LIMIT;
+  for (u32 i = 0; i < limit; i++) {
+    printed += PrintVal(mem, TupleAt(mem, tuple, i));
+    if (i != TupleLength(mem, tuple) - 1) {
+      printed += Print(", ");
+    }
+  }
+  u32 rest = limit - TupleLength(mem, tuple);
+  if (rest > 0) {
+    printed += Print("...");
+    printed += PrintInt(rest);
+  }
+  printed += Print("]");
+  return printed;
+}
+
+static u32 PrintBinary(Val binary, Mem *mem)
+{
+  u32 printed = 0;
+  u32 limit = BinaryLength(mem, binary);
+  if (PRINT_LIMIT && PRINT_LIMIT*4 < limit) limit = PRINT_LIMIT*4;
+
+  u8 *data = BinaryData(mem, binary);
+  printed += Print("\"");
+  for (u32 i = 0; i < limit; i++) {
+    if (data[i] > 0x1F && data[i] < 0x7F) {
+      printed += PrintChar(data[i]);
+    } else {
+      printed += Print(".");
+    }
+    printed += Print("\"");
+  }
+
+  return printed;
+}
+
+static u32 PrintTail(Mem *mem, Val tail, u32 max)
+{
+  u32 printed = 0;
+
+  if (PRINT_LIMIT && max == 0) {
+    printed += Print("...");
+    printed += PrintInt(ListLength(mem, tail));
+    printed += Print("]");
+    return printed;
+  }
+
+  printed += PrintVal(mem, Head(mem, tail));
+  if (IsNil(Tail(mem, tail))) {
+    printed += Print("]");
+  } else if (!IsPair(Tail(mem, tail))) {
+    printed += Print(" | ");
+    printed += PrintVal(mem, Tail(mem, tail));
+    printed += Print("]");
+  } else {
+    printed += Print(" ");
+    printed += PrintTail(mem, Tail(mem, tail), max - 1);
+  }
+  return printed;
+}
+
+u32 PrintVal(Mem *mem, Val value)
+{
+  u32 printed = 0;
+  if (IsNil(value)) {
+    printed += Print("nil");
+  } else if (IsNum(value)) {
+    printed += PrintFloat(value.as_f);
+  } else if (IsInt(value)) {
+    printed += PrintInt(RawInt(value));
+  } else if (IsSym(value)) {
+    printed += PrintSymbol(value, mem);
+  } else if (IsPair(value)) {
+    printed += Print("[");
+    printed += PrintTail(mem, value, PRINT_LIMIT);
+  } else if (IsTuple(mem, value)) {
+    PrintTuple(value, mem);
+  } else if (IsBinary(mem, value)) {
+    u32 length = Min(16, BinaryLength(mem, value));
+    u8 *data = BinaryData(mem, value);
+    printed += Print("\"");
+    for (u32 i = 0; i < length; i++) {
+      if (data[i] > 31) {
+        char c[2] = {data[i], '\0'};
+        printed += Print(c);
+      } else {
+        printed += Print(".");
+      }
+    }
+    printed += Print("\"");
+  } else {
+    printed += Print("<v");
+    printed += PrintIntN(RawObj(value), 4, ' ');
+    printed += Print(">");
+  }
+
+  return printed;
 }
 
 static u32 NodeWidth(Val node, Mem *mem)
@@ -38,7 +159,7 @@ static u32 NodesWidth(Val nodes, Mem *mem)
   return width;
 }
 
-u32 TreeWidth(Val tree, Mem *mem)
+static u32 TreeWidth(Val tree, Mem *mem)
 {
   if (!IsList(mem, tree)) return NodeWidth(tree, mem);
   Val op = Head(mem, tree);

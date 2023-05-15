@@ -1,9 +1,9 @@
 #include "vm.h"
 #include "chunk.h"
 #include "env.h"
-#include "port.h"
 #include "primitives.h"
 #include "ops.h"
+#include "print.h"
 
 static Val ArithmeticOp(OpCode op, VM *vm);
 static void TraceInstruction(VM *vm, Chunk *chunk);

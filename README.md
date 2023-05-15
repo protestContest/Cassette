@@ -53,10 +53,10 @@ The source code can be found [here](https://git.sr.ht/~zjm/Cassette). This proje
 
 ## [Syntax, Types & Values](#syntax-types-values)
 
-Cassette is dynamically typed. There are seven data types: floating-point numbers, integers, symbols, pairs, tuples, dicts, and binaries. Numbers and symbols are immediate values, while the other values are pointers to heap objects.
+Cassette is dynamically typed. There are seven data types: floating-point numbers, integers, symbols, pairs, tuples, maps, and binaries. Numbers and symbols are immediate values, while the other values are pointers to heap objects.
 
 <aside>
-Syntactically, these forms are considered "primary" expressions: Numbers, variables, symbols, strings, lists, tuples, dicts, dict accesses, and grouped expressions. Primary expressions can be used with infix operators. An "Argument" expression is any primary expression, infix expression, or a `do`, `if`, or `cond` expression. A `call` expression is a sequence of one or more argument expressions, separated by spaces (but not newlines).
+Syntactically, these forms are considered "primary" expressions: Numbers, variables, symbols, strings, lists, tuples, maps, map accesses, and grouped expressions. Primary expressions can be used with infix operators. An "Argument" expression is any primary expression, infix expression, or a `do`, `if`, or `cond` expression. A `call` expression is a sequence of one or more argument expressions, separated by spaces (but not newlines).
 </aside>
 
 ### [Numbers](#numbers)
@@ -89,7 +89,7 @@ There are eight infix operators for comparison, equality, and logic: `<`, `<=`, 
 
 These evaluate to the symbols `true` or `false` (usually written with the keywords `true` and `false`). The logical operators are short-circuiting. In logic and conditional expressions, only `false` (the symbol `:false`) and `nil` (the empty list `[]`) are considered false.
 
-Comparison is only defined for numbers, which are compared by value. Equality is tested by identity, so pairs, tuples, dicts, and binaries are only equal if they  point to the same heap object. Integers and floats are compared by numeric value.
+Comparison is only defined for numbers, which are compared by value. Equality is tested by identity, so pairs, tuples, maps, and binaries are only equal if they  point to the same heap object. Integers and floats are compared by numeric value.
 
 ```
 3 and true    ; => true
@@ -127,11 +127,11 @@ let tup = #[1, 2, 3]
 (tup 100)           ; Out of bounds error
 ```
 
-### [Dicts](#dicts)
+### [Maps](#maps)
 
-Dicts are key-value dictionaries. A dict can be created with this syntax: `{a: 1, b: 2}` (commas optional). This creates a dict with the keys `:a` and `:b`, and the values `1` and `2`. Dict keys can be any value, but only symbol keys are supported in the literal syntax. For symbol keys, a dict can be accessed like this: `foo.x`.
+Maps are key-value dictionaries. A map can be created with this syntax: `{a: 1, b: 2}` (commas optional). This creates a map with the keys `:a` and `:b`, and the values `1` and `2`. Map keys can be any value, but only symbol keys are supported in the literal syntax. For symbol keys, a map can be accessed like this: `foo.x`.
 
-A dict can be updated with a syntax similar to lists: `{c: 3, d: 4 | some-dict}`. This returns a new dict that is a copy of the original with the updated entries.
+A map can be updated with a syntax similar to lists: `{c: 3, d: 4 | some-map}`. This returns a new map that is a copy of the original with the updated entries.
 
 ```
 let d = {a: 1, b: 2}
@@ -221,7 +221,7 @@ print "Hello, world!"       ; prints "Hello, world!"
 
 ### [Blocks & Conditionals](#blocks-conditionals)
 
-The top level of a file is a block. A block is a sequence of call expressions, separated by newlines. Function calls in a block can't have newlines between arguments, unless called within parentheses. Newlines are also allowed after an infix operator and within list, tuple, and dict literals.
+The top level of a file is a block. A block is a sequence of call expressions, separated by newlines. Function calls in a block can't have newlines between arguments, unless called within parentheses. Newlines are also allowed after an infix operator and within list, tuple, and map literals.
 
 A block can be created with a `do` expression, which can be used anywhere an expression is allowed. A `do` expression evaluates to the last statement in the block.
 
@@ -267,11 +267,11 @@ end
 
 ## [Modules & Import](#modules-import)
 
-The `import` keyword allows inclusion of another module. When used without `as` (e.g. `import "foo.csst"`), any definitions in the top-level of the other module become defined in the current environment. With the `as` keyword, the imported definitions are keys in a dictionary bound to the identifier.
+The `import` keyword allows inclusion of another module. When used without `as` (e.g. `import "foo.csst"`), any definitions in the top-level of the other module become defined in the current environment. With the `as` keyword, the imported definitions are keys in a map bound to the identifier.
 
 ```
 import "helpers.csst"       ; all defs in "helpers.csst" are now in scope
-import "math.csst" as Math  ; defs in "math.csst" are keys in the dict `Math`
+import "math.csst" as Math  ; defs in "math.csst" are keys in the map `Math`
 ```
 
 ## [Input & Output](#input-output)
@@ -313,8 +313,8 @@ Pairs are stored in the heap with the head at the value index and the tail just 
          31     24      16       8       0
          ┌┴──────┴───────┴───────┴───────┴┐
    Tuple │000      <number of items>      │
-    Dict │001     <number of entries>     │
-  Binary │010      <number of bytes>      │
+  Binary │001      <number of bytes>      │
+Reserved │010-----------------------------│
 Reserved │011-----------------------------│
 Reserved │100-----------------------------│
 Reserved │101-----------------------------│
@@ -323,6 +323,4 @@ Reserved │111-----------------------------│
          └────────────────────────────────┘
 ```
 
-Tuples store their values sequentially after the header. Dicts store a tuple value that points to the keys and a tuple value that points to the values after the header. Binaries store their data just after the header, padded to four bytes. The number of 4-byte words a binary uses (excluding the header) can be calculated with `((length - 1) / 4) + 1`. Strings are represented by binaries.
-
-String literals in programs are stored in the symbol table, and created on the heap at runtime.
+Tuples store their values sequentially after the header. Binaries store their data just after the header, padded to four bytes. The number of 4-byte words a binary uses (excluding the header) can be calculated with `((length - 1) / 4) + 1`. Strings are represented by binaries. String literals in programs are stored in the symbol table, and created on the heap at runtime.

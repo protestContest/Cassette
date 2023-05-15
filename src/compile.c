@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "ops.h"
 #include "env.h"
+#include "print.h"
 
 typedef Val Linkage;
 #define LinkReturn  SymbolFor("return")

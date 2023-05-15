@@ -1,6 +1,7 @@
 #include "chunk.h"
 #include "vm.h"
 #include "ops.h"
+#include "print.h"
 
 static void PushOp(OpCode op, Chunk *chunk)
 {

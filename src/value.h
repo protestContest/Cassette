@@ -36,14 +36,9 @@ typedef union {
 
 #define headerMask        0xE0000000
 #define tupleMask         0x00000000
-#define bigIntMask        0x20000000
-#define dictMask          0x40000000
-#define binaryMask        0x60000000
+#define binaryMask        0x20000000
 
 #define TupleHeader(n)    (Val){.as_v = ((n) & ~headerMask) | tupleMask}
-#define BigIntHeader(n)   (Val){.as_v = ((n) & ~headerMask) | bigIntMask}
-#define DictHeader(n)     (Val){.as_v = ((n) & ~headerMask) | dictMask}
-#define BigDictHeader(n)  (Val){.as_v = ((n) & ~headerMask) | bigDictMask}
 #define BinaryHeader(n)   (Val){.as_v = ((n) & ~headerMask) | binaryMask}
 
 #define HeaderVal(h)      (u32)((h).as_v & ~headerMask)
