@@ -17,7 +17,8 @@ lambda        → ID "->" nl logic
 lambda        → logic
 logic         → logic "and" nl equals | logic "or" nl equals | equals
 equals        → compare "==" nl compare | compare "!=" nl compare | compare
-compare       → sum "<" nl sum | sum "<=" nl sum | sum ">" nl sum | sum ">=" nl sum | sum
+compare       → member "<" nl member | member "<=" nl member | member ">" nl member | member ">=" nl member | member
+member        → sum "in" nl sum | sum
 sum           → sum "+" nl product | sum "-" nl product | product
 product       → product "*" nl block | product "/" nl block | block
 block         → do_block | if_block | cond_block | primary

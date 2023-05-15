@@ -10,7 +10,7 @@ State 0
     On nl    → 2
     On NL    → 3
     On $     → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
 State 1
   stmts           → stmts · stmt $
@@ -40,11 +40,13 @@ State 1
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -98,32 +100,33 @@ State 1
     On logic       → 21
     On equals      → 22
     On compare     → 23
-    On sum         → 24
-    On product     → 25
-    On block       → 26
-    On do_block    → 27
-    On if_block    → 28
-    On cond_block  → 29
-    On primary     → 30
-    On "do"        → 31
-    On "if"        → 32
-    On "cond"      → 33
-    On NUM         → 34
-    On string      → 35
-    On literal     → 36
-    On symbol      → 37
-    On list        → 38
-    On tuple       → 39
-    On dict        → 40
-    On access      → 41
-    On STR         → 42
-    On "true"      → 43
-    On "false"     → 44
-    On "nil"       → 45
-    On ":"         → 46
-    On "["         → 47
-    On "#["        → 48
-    On "{"         → 49
+    On member      → 24
+    On sum         → 25
+    On product     → 26
+    On block       → 27
+    On do_block    → 28
+    On if_block    → 29
+    On cond_block  → 30
+    On primary     → 31
+    On "do"        → 32
+    On "if"        → 33
+    On "cond"      → 34
+    On NUM         → 35
+    On string      → 36
+    On literal     → 37
+    On symbol      → 38
+    On list        → 39
+    On tuple       → 40
+    On dict        → 41
+    On access      → 42
+    On STR         → 43
+    On "true"      → 44
+    On "false"     → 45
+    On "nil"       → 46
+    On ":"         → 47
+    On "["         → 48
+    On "#["        → 49
+    On "{"         → 50
 
 State 2
   stmts           → nl ·
@@ -131,17 +134,17 @@ State 2
 
 State 3
   nl              → NL ·
-    Reduce 87 (nl, 1)
+    Reduce 89 (nl, 1)
 
 State 4
   nl              → $ ·
-    Reduce 88 (nl, 1)
+    Reduce 90 (nl, 1)
 
 State 5
   stmts           → stmts stmt · NL
   stmts           → stmts stmt · $
-    On NL → 50
-    On $  → 51
+    On NL → 51
+    On $  → 52
 
 State 6
   program         → stmts $ ·
@@ -178,11 +181,13 @@ State 11
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -217,7 +222,7 @@ State 11
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 52
+    On arg        → 53
     On lambda     → 17
     On "("        → 18
     On group      → 19
@@ -225,32 +230,33 @@ State 11
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 32
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 33
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
     Reduce 9 (stmt, 1)
 
 State 12
@@ -258,23 +264,23 @@ State 12
   nl              → · NL
   nl              → · $
   nl              → ε
-    On nl → 53
+    On nl → 54
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
 State 13
   def_stmt        → "def" · "(" params ")" do_block
-    On "(" → 54
+    On "(" → 55
 
 State 14
   import_stmt     → "import" · STR "as" ID
   import_stmt     → "import" · STR
-    On STR → 55
+    On STR → 56
 
 State 15
   prim_call       → "@" · ID call
-    On ID → 56
+    On ID → 57
 
 State 16
   call            → arg ·
@@ -301,11 +307,13 @@ State 18
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -340,63 +348,64 @@ State 18
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On ml_call    → 57
-    On ")"        → 58
-    On arg        → 59
+    On ml_call    → 58
+    On ")"        → 59
+    On arg        → 60
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 32
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 33
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
 State 19
   primary         → group ·
   lambda          → group · "->" nl logic
-    On "->" → 61
-    Reduce 64 (primary, 1)
+    On "->" → 62
+    Reduce 66 (primary, 1)
 
 State 20
   access          → ID · "." ID
   primary         → ID ·
   lambda          → ID · "->" nl logic
-    On "." → 62
-    On "->" → 63
-    Reduce 60 (primary, 1)
+    On "." → 63
+    On "->" → 64
+    Reduce 62 (primary, 1)
 
 State 21
   logic           → logic · "or" nl equals
   logic           → logic · "and" nl equals
   lambda          → logic ·
-    On "or" → 64
-    On "and" → 65
+    On "or" → 65
+    On "and" → 66
     Reduce 30 (lambda, 1)
 
 State 22
@@ -407,55 +416,61 @@ State 23
   equals          → compare ·
   equals          → compare · "!=" nl compare
   equals          → compare · "==" nl compare
-    On "!=" → 66
-    On "==" → 67
+    On "!=" → 67
+    On "==" → 68
     Reduce 36 (equals, 1)
 
 State 24
-  sum             → sum · "-" nl product
-  sum             → sum · "+" nl product
-  compare         → sum ·
-  compare         → sum · ">=" nl sum
-  compare         → sum · ">" nl sum
-  compare         → sum · "<=" nl sum
-  compare         → sum · "<" nl sum
-    On "-" → 68
-    On "+" → 69
-    On ">=" → 70
-    On ">" → 71
-    On "<=" → 72
-    On "<" → 73
+  compare         → member ·
+  compare         → member · ">=" nl member
+  compare         → member · ">" nl member
+  compare         → member · "<=" nl member
+  compare         → member · "<" nl member
+    On ">=" → 69
+    On ">" → 70
+    On "<=" → 71
+    On "<" → 72
     Reduce 41 (compare, 1)
 
 State 25
+  sum             → sum · "-" nl product
+  sum             → sum · "+" nl product
+  member          → sum ·
+  member          → sum · "in" nl sum
+    On "-" → 73
+    On "+" → 74
+    On "in" → 75
+    Reduce 43 (member, 1)
+
+State 26
   product         → product · "/" nl block
   product         → product · "*" nl block
   sum             → product ·
-    On "/" → 74
-    On "*" → 75
-    Reduce 44 (sum, 1)
-
-State 26
-  product         → block ·
-    Reduce 47 (product, 1)
+    On "/" → 76
+    On "*" → 77
+    Reduce 46 (sum, 1)
 
 State 27
-  block           → do_block ·
-    Reduce 48 (block, 1)
+  product         → block ·
+    Reduce 49 (product, 1)
 
 State 28
-  block           → if_block ·
-    Reduce 49 (block, 1)
-
-State 29
-  block           → cond_block ·
+  block           → do_block ·
     Reduce 50 (block, 1)
 
-State 30
-  block           → primary ·
+State 29
+  block           → if_block ·
     Reduce 51 (block, 1)
 
+State 30
+  block           → cond_block ·
+    Reduce 52 (block, 1)
+
 State 31
+  block           → primary ·
+    Reduce 53 (block, 1)
+
+State 32
   do_block        → "do" · stmts opt_stmt "end"
   stmts           → · stmts stmt NL
   stmts           → · stmts stmt $
@@ -463,13 +478,13 @@ State 31
   nl              → · NL
   nl              → · $
   nl              → ε
-    On stmts → 76
+    On stmts → 78
     On nl    → 2
     On NL    → 3
     On $     → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 32
+State 33
   if_block        → "if" · arg do_block
   if_block        → "if" · arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
   arg             → · lambda
@@ -484,11 +499,13 @@ State 32
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -523,7 +540,7 @@ State 32
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 77
+    On arg        → 79
     On lambda     → 17
     On "("        → 18
     On group      → 19
@@ -531,165 +548,166 @@ State 32
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-
-State 33
-  cond_block      → "cond" · "do" clauses "end"
-    On "do" → 79
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
 State 34
-  primary         → NUM ·
-    Reduce 59 (primary, 1)
+  cond_block      → "cond" · "do" clauses "end"
+    On "do" → 81
 
 State 35
-  primary         → string ·
+  primary         → NUM ·
     Reduce 61 (primary, 1)
 
 State 36
-  primary         → literal ·
-    Reduce 62 (primary, 1)
-
-State 37
-  primary         → symbol ·
+  primary         → string ·
     Reduce 63 (primary, 1)
 
+State 37
+  primary         → literal ·
+    Reduce 64 (primary, 1)
+
 State 38
-  primary         → list ·
+  primary         → symbol ·
     Reduce 65 (primary, 1)
 
 State 39
-  primary         → tuple ·
-    Reduce 66 (primary, 1)
-
-State 40
-  primary         → dict ·
+  primary         → list ·
     Reduce 67 (primary, 1)
 
-State 41
-  access          → access · "." ID
-  primary         → access ·
-    On "." → 80
+State 40
+  primary         → tuple ·
     Reduce 68 (primary, 1)
 
+State 41
+  primary         → dict ·
+    Reduce 69 (primary, 1)
+
 State 42
-  string          → STR ·
-    Reduce 69 (string, 1)
+  access          → access · "." ID
+  primary         → access ·
+    On "." → 82
+    Reduce 70 (primary, 1)
 
 State 43
-  literal         → "true" ·
-    Reduce 72 (literal, 1)
+  string          → STR ·
+    Reduce 71 (string, 1)
 
 State 44
-  literal         → "false" ·
-    Reduce 73 (literal, 1)
-
-State 45
-  literal         → "nil" ·
+  literal         → "true" ·
     Reduce 74 (literal, 1)
 
+State 45
+  literal         → "false" ·
+    Reduce 75 (literal, 1)
+
 State 46
-  symbol          → ":" · ID
-    On ID → 81
+  literal         → "nil" ·
+    Reduce 76 (literal, 1)
 
 State 47
+  symbol          → ":" · ID
+    On ID → 83
+
+State 48
   list            → "[" · items update "]"
   items           → · items arg opt_comma nl
   items           → · nl
   nl              → · NL
   nl              → · $
   nl              → ε
-    On items → 82
-    On nl    → 83
+    On items → 84
+    On nl    → 85
     On NL    → 3
     On $     → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 48
+State 49
   tuple           → "#[" · items "]"
   items           → · items arg opt_comma nl
   items           → · nl
   nl              → · NL
   nl              → · $
   nl              → ε
-    On items → 84
-    On nl    → 83
+    On items → 86
+    On nl    → 85
     On NL    → 3
     On $     → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 49
+State 50
   dict            → "{" · entries update "}"
   entries         → · entries entry opt_comma nl
   entries         → · nl
   nl              → · NL
   nl              → · $
   nl              → ε
-    On entries → 85
-    On nl      → 86
+    On entries → 87
+    On nl      → 88
     On NL      → 3
     On $       → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 50
+State 51
   stmts           → stmts stmt NL ·
     Reduce 2 (stmts, 3)
 
-State 51
+State 52
   stmts           → stmts stmt $ ·
     Reduce 3 (stmts, 3)
 
-State 52
+State 53
   call            → call arg ·
     Reduce 22 (call, 2)
 
-State 53
+State 54
   let_stmt        → "let" nl · assigns
   assigns         → · assigns "," nl assign
   assigns         → · assign
   assign          → · ID "=" call
-    On assigns → 87
-    On assign  → 88
-    On ID      → 89
+    On assigns → 89
+    On assign  → 90
+    On ID      → 91
 
-State 54
+State 55
   def_stmt        → "def" "(" · params ")" do_block
   params          → · params ID
   params          → · ID
-    On params → 90
-    On ID     → 91
-
-State 55
-  import_stmt     → "import" STR ·
-  import_stmt     → "import" STR · "as" ID
-    On "as" → 92
-    Reduce 19 (import_stmt, 2)
+    On params → 92
+    On ID     → 93
 
 State 56
+  import_stmt     → "import" STR ·
+  import_stmt     → "import" STR · "as" ID
+    On "as" → 94
+    Reduce 19 (import_stmt, 2)
+
+State 57
   prim_call       → "@" ID · call
   call            → · call arg
   call            → · arg
@@ -705,11 +723,13 @@ State 56
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -744,7 +764,7 @@ State 56
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On call       → 93
+    On call       → 95
     On arg        → 16
     On lambda     → 17
     On "("        → 18
@@ -753,54 +773,55 @@ State 56
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 32
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 33
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 57
+State 58
   ml_call         → ml_call · nl arg
   group           → "(" ml_call · ")"
   nl              → · NL
   nl              → · $
   nl              → ε
-    On nl → 94
-    On ")" → 95
+    On nl → 96
+    On ")" → 97
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
-
-State 58
-  lambda          → "(" ")" · "->" nl logic
-    On "->" → 96
+    Reduce 91 (nl, 0)
 
 State 59
+  lambda          → "(" ")" · "->" nl logic
+    On "->" → 98
+
+State 60
   ml_call         → arg ·
     Reduce 25 (ml_call, 1)
 
-State 60
+State 61
   group           → "(" · ml_call ")"
   lambda          → "(" · ")" "->" nl logic
   ml_call         → · ml_call nl arg
@@ -817,11 +838,13 @@ State 60
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -856,9 +879,9 @@ State 60
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On ml_call    → 57
-    On ")"        → 58
-    On arg        → 59
+    On ml_call    → 58
+    On ")"        → 59
+    On arg        → 60
     On lambda     → 17
     On "("        → 18
     On group      → 19
@@ -866,178 +889,189 @@ State 60
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 32
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-
-State 61
-  lambda          → group "->" · nl logic
-  nl              → · NL
-  nl              → · $
-  nl              → ε
-    On nl → 97
-    On NL → 3
-    On $  → 4
-    Reduce 89 (nl, 0)
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 33
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
 State 62
-  access          → ID "." · ID
-    On ID → 98
-
-State 63
-  lambda          → ID "->" · nl logic
+  lambda          → group "->" · nl logic
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 99
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
+
+State 63
+  access          → ID "." · ID
+    On ID → 100
 
 State 64
-  logic           → logic "or" · nl equals
-  nl              → · NL
-  nl              → · $
-  nl              → ε
-    On nl → 100
-    On NL → 3
-    On $  → 4
-    Reduce 89 (nl, 0)
-
-State 65
-  logic           → logic "and" · nl equals
+  lambda          → ID "->" · nl logic
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 101
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 66
-  equals          → compare "!=" · nl compare
+State 65
+  logic           → logic "or" · nl equals
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 102
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 67
-  equals          → compare "==" · nl compare
+State 66
+  logic           → logic "and" · nl equals
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 103
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 68
-  sum             → sum "-" · nl product
+State 67
+  equals          → compare "!=" · nl compare
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 104
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 69
-  sum             → sum "+" · nl product
+State 68
+  equals          → compare "==" · nl compare
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 105
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 70
-  compare         → sum ">=" · nl sum
+State 69
+  compare         → member ">=" · nl member
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 106
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 71
-  compare         → sum ">" · nl sum
+State 70
+  compare         → member ">" · nl member
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 107
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 72
-  compare         → sum "<=" · nl sum
+State 71
+  compare         → member "<=" · nl member
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 108
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 73
-  compare         → sum "<" · nl sum
+State 72
+  compare         → member "<" · nl member
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 109
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 74
-  product         → product "/" · nl block
+State 73
+  sum             → sum "-" · nl product
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 110
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 75
-  product         → product "*" · nl block
+State 74
+  sum             → sum "+" · nl product
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 111
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
+
+State 75
+  member          → sum "in" · nl sum
+  nl              → · NL
+  nl              → · $
+  nl              → ε
+    On nl → 112
+    On NL → 3
+    On $  → 4
+    Reduce 91 (nl, 0)
 
 State 76
+  product         → product "/" · nl block
+  nl              → · NL
+  nl              → · $
+  nl              → ε
+    On nl → 113
+    On NL → 3
+    On $  → 4
+    Reduce 91 (nl, 0)
+
+State 77
+  product         → product "*" · nl block
+  nl              → · NL
+  nl              → · $
+  nl              → ε
+    On nl → 114
+    On NL → 3
+    On $  → 4
+    Reduce 91 (nl, 0)
+
+State 78
   stmts           → stmts · stmt $
   stmts           → stmts · stmt NL
   do_block        → "do" stmts · opt_stmt "end"
@@ -1067,11 +1101,13 @@ State 76
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1106,8 +1142,8 @@ State 76
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On stmt        → 112
-    On opt_stmt    → 113
+    On stmt        → 115
+    On opt_stmt    → 116
     On let_stmt    → 7
     On def_stmt    → 8
     On import_stmt → 9
@@ -1119,48 +1155,49 @@ State 76
     On "@"         → 15
     On arg         → 16
     On lambda      → 17
-    On "("         → 60
+    On "("         → 61
     On group       → 19
     On ID          → 20
     On logic       → 21
     On equals      → 22
     On compare     → 23
-    On sum         → 24
-    On product     → 25
-    On block       → 26
-    On do_block    → 27
-    On if_block    → 28
-    On cond_block  → 29
-    On primary     → 30
-    On "do"        → 31
-    On "if"        → 32
-    On "cond"      → 33
-    On NUM         → 34
-    On string      → 35
-    On literal     → 36
-    On symbol      → 37
-    On list        → 38
-    On tuple       → 39
-    On dict        → 40
-    On access      → 41
-    On STR         → 42
-    On "true"      → 43
-    On "false"     → 44
-    On "nil"       → 45
-    On ":"         → 46
-    On "["         → 47
-    On "#["        → 48
-    On "{"         → 49
+    On member      → 24
+    On sum         → 25
+    On product     → 26
+    On block       → 27
+    On do_block    → 28
+    On if_block    → 29
+    On cond_block  → 30
+    On primary     → 31
+    On "do"        → 32
+    On "if"        → 33
+    On "cond"      → 34
+    On NUM         → 35
+    On string      → 36
+    On literal     → 37
+    On symbol      → 38
+    On list        → 39
+    On tuple       → 40
+    On dict        → 41
+    On access      → 42
+    On STR         → 43
+    On "true"      → 44
+    On "false"     → 45
+    On "nil"       → 46
+    On ":"         → 47
+    On "["         → 48
+    On "#["        → 49
+    On "{"         → 50
     Reduce 11 (opt_stmt, 0)
 
-State 77
+State 79
   if_block        → "if" arg · "do" stmts opt_stmt "else" stmts opt_stmt "end"
   if_block        → "if" arg · do_block
   do_block        → · "do" stmts opt_stmt "end"
-    On "do"     → 114
-    On do_block → 115
+    On "do"     → 117
+    On do_block → 118
 
-State 78
+State 80
   if_block        → "if" · arg do_block
   if_block        → "if" · arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
   arg             → · lambda
@@ -1175,11 +1212,13 @@ State 78
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1214,57 +1253,58 @@ State 78
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 77
+    On arg        → 79
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 32
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 33
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 79
+State 81
   cond_block      → "cond" "do" · clauses "end"
   clauses         → · clauses clause
   clauses         → · NL
-    On clauses → 116
-    On NL      → 117
-
-State 80
-  access          → access "." · ID
-    On ID → 118
-
-State 81
-  symbol          → ":" ID ·
-    Reduce 75 (symbol, 2)
+    On clauses → 119
+    On NL      → 120
 
 State 82
+  access          → access "." · ID
+    On ID → 121
+
+State 83
+  symbol          → ":" ID ·
+    Reduce 77 (symbol, 2)
+
+State 84
   items           → items · arg opt_comma nl
   list            → "[" items · update "]"
   arg             → · lambda
@@ -1281,11 +1321,13 @@ State 82
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1320,49 +1362,50 @@ State 82
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 119
-    On update     → 120
+    On arg        → 122
+    On update     → 123
     On lambda     → 17
-    On "|"        → 121
-    On "("        → 60
+    On "|"        → 124
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-    Reduce 86 (update, 0)
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
+    Reduce 88 (update, 0)
 
-State 83
+State 85
   items           → nl ·
-    Reduce 79 (items, 1)
+    Reduce 81 (items, 1)
 
-State 84
+State 86
   items           → items · arg opt_comma nl
   tuple           → "#[" items · "]"
   arg             → · lambda
@@ -1377,11 +1420,13 @@ State 84
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1416,87 +1461,88 @@ State 84
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 119
-    On "]"        → 122
+    On arg        → 122
+    On "]"        → 125
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 85
+State 87
   entries         → entries · entry opt_comma nl
   dict            → "{" entries · update "}"
   entry           → · ID ":" nl arg
   update          → · "|" nl arg
   update          → ε
-    On entry  → 123
-    On update → 124
-    On ID     → 125
-    On "|"    → 121
-    Reduce 86 (update, 0)
-
-State 86
-  entries         → nl ·
-    Reduce 83 (entries, 1)
-
-State 87
-  assigns         → assigns · "," nl assign
-  let_stmt        → "let" nl assigns ·
-    On "," → 126
-    Reduce 12 (let_stmt, 3)
+    On entry  → 126
+    On update → 127
+    On ID     → 128
+    On "|"    → 124
+    Reduce 88 (update, 0)
 
 State 88
+  entries         → nl ·
+    Reduce 85 (entries, 1)
+
+State 89
+  assigns         → assigns · "," nl assign
+  let_stmt        → "let" nl assigns ·
+    On "," → 129
+    Reduce 12 (let_stmt, 3)
+
+State 90
   assigns         → assign ·
     Reduce 14 (assigns, 1)
 
-State 89
+State 91
   assign          → ID · "=" call
-    On "=" → 127
+    On "=" → 130
 
-State 90
+State 92
   params          → params · ID
   def_stmt        → "def" "(" params · ")" do_block
-    On ID → 128
-    On ")" → 129
+    On ID → 131
+    On ")" → 132
 
-State 91
+State 93
   params          → ID ·
     Reduce 18 (params, 1)
 
-State 92
+State 94
   import_stmt     → "import" STR "as" · ID
-    On ID → 130
+    On ID → 133
 
-State 93
+State 95
   call            → call · arg
   prim_call       → "@" ID call ·
   arg             → · lambda
@@ -1511,11 +1557,13 @@ State 93
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1550,43 +1598,44 @@ State 93
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 52
+    On arg        → 53
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
     Reduce 21 (prim_call, 3)
 
-State 94
+State 96
   ml_call         → ml_call nl · arg
   arg             → · lambda
   lambda          → · "(" ")" "->" nl logic
@@ -1600,11 +1649,13 @@ State 94
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1639,56 +1690,57 @@ State 94
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 131
+    On arg        → 134
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 95
+State 97
   group           → "(" ml_call ")" ·
-    Reduce 76 (group, 3)
+    Reduce 78 (group, 3)
 
-State 96
+State 98
   lambda          → "(" ")" "->" · nl logic
   nl              → · NL
   nl              → · $
   nl              → ε
-    On nl → 132
+    On nl → 135
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 97
+State 99
   lambda          → group "->" nl · logic
   logic           → · logic "and" nl equals
   logic           → · logic "or" nl equals
@@ -1696,11 +1748,13 @@ State 97
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1736,44 +1790,45 @@ State 97
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On logic      → 133
+    On logic      → 136
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 98
+State 100
   access          → ID "." ID ·
-    Reduce 71 (access, 3)
+    Reduce 73 (access, 3)
 
-State 99
+State 101
   lambda          → ID "->" nl · logic
   logic           → · logic "and" nl equals
   logic           → · logic "or" nl equals
@@ -1781,11 +1836,13 @@ State 99
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1821,49 +1878,52 @@ State 99
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On logic      → 137
+    On logic      → 140
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 100
+State 102
   logic           → logic "or" nl · equals
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1899,48 +1959,51 @@ State 100
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On equals     → 138
+    On equals     → 141
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 101
+State 103
   logic           → logic "and" nl · equals
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -1976,185 +2039,472 @@ State 101
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On equals     → 139
+    On equals     → 142
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-
-State 102
-  equals          → compare "!=" nl · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
-  sum             → · sum "+" nl product
-  sum             → · sum "-" nl product
-  sum             → · product
-  product         → · product "*" nl block
-  product         → · product "/" nl block
-  product         → · block
-  block           → · do_block
-  block           → · if_block
-  block           → · cond_block
-  block           → · primary
-  do_block        → · "do" stmts opt_stmt "end"
-  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
-  if_block        → · "if" arg do_block
-  cond_block      → · "cond" "do" clauses "end"
-  primary         → · NUM
-  primary         → · ID
-  primary         → · string
-  primary         → · literal
-  primary         → · symbol
-  primary         → · group
-  primary         → · list
-  primary         → · tuple
-  primary         → · dict
-  primary         → · access
-  string          → · STR
-  literal         → · "true"
-  literal         → · "false"
-  literal         → · "nil"
-  symbol          → · ":" ID
-  group           → · "(" ml_call ")"
-  list            → · "[" items update "]"
-  tuple           → · "#[" items "]"
-  dict            → · "{" entries update "}"
-  access          → · access "." ID
-  access          → · ID "." ID
-    On compare    → 140
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-
-State 103
-  equals          → compare "==" nl · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
-  sum             → · sum "+" nl product
-  sum             → · sum "-" nl product
-  sum             → · product
-  product         → · product "*" nl block
-  product         → · product "/" nl block
-  product         → · block
-  block           → · do_block
-  block           → · if_block
-  block           → · cond_block
-  block           → · primary
-  do_block        → · "do" stmts opt_stmt "end"
-  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
-  if_block        → · "if" arg do_block
-  cond_block      → · "cond" "do" clauses "end"
-  primary         → · NUM
-  primary         → · ID
-  primary         → · string
-  primary         → · literal
-  primary         → · symbol
-  primary         → · group
-  primary         → · list
-  primary         → · tuple
-  primary         → · dict
-  primary         → · access
-  string          → · STR
-  literal         → · "true"
-  literal         → · "false"
-  literal         → · "nil"
-  symbol          → · ":" ID
-  group           → · "(" ml_call ")"
-  list            → · "[" items update "]"
-  tuple           → · "#[" items "]"
-  dict            → · "{" entries update "}"
-  access          → · access "." ID
-  access          → · ID "." ID
-    On compare    → 141
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
 State 104
+  equals          → compare "!=" nl · compare
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
+  sum             → · sum "+" nl product
+  sum             → · sum "-" nl product
+  sum             → · product
+  product         → · product "*" nl block
+  product         → · product "/" nl block
+  product         → · block
+  block           → · do_block
+  block           → · if_block
+  block           → · cond_block
+  block           → · primary
+  do_block        → · "do" stmts opt_stmt "end"
+  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
+  if_block        → · "if" arg do_block
+  cond_block      → · "cond" "do" clauses "end"
+  primary         → · NUM
+  primary         → · ID
+  primary         → · string
+  primary         → · literal
+  primary         → · symbol
+  primary         → · group
+  primary         → · list
+  primary         → · tuple
+  primary         → · dict
+  primary         → · access
+  string          → · STR
+  literal         → · "true"
+  literal         → · "false"
+  literal         → · "nil"
+  symbol          → · ":" ID
+  group           → · "(" ml_call ")"
+  list            → · "[" items update "]"
+  tuple           → · "#[" items "]"
+  dict            → · "{" entries update "}"
+  access          → · access "." ID
+  access          → · ID "." ID
+    On compare    → 143
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
+
+State 105
+  equals          → compare "==" nl · compare
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
+  sum             → · sum "+" nl product
+  sum             → · sum "-" nl product
+  sum             → · product
+  product         → · product "*" nl block
+  product         → · product "/" nl block
+  product         → · block
+  block           → · do_block
+  block           → · if_block
+  block           → · cond_block
+  block           → · primary
+  do_block        → · "do" stmts opt_stmt "end"
+  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
+  if_block        → · "if" arg do_block
+  cond_block      → · "cond" "do" clauses "end"
+  primary         → · NUM
+  primary         → · ID
+  primary         → · string
+  primary         → · literal
+  primary         → · symbol
+  primary         → · group
+  primary         → · list
+  primary         → · tuple
+  primary         → · dict
+  primary         → · access
+  string          → · STR
+  literal         → · "true"
+  literal         → · "false"
+  literal         → · "nil"
+  symbol          → · ":" ID
+  group           → · "(" ml_call ")"
+  list            → · "[" items update "]"
+  tuple           → · "#[" items "]"
+  dict            → · "{" entries update "}"
+  access          → · access "." ID
+  access          → · ID "." ID
+    On compare    → 144
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
+
+State 106
+  compare         → member ">=" nl · member
+  member          → · sum "in" nl sum
+  member          → · sum
+  sum             → · sum "+" nl product
+  sum             → · sum "-" nl product
+  sum             → · product
+  product         → · product "*" nl block
+  product         → · product "/" nl block
+  product         → · block
+  block           → · do_block
+  block           → · if_block
+  block           → · cond_block
+  block           → · primary
+  do_block        → · "do" stmts opt_stmt "end"
+  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
+  if_block        → · "if" arg do_block
+  cond_block      → · "cond" "do" clauses "end"
+  primary         → · NUM
+  primary         → · ID
+  primary         → · string
+  primary         → · literal
+  primary         → · symbol
+  primary         → · group
+  primary         → · list
+  primary         → · tuple
+  primary         → · dict
+  primary         → · access
+  string          → · STR
+  literal         → · "true"
+  literal         → · "false"
+  literal         → · "nil"
+  symbol          → · ":" ID
+  group           → · "(" ml_call ")"
+  list            → · "[" items update "]"
+  tuple           → · "#[" items "]"
+  dict            → · "{" entries update "}"
+  access          → · access "." ID
+  access          → · ID "." ID
+    On member     → 145
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
+
+State 107
+  compare         → member ">" nl · member
+  member          → · sum "in" nl sum
+  member          → · sum
+  sum             → · sum "+" nl product
+  sum             → · sum "-" nl product
+  sum             → · product
+  product         → · product "*" nl block
+  product         → · product "/" nl block
+  product         → · block
+  block           → · do_block
+  block           → · if_block
+  block           → · cond_block
+  block           → · primary
+  do_block        → · "do" stmts opt_stmt "end"
+  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
+  if_block        → · "if" arg do_block
+  cond_block      → · "cond" "do" clauses "end"
+  primary         → · NUM
+  primary         → · ID
+  primary         → · string
+  primary         → · literal
+  primary         → · symbol
+  primary         → · group
+  primary         → · list
+  primary         → · tuple
+  primary         → · dict
+  primary         → · access
+  string          → · STR
+  literal         → · "true"
+  literal         → · "false"
+  literal         → · "nil"
+  symbol          → · ":" ID
+  group           → · "(" ml_call ")"
+  list            → · "[" items update "]"
+  tuple           → · "#[" items "]"
+  dict            → · "{" entries update "}"
+  access          → · access "." ID
+  access          → · ID "." ID
+    On member     → 146
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
+
+State 108
+  compare         → member "<=" nl · member
+  member          → · sum "in" nl sum
+  member          → · sum
+  sum             → · sum "+" nl product
+  sum             → · sum "-" nl product
+  sum             → · product
+  product         → · product "*" nl block
+  product         → · product "/" nl block
+  product         → · block
+  block           → · do_block
+  block           → · if_block
+  block           → · cond_block
+  block           → · primary
+  do_block        → · "do" stmts opt_stmt "end"
+  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
+  if_block        → · "if" arg do_block
+  cond_block      → · "cond" "do" clauses "end"
+  primary         → · NUM
+  primary         → · ID
+  primary         → · string
+  primary         → · literal
+  primary         → · symbol
+  primary         → · group
+  primary         → · list
+  primary         → · tuple
+  primary         → · dict
+  primary         → · access
+  string          → · STR
+  literal         → · "true"
+  literal         → · "false"
+  literal         → · "nil"
+  symbol          → · ":" ID
+  group           → · "(" ml_call ")"
+  list            → · "[" items update "]"
+  tuple           → · "#[" items "]"
+  dict            → · "{" entries update "}"
+  access          → · access "." ID
+  access          → · ID "." ID
+    On member     → 147
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
+
+State 109
+  compare         → member "<" nl · member
+  member          → · sum "in" nl sum
+  member          → · sum
+  sum             → · sum "+" nl product
+  sum             → · sum "-" nl product
+  sum             → · product
+  product         → · product "*" nl block
+  product         → · product "/" nl block
+  product         → · block
+  block           → · do_block
+  block           → · if_block
+  block           → · cond_block
+  block           → · primary
+  do_block        → · "do" stmts opt_stmt "end"
+  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
+  if_block        → · "if" arg do_block
+  cond_block      → · "cond" "do" clauses "end"
+  primary         → · NUM
+  primary         → · ID
+  primary         → · string
+  primary         → · literal
+  primary         → · symbol
+  primary         → · group
+  primary         → · list
+  primary         → · tuple
+  primary         → · dict
+  primary         → · access
+  string          → · STR
+  literal         → · "true"
+  literal         → · "false"
+  literal         → · "nil"
+  symbol          → · ":" ID
+  group           → · "(" ml_call ")"
+  list            → · "[" items update "]"
+  tuple           → · "#[" items "]"
+  dict            → · "{" entries update "}"
+  access          → · access "." ID
+  access          → · ID "." ID
+    On member     → 148
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
+
+State 110
   sum             → sum "-" nl · product
   product         → · product "*" nl block
   product         → · product "/" nl block
@@ -2188,36 +2538,36 @@ State 104
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On product    → 142
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On product    → 149
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 105
+State 111
   sum             → sum "+" nl · product
   product         → · product "*" nl block
   product         → · product "/" nl block
@@ -2251,37 +2601,37 @@ State 105
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On product    → 143
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On product    → 150
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 106
-  compare         → sum ">=" nl · sum
+State 112
+  member          → sum "in" nl · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -2317,238 +2667,37 @@ State 106
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On sum        → 144
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On sum        → 151
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 107
-  compare         → sum ">" nl · sum
-  sum             → · sum "+" nl product
-  sum             → · sum "-" nl product
-  sum             → · product
-  product         → · product "*" nl block
-  product         → · product "/" nl block
-  product         → · block
-  block           → · do_block
-  block           → · if_block
-  block           → · cond_block
-  block           → · primary
-  do_block        → · "do" stmts opt_stmt "end"
-  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
-  if_block        → · "if" arg do_block
-  cond_block      → · "cond" "do" clauses "end"
-  primary         → · NUM
-  primary         → · ID
-  primary         → · string
-  primary         → · literal
-  primary         → · symbol
-  primary         → · group
-  primary         → · list
-  primary         → · tuple
-  primary         → · dict
-  primary         → · access
-  string          → · STR
-  literal         → · "true"
-  literal         → · "false"
-  literal         → · "nil"
-  symbol          → · ":" ID
-  group           → · "(" ml_call ")"
-  list            → · "[" items update "]"
-  tuple           → · "#[" items "]"
-  dict            → · "{" entries update "}"
-  access          → · access "." ID
-  access          → · ID "." ID
-    On sum        → 145
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-
-State 108
-  compare         → sum "<=" nl · sum
-  sum             → · sum "+" nl product
-  sum             → · sum "-" nl product
-  sum             → · product
-  product         → · product "*" nl block
-  product         → · product "/" nl block
-  product         → · block
-  block           → · do_block
-  block           → · if_block
-  block           → · cond_block
-  block           → · primary
-  do_block        → · "do" stmts opt_stmt "end"
-  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
-  if_block        → · "if" arg do_block
-  cond_block      → · "cond" "do" clauses "end"
-  primary         → · NUM
-  primary         → · ID
-  primary         → · string
-  primary         → · literal
-  primary         → · symbol
-  primary         → · group
-  primary         → · list
-  primary         → · tuple
-  primary         → · dict
-  primary         → · access
-  string          → · STR
-  literal         → · "true"
-  literal         → · "false"
-  literal         → · "nil"
-  symbol          → · ":" ID
-  group           → · "(" ml_call ")"
-  list            → · "[" items update "]"
-  tuple           → · "#[" items "]"
-  dict            → · "{" entries update "}"
-  access          → · access "." ID
-  access          → · ID "." ID
-    On sum        → 146
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-
-State 109
-  compare         → sum "<" nl · sum
-  sum             → · sum "+" nl product
-  sum             → · sum "-" nl product
-  sum             → · product
-  product         → · product "*" nl block
-  product         → · product "/" nl block
-  product         → · block
-  block           → · do_block
-  block           → · if_block
-  block           → · cond_block
-  block           → · primary
-  do_block        → · "do" stmts opt_stmt "end"
-  if_block        → · "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
-  if_block        → · "if" arg do_block
-  cond_block      → · "cond" "do" clauses "end"
-  primary         → · NUM
-  primary         → · ID
-  primary         → · string
-  primary         → · literal
-  primary         → · symbol
-  primary         → · group
-  primary         → · list
-  primary         → · tuple
-  primary         → · dict
-  primary         → · access
-  string          → · STR
-  literal         → · "true"
-  literal         → · "false"
-  literal         → · "nil"
-  symbol          → · ":" ID
-  group           → · "(" ml_call ")"
-  list            → · "[" items update "]"
-  tuple           → · "#[" items "]"
-  dict            → · "{" entries update "}"
-  access          → · access "." ID
-  access          → · ID "." ID
-    On sum        → 147
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
-
-State 110
+State 113
   product         → product "/" nl · block
   block           → · do_block
   block           → · if_block
@@ -2579,35 +2728,35 @@ State 110
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On block      → 148
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On block      → 152
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 111
+State 114
   product         → product "*" nl · block
   block           → · do_block
   block           → · if_block
@@ -2638,47 +2787,47 @@ State 111
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On block      → 149
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On block      → 153
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 112
+State 115
   opt_stmt        → stmt ·
   stmts           → stmts stmt · NL
   stmts           → stmts stmt · $
-    On NL → 50
-    On $  → 51
+    On NL → 51
+    On $  → 52
     Reduce 10 (opt_stmt, 1)
 
-State 113
+State 116
   do_block        → "do" stmts opt_stmt · "end"
-    On "end" → 150
+    On "end" → 154
 
-State 114
+State 117
   do_block        → "do" · stmts opt_stmt "end"
   if_block        → "if" arg "do" · stmts opt_stmt "else" stmts opt_stmt "end"
   stmts           → · stmts stmt NL
@@ -2687,17 +2836,17 @@ State 114
   nl              → · NL
   nl              → · $
   nl              → ε
-    On stmts → 151
+    On stmts → 155
     On nl    → 2
     On NL    → 3
     On $     → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 115
+State 118
   if_block        → "if" arg do_block ·
-    Reduce 54 (if_block, 3)
+    Reduce 56 (if_block, 3)
 
-State 116
+State 119
   clauses         → clauses · clause
   cond_block      → "cond" "do" clauses · "end"
   clause          → · logic "->" nl call NL
@@ -2707,11 +2856,13 @@ State 116
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -2747,102 +2898,103 @@ State 116
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On clause     → 152
-    On "end"      → 153
-    On logic      → 154
+    On clause     → 156
+    On "end"      → 157
+    On logic      → 158
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 117
+State 120
   clauses         → NL ·
-    Reduce 57 (clauses, 1)
+    Reduce 59 (clauses, 1)
 
-State 118
+State 121
   access          → access "." ID ·
-    Reduce 70 (access, 3)
+    Reduce 72 (access, 3)
 
-State 119
+State 122
   items           → items arg · opt_comma nl
   opt_comma       → · ","
   opt_comma       → ε
-    On opt_comma → 155
-    On ","       → 156
-    Reduce 91 (opt_comma, 0)
-
-State 120
-  list            → "[" items update · "]"
-    On "]" → 157
-
-State 121
-  update          → "|" · nl arg
-  nl              → · NL
-  nl              → · $
-  nl              → ε
-    On nl → 158
-    On NL → 3
-    On $  → 4
-    Reduce 89 (nl, 0)
-
-State 122
-  tuple           → "#[" items "]" ·
-    Reduce 80 (tuple, 3)
+    On opt_comma → 159
+    On ","       → 160
+    Reduce 93 (opt_comma, 0)
 
 State 123
-  entries         → entries entry · opt_comma nl
-  opt_comma       → · ","
-  opt_comma       → ε
-    On opt_comma → 159
-    On ","       → 156
-    Reduce 91 (opt_comma, 0)
+  list            → "[" items update · "]"
+    On "]" → 161
 
 State 124
-  dict            → "{" entries update · "}"
-    On "}" → 160
-
-State 125
-  entry           → ID · ":" nl arg
-    On ":" → 161
-
-State 126
-  assigns         → assigns "," · nl assign
+  update          → "|" · nl arg
   nl              → · NL
   nl              → · $
   nl              → ε
     On nl → 162
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
+
+State 125
+  tuple           → "#[" items "]" ·
+    Reduce 82 (tuple, 3)
+
+State 126
+  entries         → entries entry · opt_comma nl
+  opt_comma       → · ","
+  opt_comma       → ε
+    On opt_comma → 163
+    On ","       → 160
+    Reduce 93 (opt_comma, 0)
 
 State 127
+  dict            → "{" entries update · "}"
+    On "}" → 164
+
+State 128
+  entry           → ID · ":" nl arg
+    On ":" → 165
+
+State 129
+  assigns         → assigns "," · nl assign
+  nl              → · NL
+  nl              → · $
+  nl              → ε
+    On nl → 166
+    On NL → 3
+    On $  → 4
+    Reduce 91 (nl, 0)
+
+State 130
   assign          → ID "=" · call
   call            → · call arg
   call            → · arg
@@ -2858,11 +3010,13 @@ State 127
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -2897,61 +3051,62 @@ State 127
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On call       → 163
+    On call       → 167
     On arg        → 16
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 128
+State 131
   params          → params ID ·
     Reduce 17 (params, 2)
 
-State 129
+State 132
   def_stmt        → "def" "(" params ")" · do_block
   do_block        → · "do" stmts opt_stmt "end"
-    On do_block → 164
-    On "do"     → 31
+    On do_block → 168
+    On "do"     → 32
 
-State 130
+State 133
   import_stmt     → "import" STR "as" ID ·
     Reduce 20 (import_stmt, 4)
 
-State 131
+State 134
   ml_call         → ml_call nl arg ·
     Reduce 24 (ml_call, 3)
 
-State 132
+State 135
   lambda          → "(" ")" "->" nl · logic
   logic           → · logic "and" nl equals
   logic           → · logic "or" nl equals
@@ -2959,11 +3114,13 @@ State 132
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -2999,58 +3156,59 @@ State 132
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On logic      → 165
+    On logic      → 169
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On ID         → 134
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On group      → 135
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "("        → 136
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On ID         → 137
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On group      → 138
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "("        → 139
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 133
+State 136
   logic           → logic · "or" nl equals
   logic           → logic · "and" nl equals
   lambda          → group "->" nl logic ·
-    On "or" → 64
-    On "and" → 65
+    On "or" → 65
+    On "and" → 66
     Reduce 28 (lambda, 4)
 
-State 134
+State 137
   access          → ID · "." ID
   primary         → ID ·
-    On "." → 62
-    Reduce 60 (primary, 1)
+    On "." → 63
+    Reduce 62 (primary, 1)
 
-State 135
+State 138
   primary         → group ·
-    Reduce 64 (primary, 1)
+    Reduce 66 (primary, 1)
 
-State 136
+State 139
   group           → "(" · ml_call ")"
   ml_call         → · ml_call nl arg
   ml_call         → · arg
@@ -3066,11 +3224,13 @@ State 136
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3105,127 +3265,120 @@ State 136
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On ml_call    → 57
-    On arg        → 59
+    On ml_call    → 58
+    On arg        → 60
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 137
+State 140
   logic           → logic · "or" nl equals
   logic           → logic · "and" nl equals
   lambda          → ID "->" nl logic ·
-    On "or" → 64
-    On "and" → 65
+    On "or" → 65
+    On "and" → 66
     Reduce 29 (lambda, 4)
 
-State 138
+State 141
   logic           → logic "or" nl equals ·
     Reduce 32 (logic, 4)
 
-State 139
+State 142
   logic           → logic "and" nl equals ·
     Reduce 31 (logic, 4)
 
-State 140
+State 143
   equals          → compare "!=" nl compare ·
     Reduce 35 (equals, 4)
 
-State 141
+State 144
   equals          → compare "==" nl compare ·
     Reduce 34 (equals, 4)
 
-State 142
+State 145
+  compare         → member ">=" nl member ·
+    Reduce 40 (compare, 4)
+
+State 146
+  compare         → member ">" nl member ·
+    Reduce 39 (compare, 4)
+
+State 147
+  compare         → member "<=" nl member ·
+    Reduce 38 (compare, 4)
+
+State 148
+  compare         → member "<" nl member ·
+    Reduce 37 (compare, 4)
+
+State 149
   product         → product · "/" nl block
   product         → product · "*" nl block
   sum             → sum "-" nl product ·
-    On "/" → 74
-    On "*" → 75
-    Reduce 43 (sum, 4)
+    On "/" → 76
+    On "*" → 77
+    Reduce 45 (sum, 4)
 
-State 143
+State 150
   product         → product · "/" nl block
   product         → product · "*" nl block
   sum             → sum "+" nl product ·
-    On "/" → 74
-    On "*" → 75
-    Reduce 42 (sum, 4)
-
-State 144
-  sum             → sum · "-" nl product
-  sum             → sum · "+" nl product
-  compare         → sum ">=" nl sum ·
-    On "-" → 68
-    On "+" → 69
-    Reduce 40 (compare, 4)
-
-State 145
-  sum             → sum · "-" nl product
-  sum             → sum · "+" nl product
-  compare         → sum ">" nl sum ·
-    On "-" → 68
-    On "+" → 69
-    Reduce 39 (compare, 4)
-
-State 146
-  sum             → sum · "-" nl product
-  sum             → sum · "+" nl product
-  compare         → sum "<=" nl sum ·
-    On "-" → 68
-    On "+" → 69
-    Reduce 38 (compare, 4)
-
-State 147
-  sum             → sum · "-" nl product
-  sum             → sum · "+" nl product
-  compare         → sum "<" nl sum ·
-    On "-" → 68
-    On "+" → 69
-    Reduce 37 (compare, 4)
-
-State 148
-  product         → product "/" nl block ·
-    Reduce 46 (product, 4)
-
-State 149
-  product         → product "*" nl block ·
-    Reduce 45 (product, 4)
-
-State 150
-  do_block        → "do" stmts opt_stmt "end" ·
-    Reduce 52 (do_block, 4)
+    On "/" → 76
+    On "*" → 77
+    Reduce 44 (sum, 4)
 
 State 151
+  sum             → sum · "-" nl product
+  sum             → sum · "+" nl product
+  member          → sum "in" nl sum ·
+    On "-" → 73
+    On "+" → 74
+    Reduce 42 (member, 4)
+
+State 152
+  product         → product "/" nl block ·
+    Reduce 48 (product, 4)
+
+State 153
+  product         → product "*" nl block ·
+    Reduce 47 (product, 4)
+
+State 154
+  do_block        → "do" stmts opt_stmt "end" ·
+    Reduce 54 (do_block, 4)
+
+State 155
   stmts           → stmts · stmt $
   stmts           → stmts · stmt NL
   if_block        → "if" arg "do" stmts · opt_stmt "else" stmts opt_stmt "end"
@@ -3256,11 +3409,13 @@ State 151
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3295,8 +3450,8 @@ State 151
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On stmt        → 112
-    On opt_stmt    → 166
+    On stmt        → 115
+    On opt_stmt    → 170
     On let_stmt    → 7
     On def_stmt    → 8
     On import_stmt → 9
@@ -3308,75 +3463,76 @@ State 151
     On "@"         → 15
     On arg         → 16
     On lambda      → 17
-    On "("         → 60
+    On "("         → 61
     On group       → 19
     On ID          → 20
     On logic       → 21
     On equals      → 22
     On compare     → 23
-    On sum         → 24
-    On product     → 25
-    On block       → 26
-    On do_block    → 27
-    On if_block    → 28
-    On cond_block  → 29
-    On primary     → 30
-    On "do"        → 31
-    On "if"        → 78
-    On "cond"      → 33
-    On NUM         → 34
-    On string      → 35
-    On literal     → 36
-    On symbol      → 37
-    On list        → 38
-    On tuple       → 39
-    On dict        → 40
-    On access      → 41
-    On STR         → 42
-    On "true"      → 43
-    On "false"     → 44
-    On "nil"       → 45
-    On ":"         → 46
-    On "["         → 47
-    On "#["        → 48
-    On "{"         → 49
+    On member      → 24
+    On sum         → 25
+    On product     → 26
+    On block       → 27
+    On do_block    → 28
+    On if_block    → 29
+    On cond_block  → 30
+    On primary     → 31
+    On "do"        → 32
+    On "if"        → 80
+    On "cond"      → 34
+    On NUM         → 35
+    On string      → 36
+    On literal     → 37
+    On symbol      → 38
+    On list        → 39
+    On tuple       → 40
+    On dict        → 41
+    On access      → 42
+    On STR         → 43
+    On "true"      → 44
+    On "false"     → 45
+    On "nil"       → 46
+    On ":"         → 47
+    On "["         → 48
+    On "#["        → 49
+    On "{"         → 50
     Reduce 11 (opt_stmt, 0)
 
-State 152
+State 156
   clauses         → clauses clause ·
-    Reduce 56 (clauses, 2)
+    Reduce 58 (clauses, 2)
 
-State 153
+State 157
   cond_block      → "cond" "do" clauses "end" ·
-    Reduce 55 (cond_block, 4)
+    Reduce 57 (cond_block, 4)
 
-State 154
+State 158
   logic           → logic · "or" nl equals
   logic           → logic · "and" nl equals
   clause          → logic · "->" nl call NL
-    On "or" → 64
-    On "and" → 65
-    On "->" → 167
+    On "or" → 65
+    On "and" → 66
+    On "->" → 171
 
-State 155
+State 159
   items           → items arg opt_comma · nl
   nl              → · NL
   nl              → · $
   nl              → ε
-    On nl → 168
+    On nl → 172
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 156
+State 160
   opt_comma       → "," ·
-    Reduce 90 (opt_comma, 1)
+    Reduce 92 (opt_comma, 1)
 
-State 157
+State 161
   list            → "[" items update "]" ·
-    Reduce 77 (list, 4)
+    Reduce 79 (list, 4)
 
-State 158
+State 162
   update          → "|" nl · arg
   arg             → · lambda
   lambda          → · "(" ")" "->" nl logic
@@ -3390,11 +3546,13 @@ State 158
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3429,72 +3587,73 @@ State 158
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 169
+    On arg        → 173
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 159
+State 163
   entries         → entries entry opt_comma · nl
   nl              → · NL
   nl              → · $
   nl              → ε
-    On nl → 170
+    On nl → 174
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 160
+State 164
   dict            → "{" entries update "}" ·
-    Reduce 81 (dict, 4)
+    Reduce 83 (dict, 4)
 
-State 161
+State 165
   entry           → ID ":" · nl arg
   nl              → · NL
   nl              → · $
   nl              → ε
-    On nl → 171
+    On nl → 175
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 162
+State 166
   assigns         → assigns "," nl · assign
   assign          → · ID "=" call
-    On assign → 172
-    On ID     → 89
+    On assign → 176
+    On ID     → 91
 
-State 163
+State 167
   call            → call · arg
   assign          → ID "=" call ·
   arg             → · lambda
@@ -3509,11 +3668,13 @@ State 163
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3548,83 +3709,84 @@ State 163
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 52
+    On arg        → 53
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
     Reduce 15 (assign, 3)
 
-State 164
+State 168
   def_stmt        → "def" "(" params ")" do_block ·
     Reduce 16 (def_stmt, 5)
 
-State 165
+State 169
   logic           → logic · "or" nl equals
   logic           → logic · "and" nl equals
   lambda          → "(" ")" "->" nl logic ·
-    On "or" → 64
-    On "and" → 65
+    On "or" → 65
+    On "and" → 66
     Reduce 27 (lambda, 5)
 
-State 166
+State 170
   do_block        → "do" stmts opt_stmt · "end"
   if_block        → "if" arg "do" stmts opt_stmt · "else" stmts opt_stmt "end"
-    On "end" → 150
-    On "else" → 173
+    On "end" → 154
+    On "else" → 177
 
-State 167
+State 171
   clause          → logic "->" · nl call NL
   nl              → · NL
   nl              → · $
   nl              → ε
-    On nl → 174
+    On nl → 178
     On NL → 3
     On $  → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 168
+State 172
   items           → items arg opt_comma nl ·
-    Reduce 78 (items, 4)
+    Reduce 80 (items, 4)
 
-State 169
+State 173
   update          → "|" nl arg ·
-    Reduce 85 (update, 3)
+    Reduce 87 (update, 3)
 
-State 170
+State 174
   entries         → entries entry opt_comma nl ·
-    Reduce 82 (entries, 4)
+    Reduce 84 (entries, 4)
 
-State 171
+State 175
   entry           → ID ":" nl · arg
   arg             → · lambda
   lambda          → · "(" ")" "->" nl logic
@@ -3638,11 +3800,13 @@ State 171
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3677,46 +3841,47 @@ State 171
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 175
+    On arg        → 179
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 172
+State 176
   assigns         → assigns "," nl assign ·
     Reduce 13 (assigns, 4)
 
-State 173
+State 177
   if_block        → "if" arg "do" stmts opt_stmt "else" · stmts opt_stmt "end"
   stmts           → · stmts stmt NL
   stmts           → · stmts stmt $
@@ -3724,13 +3889,13 @@ State 173
   nl              → · NL
   nl              → · $
   nl              → ε
-    On stmts → 176
+    On stmts → 180
     On nl    → 2
     On NL    → 3
     On $     → 4
-    Reduce 89 (nl, 0)
+    Reduce 91 (nl, 0)
 
-State 174
+State 178
   clause          → logic "->" nl · call NL
   call            → · call arg
   call            → · arg
@@ -3746,11 +3911,13 @@ State 174
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3785,47 +3952,48 @@ State 174
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On call       → 177
+    On call       → 181
     On arg        → 16
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 175
+State 179
   entry           → ID ":" nl arg ·
-    Reduce 84 (entry, 4)
+    Reduce 86 (entry, 4)
 
-State 176
+State 180
   stmts           → stmts · stmt $
   stmts           → stmts · stmt NL
   if_block        → "if" arg "do" stmts opt_stmt "else" stmts · opt_stmt "end"
@@ -3855,11 +4023,13 @@ State 176
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3894,8 +4064,8 @@ State 176
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On stmt        → 112
-    On opt_stmt    → 178
+    On stmt        → 115
+    On opt_stmt    → 182
     On let_stmt    → 7
     On def_stmt    → 8
     On import_stmt → 9
@@ -3907,41 +4077,42 @@ State 176
     On "@"         → 15
     On arg         → 16
     On lambda      → 17
-    On "("         → 60
+    On "("         → 61
     On group       → 19
     On ID          → 20
     On logic       → 21
     On equals      → 22
     On compare     → 23
-    On sum         → 24
-    On product     → 25
-    On block       → 26
-    On do_block    → 27
-    On if_block    → 28
-    On cond_block  → 29
-    On primary     → 30
-    On "do"        → 31
-    On "if"        → 78
-    On "cond"      → 33
-    On NUM         → 34
-    On string      → 35
-    On literal     → 36
-    On symbol      → 37
-    On list        → 38
-    On tuple       → 39
-    On dict        → 40
-    On access      → 41
-    On STR         → 42
-    On "true"      → 43
-    On "false"     → 44
-    On "nil"       → 45
-    On ":"         → 46
-    On "["         → 47
-    On "#["        → 48
-    On "{"         → 49
+    On member      → 24
+    On sum         → 25
+    On product     → 26
+    On block       → 27
+    On do_block    → 28
+    On if_block    → 29
+    On cond_block  → 30
+    On primary     → 31
+    On "do"        → 32
+    On "if"        → 80
+    On "cond"      → 34
+    On NUM         → 35
+    On string      → 36
+    On literal     → 37
+    On symbol      → 38
+    On list        → 39
+    On tuple       → 40
+    On dict        → 41
+    On access      → 42
+    On STR         → 43
+    On "true"      → 44
+    On "false"     → 45
+    On "nil"       → 46
+    On ":"         → 47
+    On "["         → 48
+    On "#["        → 49
+    On "{"         → 50
     Reduce 11 (opt_stmt, 0)
 
-State 177
+State 181
   call            → call · arg
   clause          → logic "->" nl call · NL
   arg             → · lambda
@@ -3956,11 +4127,13 @@ State 177
   equals          → · compare "==" nl compare
   equals          → · compare "!=" nl compare
   equals          → · compare
-  compare         → · sum "<" nl sum
-  compare         → · sum "<=" nl sum
-  compare         → · sum ">" nl sum
-  compare         → · sum ">=" nl sum
-  compare         → · sum
+  compare         → · member "<" nl member
+  compare         → · member "<=" nl member
+  compare         → · member ">" nl member
+  compare         → · member ">=" nl member
+  compare         → · member
+  member          → · sum "in" nl sum
+  member          → · sum
   sum             → · sum "+" nl product
   sum             → · sum "-" nl product
   sum             → · product
@@ -3995,51 +4168,52 @@ State 177
   dict            → · "{" entries update "}"
   access          → · access "." ID
   access          → · ID "." ID
-    On arg        → 52
-    On NL         → 179
+    On arg        → 53
+    On NL         → 183
     On lambda     → 17
-    On "("        → 60
+    On "("        → 61
     On group      → 19
     On ID         → 20
     On logic      → 21
     On equals     → 22
     On compare    → 23
-    On sum        → 24
-    On product    → 25
-    On block      → 26
-    On do_block   → 27
-    On if_block   → 28
-    On cond_block → 29
-    On primary    → 30
-    On "do"       → 31
-    On "if"       → 78
-    On "cond"     → 33
-    On NUM        → 34
-    On string     → 35
-    On literal    → 36
-    On symbol     → 37
-    On list       → 38
-    On tuple      → 39
-    On dict       → 40
-    On access     → 41
-    On STR        → 42
-    On "true"     → 43
-    On "false"    → 44
-    On "nil"      → 45
-    On ":"        → 46
-    On "["        → 47
-    On "#["       → 48
-    On "{"        → 49
+    On member     → 24
+    On sum        → 25
+    On product    → 26
+    On block      → 27
+    On do_block   → 28
+    On if_block   → 29
+    On cond_block → 30
+    On primary    → 31
+    On "do"       → 32
+    On "if"       → 80
+    On "cond"     → 34
+    On NUM        → 35
+    On string     → 36
+    On literal    → 37
+    On symbol     → 38
+    On list       → 39
+    On tuple      → 40
+    On dict       → 41
+    On access     → 42
+    On STR        → 43
+    On "true"     → 44
+    On "false"    → 45
+    On "nil"      → 46
+    On ":"        → 47
+    On "["        → 48
+    On "#["       → 49
+    On "{"        → 50
 
-State 178
+State 182
   if_block        → "if" arg "do" stmts opt_stmt "else" stmts opt_stmt · "end"
-    On "end" → 180
+    On "end" → 184
 
-State 179
+State 183
   clause          → logic "->" nl call NL ·
-    Reduce 58 (clause, 5)
+    Reduce 60 (clause, 5)
 
-State 180
+State 184
   if_block        → "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end" ·
-    Reduce 53 (if_block, 9)
+    Reduce 55 (if_block, 9)
 

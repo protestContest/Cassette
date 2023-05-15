@@ -73,8 +73,11 @@ static Seq LabelSeq(Val label, Compiler *c);
 static Val RegRef(Reg reg, Compiler *c);
 Val ExtractLabels(Val stmts, Compiler *c);
 Seq CompileError(char *message, Val val, Compiler *c);
-static Val PrimitiveOp(Val name);
 static void PrintSeq(Seq seq, Mem *mem);
+static bool IsSelfEvaluating(Val exp);
+static bool IsUnaryOp(Val exp, Mem *mem);
+static bool IsBinaryOp(Val exp, Mem *mem);
+static Val PrimitiveOp(Val name);
 
 void InitCompiler(Compiler *c, Mem *mem)
 {
@@ -112,36 +115,6 @@ Val Compile(Val exp, Mem *mem)
     MakeSeq(0, 0, MakePair(mem, OpSymbol(OpHalt), nil)), &c);
 
   return ExtractLabels(compiled.stmts, &c);
-}
-
-static bool IsSelfEvaluating(Val exp)
-{
-  return
-    IsNil(exp) ||
-    Eq(exp, SymbolFor("true")) ||
-    Eq(exp, SymbolFor("false")) ||
-    IsNumeric(exp);
-}
-
-static bool IsUnaryOp(Val exp, Mem *mem)
-{
-  return
-    IsTagged(mem, exp, "not") ||
-    IsTagged(mem, exp, "\"");
-}
-
-static bool IsBinaryOp(Val exp, Mem *mem)
-{
-  return
-    IsTagged(mem, exp, "==") ||
-    IsTagged(mem, exp, ">=") ||
-    IsTagged(mem, exp, "<=") ||
-    IsTagged(mem, exp, ">") ||
-    IsTagged(mem, exp, "<") ||
-    IsTagged(mem, exp, "+") ||
-    IsTagged(mem, exp, "-") ||
-    IsTagged(mem, exp, "*") ||
-    IsTagged(mem, exp, "/");
 }
 
 static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
@@ -940,6 +913,38 @@ Seq CompileError(char *message, Val val, Compiler *c)
   Print("\n");
   PrintEscape(IOFGReset);
   return (Seq){false, 0, 0, nil};
+}
+
+static bool IsSelfEvaluating(Val exp)
+{
+  return
+    IsNil(exp) ||
+    Eq(exp, SymbolFor("true")) ||
+    Eq(exp, SymbolFor("false")) ||
+    IsNumeric(exp);
+}
+
+static bool IsUnaryOp(Val exp, Mem *mem)
+{
+  return
+    IsTagged(mem, exp, "not") ||
+    IsTagged(mem, exp, "\"");
+}
+
+static bool IsBinaryOp(Val exp, Mem *mem)
+{
+  return
+    IsTagged(mem, exp, "in") ||
+    IsTagged(mem, exp, "==") ||
+    IsTagged(mem, exp, "!=") ||
+    IsTagged(mem, exp, ">=") ||
+    IsTagged(mem, exp, "<=") ||
+    IsTagged(mem, exp, ">") ||
+    IsTagged(mem, exp, "<") ||
+    IsTagged(mem, exp, "+") ||
+    IsTagged(mem, exp, "-") ||
+    IsTagged(mem, exp, "*") ||
+    IsTagged(mem, exp, "/");
 }
 
 static Val PrimitiveOp(Val name)

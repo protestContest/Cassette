@@ -4,6 +4,7 @@
 #include "lex.h"
 #include "mem.h"
 #include "ast.h"
+#include "print.h"
 
 static Val Shift(Parser *p, i32 state, Token token);
 static Val Reduce(Parser *p, u32 sym, u32 num, Token token);

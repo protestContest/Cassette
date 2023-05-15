@@ -212,9 +212,9 @@ static u32 PrintTreeNode(Val node, Mem *mem)
   u32 len = 0;
   len += Indent(NodeOffset(node, mem), " ");
   if (IsList(mem, node)) {
-    len += PrintValStr(mem, Head(mem, node));
+    len += PrintVal(mem, Head(mem, node));
   } else {
-    len += PrintValStr(mem, node);
+    len += PrintVal(mem, node);
   }
 
   if (width > len) Indent(width - len, " ");
