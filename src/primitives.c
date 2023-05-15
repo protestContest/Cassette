@@ -395,7 +395,7 @@ static Primitive primitives[] = {
 Val DoPrimitive(Val op, Val args, VM *vm)
 {
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
-    if (Eq(SymbolFor(primitives[i].name), op)) {
+    if (Eq(MakeSymbol(vm->mem, primitives[i].name), op)) {
       return primitives[i].fn(op, args, vm);
     }
   }

@@ -56,7 +56,7 @@ static Seq CompileUnaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileBinaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c);
-static Seq CompileArguments(Val exp, Compiler *c);
+static Seq CompileArguments(Val exp, Reg target, Compiler *c);
 static Seq CompileCall(Reg target, Linkage linkage, Compiler *c);
 
 static Seq CompileLinkage(Linkage linkage, Compiler *c);
@@ -524,7 +524,7 @@ static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *
 {
   Mem *mem = c->mem;
   Val op_name = First(mem, exp);
-  Seq args_code = CompileArguments(Tail(mem, exp), c);
+  Seq args_code = CompileArguments(Tail(mem, exp), RArgs, c);
 
   Seq call_code =
     MakeSeq(RArgs, RFun | target,
@@ -541,7 +541,7 @@ static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
 
-  Seq args_code = CompileArguments(Tail(mem, exp), c);
+  Seq args_code = CompileArguments(Tail(mem, exp), RArgs, c);
 
   // compile the operator into RFun, then put the proc's env in REnv and the
   // code location in RFun
@@ -565,7 +565,7 @@ static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
         call_code, c), c);
 }
 
-static Seq CompileArguments(Val exp, Compiler *c)
+static Seq CompileArguments(Val exp, Reg target, Compiler *c)
 {
   Mem *mem = c->mem;
 
@@ -578,13 +578,13 @@ static Seq CompileArguments(Val exp, Compiler *c)
   args = Tail(mem, args);
 
   // initialize RArgs with empty list, push first arg
-  Seq init_code = MakeSeq(RVal, RArgs,
+  Seq init_code = MakeSeq(RVal, target,
     MakePair(mem, OpSymbol(OpConst),
     MakePair(mem, nil,
-    MakePair(mem, RegRef(RArgs, c),
+    MakePair(mem, RegRef(target, c),
     MakePair(mem, OpSymbol(OpPush),
     MakePair(mem, RegRef(RVal, c),
-    MakePair(mem, RegRef(RArgs, c), nil)))))));
+    MakePair(mem, RegRef(target, c), nil)))))));
 
   Seq args_code = AppendSeq(first_arg_code, init_code, c);
 
@@ -593,14 +593,14 @@ static Seq CompileArguments(Val exp, Compiler *c)
     Seq arg_code = CompileExp(Head(mem, args), RVal, LinkNext, c);
 
     Seq push_code =
-      MakeSeq(RVal | RArgs, RArgs,
+      MakeSeq(RVal | target, target,
         MakePair(mem, OpSymbol(OpPush),
         MakePair(mem, RegRef(RVal, c),
-        MakePair(mem, RegRef(RArgs, c), nil))));
+        MakePair(mem, RegRef(target, c), nil))));
 
     // last arg doesn't need to preserve REnv
-    Reg preserve = RArgs;
-    if (!IsNil(Tail(mem, args))) preserve = RArgs | REnv;
+    Reg preserve = target;
+    if (!IsNil(Tail(mem, args))) preserve = target | REnv;
 
     args_code =
       AppendSeq(args_code,

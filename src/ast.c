@@ -262,8 +262,8 @@ static Val ParseEntry(Val children, Mem *mem)
 {
   Val key =
     MakePair(mem, SymbolFor(":"),
-    MakePair(mem, ListAt(mem, children, 0), nil));
-  Val value = ListAt(mem, children, 2);
+    MakePair(mem, First(mem, children), nil));
+  Val value = Third(mem, children);
 
   return
     MakePair(mem, key,
