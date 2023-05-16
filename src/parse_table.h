@@ -70,7 +70,7 @@ Grammar:
  66 primary         → group
  67 primary         → list
  68 primary         → tuple
- 69 primary         → dict
+ 69 primary         → map
  70 primary         → access
  71 string          → STR
  72 access          → access "." ID
@@ -84,7 +84,7 @@ Grammar:
  80 items           → items arg opt_comma nl
  81 items           → nl
  82 tuple           → "#[" items "]"
- 83 dict            → "{" entries update "}"
+ 83 map             → "{" entries update "}"
  84 entries         → entries entry opt_comma nl
  85 entries         → nl
  86 entry           → ID ":" nl arg
@@ -183,7 +183,7 @@ char *symbol_names[] = {
   [77] = "list",
   [78] = "items",
   [79] = "tuple",
-  [80] = "dict",
+  [80] = "map",
   [81] = "entries",
   [82] = "entry",
   [83] = "update",

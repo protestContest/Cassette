@@ -36,9 +36,11 @@ typedef union {
 
 #define headerMask        0xE0000000
 #define tupleMask         0x00000000
-#define binaryMask        0x20000000
+#define mapMask           0x20000000
+#define binaryMask        0x40000000
 
 #define TupleHeader(n)    (Val){.as_v = ((n) & ~headerMask) | tupleMask}
+#define MapHeader(n)      (Val){.as_v = ((n) & ~headerMask) | mapMask}
 #define BinaryHeader(n)   (Val){.as_v = ((n) & ~headerMask) | binaryMask}
 
 #define HeaderVal(h)      (u32)((h).as_v & ~headerMask)

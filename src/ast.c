@@ -127,14 +127,14 @@ static Val ParseLambda(Val children, Mem *mem)
 
 static Val ParseAccess(Val children, Mem *mem)
 {
-  Val dict = ListAt(mem, children, 0);
+  Val map = ListAt(mem, children, 0);
   Val key =
     MakePair(mem, SymbolFor(":"),
     MakePair(mem, ListAt(mem, children, 2), nil));
 
   return
     MakePair(mem, SymbolFor("."),
-    MakePair(mem, dict,
+    MakePair(mem, map,
     MakePair(mem, key, nil)));
 }
 
@@ -325,7 +325,7 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymList:        return ParseCollection(children, mem);
   case ParseSymItems:       return ParseSequence(children, mem);
   case ParseSymTuple:       return ParseCollection(children, mem);
-  case ParseSymDict:        return ParseCollection(children, mem);
+  case ParseSymMap:         return ParseCollection(children, mem);
   case ParseSymEntries:     return ParseSequence(children, mem);
   case ParseSymEntry:       return ParseEntry(children, mem);
   case ParseSymString:      return ParseString(children, mem);

@@ -176,6 +176,13 @@ void TupleSet(Mem *mem, Val tuple, u32 i, Val val)
   mem->values[index + i + 1] = val;
 }
 
+bool IsMap(Mem *mem, Val value)
+{
+  if (!IsObj(value)) return false;
+  u32 index = RawObj(value);
+  return HeaderType(mem->values[index]) == mapMask;
+}
+
 bool IsBinary(Mem *mem, Val binary)
 {
   if (!IsObj(binary)) return false;
@@ -203,9 +210,23 @@ Val MakeBinaryFrom(Mem *mem, char *str, u32 length)
   return binary;
 }
 
-Val MakeBinary(Mem *mem, char *str)
+Val MakeBinary(Mem *mem, u32 length)
 {
-  return MakeBinaryFrom(mem, str, StrLen(str));
+  Val binary = ObjVal(NextFree(mem));
+  VecPush(mem->values, BinaryHeader(length));
+  if (length == 0) {
+    return binary;
+  }
+
+  u32 num_words = (length - 1) / sizeof(Val) + 1;
+  GrowVec(mem->values, num_words);
+
+  u8 *bytes = BinaryData(mem, binary);
+  for (u32 i = 0; i < length; i++) {
+    bytes[i] = 0;
+  }
+
+  return binary;
 }
 
 u32 BinaryLength(Mem *mem, Val binary)

@@ -138,11 +138,6 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->regs[ChunkRef(vm->chunk, vm->pc+1)] = ArithmeticOp(op, vm);
       vm->pc += OpLength(op);
       break;
-    case OpStr:
-      vm->regs[ChunkRef(vm->chunk, vm->pc+1)] =
-        MakeBinary(vm->mem, SymbolName(vm->mem, vm->regs[ChunkRef(vm->chunk, vm->pc+1)]));
-      vm->pc += OpLength(op);
-      break;
     default:
       RuntimeError("Unimplemented op code", OpSymbol(op), vm);
       break;

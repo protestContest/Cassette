@@ -81,7 +81,7 @@ enum {
   ParseSymList,
   ParseSymItems,
   ParseSymTuple,
-  ParseSymDict,
+  ParseSymMap,
   ParseSymEntries,
   ParseSymEntry,
   ParseSymUpdate,
