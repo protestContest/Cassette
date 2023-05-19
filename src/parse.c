@@ -6,6 +6,13 @@
 #include "ast.h"
 #include "print.h"
 
+/*
+This parser is an LR shift-reduce parser. The file "parse_table.h" is generated
+by parser generator script, "parse_gen.scm", which directs the parser state
+machine. At each reduction step, "ParseNode" (in ast.c) is called to structure
+the reduced node into an abstract syntax tree.
+*/
+
 static Val Shift(Parser *p, i32 state, Token token);
 static Val Reduce(Parser *p, u32 sym, u32 num, Token token);
 static Val ParseNext(Parser *p, Token token);

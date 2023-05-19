@@ -28,8 +28,7 @@ if_block      → "if" arg do_block
 cond_block    → "cond" "do" clauses "end"
 clauses       → clauses clause | NL
 clause        → logic "->" nl call NL
-primary       → NUM | ID | string | literal | symbol | group | list | tuple | map | access
-string        → STR
+primary       → NUM | ID | STR | literal | symbol | group | list | tuple | map | access
 access        → access "." ID | ID "." ID
 literal       → "true" | "false" | "nil"
 symbol        → ":" ID

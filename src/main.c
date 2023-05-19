@@ -30,14 +30,15 @@ void RunFile(char *filename)
   Val compiled = Compile(Tail(&mem, parsed), &mem);
   Chunk chunk = Assemble(compiled, &mem);
 
-#if DEBUG
-  Print("Disassembled\n");
+// // #if DEBUG
+  Print("──╴Disassembled╶──\n");
   Disassemble(&chunk, &mem);
   Print("\n");
-#endif
+// #endif
 
   VM vm;
   InitVM(&vm, &mem);
+  Print("──╴Run╶──\n");
   RunChunk(&vm, &chunk);
 }
 

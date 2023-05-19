@@ -30,7 +30,7 @@ add [reg]               adds arg1 and arg2, result in reg (args must be numeric)
 sub [reg]               subtracts arg1 and arg2, result in reg (args must be numeric)
 mul [reg]               multiplies arg1 and arg2, result in reg (args must be numeric)
 div [reg]               divides arg1 and arg2, result in reg (args must be numeric)
-str [reg]               replaces reg (a symbol) with the binary symbol name
+data [reg] [n]          creates a binary from the chunk data following, for n bytes
 */
 
 typedef enum {

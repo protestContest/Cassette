@@ -3,93 +3,86 @@
 #include "ops.h"
 #include "print.h"
 
+void InitChunk(Chunk *chunk)
+{
+  chunk->code = NULL;
+  chunk->constants = NULL;
+  InitStringTable(&chunk->symbols);
+}
+
 static void PushOp(OpCode op, Chunk *chunk)
 {
-  VecPush(chunk->data, op);
+  VecPush(chunk->code, op);
 }
 
 static void PushConst(Val value, Chunk *chunk)
 {
   for (u32 i = 0; i < VecCount(chunk->constants); i++) {
     if (Eq(value, chunk->constants[i])) {
-      VecPush(chunk->data, i);
+      VecPush(chunk->code, i);
       return;
     }
   }
 
-  VecPush(chunk->data, VecCount(chunk->constants));
+  VecPush(chunk->code, VecCount(chunk->constants));
   VecPush(chunk->constants, value);
 }
 
 static void PushReg(Val reg, Chunk *chunk)
 {
-  VecPush(chunk->data, RawInt(reg));
+  VecPush(chunk->code, RawInt(reg));
+}
+
+static void PushData(Val binary, Chunk *chunk, Mem *mem)
+{
+  // u32 position = VecCount(chunk->symbols.names);
+  // PutSymbol(&chunk->symbols, (char*)BinaryData(mem, binary), BinaryLength(mem, binary));
+  // PushConst(IntVal(position), chunk);
 }
 
 static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
 {
-  Val op = Head(mem, stmts);
+  Val op_sym = Head(mem, stmts);
 
-  for (u32 i = 0; i < NUM_OPCODES; i++) {
-    if (Eq(op, OpSymbol(i))) {
+  for (u32 op = 0; op < NUM_OPCODES; op++) {
+    if (Eq(op_sym, OpSymbol(op))) {
 #if DEBUG_ASSEMBLE
       u32 inst_start = VecCount(chunk->data);
 #endif
-      PushOp(i, chunk);
+      PushOp(op, chunk);
 
 #if DEBUG_ASSEMBLE
-      PrintVal(mem, op);
-      Print(" ");
+      for (u32 i = 0; i < OpLength(op); i++) {
+        PrintVal(mem, ListAt(mem, stmts, i));
+        Print(" ");
+      }
 #endif
 
       Val result;
-      switch (OpArgs(i)) {
+      switch (OpArgs(op)) {
       case ArgsNone:
         result = Tail(mem, stmts);
         break;
       case ArgsConst:
-#if DEBUG_ASSEMBLE
-        PrintVal(mem, ListAt(mem, stmts, 1));
-#endif
         PushConst(ListAt(mem, stmts, 1), chunk);
         result = ListFrom(mem, stmts, 2);
         break;
       case ArgsReg:
-#if DEBUG_ASSEMBLE
-        PrintVal(mem, ListAt(mem, stmts, 1));
-#endif
         PushReg(Tail(mem, ListAt(mem, stmts, 1)), chunk);
         result = ListFrom(mem, stmts, 2);
         break;
       case ArgsConstReg:
-#if DEBUG_ASSEMBLE
-        PrintVal(mem, Second(mem, stmts));
-        Print(" ");
-        PrintVal(mem, Third(mem, stmts));
-#endif
         PushConst(ListAt(mem, stmts, 1), chunk);
         PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
         result = ListFrom(mem, stmts, 3);
         break;
       case ArgsConstConstReg:
-#if DEBUG_ASSEMBLE
-        PrintVal(mem, Second(mem, stmts));
-        Print(" ");
-        PrintVal(mem, Third(mem, stmts));
-        Print(" ");
-        PrintVal(mem, Fourth(mem, stmts));
-#endif
         PushConst(Second(mem, stmts), chunk);
         PushConst(Third(mem, stmts), chunk);
         PushReg(Tail(mem, Fourth(mem, stmts)), chunk);
         result = ListFrom(mem, stmts, 4);
         break;
       case ArgsRegReg:
-#if DEBUG_ASSEMBLE
-        PrintVal(mem, ListAt(mem, stmts, 1));
-        Print(" ");
-        PrintVal(mem, ListAt(mem, stmts, 2));
-#endif
         PushReg(Tail(mem, ListAt(mem, stmts, 1)), chunk);
         PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
         result = ListFrom(mem, stmts, 3);
@@ -97,7 +90,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
       }
 
 #if DEBUG_ASSEMBLE
-      Print(" -> ");
+      Print("-> ");
       PrintInstruction(chunk, inst_start, mem);
       Print("\n");
 #endif
@@ -107,7 +100,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
   }
 
   Print("Unknown operation: ");
-  PrintVal(mem, op);
+  PrintVal(mem, op_sym);
   Print("\n");
 
   Assert(false);
@@ -115,7 +108,8 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
 
 Chunk Assemble(Val stmts, Mem *mem)
 {
-  Chunk chunk = {NULL, NULL};
+  Chunk chunk;
+  InitChunk(&chunk);
 
   while (!IsNil(stmts)) {
     stmts = AssembleInstruction(stmts, &chunk, mem);
@@ -126,14 +120,14 @@ Chunk Assemble(Val stmts, Mem *mem)
 
 u8 ChunkRef(Chunk *chunk, u32 index)
 {
-  Assert(index < VecCount(chunk->data));
-  return chunk->data[index];
+  Assert(index < VecCount(chunk->code));
+  return chunk->code[index];
 }
 
 Val ChunkConst(Chunk *chunk, u32 index)
 {
-  Assert(index < VecCount(chunk->data));
-  index = chunk->data[index];
+  Assert(index < VecCount(chunk->code));
+  index = chunk->code[index];
   Assert(index < VecCount(chunk->constants));
   return chunk->constants[index];
 }
@@ -142,7 +136,7 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
 {
   u32 printed = 0;
 
-  OpCode op = chunk->data[i];
+  OpCode op = chunk->code[i];
   printed += PrintOpCode(op);
 
   switch (OpArgs(op)) {
@@ -182,7 +176,7 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
 void Disassemble(Chunk *chunk, Mem *mem)
 {
   u32 i = 0;
-  while (i < VecCount(chunk->data)) {
+  while (i < VecCount(chunk->code)) {
     PrintIntN(i, 4, ' ');
     Print("│ ");
     PrintInstruction(chunk, i, mem);

@@ -1,18 +1,20 @@
 #pragma once
 #include "value.h"
+#include "string_table.h"
 
 typedef struct {
   Val *values;
-  Map symbols;
-  char **symbol_names;
+  StringTable symbols;
 } Mem;
 
 void InitMem(Mem *mem, u32 size);
 void DestroyMem(Mem *mem);
 
-Val MakeSymbolFrom(Mem *mem, char *str, u32 length);
-Val MakeSymbol(Mem *mem, char *str);
-char *SymbolName(Mem *mem, Val symbol);
+#define MakeSymbolFrom(mem, str, length)  PutString(&(mem)->symbols, str, length)
+#define MakeSymbol(mem, str)              PutString(&(mem)->symbols, str, StrLen(str))
+#define SymbolName(mem, symbol)           GetString(&(mem)->symbols, symbol)
+#define SymbolLength(mem, symbol)         GetStringLength(&(mem)->symbols, symbol)
+#define PrintSymbol(mem, symbol)          PrintN(SymbolName(mem, symbol), SymbolLength(mem, symbol))
 
 Val MakePair(Mem *mem, Val head, Val tail);
 Val Head(Mem *mem, Val pair);
@@ -31,6 +33,8 @@ bool IsTagged(Mem *mem, Val list, char *tag);
 #define Second(mem, list)  ListAt(mem, list, 1)
 #define Third(mem, list)  ListAt(mem, list, 2)
 #define Fourth(mem, list)  ListAt(mem, list, 3)
+#define Fifth(mem, list)  ListAt(mem, list, 4)
+#define Sixth(mem, list)  ListAt(mem, list, 5)
 
 bool IsTuple(Mem *mem, Val tuple);
 Val MakeTuple(Mem *mem, u32 count);

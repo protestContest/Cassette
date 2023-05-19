@@ -1,6 +1,6 @@
 #include "print.h"
 
-#define PRINT_LIMIT 4
+#define PRINT_LIMIT 8
 
 static u32 Pad(u32 printed, u32 size, char *str)
 {
@@ -18,7 +18,7 @@ static u32 Indent(u32 size, char *str)
   return Pad(0, size, str);
 }
 
-static u32 PrintSymbol(Val symbol, Mem *mem)
+static u32 PrintSymbolVal(Val symbol, Mem *mem)
 {
   u32 printed = 0;
   if (Eq(symbol, SymbolFor("true"))) {
@@ -27,8 +27,7 @@ static u32 PrintSymbol(Val symbol, Mem *mem)
     printed += Print("false");
   } else {
     printed += Print(":");
-    char *str = SymbolName(mem, symbol);
-    printed += Print(str);
+    printed += PrintSymbol(mem, symbol);
   }
   return printed;
 }
@@ -109,7 +108,7 @@ u32 PrintVal(Mem *mem, Val value)
   } else if (IsInt(value)) {
     printed += PrintInt(RawInt(value));
   } else if (IsSym(value)) {
-    printed += PrintSymbol(value, mem);
+    printed += PrintSymbolVal(value, mem);
   } else if (IsPair(value)) {
     printed += Print("[");
     printed += PrintTail(mem, value, PRINT_LIMIT);

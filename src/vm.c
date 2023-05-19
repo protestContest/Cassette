@@ -28,12 +28,13 @@ void InitVM(VM *vm, Mem *mem)
 
 void RunChunk(VM *vm, Chunk *chunk)
 {
+  Mem *mem = vm->mem;
   vm->pc = 0;
   vm->chunk = chunk;
   vm->halted = false;
 
-  while (!vm->halted && vm->pc < VecCount(chunk->data)) {
-    OpCode op = chunk->data[vm->pc];
+  while (!vm->halted && vm->pc < VecCount(chunk->code)) {
+    OpCode op = chunk->code[vm->pc];
 
     TraceInstruction(vm, chunk);
 
@@ -76,44 +77,44 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpPair:
       vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakePair(vm->mem,
+        MakePair(mem,
                 ChunkConst(chunk, vm->pc+1),
                 vm->regs[ChunkRef(chunk, vm->pc+2)]);
       vm->pc += OpLength(op);
       break;
     case OpHead:
       vm->regs[ChunkRef(chunk, vm->pc+1)] =
-        Head(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+        Head(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
       vm->pc += OpLength(op);
       break;
     case OpTail:
       vm->regs[ChunkRef(chunk, vm->pc+1)] =
-        Tail(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+        Tail(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
       vm->pc += OpLength(op);
       break;
     case OpPush:
       if (ChunkRef(chunk, vm->pc+2) == RegStack) vm->stats.stack_ops++;
       vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakePair(vm->mem,
+        MakePair(mem,
                 vm->regs[ChunkRef(chunk, vm->pc+1)],
                 vm->regs[ChunkRef(chunk, vm->pc+2)]);
       vm->pc += OpLength(op);
       break;
     case OpPop:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] = Head(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      vm->regs[ChunkRef(chunk, vm->pc+1)] = Tail(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->regs[ChunkRef(chunk, vm->pc+2)] = Head(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->regs[ChunkRef(chunk, vm->pc+1)] = Tail(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
       vm->pc += OpLength(op);
       break;
     case OpLookup:
       vm->regs[ChunkRef(chunk, vm->pc+3)] =
-        LookupByPosition(ChunkConst(chunk, vm->pc+1), ChunkConst(chunk, vm->pc+2), vm->regs[RegEnv], vm->mem);
+        LookupByPosition(ChunkConst(chunk, vm->pc+1), ChunkConst(chunk, vm->pc+2), vm->regs[RegEnv], mem);
       if (Eq(vm->regs[ChunkRef(chunk, vm->pc+3)], SymbolFor("__undefined__"))) {
-        RuntimeError("Undefined variable", MakePair(vm->mem, ChunkConst(chunk, vm->pc+1), ChunkConst(chunk, vm->pc+2)), vm);
+        RuntimeError("Undefined variable", MakePair(mem, ChunkConst(chunk, vm->pc+1), ChunkConst(chunk, vm->pc+2)), vm);
       }
       vm->pc += OpLength(op);
       break;
     case OpDefine:
-      Define(ChunkConst(chunk, vm->pc+1), vm->regs[ChunkRef(chunk, vm->pc+2)], vm->regs[RegEnv], vm->mem);
+      Define(ChunkConst(chunk, vm->pc+1), vm->regs[ChunkRef(chunk, vm->pc+2)], vm->regs[RegEnv], mem);
       vm->pc += OpLength(op);
       break;
     case OpPrim:
@@ -122,6 +123,11 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpNot:
       vm->regs[ChunkRef(chunk, vm->pc+1)] = BoolVal(!IsTrue(vm->regs[ChunkRef(chunk, vm->pc+1)]));
+      vm->pc += OpLength(op);
+      break;
+    case OpStr:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] =
+        MakeBinaryFrom(mem, SymbolName(mem, ChunkConst(chunk, vm->pc+1)), SymbolLength(mem, ChunkConst(chunk, vm->pc+1)));
       vm->pc += OpLength(op);
       break;
     case OpEqual:

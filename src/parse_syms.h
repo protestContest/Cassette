@@ -73,7 +73,6 @@ enum {
   ParseSymClauses,
   ParseSymClause,
   ParseSymPrimary,
-  ParseSymString,
   ParseSymAccess,
   ParseSymLiteral,
   ParseSymSymbol,

@@ -55,6 +55,7 @@ static Seq CompileLambdaBody(Val exp, Val label, Compiler *c);
 static Seq CompileImport(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileUnaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileBinaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileBinary(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileArguments(Val exp, Reg target, Compiler *c);
@@ -135,6 +136,9 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
   } else if (IsSym(exp)) {
     result = CompileVariable(exp, target, linkage, c);
     DebugMsg("[var] ");
+  } else if (IsBinary(mem, exp)) {
+    result = CompileBinary(exp, target, linkage, c);
+    DebugMsg("[binary] ");
   } else if (IsTagged(mem, exp, ":")) {
     result = CompileSelf(Second(mem, exp), target, linkage, c);
     DebugMsg("[symbol] ");
@@ -494,6 +498,21 @@ static Seq CompileBinaryOp(Val exp, Reg target, Linkage linkage, Compiler *c)
           op_seq, c), c), c);
 }
 
+static Seq CompileBinary(Val exp, Reg target, Linkage linkage, Compiler *c)
+{
+  Mem *mem = c->mem;
+
+  Val sym = MakeSymbolFrom(mem, (char*)BinaryData(mem, exp), BinaryLength(mem, exp));
+
+  return
+    EndWithLinkage(linkage,
+      MakeSeq(0, target,
+        MakePair(mem, OpSymbol(OpStr),
+        MakePair(mem, sym,
+        MakePair(mem, RegRef(target, c),
+                nil)))), c);
+}
+
 static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
@@ -773,10 +792,10 @@ static Val RegRef(u32 reg_flag, Compiler *c)
 static void PrintStmtArg(Val arg, Mem *mem)
 {
   if (IsSym(arg)) {
-    Print(SymbolName(mem, arg));
+    PrintSymbol(mem, arg);
   } else if (IsTagged(mem, arg, "label-ref")) {
     Print(":");
-    Print(SymbolName(mem, Tail(mem, arg)));
+    PrintSymbol(mem, Tail(mem, arg));
   } else if (IsTagged(mem, arg, "reg")) {
     i32 reg = RawInt(Tail(mem, arg));
     PrintReg(reg);
@@ -807,7 +826,7 @@ void PrintStmts(Val stmts, Mem *mem)
     Val stmt = Head(mem, stmts);
 
     if (IsTagged(mem, stmt, "label")) {
-      Print(SymbolName(mem, Tail(mem, stmt)));
+      PrintSymbol(mem, Tail(mem, stmt));
       Print("\n");
       i++;
       stmts = Tail(mem, stmts);
@@ -956,6 +975,5 @@ static Val PrimitiveOp(Val name)
   if (Eq(name, SymbolFor("-")))   return OpSymbol(OpSub);
   if (Eq(name, SymbolFor("*")))   return OpSymbol(OpMul);
   if (Eq(name, SymbolFor("/")))   return OpSymbol(OpDiv);
-  if (Eq(name, SymbolFor("\"")))  return OpSymbol(OpStr);
   return name;
 }

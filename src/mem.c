@@ -12,41 +12,13 @@ void InitMem(Mem *mem, u32 size)
   }
   VecPush(mem->values, nil);
   VecPush(mem->values, nil);
-  InitMap(&mem->symbols);
-  mem->symbol_names = NULL;
+  InitStringTable(&mem->symbols);
 }
 
 void DestroyMem(Mem *mem)
 {
   FreeVec(mem->values);
-  FreeVec(mem->symbol_names);
-  DestroyMap(&mem->symbols);
-}
-
-Val MakeSymbolFrom(Mem *mem, char *str, u32 length)
-{
-  Val sym = SymbolFrom(str, length);
-  if (!MapContains(&mem->symbols, sym.as_v)) {
-    char *sym_str = Allocate(length + 1);
-    u32 name_num = VecCount(mem->symbol_names);
-    VecPush(mem->symbol_names, sym_str);
-    for (u32 i = 0; i < length; i++) sym_str[i] = str[i];
-    sym_str[length] = '\0';
-    MapSet(&mem->symbols, sym.as_v, name_num);
-  }
-  return sym;
-}
-
-Val MakeSymbol(Mem *mem, char *str)
-{
-  return MakeSymbolFrom(mem, str, StrLen(str));
-}
-
-char *SymbolName(Mem *mem, Val symbol)
-{
-  Assert(IsSym(symbol));
-  u32 index = MapGet(&mem->symbols, symbol.as_v);
-  return mem->symbol_names[index];
+  DestroyStringTable(&mem->symbols);
 }
 
 Val MakePair(Mem *mem, Val head, Val tail)
@@ -263,7 +235,7 @@ static u32 IOListToString(Mem *mem, Val list, Buf *buf)
       u8 c = RawInt(val);
       len += AppendByte(buf, c);
     } else if (IsSym(val)) {
-      len += Append(buf, (u8*)SymbolName(mem, val), StrLen(SymbolName(mem, val)));
+      len += Append(buf, (u8*)SymbolName(mem, val), SymbolLength(mem, val));
     } else if (IsBinary(mem, val)) {
       len += Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
     } else if (IsList(mem, val)) {
@@ -288,7 +260,7 @@ u32 ValToString(Mem *mem, Val val, Buf *buf)
     return AppendInt(buf, RawInt(val));
   } else if (IsSym(val)) {
     char *str = SymbolName(mem, val);
-    return Append(buf, (u8*)str, StrLen(str));
+    return Append(buf, (u8*)str, SymbolLength(mem, val));
   } else if (IsBinary(mem, val)) {
     return Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
   } else if (IsList(mem, val)) {
@@ -305,8 +277,14 @@ u32 PrintValStr(Mem *mem, Val val)
 
 u32 ValStrLen(Mem *mem, Val val)
 {
-  char str[255];
-  Buf buf = MemBuf(str, 255);
-  ValToString(mem, val, &buf);
-  return buf.count;
+  if (IsSym(val)) {
+    return SymbolLength(mem, val);
+  } else if (IsBinary(mem, val)) {
+    return BinaryLength(mem, val);
+  } else {
+    char str[255];
+    Buf buf = MemBuf(str, 255);
+    ValToString(mem, val, &buf);
+    return buf.count;
+  }
 }

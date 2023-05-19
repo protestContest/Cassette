@@ -118,7 +118,7 @@ void PrintEnv(Val env, Mem *mem)
       Val var = Head(mem, item);
       // Val val = Tail(mem, item);
 
-      Print(SymbolName(mem, var));
+      PrintSymbol(mem, var);
       // Print(": ");
       // PrintVal(mem, val);
       Print(" ");

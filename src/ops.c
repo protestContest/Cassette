@@ -19,7 +19,7 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpTail]    = { "tail",     ArgsReg       },
   [OpPush]    = { "push",     ArgsRegReg    },
   [OpPop]     = { "pop",      ArgsRegReg    },
-  [OpLookup] = { "lookup2",  ArgsConstConstReg  },
+  [OpLookup]  = { "lookup",   ArgsConstConstReg  },
   [OpDefine]  = { "define",   ArgsConstReg  },
   [OpPrim]    = { "prim",     ArgsReg       },
   [OpNot]     = { "not",      ArgsReg       },
@@ -30,7 +30,7 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpSub]     = { "sub",      ArgsReg       },
   [OpMul]     = { "mul",      ArgsReg       },
   [OpDiv]     = { "div",      ArgsReg       },
-  [OpStr]     = { "str",      ArgsReg       },
+  [OpStr]    =  { "str",      ArgsConstReg  },
 };
 
 char *OpName(OpCode op)
@@ -52,6 +52,7 @@ u32 OpLength(OpCode op)
   case ArgsConstReg:  return 3;
   case ArgsConstConstReg:  return 4;
   case ArgsRegReg:    return 3;
+  default:            return 4;
   }
 }
 

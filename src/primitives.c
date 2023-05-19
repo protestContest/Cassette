@@ -449,7 +449,7 @@ static Val ToStringOp(Val args, VM *vm)
     return arg;
   } else if (IsSym(arg)) {
     char *name = SymbolName(vm->mem, arg);
-    return MakeBinaryFrom(vm->mem, name, StrLen(name));
+    return MakeBinaryFrom(vm->mem, name, SymbolLength(vm->mem, arg));
   } else if (IsNum(arg)) {
     u32 length = FloatToString(RawNum(arg), str, 255);
     return MakeBinaryFrom(vm->mem, str, length);

@@ -3,15 +3,132 @@
 #include "parse_syms.h"
 #include "print.h"
 
+static bool IsInfix(Val sym);
+static Val ParseProgram(Val children, Mem *mem);
+static Val ParseSequence(Val children, Mem *mem);
+static Val ParseStmt(Val children, Mem *mem);
+static Val ParseLetStmt(Val children, Mem *mem);
+static Val ParseAssigns(Val children, Mem *mem);
+static Val ParseAssign(Val children, Mem *mem);
+static Val ParseDefStmt(Val children, Mem *mem);
+static Val ParseImportStmt(Val children, Mem *mem);
+static Val ParseInfix(Val children, Mem *mem);
+static Val ParseLambda(Val children, Mem *mem);
+static Val ParseAccess(Val children, Mem *mem);
+static Val ParseSimple(Val children, Mem *mem);
+static Val ParseSymbol(Val children, Mem *mem);
+static Val ParsePrimitiveCall(Val children, Mem *mem);
+static Val ParseDoBlock(Val children, Mem *mem);
+static Val ParseIfBlock(Val children, Mem *mem);
+static Val CondToIf(Val exp, Mem *mem);
+static Val ParseCondBlock(Val children, Mem *mem);
+static Val ParseClause(Val children, Mem *mem);
+static Val ParseGroup(Val children, Mem *mem);
+static Val ParseCollection(Val children, Mem *mem);
+static Val ParseEntry(Val children, Mem *mem);
+
+Val ParseNode(u32 sym, Val children, Mem *mem)
+{
+  if (IsNil(children)) return nil;
+
+  switch (sym) {
+  case ParseSymPrimary:     return ParseSimple(children, mem);
+  case ParseSymBlock:       return ParseSimple(children, mem);
+  case ParseSymDoBlock:     return ParseDoBlock(children, mem);
+  case ParseSymIfBlock:     return ParseIfBlock(children, mem);
+  case ParseSymCondBlock:   return ParseCondBlock(children, mem);
+  case ParseSymProduct:     return ParseInfix(children, mem);
+  case ParseSymSum:         return ParseInfix(children, mem);
+  case ParseSymMember:      return ParseInfix(children, mem);
+  case ParseSymCompare:     return ParseInfix(children, mem);
+  case ParseSymEquals:      return ParseInfix(children, mem);
+  case ParseSymLogic:       return ParseInfix(children, mem);
+  case ParseSymLambda:      return ParseLambda(children, mem);
+  case ParseSymArg:         return ParseSimple(children, mem);
+  case ParseSymCall:        return ParseSequence(children, mem);
+  case ParseSymStmt:        return ParseStmt(children, mem);
+  case ParseSymStmts:       return ParseSequence(children, mem);
+  case ParseSymProgram:     return ParseProgram(children, mem);
+
+  case ParseSymLetStmt:     return ParseLetStmt(children, mem);
+  case ParseSymAssigns:     return ParseAssigns(children, mem);
+  case ParseSymAssign:      return ParseAssign(children, mem);
+  case ParseSymDefStmt:     return ParseDefStmt(children, mem);
+  case ParseSymParams:      return ParseSequence(children, mem);
+  case ParseSymImportStmt:  return ParseImportStmt(children, mem);
+  case ParseSymMlCall:      return ParseSequence(children, mem);
+  case ParseSymPrimCall:    return ParsePrimitiveCall(children, mem);
+  case ParseSymClauses:     return ParseSequence(children, mem);
+  case ParseSymClause:      return ParseClause(children, mem);
+  case ParseSymAccess:      return ParseAccess(children, mem);
+  case ParseSymLiteral:     return ParseSimple(children, mem);
+  case ParseSymSymbol:      return ParseSymbol(children, mem);
+  case ParseSymGroup:       return ParseGroup(children, mem);
+  case ParseSymList:        return ParseCollection(children, mem);
+  case ParseSymItems:       return ParseSequence(children, mem);
+  case ParseSymTuple:       return ParseCollection(children, mem);
+  case ParseSymMap:         return ParseCollection(children, mem);
+  case ParseSymEntries:     return ParseSequence(children, mem);
+  case ParseSymEntry:       return ParseEntry(children, mem);
+  case ParseSymOptComma:    return nil;
+  default:                  return children;
+  }
+}
+
+/* [node] -> node */
+static Val ParseSimple(Val children, Mem *mem)
+{
+  return Head(mem, children);
+}
+
+/*
+Infix nodes may just be a pass-through for precedence. If not, we rearrange the
+expression as a prefix-expression.
+[node] -> node
+[node op node] -> [op node node]
+*/
+static Val ParseInfix(Val children, Mem *mem)
+{
+  if (ListLength(mem, children) == 1) {
+    return Head(mem, children);
+  } else {
+    Val op = Second(mem, children);
+    return
+      MakePair(mem, op,
+      MakePair(mem, First(mem, children),
+      MakePair(mem, Third(mem, children), nil)));
+  }
+}
+
+/**/
+static Val ParseEntry(Val children, Mem *mem)
+{
+  Val key =
+    MakePair(mem, SymbolFor(":"),
+    MakePair(mem, First(mem, children), nil));
+  Val value = Third(mem, children);
+
+  return
+    MakePair(mem, key,
+    MakePair(mem, value, nil));
+}
+
+
+
 static bool IsInfix(Val sym)
 {
-  char *infixes[] = {"+", "-", "*", "/", "<", "<=", ">", ">=", "|", "==", "!=", "and", "or", "->"};
+  char *infixes[] = {"+", "-", "*", "/", "<", "<=", ">", ">=", "|", "==", "!=", "and", "or", "in", "->"};
   for (u32 i = 0; i < ArrayCount(infixes); i++) {
     if (Eq(sym, SymbolFor(infixes[i]))) return true;
   }
   return false;
 }
 
+/*
+A program is parsed into an equivalent do-block
+[ [stmt] ] -> [stmt]
+[ [stmt, stmt, ...] ] -> [:do [stmt, stmt, ...]]
+*/
 static Val ParseProgram(Val children, Mem *mem)
 {
   Val stmts = Head(mem, children);
@@ -22,15 +139,27 @@ static Val ParseProgram(Val children, Mem *mem)
   }
 }
 
+/*
+A sequence collects each reduced item into a list
+[node] -> [node]
+[[node, node, ...] node] -> [node, node, node, ...]
+*/
 static Val ParseSequence(Val children, Mem *mem)
 {
   if (ListLength(mem, children) > 1) {
-    return ListAppend(mem, ListAt(mem, children, 0), ListAt(mem, children, 1));
+    return ListAppend(mem, First(mem, children), Second(mem, children));
   } else {
     return children;
   }
 }
 
+/*
+A stmt contains a call. If the call has no arguments, this produces the call
+node without invoking it. Otherwise, this produces the call, invoked (as a list
+with args).
+[ [call] ] -> call
+[ [call] ] -> [call]
+*/
 static Val ParseStmt(Val children, Mem *mem)
 {
   Val stmt = Head(mem, children);
@@ -41,40 +170,50 @@ static Val ParseStmt(Val children, Mem *mem)
   }
 }
 
+/*
+A let statement is a call to "let" with each variable and value as successive arguments.
+[:let [:x [1] :y [2]]] -> [:let :x [1] :y [2]]
+*/
 static Val ParseLetStmt(Val children, Mem *mem)
 {
-  return MakePair(mem, SymbolFor("let"), ListAt(mem, children, 1));
+  return MakePair(mem, SymbolFor("let"), Second(mem, children));
 }
 
+/*
+[[:x [1]]] -> [:x [1]]
+[[:x [1]] :, [:y [2]]] -> [:x [1] :y [2]]
+*/
 static Val ParseAssigns(Val children, Mem *mem)
 {
-  PrintVal(mem, children);
-  Print("\n");
   if (ListLength(mem, children) > 1) {
-    return ListConcat(mem, ListAt(mem, children, 0), ListAt(mem, children, 2));
+    return ListConcat(mem, First(mem, children), Third(mem, children));
   } else {
     return Head(mem, children);
   }
 }
 
+/*
+[:x := [[1]]] -> [:x [1]]
+[:x := [[[:+ 1 1]]]] -> [:x [[:+ 1 1]]]
+*/
 static Val ParseAssign(Val children, Mem *mem)
 {
-  Val value = ListAt(mem, children, 2);
+  Val value = Third(mem, children);
   if (IsNil(Tail(mem, value))) {
     value = Head(mem, value);
   }
 
   return
-    MakePair(mem, ListAt(mem, children, 0),
+    MakePair(mem, First(mem, children),
     MakePair(mem, value, nil));
 }
 
 static Val ParseDefStmt(Val children, Mem *mem)
 {
-  Val params = ListAt(mem, children, 2);
+  Val params = Third(mem, children);
   Val var = Head(mem, params);
   params = Tail(mem, params);
-  Val body = ListAt(mem, children, 4);
+  Val body = Fifth(mem, children);
 
   Val lambda =
     MakePair(mem, SymbolFor("->"),
@@ -90,8 +229,8 @@ static Val ParseDefStmt(Val children, Mem *mem)
 static Val ParseImportStmt(Val children, Mem *mem)
 {
   if (ListLength(mem, children) > 2) {
-    Val filename = ListAt(mem, children, 1);
-    Val var = ListAt(mem, children, 3);
+    Val filename = Second(mem, children);
+    Val var = Fourth(mem, children);
     return
       MakePair(mem, SymbolFor("import"),
       MakePair(mem, filename,
@@ -101,36 +240,23 @@ static Val ParseImportStmt(Val children, Mem *mem)
   }
 }
 
-static Val ParseInfix(Val children, Mem *mem)
-{
-  if (IsNil(Tail(mem, children))) {
-    return Head(mem, children);
-  } else {
-    Val op = ListAt(mem, children, 1);
-    return
-      MakePair(mem, op,
-      MakePair(mem, ListAt(mem, children, 0),
-      MakePair(mem, ListAt(mem, children, 2), nil)));
-  }
-}
-
 static Val ParseLambda(Val children, Mem *mem)
 {
   if (ListLength(mem, children) > 3) {
     return
       MakePair(mem, SymbolFor("->"),
       MakePair(mem, nil,
-      MakePair(mem, ListAt(mem, children, 3), nil)));
+      MakePair(mem, Fourth(mem, children), nil)));
   }
   return ParseInfix(children, mem);
 }
 
 static Val ParseAccess(Val children, Mem *mem)
 {
-  Val map = ListAt(mem, children, 0);
+  Val map = First(mem, children);
   Val key =
     MakePair(mem, SymbolFor(":"),
-    MakePair(mem, ListAt(mem, children, 2), nil));
+    MakePair(mem, Third(mem, children), nil));
 
   return
     MakePair(mem, SymbolFor("."),
@@ -138,14 +264,9 @@ static Val ParseAccess(Val children, Mem *mem)
     MakePair(mem, key, nil)));
 }
 
-static Val ParseSimple(Val children, Mem *mem)
-{
-  return Head(mem, children);
-}
-
 static Val ParseSymbol(Val children, Mem *mem)
 {
-  Val name = ListAt(mem, children, 1);
+  Val name = Second(mem, children);
   return
     MakePair(mem, SymbolFor(":"),
     MakePair(mem, name, nil));
@@ -161,25 +282,39 @@ static Val ParsePrimitiveCall(Val children, Mem *mem)
     MakePair(mem, name, args));
 }
 
+/*
+If a do block contains a single statement, just produce that statement alone
+[:do [1] :end] -> 1
+[:do [1 2] :end] -> [:do 1 2]
+*/
 static Val ParseDoBlock(Val children, Mem *mem)
 {
-  Val stmts = ListAt(mem, children, 1);
+  Val stmts = Second(mem, children);
   if (ListLength(mem, stmts) == 1) {
     return Head(mem, stmts);
   } else {
-    return MakePair(mem, SymbolFor("do"), ListAt(mem, children, 1));
+    return MakePair(mem, SymbolFor("do"), Second(mem, children));
   }
 }
 
+/*
+An if statement has two forms: with or without an "else" block. If it's missing
+the "else" block, the consequent has already been parsed as a "do" block, so we
+just append "nil" as the alternative. Otherwise, we have to parse the consequent
+and alternative blocks here, as we would for a "do" block.
+
+[:if 1 2] -> [:if 1 2 nil]
+[:if 1 :do [2] :else [[:foo 3]] :end] -> [:if 1 2 [:foo 3]]
+*/
 static Val ParseIfBlock(Val children, Mem *mem)
 {
   if (ListLength(mem, children) == 3) {
     return MakePair(mem, SymbolFor("if"), ListAppend(mem, Tail(mem, children), nil));
   }
 
-  Val predicate = ListAt(mem, children, 1);
-  Val consequent = ListAt(mem, children, 3);
-  Val alternative = ListAt(mem, children, 5);
+  Val predicate = Second(mem, children);
+  Val consequent = Fourth(mem, children);
+  Val alternative = Sixth(mem, children);
 
   if (ListLength(mem, consequent) == 1) {
     consequent = Head(mem, consequent);
@@ -205,8 +340,8 @@ static Val CondToIf(Val exp, Mem *mem)
   if (IsNil(exp)) return nil;
 
   Val clause = Head(mem, exp);
-  Val predicate = ListAt(mem, clause, 0);
-  Val consequent = ListAt(mem, clause, 1);
+  Val predicate = First(mem, clause);
+  Val consequent = Second(mem, clause);
   return
     MakePair(mem, SymbolFor("if"),
     MakePair(mem, predicate,
@@ -214,16 +349,22 @@ static Val CondToIf(Val exp, Mem *mem)
     MakePair(mem, CondToIf(Tail(mem, exp), mem), nil))));
 }
 
+/* Cond blocks are transformed to nested if blocks, and parsed that way */
 static Val ParseCondBlock(Val children, Mem *mem)
 {
   return CondToIf(ListAt(mem, children, 2), mem);
 }
 
+/*
+The right hand side of a clause is a call, so it follows the same rules as a call
+in a statement: it's only invoked when arguments are present
+[1 :-> [2]] -> [1 2]
+[1 :-> [foo 2]] -> [1 [foo 2]]
+*/
 static Val ParseClause(Val children, Mem *mem)
 {
-  Val predicate = ListAt(mem, children, 0);
-  if (ListLength(mem, predicate) == 1) predicate = Head(mem, predicate);
-  Val consequent = ListAt(mem, children, 2);
+  Val predicate = First(mem, children);
+  Val consequent = Third(mem, children);
   if (ListLength(mem, consequent) == 1) consequent = Head(mem, consequent);
   return
     MakePair(mem, predicate,
@@ -232,7 +373,7 @@ static Val ParseClause(Val children, Mem *mem)
 
 static Val ParseGroup(Val children, Mem *mem)
 {
-  Val group = ListAt(mem, children, 1);
+  Val group = Second(mem, children);
 
   if (ListLength(mem, group) == 1) {
     // maybe an infix application
@@ -247,89 +388,14 @@ static Val ParseGroup(Val children, Mem *mem)
 
 static Val ParseCollection(Val children, Mem *mem)
 {
-  Val symbol = ListAt(mem, children, 0);
-  Val items = ListAt(mem, children, 1);
-  Val update = ListAt(mem, children, 2);
+  Val symbol = First(mem, children);
+  Val items = Second(mem, children);
+  Val update = Third(mem, children);
 
   if (IsTagged(mem, update, "|")) {
     // reverse the list here so it's faster to prepend items at runtime
     return ListAppend(mem, update, ReverseOnto(mem, items, nil));
   } else {
     return MakePair(mem, symbol, items);
-  }
-}
-
-static Val ParseEntry(Val children, Mem *mem)
-{
-  Val key =
-    MakePair(mem, SymbolFor(":"),
-    MakePair(mem, First(mem, children), nil));
-  Val value = Third(mem, children);
-
-  return
-    MakePair(mem, key,
-    MakePair(mem, value, nil));
-}
-
-static Val ParseUpdate(Val children, Mem *mem)
-{
-  return ListAt(mem, children, 2);
-}
-
-static Val ParseString(Val children, Mem *mem)
-{
-  Val string = Head(mem, children);
-  Val symbol = MakeSymbolFrom(mem, (char*)BinaryData(mem, string), BinaryLength(mem, string));
-  return
-    MakePair(mem, MakeSymbol(mem, "\""),
-    MakePair(mem,
-      MakePair(mem, SymbolFor(":"),
-      MakePair(mem, symbol, nil)), nil));
-}
-
-Val ParseNode(u32 sym, Val children, Mem *mem)
-{
-  if (IsNil(children)) return nil;
-
-  switch (sym) {
-  case ParseSymProgram:     return ParseProgram(children, mem);
-  case ParseSymStmts:       return ParseSequence(children, mem);
-  case ParseSymStmt:        return ParseStmt(children, mem);
-  case ParseSymLetStmt:     return ParseLetStmt(children, mem);
-  case ParseSymAssigns:     return ParseAssigns(children, mem);
-  case ParseSymAssign:      return ParseAssign(children, mem);
-  case ParseSymDefStmt:     return ParseDefStmt(children, mem);
-  case ParseSymParams:      return ParseSequence(children, mem);
-  case ParseSymImportStmt:  return ParseImportStmt(children, mem);
-  case ParseSymCall:        return ParseSequence(children, mem);
-  case ParseSymMlCall:      return ParseSequence(children, mem);
-  case ParseSymPrimCall:    return ParsePrimitiveCall(children, mem);
-  case ParseSymArg:         return ParseSimple(children, mem);
-  case ParseSymLambda:      return ParseLambda(children, mem);
-  case ParseSymLogic:       return ParseInfix(children, mem);
-  case ParseSymEquals:      return ParseInfix(children, mem);
-  case ParseSymCompare:     return ParseInfix(children, mem);
-  case ParseSymSum:         return ParseInfix(children, mem);
-  case ParseSymProduct:     return ParseInfix(children, mem);
-  case ParseSymBlock:       return ParseSimple(children, mem);
-  case ParseSymDoBlock:     return ParseDoBlock(children, mem);
-  case ParseSymIfBlock:     return ParseIfBlock(children, mem);
-  case ParseSymCondBlock:   return ParseCondBlock(children, mem);
-  case ParseSymClauses:     return ParseSequence(children, mem);
-  case ParseSymClause:      return ParseClause(children, mem);
-  case ParseSymPrimary:     return ParseSimple(children, mem);
-  case ParseSymAccess:      return ParseAccess(children, mem);
-  case ParseSymLiteral:     return ParseSimple(children, mem);
-  case ParseSymSymbol:      return ParseSymbol(children, mem);
-  case ParseSymGroup:       return ParseGroup(children, mem);
-  case ParseSymList:        return ParseCollection(children, mem);
-  case ParseSymItems:       return ParseSequence(children, mem);
-  case ParseSymTuple:       return ParseCollection(children, mem);
-  case ParseSymMap:         return ParseCollection(children, mem);
-  case ParseSymEntries:     return ParseSequence(children, mem);
-  case ParseSymEntry:       return ParseEntry(children, mem);
-  case ParseSymString:      return ParseString(children, mem);
-  case ParseSymOptComma:    return nil;
-  default:                  return children;
   }
 }
