@@ -288,14 +288,14 @@ The base of the runtime is the memory representation. Values are 32-bit NaN-boxe
          31      24       16       8       0
          ┌┴┬──────┴─┬──────┴───────┴───────┴┐
    Float │S│ <expnt>│       <mantissa>      │
-     NaN │-│11111111│1----------------------│
+     NaN │-│11111111│1----------------------│ 0x7FC00000
          ├─┼────────┼───────────────────────┤
- Integer │0│11111111│100 <signed int value> │
-  Symbol │0│11111111│101   <symbol hash>    │
-    Pair │0│11111111│110    <heap index>    │
-  Object │0│11111111│111    <heap index>    │
-Reserved │1│11111111│100--------------------│
-Reserved │1│11111111│101--------------------│
+ Integer │0│11111111│100 <signed int value> │ 0x7FC00000
+  Symbol │0│11111111│101   <symbol hash>    │ 0x7FD00000
+    Pair │0│11111111│110    <heap index>    │ 0x7FE00000
+  Object │0│11111111│111    <heap index>    │ 0x7FF00000
+   Tuple │1│11111111│100    <num items>     │
+  Binary │1│11111111│101    <num bytes>     │
 Reserved │1│11111111│110--------------------│
 Reserved │1│11111111│111--------------------│
          └─┴────────┴───────────────────────┘

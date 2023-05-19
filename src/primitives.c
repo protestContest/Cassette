@@ -17,7 +17,7 @@ static Val IsNumericOp(Val args, VM *vm);
 static Val IsSymbolOp(Val args, VM *vm);
 static Val IsPairOp(Val args, VM *vm);
 static Val IsTupleOp(Val args, VM *vm);
-static Val IsMapOp(Val args, VM *vm);
+// static Val IsMapOp(Val args, VM *vm);
 static Val IsBinaryOp(Val args, VM *vm);
 static Val IsTrueOp(Val args, VM *vm);
 static Val NotOp(Val args, VM *vm);
@@ -62,7 +62,7 @@ static Primitive primitives[] = {
   {"symbol?", IsSymbolOp},
   {"pair?", IsPairOp},
   {"tuple?", IsTupleOp},
-  {"map?", IsMapOp},
+  // {"map?", IsMapOp},
   {"binary?", IsBinaryOp},
   {"true?", IsTrueOp},
   {"not", NotOp},
@@ -118,7 +118,6 @@ static Val TypeOfOp(Val args, VM *vm)
   if (IsSym(arg)) return MakeSymbol(vm->mem, "symbol");
   if (IsPair(arg)) return MakeSymbol(vm->mem, "pair");
   if (IsTuple(vm->mem, arg)) return MakeSymbol(vm->mem, "tuple");
-  if (IsMap(vm->mem, arg)) return MakeSymbol(vm->mem, "map");
   if (IsBinary(vm->mem, arg)) return MakeSymbol(vm->mem, "binary");
   return RuntimeError("Unknown type", arg, vm);
 }
@@ -156,11 +155,6 @@ static Val IsPairOp(Val args, VM *vm)
 static Val IsTupleOp(Val args, VM *vm)
 {
   return BoolVal(IsTuple(vm->mem, Head(vm->mem, args)));
-}
-
-static Val IsMapOp(Val args, VM *vm)
-{
-  return BoolVal(IsMap(vm->mem, Head(vm->mem, args)));
 }
 
 static Val IsBinaryOp(Val args, VM *vm)

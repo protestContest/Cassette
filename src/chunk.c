@@ -15,8 +15,11 @@ static void PushOp(OpCode op, Chunk *chunk)
   VecPush(chunk->code, op);
 }
 
-static void PushConst(Val value, Chunk *chunk)
+static void PushConst(Val value, Chunk *chunk, Mem *mem)
 {
+  if (IsSym(value)) {
+    value = PutString(&chunk->symbols, SymbolName(mem, value), SymbolLength(mem, value));
+  }
   for (u32 i = 0; i < VecCount(chunk->constants); i++) {
     if (Eq(value, chunk->constants[i])) {
       VecPush(chunk->code, i);
@@ -31,13 +34,6 @@ static void PushConst(Val value, Chunk *chunk)
 static void PushReg(Val reg, Chunk *chunk)
 {
   VecPush(chunk->code, RawInt(reg));
-}
-
-static void PushData(Val binary, Chunk *chunk, Mem *mem)
-{
-  // u32 position = VecCount(chunk->symbols.names);
-  // PutSymbol(&chunk->symbols, (char*)BinaryData(mem, binary), BinaryLength(mem, binary));
-  // PushConst(IntVal(position), chunk);
 }
 
 static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
@@ -64,7 +60,7 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
         result = Tail(mem, stmts);
         break;
       case ArgsConst:
-        PushConst(ListAt(mem, stmts, 1), chunk);
+        PushConst(ListAt(mem, stmts, 1), chunk, mem);
         result = ListFrom(mem, stmts, 2);
         break;
       case ArgsReg:
@@ -72,13 +68,13 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
         result = ListFrom(mem, stmts, 2);
         break;
       case ArgsConstReg:
-        PushConst(ListAt(mem, stmts, 1), chunk);
+        PushConst(ListAt(mem, stmts, 1), chunk, mem);
         PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
         result = ListFrom(mem, stmts, 3);
         break;
       case ArgsConstConstReg:
-        PushConst(Second(mem, stmts), chunk);
-        PushConst(Third(mem, stmts), chunk);
+        PushConst(Second(mem, stmts), chunk, mem);
+        PushConst(Third(mem, stmts), chunk, mem);
         PushReg(Tail(mem, Fourth(mem, stmts)), chunk);
         result = ListFrom(mem, stmts, 4);
         break;

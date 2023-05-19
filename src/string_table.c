@@ -55,3 +55,15 @@ u32 GetStringLength(StringTable *table, Val symbol)
 
   return end - start;
 }
+
+void PrintStringTable(StringTable *table)
+{
+  for (u32 i = 0; i < VecCount(table->positions); i++) {
+    u32 start = table->positions[i];
+    u32 end = (i + 1 < VecCount(table->positions)) ? table->positions[i+1] : VecCount(table->data);
+    Print(":");
+    PrintN((char*)table->data + start, end - start);
+    Print("\n");
+  }
+}
+

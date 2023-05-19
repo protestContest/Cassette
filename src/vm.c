@@ -24,6 +24,10 @@ void InitVM(VM *vm, Mem *mem)
   vm->regs[RegArg1] = nil;
   vm->regs[RegArg2] = nil;
   vm->regs[RegStack] = nil;
+
+#if DEBUG_VM
+  InitOps(mem);
+#endif
 }
 
 void RunChunk(VM *vm, Chunk *chunk)
@@ -203,15 +207,17 @@ static void TraceInstruction(VM *vm, Chunk *chunk)
   printed = 0;
   for (u32 i = 0; i < NUM_REGS; i++) {
     if (IsNil(vm->regs[i])) {
-      printed += Print("nil ");
+      printed += Print("nil");
     } else if (IsPair(vm->regs[i])) {
-      printed += Print("[");
-      printed += PrintInt(ListLength(vm->mem, vm->regs[i]));
-      printed += Print("] ");
+      printed += Print("p");
+      printed += PrintInt(RawVal(vm->regs[i]));
+    } else if (IsObj(vm->regs[i])) {
+      printed += Print("v");
+      printed += PrintInt(RawVal(vm->regs[i]));
     } else {
       printed += PrintVal(vm->mem, vm->regs[i]);
-      printed += Print(" ");
     }
+    printed += Print(" ");
   }
 
   for (i32 i = 0; i < 40 - printed; i++) Print(" ");

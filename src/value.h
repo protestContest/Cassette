@@ -11,12 +11,16 @@ typedef union {
 #define symMask           0x7FD00000
 #define pairMask          0x7FE00000
 #define objMask           0x7FF00000
+#define tupleMask         0xFFC00000
+#define binaryMask        0xFFD00000
 
 #define NumVal(n)         (Val){.as_f = (float)(n)}
 #define IntVal(n)         (Val){.as_v = ((n) & ~typeMask) | intMask}
 #define SymVal(n)         (Val){.as_v = ((n) & ~typeMask) | symMask}
 #define PairVal(n)        (Val){.as_v = ((n) & ~typeMask) | pairMask}
 #define ObjVal(n)         (Val){.as_v = ((n) & ~typeMask) | objMask}
+#define TupleHeader(n)    (Val){.as_v = ((n) & ~typeMask) | tupleMask}
+#define BinaryHeader(n)   (Val){.as_v = ((n) & ~typeMask) | binaryMask}
 
 #define IsNum(v)          (((v).as_v & nanMask) != nanMask)
 #define IsInt(v)          (((v).as_v & typeMask) == intMask)
@@ -30,21 +34,10 @@ typedef union {
 
 #define RawNum(v)         (IsNum(v) ? (v).as_f : RawInt(v))
 #define RawInt(v)         SignExt((v).as_v)
-#define RawSym(v)         ((v).as_v & ~typeMask)
-#define RawPair(v)        ((v).as_v & ~typeMask)
-#define RawObj(v)         ((v).as_v & ~typeMask)
+#define RawVal(v)         ((v).as_v & ~typeMask)
 
-#define headerMask        0xE0000000
-#define tupleMask         0x00000000
-#define mapMask           0x20000000
-#define binaryMask        0x40000000
-
-#define TupleHeader(n)    (Val){.as_v = ((n) & ~headerMask) | tupleMask}
-#define MapHeader(n)      (Val){.as_v = ((n) & ~headerMask) | mapMask}
-#define BinaryHeader(n)   (Val){.as_v = ((n) & ~headerMask) | binaryMask}
-
-#define HeaderVal(h)      (u32)((h).as_v & ~headerMask)
-#define HeaderType(h)     (u32)((h).as_v & headerMask)
+#define IsTupleHeader(v)  (((v).as_v & typeMask) == tupleMask)
+#define IsBinaryHeader(v) (((v).as_v & typeMask) == binaryMask)
 
 #define nil               PairVal(0)
 #define IsNil(v)          (Eq(v, nil))

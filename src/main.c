@@ -36,10 +36,18 @@ void RunFile(char *filename)
   Print("\n");
 // #endif
 
+  PrintStringTable(&chunk.symbols);
+
+  DestroyMem(&mem);
+  InitMem(&mem, 0);
+  mem.symbols = chunk.symbols;
+
   VM vm;
   InitVM(&vm, &mem);
   Print("──╴Run╶──\n");
   RunChunk(&vm, &chunk);
+
+  PrintMem(&mem);
 }
 
 int main(int argc, char *argv[])

@@ -2,17 +2,6 @@
 
 #define PRINT_LIMIT 8
 
-static u32 Pad(u32 printed, u32 size, char *str)
-{
-  if (printed < size) {
-    for (u32 i = 0; i < size - printed; i++) {
-      Print(str);
-    }
-    return size - printed;
-  }
-  return 0;
-}
-
 static u32 Indent(u32 size, char *str)
 {
   return Pad(0, size, str);
@@ -129,7 +118,7 @@ u32 PrintVal(Mem *mem, Val value)
     printed += Print("\"");
   } else {
     printed += Print("<v");
-    printed += PrintIntN(RawObj(value), 4, ' ');
+    printed += PrintIntN(RawVal(value), 4, ' ');
     printed += Print(">");
   }
 

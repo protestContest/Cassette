@@ -42,8 +42,6 @@ u32 TupleLength(Mem *mem, Val tuple);
 Val TupleAt(Mem *mem, Val tuple, u32 i);
 void TupleSet(Mem *mem, Val tuple, u32 i, Val val);
 
-bool IsMap(Mem *mem, Val value);
-
 bool IsBinary(Mem *mem, Val binary);
 Val MakeBinaryFrom(Mem *mem, char *str, u32 length);
 Val MakeBinary(Mem *mem, u32 size);
@@ -54,3 +52,5 @@ void BinaryToString(Mem *mem, Val binary, char *dst);
 u32 ValToString(Mem *mem, Val val, Buf *buf);
 u32 PrintValStr(Mem *mem, Val val);
 u32 ValStrLen(Mem *mem, Val val);
+
+void PrintMem(Mem *mem);
