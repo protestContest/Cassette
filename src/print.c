@@ -2,6 +2,74 @@
 
 #define PRINT_LIMIT 8
 
+u32 PrintRawVal(Val value, Mem *mem)
+{
+  if (IsNum(value)) {
+    return PrintFloat(RawNum(value), 3);
+  } else if (IsInt(value)) {
+    return PrintInt(RawInt(value));
+  } else if (IsSym(value)) {
+    Print(":");
+    return PrintN(SymbolName(mem, value), SymbolLength(mem, value)) + 1;
+  } else if (IsNil(value)) {
+    return Print("nil");
+  } else if (IsPair(value)) {
+    Print("p");
+    return PrintInt(RawVal(value)) + 1;
+  } else if (IsTuple(mem, value)) {
+    Print("t");
+    return PrintInt(RawVal(value)) + 1;
+  } else if (IsBinary(mem, value)) {
+    Print("b");
+    return PrintInt(RawVal(value)) + 1;
+  } else if (IsBinaryHeader(value)) {
+    Print("$");
+    return PrintInt(RawVal(value)) + 1;
+  } else if (IsTupleHeader(value)) {
+    Print("#");
+    return PrintInt(RawVal(value)) + 1;
+  } else {
+    Print("?");
+    return PrintInt(RawVal(value)) + 1;
+  }
+}
+
+void PrintRawValN(Val value, u32 size, Mem *mem)
+{
+  if (IsNum(value)) {
+    PrintFloatN(RawNum(value), size);
+  } else if (IsInt(value)) {
+    PrintIntN(RawInt(value), size, ' ');
+  } else if (IsSym(value)) {
+    u32 len = Min(size-1, SymbolLength(mem, value));
+    for (u32 i = 0; i < size - 1 - len; i++) Print(" ");
+    Print(":");
+    PrintN(SymbolName(mem, value), len);
+  } else if (IsNil(value)) {
+    PrintN("nil", size);
+  } else {
+    u32 digits = NumDigits(RawVal(value));
+    if (digits < size-1) {
+      for (u32 i = 0; i < size-1-digits; i++) Print(" ");
+    }
+
+    if (IsPair(value)) {
+      Print("p");
+    } else if (IsTuple(mem, value)) {
+      Print("t");
+      Print("b");
+    } else if (IsBinaryHeader(value)) {
+      Print("$");
+    } else if (IsTupleHeader(value)) {
+      Print("#");
+    } else {
+      Print("?");
+    }
+    PrintInt(RawVal(value));
+  }
+}
+
+
 static u32 Indent(u32 size, char *str)
 {
   return Pad(0, size, str);
@@ -93,7 +161,7 @@ u32 PrintVal(Mem *mem, Val value)
   if (IsNil(value)) {
     printed += Print("nil");
   } else if (IsNum(value)) {
-    printed += PrintFloat(value.as_f);
+    printed += PrintFloat(value.as_f, 3);
   } else if (IsInt(value)) {
     printed += PrintInt(RawInt(value));
   } else if (IsSym(value)) {
@@ -125,13 +193,50 @@ u32 PrintVal(Mem *mem, Val value)
   return printed;
 }
 
+static u32 PrintValLen(Mem *mem, Val value)
+{
+  if (IsNil(value)) {
+    return 3;
+  } else if (IsNum(value)) {
+    return NumFloatDigits(value.as_f);
+  } else if (IsInt(value)) {
+    return NumDigits(RawInt(value));
+  } else if (IsSym(value)) {
+    return SymbolLength(mem, value);
+  } else if (IsPair(value)) {
+    return 0;
+  } else if (IsTuple(mem, value)) {
+    u32 printed = 2;
+    u32 limit = TupleLength(mem, value);
+    if (PRINT_LIMIT && PRINT_LIMIT < limit) limit = PRINT_LIMIT;
+    for (u32 i = 0; i < limit; i++) {
+      printed += PrintValLen(mem, TupleAt(mem, value, i));
+      if (i != TupleLength(mem, value) - 1) {
+        printed += 2;
+      }
+    }
+    u32 rest = limit - TupleLength(mem, value);
+    if (rest > 0) {
+      printed += 3;
+      printed += NumDigits(rest);
+    }
+    printed += 1;
+    return printed;
+  } else if (IsBinary(mem, value)) {
+    u32 length = Min(16, BinaryLength(mem, value));
+    return length + 2;
+  } else {
+    return 7;
+  }
+}
+
 static u32 NodeWidth(Val node, Mem *mem)
 {
   if (IsList(mem, node)) {
     Val op = Head(mem, node);
-    return ValStrLen(mem, op);
+    return PrintValLen(mem, op);
   } else {
-    return ValStrLen(mem, node);
+    return PrintValLen(mem, node);
   }
 }
 
@@ -199,8 +304,10 @@ static u32 PrintTreeNode(Val node, Mem *mem)
   u32 width = TreeWidth(node, mem);
   u32 len = 0;
   len += Indent(NodeOffset(node, mem), " ");
-  if (IsList(mem, node)) {
-    len += PrintVal(mem, Head(mem, node));
+  if (IsList(mem, node)) node = Head(mem, node);
+
+  if (IsSym(node)) {
+    len += PrintSymbol(mem, node);
   } else {
     len += PrintVal(mem, node);
   }

@@ -22,9 +22,6 @@ typedef struct {
   Val regs[NUM_REGS];
   Chunk *chunk;
   bool halted;
-  struct {
-    u32 stack_ops;
-  } stats;
 } VM;
 
 u32 PrintReg(i32 reg);
@@ -32,3 +29,5 @@ u32 PrintReg(i32 reg);
 void InitVM(VM *vm, Mem *mem);
 void RunChunk(VM *vm, Chunk *chunk);
 Val RuntimeError(char *message, Val exp, VM *vm);
+
+void PrintVM(VM *vm);

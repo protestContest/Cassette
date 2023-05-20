@@ -14,19 +14,23 @@ typedef union {
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
 
+#define MakeVal(n, mask)  (Val){.as_v = ((n) & ~typeMask) | (mask)}
 #define NumVal(n)         (Val){.as_f = (float)(n)}
-#define IntVal(n)         (Val){.as_v = ((n) & ~typeMask) | intMask}
-#define SymVal(n)         (Val){.as_v = ((n) & ~typeMask) | symMask}
-#define PairVal(n)        (Val){.as_v = ((n) & ~typeMask) | pairMask}
-#define ObjVal(n)         (Val){.as_v = ((n) & ~typeMask) | objMask}
-#define TupleHeader(n)    (Val){.as_v = ((n) & ~typeMask) | tupleMask}
-#define BinaryHeader(n)   (Val){.as_v = ((n) & ~typeMask) | binaryMask}
+#define IntVal(n)         MakeVal(n, intMask)
+#define SymVal(n)         MakeVal(n, symMask)
+#define PairVal(n)        MakeVal(n, pairMask)
+#define ObjVal(n)         MakeVal(n, objMask)
+#define TupleHeader(n)    MakeVal(n, tupleMask)
+#define BinaryHeader(n)   MakeVal(n, binaryMask)
 
+#define IsType(v, mask)   (((v).as_v & typeMask) == (mask))
 #define IsNum(v)          (((v).as_v & nanMask) != nanMask)
-#define IsInt(v)          (((v).as_v & typeMask) == intMask)
-#define IsSym(v)          (((v).as_v & typeMask) == symMask)
-#define IsPair(v)         (((v).as_v & typeMask) == pairMask)
-#define IsObj(v)          (((v).as_v & typeMask) == objMask)
+#define IsInt(v)          IsType(v, intMask)
+#define IsSym(v)          IsType(v, symMask)
+#define IsPair(v)         IsType(v, pairMask)
+#define IsObj(v)          IsType(v, objMask)
+#define IsTupleHeader(v)  IsType(v, tupleMask)
+#define IsBinaryHeader(v) IsType(v, binaryMask)
 #define IsNumeric(n)      (IsNum(n) || IsInt(n))
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
@@ -35,9 +39,7 @@ typedef union {
 #define RawNum(v)         (IsNum(v) ? (v).as_f : RawInt(v))
 #define RawInt(v)         SignExt((v).as_v)
 #define RawVal(v)         ((v).as_v & ~typeMask)
-
-#define IsTupleHeader(v)  (((v).as_v & typeMask) == tupleMask)
-#define IsBinaryHeader(v) (((v).as_v & typeMask) == binaryMask)
+#define ValType(v)        ((v).as_v & typeMask)
 
 #define nil               PairVal(0)
 #define IsNil(v)          (Eq(v, nil))

@@ -1,5 +1,6 @@
 #include "mem.h"
 #include "env.h"
+#include "print.h"
 
 #define NextFree(mem)   VecCount(mem->values)
 
@@ -119,6 +120,10 @@ Val MakeTuple(Mem *mem, u32 count)
   Val tuple = ObjVal(NextFree(mem));
   VecPush(mem->values, TupleHeader(count));
 
+  if (count == 0) {
+    VecPush(mem->values, nil);
+  }
+
   for (u32 i = 0; i < count; i++) {
     VecPush(mem->values, nil);
   }
@@ -154,8 +159,9 @@ bool IsBinary(Mem *mem, Val binary)
   return IsBinaryHeader(mem->values[index]);
 }
 
-static u32 NumBinaryCells(u32 length)
+u32 NumBinaryCells(u32 length)
 {
+  if (length == 0) return 1;
   return (length - 1) / sizeof(Val) + 1;
 }
 
@@ -165,6 +171,7 @@ Val MakeBinaryFrom(Mem *mem, char *str, u32 length)
   VecPush(mem->values, BinaryHeader(length));
 
   if (length == 0) {
+    VecPush(mem->values, (Val)0);
     return binary;
   }
 
@@ -184,6 +191,7 @@ Val MakeBinary(Mem *mem, u32 length)
   Val binary = ObjVal(NextFree(mem));
   VecPush(mem->values, BinaryHeader(length));
   if (length == 0) {
+    VecPush(mem->values, (Val)0);
     return binary;
   }
 
@@ -286,43 +294,6 @@ u32 ValStrLen(Mem *mem, Val val)
   }
 }
 
-static void PrintMemCell(Mem *mem, u32 i)
-{
-  u32 size = 10;
-  Val value = mem->values[i];
-
-  if (IsNum(value)) {
-    PrintFloatN(RawNum(value), size);
-  } else if (IsInt(value)) {
-    PrintIntN(RawInt(value), size, ' ');
-  } else if (IsSym(value)) {
-    u32 len = Min(size-1, SymbolLength(mem, value));
-    for (u32 i = 0; i < size - 1 - len; i++) Print(" ");
-    Print(":");
-    PrintN(SymbolName(mem, value), len);
-  } else if (IsNil(value)) {
-    PrintN("nil", size);
-  } else if (IsPair(value)) {
-    Print("p");
-    PrintIntN(RawVal(value), size-1, ' ');
-  } else if (IsTuple(mem, value)) {
-    Print("t");
-    PrintIntN(RawVal(value), size-1, ' ');
-  } else if (IsBinary(mem, value)) {
-    Print("b");
-    PrintIntN(RawVal(value), size-1, ' ');
-  } else if (IsBinaryHeader(value)) {
-    Print("$");
-    PrintIntN(RawVal(value), size-1, ' ');
-  } else if (IsTupleHeader(value)) {
-    Print("#");
-    PrintIntN(RawVal(value), size-1, ' ');
-  } else {
-    Print("?");
-    PrintIntN(RawVal(value), size-1, ' ');
-  }
-}
-
 void PrintMem(Mem *mem)
 {
   u32 ncols = 8;
@@ -343,7 +314,7 @@ void PrintMem(Mem *mem)
     u32 next_col = (c+1)*stride;
     while (i < next_col && i < VecCount(mem->values)) {
       u32 len = 2;
-      if (IsTupleHeader(mem->values[i])) len = RawVal(mem->values[i]) + 1;
+      if (IsTupleHeader(mem->values[i])) len = Max(1, RawVal(mem->values[i])) + 1;
       if (IsBinaryHeader(mem->values[i])) len = NumBinaryCells(RawVal(mem->values[i])) + 1;
 
       // if the length would go over a column, we initialize the column's byte/obj count
@@ -374,27 +345,36 @@ void PrintMem(Mem *mem)
       u32 n = i+c*stride;
       if (n < VecCount(mem->values)) {
         Print("┃");
-        PrintIntN(n, 4, '0');
+        PrintIntN(n, 4, ' ');
         Print("│");
 
 
         Val value = mem->values[n];
         if (bins[c] > 0) {
           bins[c]--;
-          Print("0x");
-          PrintHexN(value.as_v, 8, '0');
+
+          char *data = (char*)(&value.as_v);
+          if (IsPrintable(data[0]) && IsPrintable(data[1]) && IsPrintable(data[2]) && IsPrintable(data[3])) {
+            Print("    \"");
+            for (u32 ch = 0; ch < 4; ch++) PrintChar(data[ch]);
+            Print("\"");
+          } else {
+            Print("  ");
+            PrintHexN(value.as_v, 8, '0');
+          }
         } else if (objs[c] > 0) {
           objs[c]--;
-          PrintMemCell(mem, n);
+
+          PrintRawValN(mem->values[n], 10, mem);
         } else if (IsBinaryHeader(value)) {
           bins[c] = NumBinaryCells(RawVal(value));
-          PrintMemCell(mem, n);
+          PrintRawValN(mem->values[n], 10, mem);
         } else if (IsTupleHeader(value)) {
-          objs[c] = RawVal(value);
-          PrintMemCell(mem, n);
+          objs[c] = Max(1, RawVal(value));
+          PrintRawValN(mem->values[n], 10, mem);
         } else {
           objs[c] = 1;
-          PrintMemCell(mem, n);
+          PrintRawValN(mem->values[n], 10, mem);
         }
       } else {
         Print("┃    │          ");

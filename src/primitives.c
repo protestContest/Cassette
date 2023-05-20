@@ -220,8 +220,8 @@ static Val RemOp(Val args, VM *vm)
 {
   Val a = First(vm->mem, args);
   Val b = Second(vm->mem, args);
-  if (!IsInt(a)) return RuntimeError("Bad div argument", a, vm);
-  if (!IsInt(b)) return RuntimeError("Bad div argument", b, vm);
+  if (!IsInt(a)) return RuntimeError("Bad rem argument", a, vm);
+  if (!IsInt(b)) return RuntimeError("Bad rem argument", b, vm);
 
   i32 div = RawInt(a) / RawInt(b);
   return IntVal(RawInt(a) - RawInt(b)*div);

@@ -4,6 +4,7 @@
 #include "primitives.h"
 #include "ops.h"
 #include "print.h"
+#include "garbage.h"
 
 static Val ArithmeticOp(OpCode op, VM *vm);
 static void TraceInstruction(VM *vm, Chunk *chunk);
@@ -14,7 +15,6 @@ void InitVM(VM *vm, Mem *mem)
   vm->pc = 0;
   vm->chunk = NULL;
   vm->halted = true;
-  vm->stats.stack_ops = 0;
 
   vm->regs[RegVal] = nil;
   vm->regs[RegEnv] = InitialEnv(vm->mem);
@@ -37,6 +37,9 @@ void RunChunk(VM *vm, Chunk *chunk)
   vm->chunk = chunk;
   vm->halted = false;
 
+  u32 stack_ops = 0;
+  u32 returns = 0;
+
   while (!vm->halted && vm->pc < VecCount(chunk->code)) {
     OpCode op = chunk->code[vm->pc];
 
@@ -49,7 +52,7 @@ void RunChunk(VM *vm, Chunk *chunk)
     case OpHalt:
       vm->halted = true;
       vm->pc++;
-      return;
+      break;
     case OpConst:
       vm->regs[ChunkRef(chunk, vm->pc+2)] = ChunkConst(chunk, vm->pc+1);
       vm->pc += OpLength(op);
@@ -77,6 +80,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       break;
     case OpGoto:
+      if (ChunkRef(chunk, vm->pc+1) == RegCont) {
+        returns++;
+      }
       vm->pc = RawInt(vm->regs[ChunkRef(chunk, vm->pc+1)]);
       break;
     case OpPair:
@@ -97,7 +103,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpPush:
-      if (ChunkRef(chunk, vm->pc+2) == RegStack) vm->stats.stack_ops++;
+      if (ChunkRef(chunk, vm->pc+2) == RegStack) stack_ops++;
       vm->regs[ChunkRef(chunk, vm->pc+2)] =
         MakePair(mem,
                 vm->regs[ChunkRef(chunk, vm->pc+1)],
@@ -107,6 +113,9 @@ void RunChunk(VM *vm, Chunk *chunk)
     case OpPop:
       vm->regs[ChunkRef(chunk, vm->pc+2)] = Head(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
       vm->regs[ChunkRef(chunk, vm->pc+1)] = Tail(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      if (ChunkRef(chunk, vm->pc+1) == RegStack) {
+        CollectGarbage(mem, vm);
+      }
       vm->pc += OpLength(op);
       break;
     case OpLookup:
@@ -159,11 +168,13 @@ void RunChunk(VM *vm, Chunk *chunk)
     TraceInstruction(vm, chunk);
   }
 
-#ifdef DEBUG_VM
+// #ifdef DEBUG_VM
   Print("Stack operations: ");
-  PrintInt(vm->stats.stack_ops);
+  PrintInt(stack_ops);
+  Print(" Returns: ");
+  PrintInt(returns);
   Print("\n");
-#endif
+// #endif
 }
 
 Val RuntimeError(char *message, Val exp, VM *vm)
@@ -176,6 +187,14 @@ Val RuntimeError(char *message, Val exp, VM *vm)
   PrintVal(vm->mem, exp);
   PrintEscape(IOFGReset);
   Print("\n");
+
+#if DEBUG_VM
+  PrintVM(vm);
+#endif
+#if DEBUG_GC
+  PrintMem(vm->mem);
+#endif
+
   return SymbolFor("error");
 }
 
@@ -284,4 +303,29 @@ static Val ArithmeticOp(OpCode op, VM *vm)
   default:    result = nil; break;
   }
   return result;
+}
+
+void PrintVM(VM *vm)
+{
+  Print("   [pc] ");
+  for (u32 i = 0; i < NUM_REGS; i++) {
+    Print(" ");
+    PrintReg(i);
+    Print(" ");
+  }
+  Print("\n");
+  Print(" ");
+  PrintIntN(vm->pc, 6, ' ');
+  Print(" ");
+  for (u32 i = 0; i < NUM_REGS; i++) {
+    PrintRawValN(vm->regs[i], 6, vm->mem);
+    Print(" ");
+  }
+  Val stack = vm->regs[RegStack];
+  while (!IsNil(stack)) {
+    PrintRawVal(Head(vm->mem, stack), vm->mem);
+    Print(" ");
+    stack = Tail(vm->mem, stack);
+  }
+  Print("\n");
 }
