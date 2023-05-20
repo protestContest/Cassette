@@ -24,4 +24,4 @@ def (fizzbuzz n) do
   loop 1
 end
 
-fizzbuzz 1
+fizzbuzz 100

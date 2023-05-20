@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "print.h"
 #include "chunk.h"
+#include "garbage.h"
 
 #define DEBUG DEBUG_LEXER | DEBUG_PARSE | DEBUG_PARSE2 | DEBUG_COMPILE | DEBUG_ASSEMBLE | DEBUG_VM
 
@@ -45,7 +46,7 @@ void RunFile(char *filename)
   Print("──╴Run╶──\n");
   RunChunk(&vm, &chunk);
 
-  // CollectGarbage(&mem, vm.regs, NUM_REGS);
+  CollectGarbage(&vm);
 }
 
 int main(int argc, char *argv[])

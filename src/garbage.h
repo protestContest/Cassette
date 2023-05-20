@@ -2,4 +2,5 @@
 #include "mem.h"
 #include "vm.h"
 
-void CollectGarbage(Mem *mem, VM *vm);
+void CollectGarbage(VM *vm);
+void MaybeCollectGarbage(VM *vm);

@@ -7,6 +7,7 @@
 #include "garbage.h"
 
 static Val ArithmeticOp(OpCode op, VM *vm);
+static void TraceHeader(void);
 static void TraceInstruction(VM *vm, Chunk *chunk);
 
 void InitVM(VM *vm, Mem *mem)
@@ -39,6 +40,8 @@ void RunChunk(VM *vm, Chunk *chunk)
 
   u32 stack_ops = 0;
   u32 returns = 0;
+
+  TraceHeader();
 
   while (!vm->halted && vm->pc < VecCount(chunk->code)) {
     OpCode op = chunk->code[vm->pc];
@@ -80,10 +83,20 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       break;
     case OpGoto:
-      if (ChunkRef(chunk, vm->pc+1) == RegCont) {
-        returns++;
-      }
+      if (ChunkRef(chunk, vm->pc+1) == RegCont) returns++;
       vm->pc = RawInt(vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      break;
+    case OpStr:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] =
+        MakeBinaryFrom(mem, SymbolName(mem, ChunkConst(chunk, vm->pc+1)), SymbolLength(mem, ChunkConst(chunk, vm->pc+1)));
+      vm->pc += OpLength(op);
+      MaybeCollectGarbage(vm);
+      break;
+    case OpLambda:
+      vm->regs[ChunkRef(chunk, vm->pc+2)] =
+        MakePair(mem, vm->regs[RegEnv], ChunkConst(chunk, vm->pc+1));
+      vm->pc += OpLength(op);
+      MaybeCollectGarbage(vm);
       break;
     case OpPair:
       vm->regs[ChunkRef(chunk, vm->pc+2)] =
@@ -91,6 +104,7 @@ void RunChunk(VM *vm, Chunk *chunk)
                 ChunkConst(chunk, vm->pc+1),
                 vm->regs[ChunkRef(chunk, vm->pc+2)]);
       vm->pc += OpLength(op);
+      MaybeCollectGarbage(vm);
       break;
     case OpHead:
       vm->regs[ChunkRef(chunk, vm->pc+1)] =
@@ -109,13 +123,11 @@ void RunChunk(VM *vm, Chunk *chunk)
                 vm->regs[ChunkRef(chunk, vm->pc+1)],
                 vm->regs[ChunkRef(chunk, vm->pc+2)]);
       vm->pc += OpLength(op);
+      MaybeCollectGarbage(vm);
       break;
     case OpPop:
       vm->regs[ChunkRef(chunk, vm->pc+2)] = Head(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
       vm->regs[ChunkRef(chunk, vm->pc+1)] = Tail(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      if (ChunkRef(chunk, vm->pc+1) == RegStack) {
-        CollectGarbage(mem, vm);
-      }
       vm->pc += OpLength(op);
       break;
     case OpLookup:
@@ -129,6 +141,7 @@ void RunChunk(VM *vm, Chunk *chunk)
     case OpDefine:
       Define(ChunkConst(chunk, vm->pc+1), vm->regs[ChunkRef(chunk, vm->pc+2)], vm->regs[RegEnv], mem);
       vm->pc += OpLength(op);
+      MaybeCollectGarbage(vm);
       break;
     case OpPrim:
       vm->regs[ChunkRef(chunk, vm->pc+1)] = DoPrimitive(vm->regs[RegFun], vm->regs[RegArgs], vm);
@@ -136,11 +149,6 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpNot:
       vm->regs[ChunkRef(chunk, vm->pc+1)] = BoolVal(!IsTrue(vm->regs[ChunkRef(chunk, vm->pc+1)]));
-      vm->pc += OpLength(op);
-      break;
-    case OpStr:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakeBinaryFrom(mem, SymbolName(mem, ChunkConst(chunk, vm->pc+1)), SymbolLength(mem, ChunkConst(chunk, vm->pc+1)));
       vm->pc += OpLength(op);
       break;
     case OpEqual:
@@ -213,6 +221,18 @@ u32 PrintReg(i32 reg)
   }
 }
 
+static void TraceHeader(void)
+{
+  Print("    │ ");
+  for (i32 i = 0; i < 30; i++) Print(" ");
+  Print("│ ");
+  for (u32 i = 0; i < NUM_REGS; i++) {
+    Print(" ");
+    PrintReg(i);
+  }
+  Print("  Mem │\n");
+}
+
 static void TraceInstruction(VM *vm, Chunk *chunk)
 {
 #if DEBUG_VM
@@ -220,45 +240,24 @@ static void TraceInstruction(VM *vm, Chunk *chunk)
   Print("│ ");
   i32 printed = PrintInstruction(chunk, vm->pc, vm->mem);
 
-  for (i32 i = 0; i < 40 - printed; i++) Print(" ");
+  for (i32 i = 0; i < 30 - printed; i++) Print(" ");
   Print("│ ");
 
-  printed = 0;
   for (u32 i = 0; i < NUM_REGS; i++) {
-    if (IsNil(vm->regs[i])) {
-      printed += Print("nil");
-    } else if (IsPair(vm->regs[i])) {
-      printed += Print("p");
-      printed += PrintInt(RawVal(vm->regs[i]));
-    } else if (IsObj(vm->regs[i])) {
-      printed += Print("v");
-      printed += PrintInt(RawVal(vm->regs[i]));
-    } else {
-      printed += PrintVal(vm->mem, vm->regs[i]);
-    }
-    printed += Print(" ");
+    PrintRawValN(vm->regs[i], 5, vm->mem);
+    Print(" ");
   }
 
-  for (i32 i = 0; i < 40 - printed; i++) Print(" ");
-  Print("│ ");
+  PrintIntN(VecCount(vm->mem->values), 5, ' ');
+
+  Print(" │ ");
 
   Val stack = vm->regs[RegStack];
   for (i32 i = 0; i < 8 && !IsNil(stack); i++) {
-    Val val = Head(vm->mem, stack);
-    if (IsNil(val)) {
-      printed += Print("nil ");
-    } else if (IsPair(val)) {
-      printed += Print("[");
-      printed += PrintInt(ListLength(vm->mem, val));
-      printed += Print("] ");
-    } else {
-      printed += PrintVal(vm->mem, val);
-      printed += Print(" ");
-    }
-
+    PrintRawVal(Head(vm->mem, stack), vm->mem);
+    Print(" ");
     stack = Tail(vm->mem, stack);
   }
-
   Print("\n");
 #endif
 }
@@ -307,6 +306,7 @@ static Val ArithmeticOp(OpCode op, VM *vm)
 
 void PrintVM(VM *vm)
 {
+  Print(" VM │");
   Print("   [pc] ");
   for (u32 i = 0; i < NUM_REGS; i++) {
     Print(" ");
@@ -314,7 +314,7 @@ void PrintVM(VM *vm)
     Print(" ");
   }
   Print("\n");
-  Print(" ");
+  Print("    │ ");
   PrintIntN(vm->pc, 6, ' ');
   Print(" ");
   for (u32 i = 0; i < NUM_REGS; i++) {

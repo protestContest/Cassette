@@ -41,10 +41,16 @@ void PrintRawValN(Val value, u32 size, Mem *mem)
   } else if (IsInt(value)) {
     PrintIntN(RawInt(value), size, ' ');
   } else if (IsSym(value)) {
-    u32 len = Min(size-1, SymbolLength(mem, value));
-    for (u32 i = 0; i < size - 1 - len; i++) Print(" ");
-    Print(":");
-    PrintN(SymbolName(mem, value), len);
+    if (Eq(value, SymbolFor("false"))) {
+      PrintN("false", size);
+    } else if (Eq(value, SymbolFor("true"))) {
+      PrintN("true", size);
+    } else {
+      u32 len = Min(size-1, SymbolLength(mem, value));
+      for (u32 i = 0; i < size - 1 - len; i++) Print(" ");
+      Print(":");
+      PrintN(SymbolName(mem, value), len);
+    }
   } else if (IsNil(value)) {
     PrintN("nil", size);
   } else {
@@ -57,6 +63,7 @@ void PrintRawValN(Val value, u32 size, Mem *mem)
       Print("p");
     } else if (IsTuple(mem, value)) {
       Print("t");
+    } else if (IsBinary(mem, value)) {
       Print("b");
     } else if (IsBinaryHeader(value)) {
       Print("$");

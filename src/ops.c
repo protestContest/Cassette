@@ -14,6 +14,8 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpBranchF] = { "branchf",  ArgsConstReg  },
   [OpJump]    = { "jump",     ArgsConst     },
   [OpGoto]    = { "goto",     ArgsReg       },
+  [OpStr]     = { "str",      ArgsConstReg  },
+  [OpLambda]  = { "lambda",   ArgsConstReg  },
   [OpPair]    = { "pair",     ArgsConstReg  },
   [OpHead]    = { "head",     ArgsReg       },
   [OpTail]    = { "tail",     ArgsReg       },
@@ -30,7 +32,6 @@ static OpInfo op_info[NUM_OPCODES] = {
   [OpSub]     = { "sub",      ArgsReg       },
   [OpMul]     = { "mul",      ArgsReg       },
   [OpDiv]     = { "div",      ArgsReg       },
-  [OpStr]    =  { "str",      ArgsConstReg  },
 };
 
 char *OpName(OpCode op)

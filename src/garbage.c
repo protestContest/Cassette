@@ -44,12 +44,14 @@ static Val CopyValue(Val value, Mem *old_mem, Mem *new_mem)
   }
 }
 
-void CollectGarbage(Mem *mem, VM *vm)
+void CollectGarbage(VM *vm)
 {
+  Mem *mem = vm->mem;
+
 #if DEBUG_GC
+  PrintVM(vm);
   PrintMem(mem);
   u32 size = VecCount(mem->values);
-  PrintVM(vm);
 #endif
 
   Val *new_vals = NewVec(Val, VecCount(mem->values) / 2);
@@ -76,8 +78,8 @@ void CollectGarbage(Mem *mem, VM *vm)
   mem->values = new_mem.values;
 
 #if DEBUG_GC
-  PrintMem(mem);
   PrintVM(vm);
+  PrintMem(mem);
 
   u32 collected = size - VecCount(mem->values);
   float pct = 100*(float)collected / (float)size;
@@ -87,4 +89,12 @@ void CollectGarbage(Mem *mem, VM *vm)
   PrintFloat(pct, 1);
   Print("%)\n");
 #endif
+}
+
+#define GC_THRESHHOLD   1024
+void MaybeCollectGarbage(VM *vm)
+{
+  if (VecCount(vm->mem->values) > GC_THRESHHOLD) {
+    CollectGarbage(vm);
+  }
 }

@@ -4,24 +4,31 @@
 /*
 Op codes
 
+-- control flow --
 halt                    halts execution
-const [n] [reg]         loads constant #n into register reg
-move [reg1] [reg2]      copies value from reg1 to reg2
 branch [n] [reg]        jumps to position n when reg is not false or nil
 branchf [n] [reg]       jumps to position n when reg is false or nil
 jump [n]                jumps to position n
 goto [reg]              jumps to position in reg (error if not an int)
+
+-- registers --
+const [n] [reg]         loads constant #n into register reg
+move [reg1] [reg2]      copies value from reg1 to reg2
+
+-- memory --
+str [n] [reg]           make a string from the symbol constant #n, put it in reg
+lambda [n] [reg]        make a function with entrypoint at n and the current env, put it in reg
 pair [n] [reg]          extends list in reg with constant #n as the head
 head [reg]              replaces reg (a pair) with its head
 tail [reg]              replaces reg (a pair) with its tail
 push [reg1] [reg2]      extends list in reg2 with value in reg1 as the head
 pop [reg1] [reg2]       puts the head of list in reg1 into reg2; replaces reg1 with its tail
 
-lookup [n] [reg]        looks up constant #n (a symbol) in the env, and puts it in reg
-lookup2 [n] [m] [reg]   looks up a variable in the env at frame n, entry m, and puts it in reg
+-- environment --
+lookup [n] [m] [reg]    looks up a variable in the env at frame n, entry m, and puts it in reg
 define [n] [reg]        defines constant #n (a symbol) to the value in reg in the current env
-prim [reg]              given a symbol in RegFun and arguments in RegArgs,
-                            calls a primitive procedure and puts the result in reg
+
+-- logic/arithmetic --
 not [reg]               if reg is false or nil, sets reg to true; otherwise sets reg to false
 equal [reg]             sets reg to true when arg1 and arg2 are equal; false otherwise
 gt [reg]                sets reg to true when arg1 > arg2; false otherwise (args must be numeric)
@@ -30,7 +37,9 @@ add [reg]               adds arg1 and arg2, result in reg (args must be numeric)
 sub [reg]               subtracts arg1 and arg2, result in reg (args must be numeric)
 mul [reg]               multiplies arg1 and arg2, result in reg (args must be numeric)
 div [reg]               divides arg1 and arg2, result in reg (args must be numeric)
-data [reg] [n]          creates a binary from the chunk data following, for n bytes
+
+-- escape hatch --
+prim [reg]              given a symbol in RegFun and arguments in RegArgs, calls a primitive procedure and puts the result in reg
 */
 
 typedef enum {
@@ -42,6 +51,8 @@ typedef enum {
   OpBranchF,
   OpJump,
   OpGoto,
+  OpStr,
+  OpLambda,
   OpPair,
   OpHead,
   OpTail,
@@ -50,9 +61,7 @@ typedef enum {
   OpLookup,
   OpDefine,
   OpPrim,
-
   OpNot,
-  OpStr,
   OpEqual,
   OpGt,
   OpLt,

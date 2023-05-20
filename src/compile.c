@@ -380,16 +380,10 @@ static Seq CompileLambda(Val exp, Reg target, Linkage linkage, Compiler *c)
   Seq lambda_code =
     EndWithLinkage(lambda_linkage,
       MakeSeq(REnv, target,
-        MakePair(mem, OpSymbol(OpConst),
-        MakePair(mem, nil,
-        MakePair(mem, RegRef(target, c),
-        MakePair(mem, OpSymbol(OpPair),
+        MakePair(mem, OpSymbol(OpLambda),
         MakePair(mem, LabelRef(proc_label, c),
         MakePair(mem, RegRef(target, c),
-        MakePair(mem, OpSymbol(OpPush),
-        MakePair(mem, RegRef(REnv, c),
-        MakePair(mem, RegRef(target, c),
-                  nil)))))))))), c);
+                  nil)))), c);
 
   Seq lambda_body =
     AppendSeq(CompileLambdaBody(exp, proc_label, c), LabelSeq(after_label, c), c);
@@ -545,8 +539,7 @@ static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c)
         MakePair(mem, OpSymbol(OpPop),
         MakePair(mem, RegRef(RFun, c),
         MakePair(mem, RegRef(REnv, c),
-        MakePair(mem, OpSymbol(OpHead),
-        MakePair(mem, RegRef(RFun, c), nil)))))), c);
+                  nil)))), c);
 
   Seq call_code = CompileCall(target, linkage, c);
 
