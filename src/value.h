@@ -7,12 +7,14 @@ typedef union {
 
 #define nanMask           0x7FC00000
 #define typeMask          0xFFF00000
+
 #define intMask           0x7FC00000
 #define symMask           0x7FD00000
 #define pairMask          0x7FE00000
 #define objMask           0x7FF00000
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
+#define mapMask           0xFFE00000
 
 #define MakeVal(n, mask)  (Val){.as_v = ((n) & ~typeMask) | (mask)}
 #define NumVal(n)         (Val){.as_f = (float)(n)}
@@ -22,6 +24,7 @@ typedef union {
 #define ObjVal(n)         MakeVal(n, objMask)
 #define TupleHeader(n)    MakeVal(n, tupleMask)
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
+#define MapHeader(n)      MakeVal(n, mapMask)
 
 #define IsType(v, mask)   (((v).as_v & typeMask) == (mask))
 #define IsNum(v)          (((v).as_v & nanMask) != nanMask)
@@ -31,6 +34,7 @@ typedef union {
 #define IsObj(v)          IsType(v, objMask)
 #define IsTupleHeader(v)  IsType(v, tupleMask)
 #define IsBinaryHeader(v) IsType(v, binaryMask)
+#define IsMapHeader(v)    IsType(v, mapMask)
 #define IsNumeric(n)      (IsNum(n) || IsInt(n))
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)

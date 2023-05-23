@@ -17,7 +17,7 @@ static Val IsNumericOp(Val args, VM *vm);
 static Val IsSymbolOp(Val args, VM *vm);
 static Val IsPairOp(Val args, VM *vm);
 static Val IsTupleOp(Val args, VM *vm);
-// static Val IsMapOp(Val args, VM *vm);
+static Val IsMapOp(Val args, VM *vm);
 static Val IsBinaryOp(Val args, VM *vm);
 static Val IsTrueOp(Val args, VM *vm);
 static Val NotOp(Val args, VM *vm);
@@ -40,10 +40,9 @@ static Val TupleOp(Val args, VM *vm);
 static Val TupleSizeOp(Val args, VM *vm);
 static Val GetNthOp(Val args, VM *vm);
 static Val SetNthOp(Val args, VM *vm);
-static Val MapOp(Val args, VM *vm);
 static Val MapSizeOp(Val args, VM *vm);
-static Val MapGetOp(Val args, VM *vm);
-static Val MapSetOp(Val args, VM *vm);
+static Val AccessOp(Val args, VM *vm);
+static Val MemberOp(Val args, VM *vm);
 static Val AllocateOp(Val args, VM *vm);
 static Val ByteSizeOp(Val args, VM *vm);
 static Val GetByteOp(Val args, VM *vm);
@@ -62,9 +61,10 @@ static Primitive primitives[] = {
   {"symbol?", IsSymbolOp},
   {"pair?", IsPairOp},
   {"tuple?", IsTupleOp},
-  // {"map?", IsMapOp},
+  {"map?", IsMapOp},
   {"binary?", IsBinaryOp},
   {"true?", IsTrueOp},
+  {"in", MemberOp},
   {"not", NotOp},
   {"ceil", CeilOp},
   {"floor", FloorOp},
@@ -85,10 +85,8 @@ static Primitive primitives[] = {
   {"tuple-size", TupleSizeOp},
   {"get-nth", GetNthOp},
   {"set-nth!", SetNthOp},
-  {"map", MapOp},
   {"map-size", MapSizeOp},
-  {"map-get", MapGetOp},
-  {"map-set!", MapSetOp},
+  {"access", AccessOp},
   {"allocate", AllocateOp},
   {"byte-size", ByteSizeOp},
   {"get-byte", GetByteOp},
@@ -155,6 +153,11 @@ static Val IsPairOp(Val args, VM *vm)
 static Val IsTupleOp(Val args, VM *vm)
 {
   return BoolVal(IsTuple(vm->mem, Head(vm->mem, args)));
+}
+
+static Val IsMapOp(Val args, VM *vm)
+{
+  return BoolVal(IsMap(vm->mem, Head(vm->mem, args)));
 }
 
 static Val IsBinaryOp(Val args, VM *vm)
@@ -377,24 +380,56 @@ static Val SetNthOp(Val args, VM *vm)
   return SymbolFor("ok");
 }
 
-static Val MapOp(Val args, VM *vm)
-{
-  return RuntimeError("Maps not yet implemented", nil, vm);
-}
-
 static Val MapSizeOp(Val args, VM *vm)
 {
-  return RuntimeError("Maps not yet implemented", nil, vm);
+  Val map = First(vm->mem, args);
+
+  u32 size = MapSize(vm->mem, map);
+  return IntVal(size);
 }
 
-static Val MapGetOp(Val args, VM *vm)
+static Val AccessOp(Val args, VM *vm)
 {
-  return RuntimeError("Maps not yet implemented", nil, vm);
+  Val map = First(vm->mem, args);
+  Val key = Second(vm->mem, args);
+
+  Val keys = MapKeys(vm->mem, map);
+  Val vals = MapVals(vm->mem, map);
+
+  for (u32 i = 0; i < TupleLength(vm->mem, keys); i++) {
+    if (Eq(key, TupleAt(vm->mem, keys, i))) {
+      return TupleAt(vm->mem, vals, i);
+    }
+  }
+
+  return RuntimeError("Undefined key", key, vm);
 }
 
-static Val MapSetOp(Val args, VM *vm)
+static Val MemberOp(Val args, VM *vm)
 {
-  return RuntimeError("Maps not yet implemented", nil, vm);
+  Val a = First(vm->mem, args);
+  Val b = Second(vm->mem, args);
+  if (!IsPair(b) && !IsTuple(vm->mem, b)) {
+    return RuntimeError("Bad argument to \"in\"", b, vm);
+  }
+
+  if (IsPair(b)) {
+    while (!IsNil(b)) {
+      if (Eq(a, Head(vm->mem, b))) {
+        return BoolVal(true);
+      }
+      if (!IsPair(Tail(vm->mem, b))) {
+        return BoolVal(Eq(a, Tail(vm->mem, b)));
+      }
+      b = Tail(vm->mem, b);
+    }
+  } else if (IsTuple(vm->mem, b)) {
+    for (u32 i = 0; i < TupleLength(vm->mem, b); i++) {
+      if (Eq(a, TupleAt(vm->mem, b, i))) return BoolVal(true);
+    }
+  }
+
+  return BoolVal(false);
 }
 
 static Val AllocateOp(Val args, VM *vm)

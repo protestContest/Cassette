@@ -13,6 +13,7 @@ static Val ParseAssign(Val children, Mem *mem);
 static Val ParseDefStmt(Val children, Mem *mem);
 static Val ParseImportStmt(Val children, Mem *mem);
 static Val ParseInfix(Val children, Mem *mem);
+static Val ParseMember(Val children, Mem *mem);
 static Val ParseLambda(Val children, Mem *mem);
 static Val ParseAccess(Val children, Mem *mem);
 static Val ParseSimple(Val children, Mem *mem);
@@ -25,7 +26,11 @@ static Val ParseCondBlock(Val children, Mem *mem);
 static Val ParseClause(Val children, Mem *mem);
 static Val ParseGroup(Val children, Mem *mem);
 static Val ParseCollection(Val children, Mem *mem);
+static Val ParseList(Val children, Mem *mem);
+static Val ParseMap(Val children, Mem *mem);
 static Val ParseEntry(Val children, Mem *mem);
+static Val ParseEntries(Val children, Mem *mem);
+static Val ParseUnary(Val children, Mem *mem);
 
 Val ParseNode(u32 sym, Val children, Mem *mem)
 {
@@ -39,7 +44,7 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymCondBlock:   return ParseCondBlock(children, mem);
   case ParseSymProduct:     return ParseInfix(children, mem);
   case ParseSymSum:         return ParseInfix(children, mem);
-  case ParseSymMember:      return ParseInfix(children, mem);
+  case ParseSymMember:      return ParseMember(children, mem);
   case ParseSymCompare:     return ParseInfix(children, mem);
   case ParseSymEquals:      return ParseInfix(children, mem);
   case ParseSymLogic:       return ParseInfix(children, mem);
@@ -49,7 +54,6 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymStmt:        return ParseStmt(children, mem);
   case ParseSymStmts:       return ParseSequence(children, mem);
   case ParseSymProgram:     return ParseProgram(children, mem);
-
   case ParseSymLetStmt:     return ParseLetStmt(children, mem);
   case ParseSymAssigns:     return ParseAssigns(children, mem);
   case ParseSymAssign:      return ParseAssign(children, mem);
@@ -64,12 +68,13 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymLiteral:     return ParseSimple(children, mem);
   case ParseSymSymbol:      return ParseSymbol(children, mem);
   case ParseSymGroup:       return ParseGroup(children, mem);
-  case ParseSymList:        return ParseCollection(children, mem);
+  case ParseSymList:        return ParseList(children, mem);
   case ParseSymItems:       return ParseSequence(children, mem);
   case ParseSymTuple:       return ParseCollection(children, mem);
-  case ParseSymMap:         return ParseCollection(children, mem);
-  case ParseSymEntries:     return ParseSequence(children, mem);
+  case ParseSymMap:         return ParseMap(children, mem);
+  case ParseSymEntries:     return ParseEntries(children, mem);
   case ParseSymEntry:       return ParseEntry(children, mem);
+  case ParseSymUnary:       return ParseUnary(children, mem);
   case ParseSymOptComma:    return nil;
   default:                  return children;
   }
@@ -100,7 +105,20 @@ static Val ParseInfix(Val children, Mem *mem)
   }
 }
 
-/**/
+static Val ParseMember(Val children, Mem *mem)
+{
+  if (ListLength(mem, children) == 1) {
+    return Head(mem, children);
+  } else {
+    Val op = Second(mem, children);
+    return
+      MakePair(mem, SymbolFor("@"),
+      MakePair(mem, op,
+      MakePair(mem, First(mem, children),
+      MakePair(mem, Third(mem, children), nil))));
+  }
+}
+
 static Val ParseEntry(Val children, Mem *mem)
 {
   Val key =
@@ -113,7 +131,24 @@ static Val ParseEntry(Val children, Mem *mem)
     MakePair(mem, value, nil));
 }
 
-
+static Val ParseEntries(Val children, Mem *mem)
+{
+  if (IsNil(Tail(mem, children))) {
+    Val key = First(mem, First(mem, children));
+    Val val = Second(mem, First(mem, children));
+    return
+      MakePair(mem, MakePair(mem, key, nil),
+      MakePair(mem, MakePair(mem, val, nil), nil));
+  } else {
+    Val keys = First(mem, First(mem, children));
+    Val vals = Second(mem, First(mem, children));
+    Val new_key = First(mem, Second(mem, children));
+    Val new_val = Second(mem, Second(mem, children));
+    return
+      MakePair(mem, MakePair(mem, new_key, keys),
+      MakePair(mem, MakePair(mem, new_val, vals), nil));
+  }
+}
 
 static bool IsInfix(Val sym)
 {
@@ -259,9 +294,10 @@ static Val ParseAccess(Val children, Mem *mem)
     MakePair(mem, Third(mem, children), nil));
 
   return
-    MakePair(mem, SymbolFor("."),
+    MakePair(mem, SymbolFor("@"),
+    MakePair(mem, MakeSymbol(mem, "access"),
     MakePair(mem, map,
-    MakePair(mem, key, nil)));
+    MakePair(mem, key, nil))));
 }
 
 static Val ParseSymbol(Val children, Mem *mem)
@@ -397,5 +433,53 @@ static Val ParseCollection(Val children, Mem *mem)
     return ListAppend(mem, update, ReverseOnto(mem, items, nil));
   } else {
     return MakePair(mem, symbol, items);
+  }
+}
+
+static Val ParseList(Val children, Mem *mem)
+{
+  u32 length = ListLength(mem, children);
+  if (length == 2) {
+    return nil;
+  } else if (length == 3) {
+    Val value = Second(mem, children);
+    return
+      MakePair(mem, SymbolFor("["),
+      MakePair(mem, value, nil));
+  } else if (Eq(Third(mem, children), SymbolFor("|"))) {
+    Val head = Second(mem, children);
+    Val tail = Fourth(mem, children);
+    return
+      MakePair(mem, SymbolFor("|"),
+      MakePair(mem, head,
+      MakePair(mem, tail, nil)));
+  } else {
+    Val first_item = Second(mem, children);
+    Val items = Third(mem, children);
+    return
+      MakePair(mem, SymbolFor("["),
+      MakePair(mem, first_item, items));
+  }
+  return children;
+}
+
+static Val ParseMap(Val children, Mem *mem)
+{
+  Val items = Second(mem, children);
+  Val keys = First(mem, items);
+  Val vals = Second(mem, items);
+
+  return
+    MakePair(mem, SymbolFor("{"),
+    MakePair(mem, keys,
+    MakePair(mem, vals, nil)));
+}
+
+static Val ParseUnary(Val children, Mem *mem)
+{
+  if (IsNil(Tail(mem, children))) {
+    return Head(mem, children);
+  } else {
+    return children;
   }
 }

@@ -38,9 +38,16 @@ bool IsTagged(Mem *mem, Val list, char *tag);
 
 bool IsTuple(Mem *mem, Val tuple);
 Val MakeTuple(Mem *mem, u32 count);
+Val TupleFromList(Mem *mem, Val list);
 u32 TupleLength(Mem *mem, Val tuple);
 Val TupleAt(Mem *mem, Val tuple, u32 i);
 void TupleSet(Mem *mem, Val tuple, u32 i, Val val);
+
+bool IsMap(Mem *mem, Val map);
+Val MakeMap(Mem *mem, Val items);
+u32 MapSize(Mem *mem, Val map);
+Val MapKeys(Mem *mem, Val map);
+Val MapVals(Mem *mem, Val map);
 
 bool IsBinary(Mem *mem, Val binary);
 u32 NumBinaryCells(u32 length);

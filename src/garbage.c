@@ -6,6 +6,8 @@ static u32 ValSize(Val value)
     return Max(1, RawVal(value)) + 1;
   } else if (IsBinaryHeader(value)) {
     return NumBinaryCells(RawVal(value)) + 1;
+  } else if (IsMapHeader(value)) {
+    return 3;
   } else {
     return 1;
   }

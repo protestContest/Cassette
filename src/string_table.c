@@ -66,4 +66,3 @@ void PrintStringTable(StringTable *table)
     Print("\n");
   }
 }
-

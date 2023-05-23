@@ -21,24 +21,26 @@ compare       → member "<" nl member | member "<=" nl member | member ">" nl m
 member        → sum "in" nl sum | sum
 sum           → sum "+" nl product | sum "-" nl product | product
 product       → product "*" nl block | product "/" nl block | block
-block         → do_block | if_block | cond_block | primary
+block         → do_block | if_block | cond_block | unary
 do_block      → "do" stmts opt_stmt "end"
 if_block      → "if" arg "do" stmts opt_stmt "else" stmts opt_stmt "end"
 if_block      → "if" arg do_block
 cond_block    → "cond" "do" clauses "end"
 clauses       → clauses clause | NL
 clause        → logic "->" nl call NL
+unary         → "not" primary | primary
 primary       → NUM | ID | STR | literal | symbol | group | list | tuple | map | access
 access        → access "." ID | ID "." ID
 literal       → "true" | "false" | "nil"
 symbol        → ":" ID
 group         → "(" ml_call ")"
-list          → "[" items update "]"
+list          → "[" "]"
+list          → "[" arg opt_comma items "]"
+list          → "[" arg "|" arg "]"
 items         → items arg opt_comma nl | nl
 tuple         → "#[" items "]"
-map           → "{" entries update "}"
+map           → "{" entries "}"
 entries       → entries entry opt_comma nl | nl
 entry         → ID ":" nl arg
-update        → "|" nl arg | ε
 nl            → NL | $ | ε
 opt_comma     → "," | ε

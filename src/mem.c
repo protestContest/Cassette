@@ -131,6 +131,18 @@ Val MakeTuple(Mem *mem, u32 count)
   return tuple;
 }
 
+Val TupleFromList(Mem *mem, Val list)
+{
+  u32 length = ListLength(mem, list);
+  Val tuple = MakeTuple(mem, length);
+  for (u32 i = 0; i < length; i++) {
+    TupleSet(mem, tuple, i, Head(mem, list));
+    list = Tail(mem, list);
+  }
+
+  return tuple;
+}
+
 u32 TupleLength(Mem *mem, Val tuple)
 {
   Assert(IsTuple(mem, tuple));
@@ -150,6 +162,45 @@ void TupleSet(Mem *mem, Val tuple, u32 i, Val val)
   Assert(IsTuple(mem, tuple));
   u32 index = RawVal(tuple);
   mem->values[index + i + 1] = val;
+}
+
+bool IsMap(Mem *mem, Val map)
+{
+  if (!IsObj(map)) return false;
+  u32 index = RawVal(map);
+  return IsMapHeader(mem->values[index]);
+}
+
+Val MakeMap(Mem *mem, Val items)
+{
+  Val keys = Head(mem, items);
+  Val vals = Tail(mem, items);
+  Val map = ObjVal(NextFree(mem));
+  VecPush(mem->values, MapHeader(TupleLength(mem, keys)));
+  VecPush(mem->values, keys);
+  VecPush(mem->values, vals);
+  return map;
+}
+
+u32 MapSize(Mem *mem, Val map)
+{
+  Assert(IsMap(mem, map));
+  u32 index = RawVal(map);
+  return RawVal(mem->values[index]);
+}
+
+Val MapKeys(Mem *mem, Val map)
+{
+  Assert(IsMap(mem, map));
+  u32 index = RawVal(map);
+  return mem->values[index+1];
+}
+
+Val MapVals(Mem *mem, Val map)
+{
+  Assert(IsMap(mem, map));
+  u32 index = RawVal(map);
+  return mem->values[index+2];
 }
 
 bool IsBinary(Mem *mem, Val binary)
@@ -347,7 +398,6 @@ void PrintMem(Mem *mem)
         Print("┃");
         PrintIntN(n, 4, ' ');
         Print("│");
-
 
         Val value = mem->values[n];
         if (bins[c] > 0) {

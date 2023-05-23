@@ -8,9 +8,6 @@ Val InitialEnv(Mem *mem)
   MakeSymbol(mem, "__undefined__");
 
   Val env = MakePair(mem, nil, nil);
-  Define(MakeSymbol(mem, "nil"), nil, env, mem);
-  Define(MakeSymbol(mem, "true"), SymbolFor("true"), env, mem);
-  Define(MakeSymbol(mem, "false"), SymbolFor("false"), env, mem);
   return MakePair(mem, nil, env);
 }
 
@@ -21,7 +18,7 @@ void Define(Val var, Val value, Val env, Mem *mem)
   Val frame = Head(mem, env);
   if (IsNil(frame)) {
     Val item = MakePair(mem, var, value);
-    Val frame = MakePair(mem, item, nil);
+    frame = MakePair(mem, item, nil);
     SetHead(mem, env, frame);
     return;
   }

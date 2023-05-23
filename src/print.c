@@ -2,6 +2,20 @@
 
 #define PRINT_LIMIT 8
 
+char *TypeAbbr(Val value, Mem *mem)
+{
+  if (IsNumeric(value) || IsNil(value)) return "";
+  else if (IsSym(value))                return ":";
+  else if (IsPair(value))               return "p";
+  else if (IsTuple(mem, value))         return "t";
+  else if (IsMap(mem, value))           return "m";
+  else if (IsBinary(mem, value))        return "b";
+  else if (IsBinaryHeader(value))       return "$";
+  else if (IsTupleHeader(value))        return "#";
+  else if (IsMapHeader(value))          return "%";
+  else                                  return "?";
+}
+
 u32 PrintRawVal(Val value, Mem *mem)
 {
   if (IsNum(value)) {
@@ -13,23 +27,8 @@ u32 PrintRawVal(Val value, Mem *mem)
     return PrintN(SymbolName(mem, value), SymbolLength(mem, value)) + 1;
   } else if (IsNil(value)) {
     return Print("nil");
-  } else if (IsPair(value)) {
-    Print("p");
-    return PrintInt(RawVal(value)) + 1;
-  } else if (IsTuple(mem, value)) {
-    Print("t");
-    return PrintInt(RawVal(value)) + 1;
-  } else if (IsBinary(mem, value)) {
-    Print("b");
-    return PrintInt(RawVal(value)) + 1;
-  } else if (IsBinaryHeader(value)) {
-    Print("$");
-    return PrintInt(RawVal(value)) + 1;
-  } else if (IsTupleHeader(value)) {
-    Print("#");
-    return PrintInt(RawVal(value)) + 1;
   } else {
-    Print("?");
+    Print(TypeAbbr(value, mem));
     return PrintInt(RawVal(value)) + 1;
   }
 }
@@ -59,23 +58,10 @@ void PrintRawValN(Val value, u32 size, Mem *mem)
       for (u32 i = 0; i < size-1-digits; i++) Print(" ");
     }
 
-    if (IsPair(value)) {
-      Print("p");
-    } else if (IsTuple(mem, value)) {
-      Print("t");
-    } else if (IsBinary(mem, value)) {
-      Print("b");
-    } else if (IsBinaryHeader(value)) {
-      Print("$");
-    } else if (IsTupleHeader(value)) {
-      Print("#");
-    } else {
-      Print("?");
-    }
+    Print(TypeAbbr(value, mem));
     PrintInt(RawVal(value));
   }
 }
-
 
 static u32 Indent(u32 size, char *str)
 {
@@ -198,250 +184,4 @@ u32 PrintVal(Mem *mem, Val value)
   }
 
   return printed;
-}
-
-static u32 PrintValLen(Mem *mem, Val value)
-{
-  if (IsNil(value)) {
-    return 3;
-  } else if (IsNum(value)) {
-    return NumFloatDigits(value.as_f);
-  } else if (IsInt(value)) {
-    return NumDigits(RawInt(value));
-  } else if (IsSym(value)) {
-    return SymbolLength(mem, value);
-  } else if (IsPair(value)) {
-    return 0;
-  } else if (IsTuple(mem, value)) {
-    u32 printed = 2;
-    u32 limit = TupleLength(mem, value);
-    if (PRINT_LIMIT && PRINT_LIMIT < limit) limit = PRINT_LIMIT;
-    for (u32 i = 0; i < limit; i++) {
-      printed += PrintValLen(mem, TupleAt(mem, value, i));
-      if (i != TupleLength(mem, value) - 1) {
-        printed += 2;
-      }
-    }
-    u32 rest = limit - TupleLength(mem, value);
-    if (rest > 0) {
-      printed += 3;
-      printed += NumDigits(rest);
-    }
-    printed += 1;
-    return printed;
-  } else if (IsBinary(mem, value)) {
-    u32 length = Min(16, BinaryLength(mem, value));
-    return length + 2;
-  } else {
-    return 7;
-  }
-}
-
-static u32 NodeWidth(Val node, Mem *mem)
-{
-  if (IsList(mem, node)) {
-    Val op = Head(mem, node);
-    return PrintValLen(mem, op);
-  } else {
-    return PrintValLen(mem, node);
-  }
-}
-
-static u32 NodesWidth(Val nodes, Mem *mem)
-{
-  Assert(IsList(mem, nodes));
-  u32 width = 0;
-  while (!IsNil(nodes)) {
-    width += NodeWidth(Head(mem, nodes), mem);
-    if (!IsNil(Tail(mem, nodes))) width += 1;
-    nodes = Tail(mem, nodes);
-  }
-  return width;
-}
-
-static u32 TreeWidth(Val tree, Mem *mem)
-{
-  if (!IsList(mem, tree)) return NodeWidth(tree, mem);
-  Val op = Head(mem, tree);
-  Val args = Tail(mem, tree);
-
-  u32 width = 0;
-  while (!IsNil(args)) {
-    width += TreeWidth(Head(mem, args), mem);
-    if (!IsNil(Tail(mem, args))) width += 1;
-    args = Tail(mem, args);
-  }
-  return Max(width, NodeWidth(op, mem));
-}
-
-static u32 NodeOffset(Val node, Mem *mem);
-static u32 ParentOffset(Val nodes, Mem *mem)
-{
-  if (IsNil(nodes)) return 0;
-
-  u32 width = 0;
-  while (!IsNil(nodes)) {
-    if (IsNil(Tail(mem, nodes))) {
-      width += NodeOffset(Head(mem, nodes), mem);
-    } else {
-      width += TreeWidth(Head(mem, nodes), mem);
-    }
-    nodes = Tail(mem, nodes);
-  }
-  return width/2;
-}
-
-static u32 NodeOffset(Val node, Mem *mem)
-{
-  if (!IsList(mem, node)) return 0;
-  Val args = Tail(mem, node);
-
-  u32 node_width = NodeWidth(node, mem);
-  u32 width = ParentOffset(args, mem);
-
-  if (node_width/2 < width) {
-    return width - (node_width-1)/2;
-  } else {
-    return 0;
-  }
-}
-
-static u32 PrintTreeNode(Val node, Mem *mem)
-{
-  u32 width = TreeWidth(node, mem);
-  u32 len = 0;
-  len += Indent(NodeOffset(node, mem), " ");
-  if (IsList(mem, node)) node = Head(mem, node);
-
-  if (IsSym(node)) {
-    len += PrintSymbol(mem, node);
-  } else {
-    len += PrintVal(mem, node);
-  }
-
-  if (width > len) Indent(width - len, " ");
-  Print(" ");
-  return Max(width, len) + 1;
-}
-
-static Val PrintTreeLevel(Val trees, Mem *mem)
-{
-  u32 pos = 0;
-  Val next = nil;
-  while (!IsNil(trees)) {
-    Val tree = Head(mem, trees);
-    u32 start = RawInt(Head(mem, tree));
-    if (start > pos) pos += Indent(start - pos, " ");
-
-    Val nodes = Tail(mem, tree);
-    while (!IsNil(nodes)) {
-      Val node = Head(mem, nodes);
-      u32 start = pos;
-      u32 len = PrintTreeNode(node, mem);
-      if (IsList(mem, node)) {
-        Val children = MakePair(mem, IntVal(start), Tail(mem, node));
-        next = ListAppend(mem, next, children);
-      }
-      pos += len;
-      nodes = Tail(mem, nodes);
-    }
-
-    trees = Tail(mem, trees);
-  }
-  Print("\n");
-  return next;
-}
-
-static void PrintTreeLines(Val trees, Mem *mem)
-{
-  u32 pos = 0;
-  while (!IsNil(trees)) {
-    Val tree = Head(mem, trees);
-    u32 start = RawInt(Head(mem, tree));
-
-    if (start > pos) pos += Indent(start - pos, " ");
-
-    Val nodes = Tail(mem, tree);
-    u32 parent_offset = ParentOffset(nodes, mem);
-
-    bool head = true;
-    while (!IsNil(nodes)) {
-      Val node = Head(mem, nodes);
-      bool tail = IsNil(Tail(mem, nodes));
-
-      u32 width = TreeWidth(node, mem);
-      Assert(NodeWidth(node, mem) > 0);
-      u32 offset = NodeOffset(node, mem) + (NodeWidth(node, mem)-1)/2;
-      if (head) {
-        if (offset > parent_offset) {
-          Print("└");
-          Indent(offset-1, "─");
-        } else {
-          Indent(offset, " ");
-        }
-        pos += offset;
-        if (tail) {
-          if (pos - start == parent_offset) {
-            Print("│");
-          } else {
-            Print("┐");
-          }
-        } else if (pos - start == parent_offset) {
-          Print("├");
-        } else {
-          Print("┌");
-        }
-        pos++;
-      } else {
-        for (u32 i = 0; i < offset; i++) {
-          if (pos - start == parent_offset) {
-            Print("┴");
-          } else {
-            Print("─");
-          }
-          pos++;
-        }
-        if (tail) {
-          Print("┐");
-        } else {
-          if (pos - start == parent_offset) {
-            Print("┼");
-          } else {
-            Print("┬");
-          }
-        }
-        pos++;
-      }
-
-      if (!tail) {
-        for (u32 i = 0; i < width - offset; i++) {
-          if (pos - start == parent_offset) {
-            Print("┴");
-          } else {
-            Print("─");
-          }
-          pos++;
-        }
-      } else {
-        pos += Indent(width - offset, " ");
-      }
-
-      head = false;
-      nodes = Tail(mem, nodes);
-    }
-
-    trees = Tail(mem, trees);
-  }
-  Print("\n");
-}
-
-void PrintTree(Val tree, Mem *mem)
-{
-  Val nodes = MakePair(mem, IntVal(0), MakePair(mem, tree, nil));
-  Val queue = MakePair(mem, nodes, nil);
-  queue = PrintTreeLevel(queue, mem);
-  while (!IsNil(queue)) {
-    PrintTreeLines(queue, mem);
-    queue = PrintTreeLevel(queue, mem);
-  }
 }

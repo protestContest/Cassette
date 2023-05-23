@@ -47,15 +47,18 @@ static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Compiler *c)
 static Seq CompileIf(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileAnd(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileOr(Val exp, Reg target, Linkage linkage, Compiler *c);
-static Seq CompileAccess(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileBlock(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileSequence(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileLambda(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileLambdaBody(Val exp, Val label, Compiler *c);
 static Seq CompileImport(Val exp, Reg target, Linkage linkage, Compiler *c);
-static Seq CompileUnaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
-static Seq CompileBinaryOp(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileUnary(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileInfix(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileBinary(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompilePair(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileList(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileTuple(Val exp, Reg target, Linkage linkage, Compiler *c);
+static Seq CompileMap(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileApplication(Val exp, Reg target, Linkage linkage, Compiler *c);
 static Seq CompileArguments(Val exp, Reg target, Compiler *c);
@@ -115,6 +118,11 @@ Val Compile(Val exp, Mem *mem)
     CompileExp(exp, RVal, LinkNext, &c),
     MakeSeq(0, 0, MakePair(mem, OpSymbol(OpHalt), nil)), &c);
 
+#if DEBUG_COMPILE
+  Print("Compiled:\n");
+  PrintSeq(compiled, mem);
+#endif
+
   return ExtractLabels(compiled.stmts, &c);
 }
 
@@ -142,9 +150,18 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
   } else if (IsTagged(mem, exp, ":")) {
     result = CompileSelf(Second(mem, exp), target, linkage, c);
     DebugMsg("[symbol] ");
+  } else if (IsTagged(mem, exp, "|")) {
+    result = CompilePair(Tail(mem, exp), target, linkage, c);
+    DebugMsg("[pair] ");
   } else if (IsTagged(mem, exp, "[")) {
-    result = CompileSelf(Tail(mem, exp), target, linkage, c);
+    result = CompileList(Tail(mem, exp), target, linkage, c);
     DebugMsg("[list] ");
+  } else if (IsTagged(mem, exp, "#[")) {
+    result = CompileTuple(Tail(mem, exp), target, linkage, c);
+    DebugMsg("[tuple] ");
+  } else if (IsTagged(mem, exp, "{")) {
+    result = CompileMap(Tail(mem, exp), target, linkage, c);
+    DebugMsg("[map] ");
   } else if (IsTagged(mem, exp, "let")) {
     result = CompileDefinitions(Tail(mem, exp), target, linkage, c);
     DebugMsg("[let] ");
@@ -167,11 +184,11 @@ static Seq CompileExp(Val exp, Reg target, Linkage linkage, Compiler *c)
     result = CompileImport(Tail(mem, exp), target, linkage, c);
     DebugMsg("[import] ");
   } else if (IsUnaryOp(exp, mem)) {
-    result = CompileUnaryOp(exp, target, linkage, c);
+    result = CompileUnary(exp, target, linkage, c);
     DebugMsg("[unary] ");
   } else if (IsBinaryOp(exp, mem)) {
-    result = CompileBinaryOp(exp, target, linkage, c);
-    DebugMsg("[binary] ");
+    result = CompileInfix(exp, target, linkage, c);
+    DebugMsg("[infix] ");
   } else if (IsTagged(mem, exp, "@")) {
     result = CompilePrimitiveCall(Tail(mem, exp), target, linkage, c);
     DebugMsg("[primitive] ");
@@ -203,6 +220,10 @@ static Seq CompileSelf(Val exp, Reg target, Linkage linkage, Compiler *c)
 
 static Seq CompileVariable(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
+  if (Eq(exp, SymbolFor("nil"))) {
+    return CompileSelf(nil, target, linkage, c);
+  }
+
   Mem *mem = c->mem;
   Val var_pos = LookupPosition(exp, c->env, c->mem);
 
@@ -406,23 +427,32 @@ static Seq CompileLambdaBody(Val exp, Val proc_label, Compiler *c)
       MakePair(mem, RegRef(REnv, c), nil))));
 
   // define parameters
-  Seq bind_code = EmptySeq(mem);
-  while (!IsNil(params)) {
-    Val param = Head(mem, params);
-    Define(param, nil, c->env, c->mem);
+  Seq bind_code;
+  if (IsSym(params)) {
+    Define(params, nil, c->env, c->mem);
+    bind_code = MakeSeq(REnv | RArgs, RVal | RArgs,
+      MakePair(mem, OpSymbol(OpDefine),
+      MakePair(mem, params,
+      MakePair(mem, RegRef(RArgs, c), nil))));
+  } else {
+    bind_code = EmptySeq(mem);
+    while (!IsNil(params)) {
+      Val param = Head(mem, params);
+      Define(param, nil, c->env, c->mem);
 
-    // pop an argument into val, and define it
-    bind_code = AppendSeq(
-      bind_code,
-      MakeSeq(REnv | RArgs, RVal | RArgs,
-        MakePair(mem, OpSymbol(OpPop),
-        MakePair(mem, RegRef(RArgs, c),
-        MakePair(mem, RegRef(RVal, c),
-        MakePair(mem, OpSymbol(OpDefine),
-        MakePair(mem, param,
-        MakePair(mem, RegRef(RVal, c), nil))))))), c);
+      // pop an argument into val, and define it
+      bind_code = AppendSeq(
+        bind_code,
+        MakeSeq(REnv | RArgs, RVal | RArgs,
+          MakePair(mem, OpSymbol(OpPop),
+          MakePair(mem, RegRef(RArgs, c),
+          MakePair(mem, RegRef(RVal, c),
+          MakePair(mem, OpSymbol(OpDefine),
+          MakePair(mem, param,
+          MakePair(mem, RegRef(RVal, c), nil))))))), c);
 
-    params = Tail(mem, params);
+      params = Tail(mem, params);
+    }
   }
 
   Seq body_code = CompileExp(Second(mem, exp), RVal, LinkReturn, c);
@@ -440,7 +470,7 @@ static Seq CompileImport(Val exp, Reg target, Linkage linkage, Compiler *c)
   return CompileError("Imports not yet supported", nil, c);
 }
 
-static Seq CompileUnaryOp(Val exp, Reg target, Linkage linkage, Compiler *c)
+static Seq CompileUnary(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
   Seq arg = CompileExp(Second(mem, exp), target, LinkNext, c);
@@ -455,7 +485,7 @@ static Seq CompileUnaryOp(Val exp, Reg target, Linkage linkage, Compiler *c)
       AppendSeq(arg, op_seq, c), c);
 }
 
-static Seq CompileBinaryOp(Val exp, Reg target, Linkage linkage, Compiler *c)
+static Seq CompileInfix(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
   Seq arg1 = CompileExp(Second(mem, exp), RArg1, LinkNext, c);
@@ -505,6 +535,122 @@ static Seq CompileBinary(Val exp, Reg target, Linkage linkage, Compiler *c)
         MakePair(mem, sym,
         MakePair(mem, RegRef(target, c),
                 nil)))), c);
+}
+
+static Seq CompilePair(Val exp, Reg target, Linkage linkage, Compiler *c)
+{
+  Mem *mem = c->mem;
+
+  Reg head_target = (target == RArg1) ? RVal : RArg1;
+
+  Seq head = CompileExp(First(mem, exp), head_target, LinkNext, c);
+  Seq tail = CompileExp(Second(mem, exp), target, LinkNext, c);
+
+  return
+    EndWithLinkage(linkage,
+      Preserving(REnv,
+        tail,
+        Preserving(target,
+          head,
+          MakeSeq(head_target | target, target,
+            MakePair(mem, OpSymbol(OpPush),
+            MakePair(mem, RegRef(head_target, c),
+            MakePair(mem, RegRef(target, c), nil)))), c), c), c);
+}
+
+static Seq CompileList(Val exp, Reg target, Linkage linkage, Compiler *c)
+{
+  Mem *mem = c->mem;
+
+  if (IsNil(exp)) {
+    return EndWithLinkage(linkage,
+      MakeSeq(0, target,
+        MakePair(mem, OpSymbol(OpConst),
+        MakePair(mem, nil,
+        MakePair(mem, RegRef(target, c), nil)))), c);
+  }
+
+  Val items = ReverseOnto(mem, exp, nil);
+  Seq first_item_code = CompileExp(Head(mem, items), RVal, LinkNext, c);
+  items = Tail(mem, items);
+
+  // initialize RArgs with empty list, push first item
+  Seq init_code = MakeSeq(RVal, RArgs,
+    MakePair(mem, OpSymbol(OpConst),
+    MakePair(mem, nil,
+    MakePair(mem, RegRef(RArgs, c),
+    MakePair(mem, OpSymbol(OpPush),
+    MakePair(mem, RegRef(RVal, c),
+    MakePair(mem, RegRef(RArgs, c), nil)))))));
+
+  Seq items_code = AppendSeq(first_item_code, init_code, c);
+
+  // compile each arg into RVal, then push it onto RArgs list
+  while (!IsNil(items)) {
+    Seq item_code = CompileExp(Head(mem, items), RVal, LinkNext, c);
+
+    Seq push_code =
+      MakeSeq(RVal | RArgs, RArgs,
+        MakePair(mem, OpSymbol(OpPush),
+        MakePair(mem, RegRef(RVal, c),
+        MakePair(mem, RegRef(RArgs, c), nil))));
+
+    // last item doesn't need to preserve REnv
+    Reg preserve = RArgs;
+    if (!IsNil(Tail(mem, items))) preserve = RArgs | REnv;
+
+    items_code =
+      AppendSeq(items_code,
+        Preserving(preserve, item_code, push_code, c), c);
+
+    items = Tail(mem, items);
+  }
+
+  // move result to target
+  if (target != RArgs) {
+    items_code = AppendSeq(items_code,
+      MakeSeq(RArgs, target,
+        MakePair(mem, OpSymbol(OpMove),
+        MakePair(mem, RegRef(RArgs, c),
+        MakePair(mem, RegRef(target, c), nil)))), c);
+  }
+
+  return EndWithLinkage(linkage, items_code, c);
+}
+
+static Seq CompileTuple(Val exp, Reg target, Linkage linkage, Compiler *c)
+{
+  Mem *mem = c->mem;
+  return
+    EndWithLinkage(linkage,
+      AppendSeq(
+        CompileList(ReverseOnto(mem, exp, nil), target, LinkNext, c),
+        MakeSeq(target, target,
+          MakePair(mem, OpSymbol(OpTuple),
+          MakePair(mem, RegRef(target, c), nil))), c), c);
+}
+
+static Seq CompileMap(Val exp, Reg target, Linkage linkage, Compiler *c)
+{
+  Mem *mem = c->mem;
+
+  Reg head_target = (target == RArg1) ? RVal : RArg1;
+
+  Seq head = CompileTuple(First(mem, exp), head_target, LinkNext, c);
+  Seq tail = CompileTuple(Second(mem, exp), target, LinkNext, c);
+
+  return
+    EndWithLinkage(linkage,
+      Preserving(REnv,
+        tail,
+        Preserving(target,
+          head,
+          MakeSeq(head_target | target, target,
+            MakePair(mem, OpSymbol(OpPush),
+            MakePair(mem, RegRef(head_target, c),
+            MakePair(mem, RegRef(target, c),
+            MakePair(mem, OpSymbol(OpMap),
+            MakePair(mem, RegRef(target, c), nil)))))), c), c), c);
 }
 
 static Seq CompilePrimitiveCall(Val exp, Reg target, Linkage linkage, Compiler *c)

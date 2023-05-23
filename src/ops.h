@@ -19,6 +19,8 @@ move [reg1] [reg2]      copies value from reg1 to reg2
 str [n] [reg]           make a string from the symbol constant #n, put it in reg
 lambda [n] [reg]        make a function with entrypoint at n and the current env, put it in reg
 pair [n] [reg]          extends list in reg with constant #n as the head
+tuple [reg]             replaces reg with a tuple made from the list in reg (reg must be a list)
+map [reg]               replaces reg with a map made from the keys/values pair of tuples in reg (reg must be a pair of tuples)
 head [reg]              replaces reg (a pair) with its head
 tail [reg]              replaces reg (a pair) with its tail
 push [reg1] [reg2]      extends list in reg2 with value in reg1 as the head
@@ -54,6 +56,8 @@ typedef enum {
   OpStr,
   OpLambda,
   OpPair,
+  OpTuple,
+  OpMap,
   OpHead,
   OpTail,
   OpPush,

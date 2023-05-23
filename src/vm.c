@@ -38,8 +38,10 @@ void RunChunk(VM *vm, Chunk *chunk)
   vm->chunk = chunk;
   vm->halted = false;
 
+#if DEBUG_VM
   u32 stack_ops = 0;
   u32 returns = 0;
+#endif
 
   TraceHeader();
 
@@ -83,7 +85,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       break;
     case OpGoto:
+#if DEBUG_VM
       if (ChunkRef(chunk, vm->pc+1) == RegCont) returns++;
+#endif
       vm->pc = RawInt(vm->regs[ChunkRef(chunk, vm->pc+1)]);
       break;
     case OpStr:
@@ -106,6 +110,16 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       MaybeCollectGarbage(vm);
       break;
+    case OpTuple:
+      vm->regs[ChunkRef(chunk, vm->pc+1)] =
+        TupleFromList(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->pc += OpLength(op);
+      break;
+    case OpMap:
+      vm->regs[ChunkRef(chunk, vm->pc+1)] =
+        MakeMap(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->pc += OpLength(op);
+      break;
     case OpHead:
       vm->regs[ChunkRef(chunk, vm->pc+1)] =
         Head(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
@@ -117,7 +131,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpPush:
+#if DEBUG_VM
       if (ChunkRef(chunk, vm->pc+2) == RegStack) stack_ops++;
+#endif
       vm->regs[ChunkRef(chunk, vm->pc+2)] =
         MakePair(mem,
                 vm->regs[ChunkRef(chunk, vm->pc+1)],
@@ -165,8 +181,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->regs[ChunkRef(vm->chunk, vm->pc+1)] = ArithmeticOp(op, vm);
       vm->pc += OpLength(op);
       break;
-    default:
-      RuntimeError("Unimplemented op code", OpSymbol(op), vm);
+    case NUM_OPCODES:
       break;
     }
   }
@@ -176,13 +191,13 @@ void RunChunk(VM *vm, Chunk *chunk)
     TraceInstruction(vm, chunk);
   }
 
-// #ifdef DEBUG_VM
+#ifdef DEBUG_VM
   Print("Stack operations: ");
   PrintInt(stack_ops);
   Print(" Returns: ");
   PrintInt(returns);
   Print("\n");
-// #endif
+#endif
 }
 
 Val RuntimeError(char *message, Val exp, VM *vm)
@@ -223,7 +238,8 @@ u32 PrintReg(i32 reg)
 
 static void TraceHeader(void)
 {
-  Print("    │ ");
+#if DEBUG_VM
+  Print("      ");
   for (i32 i = 0; i < 30; i++) Print(" ");
   Print("│ ");
   for (u32 i = 0; i < NUM_REGS; i++) {
@@ -231,6 +247,7 @@ static void TraceHeader(void)
     PrintReg(i);
   }
   Print("  Mem │\n");
+#endif
 }
 
 static void TraceInstruction(VM *vm, Chunk *chunk)
