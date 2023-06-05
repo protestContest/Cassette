@@ -6,34 +6,35 @@ typedef struct {
 } OpInfo;
 
 static OpInfo op_info[NUM_OPCODES] = {
-  [OpNoop]    = { "noop",     ArgsNone      },
-  [OpHalt]    = { "halt",     ArgsNone      },
-  [OpConst]   = { "const",    ArgsConstReg  },
-  [OpMove]    = { "move",     ArgsRegReg    },
-  [OpBranch]  = { "branch",   ArgsConstReg  },
-  [OpBranchF] = { "branchf",  ArgsConstReg  },
-  [OpJump]    = { "jump",     ArgsConst     },
-  [OpGoto]    = { "goto",     ArgsReg       },
-  [OpStr]     = { "str",      ArgsConstReg  },
-  [OpLambda]  = { "lambda",   ArgsConstReg  },
-  [OpPair]    = { "pair",     ArgsConstReg  },
-  [OpTuple]   = { "tuple",    ArgsReg       },
-  [OpMap]     = { "map",      ArgsReg       },
-  [OpHead]    = { "head",     ArgsReg       },
-  [OpTail]    = { "tail",     ArgsReg       },
-  [OpPush]    = { "push",     ArgsRegReg    },
-  [OpPop]     = { "pop",      ArgsRegReg    },
-  [OpLookup]  = { "lookup",   ArgsConstConstReg  },
-  [OpDefine]  = { "define",   ArgsConstReg  },
-  [OpPrim]    = { "prim",     ArgsReg       },
-  [OpNot]     = { "not",      ArgsReg       },
-  [OpEqual]   = { "equal",    ArgsReg       },
-  [OpGt]      = { "gt",       ArgsReg       },
-  [OpLt]      = { "lt",       ArgsReg       },
-  [OpAdd]     = { "add",      ArgsReg       },
-  [OpSub]     = { "sub",      ArgsReg       },
-  [OpMul]     = { "mul",      ArgsReg       },
-  [OpDiv]     = { "div",      ArgsReg       },
+  [OpNoop]    = { "noop",     ArgsNone          },
+  [OpHalt]    = { "halt",     ArgsNone          },
+  [OpConst]   = { "const",    ArgsConstReg      },
+  [OpMove]    = { "move",     ArgsRegReg        },
+  [OpBranch]  = { "branch",   ArgsConstReg      },
+  [OpBranchF] = { "branchf",  ArgsConstReg      },
+  [OpJump]    = { "jump",     ArgsConst         },
+  [OpGoto]    = { "goto",     ArgsReg           },
+  [OpStr]     = { "str",      ArgsConstReg      },
+  [OpLambda]  = { "lambda",   ArgsConstReg      },
+  [OpPair]    = { "pair",     ArgsConstReg      },
+  [OpTuple]   = { "tuple",    ArgsReg           },
+  [OpTSet]   =  { "tset",     ArgsRegConstReg   },
+  [OpMap]     = { "map",      ArgsReg           },
+  [OpHead]    = { "head",     ArgsReg           },
+  [OpTail]    = { "tail",     ArgsReg           },
+  [OpPush]    = { "push",     ArgsRegReg        },
+  [OpPop]     = { "pop",      ArgsRegReg        },
+  [OpLookup]  = { "lookup",   ArgsConstConstReg },
+  [OpDefine]  = { "define",   ArgsConstReg      },
+  [OpPrim]    = { "prim",     ArgsReg           },
+  [OpNot]     = { "not",      ArgsReg           },
+  [OpEqual]   = { "equal",    ArgsReg           },
+  [OpGt]      = { "gt",       ArgsReg           },
+  [OpLt]      = { "lt",       ArgsReg           },
+  [OpAdd]     = { "add",      ArgsReg           },
+  [OpSub]     = { "sub",      ArgsReg           },
+  [OpMul]     = { "mul",      ArgsReg           },
+  [OpDiv]     = { "div",      ArgsReg           },
 };
 
 char *OpName(OpCode op)
@@ -49,13 +50,13 @@ ArgInfo OpArgs(OpCode op)
 u32 OpLength(OpCode op)
 {
   switch (op_info[op].args) {
-  case ArgsNone:      return 1;
-  case ArgsConst:     return 2;
-  case ArgsReg:       return 2;
-  case ArgsConstReg:  return 3;
-  case ArgsConstConstReg:  return 4;
-  case ArgsRegReg:    return 3;
-  default:            return 4;
+  case ArgsNone:          return 1;
+  case ArgsConst:         return 2;
+  case ArgsReg:           return 2;
+  case ArgsConstReg:      return 3;
+  case ArgsRegReg:        return 3;
+  case ArgsRegConstReg:   return 4;
+  case ArgsConstConstReg: return 4;
   }
 }
 

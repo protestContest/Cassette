@@ -1,6 +1,6 @@
 #include "ast.h"
 #include "parse.h"
-#include "parse_syms.h"
+#include "parse_table.h"
 #include "print.h"
 
 static bool IsInfix(Val sym);
@@ -58,10 +58,8 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymAssigns:     return ParseAssigns(children, mem);
   case ParseSymAssign:      return ParseAssign(children, mem);
   case ParseSymDefStmt:     return ParseDefStmt(children, mem);
-  case ParseSymParams:      return ParseSequence(children, mem);
+  case ParseSymIdList:      return ParseSequence(children, mem);
   case ParseSymImportStmt:  return ParseImportStmt(children, mem);
-  case ParseSymMlCall:      return ParseSequence(children, mem);
-  case ParseSymPrimCall:    return ParsePrimitiveCall(children, mem);
   case ParseSymClauses:     return ParseSequence(children, mem);
   case ParseSymClause:      return ParseClause(children, mem);
   case ParseSymAccess:      return ParseAccess(children, mem);
@@ -80,18 +78,11 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   }
 }
 
-/* [node] -> node */
 static Val ParseSimple(Val children, Mem *mem)
 {
   return Head(mem, children);
 }
 
-/*
-Infix nodes may just be a pass-through for precedence. If not, we rearrange the
-expression as a prefix-expression.
-[node] -> node
-[node op node] -> [op node node]
-*/
 static Val ParseInfix(Val children, Mem *mem)
 {
   if (ListLength(mem, children) == 1) {
@@ -159,14 +150,10 @@ static bool IsInfix(Val sym)
   return false;
 }
 
-/*
-A program is parsed into an equivalent do-block
-[ [stmt] ] -> [stmt]
-[ [stmt, stmt, ...] ] -> [:do [stmt, stmt, ...]]
-*/
 static Val ParseProgram(Val children, Mem *mem)
 {
   Val stmts = Head(mem, children);
+
   if (ListLength(mem, stmts) == 1) {
     return Head(mem, stmts);
   } else {
@@ -174,11 +161,6 @@ static Val ParseProgram(Val children, Mem *mem)
   }
 }
 
-/*
-A sequence collects each reduced item into a list
-[node] -> [node]
-[[node, node, ...] node] -> [node, node, node, ...]
-*/
 static Val ParseSequence(Val children, Mem *mem)
 {
   if (ListLength(mem, children) > 1) {
@@ -188,13 +170,6 @@ static Val ParseSequence(Val children, Mem *mem)
   }
 }
 
-/*
-A stmt contains a call. If the call has no arguments, this produces the call
-node without invoking it. Otherwise, this produces the call, invoked (as a list
-with args).
-[ [call] ] -> call
-[ [call] ] -> [call]
-*/
 static Val ParseStmt(Val children, Mem *mem)
 {
   Val stmt = Head(mem, children);
@@ -205,19 +180,11 @@ static Val ParseStmt(Val children, Mem *mem)
   }
 }
 
-/*
-A let statement is a call to "let" with each variable and value as successive arguments.
-[:let [:x [1] :y [2]]] -> [:let :x [1] :y [2]]
-*/
 static Val ParseLetStmt(Val children, Mem *mem)
 {
   return MakePair(mem, SymbolFor("let"), Second(mem, children));
 }
 
-/*
-[[:x [1]]] -> [:x [1]]
-[[:x [1]] :, [:y [2]]] -> [:x [1] :y [2]]
-*/
 static Val ParseAssigns(Val children, Mem *mem)
 {
   if (ListLength(mem, children) > 1) {
@@ -227,10 +194,6 @@ static Val ParseAssigns(Val children, Mem *mem)
   }
 }
 
-/*
-[:x := [[1]]] -> [:x [1]]
-[:x := [[[:+ 1 1]]]] -> [:x [[:+ 1 1]]]
-*/
 static Val ParseAssign(Val children, Mem *mem)
 {
   Val value = Third(mem, children);
@@ -318,11 +281,6 @@ static Val ParsePrimitiveCall(Val children, Mem *mem)
     MakePair(mem, name, args));
 }
 
-/*
-If a do block contains a single statement, just produce that statement alone
-[:do [1] :end] -> 1
-[:do [1 2] :end] -> [:do 1 2]
-*/
 static Val ParseDoBlock(Val children, Mem *mem)
 {
   Val stmts = Second(mem, children);
@@ -333,15 +291,6 @@ static Val ParseDoBlock(Val children, Mem *mem)
   }
 }
 
-/*
-An if statement has two forms: with or without an "else" block. If it's missing
-the "else" block, the consequent has already been parsed as a "do" block, so we
-just append "nil" as the alternative. Otherwise, we have to parse the consequent
-and alternative blocks here, as we would for a "do" block.
-
-[:if 1 2] -> [:if 1 2 nil]
-[:if 1 :do [2] :else [[:foo 3]] :end] -> [:if 1 2 [:foo 3]]
-*/
 static Val ParseIfBlock(Val children, Mem *mem)
 {
   if (ListLength(mem, children) == 3) {
@@ -391,12 +340,6 @@ static Val ParseCondBlock(Val children, Mem *mem)
   return CondToIf(ListAt(mem, children, 2), mem);
 }
 
-/*
-The right hand side of a clause is a call, so it follows the same rules as a call
-in a statement: it's only invoked when arguments are present
-[1 :-> [2]] -> [1 2]
-[1 :-> [foo 2]] -> [1 [foo 2]]
-*/
 static Val ParseClause(Val children, Mem *mem)
 {
   Val predicate = First(mem, children);

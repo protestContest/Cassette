@@ -6,6 +6,8 @@
 #include "chunk.h"
 #include "garbage.h"
 
+static void ReplaceExtension(char *filename, char *dst);
+
 void RunFile(char *filename)
 {
   Chunk chunk;
@@ -64,16 +66,63 @@ void CompileChunk(char *filename)
   char *data = (char*)ReadFile(filename);
   if (!data) {
     Print("Could not open file");
-    Exit();
+    return;
   }
 
   Source src = {filename, data, StrLen(data)};
   Val parsed = Parse(src, &mem);
-  if (!IsTagged(&mem, parsed, "ok")) return;
+  if (!IsTagged(&mem, parsed, "ok")) {
+    Print("Error parsing \"");
+    Print(filename);
+    Print("\"\n");
+    return;
+  }
 
-  Val compiled = Compile(Tail(&mem, parsed), &mem);
-  Chunk chunk = Assemble(compiled, &mem);
+  // Val compiled = Compile(Tail(&mem, parsed), &mem);
+  // if (IsNil(compiled)) return;
+  // Chunk chunk = Assemble(compiled, &mem);
 
+  // DestroyMem(&mem);
+
+  // char outfile[StrLen(filename) + 5];
+  // ReplaceExtension(filename, outfile);
+
+  // WriteChunk(&chunk, outfile);
+}
+
+void Usage(void)
+{
+  Print("Usage: cassette [-c] file\n");
+}
+
+int main(int argc, char *argv[])
+{
+  if (argc < 2) {
+    Usage();
+    return 0;
+  }
+
+  if (StrEq(argv[1], "-h")) {
+    Usage();
+    return 0;
+  }
+
+  if (StrEq(argv[1], "-c")) {
+    if (argc < 3) {
+      Usage();
+      return 0;
+    }
+
+    CompileChunk(argv[2]);
+    return 0;
+  }
+
+  RunFile(argv[1]);
+  return 0;
+}
+
+static void ReplaceExtension(char *filename, char *dst)
+{
   u32 len = StrLen(filename);
   u32 ext = len;
   for (u32 i = 0; i < len; i++) {
@@ -82,39 +131,13 @@ void CompileChunk(char *filename)
       break;
     }
   }
-  char compiled_name[ext + 5];
+
   for (u32 i = 0; i < ext; i++) {
-    compiled_name[i] = filename[i];
+    dst[i] = filename[i];
   }
-  compiled_name[ext] = 't';
-  compiled_name[ext+1] = 'a';
-  compiled_name[ext+2] = 'p';
-  compiled_name[ext+3] = 'e';
-  compiled_name[ext+4] = '\0';
-
-  WriteChunk(&chunk, compiled_name);
-}
-
-void Usage(void)
-{
-  Print("Usage: cassette [-r] file\n");
-}
-
-int main(int argc, char *argv[])
-{
-  if (argc > 1) {
-    if (StrEq(argv[1], "-h")) {
-      Usage();
-    } else if (StrEq(argv[1], "-r")) {
-      if (argc < 3) {
-        Usage();
-      } else {
-        CompileChunk(argv[2]);
-      }
-    } else {
-      RunFile(argv[1]);
-    }
-  } else {
-    Usage();
-  }
+  dst[ext] = 't';
+  dst[ext+1] = 'a';
+  dst[ext+2] = 'p';
+  dst[ext+3] = 'e';
+  dst[ext+4] = '\0';
 }

@@ -72,16 +72,22 @@ static Val AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
         PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
         result = ListFrom(mem, stmts, 3);
         break;
+      case ArgsRegReg:
+        PushReg(Tail(mem, ListAt(mem, stmts, 1)), chunk);
+        PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
+        result = ListFrom(mem, stmts, 3);
+        break;
       case ArgsConstConstReg:
         PushConst(Second(mem, stmts), chunk, mem);
         PushConst(Third(mem, stmts), chunk, mem);
         PushReg(Tail(mem, Fourth(mem, stmts)), chunk);
         result = ListFrom(mem, stmts, 4);
         break;
-      case ArgsRegReg:
+      case ArgsRegConstReg:
         PushReg(Tail(mem, ListAt(mem, stmts, 1)), chunk);
-        PushReg(Tail(mem, ListAt(mem, stmts, 2)), chunk);
-        result = ListFrom(mem, stmts, 3);
+        PushConst(ListAt(mem, stmts, 2), chunk, mem);
+        PushReg(Tail(mem, ListAt(mem, stmts, 3)), chunk);
+        result = ListFrom(mem, stmts, 4);
         break;
       }
 
@@ -152,6 +158,12 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
     printed += Print(" ");
     printed += PrintReg(ChunkRef(chunk, i+2));
     return printed;
+  case ArgsRegReg:
+    printed += Print(" ");
+    printed += PrintReg(ChunkRef(chunk, i+1));
+    printed += Print(" ");
+    printed += PrintReg(ChunkRef(chunk, i+2));
+    return printed;
   case ArgsConstConstReg:
     printed += Print(" ");
     printed += PrintVal(mem, ChunkConst(chunk, i+1));
@@ -160,11 +172,13 @@ u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem)
     printed += Print(" ");
     printed += PrintReg(ChunkRef(chunk, i+3));
     return printed;
-  case ArgsRegReg:
+  case ArgsRegConstReg:
     printed += Print(" ");
     printed += PrintReg(ChunkRef(chunk, i+1));
     printed += Print(" ");
-    printed += PrintReg(ChunkRef(chunk, i+2));
+    printed += PrintVal(mem, ChunkConst(chunk, i+2));
+    printed += Print(" ");
+    printed += PrintReg(ChunkRef(chunk, i+3));
     return printed;
   }
 }

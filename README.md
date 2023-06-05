@@ -33,7 +33,6 @@ Comments and feedback are welcome, especially about this documentation. If anyth
 Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
 - Module loading
-- Garbage collection
 - VM optimization
 - Standard library
   - Collections

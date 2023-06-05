@@ -63,11 +63,6 @@ void PrintRawValN(Val value, u32 size, Mem *mem)
   }
 }
 
-static u32 Indent(u32 size, char *str)
-{
-  return Pad(0, size, str);
-}
-
 static u32 PrintSymbolVal(Val symbol, Mem *mem)
 {
   u32 printed = 0;

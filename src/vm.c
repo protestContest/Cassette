@@ -111,8 +111,11 @@ void RunChunk(VM *vm, Chunk *chunk)
       MaybeCollectGarbage(vm);
       break;
     case OpTuple:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] =
-        TupleFromList(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
+      vm->regs[ChunkRef(chunk, vm->pc+2)] = MakeTuple(vm->mem, ChunkRef(chunk, vm->pc+1));
+      vm->pc += OpLength(op);
+      break;
+    case OpTSet:
+      TupleSet(mem, vm->regs[ChunkRef(chunk, vm->pc+1)], ChunkRef(chunk, vm->pc+2), vm->regs[ChunkRef(chunk, vm->pc+3)]);
       vm->pc += OpLength(op);
       break;
     case OpMap:

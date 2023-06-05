@@ -19,7 +19,8 @@ move [reg1] [reg2]      copies value from reg1 to reg2
 str [n] [reg]           make a string from the symbol constant #n, put it in reg
 lambda [n] [reg]        make a function with entrypoint at n and the current env, put it in reg
 pair [n] [reg]          extends list in reg with constant #n as the head
-tuple [reg]             replaces reg with a tuple made from the list in reg (reg must be a list)
+tuple [n] [reg]         replaces reg with a tuple of length n
+tset [reg1] [n] [reg2]  for a tuple in reg1, sets tuple index n to value in reg2 (reg1 must be a tuple)
 map [reg]               replaces reg with a map made from the keys/values pair of tuples in reg (reg must be a pair of tuples)
 head [reg]              replaces reg (a pair) with its head
 tail [reg]              replaces reg (a pair) with its tail
@@ -57,6 +58,7 @@ typedef enum {
   OpLambda,
   OpPair,
   OpTuple,
+  OpTSet,
   OpMap,
   OpHead,
   OpTail,
@@ -82,8 +84,9 @@ typedef enum {
   ArgsConst,
   ArgsReg,
   ArgsConstReg,
-  ArgsConstConstReg,
   ArgsRegReg,
+  ArgsConstConstReg,
+  ArgsRegConstReg,
 } ArgInfo;
 
 char *OpName(OpCode op);

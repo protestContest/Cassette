@@ -27,10 +27,9 @@ typedef struct Lexer {
   u32 line;
   u32 col;
   Mem *mem;
-  u32 num_literals;
   Literal *literals;
 } Lexer;
 
-void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, Source src, Mem *mem);
+void InitLexer(Lexer *lexer, Source src, Mem *mem);
 Token NextToken(Lexer *lexer);
 void PrintToken(Token token);

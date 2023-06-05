@@ -1,5 +1,5 @@
 #include "lex.h"
-#include "parse_syms.h"
+#include "parse_table.h"
 #include "parse.h"
 #include "mem.h"
 
@@ -26,12 +26,16 @@ static Token IDToken(Lexer *lexer);
 static Token NewlineToken(Lexer *lexer);
 static void Advance(Lexer *lexer);
 
-void InitLexer(Lexer *lexer, u32 num_literals, Literal *literals, Source src, Mem *mem)
+void InitLexer(Lexer *lexer, Source src, Mem *mem)
 {
-  for (u32 i = 0; i < num_literals; i++) {
-    MakeSymbol(mem, literals[i].lexeme);
+  *lexer = (Lexer){src, 0, 0, 1, 1, mem, NULL};
+  for (u32 i = 0; i < NUM_SYMBOLS; i++) {
+    if (IsLiteral(i)) {
+      Literal lit = {ParseSymbolName(i), i};
+      VecPush(lexer->literals, lit);
+      MakeSymbol(mem, ParseSymbolName(i));
+    }
   }
-  *lexer = (Lexer){src, 0, 0, 1, 1, mem, num_literals, literals};
 }
 
 Token NextToken(Lexer *lexer)
@@ -53,7 +57,7 @@ Token NextToken(Lexer *lexer)
     token = NewlineToken(lexer);
   } else {
     bool found_literal = false;
-    for (u32 i = 0; i < lexer->num_literals; i++) {
+    for (u32 i = 0; i < VecCount(lexer->literals); i++) {
       char *lexeme = lexer->literals[i].lexeme;
       if (IsIDChar(LexPeek(lexer, 0))) {
         if (MatchKeyword(lexer, lexeme)) {
@@ -73,7 +77,7 @@ Token NextToken(Lexer *lexer)
   }
 
 #if DEBUG_LEXER
-  u32 printed = Print(GrammarSymbolName(token.type));
+  u32 printed = Print(ParseSymbolName(token.type));
   Assert(printed < 8);
   for (u32 i = 0; i < 8 - printed; i++) Print(" ");
   PrintSourceLine(lexer->src, lexer->line, token.col, token.length);

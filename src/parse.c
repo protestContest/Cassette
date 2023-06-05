@@ -1,6 +1,5 @@
 #include "parse.h"
 #include "parse_table.h"
-#include "parse_syms.h"
 #include "lex.h"
 #include "mem.h"
 #include "ast.h"
@@ -14,7 +13,7 @@ the reduced node into an abstract syntax tree.
 */
 
 static Val Shift(Parser *p, i32 state, Token token);
-static Val Reduce(Parser *p, u32 sym, u32 num, Token token);
+static Val Reduce(Parser *p, i32 sym, u32 num, Token token);
 static Val ParseNext(Parser *p, Token token);
 
 static Val Shift(Parser *p, i32 state, Token token)
@@ -42,7 +41,7 @@ static void ReduceNodes(Parser *p, u32 sym, u32 num)
   VecPush(p->nodes, node);
 
 #if DEBUG_AST
-  Print(GrammarSymbolName(sym));
+  Print(ParseSymbolName(sym));
   Print(": ");
   PrintVal(p->mem, children);
   Print(" -> ");
@@ -58,18 +57,22 @@ static void ReduceNodes(Parser *p, u32 sym, u32 num)
 #endif
 }
 
-static Val Reduce(Parser *p, u32 sym, u32 num, Token token)
+static Val Reduce(Parser *p, i32 sym, u32 num, Token token)
 {
   Assert(VecCount(p->nodes) >= num);
   Assert(VecCount(p->stack) >= num);
 
-  if (sym == TOP_SYMBOL) {
+  if (sym == 0) {
     ReduceNodes(p, sym, num);
     RewindVec(p->stack, num);
     return VecPop(p->nodes);
   }
 
-  i32 next_state = actions[VecPeek(p->stack, num)][sym];
+  // i32 next_state = actions[VecPeek(p->stack, num)][sym];
+  i32 next_state = GetParseGoto(VecPeek(p->stack, num), sym);
+  Print("Goto ");
+  PrintInt(next_state);
+  Print("\n");
   if (next_state < 0) {
     return SyntaxError(p->lex.src, "Unexpected token", token);
   }
@@ -84,8 +87,6 @@ static Val Reduce(Parser *p, u32 sym, u32 num, Token token)
 static Val ParseNext(Parser *p, Token token)
 {
   i32 state = VecPeek(p->stack, 0);
-  i32 next_state = actions[state][token.type];
-  i32 reduction = reduction_syms[state];
 
 #if DEBUG_PARSE
   if (token.type == ParseSymEOF) {
@@ -100,6 +101,11 @@ static Val ParseNext(Parser *p, Token token)
   Print(": ");
 #endif
 
+  // i32 next_state = actions[state][token.type];
+  // i32 reduction = reduction_syms[state];
+
+  i32 next_state = GetParseAction(state, token.type);
+  i32 reduction = GetParseReduction(state);
   if (next_state >= 0) {
 #if DEBUG_PARSE
     Print("s");
@@ -108,17 +114,18 @@ static Val ParseNext(Parser *p, Token token)
 #endif
     return Shift(p, next_state, token);
   } else if (reduction >= 0) {
-    u32 num = reduction_sizes[state];
+    // u32 num = reduction_sizes[state];
+    u32 num = GetReductionNum(state);
 #if DEBUG_PARSE
     Print("r");
     PrintInt(reduction);
     Print(" (");
-    Print(symbol_names[reduction]);
+    Print(ParseSymbolName(reduction));
     Print(") -> ");
     PrintInt(VecPeek(p->stack, num));
     Print("\n");
 #endif
-    return Reduce(p, (u32)reduction, num, token);
+    return Reduce(p, reduction, num, token);
   } else {
     return SyntaxError(p->lex.src, "Unexpected token", token);
   }
@@ -126,7 +133,8 @@ static Val ParseNext(Parser *p, Token token)
 
 static void InitParser(Parser *p, Source src, Mem *mem)
 {
-  InitLexer(&p->lex, NUM_LITERALS, (Literal*)literals, src, mem);
+
+  InitLexer(&p->lex, src, mem);
   p->stack = NULL;
   p->nodes = NULL;
   p->mem = mem;
@@ -152,16 +160,11 @@ Val ParseFile(char *filename, Mem *mem)
   return Parse(src, mem);
 }
 
-char *GrammarSymbolName(u32 sym)
-{
-  return symbol_names[sym];
-}
-
 Val SyntaxError(Source src, char *message, Token token)
 {
   PrintEscape(IOFGRed);
   Print("(Syntax Error) ");
-  if (token.type == 0) {
+  if (token.type == ParseSymEOF) {
     Print("Unexpected end of input");
   } else {
     Print(message);

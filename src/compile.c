@@ -247,7 +247,6 @@ static Seq CompileDefinitions(Val exp, Reg target, Linkage linkage, Compiler *c)
   Val var = First(mem, exp);
 
   Seq val_code = CompileExp(Second(mem, exp), RVal, LinkNext, c);
-  // Define(var, nil, c->env, c->mem);
   Seq def_code = MakeSeq(REnv | RVal, 0,
       MakePair(mem, OpSymbol(OpDefine),
       MakePair(mem, var,
@@ -621,13 +620,35 @@ static Seq CompileList(Val exp, Reg target, Linkage linkage, Compiler *c)
 static Seq CompileTuple(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
-  return
-    EndWithLinkage(linkage,
-      AppendSeq(
-        CompileList(ReverseOnto(mem, exp, nil), target, LinkNext, c),
-        MakeSeq(target, target,
-          MakePair(mem, OpSymbol(OpTuple),
-          MakePair(mem, RegRef(target, c), nil))), c), c);
+  u32 length = ListLength(mem, exp);
+
+  // create a tuple in target
+  Seq tuple_seq =
+    MakeSeq(0, target,
+      MakePair(mem, OpSymbol(OpTuple),
+      MakePair(mem, IntVal(length),
+      MakePair(mem, RegRef(target, c), nil))));
+
+  // compile each item and add it to the tuple
+  Seq items_seq = EmptySeq();
+  for (u32 i = 0; i < length; i++) {
+    Val item = Head(mem, exp);
+
+    // last item doesn't need to link next
+    Linkage item_linkage = (i == length-1) ? linkage : LinkNext;
+
+    Seq item_seq = AppendSeq(
+      CompileExp(item, RVal, item_linkage, c),
+      MakeSeq(RVal | target, 0,
+        MakePair(mem, OpSymbol(OpTSet),
+        MakePair(mem, RegRef(target, c),
+        MakePair(mem, IntVal(0),
+        MakePair(mem, RegRef(RVal, c), nil))))), c);
+    items_seq = Preserving(target | REnv, items_seq, item_seq, c);
+    exp = Tail(mem, exp);
+  }
+
+  return AppendSeq(tuple_seq, items_seq, c);
 }
 
 static Seq CompileMap(Val exp, Reg target, Linkage linkage, Compiler *c)
