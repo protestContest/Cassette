@@ -5,13 +5,6 @@
 #include "ast.h"
 #include "print.h"
 
-/*
-This parser is an LR shift-reduce parser. The file "parse_table.h" is generated
-by parser generator script, "parse_gen.scm", which directs the parser state
-machine. At each reduction step, "ParseNode" (in ast.c) is called to structure
-the reduced node into an abstract syntax tree.
-*/
-
 static Val Shift(Parser *p, i32 state, Token token);
 static Val Reduce(Parser *p, i32 sym, u32 num, Token token);
 static Val ParseNext(Parser *p, Token token);
@@ -32,9 +25,7 @@ static void ReduceNodes(Parser *p, u32 sym, u32 num)
   Val children = nil;
   for (u32 i = 0; i < num; i++) {
     Val child = VecPop(p->nodes);
-    if (!IsNil(child)) {
-      children = MakePair(p->mem, child, children);
-    }
+    children = MakePair(p->mem, child, children);
   }
 
   Val node = ParseNode(sym, children, p->mem);
@@ -62,17 +53,14 @@ static Val Reduce(Parser *p, i32 sym, u32 num, Token token)
   Assert(VecCount(p->nodes) >= num);
   Assert(VecCount(p->stack) >= num);
 
-  if (sym == 0) {
-    ReduceNodes(p, sym, num);
-    RewindVec(p->stack, num);
-    return VecPop(p->nodes);
-  }
-
-  // i32 next_state = actions[VecPeek(p->stack, num)][sym];
   i32 next_state = GetParseGoto(VecPeek(p->stack, num), sym);
+
+#if DEBUGT_PARSE
   Print("Goto ");
   PrintInt(next_state);
   Print("\n");
+#endif
+
   if (next_state < 0) {
     return SyntaxError(p->lex.src, "Unexpected token", token);
   }
@@ -86,6 +74,14 @@ static Val Reduce(Parser *p, i32 sym, u32 num, Token token)
 
 static Val ParseNext(Parser *p, Token token)
 {
+#if DEBUG_PARSE
+  for (u32 i = 0; i < VecCount(p->stack); i++) {
+    PrintInt(p->stack[i]);
+    Print(", ");
+  }
+  Print("\n");
+#endif
+
   i32 state = VecPeek(p->stack, 0);
 
 #if DEBUG_PARSE
@@ -101,33 +97,30 @@ static Val ParseNext(Parser *p, Token token)
   Print(": ");
 #endif
 
-  // i32 next_state = actions[state][token.type];
-  // i32 reduction = reduction_syms[state];
-
-  i32 next_state = GetParseAction(state, token.type);
-  i32 reduction = GetParseReduction(state);
-  if (next_state >= 0) {
+  i32 action = GetParseAction(state, token.type);
 #if DEBUG_PARSE
+  if (action >= 0) {
     Print("s");
-    PrintInt(next_state);
+    PrintInt(action);
     Print("\n");
-#endif
-    return Shift(p, next_state, token);
-  } else if (reduction >= 0) {
-    // u32 num = reduction_sizes[state];
-    u32 num = GetReductionNum(state);
-#if DEBUG_PARSE
-    Print("r");
-    PrintInt(reduction);
-    Print(" (");
-    Print(ParseSymbolName(reduction));
-    Print(") -> ");
-    PrintInt(VecPeek(p->stack, num));
-    Print("\n");
-#endif
-    return Reduce(p, reduction, num, token);
   } else {
+    Print("r");
+    PrintInt(-action);
+    Print("\n");
+  }
+#endif
+
+  if (action == 0) {
+    u32 num = GetReductionNum(state);
+    ReduceNodes(p, action, num);
+    RewindVec(p->stack, num);
+    return VecPop(p->nodes);
+  } else if (IsParseError(action)) {
     return SyntaxError(p->lex.src, "Unexpected token", token);
+  } else if (action > 0) {
+    return Shift(p, action, token);
+  } else {
+    return Reduce(p, -action, GetReductionNum(state), token);
   }
 }
 

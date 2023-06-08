@@ -40,6 +40,8 @@ void RunFile(char *filename)
       return;
     }
 
+    return;
+
     Val compiled = Compile(Tail(&compile_mem, parsed), &compile_mem);
     if (IsNil(compiled)) return;
 

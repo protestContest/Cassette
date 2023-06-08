@@ -6,6 +6,7 @@
 #define LexPeek(lexer, n) (lexer)->src.data[(lexer)->pos + n]
 #define IsWhitespace(c)   ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)      ((c) == '\r' || (c) == '\n')
+#define IsEnd(c)          ((c) == '\0')
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
 #define IsHexDigit(c)     (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
 #define IsUppercase(c)    ((c) >= 'A' && (c) <= 'Z')
@@ -14,6 +15,7 @@
 
 static bool IsIDChar(char c);
 static void SkipWhitespace(Lexer *lexer);
+static void SkipEmptyLines(Lexer *lexer);
 static bool Match(Lexer *lexer, char *expected);
 static bool MatchKeyword(Lexer *lexer, char *expected);
 static Token MakeToken(u32 type, Lexer *lexer, Val value);
@@ -29,12 +31,12 @@ static void Advance(Lexer *lexer);
 void InitLexer(Lexer *lexer, Source src, Mem *mem)
 {
   *lexer = (Lexer){src, 0, 0, 1, 1, mem, NULL};
-  for (u32 i = 0; i < NUM_SYMBOLS; i++) {
-    if (IsLiteral(i)) {
-      Literal lit = {ParseSymbolName(i), i};
-      VecPush(lexer->literals, lit);
-      MakeSymbol(mem, ParseSymbolName(i));
-    }
+  i32 *indexes = GetLiterals();
+  for (i32 i = 0; i < NumLiterals(); i++) {
+    i32 sym = indexes[i];
+    Literal lit = {ParseSymbolName(sym), sym};
+    VecPush(lexer->literals, lit);
+    MakeSymbol(mem, ParseSymbolName(sym));
   }
 }
 
@@ -71,7 +73,9 @@ Token NextToken(Lexer *lexer)
         break;
       }
     }
-    if (!found_literal) {
+    if (found_literal) {
+      SkipEmptyLines(lexer);
+    } else {
       token = IDToken(lexer);
     }
   }
@@ -293,15 +297,20 @@ static void SkipWhitespace(Lexer *lexer)
 {
   while (IsWhitespace(LexPeek(lexer, 0))) {
     Advance(lexer);
-  }
-
-  if (LexPeek(lexer, 0) == ';') {
-    while (!IsNewline(LexPeek(lexer, 0))) {
-      if (LexPeek(lexer, 0) == '\0') return;
-      Advance(lexer);
+    if (LexPeek(lexer, 0) == ';') {
+      while (!IsEnd(LexPeek(lexer, 0)) && !IsNewline(LexPeek(lexer, 0))) {
+        Advance(lexer);
+      }
     }
+  }
+}
+
+static void SkipEmptyLines(Lexer *lexer)
+{
+  SkipWhitespace(lexer);
+  if (IsNewline(LexPeek(lexer, 0))) {
     Advance(lexer);
-    SkipWhitespace(lexer);
+    SkipEmptyLines(lexer);
   }
 }
 

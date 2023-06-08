@@ -11,8 +11,8 @@ SHELL = bash
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-DEFINES += DEBUG_PARSE
-# DEFINES += DEBUG_AST
+# DEFINES += DEBUG_PARSE
+DEFINES += DEBUG_AST
 # DEFINES += DEBUG_COMPILE
 # DEFINES += DEBUG_VM
 

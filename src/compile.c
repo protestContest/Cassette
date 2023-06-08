@@ -344,6 +344,7 @@ static Seq CompileBlock(Val exp, Reg target, Linkage linkage, Compiler *c)
 {
   Mem *mem = c->mem;
 
+  // scan through block and define vars in the correct place
   Val stmts = exp;
   while (!IsNil(stmts)) {
     Val stmt = Head(mem, stmts);
@@ -357,21 +358,6 @@ static Seq CompileBlock(Val exp, Reg target, Linkage linkage, Compiler *c)
     }
     stmts = Tail(mem, stmts);
   }
-
-  // scan through block and define vars in the correct place
-  // Val stmts = exp;
-  // while (!IsNil(stmts)) {
-  //   Val stmt = Head(c->mem, stmts);
-  //   if (IsTagged(c->mem, stmt, "let")) {
-  //     Val defines = Tail(c->mem, stmt);
-  //     while (!IsNil(defines)) {
-  //       Val var = Head(c->mem, defines);
-  //       Define(var, nil, c->env, c->mem);
-  //       defines = ListFrom(c->mem, defines, 2);
-  //     }
-  //   }
-  //   stmts = Tail(c->mem, stmts);
-  // }
 
   return CompileSequence(exp, target, linkage, c);
 }
