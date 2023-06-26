@@ -1,5 +1,19 @@
-[
-  1
-  2,
-  3
-]
+def (fizzbuzz n) do
+  def (loop m) do
+    cond do
+      (rem m 3) == 0 and
+          (rem m 5) == 0  -> print :FizzBuzz
+      (rem m 3) == 0      -> print :Fizz
+      (rem m 5) == 0      -> print :Buzz
+      true                -> print m
+    end
+
+    if m < n do
+      loop m + 1
+    end
+  end
+
+  loop 1
+end
+
+fizzbuzz 100

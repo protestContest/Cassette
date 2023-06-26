@@ -139,7 +139,7 @@ Val Parse(Source src, Mem *mem)
   Parser p;
   InitParser(&p, src, mem);
   Val ast = ParseNext(&p, NextToken(&p.lex));
-  return MakePair(mem, SymbolFor("ok"), ast);
+  return MakePair(mem, MakeSymbol(mem, "ok"), ast);
 }
 
 Val ParseFile(char *filename, Mem *mem)

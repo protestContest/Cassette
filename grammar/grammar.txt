@@ -1,6 +1,5 @@
-stmts         → stmts stmt stmt_end | stmt_end | ε
+stmts         → stmts stmt NL | NL | ε
 stmt          → let_stmt | def_stmt | call
-stmt_end      → NL | $
 
 let_stmt      → "let" assigns
 assigns       → assigns "," assign | assign

@@ -41,6 +41,9 @@ sub [reg]               subtracts arg1 and arg2, result in reg (args must be num
 mul [reg]               multiplies arg1 and arg2, result in reg (args must be numeric)
 div [reg]               divides arg1 and arg2, result in reg (args must be numeric)
 
+-- modules --
+module [n] [m]          define module #n, with entrypoint at m
+
 -- escape hatch --
 prim [reg]              given a symbol in RegFun and arguments in RegArgs, calls a primitive procedure and puts the result in reg
 */

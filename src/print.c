@@ -180,3 +180,45 @@ u32 PrintVal(Mem *mem, Val value)
 
   return printed;
 }
+
+typedef struct TreePos {
+  Val value;
+  u32 position;
+  struct TreePos *children;
+} TreePos;
+
+static TreePos LayoutTree(Val value, Mem *mem)
+{
+  TreePos pos = {value, 0, NULL};
+  if (!IsList(mem, value)) return pos;
+
+  pos.value = Head(mem, value);
+  Val children = Tail(mem, value);
+  while (!IsNil(children)) {
+    VecPush(pos.children, LayoutTree(Head(mem, children), mem));
+    children = Tail(mem, children);
+  }
+
+  return pos;
+}
+
+void PrintTree(Val value, Mem *mem)
+{
+  TreePos positions = LayoutTree(value, mem);
+
+  TreePos **queue = NULL;
+  Print(" ");
+  PrintVal(mem, positions.value);
+  Print("\n");
+  if (positions.children != NULL) VecPush(queue, positions.children);
+
+  while (VecCount(queue) > 0) {
+    TreePos *row = VecPop(queue);
+    for (u32 i = 0; i < VecCount(row); i++) {
+      Print(" ");
+      PrintVal(mem, row[i].value);
+      if (row[i].children != NULL) VecPush(queue, row[i].children);
+    }
+    Print("\n");
+  }
+}

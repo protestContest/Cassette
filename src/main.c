@@ -40,6 +40,9 @@ void RunFile(char *filename)
       return;
     }
 
+    PrintVal(&compile_mem, Tail(&compile_mem, parsed));
+    Print("\n\n");
+    PrintTree(Tail(&compile_mem, parsed), &compile_mem);
     return;
 
     Val compiled = Compile(Tail(&compile_mem, parsed), &compile_mem);
