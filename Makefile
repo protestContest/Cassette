@@ -1,7 +1,7 @@
 NAME = cassette
 
 BUILD_DIR := build
-SRC_DIR := src
+SRC_DIR := src2
 INC_DIR := include
 LIB_DIR := lib
 PREFIX := $(HOME)/.local
