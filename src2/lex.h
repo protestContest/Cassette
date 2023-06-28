@@ -44,6 +44,7 @@ typedef enum {
   TokenLBrace       = 39,
   TokenRBrace       = 40,
   TokenNewline      = 41,
+  TokenPipe         = 42,
 } TokenType;
 
 typedef struct {

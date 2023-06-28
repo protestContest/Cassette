@@ -5,6 +5,7 @@
 typedef enum {
   OpConst,
   OpStr,
+  OpPair,
   OpList,
   OpTuple,
   OpMap,
@@ -31,14 +32,18 @@ typedef enum {
   OpBranch,
   OpBranchF,
   OpPop,
+  OpHalt,
 } OpCode;
 
 typedef struct {
+  Mem mem;
   Chunk *chunk;
-  Mem *mem;
   Val *stack;
   u32 pc;
 } VM;
 
 void InitVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
+
+u32 OpLength(OpCode op);
+u32 PrintInstruction(Chunk *chunk, u32 index);

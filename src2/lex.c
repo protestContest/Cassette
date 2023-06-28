@@ -41,6 +41,7 @@ bool IsSymChar(char c)
   case '#': return false;
   case ',': return false;
   case '.': return false;
+  case '|': return false;
   case '(': return false;
   case ')': return false;
   case '[': return false;
@@ -177,6 +178,7 @@ Token NextToken(char **source)
   if (Match(source, ">=")) return (Token){TokenGreaterEqual, nil, start, *source - start};
   if (Match(source, "<=")) return (Token){TokenLessEqual, nil, start, *source - start};
   if (Match(source, "#[")) return (Token){TokenHashBracket, nil, start, *source - start};
+  if (Match(source, "|")) return (Token){TokenPipe, nil, start, *source - start};
   if (Match(source, ",")) return (Token){TokenComma, nil, start, *source - start};
   if (Match(source, "=")) return (Token){TokenEqual, nil, start, *source - start};
   if (Match(source, "(")) return (Token){TokenLParen, nil, start, *source - start};
@@ -241,6 +243,7 @@ void PrintToken(Token token)
   case TokenHashBracket: Print("HashBracket"); break;
   case TokenLBrace: Print("LBrace"); break;
   case TokenRBrace: Print("RBrace"); break;
+  case TokenPipe: Print("Pipe"); break;
   case TokenNewline: Print("Newline"); break;
   }
 }

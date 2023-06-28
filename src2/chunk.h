@@ -7,7 +7,7 @@ typedef struct {
 } Chunk;
 
 #define ChunkRef(chunk, i)    ((chunk)->data[i])
-#define ChunkConst(chunk, n)  ((chunk)->constants.values[n])
+#define ChunkConst(chunk, i)  ((chunk)->constants.values[ChunkRef(chunk, i)])
 
 void InitChunk(Chunk *chunk);
 u8 PushConst(Chunk *chunk, Val value);

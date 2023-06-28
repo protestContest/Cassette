@@ -1,4 +1,5 @@
 #include "compile.h"
+#include "vm.h"
 
 void Usage(void)
 {
@@ -18,6 +19,10 @@ i32 main(i32 argc, char **argv)
 
   Chunk chunk = Compile(source);
   Disassemble(&chunk);
+
+  VM vm;
+  InitVM(&vm);
+  RunChunk(&vm, &chunk);
   // HexDump("Chunk", chunk.data, VecCount(chunk.data));
   // HexDump("Constants", (u8*)chunk.constants, 4*VecCount(chunk.constants));
 }

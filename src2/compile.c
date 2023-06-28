@@ -13,10 +13,23 @@ typedef struct {
 
 typedef void (*ParseFn)(Compiler *compiler);
 
+typedef enum {
+  PrecNone,
+  PrecExpr,
+  PrecLambda,
+  PrecLogic,
+  PrecEqual,
+  PrecCompare,
+  PrecMember,
+  PrecPair,
+  PrecSum,
+  PrecProduct,
+} Precedence;
+
 typedef struct {
   ParseFn prefix;
   ParseFn infix;
-  u32 precedence;
+  Precedence precedence;
 } ParseRule;
 
 void AdvanceToken(Compiler *compiler);
@@ -41,48 +54,49 @@ void CompileTuple(Compiler *compiler);
 void CompileMap(Compiler *compiler);
 
 static ParseRule rules[] = {
-  [TokenEOF]          = {NULL, NULL, 0},
-  [TokenError]        = {NULL, NULL, 0},
-  [TokenLet]          = {&CompileLet, NULL, 0},
-  [TokenComma]        = {NULL, NULL, 0},
-  [TokenEqual]        = {NULL, NULL, 0},
-  [TokenDef]          = {&CompileDef, NULL, 0},
-  [TokenLParen]       = {&CompileGroup, NULL, 0},
-  [TokenRParen]       = {NULL, NULL, 0},
-  [TokenID]           = {&CompileVariable, NULL, 0},
-  [TokenArrow]        = {NULL, &CompileInfixLeft, 2},
-  [TokenAnd]          = {NULL, &CompileLogic, 3},
-  [TokenOr]           = {NULL, &CompileLogic, 3},
-  [TokenEqualEqual]   = {NULL, &CompileInfixLeft, 4},
-  [TokenNotEqual]     = {NULL, &CompileInfixLeft, 4},
-  [TokenGreater]      = {NULL, &CompileInfixLeft, 5},
-  [TokenGreaterEqual] = {NULL, &CompileInfixLeft, 5},
-  [TokenLess]         = {NULL, &CompileInfixLeft, 5},
-  [TokenLessEqual]    = {NULL, &CompileInfixLeft, 5},
-  [TokenIn]           = {NULL, &CompileInfixLeft, 6},
-  [TokenPlus]         = {NULL, &CompileInfixRight, 7},
-  [TokenMinus]        = {&CompileUnary, &CompileInfixRight, 7},
-  [TokenStar]         = {NULL, &CompileInfixRight, 8},
-  [TokenSlash]        = {NULL, &CompileInfixRight, 8},
-  [TokenNot]          = {&CompileUnary, NULL, 0},
-  [TokenNum]          = {&CompileNum, NULL, 0},
-  [TokenString]       = {&CompileString, NULL, 0},
-  [TokenTrue]         = {&CompileLiteral, NULL, 0},
-  [TokenFalse]        = {&CompileLiteral, NULL, 0},
-  [TokenNil]          = {&CompileLiteral, NULL, 0},
-  [TokenColon]        = {&CompileSymbol, NULL, 0},
-  [TokenDot]          = {&CompileAccess, NULL, 0},
-  [TokenDo]           = {&CompileDoBlock, NULL, 0},
-  [TokenEnd]          = {NULL, NULL, 0},
-  [TokenIf]           = {&CompileIfBlock, NULL, 0},
-  [TokenElse]         = {NULL, NULL, 0},
-  [TokenCond]         = {&CompileCondBlock, NULL, 0},
-  [TokenLBracket]     = {&CompileList, NULL, 0},
-  [TokenRBracket]     = {NULL, NULL, 0},
-  [TokenHashBracket]  = {&CompileTuple, NULL, 0},
-  [TokenLBrace]       = {NULL, NULL, 0},
-  [TokenRBrace]       = {&CompileMap, NULL, 0},
-  [TokenNewline]      = {&AdvanceToken, NULL, 0},
+  [TokenEOF]          = {NULL, NULL, PrecNone},
+  [TokenError]        = {NULL, NULL, PrecNone},
+  [TokenLet]          = {&CompileLet, NULL, PrecNone},
+  [TokenComma]        = {NULL, NULL, PrecNone},
+  [TokenEqual]        = {NULL, NULL, PrecNone},
+  [TokenDef]          = {&CompileDef, NULL, PrecNone},
+  [TokenLParen]       = {&CompileGroup, NULL, PrecNone},
+  [TokenRParen]       = {NULL, NULL, PrecNone},
+  [TokenID]           = {&CompileVariable, NULL, PrecNone},
+  [TokenArrow]        = {NULL, NULL, PrecNone},
+  [TokenAnd]          = {NULL, &CompileLogic, PrecLogic},
+  [TokenOr]           = {NULL, &CompileLogic, PrecLogic},
+  [TokenEqualEqual]   = {NULL, &CompileInfixLeft, PrecEqual},
+  [TokenNotEqual]     = {NULL, &CompileInfixLeft, PrecEqual},
+  [TokenGreater]      = {NULL, &CompileInfixLeft, PrecCompare},
+  [TokenGreaterEqual] = {NULL, &CompileInfixLeft, PrecCompare},
+  [TokenLess]         = {NULL, &CompileInfixLeft, PrecCompare},
+  [TokenLessEqual]    = {NULL, &CompileInfixLeft, PrecCompare},
+  [TokenIn]           = {NULL, &CompileInfixLeft, PrecMember},
+  [TokenPipe]         = {NULL, &CompileInfixRight, PrecPair},
+  [TokenPlus]         = {NULL, &CompileInfixLeft, PrecSum},
+  [TokenMinus]        = {&CompileUnary, &CompileInfixLeft, PrecSum},
+  [TokenStar]         = {NULL, &CompileInfixLeft, PrecProduct},
+  [TokenSlash]        = {NULL, &CompileInfixLeft, PrecProduct},
+  [TokenNot]          = {&CompileUnary, NULL, PrecNone},
+  [TokenNum]          = {&CompileNum, NULL, PrecNone},
+  [TokenString]       = {&CompileString, NULL, PrecNone},
+  [TokenTrue]         = {&CompileLiteral, NULL, PrecNone},
+  [TokenFalse]        = {&CompileLiteral, NULL, PrecNone},
+  [TokenNil]          = {&CompileLiteral, NULL, PrecNone},
+  [TokenColon]        = {&CompileSymbol, NULL, PrecNone},
+  [TokenDot]          = {&CompileAccess, NULL, PrecNone},
+  [TokenDo]           = {&CompileDoBlock, NULL, PrecNone},
+  [TokenEnd]          = {NULL, NULL, PrecNone},
+  [TokenIf]           = {&CompileIfBlock, NULL, PrecNone},
+  [TokenElse]         = {NULL, NULL, PrecNone},
+  [TokenCond]         = {&CompileCondBlock, NULL, PrecNone},
+  [TokenLBracket]     = {&CompileList, NULL, PrecNone},
+  [TokenRBracket]     = {NULL, NULL, PrecNone},
+  [TokenHashBracket]  = {&CompileTuple, NULL, PrecNone},
+  [TokenLBrace]       = {NULL, NULL, PrecNone},
+  [TokenRBrace]       = {&CompileMap, NULL, PrecNone},
+  [TokenNewline]      = {&AdvanceToken, NULL, PrecNone},
 };
 
 void InitCompiler(Compiler *compiler, Chunk *chunk, char **source)
@@ -132,7 +146,7 @@ void CompileError(Compiler *compiler, char *message)
   compiler->error = true;
 }
 
-void CompileExpr(Compiler *compiler, u32 precedence)
+void CompileExpr(Compiler *compiler, Precedence precedence)
 {
   if (compiler->error) return;
 
@@ -168,7 +182,7 @@ void CompileStatement(Compiler *compiler)
   u32 num_exprs = 0;
   while (compiler->token.type != TokenEOF && compiler->token.type != TokenNewline) {
     num_exprs++;
-    CompileExpr(compiler, 1);
+    CompileExpr(compiler, PrecExpr);
   }
 
   if (num_exprs > 1) {
@@ -189,6 +203,8 @@ Chunk Compile(char *source)
   while (compiler.token.type != TokenEOF) {
     CompileStatement(&compiler);
   }
+
+  PushByte(&chunk, OpHalt);
 
   return *compiler.chunk;
 }
@@ -255,7 +271,7 @@ void CompileLambda(Compiler *compiler, Token *ids)
   }
   PushByte(compiler->chunk, OpPop); // pop the lambda from the stack
 
-  CompileExpr(compiler, 1);
+  CompileExpr(compiler, PrecExpr);
   PushByte(compiler->chunk, OpReturn);
 
   // after body
@@ -320,7 +336,7 @@ void CompileGroup(Compiler *compiler)
       return;
     }
     num_params++;
-    CompileExpr(compiler, 1);
+    CompileExpr(compiler, PrecExpr);
   }
 
   PushByte(compiler->chunk, OpApply);
@@ -383,19 +399,6 @@ void CompileInfixLeft(Compiler *compiler)
   case TokenIn:
     PushByte(compiler->chunk, OpIn);
     break;
-  default: break;
-  }
-}
-
-void CompileInfixRight(Compiler *compiler)
-{
-  TokenType op = compiler->token.type;
-  u32 prec = rules[compiler->token.type].precedence;
-  AdvanceToken(compiler);
-  SkipNewlines(compiler);
-  CompileExpr(compiler, prec);
-
-  switch (op) {
   case TokenPlus:
     PushByte(compiler->chunk, OpAdd);
     break;
@@ -408,7 +411,27 @@ void CompileInfixRight(Compiler *compiler)
   case TokenSlash:
     PushByte(compiler->chunk, OpDiv);
     break;
-  default: break;
+  default:
+    CompileError(compiler, "Unknown left-associative operator");
+    break;
+  }
+}
+
+void CompileInfixRight(Compiler *compiler)
+{
+  TokenType op = compiler->token.type;
+  u32 prec = rules[compiler->token.type].precedence;
+  AdvanceToken(compiler);
+  SkipNewlines(compiler);
+  CompileExpr(compiler, prec);
+
+  switch (op) {
+  case TokenPipe:
+    PushByte(compiler->chunk, OpPair);
+    break;
+  default:
+    CompileError(compiler, "Unknown right-associative operator");
+    break;
   }
 }
 
@@ -450,7 +473,7 @@ void CompileDoBlock(Compiler *compiler)
 void CompileIfBlock(Compiler *compiler)
 {
   AdvanceToken(compiler);
-  CompileExpr(compiler, 1);
+  CompileExpr(compiler, PrecExpr);
 
   PushByte(compiler->chunk, OpBranchF);
   u32 branch_false = VecCount(compiler->chunk->data);
@@ -520,7 +543,7 @@ void CompileCondBlock(Compiler *compiler)
     }
 
     // condition
-    CompileExpr(compiler, 3); // don't allow lambdas in condition
+    CompileExpr(compiler, PrecLambda + 1); // don't allow lambdas in condition
     SkipNewlines(compiler);
     if (compiler->token.type != TokenArrow) {
       CompileError(compiler, "Expected \"->\" after clause condition");
@@ -572,7 +595,7 @@ void CompileAssign(Compiler *compiler)
   AdvanceToken(compiler);
   SkipNewlines(compiler);
 
-  CompileExpr(compiler, 1);
+  CompileExpr(compiler, PrecExpr);
   CompileID(compiler, id);
   PushByte(compiler->chunk, OpDefine);
 }
@@ -619,7 +642,7 @@ void CompileDef(Compiler *compiler)
   } else if (compiler->token.type == TokenID) {
     Token id = compiler->token;
     AdvanceToken(compiler);
-    CompileExpr(compiler, 1);
+    CompileExpr(compiler, PrecExpr);
     CompileID(compiler, id);
     PushByte(compiler->chunk, OpDefine);
   }
@@ -647,7 +670,7 @@ void CompileList(Compiler *compiler)
       CompileError(compiler, "Unexpected end of file");
       return;
     }
-    CompileExpr(compiler, 1);
+    CompileExpr(compiler, PrecExpr);
     num_items++;
     if (compiler->token.type == TokenComma) AdvanceToken(compiler);
     SkipNewlines(compiler);
@@ -667,7 +690,7 @@ void CompileTuple(Compiler *compiler)
       CompileError(compiler, "Unexpected end of file");
       return;
     }
-    CompileExpr(compiler, 1);
+    CompileExpr(compiler, PrecExpr);
     num_items++;
     if (compiler->token.type == TokenComma) AdvanceToken(compiler);
     SkipNewlines(compiler);
@@ -700,7 +723,7 @@ void CompileMap(Compiler *compiler)
       CompileError(compiler, "Unexpected end of file");
       return;
     }
-    CompileExpr(compiler, 1);
+    CompileExpr(compiler, PrecExpr);
     CompileID(compiler, id);
     num_items++;
 
