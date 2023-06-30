@@ -1,7 +1,7 @@
 NAME = cassette
 
 BUILD_DIR := build
-SRC_DIR := src2
+SRC_DIR := src
 INC_DIR := include
 LIB_DIR := lib
 PREFIX := $(HOME)/.local
@@ -11,10 +11,10 @@ SHELL = bash
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-DEFINES += DEBUG_PARSE
-DEFINES += DEBUG_AST
+# DEFINES += DEBUG_PARSE
+# DEFINES += DEBUG_AST
 # DEFINES += DEBUG_COMPILE
-# DEFINES += DEBUG_VM
+DEFINES += DEBUG_VM
 
 CC = clang
 INCLUDE_FLAGS = -I$(PREFIX)/include -I$(INC_DIR) -include univ.h

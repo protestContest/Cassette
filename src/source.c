@@ -47,6 +47,33 @@ void PrintSourceLine(Source src, u32 line, u32 start, u32 length)
   Print("\n");
 }
 
+void PrintSource(Source src)
+{
+  PrintEscape(IOUnderline);
+  Print(src.name);
+  PrintEscape(IONoUnderline);
+  Print("\n");
+
+  u32 pos = 0;
+  u32 cur_line = 1;
+  while (!AtEnd(src, pos)) {
+    PrintIntN(cur_line, 4, ' ');
+    Print("│ ");
+
+    while (!AtEnd(src, pos)) {
+      PrintChar(src.data[pos]);
+      if (src.data[pos] == '\n') {
+        cur_line++;
+        pos++;
+        break;
+      }
+
+      pos++;
+    }
+  }
+  Print("\n");
+}
+
 void PrintTokenContext(Source src, Token token, u32 num_lines)
 {
   u32 token_pos = token.lexeme - src.data;

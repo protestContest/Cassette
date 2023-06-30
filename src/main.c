@@ -32,6 +32,8 @@ void RunFile(char *filename)
     InitMem(&compile_mem, 0);
 
     Source src = {filename, data, StrLen(data)};
+    PrintSource(src);
+
     Val parsed = Parse(src, &compile_mem);
     if (!IsTagged(&compile_mem, parsed, "ok")) {
       Print("Error parsing \"");
@@ -40,7 +42,7 @@ void RunFile(char *filename)
       return;
     }
 
-    return;
+    // return;
 
     Val compiled = Compile(Tail(&compile_mem, parsed), &compile_mem);
     if (IsNil(compiled)) return;
