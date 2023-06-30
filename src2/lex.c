@@ -7,20 +7,21 @@
 #define Advance(src)  ((*(src))++)
 
 static struct {char *lexeme; TokenType type;} keywords[] = {
-  {"and",   TokenAnd },
-  {"cond",  TokenCond },
-  {"def",   TokenDef },
-  {"do",    TokenDo },
-  {"else",  TokenElse },
-  {"end",   TokenEnd },
-  {"false", TokenFalse },
-  {"if",    TokenIf },
-  {"in",    TokenIn },
-  {"let",   TokenLet },
-  {"nil",   TokenNil },
-  {"not",   TokenNot },
-  {"or",    TokenOr },
-  {"true",  TokenTrue },
+  {"and",     TokenAnd },
+  {"cond",    TokenCond },
+  {"def",     TokenDef },
+  {"do",      TokenDo },
+  {"else",    TokenElse },
+  {"end",     TokenEnd },
+  {"false",   TokenFalse },
+  {"if",      TokenIf },
+  {"in",      TokenIn },
+  {"let",     TokenLet },
+  {"nil",     TokenNil },
+  {"not",     TokenNot },
+  {"or",      TokenOr },
+  {"true",    TokenTrue },
+  {"module",  TokenModule},
 };
 
 void SkipWhitespace(char **source)
@@ -42,6 +43,7 @@ bool IsSymChar(char c)
   case ',': return false;
   case '.': return false;
   case '|': return false;
+  case ':': return false;
   case '(': return false;
   case ')': return false;
   case '[': return false;
@@ -245,5 +247,6 @@ void PrintToken(Token token)
   case TokenRBrace: Print("RBrace"); break;
   case TokenPipe: Print("Pipe"); break;
   case TokenNewline: Print("Newline"); break;
+  case TokenModule: Print("Module"); break;
   }
 }

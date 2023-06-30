@@ -17,12 +17,19 @@ i32 main(i32 argc, char **argv)
   char *filename = argv[1];
   char *source = (char*)ReadFile(filename);
 
-  Chunk chunk = Compile(source);
+  Chunk chunk;
+  InitChunk(&chunk);
+
+  Compiler c;
+  InitCompiler(&c, &chunk, &source);
+  CompileExpr(&c, 1);
+
+  // Chunk chunk = Compile(source);
   Disassemble(&chunk);
 
-  VM vm;
-  InitVM(&vm);
-  RunChunk(&vm, &chunk);
+  // VM vm;
+  // InitVM(&vm);
+  // RunChunk(&vm, &chunk);
   // HexDump("Chunk", chunk.data, VecCount(chunk.data));
   // HexDump("Constants", (u8*)chunk.constants, 4*VecCount(chunk.constants));
 }

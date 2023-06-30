@@ -1,5 +1,6 @@
 #include "chunk.h"
 #include "vm.h"
+#include "ops.h"
 
 void InitChunk(Chunk *chunk)
 {

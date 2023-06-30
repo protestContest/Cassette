@@ -54,6 +54,8 @@ typedef union {
 #define IsNil(v)          Eq(nil, v)
 #define BoolVal(v)        ((v) ? SymbolFor("true") : SymbolFor("false"))
 #define IsTrue(v)         !(IsNil(v) || Eq(v, SymbolFor("false")))
+#define IsNumeric(v)      (IsNum(v) || IsInt(v))
+#define IsZero(v)         ((IsNum(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
 
 typedef struct {
   Val *values;
@@ -70,14 +72,24 @@ char *SymbolName(Val symbol, Mem *mem);
 Val Pair(Val head, Val tail, Mem *mem);
 Val Head(Val pair, Mem *mem);
 Val Tail(Val pair, Mem *mem);
+bool ListContains(Val list, Val value, Mem *mem);
 
 Val MakeBinary(char *text, Mem *mem);
 u32 BinaryLength(Val bin, Mem *mem);
 char *BinaryData(Val bin, Mem *mem);
 
 Val MakeTuple(u32 length, Mem *mem);
+bool IsTuple(Val tuple, Mem *mem);
 u32 TupleLength(Val tuple, Mem *mem);
+bool TupleContains(Val tuple, Val value, Mem *mem);
 void TupleSet(Val tuple, u32 index, Val value, Mem *mem);
 Val TupleGet(Val tuple, u32 index, Mem *mem);
+
+Val MakeValMap(Mem *mem);
+bool IsValMap(Val map, Mem *mem);
+void ValMapSet(Val map, Val key, Val value, Mem *mem);
+void ValMapPut(Val map, Val key, Val value, Mem *mem);
+Val ValMapGet(Val map, Val key, Mem *mem);
+bool ValMapContains(Val map, Val key, Mem *mem);
 
 u32 DebugVal(Val value, Mem *mem);

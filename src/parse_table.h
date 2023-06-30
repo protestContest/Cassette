@@ -1,253 +1,262 @@
 /*
-  0 program     →  stmts $
-  1 stmts       →  stmts stmt NL
-  2 stmts       →  NL
+  0 program     →  stmts
+  0 program     →  $
+  1 stmts       →  stmts
+  1 stmts       →  stmt
+  1 stmts       →  stmt_end
+  2 stmts       →  stmt_end
   3 stmts       →  ε
   4 stmt        →  let_stmt
   5 stmt        →  def_stmt
   6 stmt        →  call
-  7 let_stmt    →  "let" assigns
-  8 assigns     →  assigns "," assign
-  9 assigns     →  assign
- 10 assign      →  ID "=" call
- 11 def_stmt    →  "def" "(" id_list ")" arg
- 12 id_list     →  id_list ID
- 13 id_list     →  ID
- 14 call        →  call arg
- 15 call        →  arg
- 16 arg         →  lambda
- 17 lambda      →  ID "->" logic
- 18 lambda      →  group "->" logic
- 19 lambda      →  "(" ")" "->" logic
- 20 lambda      →  logic
- 21 logic       →  logic "and" equals
- 22 logic       →  logic "or" equals
+  7 stmt_end    →  NL
+  8 stmt_end    →  $
+  9 let_stmt    →  "let"
+  9 let_stmt    →  assigns
+ 10 assigns     →  assigns
+ 10 assigns     →  ","
+ 10 assigns     →  assign
+ 11 assigns     →  assign
+ 12 assign      →  ID
+ 12 assign      →  "="
+ 12 assign      →  call
+ 13 def_stmt    →  "def"
+ 13 def_stmt    →  "("
+ 13 def_stmt    →  id_list
+ 13 def_stmt    →  ")"
+ 13 def_stmt    →  arg
+ 14 id_list     →  id_list
+ 14 id_list     →  ID
+ 15 id_list     →  ID
+ 16 call        →  call
+ 16 call        →  arg
+ 17 call        →  arg
+ 18 arg         →  lambda
+ 19 lambda      →  ID
+ 19 lambda      →  "->"
+ 19 lambda      →  lambda
+ 20 lambda      →  group
+ 20 lambda      →  "->"
+ 20 lambda      →  lambda
+ 21 lambda      →  "("
+ 21 lambda      →  ")"
+ 21 lambda      →  "->"
+ 21 lambda      →  lambda
+ 22 lambda      →  logic
+ 23 logic       →  logic
+ 23 logic       →  "and"
  23 logic       →  equals
- 24 equals      →  compare "==" compare
- 25 equals      →  compare "!=" compare
+ 24 logic       →  logic
+ 24 logic       →  "or"
+ 24 logic       →  equals
+ 25 logic       →  equals
  26 equals      →  compare
- 27 compare     →  member ">" member
- 28 compare     →  member ">=" member
- 29 compare     →  member "<" member
- 30 compare     →  member "<=" member
+ 26 equals      →  "=="
+ 26 equals      →  compare
+ 27 equals      →  compare
+ 27 equals      →  "!="
+ 27 equals      →  compare
+ 28 equals      →  compare
+ 29 compare     →  member
+ 29 compare     →  ">"
+ 29 compare     →  member
+ 30 compare     →  member
+ 30 compare     →  ">="
+ 30 compare     →  member
  31 compare     →  member
- 32 member      →  sum "in" sum
- 33 member      →  sum
- 34 sum         →  sum "+" product
- 35 sum         →  sum "-" product
+ 31 compare     →  "<"
+ 31 compare     →  member
+ 32 compare     →  member
+ 32 compare     →  "<="
+ 32 compare     →  member
+ 33 compare     →  member
+ 34 member      →  sum
+ 34 member      →  "in"
+ 34 member      →  sum
+ 35 member      →  sum
+ 36 sum         →  sum
+ 36 sum         →  "+"
  36 sum         →  product
- 37 product     →  product "*" unary
- 38 product     →  product "/" unary
+ 37 sum         →  sum
+ 37 sum         →  "-"
+ 37 sum         →  product
+ 38 sum         →  product
+ 39 product     →  product
+ 39 product     →  "*"
  39 product     →  unary
- 40 unary       →  "not" primary
- 41 unary       →  primary
- 42 primary     →  NUM
- 43 primary     →  ID
- 44 primary     →  STR
- 45 primary     →  literal
- 46 primary     →  symbol
- 47 primary     →  access
- 48 primary     →  group
- 49 primary     →  block
- 50 primary     →  object
- 51 literal     →  "true"
- 52 literal     →  "false"
- 53 literal     →  "nil"
- 54 symbol      →  ":" ID
- 55 access      →  access "." ID
- 56 access      →  ID "." ID
- 57 group       →  "(" call ")"
- 58 block       →  do_block
- 59 block       →  if_block
- 60 block       →  cond_block
- 61 do_block    →  "do" stmts "end"
- 62 if_block    →  "if" arg do_else
- 63 if_block    →  "if" arg do_block nothing
- 64 do_else     →  "do" stmts "else" stmts "end"
- 65 cond_block  →  "cond" "do" clauses "end"
- 66 clauses     →  clauses clause
- 67 clauses     →  NL
- 68 clauses     →  ε
- 69 clause      →  logic "->" call NL
- 70 object      →  list
- 71 object      →  tuple
- 72 object      →  map
- 73 list        →  "[" items "]"
- 74 tuple       →  "#[" items "]"
- 75 map         →  "{" entries "}"
- 76 items       →  items item
- 77 items       →  ε
- 78 item        →  arg opt_comma
- 79 entries     →  entries entry
- 80 entries     →  ε
- 81 entry       →  ID ":" arg opt_comma
- 82 opt_comma   →  ","
- 83 opt_comma   →  NL
- 84 opt_comma   →  ε
- 85 nothing     →  ε
+ 40 product     →  product
+ 40 product     →  "/"
+ 40 product     →  unary
+ 41 product     →  unary
+ 42 unary       →  "not"
+ 42 unary       →  primary
+ 43 unary       →  primary
+ 44 primary     →  NUM
+ 45 primary     →  ID
+ 46 primary     →  STR
+ 47 primary     →  literal
+ 48 primary     →  symbol
+ 49 primary     →  access
+ 50 primary     →  group
+ 51 primary     →  block
+ 52 primary     →  object
+ 53 literal     →  "true"
+ 54 literal     →  "false"
+ 55 literal     →  "nil"
+ 56 symbol      →  ":"
+ 56 symbol      →  ID
+ 57 access      →  access
+ 57 access      →  "."
+ 57 access      →  ID
+ 58 access      →  ID
+ 58 access      →  "."
+ 58 access      →  ID
+ 59 group       →  "("
+ 59 group       →  call
+ 59 group       →  ")"
+ 60 block       →  do_block
+ 61 block       →  if_block
+ 62 block       →  cond_block
+ 63 do_block    →  "do"
+ 63 do_block    →  stmts
+ 63 do_block    →  "end"
+ 64 if_block    →  "if"
+ 64 if_block    →  arg
+ 64 if_block    →  do_else
+ 65 if_block    →  "if"
+ 65 if_block    →  arg
+ 65 if_block    →  do_block
+ 65 if_block    →  nothing
+ 66 do_else     →  "do"
+ 66 do_else     →  stmts
+ 66 do_else     →  "else"
+ 66 do_else     →  stmts
+ 66 do_else     →  "end"
+ 67 cond_block  →  "cond"
+ 67 cond_block  →  "do"
+ 67 cond_block  →  clauses
+ 67 cond_block  →  "end"
+ 68 clauses     →  clauses
+ 68 clauses     →  clause
+ 69 clauses     →  NL
+ 70 clauses     →  ε
+ 71 clause      →  logic
+ 71 clause      →  "->"
+ 71 clause      →  call
+ 71 clause      →  NL
+ 72 object      →  list
+ 73 object      →  tuple
+ 74 object      →  map
+ 75 list        →  "["
+ 75 list        →  items
+ 75 list        →  "]"
+ 76 tuple       →  "#["
+ 76 tuple       →  items
+ 76 tuple       →  "]"
+ 77 map         →  "{"
+ 77 map         →  entries
+ 77 map         →  "}"
+ 78 items       →  items
+ 78 items       →  item
+ 79 items       →  ε
+ 80 item        →  arg
+ 80 item        →  opt_comma
+ 81 entries     →  entries
+ 81 entries     →  entry
+ 82 entries     →  ε
+ 83 entry       →  ID
+ 83 entry       →  ":"
+ 83 entry       →  arg
+ 83 entry       →  opt_comma
+ 84 opt_comma   →  ","
+ 85 opt_comma   →  NL
+ 86 opt_comma   →  ε
+ 87 nothing     →  ε
 */
 
 enum {
   ParseSymProgram    =  0,
   ParseSymStmts      =  1,
   ParseSymStmt       =  2,
-  ParseSymLetStmt    =  3,
-  ParseSymAssigns    =  4,
-  ParseSymAssign     =  5,
-  ParseSymDefStmt    =  6,
-  ParseSymIdList     =  7,
-  ParseSymCall       =  8,
-  ParseSymArg        =  9,
-  ParseSymLambda     = 10,
-  ParseSymLogic      = 11,
-  ParseSymEquals     = 12,
-  ParseSymCompare    = 13,
-  ParseSymMember     = 14,
-  ParseSymSum        = 15,
-  ParseSymProduct    = 16,
-  ParseSymUnary      = 17,
-  ParseSymPrimary    = 18,
-  ParseSymLiteral    = 19,
-  ParseSymSymbol     = 20,
-  ParseSymAccess     = 21,
-  ParseSymGroup      = 22,
-  ParseSymBlock      = 23,
-  ParseSymDoBlock    = 24,
-  ParseSymIfBlock    = 25,
-  ParseSymDoElse     = 26,
-  ParseSymCondBlock  = 27,
-  ParseSymClauses    = 28,
-  ParseSymClause     = 29,
-  ParseSymObject     = 30,
-  ParseSymList       = 31,
-  ParseSymTuple      = 32,
-  ParseSymMap        = 33,
-  ParseSymItems      = 34,
-  ParseSymItem       = 35,
-  ParseSymEntries    = 36,
-  ParseSymEntry      = 37,
-  ParseSymOptComma   = 38,
-  ParseSymNothing    = 39,
-  ParseSymEOF        = 40,
-  ParseSymNL         = 41,
-  ParseSymLet        = 42,
-  ParseSymComma      = 43,
-  ParseSymID         = 44,
-  ParseSymEqual      = 45,
-  ParseSymDef        = 46,
-  ParseSymLParen     = 47,
-  ParseSymRParen     = 48,
-  ParseSymArrow      = 49,
-  ParseSymAnd        = 50,
-  ParseSymOr         = 51,
-  ParseSymEqualEqual = 52,
-  ParseSymNotEqual   = 53,
-  ParseSymGreaterThan = 54,
-  ParseSymGreaterEqual = 55,
-  ParseSymLessThan   = 56,
-  ParseSymLessEqual  = 57,
-  ParseSymIn         = 58,
-  ParseSymPlus       = 59,
-  ParseSymMinus      = 60,
-  ParseSymStar       = 61,
-  ParseSymSlash      = 62,
-  ParseSymNot        = 63,
-  ParseSymNUM        = 64,
-  ParseSymSTR        = 65,
-  ParseSymTrue       = 66,
-  ParseSymFalse      = 67,
-  ParseSymNil        = 68,
-  ParseSymColon      = 69,
-  ParseSymDot        = 70,
-  ParseSymDo         = 71,
-  ParseSymEnd        = 72,
-  ParseSymIf         = 73,
-  ParseSymElse       = 74,
-  ParseSymCond       = 75,
-  ParseSymLBracket   = 76,
-  ParseSymRBracket   = 77,
-  ParseSymHashBracket = 78,
-  ParseSymLBrace     = 79,
-  ParseSymRBrace     = 80,
-NUM_SYMBOLS
-};
-
-i32 GetParseAction(i32 state, u32 sym);
-i32 GetParseGoto(i32 state, u32 sym);
-i32 GetParseReduction(i32 state);
-i32 GetReductionNum(i32 state);
-i32 NumLiterals(void);
-i32 *GetLiterals(void);
-char *ParseSymbolName(i32 sym);
-bool IsParseError(i32 action);
-);
-;
- *GetLiterals(void);
-char *ParseSymbolName(i32 sym);
-bool IsParseError(i32 action);
-20,
-  ParseSymLiteral    = 21,
-  ParseSymSymbol     = 22,
-  ParseSymAccess     = 23,
-  ParseSymGroup      = 24,
-  ParseSymBlock      = 25,
-  ParseSymDoBlock    = 26,
-  ParseSymIfBlock    = 27,
-  ParseSymDoElse     = 28,
-  ParseSymCondBlock  = 29,
-  ParseSymClauses    = 30,
-  ParseSymClause     = 31,
-  ParseSymObject     = 32,
-  ParseSymList       = 33,
-  ParseSymTuple      = 34,
-  ParseSymMap        = 35,
-  ParseSymItems      = 36,
-  ParseSymItem       = 37,
-  ParseSymEntries    = 38,
-  ParseSymEntry      = 39,
-  ParseSymOptComma   = 40,
-  ParseSymNothing    = 41,
-  ParseSymEOF        = 42,
-  ParseSymNL         = 43,
-  ParseSymLet        = 44,
-  ParseSymComma      = 45,
-  ParseSymID         = 46,
-  ParseSymEqual      = 47,
-  ParseSymDef        = 48,
-  ParseSymLParen     = 49,
-  ParseSymRParen     = 50,
-  ParseSymArrow      = 51,
-  ParseSymAnd        = 52,
-  ParseSymOr         = 53,
-  ParseSymEqualEqual = 54,
-  ParseSymNotEqual   = 55,
-  ParseSymGreaterThan = 56,
-  ParseSymGreaterEqual = 57,
-  ParseSymLessThan   = 58,
-  ParseSymLessEqual  = 59,
-  ParseSymIn         = 60,
-  ParseSymPlus       = 61,
-  ParseSymMinus      = 62,
-  ParseSymStar       = 63,
-  ParseSymSlash      = 64,
-  ParseSymNot        = 65,
-  ParseSymNUM        = 66,
-  ParseSymSTR        = 67,
-  ParseSymTrue       = 68,
-  ParseSymFalse      = 69,
-  ParseSymNil        = 70,
-  ParseSymColon      = 71,
-  ParseSymDot        = 72,
-  ParseSymDo         = 73,
-  ParseSymEnd        = 74,
-  ParseSymIf         = 75,
-  ParseSymElse       = 76,
-  ParseSymCond       = 77,
-  ParseSymLBracket   = 78,
-  ParseSymRBracket   = 79,
-  ParseSymHashBracket = 80,
-  ParseSymLBrace     = 81,
-  ParseSymRBrace     = 82,
+  ParseSymStmtEnd    =  3,
+  ParseSymLetStmt    =  4,
+  ParseSymAssigns    =  5,
+  ParseSymAssign     =  6,
+  ParseSymDefStmt    =  7,
+  ParseSymIdList     =  8,
+  ParseSymCall       =  9,
+  ParseSymArg        = 10,
+  ParseSymLambda     = 11,
+  ParseSymLogic      = 12,
+  ParseSymEquals     = 13,
+  ParseSymCompare    = 14,
+  ParseSymMember     = 15,
+  ParseSymSum        = 16,
+  ParseSymProduct    = 17,
+  ParseSymUnary      = 18,
+  ParseSymPrimary    = 19,
+  ParseSymLiteral    = 20,
+  ParseSymSymbol     = 21,
+  ParseSymAccess     = 22,
+  ParseSymGroup      = 23,
+  ParseSymBlock      = 24,
+  ParseSymDoBlock    = 25,
+  ParseSymIfBlock    = 26,
+  ParseSymDoElse     = 27,
+  ParseSymCondBlock  = 28,
+  ParseSymClauses    = 29,
+  ParseSymClause     = 30,
+  ParseSymObject     = 31,
+  ParseSymList       = 32,
+  ParseSymTuple      = 33,
+  ParseSymMap        = 34,
+  ParseSymItems      = 35,
+  ParseSymItem       = 36,
+  ParseSymEntries    = 37,
+  ParseSymEntry      = 38,
+  ParseSymOptComma   = 39,
+  ParseSymNothing    = 40,
+  ParseSymEOF        = 41,
+  ParseSymNL         = 42,
+  ParseSymLet        = 43,
+  ParseSymComma      = 44,
+  ParseSymID         = 45,
+  ParseSymEqual      = 46,
+  ParseSymDef        = 47,
+  ParseSymLParen     = 48,
+  ParseSymRParen     = 49,
+  ParseSymArrow      = 50,
+  ParseSymAnd        = 51,
+  ParseSymOr         = 52,
+  ParseSymEqualEqual = 53,
+  ParseSymNotEqual   = 54,
+  ParseSymGreaterThan = 55,
+  ParseSymGreaterEqual = 56,
+  ParseSymLessThan   = 57,
+  ParseSymLessEqual  = 58,
+  ParseSymIn         = 59,
+  ParseSymPlus       = 60,
+  ParseSymMinus      = 61,
+  ParseSymStar       = 62,
+  ParseSymSlash      = 63,
+  ParseSymNot        = 64,
+  ParseSymNUM        = 65,
+  ParseSymSTR        = 66,
+  ParseSymTrue       = 67,
+  ParseSymFalse      = 68,
+  ParseSymNil        = 69,
+  ParseSymColon      = 70,
+  ParseSymDot        = 71,
+  ParseSymDo         = 72,
+  ParseSymEnd        = 73,
+  ParseSymIf         = 74,
+  ParseSymElse       = 75,
+  ParseSymCond       = 76,
+  ParseSymLBracket   = 77,
+  ParseSymRBracket   = 78,
+  ParseSymHashBracket = 79,
+  ParseSymLBrace     = 80,
+  ParseSymRBrace     = 81,
 NUM_SYMBOLS
 };
 
