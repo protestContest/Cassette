@@ -11,9 +11,105 @@ typedef struct Compiler {
   u32 line;
   u32 col;
   u32 pos;
-  bool error;
-  Seq code;
+  u32 next_label;
+  bool ok;
+  Mem mem;
 } Compiler;
+
+typedef Seq (*ParseFn)(Compiler *compiler, Linkage linkage);
+
+typedef enum {
+  PrecNone,
+  PrecExpr,
+  PrecLambda,
+  PrecLogic,
+  PrecEqual,
+  PrecCompare,
+  PrecMember,
+  PrecPair,
+  PrecSum,
+  PrecProduct,
+  PrecUnary
+} Precedence;
+
+typedef struct {
+  ParseFn prefix;
+  ParseFn infix;
+  Precedence precedence;
+} ParseRule;
+
+static Seq CompileExpr(Compiler *c, Linkage linkage, Precedence prec);
+static Seq CompileNum(Compiler *c, Linkage linkage);
+static Seq CompileVar(Compiler *c, Linkage linkage);
+static Seq CompileLiteral(Compiler *c, Linkage linkage);
+static Seq CompileSymbol(Compiler *c, Linkage linkage);
+static Seq CompileGroup(Compiler *c, Linkage linkage);
+
+static ParseRule rules[] = {
+  [TokenNum]          = {&CompileNum, NULL, PrecNone},
+  [TokenID]           = {&CompileVar, NULL, PrecNone},
+  [TokenTrue]         = {&CompileLiteral, NULL, PrecNone},
+  [TokenFalse]        = {&CompileLiteral, NULL, PrecNone},
+  [TokenNil]          = {&CompileLiteral, NULL, PrecNone},
+  [TokenColon]        = {&CompileSymbol, NULL, PrecNone},
+  [TokenLParen]       = {&CompileGroup, NULL, PrecNone},
+  [TokenEOF]          = {NULL, NULL, PrecNone},
+  [TokenError]        = {NULL, NULL, PrecNone},
+  [TokenLet]          = {NULL, NULL, PrecNone},
+  [TokenComma]        = {NULL, NULL, PrecNone},
+  [TokenEqual]        = {NULL, NULL, PrecNone},
+  [TokenDef]          = {NULL, NULL, PrecNone},
+  [TokenRParen]       = {NULL, NULL, PrecNone},
+  [TokenArrow]        = {NULL, NULL, PrecNone},
+  [TokenAnd]          = {NULL, NULL, PrecNone},
+  [TokenOr]           = {NULL, NULL, PrecNone},
+  [TokenEqualEqual]   = {NULL, NULL, PrecNone},
+  [TokenNotEqual]     = {NULL, NULL, PrecNone},
+  [TokenGreater]      = {NULL, NULL, PrecNone},
+  [TokenGreaterEqual] = {NULL, NULL, PrecNone},
+  [TokenLess]         = {NULL, NULL, PrecNone},
+  [TokenLessEqual]    = {NULL, NULL, PrecNone},
+  [TokenIn]           = {NULL, NULL, PrecNone},
+  [TokenPipe]         = {NULL, NULL, PrecNone},
+  [TokenPlus]         = {NULL, NULL, PrecNone},
+  [TokenMinus]        = {NULL, NULL, PrecNone},
+  [TokenStar]         = {NULL, NULL, PrecNone},
+  [TokenSlash]        = {NULL, NULL, PrecNone},
+  [TokenNot]          = {NULL, NULL, PrecNone},
+  [TokenString]       = {NULL, NULL, PrecNone},
+  [TokenDot]          = {NULL, NULL, PrecNone},
+  [TokenDo]           = {NULL, NULL, PrecNone},
+  [TokenEnd]          = {NULL, NULL, PrecNone},
+  [TokenIf]           = {NULL, NULL, PrecNone},
+  [TokenElse]         = {NULL, NULL, PrecNone},
+  [TokenCond]         = {NULL, NULL, PrecNone},
+  [TokenLBracket]     = {NULL, NULL, PrecNone},
+  [TokenRBracket]     = {NULL, NULL, PrecNone},
+  [TokenHashBracket]  = {NULL, NULL, PrecNone},
+  [TokenLBrace]       = {NULL, NULL, PrecNone},
+  [TokenRBrace]       = {NULL, NULL, PrecNone},
+  [TokenNewline]      = {NULL, NULL, PrecNone},
+  [TokenModule]       = {NULL, NULL, PrecNone},
+};
+
+void CompileError(Compiler *compiler, char *message)
+{
+  PrintEscape(IOFGRed);
+  Print("Compile error [");
+  PrintInt(compiler->line);
+  Print(":");
+  PrintInt(compiler->col);
+  Print("]: ");
+  Print(message);
+  Print("\n");
+
+  u32 token_pos = compiler->token.lexeme - compiler->source;
+  PrintSourceContext(compiler->source, compiler->line, 3, token_pos, compiler->token.length);
+
+  PrintEscape(IOFGReset);
+  Print("\n");
+  compiler->ok = false;
+}
 
 void AdvanceToken(Compiler *c)
 {
@@ -28,75 +124,197 @@ void AdvanceToken(Compiler *c)
   c->col += end - start;
 }
 
+bool MatchToken(Compiler *c, TokenType type)
+{
+  if (c->token.type == type) {
+    AdvanceToken(c);
+    return true;
+  }
+  return false;
+}
+
+bool ExpectToken(Compiler *c, TokenType type)
+{
+  if (!MatchToken(c, type)) {
+    CompileError(c, "Expected token");
+    return false;
+  }
+
+  return true;
+}
+
 void SkipNewlines(Compiler *compiler)
 {
   while (compiler->token.type == TokenNewline) AdvanceToken(compiler);
 }
 
-void InitCompiler(Compiler *compiler, Chunk *chunk, char *source)
+void InitCompiler(Compiler *compiler, char *source)
 {
   compiler->source = source;
   compiler->line = 1;
   compiler->col = 1;
   compiler->pos = 0;
-  compiler->error = false;
-  compiler->code = EmptySeq();
+  compiler->ok = true;
+  InitMem(&compiler->mem);
   AdvanceToken(compiler);
-}
-
-void CompileError(Compiler *compiler, char *message)
-{
-  PrintEscape(IOFGRed);
-  Print("Compile error [");
-  PrintInt(compiler->line);
-  Print(":");
-  PrintInt(compiler->col);
-  Print("]: ");
-  Print(message);
-  PrintEscape(IOFGReset);
-  Print("\n");
-  compiler->error = true;
 }
 
 Chunk Compile(char *source)
 {
-  Chunk chunk;
-  InitChunk(&chunk);
   Compiler compiler;
-  InitCompiler(&compiler, &chunk, source);
+  InitCompiler(&compiler, source);
 
-  while (compiler.token.type != TokenEOF) {
-    u32 token_pos = compiler.token.lexeme - compiler.source;
-    PrintSourceContext(compiler.source, compiler.line, 0, token_pos, compiler.token.length);
-    AdvanceToken(&compiler);
-  }
+  Seq code = CompileExpr(&compiler, LinkNext, PrecExpr);
 
-  return chunk;
+  return Assemble(code, &compiler.mem);
 }
 
-// typedef void (*ParseFn)(Compiler *compiler);
+static Seq CompileExpr(Compiler *c, Linkage linkage, Precedence prec)
+{
+  ParseRule rule = rules[c->token.type];
+  if (rule.prefix == NULL) {
+    CompileError(c, "Expected expression");
+    return EmptySeq();
+  }
+  return rule.prefix(c, linkage);
+}
 
-// typedef enum {
-//   PrecNone,
-//   PrecExpr,
-//   PrecLambda,
-//   PrecLogic,
-//   PrecEqual,
-//   PrecCompare,
-//   PrecMember,
-//   PrecPair,
-//   PrecSum,
-//   PrecProduct,
-//   PrecUnary
-// } Precedence;
+static Seq CompileNum(Compiler *c, Linkage linkage)
+{
+  Mem *mem = &c->mem;
+  Val value = c->token.value;
+  AdvanceToken(c);
 
-// typedef struct {
-//   ParseFn prefix;
-//   ParseFn infix;
-//   Precedence precedence;
-// } ParseRule;
+  return
+    EndWithLinkage(
+      MakeSeq(0, 0,
+        Pair(OpSymbol(OpConst),
+        Pair(value, nil, mem), mem)), linkage, mem);
+}
 
-// void CompileNum(Compiler *compiler);
+static Seq CompileVar(Compiler *c, Linkage linkage)
+{
+  Mem *mem = &c->mem;
+  Val id = MakeSymbol(c->token.lexeme, c->token.length, mem);
+  AdvanceToken(c);
+
+  return
+    EndWithLinkage(
+      MakeSeq(0, RegEnv,
+        Pair(OpSymbol(OpConst),
+        Pair(id,
+        Pair(OpSymbol(OpLookup), nil, mem), mem), mem)), linkage, mem);
+}
+
+static Seq CompileSymbol(Compiler *c, Linkage linkage)
+{
+  Mem *mem = &c->mem;
+  ExpectToken(c, TokenColon);
+  Val id = MakeSymbol(c->token.lexeme, c->token.length, mem);
+  AdvanceToken(c);
+
+  return
+    EndWithLinkage(
+      MakeSeq(0, RegEnv,
+        Pair(OpSymbol(OpConst),
+        Pair(id, nil, mem), mem)), linkage, mem);
+}
+
+static Seq CompileLiteral(Compiler *c, Linkage linkage)
+{
+  OpCode op;
+  switch (c->token.type) {
+  case TokenTrue:
+    op = OpTrue;
+    break;
+  case TokenFalse:
+    op = OpFalse;
+    break;
+  case TokenNil:
+    op = OpNil;
+    break;
+  default:
+    CompileError(c, "Unknown literal");
+    op = OpHalt;
+  }
+  AdvanceToken(c);
+
+  return
+    EndWithLinkage(
+      MakeSeq(0, 0, Pair(OpSymbol(op), nil, &c->mem)), linkage, &c->mem);
+}
+
+static Seq CompileLambda(Compiler *c, Linkage linkage, Token *ids)
+{
+  Mem *mem = &c->mem;
+  Val entry = MakeLabel(c->next_label++, mem);
+  Val after_body = MakeLabel(c->next_label++, mem);
+
+  Linkage lambda_linkage = (Eq(linkage, LinkNext)) ? after_body : linkage;
+  Seq lambda_code =
+    EndWithLinkage(
+      MakeSeq(RegEnv, 0,
+        Pair(OpSymbol(OpLambda),
+        Pair(LabelRef(entry, mem), nil, mem), mem)), lambda_linkage, mem);
+
+  Val bindings = nil;
+  for (u32 i = 0; i < VecCount(ids); i++) {
+    Val id = MakeSymbol(ids[i].lexeme, ids[i].length, mem);
+    bindings =
+      Pair(OpSymbol(OpConst),
+      Pair(id,
+      Pair(OpSymbol(OpDefine),
+        bindings, mem), mem), mem);
+  }
+  FreeVec(ids);
+
+  Seq body =
+    AppendSeq(LabelSeq(entry, mem),
+    AppendSeq(
+      MakeSeq(0, RegEnv, bindings),
+      CompileExpr(c, LinkReturn, PrecExpr), mem), mem);
+
+  return
+    AppendSeq(lambda_code,
+    AppendSeq(body,
+              LabelSeq(after_body, mem), mem), mem);
+}
+
+static Seq CompileApplication(Compiler *c, Linkage linkage, Token *args)
+{
+  return EmptySeq();
+}
+
+static Seq CompileGroup(Compiler *c, Linkage linkage)
+{
+  ExpectToken(c, TokenLParen);
+
+  // save up a list of ID tokens in case it's a lambda
+  Token *args = NULL;
+  while (c->token.type == TokenID) {
+    VecPush(args, c->token);
+    AdvanceToken(c);
+  }
+
+  if (MatchToken(c, TokenRParen) && MatchToken(c, TokenArrow)) {
+    return CompileLambda(c, linkage, args);
+  }
+
+  // not a lambda
+  while (c->token.type != TokenRParen) {
+    if (c->token.type == TokenEOF) {
+      CompileError(c, "Unmatched parenthesis");
+      return EmptySeq();
+    }
+
+    VecPush(args, c->token);
+    AdvanceToken(c);
+  }
+
+  ExpectToken(c, TokenRParen);
+  return CompileApplication(c, linkage, args);
+}
+
 // void CompileString(Compiler *compiler);
 // void CompileLiteral(Compiler *compiler);
 // void CompileSymbol(Compiler *compiler);

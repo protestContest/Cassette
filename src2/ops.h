@@ -46,6 +46,8 @@ typedef enum {
   ArgsLength,
 } OpArgs;
 
+#define OpSymbol(op)  SymbolFor(OpName(op))
+
 char *OpName(OpCode op);
 u32 OpLength(OpCode op);
 OpCode OpFor(Val symbol);

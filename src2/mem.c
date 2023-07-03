@@ -95,8 +95,12 @@ Val ListConcat(Val a, Val b, Mem *mem)
 {
   Assert(IsPair(a));
   if (IsNil(a)) return b;
-  while (!IsNil(Tail(a, mem))) a = Tail(a, mem);
-  SetTail(a, b, mem);
+
+  Val cur = a;
+  while (!IsNil(Tail(cur, mem))) {
+    cur = Tail(cur, mem);
+  }
+  SetTail(cur, b, mem);
   return a;
 }
 

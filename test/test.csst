@@ -1,7 +1,1 @@
-def (fact x) do
-  if x == 1 do
-    1
-  else
-    2
-  end
-end
+(x) -> x

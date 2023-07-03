@@ -52,10 +52,10 @@ char *OpName(OpCode op)
 u32 OpLength(OpCode op)
 {
   switch (ops[op].args) {
-  case ArgsNone:    return 0;
-  case ArgsConst:   return 1;
-  case ArgsReg:     return 1;
-  case ArgsLength:  return 1;
+  case ArgsNone:    return 1;
+  case ArgsConst:   return 2;
+  case ArgsReg:     return 2;
+  case ArgsLength:  return 2;
   }
 }
 

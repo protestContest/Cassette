@@ -16,6 +16,7 @@ typedef enum {
   RegCont = (1 << 0),
   RegEnv  = (1 << 1),
 } Reg;
+#define NUM_REGS 2
 
 void InitVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);

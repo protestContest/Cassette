@@ -15,7 +15,7 @@ void PrintSourceContext(char *source, u32 line, u32 context_lines, u32 h_start, 
   }
 
   // print lines before
-  while (cur_line < line) {
+  while (source[pos] != '\0' && cur_line < line) {
     PrintIntN(cur_line, 4, ' ');
     Print("│ ");
 
@@ -26,6 +26,7 @@ void PrintSourceContext(char *source, u32 line, u32 context_lines, u32 h_start, 
 
     Print("\n");
     cur_line++;
+    if (source[pos] != '\0') pos++;
   }
 
   // print line
@@ -41,11 +42,12 @@ void PrintSourceContext(char *source, u32 line, u32 context_lines, u32 h_start, 
   if (h_length > 0 && pos == h_start + h_length) PrintEscape(IONoUnderline);
   Print("\n");
   cur_line++;
+  if (source[pos] != '\0') pos++;
 
   // print lines after
-  while (cur_line < line_end) {
+  while (source[pos] != '\0' && cur_line < line_end) {
     PrintIntN(cur_line, 4, ' ');
-    Print("| ");
+    Print("│ ");
 
     while (source[pos] != '\0' && source[pos] != '\n') {
       if (h_length > 0 && pos == h_start + h_length) PrintEscape(IONoUnderline);
@@ -55,5 +57,6 @@ void PrintSourceContext(char *source, u32 line, u32 context_lines, u32 h_start, 
 
     Print("\n");
     cur_line++;
+    if (source[pos] != '\0') pos++;
   }
 }
