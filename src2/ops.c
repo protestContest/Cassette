@@ -3,50 +3,73 @@
 
 typedef struct {
   char *name;
-  u32 length;
+  OpArgs args;
 } OpInfo;
 
 static OpInfo ops[] = {
-  [OpConst]   = {"const", 2},
-  [OpStr]     = {"str", 1},
-  [OpPair]    = {"pair", 1},
-  [OpList]    = {"list", 2},
-  [OpTuple]   = {"tuple", 2},
-  [OpMap]     = {"map", 2},
-  [OpTrue]    = {"true", 1},
-  [OpFalse]   = {"false", 1},
-  [OpNil]     = {"nil", 1},
-  [OpAdd]     = {"add", 1},
-  [OpSub]     = {"sub", 1},
-  [OpMul]     = {"mul", 1},
-  [OpDiv]     = {"div", 1},
-  [OpNeg]     = {"neg", 1},
-  [OpNot]     = {"not", 1},
-  [OpEq]      = {"eq", 1},
-  [OpGt]      = {"gt", 1},
-  [OpLt]      = {"lt", 1},
-  [OpIn]      = {"in", 1},
-  [OpAccess]  = {"access", 1},
-  [OpLambda]  = {"lambda", 2},
-  [OpSave]    = {"save", 2},
-  [OpRestore] = {"restore", 2},
-  [OpCont]    = {"cont", 2},
-  [OpApply]   = {"apply", 2},
-  [OpReturn]  = {"return", 1},
-  [OpLookup]  = {"lookup", 1},
-  [OpDefine]  = {"define", 1},
-  [OpJump]    = {"jump", 2},
-  [OpBranch]  = {"branch", 2},
-  [OpBranchF] = {"branchf", 2},
-  [OpPop]     = {"pop", 1},
-  // [OpDefMod]  = {"defmod", 1},
-  // [OpImport]  = {"import", 1},
-  [OpHalt]    = {"halt", 1},
+  [OpConst]   = {"const", ArgsConst},
+  [OpStr]     = {"str", ArgsNone},
+  [OpPair]    = {"pair", ArgsNone},
+  [OpList]    = {"list", ArgsConst},
+  [OpTuple]   = {"tuple", ArgsConst},
+  [OpMap]     = {"map", ArgsConst},
+  [OpTrue]    = {"true", ArgsNone},
+  [OpFalse]   = {"false", ArgsNone},
+  [OpNil]     = {"nil", ArgsNone},
+  [OpAdd]     = {"add", ArgsNone},
+  [OpSub]     = {"sub", ArgsNone},
+  [OpMul]     = {"mul", ArgsNone},
+  [OpDiv]     = {"div", ArgsNone},
+  [OpNeg]     = {"neg", ArgsNone},
+  [OpNot]     = {"not", ArgsNone},
+  [OpEq]      = {"eq", ArgsNone},
+  [OpGt]      = {"gt", ArgsNone},
+  [OpLt]      = {"lt", ArgsNone},
+  [OpIn]      = {"in", ArgsNone},
+  [OpAccess]  = {"access", ArgsNone},
+  [OpLambda]  = {"lambda", ArgsConst},
+  [OpSave]    = {"save", ArgsReg},
+  [OpRestore] = {"restore", ArgsReg},
+  [OpCont]    = {"cont", ArgsConst},
+  [OpApply]   = {"apply", ArgsLength},
+  [OpReturn]  = {"return", ArgsNone},
+  [OpLookup]  = {"lookup", ArgsNone},
+  [OpDefine]  = {"define", ArgsNone},
+  [OpJump]    = {"jump", ArgsConst},
+  [OpBranch]  = {"branch", ArgsConst},
+  [OpBranchF] = {"branchf", ArgsConst},
+  [OpPop]     = {"pop", ArgsNone},
+  // [OpDefMod]  = {"defmod", ArgsNone},
+  // [OpImport]  = {"import", ArgsNone},
+  [OpHalt]    = {"halt", ArgsNone},
 };
+
+char *OpName(OpCode op)
+{
+  return ops[op].name;
+}
 
 u32 OpLength(OpCode op)
 {
-  return ops[op].length;
+  switch (ops[op].args) {
+  case ArgsNone:    return 0;
+  case ArgsConst:   return 1;
+  case ArgsReg:     return 1;
+  case ArgsLength:  return 1;
+  }
+}
+
+OpCode OpFor(Val name)
+{
+  for (u32 i = 0; i < ArrayCount(ops); i++) {
+    if (Eq(name, SymbolFor(ops[i].name))) return i;
+  }
+  return -1;
+}
+
+OpArgs OpArgType(OpCode op)
+{
+  return ops[op].args;
 }
 
 u32 PrintInstruction(Chunk *chunk, u32 index)
@@ -59,13 +82,10 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
   case OpList:
   case OpTuple:
   case OpMap:
-    length += Print(" ");
-    length += DebugVal(ChunkConst(chunk, index+1), &chunk->constants);
-    break;
   case OpLambda:
   case OpCont:
     length += Print(" ");
-    length += PrintInt(RawInt(ChunkConst(chunk, index+1)));
+    length += DebugVal(ChunkConst(chunk, index+1), &chunk->constants);
     break;
   case OpApply:
     length += Print(" ");

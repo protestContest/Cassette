@@ -24,6 +24,11 @@ static struct {char *lexeme; TokenType type;} keywords[] = {
   {"module",  TokenModule},
 };
 
+Token MakeToken(TokenType type, Val value, char *lexeme, u32 length)
+{
+  return (Token){type, value, lexeme, length};
+}
+
 void SkipWhitespace(char **source)
 {
   while (!IsEOF(**source) && IsSpace(**source)) Advance(source);
@@ -93,12 +98,12 @@ bool Match(char **source, char *test)
 
 Token EOFToken(char **source)
 {
-  return (Token){TokenEOF, nil, *source, 0};
+  return MakeToken(TokenEOF, nil, *source, 0);
 }
 
 Token ErrorToken(char *message)
 {
-  return (Token){TokenError, nil, message, StrLen(message)};
+  return MakeToken(TokenError, nil, message, StrLen(message));
 }
 
 Token NumberToken(char **source)
@@ -126,11 +131,11 @@ Token NumberToken(char **source)
         Advance(source);
       }
 
-      return (Token){TokenNum, NumVal(whole + frac), start, *source - start};
+      return MakeToken(TokenNum, NumVal(whole + frac), start, *source - start);
     }
   }
 
-  return (Token){TokenNum, IntVal(whole), start, *source - start};
+  return MakeToken(TokenNum, IntVal(whole), start, *source - start);
 }
 
 Token StringToken(char **source)
@@ -140,7 +145,7 @@ Token StringToken(char **source)
     Advance(source);
     if (**source == '\\') Advance(source);
   }
-  Token token = {TokenString, nil, start, *source - start};
+  Token token = MakeToken(TokenString, nil, start, *source - start);
   Match(source, "\"");
   return token;
 }
@@ -150,13 +155,13 @@ Token KeywordToken(char **source)
   char *start = *source;
   for (u32 i = 0; i < ArrayCount(keywords); i++) {
     if (MatchKeyword(source, keywords[i].lexeme)) {
-      return (Token){keywords[i].type, nil, start, *source - start};
+      return MakeToken(keywords[i].type, nil, start, *source - start);
     }
   }
 
   while (IsSymChar(**source)) Advance(source);
 
-  return (Token){TokenID, nil, start, *source - start};
+  return MakeToken(TokenID, nil, start, *source - start);
 }
 
 Token NextToken(char **source)
@@ -171,32 +176,32 @@ Token NextToken(char **source)
 
   if (IsNewline(**source)) {
     Advance(source);
-    return (Token){TokenNewline, nil, start, 1};
+    return MakeToken(TokenNewline, nil, start, 1);
   }
 
-  if (Match(source, "->")) return (Token){TokenArrow, nil, start, *source - start};
-  if (Match(source, "==")) return (Token){TokenEqualEqual, nil, start, *source - start};
-  if (Match(source, "!=")) return (Token){TokenNotEqual, nil, start, *source - start};
-  if (Match(source, ">=")) return (Token){TokenGreaterEqual, nil, start, *source - start};
-  if (Match(source, "<=")) return (Token){TokenLessEqual, nil, start, *source - start};
-  if (Match(source, "#[")) return (Token){TokenHashBracket, nil, start, *source - start};
-  if (Match(source, "|")) return (Token){TokenPipe, nil, start, *source - start};
-  if (Match(source, ",")) return (Token){TokenComma, nil, start, *source - start};
-  if (Match(source, "=")) return (Token){TokenEqual, nil, start, *source - start};
-  if (Match(source, "(")) return (Token){TokenLParen, nil, start, *source - start};
-  if (Match(source, ")")) return (Token){TokenRParen, nil, start, *source - start};
-  if (Match(source, ">")) return (Token){TokenGreater, nil, start, *source - start};
-  if (Match(source, "<")) return (Token){TokenLess, nil, start, *source - start};
-  if (Match(source, "+")) return (Token){TokenPlus, nil, start, *source - start};
-  if (Match(source, "-")) return (Token){TokenMinus, nil, start, *source - start};
-  if (Match(source, "*")) return (Token){TokenStar, nil, start, *source - start};
-  if (Match(source, "/")) return (Token){TokenSlash, nil, start, *source - start};
-  if (Match(source, ":")) return (Token){TokenColon, nil, start, *source - start};
-  if (Match(source, ".")) return (Token){TokenDot, nil, start, *source - start};
-  if (Match(source, "[")) return (Token){TokenLBracket, nil, start, *source - start};
-  if (Match(source, "]")) return (Token){TokenRBracket, nil, start, *source - start};
-  if (Match(source, "{")) return (Token){TokenLBrace, nil, start, *source - start};
-  if (Match(source, "}")) return (Token){TokenRBrace, nil, start, *source - start};
+  if (Match(source, "->")) return MakeToken(TokenArrow, nil, start, *source - start);
+  if (Match(source, "==")) return MakeToken(TokenEqualEqual, nil, start, *source - start);
+  if (Match(source, "!=")) return MakeToken(TokenNotEqual, nil, start, *source - start);
+  if (Match(source, ">=")) return MakeToken(TokenGreaterEqual, nil, start, *source - start);
+  if (Match(source, "<=")) return MakeToken(TokenLessEqual, nil, start, *source - start);
+  if (Match(source, "#[")) return MakeToken(TokenHashBracket, nil, start, *source - start);
+  if (Match(source, "|")) return MakeToken(TokenPipe, nil, start, *source - start);
+  if (Match(source, ",")) return MakeToken(TokenComma, nil, start, *source - start);
+  if (Match(source, "=")) return MakeToken(TokenEqual, nil, start, *source - start);
+  if (Match(source, "(")) return MakeToken(TokenLParen, nil, start, *source - start);
+  if (Match(source, ")")) return MakeToken(TokenRParen, nil, start, *source - start);
+  if (Match(source, ">")) return MakeToken(TokenGreater, nil, start, *source - start);
+  if (Match(source, "<")) return MakeToken(TokenLess, nil, start, *source - start);
+  if (Match(source, "+")) return MakeToken(TokenPlus, nil, start, *source - start);
+  if (Match(source, "-")) return MakeToken(TokenMinus, nil, start, *source - start);
+  if (Match(source, "*")) return MakeToken(TokenStar, nil, start, *source - start);
+  if (Match(source, "/")) return MakeToken(TokenSlash, nil, start, *source - start);
+  if (Match(source, ":")) return MakeToken(TokenColon, nil, start, *source - start);
+  if (Match(source, ".")) return MakeToken(TokenDot, nil, start, *source - start);
+  if (Match(source, "[")) return MakeToken(TokenLBracket, nil, start, *source - start);
+  if (Match(source, "]")) return MakeToken(TokenRBracket, nil, start, *source - start);
+  if (Match(source, "{")) return MakeToken(TokenLBrace, nil, start, *source - start);
+  if (Match(source, "}")) return MakeToken(TokenRBrace, nil, start, *source - start);
 
   return KeywordToken(source);
 }

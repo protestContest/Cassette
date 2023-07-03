@@ -10,7 +10,7 @@ id_list       → id_list ID | ID
 
 call          → call arg | arg
 arg           → lambda
-lambda        → ID "->" lambda | group "->" lambda | "(" ")" "->" lambda | logic
+lambda        → group "->" lambda | logic
 
 logic         → logic "and" equals | logic "or" equals | equals
 equals        → compare "==" compare | compare "!=" compare | compare
@@ -28,7 +28,7 @@ group         → "(" call ")"
 
 block         → do_block | if_block | cond_block
 do_block      → "do" stmts "end"
-if_block      → "if" arg do_else | "if" arg do_block nothing
+if_block      → "if" arg do_else
 do_else       → "do" stmts "else" stmts "end"
 cond_block    → "cond" "do" clauses "end"
 clauses       → clauses clause | NL | ε

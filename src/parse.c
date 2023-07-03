@@ -17,7 +17,9 @@ static Val Shift(Parser *p, i32 state, Token token)
     VecPush(p->nodes, token.value);
   }
   VecPush(p->stack, state);
-  return ParseNext(p, NextToken(&p->lex));
+  token = NextToken(&p->lex);
+  PrintTokenContext(p->lex.src, token, 1);
+  return ParseNext(p, token);
 }
 
 static void ReduceNodes(Parser *p, u32 sym, u32 num)
@@ -55,7 +57,7 @@ static Val Reduce(Parser *p, i32 sym, u32 num, Token token)
 
   i32 next_state = GetParseGoto(VecPeek(p->stack, num), sym);
 
-#if DEBUGT_PARSE
+#if DEBUG_PARSE
   Print("Goto ");
   PrintInt(next_state);
   Print("\n");

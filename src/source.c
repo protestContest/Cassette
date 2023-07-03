@@ -115,6 +115,7 @@ void PrintTokenContext(Source src, Token token, u32 num_lines)
       if (src.data[pos] == '\n') {
         cur_line++;
         pos++;
+        PrintEscape(IONoUnderline);
         break;
       }
 

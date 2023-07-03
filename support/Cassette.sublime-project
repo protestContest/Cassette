@@ -4,7 +4,7 @@
 			"path": "..",
 			"binary_file_patterns": [
 				"build/",
-				"src2/"
+				"src/"
 			],
 		}
 	],
@@ -17,8 +17,8 @@
 				"enabled": true,
 				"initializationOptions": {
 					"clangd.compile-commands-dir": "support",
-					"clangd.header-insertion": "never"
-				}
+					"clangd.header-insertion": "never",
+				},
 			},
 		},
 	},

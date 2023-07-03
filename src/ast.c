@@ -56,7 +56,7 @@ Val ParseNode(u32 sym, Val children, Mem *mem)
   case ParseSymProgram:   return ParseProgram(children, mem);
   case ParseSymStmts:     return ParseStmts(children, mem);
   case ParseSymStmt:      return ParseStmt(children, mem);
-  case ParseSymStmtEnd:   return ParseStmtEnd(children, mem);
+  // case ParseSymStmtEnd:   return ParseStmtEnd(children, mem);
   case ParseSymLetStmt:   return ParseLetStmt(children, mem);
   case ParseSymAssigns:   return ParseAssigns(children, mem);
   case ParseSymAssign:    return ParseAssign(children, mem);

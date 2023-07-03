@@ -39,6 +39,15 @@ typedef enum {
   OpHalt,
 } OpCode;
 
+typedef enum {
+  ArgsNone,
+  ArgsConst,
+  ArgsReg,
+  ArgsLength,
+} OpArgs;
+
 char *OpName(OpCode op);
 u32 OpLength(OpCode op);
+OpCode OpFor(Val symbol);
+OpArgs OpArgType(OpCode op);
 u32 PrintInstruction(Chunk *chunk, u32 index);

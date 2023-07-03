@@ -12,8 +12,10 @@ typedef struct {
   Chunk *chunk;
 } VM;
 
-#define RegCont 1
-#define RegEnv  2
+typedef enum {
+  RegCont = (1 << 0),
+  RegEnv  = (1 << 1),
+} Reg;
 
 void InitVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);

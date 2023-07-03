@@ -63,6 +63,9 @@ Token NextToken(Lexer *lexer)
       char *lexeme = lexer->literals[i].lexeme;
       if (IsIDChar(LexPeek(lexer, 0))) {
         if (MatchKeyword(lexer, lexeme)) {
+          Print("\"");
+          Print(lexeme);
+          Print("\": ");
           token = MakeToken(lexer->literals[i].symbol, lexer, MakeSymbol(lexer->mem, lexeme));
           found_literal = true;
           break;
@@ -74,6 +77,7 @@ Token NextToken(Lexer *lexer)
       }
     }
     if (found_literal) {
+      PrintToken(token);
       SkipEmptyLines(lexer);
     } else {
       token = IDToken(lexer);

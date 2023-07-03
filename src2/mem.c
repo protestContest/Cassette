@@ -58,8 +58,24 @@ Val Tail(Val pair, Mem *mem)
 {
   Assert(IsPair(pair));
   u32 index = RawVal(pair);
-  Assert(index < VecCount(mem->values)+1);
+  Assert(index+1 < VecCount(mem->values));
   return mem->values[index+1];
+}
+
+void SetHead(Val pair, Val head, Mem *mem)
+{
+  Assert(IsPair(pair));
+  u32 index = RawVal(pair);
+  Assert(index < VecCount(mem->values));
+  mem->values[index] = head;
+}
+
+void SetTail(Val pair, Val tail, Mem *mem)
+{
+  Assert(IsPair(pair));
+  u32 index = RawVal(pair);
+  Assert(index+1 < VecCount(mem->values));
+  mem->values[index+1] = tail;
 }
 
 bool ListContains(Val list, Val value, Mem *mem)
@@ -73,6 +89,30 @@ bool ListContains(Val list, Val value, Mem *mem)
     list = Tail(list, mem);
   }
   return false;
+}
+
+Val ListConcat(Val a, Val b, Mem *mem)
+{
+  Assert(IsPair(a));
+  if (IsNil(a)) return b;
+  while (!IsNil(Tail(a, mem))) a = Tail(a, mem);
+  SetTail(a, b, mem);
+  return a;
+}
+
+bool IsTagged(Val list, char *tag, Mem *mem)
+{
+  if (!IsPair(list)) return false;
+  return Eq(SymbolFor(tag), Head(list, mem));
+}
+
+Val ListFrom(Val list, u32 pos, Mem *mem)
+{
+  Assert(IsPair(list));
+  for (u32 i = 0; i < pos; i++) {
+    list = Tail(list, mem);
+  }
+  return list;
 }
 
 Val MakeBinary(char *text, Mem *mem)

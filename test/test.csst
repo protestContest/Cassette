@@ -2,6 +2,6 @@ def (fact x) do
   if x == 1 do
     1
   else
-    x * (fact x - 1)
+    2
   end
 end
