@@ -6,15 +6,14 @@
 #include "source.h"
 
 typedef struct Compiler {
+  Lexer lexer;
   Token token;
-  char *source;
-  u32 line;
-  u32 col;
-  u32 pos;
   u32 next_label;
   bool ok;
   Mem mem;
 } Compiler;
+
+#define NextLabel(c)  MakeLabel((c)->next_label++, &(c)->mem)
 
 typedef Seq (*ParseFn)(Compiler *compiler, Linkage linkage);
 
@@ -43,7 +42,8 @@ static Seq CompileNum(Compiler *c, Linkage linkage);
 static Seq CompileVar(Compiler *c, Linkage linkage);
 static Seq CompileLiteral(Compiler *c, Linkage linkage);
 static Seq CompileSymbol(Compiler *c, Linkage linkage);
-static Seq CompileGroup(Compiler *c, Linkage linkage);
+static Seq CompileParens(Compiler *c, Linkage linkage);
+static Seq CompileCall(Compiler *c, Linkage linkage);
 
 static ParseRule rules[] = {
   [TokenNum]          = {&CompileNum, NULL, PrecNone},
@@ -52,7 +52,7 @@ static ParseRule rules[] = {
   [TokenFalse]        = {&CompileLiteral, NULL, PrecNone},
   [TokenNil]          = {&CompileLiteral, NULL, PrecNone},
   [TokenColon]        = {&CompileSymbol, NULL, PrecNone},
-  [TokenLParen]       = {&CompileGroup, NULL, PrecNone},
+  [TokenLParen]       = {&CompileParens, NULL, PrecNone},
   [TokenEOF]          = {NULL, NULL, PrecNone},
   [TokenError]        = {NULL, NULL, PrecNone},
   [TokenLet]          = {NULL, NULL, PrecNone},
@@ -92,36 +92,28 @@ static ParseRule rules[] = {
   [TokenModule]       = {NULL, NULL, PrecNone},
 };
 
-void CompileError(Compiler *compiler, char *message)
+void CompileError(Compiler *c, char *message)
 {
   PrintEscape(IOFGRed);
   Print("Compile error [");
-  PrintInt(compiler->line);
+  PrintInt(c->token.line);
   Print(":");
-  PrintInt(compiler->col);
+  PrintInt(c->token.col);
   Print("]: ");
   Print(message);
   Print("\n");
 
-  u32 token_pos = compiler->token.lexeme - compiler->source;
-  PrintSourceContext(compiler->source, compiler->line, 3, token_pos, compiler->token.length);
+  u32 token_pos = c->token.lexeme - c->lexer.text;
+  PrintSourceContext(c->lexer.text, c->token.line, 3, token_pos, c->token.length);
 
   PrintEscape(IOFGReset);
   Print("\n");
-  compiler->ok = false;
+  c->ok = false;
 }
 
 void AdvanceToken(Compiler *c)
 {
-  if (c->token.type == TokenNewline) {
-    c->line++;
-    c->col = 1;
-  }
-  char *start = c->source + c->pos;
-  char *end = start;
-  c->token = NextToken(&end);
-  c->pos += end - start;
-  c->col += end - start;
+  c->token = NextToken(&c->lexer);
 }
 
 bool MatchToken(Compiler *c, TokenType type)
@@ -150,11 +142,9 @@ void SkipNewlines(Compiler *compiler)
 
 void InitCompiler(Compiler *compiler, char *source)
 {
-  compiler->source = source;
-  compiler->line = 1;
-  compiler->col = 1;
-  compiler->pos = 0;
   compiler->ok = true;
+  compiler->next_label = 0;
+  InitLexer(&compiler->lexer, source);
   InitMem(&compiler->mem);
   AdvanceToken(compiler);
 }
@@ -165,6 +155,8 @@ Chunk Compile(char *source)
   InitCompiler(&compiler, source);
 
   Seq code = CompileExpr(&compiler, LinkNext, PrecExpr);
+
+  PrintSeq(code, &compiler.mem);
 
   return Assemble(code, &compiler.mem);
 }
@@ -182,14 +174,14 @@ static Seq CompileExpr(Compiler *c, Linkage linkage, Precedence prec)
 static Seq CompileNum(Compiler *c, Linkage linkage)
 {
   Mem *mem = &c->mem;
-  Val value = c->token.value;
+  Val num = ParseNum(c->token);
   AdvanceToken(c);
 
   return
     EndWithLinkage(
       MakeSeq(0, 0,
         Pair(OpSymbol(OpConst),
-        Pair(value, nil, mem), mem)), linkage, mem);
+        Pair(num, nil, mem), mem)), linkage, mem);
 }
 
 static Seq CompileVar(Compiler *c, Linkage linkage)
@@ -200,7 +192,7 @@ static Seq CompileVar(Compiler *c, Linkage linkage)
 
   return
     EndWithLinkage(
-      MakeSeq(0, RegEnv,
+      MakeSeq(RegEnv, 0,
         Pair(OpSymbol(OpConst),
         Pair(id,
         Pair(OpSymbol(OpLookup), nil, mem), mem), mem)), linkage, mem);
@@ -215,7 +207,7 @@ static Seq CompileSymbol(Compiler *c, Linkage linkage)
 
   return
     EndWithLinkage(
-      MakeSeq(0, RegEnv,
+      MakeSeq(0, 0,
         Pair(OpSymbol(OpConst),
         Pair(id, nil, mem), mem)), linkage, mem);
 }
@@ -247,8 +239,8 @@ static Seq CompileLiteral(Compiler *c, Linkage linkage)
 static Seq CompileLambda(Compiler *c, Linkage linkage, Token *ids)
 {
   Mem *mem = &c->mem;
-  Val entry = MakeLabel(c->next_label++, mem);
-  Val after_body = MakeLabel(c->next_label++, mem);
+  Val entry = NextLabel(c);
+  Val after_body = NextLabel(c);
 
   Linkage lambda_linkage = (Eq(linkage, LinkNext)) ? after_body : linkage;
   Seq lambda_code =
@@ -258,8 +250,9 @@ static Seq CompileLambda(Compiler *c, Linkage linkage, Token *ids)
         Pair(LabelRef(entry, mem), nil, mem), mem)), lambda_linkage, mem);
 
   Val bindings = nil;
-  for (u32 i = 0; i < VecCount(ids); i++) {
-    Val id = MakeSymbol(ids[i].lexeme, ids[i].length, mem);
+  while (VecCount(ids) > 0) {
+    Token token = VecPop(ids);
+    Val id = MakeSymbol(token.lexeme, token.length, mem);
     bindings =
       Pair(OpSymbol(OpConst),
       Pair(id,
@@ -275,18 +268,51 @@ static Seq CompileLambda(Compiler *c, Linkage linkage, Token *ids)
       CompileExpr(c, LinkReturn, PrecExpr), mem), mem);
 
   return
-    AppendSeq(lambda_code,
+    TackOnSeq(lambda_code,
     AppendSeq(body,
               LabelSeq(after_body, mem), mem), mem);
 }
 
-static Seq CompileApplication(Compiler *c, Linkage linkage, Token *args)
+static Seq CompileCall(Compiler *c, Linkage linkage)
 {
-  return EmptySeq();
+  Mem *mem = &c->mem;
+
+  Seq call;
+  if (Eq(linkage, LinkReturn)) {
+    // tail call
+    call = MakeSeq(RegCont, RegEnv, Pair(OpSymbol(OpApply), nil, mem));
+  } else {
+    // set up cont to return to the right place
+    Val after_call = NextLabel(c);
+    if (Eq(linkage, LinkNext)) linkage = after_call;
+
+    call = MakeSeq(0, RegCont | RegEnv,
+      Pair(OpSymbol(OpCont),
+      Pair(LabelRef(linkage, mem),
+      Pair(OpSymbol(OpApply),
+      Pair(Label(after_call, mem), nil, mem), mem), mem), mem));
+  }
+
+  // compile args & prepend to the call
+  while (c->token.type != TokenRParen) {
+    if (c->token.type == TokenEOF) {
+      CompileError(c, "Unexpected end of file");
+      return EmptySeq();
+    }
+
+    Seq arg = CompileExpr(c, LinkNext, PrecExpr);
+    call = Preserving(RegEnv | RegCont, arg, call, mem);
+  }
+  ExpectToken(c, TokenRParen);
+
+  return call;
 }
 
-static Seq CompileGroup(Compiler *c, Linkage linkage)
+static Seq CompileParens(Compiler *c, Linkage linkage)
 {
+  // save our state to backtrack
+  Lexer lexer = c->lexer;
+
   ExpectToken(c, TokenLParen);
 
   // save up a list of ID tokens in case it's a lambda
@@ -301,18 +327,9 @@ static Seq CompileGroup(Compiler *c, Linkage linkage)
   }
 
   // not a lambda
-  while (c->token.type != TokenRParen) {
-    if (c->token.type == TokenEOF) {
-      CompileError(c, "Unmatched parenthesis");
-      return EmptySeq();
-    }
-
-    VecPush(args, c->token);
-    AdvanceToken(c);
-  }
-
-  ExpectToken(c, TokenRParen);
-  return CompileApplication(c, linkage, args);
+  c->lexer = lexer;
+  AdvanceToken(c);
+  return CompileCall(c, linkage);
 }
 
 // void CompileString(Compiler *compiler);

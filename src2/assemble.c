@@ -28,7 +28,7 @@ Seq LabelSeq(Val label, Mem *mem)
 Val RegRef(u32 reg, Mem *mem)
 {
   Assert(reg != 0);
-  return Pair(MakeSymbol("reg", 3, mem), IntVal(reg), mem);
+  return Pair(MakeSymbol("reg-ref", 7, mem), IntVal(reg), mem);
 }
 
 static u32 AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
@@ -50,9 +50,6 @@ static u32 AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
       case ArgsReg:
         Assert(IsTagged(arg, "reg-ref", mem));
         PushByte(chunk, RawInt(Tail(arg, mem)));
-        break;
-      case ArgsLength:
-        PushByte(chunk, RawInt(arg));
         break;
     }
   }

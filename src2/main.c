@@ -17,8 +17,8 @@ i32 main(i32 argc, char **argv)
   char *filename = argv[1];
   char *source = (char*)ReadFile(filename);
 
-  Chunk chunk = Compile(source);
-  Disassemble(&chunk);
+   Compile(source);
+  // Disassemble(&chunk);
 
   // VM vm;
   // InitVM(&vm);

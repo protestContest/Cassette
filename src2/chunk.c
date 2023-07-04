@@ -31,9 +31,10 @@ void AddSymbol(Chunk *chunk, Val symbol, Mem *mem)
 
 void Disassemble(Chunk *chunk)
 {
+  Print("────┬────\n");
   for (u32 i = 0; i < VecCount(chunk->data);) {
-    PrintIntN(i, 3, ' ');
-    Print(" ");
+    PrintIntN(i, 4, ' ');
+    Print("│ ");
     PrintInstruction(chunk, i);
     Print("\n");
     i += OpLength(chunk->data[i]);

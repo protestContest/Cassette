@@ -1,5 +1,6 @@
 #pragma once
 #include "mem.h"
+#include "source.h"
 
 typedef enum {
   TokenEOF          = 0,
@@ -49,11 +50,21 @@ typedef enum {
 } TokenType;
 
 typedef struct {
+  char *text;
+  u32 pos;
+  u32 line;
+  u32 col;
+} Lexer;
+
+typedef struct {
   TokenType type;
-  Val value;
   char *lexeme;
   u32 length;
+  u32 line;
+  u32 col;
 } Token;
 
-Token NextToken(char **source);
+void InitLexer(Lexer *lex, char *text);
+Token NextToken(Lexer *lex);
 void PrintToken(Token token);
+Val ParseNum(Token token);

@@ -1,10 +1,10 @@
 #include "lex.h"
 
-#define IsEOF(c)      ((c) == '\0')
-#define IsSpace(c)    ((c) == ' ' || (c) == '\t')
-#define IsNewline(c)  ((c) == '\n' || (c) == '\r')
-#define IsDigit(c)    ((c) >= '0' && (c) <= '9')
-#define Advance(src)  ((*(src))++)
+#define Peek(lex)       ((lex)->text[(lex)->pos])
+#define IsEOF(lex)      (Peek(lex) == '\0')
+#define IsSpace(lex)    (Peek(lex) == ' '  || Peek(lex) == '\t')
+#define IsNewline(lex)  (Peek(lex) == '\n' || Peek(lex) == '\r')
+#define IsDigit(lex)    (Peek(lex) >= '0'  && Peek(lex) <= '9')
 
 static struct {char *lexeme; TokenType type;} keywords[] = {
   {"and",     TokenAnd },
@@ -24,26 +24,44 @@ static struct {char *lexeme; TokenType type;} keywords[] = {
   {"module",  TokenModule},
 };
 
-Token MakeToken(TokenType type, Val value, char *lexeme, u32 length)
+void InitLexer(Lexer *lex, char *text)
 {
-  return (Token){type, value, lexeme, length};
+  *lex = (Lexer){text, 0, 1, 1};
 }
 
-void SkipWhitespace(char **source)
+void Advance(Lexer *lex)
 {
-  while (!IsEOF(**source) && IsSpace(**source)) Advance(source);
+  if (IsEOF(lex)) return;
 
-  if (**source == ';') {
-    while (!IsEOF(**source) && !IsNewline(**source)) Advance(source);
-    SkipWhitespace(source);
+  if (IsNewline(lex)) {
+    lex->col = 1;
+    lex->line++;
+  } else {
+    lex->col++;
+  }
+  lex->pos++;
+}
+
+Token MakeToken(TokenType type, char *lexeme, u32 length, u32 line, u32 col)
+{
+  return (Token){type, lexeme, length, line, col};
+}
+
+void SkipWhitespace(Lexer *lex)
+{
+  while (!IsEOF(lex) && IsSpace(lex)) Advance(lex);
+
+  if (Peek(lex) == ';') {
+    while (!IsEOF(lex) && !IsNewline(lex)) Advance(lex);
+    SkipWhitespace(lex);
   }
 }
 
-bool IsSymChar(char c)
+bool IsSymChar(Lexer *lex)
 {
-  if (IsEOF(c) || IsSpace(c) || IsNewline(c)) return false;
+  if (IsEOF(lex) || IsSpace(lex) || IsNewline(lex)) return false;
 
-  switch (c) {
+  switch (Peek(lex)) {
   case '#': return false;
   case ',': return false;
   case '.': return false;
@@ -59,151 +77,150 @@ bool IsSymChar(char c)
   }
 }
 
-bool MatchKeyword(char **source, char *keyword)
+bool MatchKeyword(Lexer *lex, char *keyword)
 {
-  char *start = *source;
-  while (!IsEOF(**source) && *keyword != '\0') {
-    if (**source != *keyword) {
-      *source = start;
+  u32 start = lex->pos;
+  while (!IsEOF(lex) && *keyword != '\0') {
+    if (Peek(lex) != *keyword) {
+      lex->pos = start;
       return false;
     }
 
-    Advance(source);
+    Advance(lex);
     keyword++;
   }
 
-  if (IsSpace(**source) || IsNewline(**source) || IsEOF(**source)) {
+  if (IsSpace(lex) || IsNewline(lex) || IsEOF(lex)) {
     return true;
   }
 
-  *source = start;
+  lex->pos = start;
   return false;
 }
 
-bool Match(char **source, char *test)
+bool Match(Lexer *lex, char *test)
 {
-  char *start = *source;
-  while (!IsEOF(**source) && *test != '\0') {
-    if (**source != *test) {
-      *source = start;
+  u32 start = lex->pos;
+  while (!IsEOF(lex) && *test != '\0') {
+    if (Peek(lex) != *test) {
+      lex->pos = start;
       return false;
     }
 
-    Advance(source);
+    Advance(lex);
     test++;
   }
 
   return true;
 }
 
-Token EOFToken(char **source)
+Token EOFToken(Lexer *lex)
 {
-  return MakeToken(TokenEOF, nil, *source, 0);
+  return MakeToken(TokenEOF, &Peek(lex), 0, lex->line, lex->col);
 }
 
-Token ErrorToken(char *message)
+Token ErrorToken(char *message, Lexer *lex)
 {
-  return MakeToken(TokenError, nil, message, StrLen(message));
+  return MakeToken(TokenError, message, StrLen(message), lex->line, lex->col);
 }
 
-Token NumberToken(char **source)
+Token NumberToken(Lexer *lex)
 {
-  char *start = *source;
-  u32 whole = 0;
-  while (!IsEOF(**source) && IsDigit(**source)) {
-    u32 digit = (**source) - '0';
-    whole *= 10;
-    whole += digit;
-    Advance(source);
+  char *start = &Peek(lex);
+  u32 line = lex->line;
+  u32 col = lex->col;
 
-    if (**source == '.') {
+  while (!IsEOF(lex) && IsDigit(lex)) {
+    Advance(lex);
+
+    if (Peek(lex) == '.') {
       // float
-      Advance(source);
-      if (!IsDigit(**source)) return ErrorToken("Expected digit after decimal point");
+      Advance(lex);
+      if (!IsDigit(lex)) return ErrorToken("Expected digit after decimal point", lex);
 
-      float frac = 0;
-      float place = 0.1;
-
-      while (!IsEOF(**source) && IsDigit(**source)) {
-        u32 digit = (**source) - '0';
-        frac += digit * place;
-        place /= 10;
-        Advance(source);
+      while (!IsEOF(lex) && IsDigit(lex)) {
+        Advance(lex);
       }
 
-      return MakeToken(TokenNum, NumVal(whole + frac), start, *source - start);
+      return MakeToken(TokenNum, start, &Peek(lex) - start, line, col);
     }
   }
 
-  return MakeToken(TokenNum, IntVal(whole), start, *source - start);
+  return MakeToken(TokenNum, start, &Peek(lex) - start, line, col);
 }
 
-Token StringToken(char **source)
+Token StringToken(Lexer *lex)
 {
-  char *start = *source;
-  while (!IsEOF(**source) && **source != '"') {
-    Advance(source);
-    if (**source == '\\') Advance(source);
+  char *start = &Peek(lex);
+  u32 line = lex->line;
+  u32 col = lex->col;
+  while (!IsEOF(lex) && Peek(lex) != '"') {
+    Advance(lex);
+    if (Peek(lex) == '\\') Advance(lex);
   }
-  Token token = MakeToken(TokenString, nil, start, *source - start);
-  Match(source, "\"");
+  Token token = MakeToken(TokenString, start, &Peek(lex) - start, line, col);
+  Match(lex, "\"");
   return token;
 }
 
-Token KeywordToken(char **source)
+Token KeywordToken(Lexer *lex)
 {
-  char *start = *source;
+  char *start = &Peek(lex);
+  u32 line = lex->line;
+  u32 col = lex->col;
   for (u32 i = 0; i < ArrayCount(keywords); i++) {
-    if (MatchKeyword(source, keywords[i].lexeme)) {
-      return MakeToken(keywords[i].type, nil, start, *source - start);
+    if (MatchKeyword(lex, keywords[i].lexeme)) {
+      return MakeToken(keywords[i].type, start, &Peek(lex) - start, line, col);
     }
   }
 
-  while (IsSymChar(**source)) Advance(source);
+  while (IsSymChar(lex)) Advance(lex);
 
-  return MakeToken(TokenID, nil, start, *source - start);
+  return MakeToken(TokenID, start, &Peek(lex) - start, line, col);
 }
 
-Token NextToken(char **source)
+Token NextToken(Lexer *lex)
 {
-  SkipWhitespace(source);
+  SkipWhitespace(lex);
 
-  char *start = *source;
+  char *start = &Peek(lex);
+  u32 line = lex->line;
+  u32 col = lex->col;
 
-  if (IsEOF(**source)) return EOFToken(source);
-  if (IsDigit(**source)) return NumberToken(source);
-  if (Match(source, "\"")) return StringToken(source);
+  if (IsEOF(lex)) return EOFToken(lex);
+  if (IsDigit(lex)) return NumberToken(lex);
+  if (Match(lex, "\"")) return StringToken(lex);
 
-  if (IsNewline(**source)) {
-    Advance(source);
-    return MakeToken(TokenNewline, nil, start, 1);
+  if (IsNewline(lex)) {
+    Advance(lex);
+    return MakeToken(TokenNewline, start, 1, line, col);
   }
 
-  if (Match(source, "->")) return MakeToken(TokenArrow, nil, start, *source - start);
-  if (Match(source, "==")) return MakeToken(TokenEqualEqual, nil, start, *source - start);
-  if (Match(source, "!=")) return MakeToken(TokenNotEqual, nil, start, *source - start);
-  if (Match(source, ">=")) return MakeToken(TokenGreaterEqual, nil, start, *source - start);
-  if (Match(source, "<=")) return MakeToken(TokenLessEqual, nil, start, *source - start);
-  if (Match(source, "#[")) return MakeToken(TokenHashBracket, nil, start, *source - start);
-  if (Match(source, "|")) return MakeToken(TokenPipe, nil, start, *source - start);
-  if (Match(source, ",")) return MakeToken(TokenComma, nil, start, *source - start);
-  if (Match(source, "=")) return MakeToken(TokenEqual, nil, start, *source - start);
-  if (Match(source, "(")) return MakeToken(TokenLParen, nil, start, *source - start);
-  if (Match(source, ")")) return MakeToken(TokenRParen, nil, start, *source - start);
-  if (Match(source, ">")) return MakeToken(TokenGreater, nil, start, *source - start);
-  if (Match(source, "<")) return MakeToken(TokenLess, nil, start, *source - start);
-  if (Match(source, "+")) return MakeToken(TokenPlus, nil, start, *source - start);
-  if (Match(source, "-")) return MakeToken(TokenMinus, nil, start, *source - start);
-  if (Match(source, "*")) return MakeToken(TokenStar, nil, start, *source - start);
-  if (Match(source, "/")) return MakeToken(TokenSlash, nil, start, *source - start);
-  if (Match(source, ":")) return MakeToken(TokenColon, nil, start, *source - start);
-  if (Match(source, ".")) return MakeToken(TokenDot, nil, start, *source - start);
-  if (Match(source, "[")) return MakeToken(TokenLBracket, nil, start, *source - start);
-  if (Match(source, "]")) return MakeToken(TokenRBracket, nil, start, *source - start);
-  if (Match(source, "{")) return MakeToken(TokenLBrace, nil, start, *source - start);
-  if (Match(source, "}")) return MakeToken(TokenRBrace, nil, start, *source - start);
+  if (Match(lex, "->")) return MakeToken(TokenArrow, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "==")) return MakeToken(TokenEqualEqual, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "!=")) return MakeToken(TokenNotEqual, start, &Peek(lex) - start, line, col);
+  if (Match(lex, ">=")) return MakeToken(TokenGreaterEqual, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "<=")) return MakeToken(TokenLessEqual, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "#[")) return MakeToken(TokenHashBracket, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "|")) return MakeToken(TokenPipe, start, &Peek(lex) - start, line, col);
+  if (Match(lex, ",")) return MakeToken(TokenComma, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "=")) return MakeToken(TokenEqual, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "(")) return MakeToken(TokenLParen, start, &Peek(lex) - start, line, col);
+  if (Match(lex, ")")) return MakeToken(TokenRParen, start, &Peek(lex) - start, line, col);
+  if (Match(lex, ">")) return MakeToken(TokenGreater, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "<")) return MakeToken(TokenLess, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "+")) return MakeToken(TokenPlus, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "-")) return MakeToken(TokenMinus, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "*")) return MakeToken(TokenStar, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "/")) return MakeToken(TokenSlash, start, &Peek(lex) - start, line, col);
+  if (Match(lex, ":")) return MakeToken(TokenColon, start, &Peek(lex) - start, line, col);
+  if (Match(lex, ".")) return MakeToken(TokenDot, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "[")) return MakeToken(TokenLBracket, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "]")) return MakeToken(TokenRBracket, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "{")) return MakeToken(TokenLBrace, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "}")) return MakeToken(TokenRBrace, start, &Peek(lex) - start, line, col);
 
-  return KeywordToken(source);
+  return KeywordToken(lex);
 }
 
 void PrintToken(Token token)
@@ -254,4 +271,32 @@ void PrintToken(Token token)
   case TokenNewline: Print("Newline"); break;
   case TokenModule: Print("Module"); break;
   }
+}
+
+Val ParseNum(Token token)
+{
+  Assert(token.type == TokenNum);
+
+  u32 whole = 0;
+  for (u32 i = 0; i < token.length; i++) {
+    if (token.lexeme[i] == '.') {
+      // float
+      float frac = 0;
+      float place = 0.1;
+
+      for (u32 j = i; j < token.length; j++) {
+        u32 digit = token.lexeme[j] - '0';
+        frac += digit * place;
+        place /= 10;
+      }
+
+      return NumVal(whole + frac);
+    }
+
+    u32 digit = token.lexeme[i] - '0';
+    whole *= 10;
+    whole += digit;
+  }
+
+  return IntVal(whole);
 }

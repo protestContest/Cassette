@@ -43,7 +43,6 @@ typedef enum {
   ArgsNone,
   ArgsConst,
   ArgsReg,
-  ArgsLength,
 } OpArgs;
 
 #define OpSymbol(op)  SymbolFor(OpName(op))

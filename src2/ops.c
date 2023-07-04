@@ -31,7 +31,7 @@ static OpInfo ops[] = {
   [OpSave]    = {"save", ArgsReg},
   [OpRestore] = {"restore", ArgsReg},
   [OpCont]    = {"cont", ArgsConst},
-  [OpApply]   = {"apply", ArgsLength},
+  [OpApply]   = {"apply", ArgsNone},
   [OpReturn]  = {"return", ArgsNone},
   [OpLookup]  = {"lookup", ArgsNone},
   [OpDefine]  = {"define", ArgsNone},
@@ -55,7 +55,6 @@ u32 OpLength(OpCode op)
   case ArgsNone:    return 1;
   case ArgsConst:   return 2;
   case ArgsReg:     return 2;
-  case ArgsLength:  return 2;
   }
 }
 
@@ -77,35 +76,18 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
   OpCode op = chunk->data[index];
   u32 length = Print(ops[op].name);
 
-  switch (op) {
-  case OpConst:
-  case OpList:
-  case OpTuple:
-  case OpMap:
-  case OpLambda:
-  case OpCont:
+  switch (ops[op].args) {
+  case ArgsNone:
+    return length;
+  case ArgsConst:
     length += Print(" ");
     length += DebugVal(ChunkConst(chunk, index+1), &chunk->constants);
-    break;
-  case OpApply:
+    return length;
+  case ArgsReg:
     length += Print(" ");
-    length += PrintInt(ChunkRef(chunk, index+1));
-    break;
-  case OpSave:
-  case OpRestore:
-    length += Print(" ");
-    if (ChunkRef(chunk, index+1) == RegCont) length += Print("cont");
+    if (ChunkRef(chunk, index+1) == RegCont) length += Print("con");
     else if (ChunkRef(chunk, index+1) == RegEnv) length += Print("env");
     else length += PrintInt(ChunkRef(chunk, index+1));
-    break;
-  case OpJump:
-  case OpBranch:
-  case OpBranchF:
-    length += Print(" ");
-    length += PrintInt(RawInt(ChunkConst(chunk, index+1)));
-    break;
-  default: break;
+    return length;
   }
-
-  return length;
 }

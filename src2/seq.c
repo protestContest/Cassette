@@ -92,7 +92,7 @@ static u32 PrintStmt(Val stmts, Mem *mem)
     } else if (IsTagged(arg, "label-ref", mem)) {
       Print(":");
       Print(SymbolName(Tail(arg, mem), mem));
-    } else if (IsTagged(arg, "reg", mem)) {
+    } else if (IsTagged(arg, "reg-ref", mem)) {
       PrintReg(RawInt(Tail(arg, mem)));
     } else {
       DebugVal(arg, mem);
@@ -136,7 +136,7 @@ void PrintSeq(Seq seq, Mem *mem)
     if (IsTagged(stmt, "label", mem)) {
       Val label = Tail(stmt, mem);
       Print(SymbolName(label, mem));
-      Print("\n");
+      Print(":\n");
       stmts = Tail(stmts, mem);
     } else {
       PrintIntN(i, 4, ' ');
