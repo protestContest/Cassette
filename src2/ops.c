@@ -31,10 +31,10 @@ static OpInfo ops[] = {
   [OpSave]    = {"save", ArgsReg},
   [OpRestore] = {"restore", ArgsReg},
   [OpCont]    = {"cont", ArgsConst},
-  [OpApply]   = {"apply", ArgsNone},
+  [OpApply]   = {"apply", ArgsConst},
   [OpReturn]  = {"return", ArgsNone},
-  [OpLookup]  = {"lookup", ArgsNone},
-  [OpDefine]  = {"define", ArgsNone},
+  [OpLookup]  = {"lookup", ArgsConst},
+  [OpDefine]  = {"define", ArgsConst},
   [OpJump]    = {"jump", ArgsConst},
   [OpBranch]  = {"branch", ArgsConst},
   [OpBranchF] = {"branchf", ArgsConst},
@@ -81,7 +81,7 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
     return length;
   case ArgsConst:
     length += Print(" ");
-    length += DebugVal(ChunkConst(chunk, index+1), &chunk->constants);
+    length += PrintVal(ChunkConst(chunk, index+1), &chunk->constants);
     return length;
   case ArgsReg:
     length += Print(" ");

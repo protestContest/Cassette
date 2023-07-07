@@ -50,13 +50,6 @@ typedef enum {
 } TokenType;
 
 typedef struct {
-  char *text;
-  u32 pos;
-  u32 line;
-  u32 col;
-} Lexer;
-
-typedef struct {
   TokenType type;
   char *lexeme;
   u32 length;
@@ -64,7 +57,18 @@ typedef struct {
   u32 col;
 } Token;
 
+typedef struct {
+  char *text;
+  u32 pos;
+  u32 line;
+  u32 col;
+  Token token;
+} Lexer;
+
+#define AtEnd(lex)  (PeekToken(lex).type == TokenEOF)
+
 void InitLexer(Lexer *lex, char *text);
 Token NextToken(Lexer *lex);
+Token PeekToken(Lexer *lex);
 void PrintToken(Token token);
-Val ParseNum(Token token);
+// Val ParseNum(Token token);

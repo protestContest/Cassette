@@ -79,6 +79,9 @@ bool ListContains(Val list, Val value, Mem *mem);
 bool IsTagged(Val list, char *tag, Mem *mem);
 Val ListConcat(Val a, Val b, Mem *mem);
 Val ListFrom(Val list, u32 pos, Mem *mem);
+Val ListAt(Val list, u32 pos, Mem *mem);
+u32 ListLength(Val list, Mem *mem);
+Val ReverseList(Val list, Mem *mem);
 
 Val MakeBinary(char *text, Mem *mem);
 u32 BinaryLength(Val bin, Mem *mem);
@@ -98,4 +101,4 @@ void ValMapPut(Val map, Val key, Val value, Mem *mem);
 Val ValMapGet(Val map, Val key, Mem *mem);
 bool ValMapContains(Val map, Val key, Mem *mem);
 
-u32 DebugVal(Val value, Mem *mem);
+u32 PrintVal(Val value, Mem *mem);

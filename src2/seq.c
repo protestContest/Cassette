@@ -60,7 +60,7 @@ static Seq CompileLinkage(Linkage linkage, Mem *mem)
     Pair(LabelRef(linkage, mem), nil, mem), mem));
 }
 
-Seq EndWithLinkage(Seq seq, Linkage linkage, Mem *mem)
+Seq EndWithLinkage(Linkage linkage, Seq seq, Mem *mem)
 {
   return Preserving(RegCont, seq, CompileLinkage(linkage, mem), mem);
 }
@@ -95,7 +95,7 @@ static u32 PrintStmt(Val stmts, Mem *mem)
     } else if (IsTagged(arg, "reg-ref", mem)) {
       PrintReg(RawInt(Tail(arg, mem)));
     } else {
-      DebugVal(arg, mem);
+      PrintVal(arg, mem);
     }
 
     stmts = Tail(stmts, mem);

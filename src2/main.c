@@ -14,10 +14,12 @@ i32 main(i32 argc, char **argv)
     return 0;
   }
 
-  char *filename = argv[1];
-  char *source = (char*)ReadFile(filename);
+  // char *filename = argv[1];
+  // char *source = (char*)ReadFile(filename);
 
-   Compile(source);
+  char *source = "((x) -> (foo x) + 2 * 4 - 8)";
+
+  Compile(source);
   // Disassemble(&chunk);
 
   // VM vm;

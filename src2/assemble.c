@@ -2,10 +2,11 @@
 #include "ops.h"
 #include "vm.h"
 
-Val MakeLabel(u32 label_num, Mem *mem)
+Val MakeLabel(Mem *mem)
 {
+  static u32 label_num = 0;
   char label[12] = "lbl";
-  u32 len = IntToString(label_num, label+3, 7);
+  u32 len = IntToString(label_num++, label+3, 7);
   return MakeSymbol(label, len+3, mem);
 }
 

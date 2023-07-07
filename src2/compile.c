@@ -1,1044 +1,243 @@
 #include "compile.h"
-#include "lex.h"
-#include "vm.h"
-#include "ops.h"
+#include "parse.h"
+#include "seq.h"
 #include "assemble.h"
-#include "source.h"
+#include "ops.h"
 
-typedef struct Compiler {
-  Lexer lexer;
-  Token token;
-  u32 next_label;
-  bool ok;
-  Mem mem;
-} Compiler;
-
-#define NextLabel(c)  MakeLabel((c)->next_label++, &(c)->mem)
-
-typedef Seq (*ParseFn)(Compiler *compiler, Linkage linkage);
-
-typedef enum {
-  PrecNone,
-  PrecExpr,
-  PrecLambda,
-  PrecLogic,
-  PrecEqual,
-  PrecCompare,
-  PrecMember,
-  PrecPair,
-  PrecSum,
-  PrecProduct,
-  PrecUnary
-} Precedence;
-
-typedef struct {
-  ParseFn prefix;
-  ParseFn infix;
-  Precedence precedence;
-} ParseRule;
-
-static Seq CompileExpr(Compiler *c, Linkage linkage, Precedence prec);
-static Seq CompileNum(Compiler *c, Linkage linkage);
-static Seq CompileVar(Compiler *c, Linkage linkage);
-static Seq CompileLiteral(Compiler *c, Linkage linkage);
-static Seq CompileSymbol(Compiler *c, Linkage linkage);
-static Seq CompileParens(Compiler *c, Linkage linkage);
-static Seq CompileCall(Compiler *c, Linkage linkage);
-
-static ParseRule rules[] = {
-  [TokenNum]          = {&CompileNum, NULL, PrecNone},
-  [TokenID]           = {&CompileVar, NULL, PrecNone},
-  [TokenTrue]         = {&CompileLiteral, NULL, PrecNone},
-  [TokenFalse]        = {&CompileLiteral, NULL, PrecNone},
-  [TokenNil]          = {&CompileLiteral, NULL, PrecNone},
-  [TokenColon]        = {&CompileSymbol, NULL, PrecNone},
-  [TokenLParen]       = {&CompileParens, NULL, PrecNone},
-  [TokenEOF]          = {NULL, NULL, PrecNone},
-  [TokenError]        = {NULL, NULL, PrecNone},
-  [TokenLet]          = {NULL, NULL, PrecNone},
-  [TokenComma]        = {NULL, NULL, PrecNone},
-  [TokenEqual]        = {NULL, NULL, PrecNone},
-  [TokenDef]          = {NULL, NULL, PrecNone},
-  [TokenRParen]       = {NULL, NULL, PrecNone},
-  [TokenArrow]        = {NULL, NULL, PrecNone},
-  [TokenAnd]          = {NULL, NULL, PrecNone},
-  [TokenOr]           = {NULL, NULL, PrecNone},
-  [TokenEqualEqual]   = {NULL, NULL, PrecNone},
-  [TokenNotEqual]     = {NULL, NULL, PrecNone},
-  [TokenGreater]      = {NULL, NULL, PrecNone},
-  [TokenGreaterEqual] = {NULL, NULL, PrecNone},
-  [TokenLess]         = {NULL, NULL, PrecNone},
-  [TokenLessEqual]    = {NULL, NULL, PrecNone},
-  [TokenIn]           = {NULL, NULL, PrecNone},
-  [TokenPipe]         = {NULL, NULL, PrecNone},
-  [TokenPlus]         = {NULL, NULL, PrecNone},
-  [TokenMinus]        = {NULL, NULL, PrecNone},
-  [TokenStar]         = {NULL, NULL, PrecNone},
-  [TokenSlash]        = {NULL, NULL, PrecNone},
-  [TokenNot]          = {NULL, NULL, PrecNone},
-  [TokenString]       = {NULL, NULL, PrecNone},
-  [TokenDot]          = {NULL, NULL, PrecNone},
-  [TokenDo]           = {NULL, NULL, PrecNone},
-  [TokenEnd]          = {NULL, NULL, PrecNone},
-  [TokenIf]           = {NULL, NULL, PrecNone},
-  [TokenElse]         = {NULL, NULL, PrecNone},
-  [TokenCond]         = {NULL, NULL, PrecNone},
-  [TokenLBracket]     = {NULL, NULL, PrecNone},
-  [TokenRBracket]     = {NULL, NULL, PrecNone},
-  [TokenHashBracket]  = {NULL, NULL, PrecNone},
-  [TokenLBrace]       = {NULL, NULL, PrecNone},
-  [TokenRBrace]       = {NULL, NULL, PrecNone},
-  [TokenNewline]      = {NULL, NULL, PrecNone},
-  [TokenModule]       = {NULL, NULL, PrecNone},
-};
-
-void CompileError(Compiler *c, char *message)
-{
-  PrintEscape(IOFGRed);
-  Print("Compile error [");
-  PrintInt(c->token.line);
-  Print(":");
-  PrintInt(c->token.col);
-  Print("]: ");
-  Print(message);
-  Print("\n");
-
-  u32 token_pos = c->token.lexeme - c->lexer.text;
-  PrintSourceContext(c->lexer.text, c->token.line, 3, token_pos, c->token.length);
-
-  PrintEscape(IOFGReset);
-  Print("\n");
-  c->ok = false;
-}
-
-void AdvanceToken(Compiler *c)
-{
-  c->token = NextToken(&c->lexer);
-}
-
-bool MatchToken(Compiler *c, TokenType type)
-{
-  if (c->token.type == type) {
-    AdvanceToken(c);
-    return true;
-  }
-  return false;
-}
-
-bool ExpectToken(Compiler *c, TokenType type)
-{
-  if (!MatchToken(c, type)) {
-    CompileError(c, "Expected token");
-    return false;
-  }
-
-  return true;
-}
-
-void SkipNewlines(Compiler *compiler)
-{
-  while (compiler->token.type == TokenNewline) AdvanceToken(compiler);
-}
-
-void InitCompiler(Compiler *compiler, char *source)
-{
-  compiler->ok = true;
-  compiler->next_label = 0;
-  InitLexer(&compiler->lexer, source);
-  InitMem(&compiler->mem);
-  AdvanceToken(compiler);
-}
+static Seq CompileExpr(Val ast, Linkage linkage, Mem *mem);
 
 Chunk Compile(char *source)
 {
-  Compiler compiler;
-  InitCompiler(&compiler, source);
+  Mem mem;
+  InitMem(&mem);
+  Val ast = Parse(source, &mem);
 
-  Seq code = CompileExpr(&compiler, LinkNext, PrecExpr);
+  Print("Parsed: ");
+  PrintVal(ast, &mem);
+  Print("\n");
 
-  PrintSeq(code, &compiler.mem);
+  Seq code = CompileExpr(ast, LinkNext, &mem);
 
-  return Assemble(code, &compiler.mem);
+  Print("Compiled:\n");
+  PrintSeq(code, &mem);
+
+  return Assemble(code, &mem);
 }
 
-static Seq CompileExpr(Compiler *c, Linkage linkage, Precedence prec)
+static Seq CompileConst(Val node, Linkage linkage, Mem *mem)
 {
-  ParseRule rule = rules[c->token.type];
-  if (rule.prefix == NULL) {
-    CompileError(c, "Expected expression");
-    return EmptySeq();
+  return EndWithLinkage(linkage,
+    MakeSeq(0, 0,
+      Pair(OpSymbol(OpConst),
+      Pair(node, nil, mem), mem)), mem);
+}
+
+static Seq CompileVar(Val node, Linkage linkage, Mem *mem)
+{
+  return EndWithLinkage(linkage,
+    MakeSeq(RegEnv, 0,
+      Pair(OpSymbol(OpLookup),
+      Pair(node, nil, mem), mem)), mem);
+}
+
+static Seq CompileSymbol(Val node, Linkage linkage, Mem *mem)
+{
+  node = ListAt(node, 1, mem);
+  return EndWithLinkage(linkage,
+    MakeSeq(0, 0,
+      Pair(OpSymbol(OpConst),
+      Pair(node, nil, mem), mem)), mem);
+}
+
+static Seq CompileLambda(Val node, Linkage linkage, Mem *mem)
+{
+  Val params = ListAt(node, 1, mem);
+  Seq body = CompileExpr(ListAt(node, 2, mem), LinkReturn, mem);
+
+  Seq param_code = EmptySeq();
+  while (!IsNil(params)) {
+    Seq param = MakeSeq(0, RegEnv,
+      Pair(OpSymbol(OpDefine),
+      Pair(Head(params, mem), nil, mem), mem));
+    param_code = Preserving(RegEnv | RegCont, param, param_code, mem);
+    params = Tail(params, mem);
   }
-  return rule.prefix(c, linkage);
-}
 
-static Seq CompileNum(Compiler *c, Linkage linkage)
-{
-  Mem *mem = &c->mem;
-  Val num = ParseNum(c->token);
-  AdvanceToken(c);
+  Val entry = MakeLabel(mem);
+  Val after_lambda = MakeLabel(mem);
 
-  return
-    EndWithLinkage(
-      MakeSeq(0, 0,
-        Pair(OpSymbol(OpConst),
-        Pair(num, nil, mem), mem)), linkage, mem);
-}
+  body =
+    AppendSeq(LabelSeq(entry, mem),
+    AppendSeq(param_code,
+    AppendSeq(body,
+              LabelSeq(after_lambda, mem), mem), mem), mem);
 
-static Seq CompileVar(Compiler *c, Linkage linkage)
-{
-  Mem *mem = &c->mem;
-  Val id = MakeSymbol(c->token.lexeme, c->token.length, mem);
-  AdvanceToken(c);
+  if (Eq(linkage, LinkNext)) linkage = after_lambda;
 
-  return
-    EndWithLinkage(
-      MakeSeq(RegEnv, 0,
-        Pair(OpSymbol(OpConst),
-        Pair(id,
-        Pair(OpSymbol(OpLookup), nil, mem), mem), mem)), linkage, mem);
-}
-
-static Seq CompileSymbol(Compiler *c, Linkage linkage)
-{
-  Mem *mem = &c->mem;
-  ExpectToken(c, TokenColon);
-  Val id = MakeSymbol(c->token.lexeme, c->token.length, mem);
-  AdvanceToken(c);
-
-  return
-    EndWithLinkage(
-      MakeSeq(0, 0,
-        Pair(OpSymbol(OpConst),
-        Pair(id, nil, mem), mem)), linkage, mem);
-}
-
-static Seq CompileLiteral(Compiler *c, Linkage linkage)
-{
-  OpCode op;
-  switch (c->token.type) {
-  case TokenTrue:
-    op = OpTrue;
-    break;
-  case TokenFalse:
-    op = OpFalse;
-    break;
-  case TokenNil:
-    op = OpNil;
-    break;
-  default:
-    CompileError(c, "Unknown literal");
-    op = OpHalt;
-  }
-  AdvanceToken(c);
-
-  return
-    EndWithLinkage(
-      MakeSeq(0, 0, Pair(OpSymbol(op), nil, &c->mem)), linkage, &c->mem);
-}
-
-static Seq CompileLambda(Compiler *c, Linkage linkage, Token *ids)
-{
-  Mem *mem = &c->mem;
-  Val entry = NextLabel(c);
-  Val after_body = NextLabel(c);
-
-  Linkage lambda_linkage = (Eq(linkage, LinkNext)) ? after_body : linkage;
   Seq lambda_code =
-    EndWithLinkage(
+    EndWithLinkage(linkage,
       MakeSeq(RegEnv, 0,
         Pair(OpSymbol(OpLambda),
-        Pair(LabelRef(entry, mem), nil, mem), mem)), lambda_linkage, mem);
+        Pair(LabelRef(entry, mem), nil, mem), mem)), mem);
 
-  Val bindings = nil;
-  while (VecCount(ids) > 0) {
-    Token token = VecPop(ids);
-    Val id = MakeSymbol(token.lexeme, token.length, mem);
-    bindings =
-      Pair(OpSymbol(OpConst),
-      Pair(id,
-      Pair(OpSymbol(OpDefine),
-        bindings, mem), mem), mem);
-  }
-  FreeVec(ids);
-
-  Seq body =
-    AppendSeq(LabelSeq(entry, mem),
-    AppendSeq(
-      MakeSeq(0, RegEnv, bindings),
-      CompileExpr(c, LinkReturn, PrecExpr), mem), mem);
-
-  return
-    TackOnSeq(lambda_code,
-    AppendSeq(body,
-              LabelSeq(after_body, mem), mem), mem);
+  return TackOnSeq(lambda_code, body, mem);
 }
 
-static Seq CompileCall(Compiler *c, Linkage linkage)
+static Seq OpSeq(OpCode op, Mem *mem)
 {
-  Mem *mem = &c->mem;
+  return MakeSeq(0, 0, Pair(OpSymbol(op), nil, mem));
+}
 
-  Seq call;
+static Seq CompilePrefix(OpCode op, Val node, Linkage linkage, Mem *mem)
+{
+  Seq args = CompileExpr(ListAt(node, 1, mem), LinkNext, mem);
+  return Preserving(RegCont, args, EndWithLinkage(linkage, OpSeq(op, mem), mem), mem);
+}
+
+static Seq CompileInfix(Seq op_seq, Val node, Linkage linkage, Mem *mem)
+{
+  Seq a_code = CompileExpr(ListAt(node, 1, mem), LinkNext, mem);
+  Seq b_code = CompileExpr(ListAt(node, 2, mem), LinkNext, mem);
+  Seq args = Preserving(RegEnv, a_code, b_code, mem);
+
+  return Preserving(RegCont, args, EndWithLinkage(linkage, op_seq, mem), mem);
+}
+
+static Seq CompileCall(Val node, Linkage linkage, Mem *mem)
+{
+  Seq args = EmptySeq();
+  u32 num_args = 0;
+  while (!IsNil(node)) {
+    Seq arg = CompileExpr(Head(node, mem), LinkNext, mem);
+    num_args++;
+    args = Preserving(RegEnv, args, arg, mem);
+    node = Tail(node, mem);
+  }
+
   if (Eq(linkage, LinkReturn)) {
-    // tail call
-    call = MakeSeq(RegCont, RegEnv, Pair(OpSymbol(OpApply), nil, mem));
+    return Preserving(RegCont,
+      args,
+      MakeSeq(RegCont, 0,
+        Pair(OpSymbol(OpApply),
+        Pair(IntVal(num_args), nil, mem), mem)), mem);
   } else {
-    // set up cont to return to the right place
-    Val after_call = NextLabel(c);
+    Val after_call = MakeLabel(mem);
     if (Eq(linkage, LinkNext)) linkage = after_call;
 
-    call = MakeSeq(0, RegCont | RegEnv,
-      Pair(OpSymbol(OpCont),
-      Pair(LabelRef(linkage, mem),
-      Pair(OpSymbol(OpApply),
-      Pair(Label(after_call, mem), nil, mem), mem), mem), mem));
+    return
+      AppendSeq(args,
+        MakeSeq(0, RegCont,
+          Pair(OpSymbol(OpCont),
+          Pair(LabelRef(linkage, mem),
+          Pair(OpSymbol(OpApply),
+          Pair(IntVal(num_args),
+          Pair(Label(after_call, mem), nil, mem), mem), mem), mem), mem)), mem);
   }
-
-  // compile args & prepend to the call
-  while (c->token.type != TokenRParen) {
-    if (c->token.type == TokenEOF) {
-      CompileError(c, "Unexpected end of file");
-      return EmptySeq();
-    }
-
-    Seq arg = CompileExpr(c, LinkNext, PrecExpr);
-    call = Preserving(RegEnv | RegCont, arg, call, mem);
-  }
-  ExpectToken(c, TokenRParen);
-
-  return call;
 }
 
-static Seq CompileParens(Compiler *c, Linkage linkage)
+static Seq CompileDo(Val node, Linkage linkage, Mem *mem)
 {
-  // save our state to backtrack
-  Lexer lexer = c->lexer;
+  node = Tail(node, mem);
 
-  ExpectToken(c, TokenLParen);
+  Seq stmts = EmptySeq();
+  if (IsNil(node)) return stmts;
 
-  // save up a list of ID tokens in case it's a lambda
-  Token *args = NULL;
-  while (c->token.type == TokenID) {
-    VecPush(args, c->token);
-    AdvanceToken(c);
+  while (!IsNil(Tail(node, mem))) {
+    Seq stmt = CompileExpr(Head(node, mem), LinkNext, mem);
+    stmts = AppendSeq(
+      Preserving(RegEnv, stmts, stmt, mem),
+      MakeSeq(0, 0, Pair(OpSymbol(OpPop), nil, mem)), mem);
+
+    node = Tail(node, mem);
   }
 
-  if (MatchToken(c, TokenRParen) && MatchToken(c, TokenArrow)) {
-    return CompileLambda(c, linkage, args);
-  }
-
-  // not a lambda
-  c->lexer = lexer;
-  AdvanceToken(c);
-  return CompileCall(c, linkage);
+  Seq last_stmt = CompileExpr(Head(node, mem), linkage, mem);
+  return Preserving(RegEnv | RegCont, stmts, last_stmt, mem);
 }
 
-// void CompileString(Compiler *compiler);
-// void CompileLiteral(Compiler *compiler);
-// void CompileSymbol(Compiler *compiler);
-// void CompileVariable(Compiler *compiler);
-// // void CompileGroup(Compiler *compiler);
-// void CompileUnary(Compiler *compiler);
-// void CompileInfixLeft(Compiler *compiler);
-// void CompileInfixRight(Compiler *compiler);
-// // void CompileLogic(Compiler *compiler);
-// // void CompileDoBlock(Compiler *compiler);
-// // void CompileIfBlock(Compiler *compiler);
-// // void CompileCondBlock(Compiler *compiler);
-// // void CompileLet(Compiler *compiler);
-// // void CompileDef(Compiler *compiler);
-// // void CompileAccess(Compiler *compiler);
-// // void CompileList(Compiler *compiler);
-// // void CompileTuple(Compiler *compiler);
-// // void CompileMap(Compiler *compiler);
-// // void CompileModuleName(Compiler *compiler);
-
-// static ParseRule rules[] = {
-//   [TokenEOF]          = {NULL, NULL, PrecNone},
-//   [TokenError]        = {NULL, NULL, PrecNone},
-//   // [TokenLet]          = {&CompileLet, NULL, PrecNone},
-//   [TokenComma]        = {NULL, NULL, PrecNone},
-//   [TokenEqual]        = {NULL, NULL, PrecNone},
-//   // [TokenDef]          = {&CompileDef, NULL, PrecNone},
-//   // [TokenLParen]       = {&CompileGroup, NULL, PrecNone},
-//   [TokenRParen]       = {NULL, NULL, PrecNone},
-//   [TokenID]           = {&CompileVariable, NULL, PrecNone},
-//   [TokenArrow]        = {NULL, NULL, PrecNone},
-//   // [TokenAnd]          = {NULL, &CompileLogic, PrecLogic},
-//   // [TokenOr]           = {NULL, &CompileLogic, PrecLogic},
-//   [TokenEqualEqual]   = {NULL, &CompileInfixLeft, PrecEqual},
-//   [TokenNotEqual]     = {NULL, &CompileInfixLeft, PrecEqual},
-//   [TokenGreater]      = {NULL, &CompileInfixLeft, PrecCompare},
-//   [TokenGreaterEqual] = {NULL, &CompileInfixLeft, PrecCompare},
-//   [TokenLess]         = {NULL, &CompileInfixLeft, PrecCompare},
-//   [TokenLessEqual]    = {NULL, &CompileInfixLeft, PrecCompare},
-//   [TokenIn]           = {NULL, &CompileInfixLeft, PrecMember},
-//   [TokenPipe]         = {NULL, &CompileInfixRight, PrecPair},
-//   [TokenPlus]         = {NULL, &CompileInfixLeft, PrecSum},
-//   [TokenMinus]        = {&CompileUnary, &CompileInfixLeft, PrecSum},
-//   [TokenStar]         = {NULL, &CompileInfixLeft, PrecProduct},
-//   [TokenSlash]        = {NULL, &CompileInfixLeft, PrecProduct},
-//   [TokenNot]          = {&CompileUnary, NULL, PrecNone},
-//   [TokenNum]          = {&CompileNum, NULL, PrecNone},
-//   [TokenString]       = {&CompileString, NULL, PrecNone},
-//   [TokenTrue]         = {&CompileLiteral, NULL, PrecNone},
-//   [TokenFalse]        = {&CompileLiteral, NULL, PrecNone},
-//   [TokenNil]          = {&CompileLiteral, NULL, PrecNone},
-//   [TokenColon]        = {&CompileSymbol, NULL, PrecNone},
-//   // [TokenDot]          = {&CompileAccess, NULL, PrecNone},
-//   // [TokenDo]           = {&CompileDoBlock, NULL, PrecNone},
-//   [TokenEnd]          = {NULL, NULL, PrecNone},
-//   // [TokenIf]           = {&CompileIfBlock, NULL, PrecNone},
-//   [TokenElse]         = {NULL, NULL, PrecNone},
-//   // [TokenCond]         = {&CompileCondBlock, NULL, PrecNone},
-//   // [TokenLBracket]     = {&CompileList, NULL, PrecNone},
-//   [TokenRBracket]     = {NULL, NULL, PrecNone},
-//   // [TokenHashBracket]  = {&CompileTuple, NULL, PrecNone},
-//   // [TokenLBrace]       = {&CompileMap, NULL, PrecNone},
-//   [TokenRBrace]       = {NULL, NULL, PrecNone},
-//   [TokenNewline]      = {&AdvanceToken, NULL, PrecNone},
-//   // [TokenModule]       = {&CompileModuleName, NULL, PrecNone},
-// };
-
-// void DebugCompile(char *message)
-// {
-//   Print(message);
-// }
-
-// bool Expect(bool assertion, char *message)
-// {
-//   if (!assertion) {
-//     Print(message);
-//     Print("\n");
-//   }
-//   return assertion;
-// }
-
-// bool ExpectToken(Compiler *compiler, TokenType type, char *message)
-// {
-//   if (compiler->token.type != type) {
-//     CompileError(compiler, message);
-//     return false;
-//   }
-//   return true;
-// }
-
-// void CompileExpr(Compiler *compiler, Precedence precedence)
-// {
-//   if (compiler->error) return;
-
-//   ParseRule rule = rules[compiler->token.type];
-
-//   if (rule.prefix == NULL) {
-//     CompileError(compiler, "Expected expression");
-//     return;
-//   }
-
-//   rule.prefix(compiler);
-
-//   rule = rules[compiler->token.type];
-//   while (rule.infix && rule.precedence >= precedence) {
-//     rule.infix(compiler);
-//     rule = rules[compiler->token.type];
-//   }
-// }
-
-// // void CompileStatement(Compiler *compiler)
-// // {
-// //   if (compiler->error) return;
-// //   SkipNewlines(compiler);
-
-// //   Print("Compiling statement\n");
-
-// //   u32 num_exprs = 0;
-// //   while (compiler->token.type != TokenEOF && compiler->token.type != TokenNewline) {
-// //     num_exprs++;
-// //     CompileExpr(compiler, PrecExpr);
-// //   }
-
-// //   if (num_exprs > 1) {
-// //     PushByte(compiler->chunk, OpLink);
-// //     u32 link = VecCount(compiler->chunk->data);
-// //     PushByte(compiler->chunk, 0);
-// //     PushByte(compiler->chunk, OpApply);
-// //     PushByte(compiler->chunk, num_exprs);
-// //     compiler->chunk->data[link] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //   }
-
-// //   SkipNewlines(compiler);
-// // }
-
-// //   PushByte(&chunk, OpHalt);
-
-// //   return *compiler.chunk;
-// // }
-
-// // u32 CompileModule(char *source, Chunk *chunk)
-// // {
-// //   Compiler compiler;
-// //   InitCompiler(&compiler, chunk, &source);
-
-// //   // jump past module body
-// //   PushByte(compiler.chunk, OpJump);
-// //   u32 patch = VecCount(compiler.chunk->data);
-// //   PushByte(compiler.chunk, 0); // patched later
-
-// //   u32 position = VecCount(compiler.chunk->data);
-
-// //   // module body
-// //   while (compiler.token.type != TokenEOF) {
-// //     CompileStatement(&compiler);
-// //     PushByte(chunk, OpPop);
-// //   }
-// //   PushByte(chunk, OpConst);
-// //   PushByte(chunk, PushConst(chunk, compiler.mod_name));
-// //   PushByte(chunk, OpDefMod);
-// //   PushByte(chunk, OpReturn);
-
-// //   // after module
-// //   chunk->data[patch] = PushConst(chunk, IntVal(VecCount(chunk->data)));
-// //   PushByte(chunk, OpLambda);
-// //   PushByte(chunk, PushConst(compiler.chunk, IntVal(patch+1)));
-
-// //   return position;
-// // }
-
-// void CompileID(Compiler *compiler, Token id)
-// {
-//   Val sym = MakeSymbol(id.lexeme, id.length, &compiler->chunk->constants);
-//   PushByte(compiler->chunk, OpConst);
-//   PushByte(compiler->chunk, PushConst(compiler->chunk, sym));
-// }
-
-// void CompileNum(Compiler *compiler)
-// {
-//   DebugCompile("Compile Num\n");
-//   PushByte(compiler->chunk, OpConst);
-//   PushByte(compiler->chunk, PushConst(compiler->chunk, compiler->token.value));
-//   AdvanceToken(compiler);
-// }
-
-// void CompileString(Compiler *compiler)
-// {
-//   DebugCompile("Compile String\n");
-//   CompileID(compiler, compiler->token);
-//   PushByte(compiler->chunk, OpStr);
-//   AdvanceToken(compiler);
-// }
-
-// void CompileLiteral(Compiler *compiler)
-// {
-//   DebugCompile("Compile Literal\n");
-//   switch (compiler->token.type) {
-//   case TokenTrue:
-//     PushByte(compiler->chunk, OpTrue);
-//     break;
-//   case TokenFalse:
-//     PushByte(compiler->chunk, OpFalse);
-//     break;
-//   case TokenNil:
-//     PushByte(compiler->chunk, OpNil);
-//     break;
-//   default: break;
-//   }
-//   AdvanceToken(compiler);
-// }
-
-// void CompileSymbol(Compiler *compiler)
-// {
-//   DebugCompile("Compile Symbol\n");
-//   AdvanceToken(compiler);
-//   CompileID(compiler, compiler->token);
-//   AdvanceToken(compiler);
-// }
-
-// // void CompileLambda(Compiler *compiler, Token *ids)
-// // {
-// //   // jump past lambda body
-// //   PushByte(compiler->chunk, OpJump);
-// //   u32 patch = VecCount(compiler->chunk->data);
-// //   PushByte(compiler->chunk, 0); // patched later
-
-// //   // lambda body
-// //   // args are on the stack; define each param
-// //   for (u32 i = VecCount(ids); i > 0; i--) {
-// //     Val sym = MakeSymbol(ids[i-1].lexeme, ids[i-1].length, &compiler->chunk->constants);
-// //     PushByte(compiler->chunk, OpConst);
-// //     PushByte(compiler->chunk, PushConst(compiler->chunk, sym));
-// //     PushByte(compiler->chunk, OpDefine);
-// //     PushByte(compiler->chunk, OpPop);
-// //   }
-// //   PushByte(compiler->chunk, OpPop); // pop the lambda from the stack
-
-// //   CompileExpr(compiler, PrecExpr);
-// //   PushByte(compiler->chunk, OpReturn);
-
-// //   // after body
-// //   // patch jump, create lambda
-// //   compiler->chunk->data[patch] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //   PushByte(compiler->chunk, OpLambda);
-// //   PushByte(compiler->chunk, PushConst(compiler->chunk, IntVal(patch+1)));
-// // }
-
-// void CompileVariable(Compiler *compiler)
-// {
-//   DebugCompile("Compile Variable\n");
-//   CompileID(compiler, compiler->token);
-//   PushByte(compiler->chunk, OpLookup);
-//   AdvanceToken(compiler);
-// }
-
-// // void CompileGroup(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-
-// //   // try to store up IDs in case it's a lambda
-// //   Token *ids = NULL;
-// //   while (compiler->token.type == TokenID) {
-// //     VecPush(ids, compiler->token);
-// //     AdvanceToken(compiler);
-// //     SkipNewlines(compiler);
-// //   }
-
-// //   if (compiler->token.type == TokenRParen) {
-// //     AdvanceToken(compiler);
-// //     if (compiler->token.type == TokenArrow) {
-// //       AdvanceToken(compiler);
-// //       SkipNewlines(compiler);
-// //       CompileLambda(compiler, ids);
-// //       FreeVec(ids);
-// //       return;
-// //     }
-
-// //     // just a list of ids
-// //     for (u32 i = 0; i < VecCount(ids); i++) {
-// //       CompileID(compiler, ids[i]);
-// //       PushByte(compiler->chunk, OpLookup);
-// //     }
-// //     PushByte(compiler->chunk, OpLink);
-// //     u32 link = VecCount(compiler->chunk->data);
-// //     PushByte(compiler->chunk, 0);
-// //     PushByte(compiler->chunk, OpApply);
-// //     PushByte(compiler->chunk, VecCount(ids));
-// //     FreeVec(ids);
-// //     compiler->chunk->data[link] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //     return;
-// //   }
-
-// //   // not a list of ids, just an expression
-// //   for (u32 i = 0; i < VecCount(ids); i++) {
-// //     CompileID(compiler, ids[i]);
-// //     PushByte(compiler->chunk, OpLookup);
-// //   }
-// //   u8 num_params = VecCount(ids);
-// //   FreeVec(ids);
-
-// //   while (compiler->token.type != TokenRParen) {
-// //     if (compiler->token.type == TokenEOF) {
-// //       CompileError(compiler, "Unexpected end of file");
-// //       return;
-// //     }
-// //     num_params++;
-// //     CompileExpr(compiler, PrecExpr);
-// //   }
-
-// //   PushByte(compiler->chunk, OpLink);
-// //   u32 link = VecCount(compiler->chunk->data);
-// //   PushByte(compiler->chunk, 0);
-// //   PushByte(compiler->chunk, OpApply);
-// //   PushByte(compiler->chunk, num_params);
-// //   compiler->chunk->data[link] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //   AdvanceToken(compiler);
-// // }
-
-// void CompileUnary(Compiler *compiler)
-// {
-//   DebugCompile("Compile Unary\n");
-//   TokenType op = compiler->token.type;
-
-//   AdvanceToken(compiler);
-//   CompileExpr(compiler, PrecUnary);
-
-//   switch (op) {
-//   case TokenNot:
-//     PushByte(compiler->chunk, OpNot);
-//     break;
-//   case TokenMinus:
-//     PushByte(compiler->chunk, OpNeg);
-//     break;
-//   default: break;
-//   }
-// }
-
-// void CompileInfixLeft(Compiler *compiler)
-// {
-//   DebugCompile("Compile Left\n");
-//   TokenType op = compiler->token.type;
-//   u32 prec = rules[compiler->token.type].precedence + 1;
-//   AdvanceToken(compiler);
-//   SkipNewlines(compiler);
-//   CompileExpr(compiler, prec);
-
-//   switch (op) {
-//   case TokenEqualEqual:
-//     PushByte(compiler->chunk, OpEq);
-//     break;
-//   case TokenNotEqual:
-//     PushByte(compiler->chunk, OpEq);
-//     PushByte(compiler->chunk, OpNot);
-//     break;
-//   case TokenGreater:
-//     PushByte(compiler->chunk, OpGt);
-//     break;
-//   case TokenGreaterEqual:
-//     PushByte(compiler->chunk, OpLt);
-//     PushByte(compiler->chunk, OpNot);
-//     break;
-//   case TokenLess:
-//     PushByte(compiler->chunk, OpLt);
-//     break;
-//   case TokenLessEqual:
-//     PushByte(compiler->chunk, OpGt);
-//     PushByte(compiler->chunk, OpNot);
-//     break;
-//   case TokenIn:
-//     PushByte(compiler->chunk, OpIn);
-//     break;
-//   case TokenPlus:
-//     PushByte(compiler->chunk, OpAdd);
-//     break;
-//   case TokenMinus:
-//     PushByte(compiler->chunk, OpSub);
-//     break;
-//   case TokenStar:
-//     PushByte(compiler->chunk, OpMul);
-//     break;
-//   case TokenSlash:
-//     PushByte(compiler->chunk, OpDiv);
-//     break;
-//   default:
-//     CompileError(compiler, "Unknown left-associative operator");
-//     break;
-//   }
-// }
-
-// void CompileInfixRight(Compiler *compiler)
-// {
-//   DebugCompile("Compile Right\n");
-//   TokenType op = compiler->token.type;
-//   u32 prec = rules[compiler->token.type].precedence;
-//   AdvanceToken(compiler);
-//   SkipNewlines(compiler);
-//   CompileExpr(compiler, prec);
-
-//   switch (op) {
-//   case TokenPipe:
-//     PushByte(compiler->chunk, OpPair);
-//     break;
-//   default:
-//     CompileError(compiler, "Unknown right-associative operator");
-//     break;
-//   }
-// }
-
-// // void CompileLogic(Compiler *compiler)
-// // {
-// //   TokenType op = compiler->token.type;
-// //   u32 prec = rules[compiler->token.type].precedence;
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-
-// //   if (op == TokenAnd) {
-// //     PushByte(compiler->chunk, OpBranchF);
-// //   } else {
-// //     PushByte(compiler->chunk, OpBranch);
-// //   }
-
-// //   u32 patch = VecCount(compiler->chunk->data);
-// //   PushByte(compiler->chunk, 0);
-
-// //   PushByte(compiler->chunk, OpPop);
-// //   CompileExpr(compiler, prec);
-
-// //   compiler->chunk->data[patch] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// // }
-
-// // void CompileDoBlock(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   while (compiler->token.type != TokenEnd) {
-// //     if (compiler->token.type == TokenEOF) {
-// //       CompileError(compiler, "Unexpected end of file");
-// //       return;
-// //     }
-// //     CompileStatement(compiler);
-// //   }
-// //   AdvanceToken(compiler);
-// // }
-
-// // void CompileIfBlock(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   CompileExpr(compiler, PrecExpr);
-
-// //   PushByte(compiler->chunk, OpBranchF);
-// //   u32 branch_false = VecCount(compiler->chunk->data);
-// //   PushByte(compiler->chunk, 0);
-
-// //   if (compiler->token.type != TokenDo) {
-// //     CompileError(compiler, "Expected \"do\" after condition");
-// //     return;
-// //   }
-// //   AdvanceToken(compiler);
-
-// //   // true branch
-// //   PushByte(compiler->chunk, OpPop); // discard condition
-// //   while (compiler->token.type != TokenEnd && compiler->token.type != TokenElse) {
-// //     if (compiler->token.type == TokenEOF) {
-// //       CompileError(compiler, "Unexpected end of file");
-// //       return;
-// //     }
-// //     CompileStatement(compiler);
-// //     PushByte(compiler->chunk, OpPop);
-// //   }
-// //   RewindVec(compiler->chunk->data, 1);
-
-// //   // jump past false branch
-// //   PushByte(compiler->chunk, OpJump);
-// //   u32 jump_after = VecCount(compiler->chunk->data);
-// //   PushByte(compiler->chunk, 0);
-
-// //   // false branch
-// //   compiler->chunk->data[branch_false] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //   PushByte(compiler->chunk, OpPop); // discard condition
-// //   if (compiler->token.type == TokenElse) {
-// //     AdvanceToken(compiler);
-// //     while (compiler->token.type != TokenEnd) {
-// //       if (compiler->token.type == TokenEOF) {
-// //         CompileError(compiler, "Unexpected end of file");
-// //         return;
-// //       }
-// //       CompileStatement(compiler);
-// //       PushByte(compiler->chunk, OpPop);
-// //     }
-// //     RewindVec(compiler->chunk->data, 1);
-// //   } else {
-// //     // default else
-// //     PushByte(compiler->chunk, OpNil);
-// //   }
-
-// //   compiler->chunk->data[jump_after] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //   AdvanceToken(compiler);
-// // }
-
-// // void CompileCondBlock(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   if (compiler->token.type != TokenDo) {
-// //     CompileError(compiler, "Expected \"do\" after \"cond\"");
-// //     return;
-// //   }
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-
-// //   u32 *patches = NULL;
-// //   while (compiler->token.type != TokenEnd) {
-// //     if (compiler->token.type == TokenEOF) {
-// //       CompileError(compiler, "Unexpected end of file");
-// //       return;
-// //     }
-
-// //     // condition
-// //     CompileExpr(compiler, PrecLambda + 1); // don't allow lambdas in condition
-// //     SkipNewlines(compiler);
-// //     if (compiler->token.type != TokenArrow) {
-// //       CompileError(compiler, "Expected \"->\" after clause condition");
-// //       return;
-// //     }
-// //     AdvanceToken(compiler);
-// //     SkipNewlines(compiler);
-
-// //     // skip consequent when false
-// //     PushByte(compiler->chunk, OpBranchF);
-// //     u32 patch = VecCount(compiler->chunk->data);
-// //     PushByte(compiler->chunk, 0);
-
-// //     // consequent
-// //     CompileStatement(compiler);
-
-// //     // jump to after cond
-// //     PushByte(compiler->chunk, OpJump);
-// //     VecPush(patches, VecCount(compiler->chunk->data));
-// //     PushByte(compiler->chunk, 0);
-
-// //     compiler->chunk->data[patch] = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //   }
-
-// //   u8 after_cond = PushConst(compiler->chunk, IntVal(VecCount(compiler->chunk->data)));
-// //   for (u32 i = 0; i < VecCount(patches); i++) {
-// //     compiler->chunk->data[patches[i]] = after_cond;
-// //   }
-// //   FreeVec(patches);
-
-// //   AdvanceToken(compiler);
-// // }
-
-// // void CompileAssign(Compiler *compiler)
-// // {
-// //   if (compiler->token.type != TokenID) {
-// //     CompileError(compiler, "Expected identifier");
-// //     return;
-// //   }
-
-// //   Token id = compiler->token;
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-
-// //   if (compiler->token.type != TokenEqual) {
-// //     CompileError(compiler, "Expected \"=\" after identifier");
-// //     return;
-// //   }
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-
-// //   CompileExpr(compiler, PrecExpr);
-// //   CompileID(compiler, id);
-// //   PushByte(compiler->chunk, OpDefine);
-// // }
-
-// // void CompileLet(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-
-// //   CompileAssign(compiler);
-// //   while (compiler->token.type == TokenComma) {
-// //     PushByte(compiler->chunk, OpPop);
-// //     AdvanceToken(compiler);
-// //     SkipNewlines(compiler);
-// //     CompileAssign(compiler);
-// //   }
-// // }
-
-// // void CompileDef(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   if (compiler->token.type == TokenLParen) {
-// //     AdvanceToken(compiler);
-// //     if (compiler->token.type != TokenID) {
-// //       CompileError(compiler, "Expected identifier");
-// //       return;
-// //     }
-// //     Token id = compiler->token;
-// //     AdvanceToken(compiler);
-
-// //     Token *params = NULL;
-// //     while (compiler->token.type == TokenID) {
-// //       VecPush(params, compiler->token);
-// //       AdvanceToken(compiler);
-// //       SkipNewlines(compiler);
-// //     }
-// //     if (compiler->token.type != TokenRParen) {
-// //       CompileError(compiler, "Expected \")\"");
-// //       return;
-// //     }
-// //     AdvanceToken(compiler);
-
-// //     CompileLambda(compiler, params);
-// //     CompileID(compiler, id);
-// //     PushByte(compiler->chunk, OpDefine);
-// //   } else if (compiler->token.type == TokenID) {
-// //     Token id = compiler->token;
-// //     AdvanceToken(compiler);
-// //     CompileExpr(compiler, PrecExpr);
-// //     CompileID(compiler, id);
-// //     PushByte(compiler->chunk, OpDefine);
-// //   }
-// // }
-
-// // void CompileAccess(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   if (compiler->token.type != TokenID) {
-// //     CompileError(compiler, "Expected identifier");
-// //     return;
-// //   }
-// //   CompileID(compiler, compiler->token);
-// //   AdvanceToken(compiler);
-// //   PushByte(compiler->chunk, OpAccess);
-// // }
-
-// // void CompileList(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-// //   u32 num_items = 0;
-// //   while (compiler->token.type != TokenRBracket) {
-// //     if (compiler->token.type == TokenEOF) {
-// //       CompileError(compiler, "Unexpected end of file");
-// //       return;
-// //     }
-// //     CompileExpr(compiler, PrecExpr);
-// //     num_items++;
-// //     if (compiler->token.type == TokenComma) AdvanceToken(compiler);
-// //     SkipNewlines(compiler);
-// //   }
-// //   AdvanceToken(compiler);
-// //   PushByte(compiler->chunk, OpList);
-// //   PushByte(compiler->chunk, PushConst(compiler->chunk, IntVal(num_items)));
-// // }
-
-// // void CompileTuple(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-// //   u32 num_items = 0;
-// //   while (compiler->token.type != TokenRBracket) {
-// //     if (compiler->token.type == TokenEOF) {
-// //       CompileError(compiler, "Unexpected end of file");
-// //       return;
-// //     }
-// //     CompileExpr(compiler, PrecExpr);
-// //     num_items++;
-// //     if (compiler->token.type == TokenComma) AdvanceToken(compiler);
-// //     SkipNewlines(compiler);
-// //   }
-// //   AdvanceToken(compiler);
-// //   PushByte(compiler->chunk, OpTuple);
-// //   PushByte(compiler->chunk, PushConst(compiler->chunk, IntVal(num_items)));
-// // }
-
-// // void CompileMap(Compiler *compiler)
-// // {
-// //   AdvanceToken(compiler);
-// //   SkipNewlines(compiler);
-// //   u32 num_items = 0;
-// //   while (compiler->token.type != TokenRBrace) {
-// //     if (compiler->token.type != TokenID) {
-// //       CompileError(compiler, "Expected identifier");
-// //       return;
-// //     }
-// //     Token id = compiler->token;
-// //     AdvanceToken(compiler);
-// //     if (compiler->token.type != TokenColon) {
-// //       CompileError(compiler, "Expected \":\"");
-// //       return;
-// //     }
-// //     AdvanceToken(compiler);
-// //     SkipNewlines(compiler);
-
-// //     if (compiler->token.type == TokenEOF) {
-// //       CompileError(compiler, "Unexpected end of file");
-// //       return;
-// //     }
-// //     CompileExpr(compiler, PrecExpr);
-// //     CompileID(compiler, id);
-// //     num_items++;
-
-// //     if (compiler->token.type == TokenComma) AdvanceToken(compiler);
-// //     SkipNewlines(compiler);
-// //   }
-// //   AdvanceToken(compiler);
-// //   PushByte(compiler->chunk, OpMap);
-// //   PushByte(compiler->chunk, PushConst(compiler->chunk, IntVal(num_items)));
-// // }
+static Seq CompileLet(Val node, Linkage linkage, Mem *mem)
+{
+  node = Tail(node, mem);
+
+  Seq defines = EmptySeq();
+
+  while (!IsNil(node)) {
+    Val pair = Head(node, mem);
+    Val var = Head(pair, mem);
+
+    Seq def = AppendSeq(
+      CompileExpr(Tail(pair, mem), LinkNext, mem),
+      MakeSeq(0, 0,
+        Pair(OpSymbol(OpDefine),
+        Pair(var, nil, mem), mem)), mem);
+
+    defines = Preserving(RegEnv, defines, def, mem);
+    node = Tail(node, mem);
+  }
+
+  return defines;
+}
+
+static Seq CompileDef(Val node, Linkage linkage, Mem *mem)
+{
+  return EmptySeq();
+}
+
+static Seq CompileIf(Val node, Linkage linkage, Mem *mem)
+{
+  return EmptySeq();
+}
+
+static Seq CompileCond(Val node, Linkage linkage, Mem *mem)
+{
+  return EmptySeq();
+}
+
+static Seq CompileLogic(Val node, Linkage linkage, Mem *mem)
+{
+  return EmptySeq();
+}
+
+static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
+{
+  if (IsNil(node))                  return EmptySeq();
+  if (IsNumeric(node))              return CompileConst(node, linkage, mem);
+  if (IsSym(node))                  return CompileVar(node, linkage, mem);
+  if (IsTagged(node, ":", mem))     return CompileSymbol(node, linkage, mem);
+  if (IsTagged(node, "->", mem))    return CompileLambda(node, linkage, mem);
+
+  if (IsTagged(node, "do", mem))    return CompileDo(node, linkage, mem);
+
+  if (IsTagged(node, "+", mem))     return CompileInfix(OpSeq(OpAdd, mem), node, linkage, mem);
+  if (IsTagged(node, "-", mem)) {
+    if (ListLength(node, mem) > 2) return CompileInfix(OpSeq(OpSub, mem), node, linkage, mem);
+    else return CompilePrefix(OpNeg, node, linkage, mem);
+  }
+  if (IsTagged(node, "*", mem))     return CompileInfix(OpSeq(OpMul, mem), node, linkage, mem);
+  if (IsTagged(node, "/", mem))     return CompileInfix(OpSeq(OpDiv, mem), node, linkage, mem);
+  if (IsTagged(node, "==", mem))    return CompileInfix(OpSeq(OpEq, mem), node, linkage, mem);
+  if (IsTagged(node, "!=", mem)) {
+    Seq op_seq = AppendSeq(OpSeq(OpEq, mem), OpSeq(OpNot, mem), mem);
+    return CompileInfix(op_seq, node, linkage, mem);
+  }
+  if (IsTagged(node, ">", mem))     return CompileInfix(OpSeq(OpGt, mem), node, linkage, mem);
+  if (IsTagged(node, "<", mem))     return CompileInfix(OpSeq(OpLt, mem), node, linkage, mem);
+  if (IsTagged(node, ">=", mem)) {
+    Seq op_seq = AppendSeq(OpSeq(OpLt, mem), OpSeq(OpNot, mem), mem);
+    return CompileInfix(op_seq, node, linkage, mem);
+  }
+  if (IsTagged(node, "<=", mem)) {
+    Seq op_seq = AppendSeq(OpSeq(OpGt, mem), OpSeq(OpNot, mem), mem);
+    return CompileInfix(op_seq, node, linkage, mem);
+  }
+  if (IsTagged(node, "not", mem))   return CompilePrefix(OpNot, node, linkage, mem);
+  if (IsTagged(node, "in", mem))    return CompileInfix(OpSeq(OpIn, mem), node, linkage, mem);
+  if (IsTagged(node, "|", mem))     return CompileInfix(OpSeq(OpPair, mem), node, linkage, mem);
+
+  if (IsPair(node)) return CompileCall(node, linkage, mem);
+
+  Print("Invalid AST: ");
+  PrintVal(node, mem);
+  Print("\n");
+  Exit();
+}

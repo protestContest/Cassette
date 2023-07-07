@@ -24,12 +24,30 @@ static struct {char *lexeme; TokenType type;} keywords[] = {
   {"module",  TokenModule},
 };
 
+static Token AdvanceToken(Lexer *lex);
+
 void InitLexer(Lexer *lex, char *text)
 {
-  *lex = (Lexer){text, 0, 1, 1};
+  lex->text = text;
+  lex->pos = 0;
+  lex->line = 1;
+  lex->col = 1;
+  lex->token = AdvanceToken(lex);
 }
 
-void Advance(Lexer *lex)
+Token NextToken(Lexer *lex)
+{
+  Token token = lex->token;
+  lex->token = AdvanceToken(lex);
+  return token;
+}
+
+Token PeekToken(Lexer *lex)
+{
+  return lex->token;
+}
+
+static void Advance(Lexer *lex)
 {
   if (IsEOF(lex)) return;
 
@@ -47,7 +65,7 @@ Token MakeToken(TokenType type, char *lexeme, u32 length, u32 line, u32 col)
   return (Token){type, lexeme, length, line, col};
 }
 
-void SkipWhitespace(Lexer *lex)
+static void SkipWhitespace(Lexer *lex)
 {
   while (!IsEOF(lex) && IsSpace(lex)) Advance(lex);
 
@@ -57,7 +75,7 @@ void SkipWhitespace(Lexer *lex)
   }
 }
 
-bool IsSymChar(Lexer *lex)
+static bool IsSymChar(Lexer *lex)
 {
   if (IsEOF(lex) || IsSpace(lex) || IsNewline(lex)) return false;
 
@@ -77,7 +95,7 @@ bool IsSymChar(Lexer *lex)
   }
 }
 
-bool MatchKeyword(Lexer *lex, char *keyword)
+static bool MatchKeyword(Lexer *lex, char *keyword)
 {
   u32 start = lex->pos;
   while (!IsEOF(lex) && *keyword != '\0') {
@@ -98,7 +116,7 @@ bool MatchKeyword(Lexer *lex, char *keyword)
   return false;
 }
 
-bool Match(Lexer *lex, char *test)
+static bool Match(Lexer *lex, char *test)
 {
   u32 start = lex->pos;
   while (!IsEOF(lex) && *test != '\0') {
@@ -114,17 +132,17 @@ bool Match(Lexer *lex, char *test)
   return true;
 }
 
-Token EOFToken(Lexer *lex)
+static Token EOFToken(Lexer *lex)
 {
   return MakeToken(TokenEOF, &Peek(lex), 0, lex->line, lex->col);
 }
 
-Token ErrorToken(char *message, Lexer *lex)
+static Token ErrorToken(char *message, Lexer *lex)
 {
   return MakeToken(TokenError, message, StrLen(message), lex->line, lex->col);
 }
 
-Token NumberToken(Lexer *lex)
+static Token NumberToken(Lexer *lex)
 {
   char *start = &Peek(lex);
   u32 line = lex->line;
@@ -149,7 +167,7 @@ Token NumberToken(Lexer *lex)
   return MakeToken(TokenNum, start, &Peek(lex) - start, line, col);
 }
 
-Token StringToken(Lexer *lex)
+static Token StringToken(Lexer *lex)
 {
   char *start = &Peek(lex);
   u32 line = lex->line;
@@ -163,7 +181,7 @@ Token StringToken(Lexer *lex)
   return token;
 }
 
-Token KeywordToken(Lexer *lex)
+static Token KeywordToken(Lexer *lex)
 {
   char *start = &Peek(lex);
   u32 line = lex->line;
@@ -179,7 +197,7 @@ Token KeywordToken(Lexer *lex)
   return MakeToken(TokenID, start, &Peek(lex) - start, line, col);
 }
 
-Token NextToken(Lexer *lex)
+static Token AdvanceToken(Lexer *lex)
 {
   SkipWhitespace(lex);
 
@@ -271,32 +289,4 @@ void PrintToken(Token token)
   case TokenNewline: Print("Newline"); break;
   case TokenModule: Print("Module"); break;
   }
-}
-
-Val ParseNum(Token token)
-{
-  Assert(token.type == TokenNum);
-
-  u32 whole = 0;
-  for (u32 i = 0; i < token.length; i++) {
-    if (token.lexeme[i] == '.') {
-      // float
-      float frac = 0;
-      float place = 0.1;
-
-      for (u32 j = i; j < token.length; j++) {
-        u32 digit = token.lexeme[j] - '0';
-        frac += digit * place;
-        place /= 10;
-      }
-
-      return NumVal(whole + frac);
-    }
-
-    u32 digit = token.lexeme[i] - '0';
-    whole *= 10;
-    whole += digit;
-  }
-
-  return IntVal(whole);
 }

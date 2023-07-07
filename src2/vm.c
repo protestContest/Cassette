@@ -79,7 +79,7 @@ void TraceInstruction(VM *vm)
 
   for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
     Print(" | ");
-    DebugVal(vm->val[i], &vm->mem);
+    PrintVal(vm->val[i], &vm->mem);
   }
   Print("\n");
 }

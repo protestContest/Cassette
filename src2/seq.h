@@ -24,5 +24,5 @@ Seq AppendSeq(Seq seq1, Seq seq2, Mem *mem);
 Seq TackOnSeq(Seq seq1, Seq seq2, Mem *mem);
 Seq ParallelSeq(Seq seq1, Seq seq2, Mem *mem);
 Seq Preserving(Reg regs, Seq seq1, Seq seq2, Mem *mem);
-Seq EndWithLinkage(Seq seq, Linkage linkage, Mem *mem);
+Seq EndWithLinkage(Linkage linkage, Seq seq, Mem *mem);
 void PrintSeq(Seq seq, Mem *mem);

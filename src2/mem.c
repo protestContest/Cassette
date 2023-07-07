@@ -119,6 +119,32 @@ Val ListFrom(Val list, u32 pos, Mem *mem)
   return list;
 }
 
+Val ListAt(Val list, u32 pos, Mem *mem)
+{
+  if (pos == 0) return Head(list, mem);
+  if (IsNil(list)) return nil;
+  return ListAt(Tail(list, mem), pos-1, mem);
+}
+
+u32 ListLength(Val list, Mem *mem)
+{
+  Assert(IsPair(list));
+  if (IsNil(list)) return 0;
+  return ListLength(Tail(list, mem), mem);
+}
+
+Val ReverseList(Val list, Mem *mem)
+{
+  Assert(IsPair(list));
+
+  Val new_list = nil;
+  while (!IsNil(list)) {
+    new_list = Pair(Head(list, mem), new_list, mem);
+    list = Tail(list, mem);
+  }
+  return new_list;
+}
+
 Val MakeBinary(char *text, Mem *mem)
 {
   u32 index = VecCount(mem->values);
@@ -347,7 +373,24 @@ bool ValMapContains(Val map, Val key, Mem *mem)
   return false;
 }
 
-u32 DebugVal(Val value, Mem *mem)
+static u32 DebugTail(Val value, Mem *mem)
+{
+  if (IsNil(value)) {
+    return Print(")");
+  }
+
+  if (IsPair(value)) {
+    u32 length = Print(" ");
+    length += PrintVal(Head(value, mem), mem);
+    return length + DebugTail(Tail(value, mem), mem);
+  } else {
+    u32 length = Print(" | ");
+    length += PrintVal(value, mem);
+    return length + Print(")");
+  }
+}
+
+u32 PrintVal(Val value, Mem *mem)
 {
   if (IsNil(value)) {
     return Print("nil");
@@ -360,16 +403,9 @@ u32 DebugVal(Val value, Mem *mem)
     return Print(SymbolName(value, mem)) + 1;
   } else if (IsPair(value)) {
     u32 length = 0;
-    Print("(");
-    length += DebugVal(Head(value, mem), mem);
-    Print(" | ");
-    if (IsPair(Tail(value, mem))) {
-      length += Print("...");
-    } else {
-      length += DebugVal(Tail(value, mem), mem);
-    }
-    Print(")");
-    return length + 5;
+    length += Print("(");
+    length += PrintVal(Head(value, mem), mem);
+    return length + DebugTail(Tail(value, mem), mem);
   } else if (IsObj(value) && IsBinaryHeader(mem->values[RawVal(value)])) {
     Print("\"");
     PrintN(BinaryData(value, mem), BinaryLength(value, mem));
@@ -378,7 +414,7 @@ u32 DebugVal(Val value, Mem *mem)
   } else if (IsObj(value) && IsTupleHeader(mem->values[RawVal(value)])) {
     u32 length = Print("#[");
     for (u32 i = 0; i < TupleLength(value, mem); i++) {
-      length += DebugVal(TupleGet(value, i, mem), mem);
+      length += PrintVal(TupleGet(value, i, mem), mem);
       if (i < TupleLength(value, mem) - 1) length += Print(" ");
     }
     length += Print("]");
@@ -396,10 +432,10 @@ u32 DebugVal(Val value, Mem *mem)
         length += Print(SymbolName(key, mem));
         length += Print(": ");
       } else {
-        length += DebugVal(key, mem);
+        length += PrintVal(key, mem);
         length += Print(" : ");
       }
-      length += DebugVal(TupleGet(values, i, mem), mem);
+      length += PrintVal(TupleGet(values, i, mem), mem);
     }
     length += Print("}");
     return length;
