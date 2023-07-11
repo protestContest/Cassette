@@ -26,12 +26,12 @@ void PushByte(Chunk *chunk, u8 byte)
 void AddSymbol(Chunk *chunk, Val symbol, Mem *mem)
 {
   char *name = SymbolName(symbol, mem);
-  MakeSymbol(name, StrLen(name), &chunk->constants);
+  MakeSymbol(name, &chunk->constants);
 }
 
 void Disassemble(Chunk *chunk)
 {
-  Print("────┬────\n");
+  Print("────┬─Chunk─\n");
   for (u32 i = 0; i < VecCount(chunk->data);) {
     PrintIntN(i, 4, ' ');
     Print("│ ");

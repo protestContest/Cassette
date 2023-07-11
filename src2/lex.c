@@ -21,7 +21,7 @@ static struct {char *lexeme; TokenType type;} keywords[] = {
   {"not",     TokenNot },
   {"or",      TokenOr },
   {"true",    TokenTrue },
-  {"module",  TokenModule},
+  {"import",  TokenImport},
 };
 
 static Token AdvanceToken(Lexer *lex);
@@ -98,7 +98,9 @@ static bool IsSymChar(Lexer *lex)
 static bool MatchKeyword(Lexer *lex, char *keyword)
 {
   u32 start = lex->pos;
-  while (!IsEOF(lex) && *keyword != '\0') {
+  while (*keyword != '\0') {
+    if (IsEOF(lex)) return false;
+
     if (Peek(lex) != *keyword) {
       lex->pos = start;
       return false;
@@ -173,8 +175,8 @@ static Token StringToken(Lexer *lex)
   u32 line = lex->line;
   u32 col = lex->col;
   while (!IsEOF(lex) && Peek(lex) != '"') {
-    Advance(lex);
     if (Peek(lex) == '\\') Advance(lex);
+    Advance(lex);
   }
   Token token = MakeToken(TokenString, start, &Peek(lex) - start, line, col);
   Match(lex, "\"");
@@ -287,6 +289,6 @@ void PrintToken(Token token)
   case TokenRBrace: Print("RBrace"); break;
   case TokenPipe: Print("Pipe"); break;
   case TokenNewline: Print("Newline"); break;
-  case TokenModule: Print("Module"); break;
+  case TokenImport: Print("Import"); break;
   }
 }

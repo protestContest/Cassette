@@ -20,4 +20,8 @@ typedef enum {
 
 void InitVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
+void RuntimeError(VM *vm, char *message);
 
+Val StackPop(VM *vm);
+Val StackPeek(VM *vm, u32 n);
+void StackPush(VM *vm, Val val);

@@ -39,7 +39,14 @@ void PrintSourceContext(char *source, u32 line, u32 context_lines, u32 h_start, 
     PrintChar(source[pos]);
     pos++;
   }
-  if (h_length > 0 && pos == h_start + h_length) PrintEscape(IONoUnderline);
+  if (h_length > 0 && pos == h_start) {
+    PrintEscape(IOUnderline);
+    Print("⏎");
+    PrintEscape(IONoUnderline);
+  } else if (h_length > 0 && pos == h_start + h_length) {
+    PrintEscape(IONoUnderline);
+  }
+
   Print("\n");
   cur_line++;
   if (source[pos] != '\0') pos++;

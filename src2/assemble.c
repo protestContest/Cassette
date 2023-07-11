@@ -7,7 +7,7 @@ Val MakeLabel(Mem *mem)
   static u32 label_num = 0;
   char label[12] = "lbl";
   u32 len = IntToString(label_num++, label+3, 7);
-  return MakeSymbol(label, len+3, mem);
+  return MakeSymbolFrom(label, len+3, mem);
 }
 
 Val Label(Val label, Mem *mem)
@@ -29,7 +29,7 @@ Seq LabelSeq(Val label, Mem *mem)
 Val RegRef(u32 reg, Mem *mem)
 {
   Assert(reg != 0);
-  return Pair(MakeSymbol("reg-ref", 7, mem), IntVal(reg), mem);
+  return Pair(MakeSymbol("reg-ref", mem), IntVal(reg), mem);
 }
 
 static u32 AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)

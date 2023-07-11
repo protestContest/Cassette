@@ -1,2 +1,27 @@
-() -> (x) + 1
-() -> (x)
+def (fizzbuzz max) do
+  def (loop n) do
+    if (rem n 3) == 0 and (rem n 5) == 0 do
+      print "FizzBuzz"
+    else
+      if (rem n 3) == 0 do
+        print "Fizz"
+      else
+        if (rem n 5) == 0 do
+          print "Buzz"
+        else
+          print n
+        end
+      end
+    end
+
+    if n < max do
+      loop n + 1
+    else
+      :done
+    end
+  end
+
+  loop 1
+end
+
+fizzbuzz 10

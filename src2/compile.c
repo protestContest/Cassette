@@ -17,10 +17,6 @@ Chunk Compile(char *source)
   Print("\n");
 
   Seq code = CompileExpr(ast, LinkNext, &mem);
-
-  Print("Compiled:\n");
-  PrintSeq(code, &mem);
-
   return Assemble(code, &mem);
 }
 
@@ -34,6 +30,14 @@ static Seq CompileConst(Val node, Linkage linkage, Mem *mem)
 
 static Seq CompileVar(Val node, Linkage linkage, Mem *mem)
 {
+  if (Eq(node, SymbolFor("true"))) {
+    return EndWithLinkage(linkage, MakeSeq(0, 0, Pair(OpSymbol(OpTrue), nil, mem)), mem);
+  } else if (Eq(node, SymbolFor("false"))) {
+    return EndWithLinkage(linkage, MakeSeq(0, 0, Pair(OpSymbol(OpFalse), nil, mem)), mem);
+  } else if (Eq(node, SymbolFor("nil"))) {
+    return EndWithLinkage(linkage, MakeSeq(0, 0, Pair(OpSymbol(OpNil), nil, mem)), mem);
+  }
+
   return EndWithLinkage(linkage,
     MakeSeq(RegEnv, 0,
       Pair(OpSymbol(OpLookup),
@@ -42,11 +46,21 @@ static Seq CompileVar(Val node, Linkage linkage, Mem *mem)
 
 static Seq CompileSymbol(Val node, Linkage linkage, Mem *mem)
 {
-  node = ListAt(node, 1, mem);
+  node = Tail(node, mem);
   return EndWithLinkage(linkage,
     MakeSeq(0, 0,
       Pair(OpSymbol(OpConst),
       Pair(node, nil, mem), mem)), mem);
+}
+
+static Seq CompileString(Val node, Linkage linkage, Mem *mem)
+{
+  node = Tail(node, mem);
+  return EndWithLinkage(linkage,
+    MakeSeq(0, 0,
+      Pair(OpSymbol(OpConst),
+      Pair(node,
+      Pair(OpSymbol(OpStr), nil, mem), mem), mem)), mem);
 }
 
 static Seq CompileLambda(Val node, Linkage linkage, Mem *mem)
@@ -58,7 +72,8 @@ static Seq CompileLambda(Val node, Linkage linkage, Mem *mem)
   while (!IsNil(params)) {
     Seq param = MakeSeq(0, RegEnv,
       Pair(OpSymbol(OpDefine),
-      Pair(Head(params, mem), nil, mem), mem));
+      Pair(Head(params, mem),
+      Pair(OpSymbol(OpPop), nil, mem), mem), mem));
     param_code = Preserving(RegEnv | RegCont, param, param_code, mem);
     params = Tail(params, mem);
   }
@@ -106,32 +121,29 @@ static Seq CompileInfix(Seq op_seq, Val node, Linkage linkage, Mem *mem)
 static Seq CompileCall(Val node, Linkage linkage, Mem *mem)
 {
   Seq args = EmptySeq();
-  u32 num_args = 0;
+
   while (!IsNil(node)) {
     Seq arg = CompileExpr(Head(node, mem), LinkNext, mem);
-    num_args++;
-    args = Preserving(RegEnv, args, arg, mem);
+    args = Preserving(RegEnv, arg, args, mem);
     node = Tail(node, mem);
   }
 
   if (Eq(linkage, LinkReturn)) {
     return Preserving(RegCont,
       args,
-      MakeSeq(RegCont, 0,
-        Pair(OpSymbol(OpApply),
-        Pair(IntVal(num_args), nil, mem), mem)), mem);
+      MakeSeq(RegCont, RegEnv,
+        Pair(OpSymbol(OpApply), nil, mem)), mem);
   } else {
     Val after_call = MakeLabel(mem);
     if (Eq(linkage, LinkNext)) linkage = after_call;
 
     return
       AppendSeq(args,
-        MakeSeq(0, RegCont,
+        MakeSeq(0, RegCont | RegEnv,
           Pair(OpSymbol(OpCont),
           Pair(LabelRef(linkage, mem),
           Pair(OpSymbol(OpApply),
-          Pair(IntVal(num_args),
-          Pair(Label(after_call, mem), nil, mem), mem), mem), mem), mem)), mem);
+          Pair(Label(after_call, mem), nil, mem), mem), mem), mem)), mem);
   }
 }
 
@@ -165,27 +177,51 @@ static Seq CompileLet(Val node, Linkage linkage, Mem *mem)
     Val pair = Head(node, mem);
     Val var = Head(pair, mem);
 
-    Seq def = AppendSeq(
-      CompileExpr(Tail(pair, mem), LinkNext, mem),
-      MakeSeq(0, 0,
+    Linkage def_linkage = (IsNil(Tail(node, mem))) ? linkage : LinkNext;
+
+    Seq def = Preserving(RegEnv,
+      CompileExpr(Tail(pair, mem), def_linkage, mem),
+      MakeSeq(RegEnv, 0,
         Pair(OpSymbol(OpDefine),
         Pair(var, nil, mem), mem)), mem);
 
-    defines = Preserving(RegEnv, defines, def, mem);
+    defines = Preserving(RegCont, defines, def, mem);
     node = Tail(node, mem);
   }
 
   return defines;
 }
 
-static Seq CompileDef(Val node, Linkage linkage, Mem *mem)
-{
-  return EmptySeq();
-}
-
 static Seq CompileIf(Val node, Linkage linkage, Mem *mem)
 {
-  return EmptySeq();
+  Assert(IsTagged(node, "if", mem));
+
+  Val t_branch = MakeLabel(mem);
+  Val f_branch = MakeLabel(mem);
+  Val after_if = MakeLabel(mem);
+  Linkage cons_linkage = (Eq(linkage, LinkNext)) ? after_if : linkage;
+  Seq predicate = CompileExpr(ListAt(node, 1, mem), LinkNext, mem);
+  Seq consequent =
+    AppendSeq(
+      MakeSeq(0, 0, Pair(OpSymbol(OpPop), nil, mem)),
+      CompileExpr(ListAt(node, 2, mem), cons_linkage, mem), mem);
+  Seq alternative =
+    AppendSeq(
+      MakeSeq(0, 0, Pair(OpSymbol(OpPop), nil, mem)),
+      CompileExpr(ListAt(node, 3, mem), linkage, mem), mem);
+
+  Seq test_seq = MakeSeq(0, 0,
+    Pair(OpSymbol(OpBranchF),
+    Pair(LabelRef(f_branch, mem), nil, mem), mem));
+
+  return
+    Preserving(RegEnv | RegCont, predicate,
+      AppendSeq(
+        AppendSeq(test_seq,
+          ParallelSeq(
+            AppendSeq(LabelSeq(t_branch, mem), consequent, mem),
+            AppendSeq(LabelSeq(f_branch, mem), alternative, mem), mem), mem),
+        LabelSeq(after_if, mem), mem), mem);
 }
 
 static Seq CompileCond(Val node, Linkage linkage, Mem *mem)
@@ -195,31 +231,127 @@ static Seq CompileCond(Val node, Linkage linkage, Mem *mem)
 
 static Seq CompileLogic(Val node, Linkage linkage, Mem *mem)
 {
+  Val after = MakeLabel(mem);
+
+  Seq a = CompileExpr(ListAt(node, 1, mem), LinkNext, mem);
+  Seq b = CompileExpr(ListAt(node, 2, mem), LinkNext, mem);
+
+  OpCode op = IsTagged(node, "and", mem) ? OpBranchF : OpBranch;
+
+  Seq test_seq = MakeSeq(0, 0,
+    Pair(OpSymbol(op),
+    Pair(LabelRef(after, mem),
+    Pair(OpSymbol(OpPop), nil, mem), mem), mem));
+
+  return EndWithLinkage(linkage,
+    Preserving(RegEnv | RegCont, a,
+      AppendSeq(
+        AppendSeq(test_seq, b, mem),
+        LabelSeq(after, mem), mem), mem), mem);
+}
+
+static Seq CompileList(Val node, Linkage linkage, Mem *mem)
+{
+  node = Tail(node, mem);
+
+  Seq items = EmptySeq();
+  u32 num_items = 0;
+  while (!IsNil(node)) {
+    Seq item = CompileExpr(Head(node, mem), LinkNext, mem);
+    num_items++;
+    items = Preserving(RegEnv, items, item, mem);
+    node = Tail(node, mem);
+  }
+
+  return
+    Preserving(RegCont, items,
+      EndWithLinkage(linkage,
+        MakeSeq(0, 0,
+          Pair(OpSymbol(OpList),
+          Pair(IntVal(num_items), nil, mem), mem)), mem), mem);
+}
+
+static Seq CompileTuple(Val node, Linkage linkage, Mem *mem)
+{
+  node = Tail(node, mem);
+
+  Seq items = EmptySeq();
+  u32 num_items = 0;
+  while (!IsNil(node)) {
+    Seq item = CompileExpr(Head(node, mem), LinkNext, mem);
+    num_items++;
+    items = Preserving(RegEnv, items, item, mem);
+    node = Tail(node, mem);
+  }
+
+  return
+    Preserving(RegCont, items,
+      EndWithLinkage(linkage,
+        MakeSeq(0, 0,
+          Pair(OpSymbol(OpTuple),
+          Pair(IntVal(num_items), nil, mem), mem)), mem), mem);
+}
+
+static Seq CompileMap(Val node, Linkage linkage, Mem *mem)
+{
+  node = Tail(node, mem);
+
+  Seq items = EmptySeq();
+  u32 num_items = 0;
+  while (!IsNil(node)) {
+    Val pair = Head(node, mem);
+    Seq key = MakeSeq(0, 0,
+      Pair(OpSymbol(OpConst),
+      Pair(Head(pair, mem), nil, mem), mem));
+
+    Seq item = AppendSeq(
+      CompileExpr(Tail(pair, mem), LinkNext, mem),
+      key, mem);
+    num_items++;
+    items = Preserving(RegEnv, items, item, mem);
+    node = Tail(node, mem);
+  }
+
+  return
+    Preserving(RegCont, items,
+      EndWithLinkage(linkage,
+        MakeSeq(0, 0,
+          Pair(OpSymbol(OpMap),
+          Pair(IntVal(num_items), nil, mem), mem)), mem), mem);
+}
+
+static Seq CompileImport(Val node, Linkage linkage, Mem *mem)
+{
   return EmptySeq();
 }
 
 static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
 {
+  // Print("=> ");
+  // PrintVal(node, mem);
+  // Print("\n");
+
   if (IsNil(node))                  return EmptySeq();
   if (IsNumeric(node))              return CompileConst(node, linkage, mem);
   if (IsSym(node))                  return CompileVar(node, linkage, mem);
+  if (IsTagged(node, "\"", mem))    return CompileString(node, linkage, mem);
   if (IsTagged(node, ":", mem))     return CompileSymbol(node, linkage, mem);
-  if (IsTagged(node, "->", mem))    return CompileLambda(node, linkage, mem);
-
+  if (IsTagged(node, "[", mem))     return CompileList(node, linkage, mem);
+  if (IsTagged(node, "#[", mem))    return CompileTuple(node, linkage, mem);
+  if (IsTagged(node, "{", mem))     return CompileMap(node, linkage, mem);
   if (IsTagged(node, "do", mem))    return CompileDo(node, linkage, mem);
-
+  if (IsTagged(node, "if", mem))    return CompileIf(node, linkage, mem);
+  if (IsTagged(node, ".", mem))     return CompileInfix(OpSeq(OpAccess, mem), node, linkage, mem);
+  if (IsTagged(node, "not", mem))   return CompilePrefix(OpNot, node, linkage, mem);
+  if (IsTagged(node, "*", mem))     return CompileInfix(OpSeq(OpMul, mem), node, linkage, mem);
+  if (IsTagged(node, "/", mem))     return CompileInfix(OpSeq(OpDiv, mem), node, linkage, mem);
   if (IsTagged(node, "+", mem))     return CompileInfix(OpSeq(OpAdd, mem), node, linkage, mem);
   if (IsTagged(node, "-", mem)) {
     if (ListLength(node, mem) > 2) return CompileInfix(OpSeq(OpSub, mem), node, linkage, mem);
     else return CompilePrefix(OpNeg, node, linkage, mem);
   }
-  if (IsTagged(node, "*", mem))     return CompileInfix(OpSeq(OpMul, mem), node, linkage, mem);
-  if (IsTagged(node, "/", mem))     return CompileInfix(OpSeq(OpDiv, mem), node, linkage, mem);
-  if (IsTagged(node, "==", mem))    return CompileInfix(OpSeq(OpEq, mem), node, linkage, mem);
-  if (IsTagged(node, "!=", mem)) {
-    Seq op_seq = AppendSeq(OpSeq(OpEq, mem), OpSeq(OpNot, mem), mem);
-    return CompileInfix(op_seq, node, linkage, mem);
-  }
+  if (IsTagged(node, "|", mem))     return CompileInfix(OpSeq(OpPair, mem), node, linkage, mem);
+  if (IsTagged(node, "in", mem))    return CompileInfix(OpSeq(OpIn, mem), node, linkage, mem);
   if (IsTagged(node, ">", mem))     return CompileInfix(OpSeq(OpGt, mem), node, linkage, mem);
   if (IsTagged(node, "<", mem))     return CompileInfix(OpSeq(OpLt, mem), node, linkage, mem);
   if (IsTagged(node, ">=", mem)) {
@@ -230,9 +362,17 @@ static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
     Seq op_seq = AppendSeq(OpSeq(OpGt, mem), OpSeq(OpNot, mem), mem);
     return CompileInfix(op_seq, node, linkage, mem);
   }
-  if (IsTagged(node, "not", mem))   return CompilePrefix(OpNot, node, linkage, mem);
-  if (IsTagged(node, "in", mem))    return CompileInfix(OpSeq(OpIn, mem), node, linkage, mem);
-  if (IsTagged(node, "|", mem))     return CompileInfix(OpSeq(OpPair, mem), node, linkage, mem);
+  if (IsTagged(node, "==", mem))    return CompileInfix(OpSeq(OpEq, mem), node, linkage, mem);
+  if (IsTagged(node, "!=", mem)) {
+    Seq op_seq = AppendSeq(OpSeq(OpEq, mem), OpSeq(OpNot, mem), mem);
+    return CompileInfix(op_seq, node, linkage, mem);
+  }
+  if (IsTagged(node, "or", mem))    return CompileLogic(node, linkage, mem);
+  if (IsTagged(node, "and", mem))   return CompileLogic(node, linkage, mem);
+
+  if (IsTagged(node, "->", mem))    return CompileLambda(node, linkage, mem);
+  if (IsTagged(node, "let", mem))   return CompileLet(node, linkage, mem);
+  if (IsTagged(node, "import", mem))  return CompileImport(node, linkage, mem);
 
   if (IsPair(node)) return CompileCall(node, linkage, mem);
 

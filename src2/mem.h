@@ -66,7 +66,8 @@ typedef struct {
 void InitMem(Mem *mem);
 void DestoryMem(Mem *mem);
 
-Val MakeSymbol(char *name, u32 length, Mem *mem);
+Val MakeSymbolFrom(char *name, u32 length, Mem *mem);
+Val MakeSymbol(char *name, Mem *mem);
 char *SymbolName(Val symbol, Mem *mem);
 
 Val Pair(Val head, Val tail, Mem *mem);
@@ -102,3 +103,4 @@ Val ValMapGet(Val map, Val key, Mem *mem);
 bool ValMapContains(Val map, Val key, Mem *mem);
 
 u32 PrintVal(Val value, Mem *mem);
+void PrintMem(Mem *mem);

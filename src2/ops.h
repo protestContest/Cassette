@@ -34,8 +34,6 @@ typedef enum {
   OpBranch,
   OpBranchF,
   OpPop,
-  // OpDefMod,
-  // OpImport,
   OpHalt,
 } OpCode;
 

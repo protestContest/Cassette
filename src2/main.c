@@ -14,17 +14,12 @@ i32 main(i32 argc, char **argv)
     return 0;
   }
 
-  // char *filename = argv[1];
-  // char *source = (char*)ReadFile(filename);
+  char *filename = argv[1];
+  char *source = (char*)ReadFile(filename);
 
-  char *source = "((x) -> (foo x) + 2 * 4 - 8)";
+  Chunk chunk = Compile(source);
 
-  Compile(source);
-  // Disassemble(&chunk);
-
-  // VM vm;
-  // InitVM(&vm);
-  // RunChunk(&vm, &chunk);
-  // HexDump("Chunk", chunk.data, VecCount(chunk.data));
-  // HexDump("Constants", (u8*)chunk.constants, 4*VecCount(chunk.constants));
+  VM vm;
+  InitVM(&vm);
+  RunChunk(&vm, &chunk);
 }

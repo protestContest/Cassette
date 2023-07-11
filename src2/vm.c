@@ -1,19 +1,33 @@
 #include "vm.h"
 #include "ops.h"
+#include "env.h"
+#include "proc.h"
 
-#define StackPush(vm, v)    VecPush((vm)->val, v)
-#define StackRef(vm, i)     ((vm)->stack[VecCount((vm)->val) - 1 - (i)])
-#define StackPop(vm)        VecPop((vm)->val)
 
 void InitVM(VM *vm)
 {
+  InitMem(&vm->mem);
   vm->pc = 0;
   vm->cont = nil;
   vm->env = Pair(MakeValMap(&vm->mem), nil, &vm->mem);
   vm->val = NULL;
   vm->stack = NULL;
-  InitMem(&vm->mem);
   vm->chunk = NULL;
+}
+
+Val StackPop(VM *vm)
+{
+  return VecPop(vm->val);
+}
+
+Val StackPeek(VM *vm, u32 n)
+{
+  return vm->val[VecCount(vm->val) - 1 - n];
+}
+
+void StackPush(VM *vm, Val val)
+{
+  VecPush(vm->val, val);
 }
 
 void MergeStrings(Mem *dst, Mem *src)
@@ -45,42 +59,28 @@ void RuntimeError(VM *vm, char *message)
   Halt(vm);
 }
 
-void Define(Val id, Val value, VM *vm)
-{
-  Val frame = Head(vm->env, &vm->mem);
-  ValMapSet(frame, id, value, &vm->mem);
-}
-
-Val Lookup(Val id, VM *vm)
-{
-  Val env = vm->env;
-  Val frame = Head(env, &vm->mem);
-  while (!ValMapContains(frame, id, &vm->mem)) {
-    env = Tail(env, &vm->mem);
-    if (IsNil(env)) {
-      RuntimeError(vm, "Undefined variable");
-      return nil;
-    }
-    frame = Head(env, &vm->mem);
-  }
-
-  return ValMapGet(frame, id, &vm->mem);
-}
-
 void TraceInstruction(VM *vm)
 {
-  PrintIntN(vm->pc, 3, ' ');
-  Print("| ");
+  PrintIntN(vm->pc, 4, ' ');
+  Print("│ ");
   u32 written = PrintInstruction(vm->chunk, vm->pc);
 
   if (written < 20) {
     for (u32 i = 0; i < 20 - written; i++) Print(" ");
   }
 
+  if (VecCount(vm->val) == 0) Print(" │ ");
   for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
-    Print(" | ");
+    Print(" │ ");
     PrintVal(vm->val[i], &vm->mem);
   }
+
+  if (VecCount(vm->stack) > 0) Print(" ┃ ");
+  for (u32 i = 0; i < VecCount(vm->stack); i++) {
+    Print(" │ ");
+    PrintVal(vm->stack[i], &vm->mem);
+  }
+
   Print("\n");
 }
 
@@ -160,7 +160,10 @@ void RunChunk(VM *vm, Chunk *chunk)
   vm->stack = NULL;
   vm->chunk = chunk;
   MergeStrings(&vm->mem, &chunk->constants);
+  vm->env = InitialEnv(&vm->mem);
   Mem *mem = &vm->mem;
+
+  Print("────┬─Run──────────────────┬────\n");
 
   while (vm->pc < VecCount(chunk->data)) {
     TraceInstruction(vm);
@@ -177,7 +180,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpPair: {
       Val tail = StackPop(vm);
-      StackPush(vm, Pair(StackPop(vm), tail, &vm->mem));
+      Val head = StackPop(vm);
+      Val pair = Pair(head, tail, mem);
+      StackPush(vm, pair);
       vm->pc += OpLength(op);
       break;
     }
@@ -194,9 +199,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       u32 length = RawInt(ChunkConst(chunk, vm->pc+1));
       Val tuple = MakeTuple(length, mem);
       for (u32 i = 0; i < length; i++) {
-        TupleSet(tuple, i, StackRef(vm, length - i - 1), mem);
+        TupleSet(tuple, i, StackPeek(vm, length - i - 1), mem);
       }
-      RewindVec(vm->stack, length);
+      RewindVec(vm->val, length);
       StackPush(vm, tuple);
       vm->pc += OpLength(op);
       break;
@@ -241,7 +246,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpNeg:
-      if (!IsNumeric(StackRef(vm, 0))) {
+      if (!IsNumeric(StackPeek(vm, 0))) {
         RuntimeError(vm, "Bad arithmetic argument");
       } else {
         Val n = StackPop(vm);
@@ -261,10 +266,14 @@ void RunChunk(VM *vm, Chunk *chunk)
       }
       vm->pc += OpLength(op);
       break;
-    case OpEq:
-      StackPush(vm, BoolVal(Eq(StackPop(vm), StackPop(vm))));
+    case OpEq: {
+      Val a = StackPop(vm);
+      Val b = StackPop(vm);
+      Val res = BoolVal(Eq(a, b));
+      StackPush(vm, res);
       vm->pc += OpLength(op);
       break;
+    }
     case OpGt: {
       Val b = StackPop(vm);
       Val a = StackPop(vm);
@@ -315,7 +324,7 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
     case OpLambda: {
       Val pos = ChunkConst(chunk, vm->pc+1);
-      StackPush(vm, Pair(pos, vm->env, mem));
+      StackPush(vm, Pair(SymbolFor("λ"), Pair(pos, Pair(vm->env, nil, mem), mem), mem));
       vm->pc += OpLength(op);
       break;
     }
@@ -332,76 +341,76 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpApply: {
-      u32 num_args = ChunkRef(chunk, vm->pc+1);
-      Val proc = StackRef(vm, num_args-1);
-      vm->pc = RawInt(Head(proc, mem));
-      vm->env = Pair(MakeValMap(mem), Tail(proc, mem), mem);
+      Val proc = StackPop(vm);
+      if (IsPrimitive(proc, mem)) {
+        StackPush(vm, ApplyPrimitive(proc, vm));
+        vm->pc += OpLength(op);
+      } else if (IsCompoundProc(proc, mem)) {
+        vm->pc = ProcEntry(proc, mem);
+        vm->env = ExtendEnv(ProcEnv(proc, mem), mem);
+      } else {
+        StackPush(vm, proc);
+        vm->pc += OpLength(op);
+      }
       break;
     }
     case OpReturn:
       vm->pc = RawInt(vm->cont);
       break;
-    case OpLookup:
-      StackPush(vm, Lookup(StackPop(vm), vm));
-      vm->pc += OpLength(op);
+    case OpLookup: {
+      Val value = Lookup(ChunkConst(chunk, vm->pc+1), vm->env, &vm->mem);
+      if (Eq(value, SymbolFor("__UNDEFINED__"))) {
+        RuntimeError(vm, "Undefined variable");
+      } else {
+        StackPush(vm, value);
+        vm->pc += OpLength(op);
+      }
       break;
+    }
     case OpDefine: {
-      Val id = StackPop(vm);
+      Val id = ChunkConst(chunk, vm->pc+1);
       Val value = StackPop(vm);
-      Define(id, value, vm);
-      StackPush(vm, value);
+      Define(id, value, vm->env, &vm->mem);
+      StackPush(vm, id);
       vm->pc += OpLength(op);
       break;
     }
     case OpJump:
       vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       break;
-    case OpBranch:
-      if (IsTrue(StackRef(vm, 0))) {
+    case OpBranch: {
+      Val test = StackPeek(vm, 0);
+      if (IsTrue(test)) {
         vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       } else {
         vm->pc += OpLength(op);
       }
       break;
-    case OpBranchF:
-      if (!IsTrue(StackRef(vm, 0))) {
+    }
+    case OpBranchF: {
+      Val test = StackPeek(vm, 0);
+      if (!IsTrue(test)) {
         vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
       } else {
         vm->pc += OpLength(op);
       }
       break;
+    }
     case OpPop:
-      RewindVec(vm->stack, 1);
+      RewindVec(vm->val, 1);
       vm->pc += OpLength(op);
       break;
-    // case OpDefMod: {
-    //   Val name = StackPop(vm);
-    //   Val frame = Head(vm->env, mem);
-    //   ValMapSet(vm->modules, name, frame, mem);
-    //   Define(name, frame, vm);
-    //   vm->pc += OpLength(op);
-    //   break;
-    // }
-    // case OpImport: {
-    //   Val name = StackPop(vm);
-    //   if (ValMapContains(vm->modules, name, mem)) {
-    //     // cached environment
-    //     Define(name, ValMapGet(vm->modules, name, mem), vm);
-    //     vm->pc += OpLength(op);
-    //   } else if (MapContains(&chunk->modules, name.as_i)) {
-    //     // run the module function
-    //     vm->pc = MapGet(&chunk->modules, name.as_i);
-    //   } else {
-    //     RuntimeError(vm, "Module not found");
-    //   }
-    //   break;
-    // }
     case OpHalt:
       vm->pc = VecCount(chunk->data);
       break;
     }
   }
 
-  PrintIntN(vm->pc, 3, ' ');
-  Print("| ");
+  PrintIntN(vm->pc, 4, ' ');
+  Print("│                     ");
+  for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
+    Print(" │ ");
+    PrintVal(vm->val[i], &vm->mem);
+  }
+  Print("\n");
 }
