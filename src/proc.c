@@ -5,10 +5,12 @@ typedef Val (*PrimitiveFn)(VM *vm);
 
 static Val PrimRemainder(VM *vm);
 static Val PrimPrint(VM *vm);
+static Val PrimInspect(VM *vm);
 
 static struct {char *name; PrimitiveFn fn;} primitives[] = {
   {"rem", &PrimRemainder},
-  {"print", &PrimPrint}
+  {"print", &PrimPrint},
+  {"inspect", &PrimInspect},
 };
 
 void DefinePrimitives(Val env, Mem *mem)
@@ -75,10 +77,30 @@ static bool PrimPrintVal(Val val, VM *vm)
   } else if (IsSym(val)) {
     Print(SymbolName(val, mem));
     return true;
+  } else if (IsInt(val)) {
+    PrintInt(RawInt(val));
+    return true;
+  } else if (IsNum(val)) {
+    PrintFloat(RawNum(val), 3);
+    return true;
   } else if (IsPair(val)) {
-    return
-      PrimPrintVal(Head(val, mem), vm) &&
-      PrimPrintVal(Tail(val, mem), vm);
+    if (IsNil(val)) {
+      return true;
+    } else if (IsTagged(val, "λ", mem)) {
+      Val num = ListAt(val, 1, mem);
+      Print("λ");
+      PrintInt(RawInt(num));
+      return true;
+    } else if (IsTagged(val, "ε", mem)) {
+      Print("ε");
+      u32 num = RawVal(val);
+      PrintInt(num);
+      return true;
+    } else {
+      return
+        PrimPrintVal(Head(val, mem), vm) &&
+        PrimPrintVal(Tail(val, mem), vm);
+    }
   } else {
     RuntimeError(vm, "Value not printable");
     return false;
@@ -94,4 +116,12 @@ static Val PrimPrint(VM *vm)
   } else {
     return SymbolFor("error");
   }
+}
+
+static Val PrimInspect(VM *vm)
+{
+  Val val = StackPop(vm);
+  PrintVal(val, &vm->mem);
+  Print("\n");
+  return val;
 }

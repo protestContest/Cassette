@@ -3,6 +3,7 @@
 #include "compile.h"
 #include "assemble.h"
 #include "env.h"
+#include "module.h"
 #include <signal.h>
 
 static void OnSignal(int sig)
@@ -10,11 +11,8 @@ static void OnSignal(int sig)
   Exit();
 }
 
-Val Eval(char *source, VM *vm)
+Val Eval(Val ast, VM *vm)
 {
-  Val ast = Parse(source, &vm->mem);
-  if (IsTagged(ast, "error", &vm->mem)) return ast;
-
   Seq code = Preserving(RegEnv, Compile(ast, &vm->mem), MakeSeq(RegEnv, 0, nil), &vm->mem);
   Assemble(code, vm->chunk, &vm->mem);
 
@@ -83,18 +81,18 @@ void REPL(void)
       else Print("Trace off\n");
       text[0] = '\0';
     } else {
-      Val result = Eval(text, &vm);
+      Val expr = Parse(text, &vm.mem);
 
-      if (!IsTagged(result, "error", &vm.mem) ||
-          !Eq(Tail(result, &vm.mem), SymbolFor("partial"))) {
-        text[0] = '\0';
-
+      if (!IsTagged(expr, "error", &vm.mem))  {
+        Val result = Eval(expr, &vm);
         if (!vm.error) {
           PrintVal(result, &vm.mem);
           Print("\n");
         }
+        text[0] = '\0';
+      } else if (!Eq(Tail(expr, &vm.mem), SymbolFor("partial"))) {
+        text[0] = '\0';
       }
-
     }
   }
 }
@@ -107,7 +105,12 @@ void RunFile(char *filename)
   InitChunk(&chunk);
   vm.chunk = &chunk;
 
+  vm.trace = true;
 
-  char *source = (char*)ReadFile(filename);
-  Eval(source, &vm);
+  Val ast = LoadModule(filename, &vm.mem);
+  if (IsTagged(ast, "error", &vm.mem)) {
+    RuntimeError(&vm, "Could not load file");
+  } else {
+    Eval(ast, &vm);
+  }
 }

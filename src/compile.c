@@ -110,16 +110,8 @@ static Seq CompileInfix(Seq op_seq, Val node, Linkage linkage, Mem *mem)
   return Preserving(RegCont, args, EndWithLinkage(linkage, op_seq, mem), mem);
 }
 
-static Seq CompileCall(Val node, Linkage linkage, Mem *mem)
+static Seq CompileCall(Seq args, Linkage linkage, Mem *mem)
 {
-  Seq args = EmptySeq();
-
-  while (!IsNil(node)) {
-    Seq arg = CompileExpr(Head(node, mem), LinkNext, mem);
-    args = Preserving(RegEnv, arg, args, mem);
-    node = Tail(node, mem);
-  }
-
   if (Eq(linkage, LinkReturn)) {
     return Preserving(RegCont,
       args,
@@ -137,6 +129,19 @@ static Seq CompileCall(Val node, Linkage linkage, Mem *mem)
           Pair(OpSymbol(OpApply),
           Pair(Label(after_call, mem), nil, mem), mem), mem), mem)), mem);
   }
+}
+
+static Seq CompileApplication(Val node, Linkage linkage, Mem *mem)
+{
+  Seq args = EmptySeq();
+
+  while (!IsNil(node)) {
+    Seq arg = CompileExpr(Head(node, mem), LinkNext, mem);
+    args = Preserving(RegEnv, arg, args, mem);
+    node = Tail(node, mem);
+  }
+
+  return CompileCall(args, linkage, mem);
 }
 
 static Seq CompileDo(Val node, Linkage linkage, Mem *mem)
@@ -314,17 +319,31 @@ static Seq CompileMap(Val node, Linkage linkage, Mem *mem)
 
 static Seq CompileImport(Val node, Linkage linkage, Mem *mem)
 {
-  return EndWithLinkage(linkage,
-    MakeSeq(0, 0,
-      Pair(OpSymbol(OpImport),
-      Pair(Tail(node, mem), nil, mem), mem)), mem);
+  Val name = ListAt(node, 1, mem);
+  Val alias = ListAt(node, 2, mem);
+
+  Seq load = MakeSeq(0, 0,
+    Pair(OpSymbol(OpGetMod),
+    Pair(name, nil, mem), mem));
+
+  Seq call =
+    AppendSeq(
+      CompileCall(EmptySeq(), linkage, mem),
+      MakeSeq(0, 0,
+        Pair(OpSymbol(OpPop),
+        Pair(OpSymbol(OpExport), nil, mem), mem)), mem);
+
+  return
+    AppendSeq(load,
+    Preserving(RegEnv, call,
+      MakeSeq(RegEnv, 0,
+        Pair(OpSymbol(OpDefine),
+        Pair(alias, nil, mem), mem)), mem), mem);
 }
 
 static Seq CompileModule(Val node, Linkage linkage, Mem *mem)
 {
   Seq mod_code = CompileExpr(ListAt(node, 2, mem), LinkNext, mem);
-  PrintVal(node, mem);
-  Print("\n");
   return EndWithLinkage(linkage,
     AppendSeq(mod_code,
       MakeSeq(0, 0,
@@ -382,7 +401,7 @@ static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsTagged(node, "import", mem))  return CompileImport(node, linkage, mem);
   if (IsTagged(node, "defmod", mem))  return CompileModule(node, linkage, mem);
 
-  if (IsPair(node)) return CompileCall(node, linkage, mem);
+  if (IsPair(node)) return CompileApplication(node, linkage, mem);
 
   Print("Invalid AST: ");
   PrintVal(node, mem);

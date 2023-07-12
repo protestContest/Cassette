@@ -71,6 +71,26 @@ Val Lookup(Val var, Val env, Mem *mem)
   return MakeSymbol("__UNDEFINED__", mem);
 }
 
+Val ExportEnv(Val env, Mem *mem)
+{
+  Assert(Eq(Head(env, mem), SymbolFor("ε")));
+
+  Val frames = Tail(env, mem);
+  if (IsNil(frames)) return nil;
+  Val frame = Head(frames, mem);
+
+  Val exports = MakeValMap(mem);
+  while (!IsNil(frame)) {
+    Val pair = Head(frame, mem);
+    Val var = Head(pair, mem);
+    Val value = Tail(pair, mem);
+    ValMapSet(exports, var, value, mem);
+    frame = Tail(frame, mem);
+  }
+
+  return exports;
+}
+
 void PrintEnv(Val env, Mem *mem)
 {
   Print("┌╴Env╶───────────────\n");

@@ -431,13 +431,10 @@ Val RunChunk(VM *vm, Chunk *chunk)
       }
       break;
     }
-    case OpImport: {
-      Val name = ChunkConst(chunk, vm->pc+1);
-      Val mod = (Val){.as_i = MapGet(&vm->modules, name.as_i)};
-      PrintVal(mod, mem);
+    case OpExport:
+      StackPush(vm, ExportEnv(vm->env, mem));
       vm->pc += OpLength(op);
       break;
-    }
     }
   }
 

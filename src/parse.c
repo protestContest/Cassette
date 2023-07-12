@@ -382,7 +382,6 @@ static Val ParseStmt(Lexer *lex, Mem *mem)
 
 static Val ParseDo(Lexer *lex, Mem *mem)
 {
-  // Token begin = lex->token;
   ExpectToken(lex, TokenDo);
   SkipNewlines(lex);
 
@@ -391,8 +390,6 @@ static Val ParseDo(Lexer *lex, Mem *mem)
   while (!MatchToken(lex, TokenEnd)) {
     if (AtEnd(lex)) {
       return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
-      // ParseError(lex, begin, "Unterminated do-block");
-      // return nil;
     }
 
     Val stmt = ParseStmt(lex, mem);
@@ -561,7 +558,12 @@ static Val ParseImport(Lexer *lex, Mem *mem)
 {
   ExpectToken(lex, TokenImport);
   Val name = ParseString(lex, mem);
-  return Pair(MakeSymbol("import", mem), Tail(name, mem), mem);
+  ExpectToken(lex, TokenAs);
+  Val alias = ParseID(lex, mem);
+  return
+    Pair(MakeSymbol("import", mem),
+    Pair(Tail(name, mem),
+    Pair(alias, nil, mem), mem), mem);
 }
 
 static Val ParseAccess(Val lhs, Lexer *lex, Mem *mem)

@@ -1,5 +1,3 @@
-import "test/test.csst"
-
 def (reduce list acc fn) do
   if list == nil do
     acc
@@ -17,11 +15,11 @@ def (iota n) do
     if m == n do
       list
     else
-      loop m + 1 [m | list]
+      loop m + 1 m | list
     end
   end
 
-  loop 0
+  loop 0 []
 end
 
-iota 10
+:ok

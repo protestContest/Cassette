@@ -22,6 +22,7 @@ static struct {char *lexeme; TokenType type;} keywords[] = {
   {"or",      TokenOr },
   {"true",    TokenTrue },
   {"import",  TokenImport},
+  {"as",      TokenAs },
 };
 
 static Token AdvanceToken(Lexer *lex);
@@ -290,5 +291,6 @@ void PrintToken(Token token)
   case TokenPipe: Print("Pipe"); break;
   case TokenNewline: Print("Newline"); break;
   case TokenImport: Print("Import"); break;
+  case TokenAs: Print("As"); break;
   }
 }

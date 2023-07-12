@@ -41,7 +41,7 @@ static OpInfo ops[] = {
   [OpPop]     = {"pop", ArgsNone},
   [OpDefMod]  = {"defmod", ArgsConst},
   [OpGetMod]  = {"getmod", ArgsConst},
-  [OpImport]  = {"import", ArgsConst},
+  [OpExport]  = {"export", ArgsNone},
   [OpHalt]    = {"halt", ArgsNone},
 };
 

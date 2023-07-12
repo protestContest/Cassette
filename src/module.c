@@ -13,7 +13,7 @@ Val FindImports(Val ast, Mem *mem)
   if (!IsPair(ast)) return nil;
 
   if (IsTagged(ast, "import", mem)) {
-    return Pair(Tail(ast, mem), nil, mem);
+    return Pair(ListAt(ast, 1, mem), nil, mem);
   }
 
   Val imports = nil;
@@ -61,46 +61,41 @@ Val WrapModule(Val ast, Val name, Mem *mem)
       Pair(ast, nil, mem), mem), mem), nil, mem), mem), mem);
 }
 
-static Module LoadModule(Val name, Mem *mem)
+Val LoadModule(char *entry, Mem *mem)
 {
-  Module mod;
-  mod.mem = mem;
-
-  char *filename = SymbolName(name, mem);
-
-  char *source = (char*)ReadFile(filename);
-  Val ast = Parse(source, mem);
-  mod.ast = WrapModule(ast, name, mem);
-  mod.imports = FindImports(mod.ast, mem);
-  return mod;
-}
-
-Val LoadModules(char *entry, Mem *mem)
-{
-  Module *mods = NULL;
   Map map;
   InitMap(&map);
 
-  Val entry_name = MakeSymbol(entry, mem);
+  char *source = (char*)ReadFile(entry);
+  if (source == NULL) return Pair(SymbolFor("error"), MakeSymbol("not_found", mem), mem);
 
-  VecPush(mods, LoadModule(entry_name, mem));
-  MapSet(&map, Hash(entry, StrLen(entry)), 1);
+  Val ast = Parse(source, mem);
 
-  for (u32 i = 0; i < VecCount(mods); i++) {
-    Val imports = mods[i].imports;
-    while (!IsNil(imports)) {
-      Val name = Head(imports, mem);
-      if (!MapContains(&map, name.as_i)) {
-        VecPush(mods, LoadModule(name, mem));
-        MapSet(&map, name.as_i, 1);
-      }
-      imports = Tail(imports, mem);
-    }
+  if (IsTagged(ast, "do", mem)) {
+    ast = Tail(ast, mem);
+  } else {
+    ast = Pair(ast, nil, mem);
   }
 
-  Val ast = Pair(Pair(MakeSymbol("import", mem), entry_name, mem), nil, mem);
-  for (u32 i = 0; i < VecCount(mods); i++) {
-    ast = Pair(mods[i].ast, ast, mem);
+  Val imports = FindImports(ast, mem);
+
+  while (!IsNil(imports)) {
+    Val import = Head(imports, mem);
+    if (!MapContains(&map, import.as_i)) {
+      source = (char*)ReadFile(SymbolName(import, mem));
+      if (source == NULL) {
+        Print("Could not load \"");
+        Print(SymbolName(import, mem));
+        Print("\"\n");
+        return Pair(SymbolFor("error"), MakeSymbol("not_found", mem), mem);
+      }
+
+      Val mod = Parse(source, mem);
+      ast = Pair(WrapModule(mod, import, mem), ast, mem);
+      imports = ListConcat(imports, FindImports(mod, mem), mem);
+      MapSet(&map, import.as_i, 1);
+    }
+    imports = Tail(imports, mem);
   }
 
   return Pair(MakeSymbol("do", mem), ast, mem);
