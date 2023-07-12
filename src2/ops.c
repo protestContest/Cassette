@@ -39,8 +39,8 @@ static OpInfo ops[] = {
   [OpBranch]  = {"branch", ArgsConst},
   [OpBranchF] = {"branchf", ArgsConst},
   [OpPop]     = {"pop", ArgsNone},
-  // [OpDefMod]  = {"defmod", ArgsNone},
-  // [OpImport]  = {"import", ArgsNone},
+  [OpDefMod]  = {"defmod", ArgsConst},
+  [OpImport]  = {"import", ArgsConst},
   [OpHalt]    = {"halt", ArgsNone},
 };
 

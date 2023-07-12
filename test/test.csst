@@ -1,3 +1,5 @@
+import "test/reduce.csst"
+
 def (fizzbuzz max) do
   def (loop n) do
     if (rem n 3) == 0 and (rem n 5) == 0 do

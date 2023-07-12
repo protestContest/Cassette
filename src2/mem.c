@@ -13,7 +13,7 @@ void InitMem(Mem *mem)
   MakeSymbol("λ", mem);
 }
 
-void DestoryMem(Mem *mem)
+void DestroyMem(Mem *mem)
 {
   DestroyMap(&mem->string_map);
   FreeVec(mem->strings);
@@ -24,8 +24,8 @@ Val MakeSymbolFrom(char *name, u32 length, Mem *mem)
 {
   Val sym = SymbolFrom(name, length);
   u32 index = VecCount(mem->strings);
-  for (u32 i = 0; i < length && *name != '\0'; i++) {
-    VecPush(mem->strings, *name++);
+  for (u32 i = 0; i < length && name[i] != '\0'; i++) {
+    VecPush(mem->strings, name[i]);
   }
   VecPush(mem->strings, '\0');
   MapSet(&mem->string_map, sym.as_i, index);
@@ -104,6 +104,7 @@ Val ListConcat(Val a, Val b, Mem *mem)
 {
   Assert(IsPair(a));
   if (IsNil(a)) return b;
+  if (IsNil(b)) return a;
 
   Val cur = a;
   while (!IsNil(Tail(cur, mem))) {
@@ -629,4 +630,3 @@ void PrintMem(Mem *mem)
   }
   Print("┛\n");
 }
-

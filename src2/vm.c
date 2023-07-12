@@ -7,6 +7,7 @@
 void InitVM(VM *vm)
 {
   InitMem(&vm->mem);
+  InitMap(&vm->modules);
   vm->pc = 0;
   vm->cont = nil;
   vm->env = Pair(MakeValMap(&vm->mem), nil, &vm->mem);
@@ -403,6 +404,20 @@ void RunChunk(VM *vm, Chunk *chunk)
     case OpHalt:
       vm->pc = VecCount(chunk->data);
       break;
+    case OpDefMod: {
+      Val name = ChunkConst(chunk, vm->pc+1);
+      Val mod = StackPeek(vm, 0);
+      MapSet(&vm->modules, name.as_i, mod.as_i);
+      vm->pc += OpLength(op);
+      break;
+    }
+    case OpImport: {
+      Val name = ChunkConst(chunk, vm->pc+1);
+      Val mod = (Val){.as_i = MapGet(&vm->modules, name.as_i)};
+      PrintVal(mod, mem);
+      vm->pc += OpLength(op);
+      break;
+    }
     }
   }
 

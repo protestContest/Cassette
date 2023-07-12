@@ -9,6 +9,7 @@ typedef struct {
   Val *val;
   Val *stack;
   Mem mem;
+  Map modules;
   Chunk *chunk;
 } VM;
 

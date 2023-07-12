@@ -64,7 +64,7 @@ typedef struct {
 } Mem;
 
 void InitMem(Mem *mem);
-void DestoryMem(Mem *mem);
+void DestroyMem(Mem *mem);
 
 Val MakeSymbolFrom(char *name, u32 length, Mem *mem);
 Val MakeSymbol(char *name, Mem *mem);

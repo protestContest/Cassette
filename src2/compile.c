@@ -3,21 +3,13 @@
 #include "seq.h"
 #include "assemble.h"
 #include "ops.h"
+#include "module.h"
 
 static Seq CompileExpr(Val ast, Linkage linkage, Mem *mem);
 
-Chunk Compile(char *source)
+Seq Compile(Val ast, Mem *mem)
 {
-  Mem mem;
-  InitMem(&mem);
-  Val ast = Parse(source, &mem);
-
-  Print("Parsed: ");
-  PrintVal(ast, &mem);
-  Print("\n");
-
-  Seq code = CompileExpr(ast, LinkNext, &mem);
-  return Assemble(code, &mem);
+  return CompileExpr(ast, LinkNext, mem);
 }
 
 static Seq CompileConst(Val node, Linkage linkage, Mem *mem)
@@ -322,7 +314,22 @@ static Seq CompileMap(Val node, Linkage linkage, Mem *mem)
 
 static Seq CompileImport(Val node, Linkage linkage, Mem *mem)
 {
-  return EmptySeq();
+  return EndWithLinkage(linkage,
+    MakeSeq(0, 0,
+      Pair(OpSymbol(OpImport),
+      Pair(Tail(node, mem), nil, mem), mem)), mem);
+}
+
+static Seq CompileModule(Val node, Linkage linkage, Mem *mem)
+{
+  Seq mod_code = CompileExpr(ListAt(node, 2, mem), LinkNext, mem);
+  PrintVal(node, mem);
+  Print("\n");
+  return EndWithLinkage(linkage,
+    AppendSeq(mod_code,
+      MakeSeq(0, 0,
+      Pair(OpSymbol(OpDefMod),
+      Pair(ListAt(node, 1, mem), nil, mem), mem)), mem), mem);
 }
 
 static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
@@ -373,6 +380,7 @@ static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsTagged(node, "->", mem))    return CompileLambda(node, linkage, mem);
   if (IsTagged(node, "let", mem))   return CompileLet(node, linkage, mem);
   if (IsTagged(node, "import", mem))  return CompileImport(node, linkage, mem);
+  if (IsTagged(node, "mod", mem))   return CompileModule(node, linkage, mem);
 
   if (IsPair(node)) return CompileCall(node, linkage, mem);
 

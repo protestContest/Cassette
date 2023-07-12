@@ -546,7 +546,7 @@ static Val ParseImport(Lexer *lex, Mem *mem)
 {
   ExpectToken(lex, TokenImport);
   Val name = ParseString(lex, mem);
-  return Pair(MakeSymbol("import", mem), name, mem);
+  return Pair(MakeSymbol("import", mem), Tail(name, mem), mem);
 }
 
 static Val ParseAccess(Val lhs, Lexer *lex, Mem *mem)

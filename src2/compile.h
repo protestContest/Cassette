@@ -1,5 +1,7 @@
 #pragma once
 #include "chunk.h"
 #include "lex.h"
+#include "assemble.h"
+#include "module.h"
 
-Chunk Compile(char *source);
+Seq Compile(Val ast, Mem *mem);

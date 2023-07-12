@@ -35,6 +35,8 @@ typedef enum {
   OpBranchF,
   OpPop,
   OpHalt,
+  OpDefMod,
+  OpImport
 } OpCode;
 
 typedef enum {
