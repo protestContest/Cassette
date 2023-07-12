@@ -1,351 +1,485 @@
 #include "vm.h"
-#include "chunk.h"
-#include "env.h"
-#include "primitives.h"
 #include "ops.h"
-#include "print.h"
-#include "garbage.h"
+#include "env.h"
+#include "proc.h"
 
-static Val ArithmeticOp(OpCode op, VM *vm);
-static void TraceHeader(void);
-static void TraceInstruction(VM *vm, Chunk *chunk);
 
-void InitVM(VM *vm, Mem *mem)
+void InitVM(VM *vm)
 {
-  vm->mem = mem;
+  InitMem(&vm->mem);
+  InitMap(&vm->modules);
+
   vm->pc = 0;
+  vm->cont = nil;
+  vm->val = NULL;
+  vm->stack = NULL;
   vm->chunk = NULL;
-  vm->halted = true;
-
-  vm->regs[RegVal] = nil;
-  vm->regs[RegEnv] = InitialEnv(vm->mem);
-  vm->regs[RegFun] = nil;
-  vm->regs[RegArgs] = nil;
-  vm->regs[RegCont] = nil;
-  vm->regs[RegArg1] = nil;
-  vm->regs[RegArg2] = nil;
-  vm->regs[RegStack] = nil;
-
-#if DEBUG_VM
-  InitOps(mem);
-#endif
+  vm->env = InitialEnv(&vm->mem);
+  vm->error = false;
+  vm->trace = false;
 }
 
-void RunChunk(VM *vm, Chunk *chunk)
+void DestroyVM(VM *vm)
 {
-  Mem *mem = vm->mem;
-  vm->pc = 0;
+  DestroyMem(&vm->mem);
+  DestroyMap(&vm->modules);
+  FreeVec(vm->val);
+  FreeVec(vm->stack);
+  vm->chunk = NULL;
+  vm->cont = nil;
+  vm->error = false;
+  vm->trace = false;
+}
+
+Val StackPop(VM *vm)
+{
+  return VecPop(vm->val);
+}
+
+Val StackPeek(VM *vm, u32 n)
+{
+  return vm->val[VecCount(vm->val) - 1 - n];
+}
+
+void StackPush(VM *vm, Val val)
+{
+  VecPush(vm->val, val);
+}
+
+void MergeStrings(Mem *dst, Mem *src)
+{
+  for (u32 i = 0; i < MapCount(&src->string_map); i++) {
+    u32 key = GetMapKey(&src->string_map, i);
+    if (!MapContains(&dst->string_map, key)) {
+      char *string = src->strings + MapGet(&src->string_map, key);
+      u32 index = VecCount(dst->strings);
+      while (*string) {
+        VecPush(dst->strings, *string++);
+      }
+      VecPush(dst->strings, '\0');
+      MapSet(&dst->string_map, key, index);
+    }
+  }
+}
+
+void Halt(VM *vm)
+{
+  vm->pc = VecCount(vm->chunk->data);
+}
+
+void RuntimeError(VM *vm, char *message)
+{
+  Print("Runtime error: ");
+  Print(message);
+  Print("\n");
+  vm->error = true;
+  Halt(vm);
+}
+
+void TraceInstruction(VM *vm)
+{
+  PrintIntN(vm->pc, 4, ' ');
+  Print("│ ");
+  u32 written = PrintInstruction(vm->chunk, vm->pc);
+
+  if (written < 20) {
+    for (u32 i = 0; i < 20 - written; i++) Print(" ");
+  }
+
+  if (VecCount(vm->val) == 0) Print(" │ ");
+  for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
+    Print(" │ ");
+    PrintVal(vm->val[i], &vm->mem);
+  }
+
+  Print("\n");
+}
+
+void SaveReg(VM *vm, i32 reg)
+{
+  if (reg == RegCont) {
+    VecPush(vm->stack, vm->cont);
+  } else if (reg == RegEnv) {
+    VecPush(vm->stack, vm->env);
+  } else {
+    RuntimeError(vm, "Bad register reference");
+  }
+}
+
+void RestoreReg(VM *vm, i32 reg)
+{
+  if (reg == RegCont) {
+    vm->cont = VecPop(vm->stack);
+  } else if (reg == RegEnv) {
+    vm->env = VecPop(vm->stack);
+  } else {
+    RuntimeError(vm, "Bad register reference");
+  }
+}
+
+i32 IntOp(i32 a, i32 b, OpCode op)
+{
+  switch (op) {
+  case OpAdd: return a + b;
+  case OpSub: return a - b;
+  case OpMul: return a * b;
+  default: Abort();
+  }
+}
+
+f32 FloatOp(f32 a, f32 b, OpCode op)
+{
+  switch (op) {
+  case OpAdd: return a + b;
+  case OpSub: return a - b;
+  case OpMul: return a * b;
+  case OpDiv: return a / b;
+  default: Abort();
+  }
+}
+
+void ArithmeticOp(VM *vm, OpCode op)
+{
+  Val b = StackPop(vm);
+  Val a = StackPop(vm);
+  Val result;
+
+  if (!IsNumeric(a) || !IsNumeric(b)) {
+    RuntimeError(vm, "Bad arithmetic argument");
+    return;
+  }
+
+  if (IsInt(a) && IsInt(b) && op != OpDiv) {
+    result = IntVal(IntOp(RawInt(a), RawInt(b), op));
+  } else {
+    if (op == OpDiv && IsZero(b)) {
+      RuntimeError(vm, "Divide by zero");
+      return;
+    }
+
+    result = NumVal(FloatOp(RawNum(a), RawNum(b), op));
+  }
+
+  StackPush(vm, result);
+}
+
+Val RunChunk(VM *vm, Chunk *chunk)
+{
+  vm->cont = nil;
+  vm->val = NULL;
+  vm->stack = NULL;
   vm->chunk = chunk;
-  vm->halted = false;
+  MergeStrings(&vm->mem, &chunk->constants);
+  vm->error = false;
+  Mem *mem = &vm->mem;
 
-#if DEBUG_VM
-  u32 stack_ops = 0;
-  u32 returns = 0;
-#endif
+  // Print("────┬─Run──────────────────┬────\n");
 
-  TraceHeader();
+  while (vm->pc < VecCount(chunk->data)) {
+    if (vm->trace) TraceInstruction(vm);
 
-  while (!vm->halted && vm->pc < VecCount(chunk->code)) {
-    OpCode op = chunk->code[vm->pc];
-
-    TraceInstruction(vm, chunk);
-
+    OpCode op = ChunkRef(chunk, vm->pc);
     switch (op) {
-    case OpNoop:
-      vm->pc++;
-      break;
-    case OpHalt:
-      vm->halted = true;
-      vm->pc++;
-      break;
     case OpConst:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] = ChunkConst(chunk, vm->pc+1);
+      StackPush(vm, ChunkConst(chunk, vm->pc+1));
       vm->pc += OpLength(op);
-      break;
-    case OpMove:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        vm->regs[ChunkRef(chunk, vm->pc+1)];
-      vm->pc += OpLength(op);
-      break;
-    case OpBranch:
-      if (IsTrue(vm->regs[ChunkRef(chunk, vm->pc+2)])) {
-        vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
-      } else {
-        vm->pc += OpLength(op);
-      }
-      break;
-    case OpBranchF:
-      if (!IsTrue(vm->regs[ChunkRef(chunk, vm->pc+2)])) {
-        vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
-      } else {
-        vm->pc += OpLength(op);
-      }
-      break;
-    case OpJump:
-      vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
-      break;
-    case OpGoto:
-#if DEBUG_VM
-      if (ChunkRef(chunk, vm->pc+1) == RegCont) returns++;
-#endif
-      vm->pc = RawInt(vm->regs[ChunkRef(chunk, vm->pc+1)]);
       break;
     case OpStr:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakeBinaryFrom(mem, SymbolName(mem, ChunkConst(chunk, vm->pc+1)), SymbolLength(mem, ChunkConst(chunk, vm->pc+1)));
-      vm->pc += OpLength(op);
-      MaybeCollectGarbage(vm);
-      break;
-    case OpLambda:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakePair(mem, vm->regs[RegEnv], ChunkConst(chunk, vm->pc+1));
-      vm->pc += OpLength(op);
-      MaybeCollectGarbage(vm);
-      break;
-    case OpPair:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakePair(mem,
-                ChunkConst(chunk, vm->pc+1),
-                vm->regs[ChunkRef(chunk, vm->pc+2)]);
-      vm->pc += OpLength(op);
-      MaybeCollectGarbage(vm);
-      break;
-    case OpTuple:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] = MakeTuple(vm->mem, ChunkRef(chunk, vm->pc+1));
+      StackPush(vm, MakeBinary(SymbolName(StackPop(vm), mem), mem));
       vm->pc += OpLength(op);
       break;
-    case OpTSet:
-      TupleSet(mem, vm->regs[ChunkRef(chunk, vm->pc+1)], ChunkRef(chunk, vm->pc+2), vm->regs[ChunkRef(chunk, vm->pc+3)]);
+    case OpPair: {
+      Val tail = StackPop(vm);
+      Val head = StackPop(vm);
+      Val pair = Pair(head, tail, mem);
+      StackPush(vm, pair);
       vm->pc += OpLength(op);
       break;
-    case OpMap:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] =
-        MakeMap(vm->mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      vm->pc += OpLength(op);
-      break;
-    case OpHead:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] =
-        Head(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      vm->pc += OpLength(op);
-      break;
-    case OpTail:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] =
-        Tail(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      vm->pc += OpLength(op);
-      break;
-    case OpPush:
-#if DEBUG_VM
-      if (ChunkRef(chunk, vm->pc+2) == RegStack) stack_ops++;
-#endif
-      vm->regs[ChunkRef(chunk, vm->pc+2)] =
-        MakePair(mem,
-                vm->regs[ChunkRef(chunk, vm->pc+1)],
-                vm->regs[ChunkRef(chunk, vm->pc+2)]);
-      vm->pc += OpLength(op);
-      MaybeCollectGarbage(vm);
-      break;
-    case OpPop:
-      vm->regs[ChunkRef(chunk, vm->pc+2)] = Head(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      vm->regs[ChunkRef(chunk, vm->pc+1)] = Tail(mem, vm->regs[ChunkRef(chunk, vm->pc+1)]);
-      vm->pc += OpLength(op);
-      break;
-    case OpLookup:
-      vm->regs[ChunkRef(chunk, vm->pc+3)] =
-        LookupByPosition(ChunkConst(chunk, vm->pc+1), ChunkConst(chunk, vm->pc+2), vm->regs[RegEnv], mem);
-      if (Eq(vm->regs[ChunkRef(chunk, vm->pc+3)], SymbolFor("__undefined__"))) {
-        RuntimeError("Undefined variable", MakePair(mem, ChunkConst(chunk, vm->pc+1), ChunkConst(chunk, vm->pc+2)), vm);
+    }
+    case OpList: {
+      Val list = nil;
+      for (u32 i = 0; i < RawInt(ChunkConst(chunk, vm->pc+1)); i++) {
+        list = Pair(StackPop(vm), list, mem);
       }
+      StackPush(vm, list);
       vm->pc += OpLength(op);
       break;
-    case OpDefine:
-      Define(ChunkConst(chunk, vm->pc+1), vm->regs[ChunkRef(chunk, vm->pc+2)], vm->regs[RegEnv], mem);
+    }
+    case OpTuple: {
+      u32 length = RawInt(ChunkConst(chunk, vm->pc+1));
+      Val tuple = MakeTuple(length, mem);
+      for (u32 i = 0; i < length; i++) {
+        TupleSet(tuple, i, StackPeek(vm, length - i - 1), mem);
+      }
+      RewindVec(vm->val, length);
+      StackPush(vm, tuple);
       vm->pc += OpLength(op);
-      MaybeCollectGarbage(vm);
       break;
-    case OpPrim:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] = DoPrimitive(vm->regs[RegFun], vm->regs[RegArgs], vm);
+    }
+    case OpMap: {
+      Val map = MakeValMap(mem);
+      for (u32 i = 0; i < RawInt(ChunkConst(chunk, vm->pc+1)); i++) {
+        Val key = StackPop(vm);
+        Val value = StackPop(vm);
+        ValMapSet(map, key, value, mem);
+      }
+      StackPush(vm, map);
+      vm->pc += OpLength(op);
+      break;
+    }
+    case OpTrue:
+      StackPush(vm, SymbolFor("true"));
+      vm->pc += OpLength(op);
+      break;
+    case OpFalse:
+      StackPush(vm, SymbolFor("false"));
+      vm->pc += OpLength(op);
+      break;
+    case OpNil:
+      StackPush(vm, nil);
+      vm->pc += OpLength(op);
+      break;
+    case OpAdd:
+      ArithmeticOp(vm, OpAdd);
+      vm->pc += OpLength(op);
+      break;
+    case OpSub:
+      ArithmeticOp(vm, OpSub);
+      vm->pc += OpLength(op);
+      break;
+    case OpMul:
+      ArithmeticOp(vm, OpMul);
+      vm->pc += OpLength(op);
+      break;
+    case OpDiv:
+      ArithmeticOp(vm, OpDiv);
+      vm->pc += OpLength(op);
+      break;
+    case OpNeg:
+      if (!IsNumeric(StackPeek(vm, 0))) {
+        RuntimeError(vm, "Bad arithmetic argument");
+      } else {
+        Val n = StackPop(vm);
+        if (IsInt(n)) {
+          StackPush(vm, IntVal(-RawInt(n)));
+        } else {
+          StackPush(vm, NumVal(-RawNum(n)));
+        }
+      }
       vm->pc += OpLength(op);
       break;
     case OpNot:
-      vm->regs[ChunkRef(chunk, vm->pc+1)] = BoolVal(!IsTrue(vm->regs[ChunkRef(chunk, vm->pc+1)]));
+      if (IsTrue(StackPop(vm))) {
+        StackPush(vm, SymbolFor("false"));
+      } else {
+        StackPush(vm, SymbolFor("true"));
+      }
       vm->pc += OpLength(op);
       break;
-    case OpEqual:
-      vm->regs[ChunkRef(vm->chunk, vm->pc+1)] =
-        BoolVal(Eq(vm->regs[RegArg1], vm->regs[RegArg2]));
+    case OpEq: {
+      Val a = StackPop(vm);
+      Val b = StackPop(vm);
+      Val res = BoolVal(Eq(a, b));
+      StackPush(vm, res);
       vm->pc += OpLength(op);
       break;
-    case OpGt:
-    case OpLt:
-    case OpAdd:
-    case OpSub:
-    case OpMul:
-    case OpDiv:
-      vm->regs[ChunkRef(vm->chunk, vm->pc+1)] = ArithmeticOp(op, vm);
+    }
+    case OpGt: {
+      Val b = StackPop(vm);
+      Val a = StackPop(vm);
+      if (!IsNumeric(a) || !IsNumeric(b)) {
+        RuntimeError(vm, "Bad arithmetic argument");
+      } else {
+        StackPush(vm, BoolVal(RawNum(a) > RawNum(b)));
+      }
       vm->pc += OpLength(op);
       break;
-    case NUM_OPCODES:
+    }
+    case OpLt: {
+      Val b = StackPop(vm);
+      Val a = StackPop(vm);
+      if (!IsNumeric(a) || !IsNumeric(b)) {
+        RuntimeError(vm, "Bad arithmetic argument");
+      } else {
+        StackPush(vm, BoolVal(RawNum(a) < RawNum(b)));
+      }
+      vm->pc += OpLength(op);
       break;
+    }
+    case OpIn: {
+      Val collection = StackPop(vm);
+      Val item = StackPop(vm);
+      if (IsPair(collection)) {
+        StackPush(vm, BoolVal(ListContains(collection, item, mem)));
+      } else if (IsTuple(collection, mem)) {
+        StackPush(vm, BoolVal(TupleContains(collection, item, mem)));
+      } else if (IsValMap(collection, mem)) {
+        StackPush(vm, BoolVal(ValMapContains(collection, item, mem)));
+      } else {
+        RuntimeError(vm, "Not a collection");
+      }
+      vm->pc += OpLength(op);
+      break;
+    }
+    case OpAccess: {
+      Val key = StackPop(vm);
+      Val map = StackPop(vm);
+      if (!ValMapContains(map, key, mem)) {
+        RuntimeError(vm, "Undefined key");
+      } else {
+        StackPush(vm, ValMapGet(map, key, mem));
+        vm->pc += OpLength(op);
+      }
+      break;
+    }
+    case OpLambda: {
+      Val pos = ChunkConst(chunk, vm->pc+1);
+      StackPush(vm, Pair(SymbolFor("λ"), Pair(pos, Pair(vm->env, nil, mem), mem), mem));
+      vm->pc += OpLength(op);
+      break;
+    }
+    case OpSave:
+      SaveReg(vm, ChunkRef(chunk, vm->pc+1));
+      vm->pc += OpLength(op);
+      break;
+    case OpRestore:
+      RestoreReg(vm, ChunkRef(chunk, vm->pc+1));
+      vm->pc += OpLength(op);
+      break;
+    case OpCont:
+      vm->cont = ChunkConst(chunk, vm->pc+1);
+      vm->pc += OpLength(op);
+      break;
+    case OpApply: {
+      Val proc = StackPop(vm);
+      if (IsPrimitive(proc, mem)) {
+        StackPush(vm, ApplyPrimitive(proc, vm));
+        vm->pc += OpLength(op);
+      } else if (IsCompoundProc(proc, mem)) {
+        vm->pc = ProcEntry(proc, mem);
+        vm->env = ExtendEnv(ProcEnv(proc, mem), mem);
+      } else {
+        StackPush(vm, proc);
+        vm->pc += OpLength(op);
+      }
+      break;
+    }
+    case OpReturn:
+      vm->pc = RawInt(vm->cont);
+      break;
+    case OpLookup: {
+      Val value = Lookup(ChunkConst(chunk, vm->pc+1), vm->env, &vm->mem);
+      if (Eq(value, SymbolFor("__UNDEFINED__"))) {
+        RuntimeError(vm, "Undefined variable");
+      } else {
+        StackPush(vm, value);
+        vm->pc += OpLength(op);
+      }
+      break;
+    }
+    case OpDefine: {
+      Val id = ChunkConst(chunk, vm->pc+1);
+      Val value = StackPop(vm);
+      Define(id, value, vm->env, &vm->mem);
+      StackPush(vm, id);
+      vm->pc += OpLength(op);
+      break;
+    }
+    case OpJump:
+      vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
+      break;
+    case OpBranch: {
+      Val test = StackPeek(vm, 0);
+      if (IsTrue(test)) {
+        vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
+      } else {
+        vm->pc += OpLength(op);
+      }
+      break;
+    }
+    case OpBranchF: {
+      Val test = StackPeek(vm, 0);
+      if (!IsTrue(test)) {
+        vm->pc = RawInt(ChunkConst(chunk, vm->pc+1));
+      } else {
+        vm->pc += OpLength(op);
+      }
+      break;
+    }
+    case OpPop:
+      RewindVec(vm->val, 1);
+      vm->pc += OpLength(op);
+      break;
+    case OpHalt:
+      vm->pc = VecCount(chunk->data);
+      break;
+    case OpDefMod: {
+      Val name = ChunkConst(chunk, vm->pc+1);
+      Val mod = StackPeek(vm, 0);
+      MapSet(&vm->modules, name.as_i, mod.as_i);
+      vm->pc += OpLength(op);
+      break;
+    }
+    case OpGetMod: {
+      Val name = ChunkConst(chunk, vm->pc+1);
+      if (MapContains(&vm->modules, name.as_i)) {
+        Val mod = (Val){.as_i = MapGet(&vm->modules, name.as_i)};
+        StackPush(vm, mod);
+        vm->pc += OpLength(op);
+      } else {
+        RuntimeError(vm, "Module not found");
+      }
+      break;
+    }
+    case OpImport: {
+      Val name = ChunkConst(chunk, vm->pc+1);
+      Val mod = (Val){.as_i = MapGet(&vm->modules, name.as_i)};
+      PrintVal(mod, mem);
+      vm->pc += OpLength(op);
+      break;
+    }
     }
   }
 
-  if (!vm->halted) {
-    vm->halted = true;
-    TraceInstruction(vm, chunk);
-  }
+  // PrintIntN(vm->pc, 4, ' ');
+  // Print("│                     ");
+  // for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
+  //   Print(" │ ");
+  //   PrintVal(vm->val[i], &vm->mem);
+  // }
+  // Print("\n");
 
-#ifdef DEBUG_VM
-  Print("Stack operations: ");
-  PrintInt(stack_ops);
-  Print(" Returns: ");
-  PrintInt(returns);
-  Print("\n");
-#endif
-}
-
-Val RuntimeError(char *message, Val exp, VM *vm)
-{
-  vm->halted = true;
-  PrintEscape(IOFGRed);
-  Print("(Runtime Error) ");
-  Print(message);
-  Print(": ");
-  PrintVal(vm->mem, exp);
-  PrintEscape(IOFGReset);
-  Print("\n");
-
-#if DEBUG_VM
-  PrintVM(vm);
-#endif
-#if DEBUG_GC
-  PrintMem(vm->mem);
-#endif
-
-  return SymbolFor("error");
-}
-
-u32 PrintReg(i32 reg)
-{
-  switch (reg) {
-  case RegVal:    return Print("[val]");
-  case RegEnv:    return Print("[env]");
-  case RegFun:    return Print("[fun]");
-  case RegArgs:   return Print("[arg]");
-  case RegCont:   return Print("[con]");
-  case RegArg1:   return Print("[ar1]");
-  case RegArg2:   return Print("[ar2]");
-  case RegStack:  return Print("[stk]");
-  default:        return Print("[???]");
+  if (!vm->error && VecCount(vm->val) > 0) {
+    return StackPop(vm);
+  } else {
+    return nil;
   }
 }
 
-static void TraceHeader(void)
+void PrintStack(VM *vm)
 {
-#if DEBUG_VM
-  Print("      ");
-  for (i32 i = 0; i < 30; i++) Print(" ");
-  Print("│ ");
-  for (u32 i = 0; i < NUM_REGS; i++) {
-    Print(" ");
-    PrintReg(i);
+  Print("┌╴Stack╶─────────────\n");
+  if (VecCount(vm->val) == 0) {
+    Print("│ (empty)\n");
   }
-  Print("  Mem │\n");
-#endif
+  for (u32 i = 0; i < VecCount(vm->val); i++) {
+    Print("│");
+    PrintVal(vm->val[i], &vm->mem);
+    Print("\n");
+  }
+  Print("└────────────────────\n");
 }
 
-static void TraceInstruction(VM *vm, Chunk *chunk)
+void PrintCallStack(VM *vm)
 {
-#if DEBUG_VM
-  PrintIntN(vm->pc, 4, ' ');
-  Print("│ ");
-  i32 printed = PrintInstruction(chunk, vm->pc, vm->mem);
-
-  for (i32 i = 0; i < 30 - printed; i++) Print(" ");
-  Print("│ ");
-
-  for (u32 i = 0; i < NUM_REGS; i++) {
-    PrintRawValN(vm->regs[i], 5, vm->mem);
-    Print(" ");
+  Print("┌╴Call Stack╶────────\n");
+  if (VecCount(vm->stack) == 0) {
+    Print("│ (empty)\n");
   }
-
-  PrintIntN(VecCount(vm->mem->values), 5, ' ');
-
-  Print(" │ ");
-
-  Val stack = vm->regs[RegStack];
-  for (i32 i = 0; i < 8 && !IsNil(stack); i++) {
-    PrintRawVal(Head(vm->mem, stack), vm->mem);
-    Print(" ");
-    stack = Tail(vm->mem, stack);
+  for (u32 i = 0; i < VecCount(vm->stack); i++) {
+    Print("│");
+    PrintVal(vm->stack[i], &vm->mem);
+    Print("\n");
   }
-  Print("\n");
-#endif
-}
-
-static Val ArithmeticOp(OpCode op, VM *vm)
-{
-  Val a_val = vm->regs[RegArg1];
-  Val b_val = vm->regs[RegArg2];
-
-  if (!IsNumeric(a_val)) {
-    return RuntimeError("Bad arithmetic argument", a_val, vm);
-  }
-  if (!IsNumeric(b_val)) {
-    return RuntimeError("Bad arithmetic argument", b_val, vm);
-  }
-
-  if (IsInt(a_val) && IsInt(b_val) && op != OpDiv) {
-    i32 a = RawInt(a_val);
-    i32 b = RawInt(b_val);
-    Val result;
-    switch (op) {
-    case OpAdd: result = IntVal(a + b); break;
-    case OpSub: result = IntVal(a - b); break;
-    case OpMul: result = IntVal(a * b); break;
-    case OpGt:  result = BoolVal(a > b); break;
-    case OpLt:  result = BoolVal(a < b); break;
-    default:    result = nil; break;
-    }
-    return result;
-  }
-
-  float a = (float)RawNum(a_val);
-  float b = (float)RawNum(b_val);
-  Val result;
-  switch (op) {
-  case OpAdd: result = NumVal(a + b); break;
-  case OpSub: result = NumVal(a - b); break;
-  case OpMul: result = NumVal(a * b); break;
-  case OpDiv: result = NumVal(a / b); break;
-  case OpGt: result = BoolVal(a > b); break;
-  case OpLt: result = BoolVal(a < b); break;
-  default:    result = nil; break;
-  }
-  return result;
-}
-
-void PrintVM(VM *vm)
-{
-  Print(" VM │");
-  Print("   [pc] ");
-  for (u32 i = 0; i < NUM_REGS; i++) {
-    Print(" ");
-    PrintReg(i);
-    Print(" ");
-  }
-  Print("\n");
-  Print("    │ ");
-  PrintIntN(vm->pc, 6, ' ');
-  Print(" ");
-  for (u32 i = 0; i < NUM_REGS; i++) {
-    PrintRawValN(vm->regs[i], 6, vm->mem);
-    Print(" ");
-  }
-  Val stack = vm->regs[RegStack];
-  while (!IsNil(stack)) {
-    PrintRawVal(Head(vm->mem, stack), vm->mem);
-    Print(" ");
-    stack = Tail(vm->mem, stack);
-  }
-  Print("\n");
+  Print("└────────────────────\n");
 }

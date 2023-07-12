@@ -1,32 +1,34 @@
 #pragma once
-#include "mem.h"
-#include "lex.h"
 #include "chunk.h"
-
-typedef enum {
-  RegVal,
-  RegEnv,
-  RegFun,
-  RegArgs,
-  RegCont,
-  RegArg1,
-  RegArg2,
-  RegStack,
-
-  NUM_REGS
-} Reg;
+#include "mem.h"
 
 typedef struct {
-  Mem *mem;
   u32 pc;
-  Val regs[NUM_REGS];
+  Val cont;
+  Val env;
+  Val *val;
+  Val *stack;
+  Mem mem;
+  Map modules;
   Chunk *chunk;
-  bool halted;
+  bool error;
+  bool trace;
 } VM;
 
-u32 PrintReg(i32 reg);
+typedef enum {
+  RegCont = (1 << 0),
+  RegEnv  = (1 << 1),
+} Reg;
+#define NUM_REGS 2
 
-void InitVM(VM *vm, Mem *mem);
-void RunChunk(VM *vm, Chunk *chunk);
-Val RuntimeError(char *message, Val exp, VM *vm);
-void PrintVM(VM *vm);
+void InitVM(VM *vm);
+void DestroyVM(VM *vm);
+Val RunChunk(VM *vm, Chunk *chunk);
+void RuntimeError(VM *vm, char *message);
+
+Val StackPop(VM *vm);
+Val StackPeek(VM *vm, u32 n);
+void StackPush(VM *vm, Val val);
+
+void PrintStack(VM *vm);
+void PrintCallStack(VM *vm);

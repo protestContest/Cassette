@@ -1,130 +1,104 @@
 #include "env.h"
-#include "primitives.h"
+#include "proc.h"
 
 Val InitialEnv(Mem *mem)
 {
-  MakeSymbol(mem, "ok");
-  MakeSymbol(mem, "error");
-  MakeSymbol(mem, "__undefined__");
-
-  Val env = MakePair(mem, nil, nil);
-  return MakePair(mem, nil, env);
+  Val env = Pair(MakeSymbol("ε", mem), nil, mem);
+  env = ExtendEnv(env, mem);
+  DefinePrimitives(env, mem);
+  return ExtendEnv(env, mem);
 }
 
-void Define(Val var, Val value, Val env, Mem *mem)
+Val ExtendEnv(Val env, Mem *mem)
 {
-  Assert(!IsNil(env));
+  Assert(Eq(Head(env, mem), SymbolFor("ε")));
 
-  Val frame = Head(mem, env);
+  Val frames = Pair(nil, Tail(env, mem), mem);
+  return Pair(SymbolFor("ε"), frames, mem);
+}
+
+void Define(Val var, Val val, Val env, Mem *mem)
+{
+  Assert(Eq(Head(env, mem), SymbolFor("ε")));
+
+  Val frames = Tail(env, mem);
+  Val frame = Head(frames, mem);
+
   if (IsNil(frame)) {
-    Val item = MakePair(mem, var, value);
-    frame = MakePair(mem, item, nil);
-    SetHead(mem, env, frame);
+    Val pair = Pair(var, val, mem);
+    frame = Pair(pair, nil, mem);
+    SetHead(frames, frame, mem);
     return;
   }
 
-  Val item = Head(mem, frame);
-  if (Eq(Head(mem, item), var)) {
-    SetTail(mem, item, value);
+  Val pair = Head(frame, mem);
+  if (Eq(var, Head(pair, mem))) {
+    SetTail(pair, val , mem);
     return;
   }
-  while (!IsNil(Tail(mem, frame))) {
-    frame = Tail(mem, frame);
 
-    Val item = Head(mem, frame);
-    if (Eq(Head(mem, item), var)) {
-      SetTail(mem, item, value);
+  while (!IsNil(Tail(frame, mem))) {
+    Val pair = Head(frame, mem);
+    if (Eq(var, Head(pair, mem))) {
+      SetTail(pair, val, mem);
       return;
     }
+    frame = Tail(frame, mem);
   }
 
-  item = MakePair(mem, var, value);
-  SetTail(mem, frame, MakePair(mem, item, nil));
+  pair = Pair(var, val, mem);
+  SetTail(frame, Pair(pair, nil, mem), mem);
 }
 
 Val Lookup(Val var, Val env, Mem *mem)
 {
-  while (!IsNil(env)) {
-    Val frame = Head(mem, env);
+  Assert(Eq(Head(env, mem), SymbolFor("ε")));
+
+  Val frames = Tail(env, mem);
+  while (!IsNil(frames)) {
+    Val frame = Head(frames, mem);
     while (!IsNil(frame)) {
-      Val item = Head(mem, frame);
-      if (Eq(var, Head(mem, item))) {
-        return Tail(mem, item);
-      }
-      frame = Tail(mem, frame);
+      Val pair = Head(frame, mem);
+
+      if (Eq(var, Head(pair, mem))) return Tail(pair, mem);
+
+      frame = Tail(frame, mem);
     }
 
-    env = Tail(mem, env);
+    frames = Tail(frames, mem);
   }
 
-  return SymbolFor("__undefined__");
-}
-
-Val LookupPosition(Val var, Val env, Mem *mem)
-{
-  u32 frames = 0;
-  while (!IsNil(env)) {
-    u32 entries = 0;
-    Val frame = Head(mem, env);
-    while (!IsNil(frame)) {
-      Val item = Head(mem, frame);
-      if (Eq(var, Head(mem, item))) {
-        return MakePair(mem, IntVal(frames), IntVal(entries));
-      }
-      entries++;
-      frame = Tail(mem, frame);
-    }
-    frames++;
-    env = Tail(mem, env);
-  }
-
-  return nil;
-}
-
-Val LookupByPosition(Val frame_num, Val entry_num, Val env, Mem *mem)
-{
-  u32 frames = RawInt(frame_num);
-  u32 entries = RawInt(entry_num);
-
-  for (u32 i = 0; i < frames; i++) {
-    if (IsNil(env)) {
-      return SymbolFor("__undefined__");
-    }
-    env = Tail(mem, env);
-  }
-
-  Val frame = Head(mem, env);
-  for (u32 i = 0; i < entries; i++) {
-    if (IsNil(frame)) {
-      return SymbolFor("__undefined__");
-    }
-    frame = Tail(mem, frame);
-  }
-
-  Val item = Head(mem, frame);
-  return Tail(mem, item);
+  return MakeSymbol("__UNDEFINED__", mem);
 }
 
 void PrintEnv(Val env, Mem *mem)
 {
-  if (IsNil(env)) Print("<empty env>");
-  while (!IsNil(env)) {
-    Val frame = Head(mem, env);
-    while (!IsNil(frame)) {
-      Val item = Head(mem, frame);
-      Val var = Head(mem, item);
-      // Val val = Tail(mem, item);
-
-      PrintSymbol(mem, var);
-      // Print(": ");
-      // PrintVal(mem, val);
-      Print(" ");
-
-      frame = Tail(mem, frame);
-    }
-    if (!IsNil(Tail(mem, env))) Print("| ");
-
-    env = Tail(mem, env);
+  Print("┌╴Env╶───────────────\n");
+  Val frames = Tail(env, mem);
+  if (IsNil(frames)) {
+    Print("(empty)\n");
   }
-  Print("\n");
+  while (!IsNil(frames)) {
+    Val frame = Head(frames, mem);
+
+    while (!IsNil(frame)) {
+      Print("│");
+      Val pair = Head(frame, mem);
+      Val var = Head(pair, mem);
+      Val val = Tail(pair, mem);
+      Print(SymbolName(var, mem));
+      Print(": ");
+      PrintVal(val, mem);
+      Print("\n");
+      frame = Tail(frame, mem);
+    }
+    if (!IsNil(Tail(frames, mem))) {
+      Print("├────────────────────\n");
+    }
+
+
+    frames = Tail(frames, mem);
+  }
+  Print("└────────────────────\n");
 }
+

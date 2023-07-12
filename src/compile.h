@@ -1,6 +1,7 @@
 #pragma once
-#include "mem.h"
-#include "vm.h"
+#include "chunk.h"
+#include "lex.h"
+#include "assemble.h"
+#include "module.h"
 
-Val Compile(Val exp, Mem *mem);
-void PrintStmts(Val stmts, Mem *mem);
+Seq Compile(Val ast, Mem *mem);

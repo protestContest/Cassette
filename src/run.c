@@ -1,19 +1,13 @@
-#include "compile.h"
-#include "vm.h"
-#include "module.h"
+#include "run.h"
 #include "parse.h"
+#include "compile.h"
+#include "assemble.h"
 #include "env.h"
 #include <signal.h>
 
-void OnSignal(int sig_num)
+static void OnSignal(int sig)
 {
   Exit();
-}
-
-void Usage(void)
-{
-  Print("Usage:\n");
-  Print("  cassette script.csst\n");
 }
 
 Val Eval(char *source, VM *vm)
@@ -28,11 +22,7 @@ Val Eval(char *source, VM *vm)
   return result;
 }
 
-typedef struct {
-  char text[1024];
-} Line;
-
-i32 main(i32 argc, char **argv)
+void REPL(void)
 {
   signal(SIGINT, OnSignal);
   RawConsole();
@@ -62,6 +52,8 @@ i32 main(i32 argc, char **argv)
       text[0] = '\0';
       continue;
     }
+    Print("\n");
+
 
     if (StrEq(text, "@reset\n")) {
       DestroyVM(&vm);
@@ -105,4 +97,17 @@ i32 main(i32 argc, char **argv)
 
     }
   }
+}
+
+void RunFile(char *filename)
+{
+  VM vm;
+  InitVM(&vm);
+  Chunk chunk;
+  InitChunk(&chunk);
+  vm.chunk = &chunk;
+
+
+  char *source = (char*)ReadFile(filename);
+  Eval(source, &vm);
 }

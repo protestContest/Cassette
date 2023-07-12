@@ -1,347 +1,538 @@
 #include "mem.h"
-#include "env.h"
-#include "print.h"
 
-#define NextFree(mem)   VecCount(mem->values)
-
-void InitMem(Mem *mem, u32 size)
+void InitMem(Mem *mem)
 {
-  if (size > 0) {
-    mem->values = NewVec(Val, size);
-  } else {
-    mem->values = NULL;
-  }
+  mem->values = NULL;
   VecPush(mem->values, nil);
   VecPush(mem->values, nil);
-  InitStringTable(&mem->symbols);
+  mem->strings = NULL;
+  InitMap(&mem->string_map);
+  MakeSymbol("true", mem);
+  MakeSymbol("false", mem);
+  MakeSymbol("ok", mem);
+  MakeSymbol("error", mem);
+  MakeSymbol("@", mem);
+  MakeSymbol("λ", mem);
 }
 
 void DestroyMem(Mem *mem)
 {
+  DestroyMap(&mem->string_map);
+  FreeVec(mem->strings);
   FreeVec(mem->values);
-  DestroyStringTable(&mem->symbols);
 }
 
-Val MakePair(Mem *mem, Val head, Val tail)
+Val MakeSymbolFrom(char *name, u32 length, Mem *mem)
 {
-  Val pair = PairVal(NextFree(mem));
+  Val sym = SymbolFrom(name, length);
+  u32 index = VecCount(mem->strings);
+  for (u32 i = 0; i < length && name[i] != '\0'; i++) {
+    VecPush(mem->strings, name[i]);
+  }
+  VecPush(mem->strings, '\0');
+  MapSet(&mem->string_map, sym.as_i, index);
+  return sym;
+}
 
+Val MakeSymbol(char *name, Mem *mem)
+{
+  return MakeSymbolFrom(name, StrLen(name), mem);
+}
+
+char *SymbolName(Val symbol, Mem *mem)
+{
+  if (!MapContains(&mem->string_map, symbol.as_i)) return NULL;
+  u32 index = MapGet(&mem->string_map, symbol.as_i);
+  if (index >= VecCount(mem->strings)) return NULL;
+  return mem->strings + index;
+}
+
+Val Pair(Val head, Val tail, Mem *mem)
+{
+  u32 index = VecCount(mem->values);
   VecPush(mem->values, head);
   VecPush(mem->values, tail);
-
-  return pair;
+  return PairVal(index);
 }
 
-Val Head(Mem *mem, Val pair)
+Val Head(Val pair, Mem *mem)
 {
-  if (IsNil(pair)) return nil;
+  Assert(IsPair(pair));
   u32 index = RawVal(pair);
+  if (index >= VecCount(mem->values)) {
+    Assert(index < VecCount(mem->values));
+  }
   return mem->values[index];
 }
 
-Val Tail(Mem *mem, Val pair)
+Val Tail(Val pair, Mem *mem)
 {
-  if (IsNil(pair)) return nil;
+  Assert(IsPair(pair));
   u32 index = RawVal(pair);
+  Assert(index+1 < VecCount(mem->values));
   return mem->values[index+1];
 }
 
-void SetHead(Mem *mem, Val pair, Val val)
+void SetHead(Val pair, Val head, Mem *mem)
 {
-  Assert(!IsNil(pair));
+  Assert(IsPair(pair));
   u32 index = RawVal(pair);
-  mem->values[index] = val;
+  Assert(index < VecCount(mem->values));
+  mem->values[index] = head;
 }
 
-void SetTail(Mem *mem, Val pair, Val val)
+void SetTail(Val pair, Val tail, Mem *mem)
 {
-  Assert(!IsNil(pair));
+  Assert(IsPair(pair));
   u32 index = RawVal(pair);
-  mem->values[index+1] = val;
+  Assert(index+1 < VecCount(mem->values));
+  mem->values[index+1] = tail;
 }
 
-u32 ListLength(Mem *mem, Val list)
+bool ListContains(Val list, Val value, Mem *mem)
 {
-  u32 length = 0;
+  Assert(IsPair(list));
+
   while (!IsNil(list)) {
-    length++;
-    list = Tail(mem, list);
+    if (Eq(value, Head(list, mem))) {
+      return true;
+    }
+    list = Tail(list, mem);
   }
-  return length;
+  return false;
 }
 
-Val ListAt(Mem *mem, Val list, u32 index)
+Val ListConcat(Val a, Val b, Mem *mem)
 {
-  if (IsNil(list)) return nil;
-  if (index == 0) return Head(mem, list);
-  return ListAt(mem, Tail(mem, list), index - 1);
+  Assert(IsPair(a));
+  if (IsNil(a)) return b;
+  if (IsNil(b)) return a;
+
+  Val cur = a;
+  while (!IsNil(Tail(cur, mem))) {
+    cur = Tail(cur, mem);
+  }
+  SetTail(cur, b, mem);
+  return a;
 }
 
-Val ListFrom(Mem *mem, Val list, u32 index)
-{
-  if (IsNil(list)) return nil;
-  if (index == 0) return list;
-  return ListFrom(mem, Tail(mem, list), index - 1);
-}
-
-Val ReverseOnto(Mem *mem, Val list, Val tail)
-{
-  if (IsNil(list)) return tail;
-  return ReverseOnto(mem, Tail(mem, list), MakePair(mem, Head(mem, list), tail));
-}
-
-Val ListAppend(Mem *mem, Val list, Val value)
-{
-  list = ReverseOnto(mem, list, nil);
-  return ReverseOnto(mem, MakePair(mem, value, list), nil);
-}
-
-Val ListConcat(Mem *mem, Val list1, Val list2)
-{
-  list1 = ReverseOnto(mem, list1, nil);
-  return ReverseOnto(mem, list1, list2);
-}
-
-bool IsTagged(Mem *mem, Val list, char *tag)
+bool IsTagged(Val list, char *tag, Mem *mem)
 {
   if (!IsPair(list)) return false;
-  return Eq(Head(mem, list), SymbolFor(tag));
+  return Eq(SymbolFor(tag), Head(list, mem));
 }
 
-bool IsTuple(Mem *mem, Val tuple)
+Val ListFrom(Val list, u32 pos, Mem *mem)
 {
-  if (!IsObj(tuple)) return false;
-  u32 index = RawVal(tuple);
-  return IsTupleHeader(mem->values[index]);
-}
-
-Val MakeTuple(Mem *mem, u32 count)
-{
-  Val tuple = ObjVal(NextFree(mem));
-  VecPush(mem->values, TupleHeader(count));
-
-  if (count == 0) {
-    VecPush(mem->values, nil);
+  Assert(IsPair(list));
+  for (u32 i = 0; i < pos; i++) {
+    list = Tail(list, mem);
   }
+  return list;
+}
 
-  for (u32 i = 0; i < count; i++) {
-    VecPush(mem->values, nil);
+Val ListAt(Val list, u32 pos, Mem *mem)
+{
+  if (pos == 0) return Head(list, mem);
+  if (IsNil(list)) return nil;
+  return ListAt(Tail(list, mem), pos-1, mem);
+}
+
+u32 ListLength(Val list, Mem *mem)
+{
+  Assert(IsPair(list));
+  if (IsNil(list)) return 0;
+  return ListLength(Tail(list, mem), mem) + 1;
+}
+
+Val ReverseList(Val list, Mem *mem)
+{
+  Assert(IsPair(list));
+
+  Val new_list = nil;
+  while (!IsNil(list)) {
+    new_list = Pair(Head(list, mem), new_list, mem);
+    list = Tail(list, mem);
   }
-
-  return tuple;
+  return new_list;
 }
 
-Val TupleFromList(Mem *mem, Val list)
-{
-  u32 length = ListLength(mem, list);
-  Val tuple = MakeTuple(mem, length);
-  for (u32 i = 0; i < length; i++) {
-    TupleSet(mem, tuple, i, Head(mem, list));
-    list = Tail(mem, list);
-  }
-
-  return tuple;
-}
-
-u32 TupleLength(Mem *mem, Val tuple)
-{
-  Assert(IsTuple(mem, tuple));
-  u32 index = RawVal(tuple);
-  return RawVal(mem->values[index]);
-}
-
-Val TupleAt(Mem *mem, Val tuple, u32 i)
-{
-  Assert(IsTuple(mem, tuple));
-  u32 index = RawVal(tuple);
-  return mem->values[index + i + 1];
-}
-
-void TupleSet(Mem *mem, Val tuple, u32 i, Val val)
-{
-  Assert(IsTuple(mem, tuple));
-  u32 index = RawVal(tuple);
-  mem->values[index + i + 1] = val;
-}
-
-bool IsMap(Mem *mem, Val map)
-{
-  if (!IsObj(map)) return false;
-  u32 index = RawVal(map);
-  return IsMapHeader(mem->values[index]);
-}
-
-Val MakeMap(Mem *mem, Val items)
-{
-  Val keys = Head(mem, items);
-  Val vals = Tail(mem, items);
-  Val map = ObjVal(NextFree(mem));
-  VecPush(mem->values, MapHeader(TupleLength(mem, keys)));
-  VecPush(mem->values, keys);
-  VecPush(mem->values, vals);
-  return map;
-}
-
-u32 MapSize(Mem *mem, Val map)
-{
-  Assert(IsMap(mem, map));
-  u32 index = RawVal(map);
-  return RawVal(mem->values[index]);
-}
-
-Val MapKeys(Mem *mem, Val map)
-{
-  Assert(IsMap(mem, map));
-  u32 index = RawVal(map);
-  return mem->values[index+1];
-}
-
-Val MapVals(Mem *mem, Val map)
-{
-  Assert(IsMap(mem, map));
-  u32 index = RawVal(map);
-  return mem->values[index+2];
-}
-
-bool IsBinary(Mem *mem, Val binary)
-{
-  if (!IsObj(binary)) return false;
-  u32 index = RawVal(binary);
-  return IsBinaryHeader(mem->values[index]);
-}
-
-u32 NumBinaryCells(u32 length)
+static u32 NumBinaryCells(u32 length)
 {
   if (length == 0) return 1;
   return (length - 1) / sizeof(Val) + 1;
 }
 
-Val MakeBinaryFrom(Mem *mem, char *str, u32 length)
+Val MakeBinary(char *text, Mem *mem)
 {
-  Val binary = ObjVal(NextFree(mem));
-  VecPush(mem->values, BinaryHeader(length));
-
-  if (length == 0) {
-    VecPush(mem->values, (Val)0);
-    return binary;
-  }
-
-  u32 num_words = NumBinaryCells(length);
-  GrowVec(mem->values, num_words);
-
-  u8 *bytes = BinaryData(mem, binary);
-  for (u32 i = 0; i < length; i++) {
-    bytes[i] = str[i];
-  }
-
-  return binary;
-}
-
-Val MakeBinary(Mem *mem, u32 length)
-{
-  Val binary = ObjVal(NextFree(mem));
+  u32 index = VecCount(mem->values);
+  u32 length = StrLen(text);
   VecPush(mem->values, BinaryHeader(length));
   if (length == 0) {
-    VecPush(mem->values, (Val)0);
-    return binary;
+    VecPush(mem->values, nil);
+  } else {
+    u32 words = NumBinaryCells(length);
+    GrowVec(mem->values, words);
+    char *data = (char*)(mem->values + index + 1);
+    for (u32 i = 0; i < length; i++) {
+      data[i] = text[i];
+    }
   }
 
-  u32 num_words = NumBinaryCells(length);
-  GrowVec(mem->values, num_words);
-
-  u8 *bytes = BinaryData(mem, binary);
-  for (u32 i = 0; i < length; i++) {
-    bytes[i] = 0;
-  }
-
-  return binary;
+  return ObjVal(index);
 }
 
-u32 BinaryLength(Mem *mem, Val binary)
+bool IsBinary(Val bin, Mem *mem)
 {
-  Assert(IsBinary(mem, binary));
-  u32 index = RawVal(binary);
+  u32 index = RawVal(bin);
+  return IsBinaryHeader(mem->values[index]);
+}
+
+u32 BinaryLength(Val bin, Mem *mem)
+{
+  u32 index = RawVal(bin);
+  Assert(IsBinaryHeader(mem->values[index]));
   return RawVal(mem->values[index]);
 }
 
-u8 *BinaryData(Mem *mem, Val binary)
+char *BinaryData(Val bin, Mem *mem)
 {
-  Assert(IsBinary(mem, binary));
-  u32 index = RawVal(binary);
-  return (u8*)(mem->values + index + 1);
+  u32 index = RawVal(bin);
+  Assert(IsBinaryHeader(mem->values[index]));
+  return (char*)(mem->values + index + 1);
 }
 
-void BinaryToString(Mem *mem, Val binary, char *dst)
+Val MakeTuple(u32 length, Mem *mem)
 {
-  Assert(IsBinary(mem, binary));
-
-  u32 length = BinaryLength(mem, binary);
-  for (u32 i = 0; i < length; i++) {
-    dst[i] = BinaryData(mem, binary)[i];
-  }
-  dst[length] = '\0';
-}
-
-static u32 IOListToString(Mem *mem, Val list, Buf *buf)
-{
-  u32 len = 0;
-  while (!IsNil(list)) {
-    Val val = Head(mem, list);
-    if (IsInt(val)) {
-      u8 c = RawInt(val);
-      len += AppendByte(buf, c);
-    } else if (IsSym(val)) {
-      len += Append(buf, (u8*)SymbolName(mem, val), SymbolLength(mem, val));
-    } else if (IsBinary(mem, val)) {
-      len += Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
-    } else if (IsList(mem, val)) {
-      if (!IOListToString(mem, val, buf)) {
-        return len;
-      }
-    } else {
-      return len;
+  u32 index = VecCount(mem->values);
+  VecPush(mem->values, TupleHeader(length));
+  if (length == 0) {
+    VecPush(mem->values, nil);
+  } else {
+    for (u32 i = 0; i < length; i++) {
+      VecPush(mem->values, nil);
     }
-    list = Tail(mem, list);
   }
-  return len;
+  return ObjVal(index);
 }
 
-u32 ValToString(Mem *mem, Val val, Buf *buf)
+bool IsTuple(Val tuple, Mem *mem)
 {
-  if (IsNil(val)) {
-    return Append(buf, (u8*)"nil", 3);
-  } else if (IsNum(val)) {
-    return AppendFloat(buf, RawNum(val), 4);
-  } else if (IsInt(val)) {
-    return AppendInt(buf, RawInt(val));
-  } else if (IsSym(val)) {
-    char *str = SymbolName(mem, val);
-    return Append(buf, (u8*)str, SymbolLength(mem, val));
-  } else if (IsBinary(mem, val)) {
-    return Append(buf, BinaryData(mem, val), BinaryLength(mem, val));
-  } else if (IsList(mem, val)) {
-    return IOListToString(mem, val, buf);
-  } else {
-    return 0;
+  return IsTupleHeader(mem->values[RawVal(tuple)]);
+}
+
+u32 TupleLength(Val tuple, Mem *mem)
+{
+  Assert(IsTuple(tuple, mem));
+  return RawVal(mem->values[RawVal(tuple)]);
+}
+
+bool TupleContains(Val tuple, Val value, Mem *mem)
+{
+  Assert(IsTuple(tuple, mem));
+  for (u32 i = 0; i < TupleLength(tuple, mem); i++) {
+    if (Eq(value, TupleGet(tuple, i, mem))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void TupleSet(Val tuple, u32 index, Val value, Mem *mem)
+{
+  Assert(IsTuple(tuple, mem));
+  u32 obj_index = RawVal(tuple);
+  u32 length = RawVal(mem->values[obj_index]);
+  Assert(index < length);
+  mem->values[obj_index + 1 + index] = value;
+}
+
+Val TupleGet(Val tuple, u32 index, Mem *mem)
+{
+  Assert(IsTuple(tuple, mem));
+  u32 obj_index = RawVal(tuple);
+  u32 length = RawVal(mem->values[obj_index]);
+  Assert(index < length);
+  return mem->values[obj_index + 1 + index];
+}
+
+#define INIT_MAP_CAPACITY 32
+Val MakeValMap(Mem *mem)
+{
+  u32 size = INIT_MAP_CAPACITY;
+  Val keys = MakeTuple(size, mem);
+  Val values = MakeTuple(size, mem);
+
+  u32 index = VecCount(mem->values);
+  VecPush(mem->values, MapHeader(0));
+  VecPush(mem->values, keys);
+  VecPush(mem->values, values);
+
+  return ObjVal(index);
+}
+
+bool IsValMap(Val map, Mem *mem)
+{
+  return IsMapHeader(mem->values[RawVal(map)]);
+}
+
+Val ValMapKeys(Val map, Mem *mem)
+{
+  Assert(IsValMap(map, mem));
+  u32 obj = RawVal(map);
+  return mem->values[obj+1];
+}
+
+Val ValMapValues(Val map, Mem *mem)
+{
+  Assert(IsValMap(map, mem));
+  u32 obj = RawVal(map);
+  return mem->values[obj+2];
+}
+
+u32 ValMapCapacity(Val map, Mem *mem)
+{
+  Assert(IsValMap(map, mem));
+  return TupleLength(ValMapKeys(map, mem), mem);
+}
+
+u32 ValMapCount(Val map, Mem *mem)
+{
+  Assert(IsValMap(map, mem));
+  u32 obj = RawVal(map);
+  return RawVal(mem->values[obj]);
+}
+
+void ValMapSet(Val map, Val key, Val value, Mem *mem)
+{
+  Assert(IsValMap(map, mem));
+
+  u32 cap = ValMapCapacity(map, mem);
+  Val keys = ValMapKeys(map, mem);
+  Val vals = ValMapValues(map, mem);
+  u32 last_nil = cap;
+  for (u32 i = 0; i < cap; i++) {
+    if (Eq(key, TupleGet(keys, i, mem))) {
+      TupleSet(vals, i, value, mem);
+      return;
+    } else if (IsNil(TupleGet(keys, i, mem))) {
+      last_nil = i;
+      break;
+    }
+  }
+
+  // map full
+  if (last_nil == cap) {
+    Val new_keys = MakeTuple(2*cap, mem);
+    Val new_vals = MakeTuple(2*cap, mem);
+    for (u32 i = 0; i < cap; i++) {
+      TupleSet(new_keys, i, TupleGet(keys, i, mem), mem);
+      TupleSet(new_vals, i, TupleGet(vals, i, mem), mem);
+    }
+    for (u32 i = cap; i < 2*cap; i++) {
+      TupleSet(new_keys, i, nil, mem);
+      TupleSet(new_vals, i, nil, mem);
+    }
+
+    mem->values[RawVal(map)+1] = new_keys;
+    mem->values[RawVal(map)+2] = new_vals;
+    keys = new_keys;
+    vals = new_vals;
+  }
+
+  TupleSet(keys, last_nil, key, mem);
+  TupleSet(vals, last_nil, value, mem);
+}
+
+void ValMapPut(Val map, Val key, Val value, Mem *mem)
+{
+  Assert(IsValMap(map, mem));
+
+  if (ValMapContains(map, key, mem) && Eq(value, ValMapGet(map, key, mem))) return;
+
+  u32 cap = ValMapCapacity(map, mem);
+  if (ValMapCount(map, mem) == cap && !ValMapContains(map, key, mem)) {
+    cap = 2*cap;
+  }
+
+  Val keys = ValMapKeys(map, mem);
+  Val vals = ValMapValues(map, mem);
+  Val new_vals = MakeTuple(cap, mem);
+  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
+    if (Eq(key, TupleGet(keys, i, mem))) {
+      TupleSet(new_vals, i, value, mem);
+    } else {
+      TupleSet(new_vals, i, TupleGet(vals, i, mem), mem);
+    }
+  }
+  for (u32 i = TupleLength(keys, mem); i < cap; i++) {
+    TupleSet(new_vals, i, nil, mem);
   }
 }
 
-u32 PrintValStr(Mem *mem, Val val)
+Val ValMapGet(Val map, Val key, Mem *mem)
 {
-  return ValToString(mem, val, output);
+  u32 obj = RawVal(map);
+  Assert(IsMapHeader(mem->values[obj]));
+  Val keys = mem->values[obj+1];
+  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
+    if (Eq(key, TupleGet(keys, i, mem))) {
+      Val vals = mem->values[obj+2];
+      return TupleGet(vals, i, mem);
+    }
+  }
+  return nil;
 }
 
-u32 ValStrLen(Mem *mem, Val val)
+bool ValMapContains(Val map, Val key, Mem *mem)
 {
-  if (IsSym(val)) {
-    return SymbolLength(mem, val);
-  } else if (IsBinary(mem, val)) {
-    return BinaryLength(mem, val);
+  Assert(IsValMap(map, mem));
+
+  Val keys = mem->values[RawVal(map)+1];
+  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
+    if (Eq(key, TupleGet(keys, i, mem))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static u32 DebugTail(Val value, Mem *mem)
+{
+  if (IsNil(value)) {
+    return Print(")");
+  }
+
+  if (IsPair(value)) {
+    u32 length = Print(" ");
+    length += PrintVal(Head(value, mem), mem);
+    return length + DebugTail(Tail(value, mem), mem);
   } else {
-    char str[255];
-    Buf buf = MemBuf(str, 255);
-    ValToString(mem, val, &buf);
-    return buf.count;
+    u32 length = Print(" | ");
+    length += PrintVal(value, mem);
+    return length + Print(")");
+  }
+}
+
+u32 PrintVal(Val value, Mem *mem)
+{
+  if (IsNil(value)) {
+    return Print("nil");
+  } else if (IsNum(value)) {
+    return PrintFloat(value.as_f, 6);
+  } else if (IsInt(value)) {
+    return PrintInt(RawInt(value));
+  } else if (IsSym(value)) {
+    Print(":");
+    return Print(SymbolName(value, mem)) + 1;
+  } else if (IsPair(value)) {
+    if (IsTagged(value, "λ", mem)) {
+      Val num = ListAt(value, 1, mem);
+      u32 length = Print("λ");
+      length += PrintInt(RawInt(num));
+      return length;
+    }
+    if (IsTagged(value, "@", mem)) {
+      u32 length = Print("@");
+      Val name = ListAt(value, 1, mem);
+      length += Print(SymbolName(name, mem));
+      return length;
+    }
+    if (IsTagged(value, "ε", mem)) {
+      u32 length = Print("ε");
+      u32 num = RawVal(value);
+      length += PrintInt(num);
+      return length;
+    }
+
+    u32 length = 0;
+    length += Print("(");
+    length += PrintVal(Head(value, mem), mem);
+    return length + DebugTail(Tail(value, mem), mem);
+  } else if (IsObj(value) && IsBinaryHeader(mem->values[RawVal(value)])) {
+    Print("\"");
+    PrintN(BinaryData(value, mem), BinaryLength(value, mem));
+    Print("\"");
+    return BinaryLength(value, mem) + 2;
+  } else if (IsObj(value) && IsTupleHeader(mem->values[RawVal(value)])) {
+    u32 length = Print("#[");
+    for (u32 i = 0; i < TupleLength(value, mem); i++) {
+      length += PrintVal(TupleGet(value, i, mem), mem);
+      if (i < TupleLength(value, mem) - 1) length += Print(" ");
+    }
+    length += Print("]");
+    return length;
+  } else if (IsObj(value) && IsMapHeader(mem->values[RawVal(value)])) {
+    u32 length = Print("{");
+    Val keys = ValMapKeys(value, mem);
+    Val values = ValMapValues(value, mem);
+    for (u32 i = 0; i < ValMapCapacity(value, mem); i++) {
+      Val key = TupleGet(keys, i, mem);
+      if (IsNil(key)) break;
+
+      if (i > 0) length += Print(", ");
+      if (IsSym(key)) {
+        length += Print(SymbolName(key, mem));
+        length += Print(": ");
+      } else {
+        length += PrintVal(key, mem);
+        length += Print(" : ");
+      }
+      length += PrintVal(TupleGet(values, i, mem), mem);
+    }
+    length += Print("}");
+    return length;
+  } else {
+    u32 length = 0;
+    Print("<?");
+    length += PrintInt(value.as_i);
+    Print(">");
+    return length + 3;
+  }
+}
+
+static char *TypeAbbr(Val value, Mem *mem)
+{
+  if (IsNumeric(value) || IsNil(value)) return "";
+  else if (IsSym(value))                return ":";
+  else if (IsPair(value))               return "p";
+  else if (IsTuple(value, mem))         return "t";
+  else if (IsValMap(value, mem))        return "m";
+  else if (IsBinary(value, mem))        return "b";
+  else if (IsBinaryHeader(value))       return "$";
+  else if (IsTupleHeader(value))        return "#";
+  else if (IsMapHeader(value))          return "%";
+  else                                  return "?";
+}
+
+static void PrintRawValN(Val value, u32 size, Mem *mem)
+{
+  if (IsNum(value)) {
+    PrintFloatN(RawNum(value), size);
+  } else if (IsInt(value)) {
+    PrintIntN(RawInt(value), size, ' ');
+  } else if (IsSym(value)) {
+    if (Eq(value, SymbolFor("false"))) {
+      PrintN("false", size);
+    } else if (Eq(value, SymbolFor("true"))) {
+      PrintN("true", size);
+    } else {
+      u32 len = Min(size-1, NumChars(SymbolName(value, mem)));
+
+      for (u32 i = 0; i < size - 1 - len; i++) Print(" ");
+      Print(":");
+      PrintN(SymbolName(value, mem), len);
+    }
+  } else if (IsNil(value)) {
+    PrintN("nil", size);
+  } else {
+    u32 digits = NumDigits(RawVal(value));
+    if (digits < size-1) {
+      for (u32 i = 0; i < size-1-digits; i++) Print(" ");
+    }
+
+    Print(TypeAbbr(value, mem));
+    PrintInt(RawVal(value));
   }
 }
 
@@ -403,14 +594,14 @@ void PrintMem(Mem *mem)
         if (bins[c] > 0) {
           bins[c]--;
 
-          char *data = (char*)(&value.as_v);
+          char *data = (char*)(&value.as_i);
           if (IsPrintable(data[0]) && IsPrintable(data[1]) && IsPrintable(data[2]) && IsPrintable(data[3])) {
             Print("    \"");
             for (u32 ch = 0; ch < 4; ch++) PrintChar(data[ch]);
             Print("\"");
           } else {
             Print("  ");
-            PrintHexN(value.as_v, 8, '0');
+            PrintHexN(value.as_i, 8, '0');
           }
         } else if (objs[c] > 0) {
           objs[c]--;

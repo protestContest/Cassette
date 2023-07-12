@@ -1,25 +1,17 @@
 #pragma once
 #include "mem.h"
-#include "string_table.h"
 
 typedef struct {
-  u8 *code;
-  Val *constants;
-  StringTable symbols;
+  u8 *data;
+  Mem constants;
 } Chunk;
 
-#define ChunkSignature  0xCA55E77E
+#define ChunkRef(chunk, i)    ((chunk)->data[i])
+#define ChunkConst(chunk, i)  ((chunk)->constants.values[ChunkRef(chunk, i)])
 
 void InitChunk(Chunk *chunk);
-
-u8 ChunkRef(Chunk *chunk, u32 index);
-Val ChunkConst(Chunk *chunk, u32 index);
-
-Chunk Assemble(Val stmts, Mem *mem);
-void Disassemble(Chunk *chunk, Mem *mem);
-u32 PrintInstruction(Chunk *chunk, u32 i, Mem *mem);
-void PrintChunkConstants(Chunk *chunk, Mem *mem);
-
-void PrintChunk(Chunk *chunk);
-bool WriteChunk(Chunk *chunk, char *filename);
-bool ReadChunk(char *path, Chunk *chunk);
+void DestroyChunk(Chunk *chunk);
+u8 PushConst(Chunk *chunk, Val value);
+void PushByte(Chunk *chunk, u8 byte);
+void AddSymbol(Chunk *chunk, Val symbol, Mem *mem);
+void Disassemble(Chunk *chunk);

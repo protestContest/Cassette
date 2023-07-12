@@ -1,15 +1,3 @@
 #pragma once
 
-struct Token;
-
-typedef struct {
-  char *name;
-  char *data;
-  u32 length;
-} Source;
-
-Source ReadSourceFile(char *filename);
-void PrintTokenPosition(Source src, struct Token token);
-void PrintSourceLine(Source src, u32 line, u32 start, u32 length);
-void PrintSource(Source src);
-void PrintTokenContext(Source src, struct Token token, u32 num_lines);
+void PrintSourceContext(char *source, u32 line, u32 context_lines, u32 h_start, u32 h_length);

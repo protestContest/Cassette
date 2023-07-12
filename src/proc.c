@@ -64,10 +64,34 @@ static Val PrimRemainder(VM *vm)
   return IntVal(result);
 }
 
+static bool PrimPrintVal(Val val, VM *vm)
+{
+  Mem *mem = &vm->mem;
+
+  if (IsBinary(val, mem)) {
+    u32 length = BinaryLength(val, mem);
+    PrintN(BinaryData(val, mem), length);
+    return true;
+  } else if (IsSym(val)) {
+    Print(SymbolName(val, mem));
+    return true;
+  } else if (IsPair(val)) {
+    return
+      PrimPrintVal(Head(val, mem), vm) &&
+      PrimPrintVal(Tail(val, mem), vm);
+  } else {
+    RuntimeError(vm, "Value not printable");
+    return false;
+  }
+}
+
 static Val PrimPrint(VM *vm)
 {
   Val val = StackPop(vm);
-  u32 printed = PrintVal(val, &vm->mem);
-  Print("\n");
-  return IntVal(printed);
+  if (PrimPrintVal(val, vm)) {
+    Print("\n");
+    return SymbolFor("ok");
+  } else {
+    return SymbolFor("error");
+  }
 }

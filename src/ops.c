@@ -1,88 +1,94 @@
 #include "ops.h"
+#include "vm.h"
 
 typedef struct {
   char *name;
-  ArgInfo args;
+  OpArgs args;
 } OpInfo;
 
-static OpInfo op_info[NUM_OPCODES] = {
-  [OpNoop]    = { "noop",     ArgsNone          },
-  [OpHalt]    = { "halt",     ArgsNone          },
-  [OpConst]   = { "const",    ArgsConstReg      },
-  [OpMove]    = { "move",     ArgsRegReg        },
-  [OpBranch]  = { "branch",   ArgsConstReg      },
-  [OpBranchF] = { "branchf",  ArgsConstReg      },
-  [OpJump]    = { "jump",     ArgsConst         },
-  [OpGoto]    = { "goto",     ArgsReg           },
-  [OpStr]     = { "str",      ArgsConstReg      },
-  [OpLambda]  = { "lambda",   ArgsConstReg      },
-  [OpPair]    = { "pair",     ArgsConstReg      },
-  [OpTuple]   = { "tuple",    ArgsReg           },
-  [OpTSet]   =  { "tset",     ArgsRegConstReg   },
-  [OpMap]     = { "map",      ArgsReg           },
-  [OpHead]    = { "head",     ArgsReg           },
-  [OpTail]    = { "tail",     ArgsReg           },
-  [OpPush]    = { "push",     ArgsRegReg        },
-  [OpPop]     = { "pop",      ArgsRegReg        },
-  [OpLookup]  = { "lookup",   ArgsConstConstReg },
-  [OpDefine]  = { "define",   ArgsConstReg      },
-  [OpPrim]    = { "prim",     ArgsReg           },
-  [OpNot]     = { "not",      ArgsReg           },
-  [OpEqual]   = { "equal",    ArgsReg           },
-  [OpGt]      = { "gt",       ArgsReg           },
-  [OpLt]      = { "lt",       ArgsReg           },
-  [OpAdd]     = { "add",      ArgsReg           },
-  [OpSub]     = { "sub",      ArgsReg           },
-  [OpMul]     = { "mul",      ArgsReg           },
-  [OpDiv]     = { "div",      ArgsReg           },
+static OpInfo ops[] = {
+  [OpConst]   = {"const", ArgsConst},
+  [OpStr]     = {"str", ArgsNone},
+  [OpPair]    = {"pair", ArgsNone},
+  [OpList]    = {"list", ArgsConst},
+  [OpTuple]   = {"tuple", ArgsConst},
+  [OpMap]     = {"map", ArgsConst},
+  [OpTrue]    = {"true", ArgsNone},
+  [OpFalse]   = {"false", ArgsNone},
+  [OpNil]     = {"nil", ArgsNone},
+  [OpAdd]     = {"add", ArgsNone},
+  [OpSub]     = {"sub", ArgsNone},
+  [OpMul]     = {"mul", ArgsNone},
+  [OpDiv]     = {"div", ArgsNone},
+  [OpNeg]     = {"neg", ArgsNone},
+  [OpNot]     = {"not", ArgsNone},
+  [OpEq]      = {"eq", ArgsNone},
+  [OpGt]      = {"gt", ArgsNone},
+  [OpLt]      = {"lt", ArgsNone},
+  [OpIn]      = {"in", ArgsNone},
+  [OpAccess]  = {"access", ArgsNone},
+  [OpLambda]  = {"lambda", ArgsConst},
+  [OpSave]    = {"save", ArgsReg},
+  [OpRestore] = {"restore", ArgsReg},
+  [OpCont]    = {"cont", ArgsConst},
+  [OpApply]   = {"apply", ArgsNone},
+  [OpReturn]  = {"return", ArgsNone},
+  [OpLookup]  = {"lookup", ArgsConst},
+  [OpDefine]  = {"define", ArgsConst},
+  [OpJump]    = {"jump", ArgsConst},
+  [OpBranch]  = {"branch", ArgsConst},
+  [OpBranchF] = {"branchf", ArgsConst},
+  [OpPop]     = {"pop", ArgsNone},
+  [OpDefMod]  = {"defmod", ArgsConst},
+  [OpGetMod]  = {"getmod", ArgsConst},
+  [OpImport]  = {"import", ArgsConst},
+  [OpHalt]    = {"halt", ArgsNone},
 };
 
 char *OpName(OpCode op)
 {
-  return op_info[op].name;
-}
-
-ArgInfo OpArgs(OpCode op)
-{
-  return op_info[op].args;
+  return ops[op].name;
 }
 
 u32 OpLength(OpCode op)
 {
-  switch (op_info[op].args) {
-  case ArgsNone:          return 1;
-  case ArgsConst:         return 2;
-  case ArgsReg:           return 2;
-  case ArgsConstReg:      return 3;
-  case ArgsRegReg:        return 3;
-  case ArgsRegConstReg:   return 4;
-  case ArgsConstConstReg: return 4;
+  switch (ops[op].args) {
+  case ArgsNone:    return 1;
+  case ArgsConst:   return 2;
+  case ArgsReg:     return 2;
   }
 }
 
-void InitOps(Mem *mem)
+OpCode OpFor(Val name)
 {
-  for (u32 i = 0; i < ArrayCount(op_info); i++) {
-    MakeSymbol(mem, op_info[i].name);
+  for (u32 i = 0; i < ArrayCount(ops); i++) {
+    if (Eq(name, SymbolFor(ops[i].name))) return i;
   }
+  return -1;
 }
 
-u32 PrintOpCode(OpCode op)
+OpArgs OpArgType(OpCode op)
 {
-  return Print(OpName(op));
+  return ops[op].args;
 }
 
-Val OpSymbol(OpCode op)
+u32 PrintInstruction(Chunk *chunk, u32 index)
 {
-  return SymbolFor(op_info[op].name);
-}
+  OpCode op = chunk->data[index];
+  u32 length = Print(ops[op].name);
 
-OpCode OpForSymbol(Val sym)
-{
-  for (u32 i = 0; i < ArrayCount(op_info); i++) {
-    if (Eq(sym, OpSymbol(i))) {
-      return i;
-    }
+  switch (ops[op].args) {
+  case ArgsNone:
+    return length;
+  case ArgsConst:
+    length += Print(" ");
+    length += PrintVal(ChunkConst(chunk, index+1), &chunk->constants);
+    return length;
+  case ArgsReg:
+    length += Print(" ");
+    if (ChunkRef(chunk, index+1) == RegCont) length += Print("con");
+    else if (ChunkRef(chunk, index+1) == RegEnv) length += Print("env");
+    else length += PrintInt(ChunkRef(chunk, index+1));
+    return length;
   }
-  return OpNoop;
 }

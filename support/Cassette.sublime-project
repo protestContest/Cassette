@@ -3,8 +3,7 @@
 		{
 			"path": "..",
 			"binary_file_patterns": [
-				"build/",
-				"src/"
+				"build/"
 			],
 		}
 	],
