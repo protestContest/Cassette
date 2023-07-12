@@ -7,7 +7,7 @@ typedef struct {
   Mem *mem;
 } Module;
 
-static Val FindImports(Val ast, Mem *mem)
+Val FindImports(Val ast, Mem *mem)
 {
   if (IsNil(ast)) return nil;
   if (!IsPair(ast)) return nil;
@@ -24,10 +24,36 @@ static Val FindImports(Val ast, Mem *mem)
   return imports;
 }
 
-static Val WrapAST(Val ast, Val name, Mem *mem)
+Val FindExports(Val ast, Mem *mem)
+{
+  if (!IsPair(ast)) return nil;
+
+  if (IsTagged(ast, "mod", mem)) {
+    Val mod = ListAt(ast, 2, mem);
+    return FindExports(ListAt(mod, 2, mem), mem);
+  }
+
+  Val exports = nil;
+  while (!IsNil(ast)) {
+    Val node = Head(ast, mem);
+    if (IsTagged(node, "let", mem)) {
+      node = Tail(node, mem);
+      while (!IsNil(node)) {
+        Val assign = Head(node, mem);
+        exports = Pair(Head(assign, mem), exports, mem);
+        node = Tail(node, mem);
+      }
+    }
+    ast = Tail(ast, mem);
+  }
+
+  return exports;
+}
+
+Val WrapModule(Val ast, Val name, Mem *mem)
 {
   return
-    Pair(MakeSymbol("mod", mem),
+    Pair(MakeSymbol("defmod", mem),
     Pair(name,
     Pair(
       Pair(MakeSymbol("->", mem),
@@ -44,7 +70,7 @@ static Module LoadModule(Val name, Mem *mem)
 
   char *source = (char*)ReadFile(filename);
   Val ast = Parse(source, mem);
-  mod.ast = WrapAST(ast, name, mem);
+  mod.ast = WrapModule(ast, name, mem);
   mod.imports = FindImports(mod.ast, mem);
   return mod;
 }

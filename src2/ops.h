@@ -36,6 +36,7 @@ typedef enum {
   OpPop,
   OpHalt,
   OpDefMod,
+  OpGetMod,
   OpImport
 } OpCode;
 

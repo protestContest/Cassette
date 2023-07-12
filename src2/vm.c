@@ -8,12 +8,27 @@ void InitVM(VM *vm)
 {
   InitMem(&vm->mem);
   InitMap(&vm->modules);
+
   vm->pc = 0;
   vm->cont = nil;
-  vm->env = Pair(MakeValMap(&vm->mem), nil, &vm->mem);
   vm->val = NULL;
   vm->stack = NULL;
   vm->chunk = NULL;
+  vm->env = InitialEnv(&vm->mem);
+  vm->error = false;
+  vm->trace = false;
+}
+
+void DestroyVM(VM *vm)
+{
+  DestroyMem(&vm->mem);
+  DestroyMap(&vm->modules);
+  FreeVec(vm->val);
+  FreeVec(vm->stack);
+  vm->chunk = NULL;
+  vm->cont = nil;
+  vm->error = false;
+  vm->trace = false;
 }
 
 Val StackPop(VM *vm)
@@ -57,6 +72,7 @@ void RuntimeError(VM *vm, char *message)
   Print("Runtime error: ");
   Print(message);
   Print("\n");
+  vm->error = true;
   Halt(vm);
 }
 
@@ -74,12 +90,6 @@ void TraceInstruction(VM *vm)
   for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
     Print(" │ ");
     PrintVal(vm->val[i], &vm->mem);
-  }
-
-  if (VecCount(vm->stack) > 0) Print(" ┃ ");
-  for (u32 i = 0; i < VecCount(vm->stack); i++) {
-    Print(" │ ");
-    PrintVal(vm->stack[i], &vm->mem);
   }
 
   Print("\n");
@@ -153,21 +163,20 @@ void ArithmeticOp(VM *vm, OpCode op)
   StackPush(vm, result);
 }
 
-void RunChunk(VM *vm, Chunk *chunk)
+Val RunChunk(VM *vm, Chunk *chunk)
 {
-  vm->pc = 0;
   vm->cont = nil;
   vm->val = NULL;
   vm->stack = NULL;
   vm->chunk = chunk;
   MergeStrings(&vm->mem, &chunk->constants);
-  vm->env = InitialEnv(&vm->mem);
+  vm->error = false;
   Mem *mem = &vm->mem;
 
-  Print("────┬─Run──────────────────┬────\n");
+  // Print("────┬─Run──────────────────┬────\n");
 
   while (vm->pc < VecCount(chunk->data)) {
-    TraceInstruction(vm);
+    if (vm->trace) TraceInstruction(vm);
 
     OpCode op = ChunkRef(chunk, vm->pc);
     switch (op) {
@@ -411,6 +420,17 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     }
+    case OpGetMod: {
+      Val name = ChunkConst(chunk, vm->pc+1);
+      if (MapContains(&vm->modules, name.as_i)) {
+        Val mod = (Val){.as_i = MapGet(&vm->modules, name.as_i)};
+        StackPush(vm, mod);
+        vm->pc += OpLength(op);
+      } else {
+        RuntimeError(vm, "Module not found");
+      }
+      break;
+    }
     case OpImport: {
       Val name = ChunkConst(chunk, vm->pc+1);
       Val mod = (Val){.as_i = MapGet(&vm->modules, name.as_i)};
@@ -421,11 +441,45 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
   }
 
-  PrintIntN(vm->pc, 4, ' ');
-  Print("│                     ");
-  for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
-    Print(" │ ");
-    PrintVal(vm->val[i], &vm->mem);
+  // PrintIntN(vm->pc, 4, ' ');
+  // Print("│                     ");
+  // for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
+  //   Print(" │ ");
+  //   PrintVal(vm->val[i], &vm->mem);
+  // }
+  // Print("\n");
+
+  if (!vm->error && VecCount(vm->val) > 0) {
+    return StackPop(vm);
+  } else {
+    return nil;
   }
-  Print("\n");
+}
+
+void PrintStack(VM *vm)
+{
+  Print("┌╴Stack╶─────────────\n");
+  if (VecCount(vm->val) == 0) {
+    Print("│ (empty)\n");
+  }
+  for (u32 i = 0; i < VecCount(vm->val); i++) {
+    Print("│");
+    PrintVal(vm->val[i], &vm->mem);
+    Print("\n");
+  }
+  Print("└────────────────────\n");
+}
+
+void PrintCallStack(VM *vm)
+{
+  Print("┌╴Call Stack╶────────\n");
+  if (VecCount(vm->stack) == 0) {
+    Print("│ (empty)\n");
+  }
+  for (u32 i = 0; i < VecCount(vm->stack); i++) {
+    Print("│");
+    PrintVal(vm->stack[i], &vm->mem);
+    Print("\n");
+  }
+  Print("└────────────────────\n");
 }

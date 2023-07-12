@@ -11,6 +11,8 @@ typedef struct {
   Mem mem;
   Map modules;
   Chunk *chunk;
+  bool error;
+  bool trace;
 } VM;
 
 typedef enum {
@@ -20,9 +22,13 @@ typedef enum {
 #define NUM_REGS 2
 
 void InitVM(VM *vm);
-void RunChunk(VM *vm, Chunk *chunk);
+void DestroyVM(VM *vm);
+Val RunChunk(VM *vm, Chunk *chunk);
 void RuntimeError(VM *vm, char *message);
 
 Val StackPop(VM *vm);
 Val StackPeek(VM *vm, u32 n);
 void StackPush(VM *vm, Val val);
+
+void PrintStack(VM *vm);
+void PrintCallStack(VM *vm);

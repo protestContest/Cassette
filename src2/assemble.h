@@ -9,4 +9,4 @@ Val LabelRef(Val label, Mem *mem);
 Seq LabelSeq(Val label, Mem *mem);
 Val RegRef(u32 reg, Mem *mem);
 
-Chunk Assemble(Seq stmts, Mem *mem);
+void Assemble(Seq seq, Chunk *chunk, Mem *mem);

@@ -58,20 +58,19 @@ static u32 AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
   return OpLength(op);
 }
 
-static Map LabelMap(Seq seq, Mem *mem)
+static Map LabelMap(Seq seq, u32 offset, Mem *mem)
 {
   Map labels;
   InitMap(&labels);
 
-  u32 i = 0;
   Val stmts = seq.stmts;
   while (!IsNil(stmts)) {
     Val stmt = Head(stmts, mem);
     if (IsTagged(stmt, "label", mem)) {
       Val label = Tail(stmt, mem);
-      MapSet(&labels, label.as_i, i);
+      MapSet(&labels, label.as_i, offset);
     } else {
-      i++;
+      offset++;
     }
     stmts = Tail(stmts, mem);
   }
@@ -79,9 +78,9 @@ static Map LabelMap(Seq seq, Mem *mem)
   return labels;
 }
 
-static Val ReplaceLabels(Seq seq, Mem *mem)
+static Val ReplaceLabels(Seq seq, u32 offset, Mem *mem)
 {
-  Map labels = LabelMap(seq, mem);
+  Map labels = LabelMap(seq, offset, mem);
 
   // skip any leading labels
   while (IsTagged(Head(seq.stmts, mem), "label", mem)) seq.stmts = Tail(seq.stmts, mem);
@@ -108,16 +107,11 @@ static Val ReplaceLabels(Seq seq, Mem *mem)
   return seq.stmts;
 }
 
-Chunk Assemble(Seq seq, Mem *mem)
+void Assemble(Seq seq, Chunk *chunk, Mem *mem)
 {
-  Chunk chunk;
-  InitChunk(&chunk);
-
-  Val stmts = ReplaceLabels(seq, mem);
+  Val stmts = ReplaceLabels(seq, VecCount(chunk->data), mem);
   while (!IsNil(stmts)) {
-    u32 len = AssembleInstruction(stmts, &chunk, mem);
+    u32 len = AssembleInstruction(stmts, chunk, mem);
     stmts = ListFrom(stmts, len, mem);
   }
-
-  return chunk;
 }

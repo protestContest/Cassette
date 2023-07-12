@@ -8,6 +8,12 @@ void InitChunk(Chunk *chunk)
   InitMem(&chunk->constants);
 }
 
+void DestroyChunk(Chunk *chunk)
+{
+  DestroyMem(&chunk->constants);
+  FreeVec(chunk->data);
+}
+
 u8 PushConst(Chunk *chunk, Val value)
 {
   for (u32 i = 0; i < VecCount(chunk->constants.values); i++) {

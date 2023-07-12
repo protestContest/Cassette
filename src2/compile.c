@@ -338,29 +338,29 @@ static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
   // PrintVal(node, mem);
   // Print("\n");
 
-  if (IsNil(node))                  return EmptySeq();
-  if (IsNumeric(node))              return CompileConst(node, linkage, mem);
-  if (IsSym(node))                  return CompileVar(node, linkage, mem);
-  if (IsTagged(node, "\"", mem))    return CompileString(node, linkage, mem);
-  if (IsTagged(node, ":", mem))     return CompileSymbol(node, linkage, mem);
-  if (IsTagged(node, "[", mem))     return CompileList(node, linkage, mem);
-  if (IsTagged(node, "#[", mem))    return CompileTuple(node, linkage, mem);
-  if (IsTagged(node, "{", mem))     return CompileMap(node, linkage, mem);
-  if (IsTagged(node, "do", mem))    return CompileDo(node, linkage, mem);
-  if (IsTagged(node, "if", mem))    return CompileIf(node, linkage, mem);
-  if (IsTagged(node, ".", mem))     return CompileInfix(OpSeq(OpAccess, mem), node, linkage, mem);
-  if (IsTagged(node, "not", mem))   return CompilePrefix(OpNot, node, linkage, mem);
-  if (IsTagged(node, "*", mem))     return CompileInfix(OpSeq(OpMul, mem), node, linkage, mem);
-  if (IsTagged(node, "/", mem))     return CompileInfix(OpSeq(OpDiv, mem), node, linkage, mem);
-  if (IsTagged(node, "+", mem))     return CompileInfix(OpSeq(OpAdd, mem), node, linkage, mem);
+  if (IsNil(node))                    return EmptySeq();
+  if (IsNumeric(node))                return CompileConst(node, linkage, mem);
+  if (IsSym(node))                    return CompileVar(node, linkage, mem);
+  if (IsTagged(node, "\"", mem))      return CompileString(node, linkage, mem);
+  if (IsTagged(node, ":", mem))       return CompileSymbol(node, linkage, mem);
+  if (IsTagged(node, "[", mem))       return CompileList(node, linkage, mem);
+  if (IsTagged(node, "#[", mem))      return CompileTuple(node, linkage, mem);
+  if (IsTagged(node, "{", mem))       return CompileMap(node, linkage, mem);
+  if (IsTagged(node, "do", mem))      return CompileDo(node, linkage, mem);
+  if (IsTagged(node, "if", mem))      return CompileIf(node, linkage, mem);
+  if (IsTagged(node, ".", mem))       return CompileInfix(OpSeq(OpAccess, mem), node, linkage, mem);
+  if (IsTagged(node, "not", mem))     return CompilePrefix(OpNot, node, linkage, mem);
+  if (IsTagged(node, "*", mem))       return CompileInfix(OpSeq(OpMul, mem), node, linkage, mem);
+  if (IsTagged(node, "/", mem))       return CompileInfix(OpSeq(OpDiv, mem), node, linkage, mem);
+  if (IsTagged(node, "+", mem))       return CompileInfix(OpSeq(OpAdd, mem), node, linkage, mem);
   if (IsTagged(node, "-", mem)) {
-    if (ListLength(node, mem) > 2) return CompileInfix(OpSeq(OpSub, mem), node, linkage, mem);
-    else return CompilePrefix(OpNeg, node, linkage, mem);
+    if (ListLength(node, mem) > 2)    return CompileInfix(OpSeq(OpSub, mem), node, linkage, mem);
+    else                              return CompilePrefix(OpNeg, node, linkage, mem);
   }
-  if (IsTagged(node, "|", mem))     return CompileInfix(OpSeq(OpPair, mem), node, linkage, mem);
-  if (IsTagged(node, "in", mem))    return CompileInfix(OpSeq(OpIn, mem), node, linkage, mem);
-  if (IsTagged(node, ">", mem))     return CompileInfix(OpSeq(OpGt, mem), node, linkage, mem);
-  if (IsTagged(node, "<", mem))     return CompileInfix(OpSeq(OpLt, mem), node, linkage, mem);
+  if (IsTagged(node, "|", mem))       return CompileInfix(OpSeq(OpPair, mem), node, linkage, mem);
+  if (IsTagged(node, "in", mem))      return CompileInfix(OpSeq(OpIn, mem), node, linkage, mem);
+  if (IsTagged(node, ">", mem))       return CompileInfix(OpSeq(OpGt, mem), node, linkage, mem);
+  if (IsTagged(node, "<", mem))       return CompileInfix(OpSeq(OpLt, mem), node, linkage, mem);
   if (IsTagged(node, ">=", mem)) {
     Seq op_seq = AppendSeq(OpSeq(OpLt, mem), OpSeq(OpNot, mem), mem);
     return CompileInfix(op_seq, node, linkage, mem);
@@ -369,18 +369,18 @@ static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
     Seq op_seq = AppendSeq(OpSeq(OpGt, mem), OpSeq(OpNot, mem), mem);
     return CompileInfix(op_seq, node, linkage, mem);
   }
-  if (IsTagged(node, "==", mem))    return CompileInfix(OpSeq(OpEq, mem), node, linkage, mem);
+  if (IsTagged(node, "==", mem))      return CompileInfix(OpSeq(OpEq, mem), node, linkage, mem);
   if (IsTagged(node, "!=", mem)) {
     Seq op_seq = AppendSeq(OpSeq(OpEq, mem), OpSeq(OpNot, mem), mem);
     return CompileInfix(op_seq, node, linkage, mem);
   }
-  if (IsTagged(node, "or", mem))    return CompileLogic(node, linkage, mem);
-  if (IsTagged(node, "and", mem))   return CompileLogic(node, linkage, mem);
+  if (IsTagged(node, "or", mem))      return CompileLogic(node, linkage, mem);
+  if (IsTagged(node, "and", mem))     return CompileLogic(node, linkage, mem);
 
-  if (IsTagged(node, "->", mem))    return CompileLambda(node, linkage, mem);
-  if (IsTagged(node, "let", mem))   return CompileLet(node, linkage, mem);
+  if (IsTagged(node, "->", mem))      return CompileLambda(node, linkage, mem);
+  if (IsTagged(node, "let", mem))     return CompileLet(node, linkage, mem);
   if (IsTagged(node, "import", mem))  return CompileImport(node, linkage, mem);
-  if (IsTagged(node, "mod", mem))   return CompileModule(node, linkage, mem);
+  if (IsTagged(node, "defmod", mem))  return CompileModule(node, linkage, mem);
 
   if (IsPair(node)) return CompileCall(node, linkage, mem);
 

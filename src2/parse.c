@@ -161,11 +161,11 @@ Val ParseExpr(Precedence prec, Lexer *lex, Mem *mem)
   ParseRule rule = GetRule(lex);
   if (rule.prefix == NULL) {
     ParseError(lex, lex->token, "Expected expr");
-    return nil;
+    return Pair(MakeSymbol("error", mem), MakeSymbol("parse", mem), mem);
   }
 
   Val expr = rule.prefix(lex, mem);
-  if (IsNil(expr)) return nil;
+  if (IsTagged(expr, "error", mem)) return expr;
 
   rule = GetRule(lex);
   // Print("  ");
@@ -178,7 +178,7 @@ Val ParseExpr(Precedence prec, Lexer *lex, Mem *mem)
   while (rule.precedence >= prec) {
     // Print("ok\n");
     expr = rule.infix(expr, lex, mem);
-    if (IsNil(expr)) return nil;
+    if (IsTagged(expr, "error", mem)) return expr;
     rule = GetRule(lex);
     // Print("  ");
     // PrintToken(PeekToken(lex));
@@ -198,7 +198,7 @@ static Val ParseID(Lexer *lex, Mem *mem)
   Token token = NextToken(lex);
   if (token.type != TokenID) {
     ParseError(lex, token, "Expected identifier");
-    return nil;
+    return Pair(MakeSymbol("error", mem), MakeSymbol("parse", mem), mem);
   }
   return MakeSymbolFrom(token.lexeme, token.length, mem);
 }
@@ -238,7 +238,7 @@ static Val ParseString(Lexer *lex, Mem *mem)
   Token token = NextToken(lex);
   if (token.type != TokenString) {
     ParseError(lex, token, "Expected string");
-    return nil;
+    return Pair(MakeSymbol("error", mem), MakeSymbol("parse", mem), mem);
   }
 
   char str[token.length+1];
@@ -266,7 +266,7 @@ static Val ParseLiteral(Lexer *lex, Mem *mem)
     return MakeSymbol("nil", mem);
   default:
     ParseError(lex, token, "Unknown literal");
-    return nil;
+    return Pair(MakeSymbol("error", mem), MakeSymbol("parse", mem), mem);
   }
 }
 
@@ -280,20 +280,23 @@ static Val ParseSymbol(Lexer *lex, Mem *mem)
 
 static Val ParseParens(Lexer *lex, Mem *mem)
 {
-  Token paren = lex->token;
+  // Token paren = lex->token;
   ExpectToken(lex, TokenLParen);
+  SkipNewlines(lex);
 
   Val args = nil;
   while (!MatchToken(lex, TokenRParen)) {
     if (AtEnd(lex)) {
-      ParseError(lex, paren, "Unmatched parentheses");
-      return nil;
+      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+      // ParseError(lex, paren, "Unmatched parentheses");
+      // return nil;
     }
 
     Val arg = ParseExpr(PrecExpr, lex, mem);
-    if (IsNil(arg)) return nil;
+    if (IsTagged(arg, "error", mem)) return arg;
 
     args = Pair(arg, args, mem);
+    SkipNewlines(lex);
   }
 
   return ReverseList(args, mem);
@@ -304,16 +307,17 @@ static Val ParsePrefix(Lexer *lex, Mem *mem)
   Token token = NextToken(lex);
   Val op = MakeSymbolFrom(token.lexeme, token.length, mem);
   Val rhs = ParseExpr(PrecUnary, lex, mem);
-  if (IsNil(rhs)) return nil;
+  if (IsTagged(rhs, "error", mem)) return rhs;
   return Pair(op, Pair(rhs, nil, mem), mem);
 }
 
 static Val ParseAssign(Lexer *lex, Mem *mem)
 {
   Val id = ParseID(lex, mem);
-  if (IsNil(id)) return nil;
+  if (IsTagged(id, "error", mem)) return id;
   ExpectToken(lex, TokenEqual);
   Val value = ParseExpr(PrecExpr, lex, mem);
+  if (IsTagged(value, "error", mem)) return value;
   return Pair(id, value, mem);
 }
 
@@ -334,7 +338,7 @@ static Val ParseLet(Lexer *lex, Mem *mem)
 static Val ParseDef(Lexer *lex, Mem *mem)
 {
   ExpectToken(lex, TokenDef);
-  Token paren = lex->token;
+  // Token paren = lex->token;
   ExpectToken(lex, TokenLParen);
 
   Val id = ParseID(lex, mem);
@@ -342,8 +346,9 @@ static Val ParseDef(Lexer *lex, Mem *mem)
   Val params = nil;
   while (!MatchToken(lex, TokenRParen)) {
     if (PeekToken(lex).type == TokenEOF) {
-      ParseError(lex, paren, "Unmatched parentheses");
-      return nil;
+      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+      // ParseError(lex, paren, "Unmatched parentheses");
+      // return nil;
     }
 
     Val param = ParseID(lex, mem);
@@ -351,7 +356,7 @@ static Val ParseDef(Lexer *lex, Mem *mem)
   }
 
   Val body = ParseExpr(PrecExpr, lex, mem);
-  if (IsNil(body)) return nil;
+  if (IsTagged(body, "error", mem)) return body;
 
   Val lambda =
     Pair(MakeSymbol("->", mem),
@@ -366,7 +371,7 @@ static Val ParseStmt(Lexer *lex, Mem *mem)
   Val args = nil;
   while (PeekToken(lex).type != TokenNewline && !AtEnd(lex)) {
     Val arg = ParseExpr(PrecExpr, lex, mem);
-    if (IsNil(arg)) return nil;
+    if (IsTagged(arg, "error", mem)) return arg;
 
     args = Pair(arg, args, mem);
   }
@@ -377,7 +382,7 @@ static Val ParseStmt(Lexer *lex, Mem *mem)
 
 static Val ParseDo(Lexer *lex, Mem *mem)
 {
-  Token begin = lex->token;
+  // Token begin = lex->token;
   ExpectToken(lex, TokenDo);
   SkipNewlines(lex);
 
@@ -385,12 +390,14 @@ static Val ParseDo(Lexer *lex, Mem *mem)
 
   while (!MatchToken(lex, TokenEnd)) {
     if (AtEnd(lex)) {
-      ParseError(lex, begin, "Unterminated do-block");
-      return nil;
+      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+      // ParseError(lex, begin, "Unterminated do-block");
+      // return nil;
     }
 
     Val stmt = ParseStmt(lex, mem);
-    if (IsNil(stmt)) return nil;
+    if (IsTagged(stmt, "error", mem)) return stmt;
+
     stmts = Pair(stmt, stmts, mem);
 
     SkipNewlines(lex);
@@ -405,11 +412,11 @@ static Val ParseDo(Lexer *lex, Mem *mem)
 
 static Val ParseIf(Lexer *lex, Mem *mem)
 {
-  Token begin = lex->token;
+  // Token begin = lex->token;
   ExpectToken(lex, TokenIf);
 
   Val predicate = ParseExpr(PrecExpr, lex, mem);
-  if (IsNil(predicate)) return nil;
+  if (IsTagged(predicate, "error", mem)) return predicate;
 
   ExpectToken(lex, TokenDo);
   SkipNewlines(lex);
@@ -417,12 +424,14 @@ static Val ParseIf(Lexer *lex, Mem *mem)
   Val true_block = nil;
   while (!MatchToken(lex, TokenEnd) && PeekToken(lex).type != TokenElse) {
     if (AtEnd(lex)) {
-      ParseError(lex, begin, "Unterminated if-block");
-      return nil;
+      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+      // ParseError(lex, begin, "Unterminated if-block");
+      // return nil;
     }
 
     Val stmt = ParseStmt(lex, mem);
-    if (IsNil(stmt)) return nil;
+    if (IsTagged(stmt, "error", mem)) return stmt;
+
     true_block = Pair(stmt, true_block, mem);
 
     SkipNewlines(lex);
@@ -434,18 +443,19 @@ static Val ParseIf(Lexer *lex, Mem *mem)
   }
 
   Val false_block = nil;
-  begin = lex->token;
+  // begin = lex->token;
   if (MatchToken(lex, TokenElse)) {
     SkipNewlines(lex);
 
     while (!MatchToken(lex, TokenEnd)) {
       if (AtEnd(lex)) {
-        ParseError(lex, begin, "Unterminated else-block");
-        return nil;
+        return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+        // ParseError(lex, begin, "Unterminated else-block");
+        // return nil;
       }
 
       Val stmt = ParseStmt(lex, mem);
-      if (IsNil(stmt)) return nil;
+      if (IsTagged(stmt, "error", mem)) return stmt;
       false_block = Pair(stmt, false_block, mem);
 
       SkipNewlines(lex);
@@ -466,19 +476,21 @@ static Val ParseIf(Lexer *lex, Mem *mem)
 
 static Val ParseList(Lexer *lex, Mem *mem)
 {
-  Token bracket = lex->token;
+  // Token bracket = lex->token;
   ExpectToken(lex, TokenLBracket);
   SkipNewlines(lex);
 
   Val items = nil;
   while (!MatchToken(lex, TokenRBracket)) {
     if (AtEnd(lex)) {
-      ParseError(lex, bracket, "Unmatched bracket");
-      return nil;
+      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+      // ParseError(lex, bracket, "Unmatched bracket");
+      // return nil;
     }
 
     Val item = ParseExpr(PrecExpr, lex, mem);
-    if (IsNil(item)) return nil;
+    if (IsTagged(item, "error", mem)) return item;
+
     items = Pair(item, items, mem);
 
     MatchToken(lex, TokenComma);
@@ -490,19 +502,20 @@ static Val ParseList(Lexer *lex, Mem *mem)
 
 static Val ParseTuple(Lexer *lex, Mem *mem)
 {
-  Token bracket = lex->token;
+  // Token bracket = lex->token;
   ExpectToken(lex, TokenHashBracket);
   SkipNewlines(lex);
 
   Val items = nil;
   while (!MatchToken(lex, TokenRBracket)) {
     if (AtEnd(lex)) {
-      ParseError(lex, bracket, "Unmatched bracket");
-      return nil;
+      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+      // ParseError(lex, bracket, "Unmatched bracket");
+      // return nil;
     }
 
     Val item = ParseExpr(PrecExpr, lex, mem);
-    if (IsNil(item)) return nil;
+    if (IsTagged(item, "error", mem)) return item;
     items = Pair(item, items, mem);
 
     MatchToken(lex, TokenComma);
@@ -514,15 +527,16 @@ static Val ParseTuple(Lexer *lex, Mem *mem)
 
 static Val ParseMap(Lexer *lex, Mem *mem)
 {
-  Token brace = lex->token;
+  // Token brace = lex->token;
   ExpectToken(lex, TokenLBrace);
   SkipNewlines(lex);
 
   Val items = nil;
   while (!MatchToken(lex, TokenRBrace)) {
     if (AtEnd(lex)) {
-      ParseError(lex, brace, "Unmatched brace");
-      return nil;
+      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+      // ParseError(lex, brace, "Unmatched brace");
+      // return nil;
     }
 
     Val key = ParseID(lex, mem);
@@ -530,7 +544,8 @@ static Val ParseMap(Lexer *lex, Mem *mem)
     ExpectToken(lex, TokenColon);
 
     Val val = ParseExpr(PrecExpr, lex, mem);
-    if (IsNil(val)) return nil;
+    if (IsTagged(val, "error", mem)) return val;
+
 
     Val item = Pair(key, val, mem);
     items = Pair(item, items, mem);
@@ -571,7 +586,7 @@ static Val ParseLeftAssoc(Val lhs, Lexer *lex, Mem *mem)
   Token token = NextToken(lex);
   Val op = MakeSymbolFrom(token.lexeme, token.length, mem);
   Val rhs = ParseExpr(prec + 1, lex, mem);
-  if (IsNil(rhs)) return nil;
+  if (IsTagged(rhs, "error", mem)) return rhs;
 
   return Pair(op, Pair(lhs, Pair(rhs, nil, mem), mem), mem);
 }
@@ -582,7 +597,7 @@ static Val ParseRightAssoc(Val lhs, Lexer *lex, Mem *mem)
   Token token = NextToken(lex);
   Val op = MakeSymbolFrom(token.lexeme, token.length, mem);
   Val rhs = ParseExpr(prec, lex, mem);
-  if (IsNil(rhs)) return nil;
+  if (IsTagged(rhs, "error", mem)) return rhs;
 
   return Pair(op, Pair(lhs, Pair(rhs, nil, mem), mem), mem);
 }

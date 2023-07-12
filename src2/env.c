@@ -31,6 +31,12 @@ void Define(Val var, Val val, Val env, Mem *mem)
     return;
   }
 
+  Val pair = Head(frame, mem);
+  if (Eq(var, Head(pair, mem))) {
+    SetTail(pair, val , mem);
+    return;
+  }
+
   while (!IsNil(Tail(frame, mem))) {
     Val pair = Head(frame, mem);
     if (Eq(var, Head(pair, mem))) {
@@ -40,7 +46,7 @@ void Define(Val var, Val val, Val env, Mem *mem)
     frame = Tail(frame, mem);
   }
 
-  Val pair = Pair(var, val, mem);
+  pair = Pair(var, val, mem);
   SetTail(frame, Pair(pair, nil, mem), mem);
 }
 
@@ -64,3 +70,35 @@ Val Lookup(Val var, Val env, Mem *mem)
 
   return MakeSymbol("__UNDEFINED__", mem);
 }
+
+void PrintEnv(Val env, Mem *mem)
+{
+  Print("┌╴Env╶───────────────\n");
+  Val frames = Tail(env, mem);
+  if (IsNil(frames)) {
+    Print("(empty)\n");
+  }
+  while (!IsNil(frames)) {
+    Val frame = Head(frames, mem);
+
+    while (!IsNil(frame)) {
+      Print("│");
+      Val pair = Head(frame, mem);
+      Val var = Head(pair, mem);
+      Val val = Tail(pair, mem);
+      Print(SymbolName(var, mem));
+      Print(": ");
+      PrintVal(val, mem);
+      Print("\n");
+      frame = Tail(frame, mem);
+    }
+    if (!IsNil(Tail(frames, mem))) {
+      Print("├────────────────────\n");
+    }
+
+
+    frames = Tail(frames, mem);
+  }
+  Print("└────────────────────\n");
+}
+
