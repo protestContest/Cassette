@@ -15,3 +15,6 @@ u8 PushConst(Chunk *chunk, Val value);
 void PushByte(Chunk *chunk, u8 byte);
 void AddSymbol(Chunk *chunk, Val symbol, Mem *mem);
 void Disassemble(Chunk *chunk);
+
+bool WriteChunk(Chunk *chunk, char *filename);
+bool ReadChunk(Chunk *chunk, char *filename);

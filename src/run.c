@@ -6,11 +6,16 @@
 #include "module.h"
 #include <signal.h>
 
-#define VERSION "0.0.1"
-
 static void OnSignal(int sig)
 {
   Exit();
+}
+
+void PrintVersion(void)
+{
+  Print("Cassette v");
+  Print(VERSION);
+  Print("\n");
 }
 
 static void PrintParseError(Val error, Mem *mem)
@@ -112,9 +117,7 @@ void REPL(void)
   signal(SIGINT, OnSignal);
   RawConsole();
 
-  Print("Cassette v");
-  Print(VERSION);
-  Print("\n");
+  PrintVersion();
 
   VM vm;
   InitVM(&vm);
@@ -181,7 +184,21 @@ void RunFile(char *filename)
   Chunk chunk;
   InitChunk(&chunk);
   vm.chunk = &chunk;
-  // vm.trace = true;
+  vm.trace = true;
+
+  if (SniffFile(filename, 0xCA55E77E)) {
+    if (ReadChunk(&chunk, filename)) {
+      RunChunk(&vm, &chunk);
+    } else {
+      PrintEscape(IOFGRed);
+      Print("Error loading module \"");
+      Print(filename);
+      Print("\"");
+      PrintEscape(IOFGReset);
+      Print("\n");
+    }
+    return;
+  }
 
   Val ast = LoadModule(filename, &vm.mem);
   if (IsTagged(ast, "error", &vm.mem)) {
@@ -193,5 +210,33 @@ void RunFile(char *filename)
     }
   } else {
     Eval(ast, &vm);
+  }
+}
+
+void CompileFile(char *filename)
+{
+  Mem mem;
+  InitMem(&mem);
+
+  Val ast = LoadModule(filename, &mem);
+  if (IsTagged(ast, "error", &mem)) {
+    Val type = ListAt(ast, 1, &mem);
+    if (Eq(type, SymbolFor("parse"))) {
+      PrintParseError(ast, &mem);
+    } else if (Eq(type, SymbolFor("load"))) {
+      PrintLoadError(ast, &mem);
+    }
+  } else {
+    CompileResult compiled = Compile(ast, &mem);
+    if (compiled.ok) {
+      Chunk chunk;
+      InitChunk(&chunk);
+      Seq code = Preserving(RegEnv, compiled.result, MakeSeq(RegEnv, 0, nil), &mem);
+      Assemble(code, &chunk, &mem);
+      WriteChunk(&chunk, ReplaceExtension(filename, "tape"));
+    } else {
+      PrintCompileError(compiled, &mem);
+    }
+
   }
 }

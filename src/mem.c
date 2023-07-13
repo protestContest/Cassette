@@ -25,6 +25,8 @@ void DestroyMem(Mem *mem)
 Val MakeSymbolFrom(char *name, u32 length, Mem *mem)
 {
   Val sym = SymbolFrom(name, length);
+  if (MapContains(&mem->string_map, sym.as_i)) return sym;
+
   u32 index = VecCount(mem->strings);
   for (u32 i = 0; i < length && name[i] != '\0'; i++) {
     VecPush(mem->strings, name[i]);
