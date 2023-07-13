@@ -38,6 +38,7 @@ typedef enum {
   OpDefMod,
   OpGetMod,
   OpExport,
+  OpImport,
 } OpCode;
 
 typedef enum {

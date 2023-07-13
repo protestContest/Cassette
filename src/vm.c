@@ -435,6 +435,21 @@ Val RunChunk(VM *vm, Chunk *chunk)
       StackPush(vm, ExportEnv(vm->env, mem));
       vm->pc += OpLength(op);
       break;
+    case OpImport: {
+      Val mod = StackPop(vm);
+      Val keys = ValMapKeys(mod, mem);
+      Val vals = ValMapValues(mod, mem);
+
+      for (u32 i = 0; i < ValMapCount(mod, mem); i++) {
+        Val key = TupleGet(keys, i, mem);
+        Val val = TupleGet(vals, i, mem);
+        Define(key, val, vm->env, mem);
+      }
+
+      StackPush(vm, SymbolFor("ok"));
+      vm->pc += OpLength(op);
+      break;
+    }
     }
   }
 

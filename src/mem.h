@@ -102,6 +102,9 @@ void ValMapSet(Val map, Val key, Val value, Mem *mem);
 void ValMapPut(Val map, Val key, Val value, Mem *mem);
 Val ValMapGet(Val map, Val key, Mem *mem);
 bool ValMapContains(Val map, Val key, Mem *mem);
+u32 ValMapCount(Val map, Mem *mem);
+Val ValMapKeys(Val map, Mem *mem);
+Val ValMapValues(Val map, Mem *mem);
 
 u32 PrintVal(Val value, Mem *mem);
 void PrintMem(Mem *mem);

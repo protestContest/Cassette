@@ -308,6 +308,8 @@ void ValMapSet(Val map, Val key, Val value, Mem *mem)
   Assert(IsValMap(map, mem));
 
   u32 cap = ValMapCapacity(map, mem);
+  u32 count = ValMapCount(map, mem);
+
   Val keys = ValMapKeys(map, mem);
   Val vals = ValMapValues(map, mem);
   u32 last_nil = cap;
@@ -321,8 +323,8 @@ void ValMapSet(Val map, Val key, Val value, Mem *mem)
     }
   }
 
-  // map full
   if (last_nil == cap) {
+    // map full
     Val new_keys = MakeTuple(2*cap, mem);
     Val new_vals = MakeTuple(2*cap, mem);
     for (u32 i = 0; i < cap; i++) {
@@ -342,6 +344,8 @@ void ValMapSet(Val map, Val key, Val value, Mem *mem)
 
   TupleSet(keys, last_nil, key, mem);
   TupleSet(vals, last_nil, value, mem);
+  u32 index = RawVal(map);
+  mem->values[index] = MapHeader(count + 1);
 }
 
 void ValMapPut(Val map, Val key, Val value, Mem *mem)

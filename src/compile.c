@@ -333,12 +333,19 @@ static Seq CompileImport(Val node, Linkage linkage, Mem *mem)
         Pair(OpSymbol(OpPop),
         Pair(OpSymbol(OpExport), nil, mem), mem)), mem);
 
+  Seq import_seq;
+  if (IsNil(alias)) {
+    import_seq = MakeSeq(RegEnv, 0,
+      Pair(OpSymbol(OpImport), nil, mem));
+  } else {
+    import_seq = MakeSeq(RegEnv, 0,
+      Pair(OpSymbol(OpDefine),
+      Pair(alias, nil, mem), mem));
+  }
+
   return
     AppendSeq(load,
-    Preserving(RegEnv, call,
-      MakeSeq(RegEnv, 0,
-        Pair(OpSymbol(OpDefine),
-        Pair(alias, nil, mem), mem)), mem), mem);
+    Preserving(RegEnv, call, import_seq, mem), mem);
 }
 
 static Seq CompileModule(Val node, Linkage linkage, Mem *mem)
@@ -353,10 +360,6 @@ static Seq CompileModule(Val node, Linkage linkage, Mem *mem)
 
 static Seq CompileExpr(Val node, Linkage linkage, Mem *mem)
 {
-  // Print("=> ");
-  // PrintVal(node, mem);
-  // Print("\n");
-
   if (IsNil(node))                    return EmptySeq();
   if (IsNumeric(node))                return CompileConst(node, linkage, mem);
   if (IsSym(node))                    return CompileVar(node, linkage, mem);

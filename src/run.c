@@ -105,7 +105,7 @@ void RunFile(char *filename)
   InitChunk(&chunk);
   vm.chunk = &chunk;
 
-  vm.trace = true;
+  // vm.trace = true;
 
   Val ast = LoadModule(filename, &vm.mem);
   if (IsTagged(ast, "error", &vm.mem)) {

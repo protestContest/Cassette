@@ -558,12 +558,17 @@ static Val ParseImport(Lexer *lex, Mem *mem)
 {
   ExpectToken(lex, TokenImport);
   Val name = ParseString(lex, mem);
-  ExpectToken(lex, TokenAs);
-  Val alias = ParseID(lex, mem);
-  return
-    Pair(MakeSymbol("import", mem),
-    Pair(Tail(name, mem),
-    Pair(alias, nil, mem), mem), mem);
+  if (MatchToken(lex, TokenAs)) {
+    Val alias = ParseID(lex, mem);
+    return
+      Pair(MakeSymbol("import", mem),
+      Pair(Tail(name, mem),
+      Pair(alias, nil, mem), mem), mem);
+  } else {
+    return
+      Pair(MakeSymbol("import", mem),
+      Pair(Tail(name, mem), nil, mem), mem);
+  }
 }
 
 static Val ParseAccess(Val lhs, Lexer *lex, Mem *mem)
