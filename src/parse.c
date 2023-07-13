@@ -36,7 +36,7 @@ static Val ParseLet(Lexer *lex, Mem *mem);
 static Val ParseDef(Lexer *lex, Mem *mem);
 static Val ParseDo(Lexer *lex, Mem *mem);
 static Val ParseIf(Lexer *lex, Mem *mem);
-// static Val ParseCond(Lexer *lex, Mem *mem);
+static Val ParseCond(Lexer *lex, Mem *mem);
 static Val ParseList(Lexer *lex, Mem *mem);
 static Val ParseTuple(Lexer *lex, Mem *mem);
 static Val ParseMap(Lexer *lex, Mem *mem);
@@ -75,7 +75,7 @@ static ParseRule rules[] = {
   [TokenDef]          = {&ParseDef, NULL, PrecNone},
   [TokenDo]           = {&ParseDo, NULL, PrecNone},
   [TokenIf]           = {&ParseIf, NULL, PrecNone},
-  [TokenCond]         = {NULL, NULL, PrecNone},
+  [TokenCond]         = {&ParseCond, NULL, PrecNone},
   [TokenLBracket]     = {&ParseList, NULL, PrecNone},
   [TokenHashBracket]  = {&ParseTuple, NULL, PrecNone},
   [TokenLBrace]       = {&ParseMap, NULL, PrecNone},
@@ -93,6 +93,11 @@ static ParseRule rules[] = {
 };
 
 #define GetRule(lex)    rules[PeekToken(lex).type]
+
+static Val PartialParse(Mem *mem)
+{
+  return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
+}
 
 static void ParseError(Lexer *lex, Token token, char *message)
 {
@@ -471,19 +476,49 @@ static Val ParseIf(Lexer *lex, Mem *mem)
     Pair(false_block, nil, mem), mem), mem), mem);
 }
 
+static Val ParseClauses(Lexer *lex, Mem *mem)
+{
+  if (AtEnd(lex)) return PartialParse(mem);
+
+  Val predicate = ParseExpr(PrecLogic, lex, mem);
+  if (IsTagged(predicate, "error", mem)) return predicate;
+  SkipNewlines(lex);
+  ExpectToken(lex, TokenArrow);
+  SkipNewlines(lex);
+
+  Val consequent = ParseExpr(PrecExpr, lex, mem);
+  if (IsTagged(consequent, "error", mem)) return consequent;
+  SkipNewlines(lex);
+
+  Val alternative = nil;
+  if (!MatchToken(lex, TokenEnd)) {
+    alternative = ParseClauses(lex, mem);
+  }
+  return
+    Pair(MakeSymbol("if", mem),
+    Pair(predicate,
+    Pair(consequent,
+    Pair(alternative, nil, mem), mem), mem), mem);
+}
+
+static Val ParseCond(Lexer *lex, Mem  *mem)
+{
+  ExpectToken(lex, TokenCond);
+  SkipNewlines(lex);
+  ExpectToken(lex, TokenDo);
+  SkipNewlines(lex);
+
+  return ParseClauses(lex, mem);
+}
+
 static Val ParseList(Lexer *lex, Mem *mem)
 {
-  // Token bracket = lex->token;
   ExpectToken(lex, TokenLBracket);
   SkipNewlines(lex);
 
   Val items = nil;
   while (!MatchToken(lex, TokenRBracket)) {
-    if (AtEnd(lex)) {
-      return Pair(MakeSymbol("error", mem), MakeSymbol("partial", mem), mem);
-      // ParseError(lex, bracket, "Unmatched bracket");
-      // return nil;
-    }
+    if (AtEnd(lex)) return PartialParse(mem);
 
     Val item = ParseExpr(PrecExpr, lex, mem);
     if (IsTagged(item, "error", mem)) return item;

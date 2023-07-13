@@ -3,7 +3,6 @@
 #include "env.h"
 #include "proc.h"
 
-
 void InitVM(VM *vm)
 {
   InitMem(&vm->mem);
@@ -452,14 +451,6 @@ Val RunChunk(VM *vm, Chunk *chunk)
     }
     }
   }
-
-  // PrintIntN(vm->pc, 4, ' ');
-  // Print("│                     ");
-  // for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
-  //   Print(" │ ");
-  //   PrintVal(vm->val[i], &vm->mem);
-  // }
-  // Print("\n");
 
   if (!vm->error && VecCount(vm->val) > 0) {
     return StackPop(vm);

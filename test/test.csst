@@ -1,3 +1,6 @@
-import "test/reduce.csst"
-
-inspect (iota 10)
+cond do
+  1 == 2 -> :no
+  3 == 4 -> :no
+  5 == 5 -> :yes
+  true   -> :ok
+end
