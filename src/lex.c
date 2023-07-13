@@ -140,11 +140,6 @@ static Token EOFToken(Lexer *lex)
   return MakeToken(TokenEOF, &Peek(lex), 0, lex->line, lex->col);
 }
 
-static Token ErrorToken(char *message, Lexer *lex)
-{
-  return MakeToken(TokenError, message, StrLen(message), lex->line, lex->col);
-}
-
 static Token NumberToken(Lexer *lex)
 {
   char *start = &Peek(lex);
@@ -157,7 +152,6 @@ static Token NumberToken(Lexer *lex)
     if (Peek(lex) == '.') {
       // float
       Advance(lex);
-      if (!IsDigit(lex)) return ErrorToken("Expected digit after decimal point", lex);
 
       while (!IsEOF(lex) && IsDigit(lex)) {
         Advance(lex);
@@ -248,7 +242,6 @@ void PrintToken(Token token)
 {
   switch (token.type) {
   case TokenEOF: Print("EOF"); break;
-  case TokenError: Print("Error"); break;
   case TokenLet: Print("Let"); break;
   case TokenComma: Print("Comma"); break;
   case TokenEqual: Print("Equal"); break;

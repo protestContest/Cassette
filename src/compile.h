@@ -4,4 +4,11 @@
 #include "assemble.h"
 #include "module.h"
 
-Seq Compile(Val ast, Mem *mem);
+typedef struct {
+  bool ok;
+  Val node;
+  char *message;
+  Seq result;
+} CompileResult;
+
+CompileResult Compile(Val ast, Mem *mem);

@@ -45,7 +45,7 @@ void StackPush(VM *vm, Val val)
   VecPush(vm->val, val);
 }
 
-void MergeStrings(Mem *dst, Mem *src)
+static void MergeStrings(Mem *dst, Mem *src)
 {
   for (u32 i = 0; i < MapCount(&src->string_map); i++) {
     u32 key = GetMapKey(&src->string_map, i);
@@ -85,10 +85,13 @@ void TraceInstruction(VM *vm)
     for (u32 i = 0; i < 20 - written; i++) Print(" ");
   }
 
-  if (VecCount(vm->val) == 0) Print(" │ ");
+  Print(" │ ");
+  PrintIntN(RawInt(vm->cont), 4, ' ');
+  Print(" ║ ");
+
   for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
-    Print(" │ ");
     PrintVal(vm->val[i], &vm->mem);
+    Print(" │ ");
   }
 
   Print("\n");
@@ -162,6 +165,74 @@ void ArithmeticOp(VM *vm, OpCode op)
   StackPush(vm, result);
 }
 
+static void CreateOp(VM *vm, OpCode op)
+{
+  Mem *mem = &vm->mem;
+  Chunk *chunk = vm->chunk;
+
+  switch (op) {
+  case OpStr:
+    StackPush(vm, MakeBinary(SymbolName(StackPop(vm), mem), mem));
+    break;
+  case OpPair: {
+    Val tail = StackPop(vm);
+    Val head = StackPop(vm);
+    Val pair = Pair(head, tail, mem);
+    StackPush(vm, pair);
+    break;
+  }
+  case OpList: {
+    Val list = nil;
+    for (u32 i = 0; i < RawInt(ChunkConst(chunk, vm->pc+1)); i++) {
+      list = Pair(StackPop(vm), list, mem);
+    }
+    StackPush(vm, list);
+    break;
+  }
+  case OpTuple: {
+    u32 length = RawInt(ChunkConst(chunk, vm->pc+1));
+    Val tuple = MakeTuple(length, mem);
+    for (u32 i = 0; i < length; i++) {
+      TupleSet(tuple, i, StackPeek(vm, length - i - 1), mem);
+    }
+    RewindVec(vm->val, length);
+    StackPush(vm, tuple);
+    break;
+  }
+  case OpMap: {
+    Val map = MakeValMap(mem);
+    for (u32 i = 0; i < RawInt(ChunkConst(chunk, vm->pc+1)); i++) {
+      Val key = StackPop(vm);
+      Val value = StackPop(vm);
+      ValMapSet(map, key, value, mem);
+    }
+    StackPush(vm, map);
+    break;
+  }
+  default: Abort();
+  }
+}
+
+static void CompareOp(VM *vm, OpCode op)
+{
+  Val b = StackPop(vm);
+  Val a = StackPop(vm);
+
+  if (op == OpEq) {
+    Val res = BoolVal(Eq(a, b));
+    StackPush(vm, res);
+    return;
+  }
+
+  if (!IsNumeric(a) || !IsNumeric(b)) {
+    RuntimeError(vm, "Bad arithmetic argument");
+    return;
+  }
+
+  if (op == OpLt) StackPush(vm, BoolVal(RawNum(a) < RawNum(b)));
+  else if (op == OpGt) StackPush(vm, BoolVal(RawNum(a) > RawNum(b)));
+}
+
 Val RunChunk(VM *vm, Chunk *chunk)
 {
   vm->cont = nil;
@@ -172,60 +243,24 @@ Val RunChunk(VM *vm, Chunk *chunk)
   vm->error = false;
   Mem *mem = &vm->mem;
 
-  // Print("────┬─Run──────────────────┬────\n");
-
   while (vm->pc < VecCount(chunk->data)) {
     if (vm->trace) TraceInstruction(vm);
 
     OpCode op = ChunkRef(chunk, vm->pc);
+
     switch (op) {
     case OpConst:
       StackPush(vm, ChunkConst(chunk, vm->pc+1));
       vm->pc += OpLength(op);
       break;
     case OpStr:
-      StackPush(vm, MakeBinary(SymbolName(StackPop(vm), mem), mem));
+    case OpPair:
+    case OpList:
+    case OpTuple:
+    case OpMap:
+      CreateOp(vm, op);
       vm->pc += OpLength(op);
       break;
-    case OpPair: {
-      Val tail = StackPop(vm);
-      Val head = StackPop(vm);
-      Val pair = Pair(head, tail, mem);
-      StackPush(vm, pair);
-      vm->pc += OpLength(op);
-      break;
-    }
-    case OpList: {
-      Val list = nil;
-      for (u32 i = 0; i < RawInt(ChunkConst(chunk, vm->pc+1)); i++) {
-        list = Pair(StackPop(vm), list, mem);
-      }
-      StackPush(vm, list);
-      vm->pc += OpLength(op);
-      break;
-    }
-    case OpTuple: {
-      u32 length = RawInt(ChunkConst(chunk, vm->pc+1));
-      Val tuple = MakeTuple(length, mem);
-      for (u32 i = 0; i < length; i++) {
-        TupleSet(tuple, i, StackPeek(vm, length - i - 1), mem);
-      }
-      RewindVec(vm->val, length);
-      StackPush(vm, tuple);
-      vm->pc += OpLength(op);
-      break;
-    }
-    case OpMap: {
-      Val map = MakeValMap(mem);
-      for (u32 i = 0; i < RawInt(ChunkConst(chunk, vm->pc+1)); i++) {
-        Val key = StackPop(vm);
-        Val value = StackPop(vm);
-        ValMapSet(map, key, value, mem);
-      }
-      StackPush(vm, map);
-      vm->pc += OpLength(op);
-      break;
-    }
     case OpTrue:
       StackPush(vm, SymbolFor("true"));
       vm->pc += OpLength(op);
@@ -239,19 +274,10 @@ Val RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpAdd:
-      ArithmeticOp(vm, OpAdd);
-      vm->pc += OpLength(op);
-      break;
     case OpSub:
-      ArithmeticOp(vm, OpSub);
-      vm->pc += OpLength(op);
-      break;
     case OpMul:
-      ArithmeticOp(vm, OpMul);
-      vm->pc += OpLength(op);
-      break;
     case OpDiv:
-      ArithmeticOp(vm, OpDiv);
+      ArithmeticOp(vm, op);
       vm->pc += OpLength(op);
       break;
     case OpNeg:
@@ -275,36 +301,12 @@ Val RunChunk(VM *vm, Chunk *chunk)
       }
       vm->pc += OpLength(op);
       break;
-    case OpEq: {
-      Val a = StackPop(vm);
-      Val b = StackPop(vm);
-      Val res = BoolVal(Eq(a, b));
-      StackPush(vm, res);
+    case OpEq:
+    case OpGt:
+    case OpLt:
+      CompareOp(vm, op);
       vm->pc += OpLength(op);
       break;
-    }
-    case OpGt: {
-      Val b = StackPop(vm);
-      Val a = StackPop(vm);
-      if (!IsNumeric(a) || !IsNumeric(b)) {
-        RuntimeError(vm, "Bad arithmetic argument");
-      } else {
-        StackPush(vm, BoolVal(RawNum(a) > RawNum(b)));
-      }
-      vm->pc += OpLength(op);
-      break;
-    }
-    case OpLt: {
-      Val b = StackPop(vm);
-      Val a = StackPop(vm);
-      if (!IsNumeric(a) || !IsNumeric(b)) {
-        RuntimeError(vm, "Bad arithmetic argument");
-      } else {
-        StackPush(vm, BoolVal(RawNum(a) < RawNum(b)));
-      }
-      vm->pc += OpLength(op);
-      break;
-    }
     case OpIn: {
       Val collection = StackPop(vm);
       Val item = StackPop(vm);
@@ -353,7 +355,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       Val proc = StackPop(vm);
       if (IsPrimitive(proc, mem)) {
         StackPush(vm, ApplyPrimitive(proc, vm));
-        vm->pc += OpLength(op);
+        vm->pc = RawInt(vm->cont);
       } else if (IsCompoundProc(proc, mem)) {
         vm->pc = ProcEntry(proc, mem);
         vm->env = ExtendEnv(ProcEnv(proc, mem), mem);

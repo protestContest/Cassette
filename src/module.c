@@ -1,12 +1,6 @@
 #include "module.h"
 #include "parse.h"
 
-typedef struct {
-  Val ast;
-  Val imports;
-  Mem *mem;
-} Module;
-
 Val FindImports(Val ast, Mem *mem)
 {
   if (IsNil(ast)) return nil;
@@ -50,7 +44,7 @@ Val FindExports(Val ast, Mem *mem)
   return exports;
 }
 
-Val WrapModule(Val ast, Val name, Mem *mem)
+static Val WrapModule(Val ast, Val name, Mem *mem)
 {
   return
     Pair(MakeSymbol("defmod", mem),
@@ -61,16 +55,26 @@ Val WrapModule(Val ast, Val name, Mem *mem)
       Pair(ast, nil, mem), mem), mem), nil, mem), mem), mem);
 }
 
+static Val LoadError(char *filename, Mem *mem)
+{
+  return
+    Pair(MakeSymbol("error", mem),
+    Pair(MakeSymbol("load", mem),
+    Pair(MakeSymbol(filename, mem), nil, mem), mem), mem);
+}
+
 Val LoadModule(char *entry, Mem *mem)
 {
   Map map;
   InitMap(&map);
 
   char *source = (char*)ReadFile(entry);
-  if (source == NULL) return Pair(SymbolFor("error"), MakeSymbol("not_found", mem), mem);
+  if (source == NULL) return LoadError(entry, mem);
 
   Val ast = Parse(source, mem);
+  if (IsTagged(ast, "error", mem)) return ast;
 
+  // we just want a list of statements, so we can prepend the modules
   if (IsTagged(ast, "do", mem)) {
     ast = Tail(ast, mem);
   } else {
@@ -83,14 +87,11 @@ Val LoadModule(char *entry, Mem *mem)
     Val import = Head(imports, mem);
     if (!MapContains(&map, import.as_i)) {
       source = (char*)ReadFile(SymbolName(import, mem));
-      if (source == NULL) {
-        Print("Could not load \"");
-        Print(SymbolName(import, mem));
-        Print("\"\n");
-        return Pair(SymbolFor("error"), MakeSymbol("not_found", mem), mem);
-      }
+      if (source == NULL) return LoadError(SymbolName(import, mem), mem);
 
       Val mod = Parse(source, mem);
+      if (IsTagged(mod, "error", mem)) return mod;
+
       ast = Pair(WrapModule(mod, import, mem), ast, mem);
       imports = ListConcat(imports, FindImports(mod, mem), mem);
       MapSet(&map, import.as_i, 1);
@@ -99,16 +100,4 @@ Val LoadModule(char *entry, Mem *mem)
   }
 
   return Pair(MakeSymbol("do", mem), ast, mem);
-}
-
-void PrintModule(Module *mod)
-{
-  Print("Module ");
-  Print("\n  ");
-  PrintVal(mod->ast, mod->mem);
-  Print("\n");
-  Print("Imports: ");
-  PrintVal(mod->imports, mod->mem);
-  Print("\n");
-  PrintMem(mod->mem);
 }

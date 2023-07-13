@@ -3,51 +3,11 @@
 #include "source.h"
 
 typedef enum {
-  TokenEOF          = 0,
-  TokenError        = 1,
-  TokenLet          = 2,
-  TokenComma        = 3,
-  TokenEqual        = 4,
-  TokenDef          = 5,
-  TokenLParen       = 6,
-  TokenRParen       = 7,
-  TokenID           = 8,
-  TokenArrow        = 9,
-  TokenAnd          = 10,
-  TokenOr           = 11,
-  TokenEqualEqual   = 12,
-  TokenNotEqual     = 13,
-  TokenGreater      = 14,
-  TokenGreaterEqual = 15,
-  TokenLess         = 16,
-  TokenLessEqual    = 17,
-  TokenIn           = 18,
-  TokenPlus         = 19,
-  TokenMinus        = 20,
-  TokenStar         = 21,
-  TokenSlash        = 22,
-  TokenNot          = 23,
-  TokenNum          = 24,
-  TokenString       = 25,
-  TokenTrue         = 26,
-  TokenFalse        = 27,
-  TokenNil          = 28,
-  TokenColon        = 29,
-  TokenDot          = 30,
-  TokenDo           = 31,
-  TokenEnd          = 32,
-  TokenIf           = 33,
-  TokenElse         = 34,
-  TokenCond         = 35,
-  TokenLBracket     = 36,
-  TokenRBracket     = 37,
-  TokenHashBracket  = 38,
-  TokenLBrace       = 39,
-  TokenRBrace       = 40,
-  TokenNewline      = 41,
-  TokenPipe         = 42,
-  TokenImport       = 43,
-  TokenAs           = 44,
+  TokenEOF, TokenLet, TokenComma, TokenEqual, TokenDef, TokenLParen, TokenRParen, TokenID, TokenArrow, TokenAnd,
+  TokenOr, TokenEqualEqual, TokenNotEqual, TokenGreater, TokenGreaterEqual, TokenLess, TokenLessEqual, TokenIn,
+  TokenPlus, TokenMinus, TokenStar, TokenSlash, TokenNot, TokenNum, TokenString, TokenTrue, TokenFalse, TokenNil,
+  TokenColon, TokenDot, TokenDo, TokenEnd, TokenIf, TokenElse, TokenCond, TokenLBracket, TokenRBracket,
+  TokenHashBracket, TokenLBrace, TokenRBrace, TokenNewline, TokenPipe, TokenImport, TokenAs,
 } TokenType;
 
 typedef struct {
@@ -72,4 +32,3 @@ void InitLexer(Lexer *lex, char *text);
 Token NextToken(Lexer *lex);
 Token PeekToken(Lexer *lex);
 void PrintToken(Token token);
-// Val ParseNum(Token token);

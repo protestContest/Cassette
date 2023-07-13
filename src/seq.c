@@ -106,31 +106,36 @@ static u32 PrintStmt(Val stmts, Mem *mem)
 
 void PrintSeq(Seq seq, Mem *mem)
 {
-  if (seq.needs > 0) {
-    Print("Needs ");
-    for (u32 i = 0; i < NUM_REGS; i++) {
-      if (Needs(&seq, 1 << i)) {
-        PrintReg(1 << i);
-        Print(" ");
+  Print("┌───");
+  if (seq.needs > 0 || seq.modifies > 0) {
+    Print(" ");
+    if (seq.needs > 0) {
+      Print("Needs ");
+      for (u32 i = 0; i < NUM_REGS; i++) {
+        if (Needs(&seq, 1 << i)) {
+          PrintReg(1 << i);
+          Print(" ");
+        }
       }
     }
-  }
 
-  if (seq.modifies > 0) {
-    Print("Modifies ");
-    for (u32 i = 0; i < NUM_REGS; i++) {
-      if (Modifies(&seq, 1 << i)) {
-        PrintReg(1 << i);
-        Print(" ");
+    if (seq.modifies > 0) {
+      Print("Modifies ");
+      for (u32 i = 0; i < NUM_REGS; i++) {
+        if (Modifies(&seq, 1 << i)) {
+          PrintReg(1 << i);
+          Print(" ");
+        }
       }
     }
+
   }
+  Print("\n");
 
-  if (seq.needs > 0 || seq.modifies > 0) Print("\n");
-
-  i32 i = 0;
+  // i32 i = 0;
   Val stmts = seq.stmts;
   while (!IsNil(stmts)) {
+    Print("│ ");
     Val stmt = Head(stmts, mem);
 
     if (IsTagged(stmt, "label", mem)) {
@@ -139,12 +144,14 @@ void PrintSeq(Seq seq, Mem *mem)
       Print(":\n");
       stmts = Tail(stmts, mem);
     } else {
-      PrintIntN(i, 4, ' ');
-      Print("│ ");
+      // PrintIntN(i, 4, ' ');
+      // Print("│ ");
 
       u32 len = PrintStmt(stmts, mem);
-      i += len;
+      // i += len;
       stmts = ListFrom(stmts, len, mem);
     }
   }
+
+  Print("└───\n");
 }
