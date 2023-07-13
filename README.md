@@ -25,20 +25,21 @@ fizzbuzz 100
 ```
 
 <aside>
-Comments and feedback are welcome, especially about this documentation. If anything is unclear or you spot any mistakes, please [drop me a note](mailto:cassette@zjm.me).
+Feedback is welcome — if anything is unclear or you spot any mistakes, please [drop me a note](mailto:cassette@zjm.me).
 </aside>
 
 ## [To-Do](#to-do)
 
 Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
-- Module loading
+- Module loading (90%)
 - VM optimization
 - Standard library
   - Collections
   - Math
   - I/O ports
   - Graphics
+- Documentation
 
 ## [Building](#building)
 
@@ -48,15 +49,11 @@ The source code can be found [here](https://git.sr.ht/~zjm/Cassette). This proje
 
 - Clone the repo with `git clone https://git.sr.ht/~zjm/Cassette`.
 - Run `make deps`. This clones, builds, and copies the univ library into this project. (Alternatively, build that library separately and copy the files into "lib" and "include".)
-- Run `make` to build the project. This creates the executable `cassette`, which can be called with a file to execute. `make test` will run the file `test/test.csst`
+- Run `make` to build the project. This creates the executable `cassette`, which can be called with a file to execute, or launch a REPL. `make test` will run the file `test/test.csst`.
 
 ## [Syntax, Types & Values](#syntax-types-values)
 
 Cassette is dynamically typed. There are seven data types: floating-point numbers, integers, symbols, pairs, tuples, maps, and binaries. Numbers and symbols are immediate values, while the other values are pointers to heap objects.
-
-<aside>
-Syntactically, these forms are considered "primary" expressions: Numbers, variables, symbols, strings, lists, tuples, maps, map accesses, and grouped expressions. Primary expressions can be used with infix operators. An "Argument" expression is any primary expression, infix expression, or a `do`, `if`, or `cond` expression. A `call` expression is a sequence of one or more argument expressions, separated by spaces (but not newlines).
-</aside>
 
 ### [Numbers](#numbers)
 

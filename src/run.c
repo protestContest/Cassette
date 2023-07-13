@@ -29,7 +29,7 @@ static void PrintParseError(Val error, Mem *mem)
   Print(":");
   PrintInt(col);
   Print("]: ");
-  PrintVal(message, mem);
+  InspectVal(message, mem);
   Print("\n");
   PrintSourceContext(BinaryData(text, mem), line, 3, pos, length);
   PrintEscape(IOFGReset);
@@ -165,7 +165,7 @@ void REPL(void)
         Val result = Eval(expr, &vm);
         if (!vm.error) {
           Print("=> ");
-          PrintVal(result, &vm.mem);
+          InspectVal(result, &vm.mem);
           Print("\n");
         }
         text[0] = '\0';

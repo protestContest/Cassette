@@ -90,7 +90,7 @@ void TraceInstruction(VM *vm)
   Print(" ║ ");
 
   for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
-    PrintVal(vm->val[i], &vm->mem);
+    InspectVal(vm->val[i], &vm->mem);
     Print(" │ ");
   }
 
@@ -469,7 +469,7 @@ void PrintStack(VM *vm)
   }
   for (u32 i = 0; i < VecCount(vm->val); i++) {
     Print("│");
-    PrintVal(vm->val[i], &vm->mem);
+    InspectVal(vm->val[i], &vm->mem);
     Print("\n");
   }
   Print("└────────────────────\n");
@@ -483,7 +483,7 @@ void PrintCallStack(VM *vm)
   }
   for (u32 i = 0; i < VecCount(vm->stack); i++) {
     Print("│");
-    PrintVal(vm->stack[i], &vm->mem);
+    InspectVal(vm->stack[i], &vm->mem);
     Print("\n");
   }
   Print("└────────────────────\n");

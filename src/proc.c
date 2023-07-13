@@ -66,51 +66,10 @@ static Val PrimRemainder(VM *vm)
   return IntVal(result);
 }
 
-static bool PrimPrintVal(Val val, VM *vm)
-{
-  Mem *mem = &vm->mem;
-
-  if (IsBinary(val, mem)) {
-    u32 length = BinaryLength(val, mem);
-    PrintN(BinaryData(val, mem), length);
-    return true;
-  } else if (IsSym(val)) {
-    Print(SymbolName(val, mem));
-    return true;
-  } else if (IsInt(val)) {
-    PrintInt(RawInt(val));
-    return true;
-  } else if (IsNum(val)) {
-    PrintFloat(RawNum(val), 3);
-    return true;
-  } else if (IsPair(val)) {
-    if (IsNil(val)) {
-      return true;
-    } else if (IsTagged(val, "λ", mem)) {
-      Val num = ListAt(val, 1, mem);
-      Print("λ");
-      PrintInt(RawInt(num));
-      return true;
-    } else if (IsTagged(val, "ε", mem)) {
-      Print("ε");
-      u32 num = RawVal(val);
-      PrintInt(num);
-      return true;
-    } else {
-      return
-        PrimPrintVal(Head(val, mem), vm) &&
-        PrimPrintVal(Tail(val, mem), vm);
-    }
-  } else {
-    RuntimeError(vm, "Value not printable");
-    return false;
-  }
-}
-
 static Val PrimPrint(VM *vm)
 {
   Val val = StackPop(vm);
-  if (PrimPrintVal(val, vm)) {
+  if (PrintVal(val, &vm->mem)) {
     Print("\n");
     return SymbolFor("ok");
   } else {
@@ -121,7 +80,7 @@ static Val PrimPrint(VM *vm)
 static Val PrimInspect(VM *vm)
 {
   Val val = StackPop(vm);
-  PrintVal(val, &vm->mem);
+  InspectVal(val, &vm->mem);
   Print("\n");
   return val;
 }

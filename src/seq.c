@@ -95,7 +95,7 @@ static u32 PrintStmt(Val stmts, Mem *mem)
     } else if (IsTagged(arg, "reg-ref", mem)) {
       PrintReg(RawInt(Tail(arg, mem)));
     } else {
-      PrintVal(arg, mem);
+      InspectVal(arg, mem);
     }
 
     stmts = Tail(stmts, mem);
@@ -132,7 +132,6 @@ void PrintSeq(Seq seq, Mem *mem)
   }
   Print("\n");
 
-  // i32 i = 0;
   Val stmts = seq.stmts;
   while (!IsNil(stmts)) {
     Print("│ ");
@@ -144,11 +143,7 @@ void PrintSeq(Seq seq, Mem *mem)
       Print(":\n");
       stmts = Tail(stmts, mem);
     } else {
-      // PrintIntN(i, 4, ' ');
-      // Print("│ ");
-
       u32 len = PrintStmt(stmts, mem);
-      // i += len;
       stmts = ListFrom(stmts, len, mem);
     }
   }

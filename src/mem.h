@@ -106,5 +106,6 @@ u32 ValMapCount(Val map, Mem *mem);
 Val ValMapKeys(Val map, Mem *mem);
 Val ValMapValues(Val map, Mem *mem);
 
-u32 PrintVal(Val value, Mem *mem);
+bool PrintVal(Val value, Mem *mem);
+u32 InspectVal(Val value, Mem *mem);
 void PrintMem(Mem *mem);

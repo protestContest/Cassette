@@ -108,7 +108,7 @@ void PrintEnv(Val env, Mem *mem)
       Val val = Tail(pair, mem);
       Print(SymbolName(var, mem));
       Print(": ");
-      PrintVal(val, mem);
+      InspectVal(val, mem);
       Print("\n");
       frame = Tail(frame, mem);
     }
