@@ -5,6 +5,7 @@
 #define IsSpace(lex)    (Peek(lex) == ' '  || Peek(lex) == '\t')
 #define IsNewline(lex)  (Peek(lex) == '\n' || Peek(lex) == '\r')
 #define IsDigit(lex)    (Peek(lex) >= '0'  && Peek(lex) <= '9')
+#define IsHexDigit(lex) (IsDigit(lex) || (Peek(lex) >= 'A'  && Peek(lex) <= 'F'))
 
 static struct {char *lexeme; TokenType type;} keywords[] = {
   {"and",     TokenAnd },
@@ -146,7 +147,12 @@ static Token NumberToken(Lexer *lex)
   u32 line = lex->line;
   u32 col = lex->col;
 
-  while (!IsEOF(lex) && IsDigit(lex)) {
+  if (Match(lex, "0x")) {
+    while (IsHexDigit(lex)) Advance(lex);
+    return MakeToken(TokenNum, start, &Peek(lex) - start, line, col);
+  }
+
+  while (IsDigit(lex)) {
     Advance(lex);
 
     if (Peek(lex) == '.') {

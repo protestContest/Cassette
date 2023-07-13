@@ -184,14 +184,43 @@ static Val ParseID(Lexer *lex, Mem *mem)
   return MakeSymbolFrom(token.lexeme, token.length, mem);
 }
 
+static u32 ParseDigit(char c)
+{
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'A' && c <= 'Z') return c - 'A' + 10;
+  if (c >= 'a' && c <= 'z') return c - 'a' + 10;
+  return 0;
+}
+
+static u32 ParseInt(char *lexeme, u32 length, u32 base)
+{
+  u32 num = 0;
+  for (u32 i = 0; i < length; i++) {
+    num *= base;
+    u32 digit = ParseDigit(lexeme[i]);
+    num += digit;
+  }
+
+  return num;
+}
+
 static Val ParseNum(Lexer *lex, Mem *mem)
 {
   Token token = NextToken(lex);
   Assert(token.type == TokenNum);
 
-  u32 whole = 0;
-  for (u32 i = 0; i < token.length; i++) {
-    if (token.lexeme[i] == '.') {
+  if (token.length > 1 && token.lexeme[1] == 'x') {
+    return IntVal(ParseInt(token.lexeme + 2, token.length - 2, 16));
+  }
+
+  u32 decimal = 0;
+  while (decimal < token.length && token.lexeme[decimal] != '.') decimal++;
+
+  u32 whole = ParseInt(token.lexeme, decimal, 10);
+
+  if (decimal < token.length) {
+    decimal++;
+    for (u32 i = decimal; i < token.length; i++) {
       // float
       float frac = 0;
       float place = 0.1;
@@ -204,10 +233,6 @@ static Val ParseNum(Lexer *lex, Mem *mem)
 
       return NumVal(whole + frac);
     }
-
-    u32 digit = token.lexeme[i] - '0';
-    whole *= 10;
-    whole += digit;
   }
 
   return IntVal(whole);
