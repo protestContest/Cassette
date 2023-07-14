@@ -102,7 +102,21 @@ Collections can be created like these:
 - Maps: `{foo: 3, bar: 4}`
 - Binaries: `"I am a collection of bytes"`
 
+Collections can be accessed by calling them as functions:
 
+```
+let list = [1 2 3]
+(list 1)            ; => 2
+
+let tup = #[4 5 6]
+(tup 2)             ; => 6
+
+let bin = "hello!"
+(bin 0)             ; => 104 (ASCII code for 'h')
+
+let map = {x: 3, y: 4}
+(map :y)            ; => 4
+```
 
 Symbols look like this: `:foo`, `:bar`.
 
@@ -152,6 +166,51 @@ cond do
   true          -> "B"
 end
 ```
+
+## [Reference](#reference)
+
+Here are some intended standard functions:
+
+- `(List.from list n)`: returns the list starting from the nth element
+- `(List.truncate list n)`: returns a list up to the nth element (exclusive)
+- `(List.slice list begin end)`: returns a list between `begin` (inclusive) and `end` (exclusive)
+- `(List.concat a b)`: concatenates two lists
+- `(List.append a b)`: appends `b` to the end of list `a`
+- `(List.flatten list)`: flattens a list
+- `(List.to_binary list)`: converts an IO list to a binary
+- `(List.to_tuple list)`: converts a list to a tuple
+- `(List.to_map list)`: converts a list of pairs to a map
+- `(List.insert list n value)`: returns a list with `value` inserted at position `n`
+
+- `(Map.get map key)`: gets `key` from a map, or nil
+- `(Map.put map key value)`: returns a map with `key` set to `value`
+- `(Map.delete map key)`: returns a map without `key`
+
+- `(Math.ceil n)`
+- `(Math.floor n)`
+- `(Math.round n)`
+- `(Math.abs n)`
+- `(Math.sqrt n)`
+- `(Math.ln n)`
+- `(Math.exp n)`
+- `(Math.E)`
+- `(Math.sin n)`
+- `(Math.cos n)`
+- `(Math.tan n)`
+- `(Math.Pi)`
+
+- `(Vec.add a b)`
+- `(Vec.dot a b)`: dot product
+- `(Vec.cross a b)`: cross product
+- `(Matrix.id n)`
+- `(Matrix.mul a b)`
+- `(Matrix.inverse m)`
+- `(Matrix.determinate m)`
+
+- `(Graphics.line a b)`
+- `(Graphics.curve a c1 c2 b)`: cubic bezier
+- `(Graphics.width)`
+- `(Graphics.height)`
 
 ## [Memory Representation](#memory-representation)
 
