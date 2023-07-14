@@ -85,7 +85,7 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
     return length;
   case ArgsConst:
     length += Print(" ");
-    length += PrintVal(ChunkConst(chunk, index+1), &chunk->constants);
+    length += InspectVal(ChunkConst(chunk, index+1), &chunk->constants);
     return length;
   case ArgsReg:
     length += Print(" ");

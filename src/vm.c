@@ -241,6 +241,32 @@ static void CompareOp(VM *vm, OpCode op)
   else if (op == OpGt) StackPush(vm, BoolVal(RawNum(a) > RawNum(b)));
 }
 
+static void AccessOp(VM *vm, Val obj, Val arg)
+{
+  if (IsPair(obj)) {
+    if (!IsInt(arg)) {
+      RuntimeError(vm, "Must access lists with integers");
+    } else {
+      StackPush(vm, ListAt(obj, RawInt(arg), &vm->mem));
+    }
+  } else if (IsTuple(obj, &vm->mem)) {
+    if (!IsInt(arg)) {
+      RuntimeError(vm, "Must access tuples with integers");
+    } else {
+      StackPush(vm, TupleGet(obj, RawInt(arg), &vm->mem));
+    }
+  } else if (IsBinary(obj, &vm->mem)) {
+    if (!IsInt(arg)) {
+      RuntimeError(vm, "Must access binaries with integers");
+    } else {
+      char byte = BinaryData(obj, &vm->mem)[RawInt(arg)];
+      StackPush(vm, IntVal(byte));
+    }
+  } else if (IsValMap(obj, &vm->mem)) {
+    StackPush(vm, ValMapGet(obj, arg, &vm->mem));
+  }
+}
+
 Val RunChunk(VM *vm, Chunk *chunk)
 {
   vm->cont = nil;
@@ -378,7 +404,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       u32 num_args = RawInt(ChunkConst(chunk, vm->pc+1));
       Val proc = StackPop(vm);
       if (IsPrimitive(proc, mem)) {
-        StackPush(vm, ApplyPrimitive(proc, num_args, vm));
+        StackPush(vm, ApplyPrimitive(proc, num_args - 1, vm));
         vm->pc = RawInt(vm->cont);
       } else if (IsCompoundProc(proc, mem)) {
         vm->pc = ProcEntry(proc, mem);
@@ -387,7 +413,13 @@ Val RunChunk(VM *vm, Chunk *chunk)
         StackPush(vm, proc);
         vm->pc += OpLength(op);
       } else {
-        RuntimeError(vm, "Not a function");
+        if (num_args == 2 && (IsPair(proc) || IsObj(proc))) {
+          Val arg = StackPop(vm);
+          AccessOp(vm, proc, arg);
+        } else {
+          RuntimeError(vm, "Not a function");
+        }
+        vm->pc += OpLength(op);
       }
       break;
     }

@@ -1,18 +1,21 @@
 #include "module.h"
 #include "parse.h"
 
-Val FindImports(Val ast, Mem *mem)
+Val FindImports(Val ast, char *folder, Mem *mem)
 {
   if (IsNil(ast)) return nil;
   if (!IsPair(ast)) return nil;
 
   if (IsTagged(ast, "import", mem)) {
-    return Pair(ListAt(ast, 1, mem), nil, mem);
+    Val rest = Tail(ast, mem);
+    Val import = MakeSymbol(JoinPath(folder, SymbolName(Head(rest, mem), mem)), mem);
+    SetHead(rest, import, mem);
+    return Pair(import, nil, mem);
   }
 
   Val imports = nil;
   while (IsPair(ast) && !IsNil(ast)) {
-    imports = ListConcat(imports, FindImports(Head(ast, mem), mem), mem);
+    imports = ListConcat(imports, FindImports(Head(ast, mem), folder, mem), mem);
     ast = Tail(ast, mem);
   }
   return imports;
@@ -81,19 +84,24 @@ Val LoadModule(char *entry, Mem *mem)
     ast = Pair(ast, nil, mem);
   }
 
-  Val imports = FindImports(ast, mem);
+  char *folder = FolderName(entry);
+  Val imports = FindImports(ast, folder, mem);
 
   while (!IsNil(imports)) {
     Val import = Head(imports, mem);
+
     if (!MapContains(&map, import.as_i)) {
-      source = (char*)ReadFile(SymbolName(import, mem));
+      char *import_name = SymbolName(import, mem);
+      char *folder = FolderName(import_name);
+
+      source = (char*)ReadFile(import_name);
       if (source == NULL) return LoadError(SymbolName(import, mem), mem);
 
       Val mod = Parse(source, mem);
       if (IsTagged(mod, "error", mem)) return mod;
 
       ast = Pair(WrapModule(mod, import, mem), ast, mem);
-      imports = ListConcat(imports, FindImports(mod, mem), mem);
+      imports = ListConcat(imports, FindImports(mod, folder, mem), mem);
       MapSet(&map, import.as_i, 1);
     }
     imports = Tail(imports, mem);
