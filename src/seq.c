@@ -143,6 +143,7 @@ void PrintSeq(Seq seq, Mem *mem)
       Print(":\n");
       stmts = Tail(stmts, mem);
     } else {
+      Print("  ");
       u32 len = PrintStmt(stmts, mem);
       stmts = ListFrom(stmts, len, mem);
     }

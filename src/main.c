@@ -12,6 +12,8 @@ static void PrintUsage(void)
 
 i32 main(i32 argc, char **argv)
 {
+  Seed(Time());
+
   if (argc == 1) {
     REPL();
   } else if (argc == 2) {

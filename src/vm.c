@@ -375,16 +375,19 @@ Val RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpApply: {
+      u32 num_args = RawInt(ChunkConst(chunk, vm->pc+1));
       Val proc = StackPop(vm);
       if (IsPrimitive(proc, mem)) {
-        StackPush(vm, ApplyPrimitive(proc, vm));
+        StackPush(vm, ApplyPrimitive(proc, num_args, vm));
         vm->pc = RawInt(vm->cont);
       } else if (IsCompoundProc(proc, mem)) {
         vm->pc = ProcEntry(proc, mem);
         vm->env = ExtendEnv(ProcEnv(proc, mem), mem);
-      } else {
+      } else if (num_args == 0) {
         StackPush(vm, proc);
         vm->pc += OpLength(op);
+      } else {
+        RuntimeError(vm, "Not a function");
       }
       break;
     }

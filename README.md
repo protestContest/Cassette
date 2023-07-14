@@ -32,6 +32,7 @@ Feedback is welcome — if anything is unclear or you spot any mistakes, please 
 
 Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
+- Source context on runtime errors
 - Module loading (90%)
 - Compiler optimization
 - VM optimization
@@ -100,6 +101,8 @@ Collections can be created like these:
 - Tuples: `#[1, 2, 3]` or `#[1 2 3]`
 - Maps: `{foo: 3, bar: 4}`
 - Binaries: `"I am a collection of bytes"`
+
+
 
 Symbols look like this: `:foo`, `:bar`.
 

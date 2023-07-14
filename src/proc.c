@@ -21,8 +21,8 @@ Val ProcEnv(Val proc, Mem *mem)
   return ListAt(proc, 2, mem);
 }
 
-Val ApplyPrimitive(Val proc, VM *vm)
+Val ApplyPrimitive(Val proc, u32 num_args, VM *vm)
 {
   u32 index = RawInt(ListAt(proc, 2, &vm->mem));
-  return GetPrimitive(index)(vm);
+  return GetPrimitive(index)(num_args, vm);
 }

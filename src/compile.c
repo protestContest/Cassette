@@ -125,13 +125,27 @@ static CompileResult CompileInfix(Seq op_seq, Val node, Linkage linkage, Mem *me
   return CompileOk(Preserving(RegCont, args, EndWithLinkage(linkage, op_seq, mem), mem), node);
 }
 
-static CompileResult CompileCall(Seq args, Val node, Linkage linkage, Mem *mem)
+static CompileResult CompileCall(Val node, Linkage linkage, Mem *mem)
 {
+  Seq args = EmptySeq();
+
+  u32 num_args = 0;
+  while (!IsNil(node)) {
+    CompileResult arg = CompileExpr(Head(node, mem), LinkNext, mem);
+    if (!arg.ok) return arg;
+
+    num_args++;
+    args = Preserving(RegEnv, arg.result, args, mem);
+    node = Tail(node, mem);
+  }
+  num_args--; // don't include the function itself
+
   if (Eq(linkage, LinkReturn)) {
     return CompileOk(Preserving(RegCont,
       args,
       MakeSeq(RegCont, RegEnv,
-        Pair(OpSymbol(OpApply), nil, mem)), mem), node);
+        Pair(OpSymbol(OpApply),
+        Pair(IntVal(num_args), nil, mem), mem)), mem), node);
   } else {
     Val after_call = MakeLabel(mem);
     if (Eq(linkage, LinkNext)) linkage = after_call;
@@ -142,23 +156,9 @@ static CompileResult CompileCall(Seq args, Val node, Linkage linkage, Mem *mem)
           Pair(OpSymbol(OpCont),
           Pair(LabelRef(linkage, mem),
           Pair(OpSymbol(OpApply),
-          Pair(Label(after_call, mem), nil, mem), mem), mem), mem)), mem), node);
+          Pair(IntVal(num_args),
+          Pair(Label(after_call, mem), nil, mem), mem), mem), mem), mem)), mem), node);
   }
-}
-
-static CompileResult CompileApplication(Val node, Linkage linkage, Mem *mem)
-{
-  Seq args = EmptySeq();
-
-  while (!IsNil(node)) {
-    CompileResult arg = CompileExpr(Head(node, mem), LinkNext, mem);
-    if (!arg.ok) return arg;
-
-    args = Preserving(RegEnv, arg.result, args, mem);
-    node = Tail(node, mem);
-  }
-
-  return CompileCall(args, node, linkage, mem);
 }
 
 static CompileResult CompileDo(Val node, Linkage linkage, Mem *mem)
@@ -360,7 +360,7 @@ static CompileResult CompileImport(Val node, Linkage linkage, Mem *mem)
     Pair(OpSymbol(OpGetMod),
     Pair(name, nil, mem), mem));
 
-  CompileResult call = CompileCall(EmptySeq(), node, linkage, mem);
+  CompileResult call = CompileCall(nil, linkage, mem);
   if (!call.ok) return call;
 
   Seq export =
@@ -451,7 +451,7 @@ static CompileResult CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsTagged(node, "import", mem))  return CompileImport(node, linkage, mem);
   if (IsTagged(node, "defmod", mem))  return CompileModule(node, linkage, mem);
 
-  if (IsPair(node))                   return CompileApplication(node, linkage, mem);
+  if (IsPair(node))                   return CompileCall(node, linkage, mem);
 
   return CompileError("Invalid node", node);
 }

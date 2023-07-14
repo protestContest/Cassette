@@ -1,24 +1,24 @@
 #include "primitives.h"
 #include "env.h"
 
-static Val PrimRemainder(VM *vm);
-static Val PrimPrint(VM *vm);
-static Val PrimInspect(VM *vm);
-static Val PrimRandom(VM *vm);
-static Val PrimCeil(VM *vm);
-static Val PrimFloor(VM *vm);
-static Val PrimAbs(VM *vm);
-static Val PrimSin(VM *vm);
-static Val PrimCos(VM *vm);
-static Val PrimTan(VM *vm);
-static Val PrimLog(VM *vm);
-static Val PrimExp(VM *vm);
+static Val PrimRemainder(u32 num_args, VM *vm);
+static Val PrimPrint(u32 num_args, VM *vm);
+static Val PrimInspect(u32 num_args, VM *vm);
+static Val PrimRandom(u32 num_args, VM *vm);
+static Val PrimCeil(u32 num_args, VM *vm);
+static Val PrimFloor(u32 num_args, VM *vm);
+static Val PrimAbs(u32 num_args, VM *vm);
+static Val PrimSin(u32 num_args, VM *vm);
+static Val PrimCos(u32 num_args, VM *vm);
+static Val PrimTan(u32 num_args, VM *vm);
+static Val PrimLog(u32 num_args, VM *vm);
+static Val PrimExp(u32 num_args, VM *vm);
 
 static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {NULL, "print", &PrimPrint},
   {NULL, "inspect", &PrimInspect},
-  {"Math", "rem", &PrimRemainder},
-  {"Math", "random", &PrimRandom},
+  {NULL, "rem", &PrimRemainder},
+  {NULL, "random", &PrimRandom},
   {"Math", "ceil", &PrimCeil},
   {"Math", "floor", &PrimFloor},
   {"Math", "abs", &PrimAbs},
@@ -66,10 +66,16 @@ void DefinePrimitives(Val env, Mem *mem)
   DestroyMap(&modules);
 }
 
-static Val PrimRemainder(VM *vm)
+static Val PrimRemainder(u32 num_args, VM *vm)
 {
+  if (num_args != 2) {
+    RuntimeError(vm, "Wrong number of arguments to rem");
+    return nil;
+  }
+
   Val a = StackPop(vm);
   Val b = StackPop(vm);
+
   if (!IsInt(a) || !IsInt(b)) {
     RuntimeError(vm, "Bad rem argument");
     return nil;
@@ -80,32 +86,72 @@ static Val PrimRemainder(VM *vm)
   return IntVal(result);
 }
 
-static Val PrimPrint(VM *vm)
+static Val PrimPrint(u32 num_args, VM *vm)
 {
-  Val val = StackPop(vm);
-  if (PrintVal(val, &vm->mem)) {
-    Print("\n");
-    return SymbolFor("ok");
-  } else {
-    return SymbolFor("error");
+  for (u32 i = 0; i < num_args; i++) {
+    Val val = StackPop(vm);
+    if (!PrintVal(val, &vm->mem)) {
+      return SymbolFor("error");
+    }
+
+    if (i < num_args-1) Print(" ");
   }
-}
-
-static Val PrimInspect(VM *vm)
-{
-  Val val = StackPop(vm);
-  InspectVal(val, &vm->mem);
   Print("\n");
-  return val;
+  return SymbolFor("ok");
 }
 
-static Val PrimRandom(VM *vm)
+static Val PrimInspect(u32 num_args, VM *vm)
 {
-  return IntVal(Random());
+  for (u32 i = 0; i < num_args; i++) {
+    Val val = StackPop(vm);
+    InspectVal(val, &vm->mem);
+    Print("\n");
+  }
+  return SymbolFor("ok");
 }
 
-static Val PrimCeil(VM *vm)
+static Val PrimRandom(u32 num_args, VM *vm)
 {
+  u32 r = Random();
+
+  if (num_args > 0) {
+    Val max = StackPop(vm);
+    if (!IsInt(max)) {
+      RuntimeError(vm, "Bad argument to random");
+      return nil;
+    }
+
+    Val min = IntVal(0);
+    if (num_args > 1) {
+      min = max;
+      max = StackPop(vm);
+      if (!IsInt(min)) {
+        RuntimeError(vm, "Bad argument to random");
+        return nil;
+      }
+    }
+
+    if (num_args > 2) {
+      RuntimeError(vm, "Wrong number of arguments to random");
+      return nil;
+    }
+
+    u32 range = RawInt(max) - RawInt(min);
+    float scaled = r * (float)range / MaxUInt;
+    u32 biased = (u32)(scaled + RawInt(min));
+    return IntVal(biased);
+  }
+
+  return NumVal((float)r / MaxUInt);
+}
+
+static Val PrimCeil(u32 num_args, VM *vm)
+{
+  if (num_args != 1) {
+    RuntimeError(vm, "Wrong number of arguments to ceil");
+    return nil;
+  }
+
   Val n = StackPop(vm);
   if (IsInt(n)) return n;
 
@@ -117,8 +163,13 @@ static Val PrimCeil(VM *vm)
   return nil;
 }
 
-static Val PrimFloor(VM *vm)
+static Val PrimFloor(u32 num_args, VM *vm)
 {
+  if (num_args != 1) {
+    RuntimeError(vm, "Wrong number of arguments to floor");
+    return nil;
+  }
+
   Val n = StackPop(vm);
   if (IsInt(n)) return n;
 
@@ -130,8 +181,13 @@ static Val PrimFloor(VM *vm)
   return nil;
 }
 
-static Val PrimAbs(VM *vm)
+static Val PrimAbs(u32 num_args, VM *vm)
 {
+  if (num_args != 1) {
+    RuntimeError(vm, "Wrong number of arguments to abs");
+    return nil;
+  }
+
   Val n = StackPop(vm);
   if (!IsNumeric(n)) {
     RuntimeError(vm, "Bad arg to abs");
@@ -144,27 +200,27 @@ static Val PrimAbs(VM *vm)
   return NumVal(-RawNum(n));
 }
 
-// static Val PrimSin(VM *vm)
+// static Val PrimSin(u32 num_args, VM *vm)
 // {
 
 // }
 
-// static Val PrimCos(VM *vm)
+// static Val PrimCos(u32 num_args, VM *vm)
 // {
 
 // }
 
-// static Val PrimTan(VM *vm)
+// static Val PrimTan(u32 num_args, VM *vm)
 // {
 
 // }
 
-// static Val PrimLog(VM *vm)
+// static Val PrimLog(u32 num_args, VM *vm)
 // {
 
 // }
 
-// static Val PrimExp(VM *vm)
+// static Val PrimExp(u32 num_args, VM *vm)
 // {
 
 // }
