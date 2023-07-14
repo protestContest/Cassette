@@ -83,6 +83,8 @@ static bool IsSymChar(Lexer *lex)
 
   switch (Peek(lex)) {
   case '#': return false;
+  case '*': return false;
+  case '/': return false;
   case ',': return false;
   case '.': return false;
   case '|': return false;
@@ -223,6 +225,8 @@ static Token AdvanceToken(Lexer *lex)
   if (Match(lex, ">=")) return MakeToken(TokenGreaterEqual, start, &Peek(lex) - start, line, col);
   if (Match(lex, "<=")) return MakeToken(TokenLessEqual, start, &Peek(lex) - start, line, col);
   if (Match(lex, "#[")) return MakeToken(TokenHashBracket, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "**")) return MakeToken(TokenStarStar, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "#")) return MakeToken(TokenHash, start, &Peek(lex) - start, line, col);
   if (Match(lex, "|")) return MakeToken(TokenPipe, start, &Peek(lex) - start, line, col);
   if (Match(lex, ",")) return MakeToken(TokenComma, start, &Peek(lex) - start, line, col);
   if (Match(lex, "=")) return MakeToken(TokenEqual, start, &Peek(lex) - start, line, col);
@@ -242,54 +246,4 @@ static Token AdvanceToken(Lexer *lex)
   if (Match(lex, "}")) return MakeToken(TokenRBrace, start, &Peek(lex) - start, line, col);
 
   return KeywordToken(lex);
-}
-
-void PrintToken(Token token)
-{
-  switch (token.type) {
-  case TokenEOF: Print("EOF"); break;
-  case TokenLet: Print("Let"); break;
-  case TokenComma: Print("Comma"); break;
-  case TokenEqual: Print("Equal"); break;
-  case TokenDef: Print("Def"); break;
-  case TokenLParen: Print("LParen"); break;
-  case TokenRParen: Print("RParen"); break;
-  case TokenID: Print("ID"); break;
-  case TokenArrow: Print("Arrow"); break;
-  case TokenAnd: Print("And"); break;
-  case TokenOr: Print("Or"); break;
-  case TokenEqualEqual: Print("EqualEqual"); break;
-  case TokenNotEqual: Print("NotEqual"); break;
-  case TokenGreater: Print("Greater"); break;
-  case TokenGreaterEqual: Print("GreaterEqual"); break;
-  case TokenLess: Print("Less"); break;
-  case TokenLessEqual: Print("LessEqual"); break;
-  case TokenIn: Print("In"); break;
-  case TokenPlus: Print("Plus"); break;
-  case TokenMinus: Print("Minus"); break;
-  case TokenStar: Print("Star"); break;
-  case TokenSlash: Print("Slash"); break;
-  case TokenNot: Print("Not"); break;
-  case TokenNum: Print("Num"); break;
-  case TokenString: Print("String"); break;
-  case TokenTrue: Print("True"); break;
-  case TokenFalse: Print("False"); break;
-  case TokenNil: Print("Nil"); break;
-  case TokenColon: Print("Colon"); break;
-  case TokenDot: Print("Dot"); break;
-  case TokenDo: Print("Do"); break;
-  case TokenEnd: Print("End"); break;
-  case TokenIf: Print("If"); break;
-  case TokenElse: Print("Else"); break;
-  case TokenCond: Print("Cond"); break;
-  case TokenLBracket: Print("LBracket"); break;
-  case TokenRBracket: Print("RBracket"); break;
-  case TokenHashBracket: Print("HashBracket"); break;
-  case TokenLBrace: Print("LBrace"); break;
-  case TokenRBrace: Print("RBrace"); break;
-  case TokenPipe: Print("Pipe"); break;
-  case TokenNewline: Print("Newline"); break;
-  case TokenImport: Print("Import"); break;
-  case TokenAs: Print("As"); break;
-  }
 }

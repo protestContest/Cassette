@@ -15,6 +15,7 @@ typedef enum {
   PrecPair,
   PrecSum,
   PrecProduct,
+  PrecExponent,
   PrecUnary,
   PrecAccess
 } Precedence;
@@ -57,6 +58,8 @@ static ParseRule rules[] = {
   [TokenPlus]         = {NULL, &ParseLeftAssoc, PrecSum},
   [TokenMinus]        = {&ParseUnary, &ParseLeftAssoc, PrecSum},
   [TokenNot]          = {&ParseUnary, NULL, PrecNone},
+  [TokenHash]         = {&ParseUnary, NULL, PrecNone},
+  [TokenStarStar]     = {NULL, &ParseLeftAssoc, PrecExponent},
   [TokenStar]         = {NULL, &ParseLeftAssoc, PrecProduct},
   [TokenSlash]        = {NULL, &ParseLeftAssoc, PrecProduct},
   [TokenEqualEqual]   = {NULL, &ParseLeftAssoc, PrecEqual},
@@ -117,20 +120,6 @@ static Val ParseError(char *message, Token token, Lexer *lex, Mem *mem)
     Pair(MakeBinary(message, mem),
     Pair(TokenVal(token, lex, mem),
     Pair(MakeBinary(lex->text, mem), nil, mem), mem), mem), mem), mem);
-}
-
-static void PrintParser(Lexer *lex)
-{
-  PrintToken(lex->token);
-  Print(" [");
-  PrintInt(lex->token.line);
-  Print(":");
-  PrintInt(lex->token.col);
-  Print("]\n");
-
-  u32 pos = lex->token.lexeme - lex->text;
-  PrintSourceContext(lex->text, lex->token.line, 3, pos, lex->token.length);
-  Print("\n");
 }
 
 static bool MatchToken(TokenType type, Lexer *lex)

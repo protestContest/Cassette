@@ -1,5 +1,6 @@
 #include "env.h"
 #include "proc.h"
+#include "primitives.h"
 
 Val InitialEnv(Mem *mem)
 {
@@ -69,6 +70,18 @@ Val Lookup(Val var, Val env, Mem *mem)
   }
 
   return MakeSymbol("__UNDEFINED__", mem);
+}
+
+void ImportEnv(Val imports, Val env, Mem *mem)
+{
+  Val keys = ValMapKeys(imports, mem);
+  Val vals = ValMapValues(imports, mem);
+
+  for (u32 i = 0; i < ValMapCount(imports, mem); i++) {
+    Val key = TupleGet(keys, i, mem);
+    Val val = TupleGet(vals, i, mem);
+    Define(key, val, env, mem);
+  }
 }
 
 Val ExportEnv(Val env, Mem *mem)

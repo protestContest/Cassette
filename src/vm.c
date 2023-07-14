@@ -2,6 +2,7 @@
 #include "ops.h"
 #include "env.h"
 #include "proc.h"
+#include "primitives.h"
 
 void InitVM(VM *vm)
 {
@@ -125,6 +126,11 @@ i32 IntOp(i32 a, i32 b, OpCode op)
   case OpAdd: return a + b;
   case OpSub: return a - b;
   case OpMul: return a * b;
+  case OpExp: {
+    i32 result = 1;
+    for (i32 i = 0; i < b; i++) result *= a;
+    return result;
+  }
   default: Abort();
   }
 }
@@ -261,6 +267,19 @@ Val RunChunk(VM *vm, Chunk *chunk)
       CreateOp(vm, op);
       vm->pc += OpLength(op);
       break;
+    case OpLen: {
+      Val val = StackPop(vm);
+      if (IsPair(val)) StackPush(vm, IntVal(ListLength(val, mem)));
+      else if (IsTuple(val, mem)) StackPush(vm, IntVal(TupleLength(val, mem)));
+      else if (IsValMap(val, mem)) StackPush(vm, IntVal(ValMapCount(val, mem)));
+      else {
+        PrintVal(val, mem);
+        Print("\n");
+        RuntimeError(vm, "Argument has no length");
+      }
+      vm->pc += OpLength(op);
+      break;
+    }
     case OpTrue:
       StackPush(vm, SymbolFor("true"));
       vm->pc += OpLength(op);
@@ -277,6 +296,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
     case OpSub:
     case OpMul:
     case OpDiv:
+    case OpExp:
       ArithmeticOp(vm, op);
       vm->pc += OpLength(op);
       break;
@@ -438,15 +458,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpImport: {
       Val mod = StackPop(vm);
-      Val keys = ValMapKeys(mod, mem);
-      Val vals = ValMapValues(mod, mem);
-
-      for (u32 i = 0; i < ValMapCount(mod, mem); i++) {
-        Val key = TupleGet(keys, i, mem);
-        Val val = TupleGet(vals, i, mem);
-        Define(key, val, vm->env, mem);
-      }
-
+      ImportEnv(mod, vm->env, mem);
       StackPush(vm, SymbolFor("ok"));
       vm->pc += OpLength(op);
       break;

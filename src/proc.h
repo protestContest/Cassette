@@ -2,7 +2,6 @@
 #include "mem.h"
 #include "vm.h"
 
-void DefinePrimitives(Val env, Mem *mem);
 bool IsPrimitive(Val proc, Mem *mem);
 bool IsCompoundProc(Val proc, Mem *mem);
 u32 ProcEntry(Val proc, Mem *mem);
