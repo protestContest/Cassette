@@ -33,6 +33,7 @@ Feedback is welcome — if anything is unclear or you spot any mistakes, please 
 Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
 - Module loading (90%)
+- Compiler optimization
 - VM optimization
 - Standard library
   - Collections
@@ -51,234 +52,107 @@ The source code can be found [here](https://git.sr.ht/~zjm/Cassette). This proje
 - Run `make deps`. This clones, builds, and copies the univ library into this project. (Alternatively, build that library separately and copy the files into "lib" and "include".)
 - Run `make` to build the project. This creates the executable `cassette`, which can be called with a file to execute, or launch a REPL. `make test` will run the file `test/test.csst`.
 
-## [Syntax, Types & Values](#syntax-types-values)
+## [Values & Types](#values-types)
 
-Cassette is dynamically typed. There are seven data types: floating-point numbers, integers, symbols, pairs, tuples, maps, and binaries. Numbers and symbols are immediate values, while the other values are pointers to heap objects.
+Cassette is dynamically typed. The basic data types in Cassette are:
 
-### [Numbers](#numbers)
+- Numbers
+- Symbols
+- Pairs (which can be linked to form lists)
+- Tuples
+- Binaries (also used to represent strings)
+- Maps
 
-Numbers can be written in decimal or hexadecimal. Numbers without a decimal point and hexadecimals are integers, and decimals with a decimal point become floats.
+Numbers are either 32-bit signed integers or 32-bit IEEE 754 floating point numbers. Constants written with a decimal, like `31.0`, are floats; without a decimal, like `31`, are integers. Integers can also be written in hexadecimal, like `0x5A4D`. Numbers are converted between floating point and integer based on the operations applied to them. Addition, subtraction, multiplication, and exponentiation with two integers results in an integer, but any arithmetic where one operand is a float results in a float. Division always results in a float. Some functions, like `floor` or `round`, always result in an integer.
 
-Four infix arithmetic operators are supported: `+`, `-`, `*`, `/`.  Addition, subtraction, and multiplication with two integers results in an integer. Arithmetic with floats results in a float. Division always results in a float.
+A _symbol_ is a unique value that simply represent itself. A symbol is written like this: `:ok`, `:error`, `:symbols_can_be_really_long_but_maybe_shouldn't_be`. Two special symbols, `:true` and `:false`, represent boolean values, and can be written simply as `true` and `false`.
 
-```
-0x1F        ; => 31
-3 + 1       ; => 4
-3 - 1.0     ; => 2.0
-3 * -5      ; => -15
-15 / 3      ; => 5.0
-```
+A _pair_ is a value that contains two values, a _head_ and a _tail_. A pair can contain any two values. Pairs are created with the pipe operator: `1 | 2`. Conventionally, pairs are used to form linked lists: a list is a pair with the first item as the head and the rest of the list (another pair) as the tail. A special value, `nil`, is used as the tail of the last pair in the list. `nil` is also a pair, with `nil` as its head and `nil` as its tail. `nil` is also considered to be an empty list. Lists can be constructed from pairs, like this: `1 | 2 | 3 | 4 | nil`, but it's easier to use the list syntax: `[1, 2, 3, 4]` (commas optional).
 
-### [Symbols](#symbols)
+A _tuple_ is a fixed-size set of items. Tuples are a _persistent data structure_, which means when you change a tuple, the old version still exists (in case some other code is still using it). A tuple is similar to a list, but is more efficient to access items from. On the other hand, it's less efficient to change a tuple. Tuples can be created like this: `#[1, 2, 3, 4]` (commas optional).
 
-Symbols are identifier values that only represent themselves, similar to symbols in Ruby or atoms in Elixir. Two special symbols, `:true` and `:false`, represent boolean values and can be written with the keywords `true` and `false`. 
+A _binary_ is a sequence of bytes. Binaries are used to represent strings and other binary data. Cassette is _encoding-agnostic_, making no assumptions about the contents of a binary. Binaries can be created with the string syntax, like `"hello, world!"`, or by converting a list of integers. Binaries, unlike pairs, tuples, and maps, are not persistent: the contents of a binary can be changed in-place.
 
-There are eight infix operators for comparison, equality, and logic: `<`, `<=`, `>=`, `>`, `==`, `!=`, `and`, `or`.
+A _map_ is a key-value map, known elsewhere as an _associative array_ or a _dictionary_. Maps can be written like this: `{foo: 1, bar: "ok"}` (commas optional). In this case, the keys are the symbols `:foo` and `:bar`. When creating maps like this, only symbols can be used as keys, but any value can be used as a key when using map functions like `Map.put`. Maps, like tuples and pairs, are persistent data structures.
 
-```
-:foo == :foo    ; => true
-:bar            ; => :bar
-:bar == "bar"   ; => false
-```
+Pairs, tuples, binaries, and maps are _object types_: their data is stored in memory on the _heap_, and the values are references to that data.
 
-### [Comparison & Equality](#comparison-equality)
+## [Syntax](#syntax)
 
-These evaluate to the symbols `true` or `false` (usually written with the keywords `true` and `false`). The logical operators are short-circuiting. In logic and conditional expressions, only `false` (the symbol `:false`) and `nil` (the empty list `[]`) are considered false.
+Cassette supports these infix operators:
 
-Comparison is only defined for numbers, which are compared by value. Equality is tested by identity, so pairs, tuples, maps, and binaries are only equal if they  point to the same heap object. Integers and floats are compared by numeric value.
+- Arithmetic: `+`, `-`, `*`, `/`
+- Exponentiation: `^`
+- Comparison: `>`, `<`, `>=`, `<=`, `==`, `!=`
+- Membership: `in` (e.g. `3 in my_list`)
+- Pair construction: `x | y`
+- Logic: `and`, `or` (short-circuiting)
 
-```
-3 and true    ; => true
-3 and false   ; => false
-3 and nil     ; => false
-3 and []      ; => false
+and these prefix operators:
 
-:foo == :foo  ; => true
-3 == 3.0      ; => true
-[3] == [3]    ; => false (two different lists are created)
-```
+- Negative: `-`
+- Logic: `not`
+- Length: `#` (e.g. #my_list)
 
-### [Pairs & Lists](#pairs-lists)
+Collections can be created like these:
 
-Pairs are typical Lisp-style head/tail pairs, which can be linked to form lists. A list can be created with this syntax: `[1, 2, 3]` (commas optional). The keyword `nil` is the empty list, `[]`, and marks the end of a list.
+- Lists: `[1, 2, 3]` or `[1 2 3]`
+- Tuples: `#[1, 2, 3]` or `#[1 2 3]`
+- Maps: `{foo: 3, bar: 4}`
+- Binaries: `"I am a collection of bytes"`
 
-A list can be extended with the update syntax: `[1, 2, 3 | some-list]`. This prepends the given values onto the head of the list. This can be used with any value to create a single pair: `[ :a | :b ]`. This pair syntax is essentially the same as Lisp's `cons` operator.
+Symbols look like this: `:foo`, `:bar`.
 
-```
-let list = [3, 2, 1]
-[5, 4 | list]       ; => [5, 4, 3, 2, 1]
-[4 | [3, 2, 1]]     ; => [4, 3, 2, 1]
-[:a | :b]           ; => [:a | :b] 
-[3 | nil]           ; => [3]
-nil == []           ; => true
-```
+Variables can be defined like this: `let x = 1, y = 2`.
 
-### [Tuples](#tuples)
+Anonymous functions look like this: `(x y) -> x + y`.
 
-Tuples are fixed-size arrays. Tuple elements can be accessed by their index in constant time by calling the tuple as a function. A tuple can be created with this syntax: `#[1, 2, 3]` (commas optional).
+Functions can be defined with `let` and an anonymous function, or like this:
+
+`def (foo x y) x + y`
 
 ```
-let tup = #[1, 2, 3]
-(tup 1)             ; => 2
-(tup 100)           ; Out of bounds error
-```
-
-### [Maps](#maps)
-
-Maps are key-value dictionaries. A map can be created with this syntax: `{a: 1, b: 2}` (commas optional). This creates a map with the keys `:a` and `:b`, and the values `1` and `2`. Map keys can be any value, but only symbol keys are supported in the literal syntax. For symbol keys, a map can be accessed like this: `foo.x`.
-
-A map can be updated with a syntax similar to lists: `{c: 3, d: 4 | some-map}`. This returns a new map that is a copy of the original with the updated entries.
-
-```
-let d = {a: 1, b: 2}
-d.a                   ; => 1
-d.foo                 ; => nil
-{c: 3 | d}            ; => {a: 1, b: 2, c: 3}
-{a: 0, d: d.a | d}    ; => {a: 0, b: 2, d: 1}
-```
-
-### [Binaries & Strings](#binaries-strings)
-
-Strings in Cassette are represented only as "binaries", a sequence of arbitrary bytes. Binaries can be created from UTF-8 strings with double quotes:
-
-```
-"Hi!"  ; bytes 0x48, 0x69, 0x21
-"水"    ; bytes 0xE6, 0xB0, 0xB4
-```
-
-### [Defining Values](#defining-values)
-
-The `let` syntax allows you to define variables in the current block. `let` is only allowed within blocks.
-
-```
-let x = 1, 
-    y = 2
-print x             ; => prints "1"
-print z             ; Undefined variable error
-```
-
-### [Functions & Lambdas](#functions-lambdas)
-
-A function object is represented as a list beginning with the symbol `λ`, followed by data defining the function. Functions can be created with the lambda syntax: `(x y) -> x * y`. Variadic functions can be created by specifying a variable for the parameter list, like this: `params -> (print params)`. A variadic function receives its arguments as a list bound to that variable.
-
-```
-(a b c) -> a * b + c
-params -> length params
-```
-
-Functions can be defined with the `let` or `def` syntax. `def` is syntactic sugar for `let`:
-
-```
-; These are equivalent:
-
-let foo = (x y) -> do
-  x * y
-end
-
-def (foo x y) do
-  x * y
+def (bar x y) do
+  print x
+  x + y
 end
 ```
 
-Functions are called by name by listing their arguments afterwards, without separators: `foo 1 2 3 4`. Precedence can be enforced with parentheses: `foo (bar x) y`. Infix expressions are considered a single argument. To call a function with no arguments, you must use parentheses: `(do-stuff)`.
+A `do` block can execute multiple expressions, returning the last one.
 
 ```
-def (combine x y z) do
-  x * y + x * z
-end
-
-def (inc x)
-  x + 1
-end
-
-def (val) do
-  4
-end
-
-let x = 8
-combine (5 + 1) * 2 (inc x) (val)   ; `combine` called with arguments 12, 9, 4
-combine 2 (inc x) val               ; `combine` called with arguments 2, 9, [λ val]
-combine                             ; not called, just the value [λ combine]
-```
-
-### [Foreign Functions](#foreign-functions)
-
-A foreign-function interface allows Cassette code to call native code. An identifier beginning with `@` represents a foreign function, and can be called with arguments like a regular function.
-
-The set of available foreign functions must be defined by the runtime before execution. A foreign function is registered in the C API with a name and a pointer to an implementation function. The C API is not yet fully defined.
-
-```
-def (print x) do
-  @print x                  ; calls foreign function "print" with arguments [x]
-end
-
-print "Hello, world!"       ; prints "Hello, world!"
-```
-
-### [Blocks & Conditionals](#blocks-conditionals)
-
-The top level of a file is a block. A block is a sequence of call expressions, separated by newlines. Function calls in a block can't have newlines between arguments, unless called within parentheses. Newlines are also allowed after an infix operator and within list, tuple, and map literals.
-
-A block can be created with a `do` expression, which can be used anywhere an expression is allowed. A `do` expression evaluates to the last statement in the block.
-
-```
-let f = (x y) -> do
-  print "Called f!"
-  x * y
-end
-
-(f 2 3)             ; prints "Called f!", and evaluates to 6
-```
-
-The `cond` and `if` expressions allow conditional flow. `if` expressions have a predicate argument followed by a `do` expression and an optional `else` expression. An `if` without an `else` returns `nil` when the predicate is false.
-
-```
-def (second list) do
-  if (length list) > 2 do
-    head (tail list)
-  end
-end
-
-second [3]             ; => nil
-second [3 5 7 9]       ; => 5
-
-if (try-something 0 10) do
+do
+  print x
+  print y
   :ok
-else
+end
+```
+
+A function is called with parentheses, like this: `(foo 2 3)`. In `do` blocks and `if` blocks, the parentheses are optional if there is at least one argument.
+
+Conditionals can be an `if` block or a `cond` block:
+
+```
+if x == 0 do
   :error
+else
+  y / x
 end
-```
 
-A `cond` expression allows multiple predicate clauses. The predicates are evaluated in order until one is true, then that predicate's consequent is evaluated. `true` can be used as a fallback predicate.
+if not (test x) do
+  log "Failed!"
+end
 
-Clauses are separated by newlines. Any argument expression can be a clause predicate except lambdas. Any call expression can be a consequent.
-
-```
 cond do
-  x == y      -> foo x y
-  (test x y)  -> :ok
-  true        -> :error
+  x > 1024*1024 -> "M"
+  x > 1024      -> "K"
+  true          -> "B"
 end
 ```
-
-## [Modules & Import](#modules-import)
-
-The `import` keyword allows inclusion of another module. When used without `as` (e.g. `import "foo.csst"`), any definitions in the top-level of the other module become defined in the current environment. With the `as` keyword, the imported definitions are keys in a map bound to the identifier.
-
-```
-import "helpers.csst"       ; all defs in "helpers.csst" are now in scope
-import "math.csst" as Math  ; defs in "math.csst" are keys in the map `Math`
-```
-
-## [Input & Output](#input-output)
-
-Cassette uses the "port" concept for I/O. The `open` function opens a port of a specified type. Then the `send` function can send a message to that port. The structure of the message depends on the type of port. The `receive` can be called to take an incoming message from a port. If no message is waiting, `receive` returns `nil`.
-
-Planned port types are `file`, for normal file I/O, and `window`, for graphics and input events.
 
 ## [Memory Representation](#memory-representation)
 
-The base of the runtime is the memory representation. Values are 32-bit NaN-boxed floats: any floating point number represents itself, except when it's NaN, the unused 23 bits encode a type and value.
+Values are represented as 32-bit NaN-boxed floats. Any floating point number represents itself, except when it's NaN, the unused 23 bits encode a type and value.
 
 ```
          31      24       16       8       0
@@ -300,8 +174,6 @@ Reserved │1│11111111│111--------------------│
 When the exponent is all 1s and any mantissa bit (usually the high bit) is 1, the value represents NaN, and the remaining 23 bits are undefined. Cassette uses the sign bit and bits 20 and 21 to encode a type, and bits 0–19 to encode a raw value. Integers and symbols are represented immediately, but pairs and other objects store an index into the heap where the object data is.
 
 Symbol values are a 20-bit hash of the symbol name, which is stored in a hash table.
-
-### [Heap-Allocated Objects](#heap-allocated-objects)
 
 Pairs are stored in the heap with the head at the value index and the tail just after. Other objects stored in the heap begin with a header value that specifies the object type and other info. The top three bits of a header encode the object type, and the rest encode some data about the object, usually its length. The object's data follows the header.
 

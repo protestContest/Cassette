@@ -69,8 +69,10 @@ void Halt(VM *vm)
 
 void RuntimeError(VM *vm, char *message)
 {
+  PrintEscape(IOFGRed);
   Print("Runtime error: ");
   Print(message);
+  PrintEscape(IOFGReset);
   Print("\n");
   vm->error = true;
   Halt(vm);
@@ -271,6 +273,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       Val val = StackPop(vm);
       if (IsPair(val)) StackPush(vm, IntVal(ListLength(val, mem)));
       else if (IsTuple(val, mem)) StackPush(vm, IntVal(TupleLength(val, mem)));
+      else if (IsBinary(val, mem)) StackPush(vm, IntVal(BinaryLength(val, mem)));
       else if (IsValMap(val, mem)) StackPush(vm, IntVal(ValMapCount(val, mem)));
       else {
         PrintVal(val, mem);

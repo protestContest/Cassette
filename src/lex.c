@@ -225,7 +225,7 @@ static Token AdvanceToken(Lexer *lex)
   if (Match(lex, ">=")) return MakeToken(TokenGreaterEqual, start, &Peek(lex) - start, line, col);
   if (Match(lex, "<=")) return MakeToken(TokenLessEqual, start, &Peek(lex) - start, line, col);
   if (Match(lex, "#[")) return MakeToken(TokenHashBracket, start, &Peek(lex) - start, line, col);
-  if (Match(lex, "**")) return MakeToken(TokenStarStar, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "^")) return MakeToken(TokenCaret, start, &Peek(lex) - start, line, col);
   if (Match(lex, "#")) return MakeToken(TokenHash, start, &Peek(lex) - start, line, col);
   if (Match(lex, "|")) return MakeToken(TokenPipe, start, &Peek(lex) - start, line, col);
   if (Match(lex, ",")) return MakeToken(TokenComma, start, &Peek(lex) - start, line, col);
