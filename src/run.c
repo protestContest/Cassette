@@ -79,7 +79,20 @@ Val Eval(Val ast, VM *vm)
 
 static bool REPLCmd(char *text, VM *vm)
 {
-  if (StrEq(text, "@reset\n")) {
+  if (StrEq(text, "@help")) {
+    Print("Type any expression, and it will be evaluated.\n");
+    Print("To quit, use Ctrl+D at an empty prompt, or Ctrl+C.\n");
+    Print("Some commands to the VM are also supported:\n");
+    Print("  @help      Prints this help\n");
+    Print("  @reset     Resets the VM\n");
+    Print("  @trace     Toggles instruction tracing\n");
+    Print("  @env       Prints the current environment\n");
+    Print("  @mem       Prints the current memory contents\n");
+    Print("  @stack     Prints the value stack\n");
+    Print("  @calls     Prints the call stack\n");
+    Print("  @code      Disassembles the current chunk\n");
+    return true;
+  } else if (StrEq(text, "@reset")) {
     Chunk *chunk = vm->chunk;
     DestroyVM(vm);
     DestroyChunk(chunk);
@@ -118,6 +131,7 @@ void REPL(void)
   RawConsole();
 
   PrintVersion();
+  Print("Exit with Ctrl+C. Type \"@help\" for help.\n");
 
   VM vm;
   InitVM(&vm);
@@ -131,7 +145,7 @@ void REPL(void)
 
   while (true) {
     u32 text_len = StrLen(text);
-    if (text_len > 0) Print("... ");
+    if (text_len > 0) Print(". ");
     else Print("> ");
 
     // add input to end of text
@@ -159,6 +173,8 @@ void REPL(void)
       if (IsTagged(expr, "error", &vm.mem)) {
         if (Eq(Tail(expr, &vm.mem), SymbolFor("partial"))) {
           // partial parse, do nothing & fetch more input
+          input[input_len] = '\n';
+          input[input_len+1] = '\0';
         } else {
           // real error
           PrintParseError(expr, &vm.mem);
