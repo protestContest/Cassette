@@ -51,8 +51,10 @@ typedef enum {
 
 #define OpSymbol(op)  SymbolFor(OpName(op))
 
+void InitOps(Mem *mem);
 char *OpName(OpCode op);
 u32 OpLength(OpCode op);
 OpCode OpFor(Val symbol);
 OpArgs OpArgType(OpCode op);
 u32 PrintInstruction(Chunk *chunk, u32 index);
+

@@ -48,6 +48,13 @@ static OpInfo ops[] = {
   [OpHalt]    = {"halt", ArgsNone},
 };
 
+void InitOps(Mem *mem)
+{
+  for (u32 i = 0; i < ArrayCount(ops); i++) {
+    MakeSymbol(OpName(i), mem);
+  }
+}
+
 char *OpName(OpCode op)
 {
   return ops[op].name;

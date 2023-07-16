@@ -19,6 +19,7 @@ static CompileResult CompileOk(Seq seq, Val node)
 
 CompileResult Compile(Val ast, Mem *mem)
 {
+  InitOps(mem);
   return CompileExpr(ast, LinkNext, mem);
 }
 
