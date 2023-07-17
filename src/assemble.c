@@ -12,12 +12,12 @@ Val MakeLabel(Mem *mem)
 
 Val Label(Val label, Mem *mem)
 {
-  return Pair(SymbolFor("label"), label, mem);
+  return Pair(MakeSymbol("label", mem), label, mem);
 }
 
 Val LabelRef(Val label, Mem *mem)
 {
-  return Pair(SymbolFor("label-ref"), label, mem);
+  return Pair(MakeSymbol("label-ref", mem), label, mem);
 }
 
 Seq LabelSeq(Val label, Mem *mem)

@@ -1,4 +1,5 @@
 #include "mem.h"
+#include "proc.h"
 
 void InitMem(Mem *mem)
 {
@@ -7,12 +8,6 @@ void InitMem(Mem *mem)
   VecPush(mem->values, nil);
   mem->strings = NULL;
   InitMap(&mem->string_map);
-  MakeSymbol("true", mem);
-  MakeSymbol("false", mem);
-  MakeSymbol("ok", mem);
-  MakeSymbol("error", mem);
-  MakeSymbol("@", mem);
-  MakeSymbol("λ", mem);
 }
 
 void DestroyMem(Mem *mem)
@@ -20,6 +15,11 @@ void DestroyMem(Mem *mem)
   DestroyMap(&mem->string_map);
   FreeVec(mem->strings);
   FreeVec(mem->values);
+}
+
+u32 MemSize(Mem *mem)
+{
+  return VecCount(mem->values);
 }
 
 Val MakeSymbolFrom(char *name, u32 length, Mem *mem)
@@ -187,7 +187,7 @@ Val MakeBinary(char *text, Mem *mem)
 bool IsBinary(Val bin, Mem *mem)
 {
   u32 index = RawVal(bin);
-  return IsBinaryHeader(mem->values[index]);
+  return IsObj(bin) && IsBinaryHeader(mem->values[index]);
 }
 
 u32 BinaryLength(Val bin, Mem *mem)
@@ -220,7 +220,7 @@ Val MakeTuple(u32 length, Mem *mem)
 
 bool IsTuple(Val tuple, Mem *mem)
 {
-  return IsTupleHeader(mem->values[RawVal(tuple)]);
+  return IsObj(tuple) && IsTupleHeader(mem->values[RawVal(tuple)]);
 }
 
 u32 TupleLength(Val tuple, Mem *mem)
@@ -258,7 +258,7 @@ Val TupleGet(Val tuple, u32 index, Mem *mem)
   return mem->values[obj_index + 1 + index];
 }
 
-#define INIT_MAP_CAPACITY 32
+#define INIT_MAP_CAPACITY 8
 Val MakeValMap(Mem *mem)
 {
   u32 size = INIT_MAP_CAPACITY;
@@ -275,7 +275,7 @@ Val MakeValMap(Mem *mem)
 
 bool IsValMap(Val map, Mem *mem)
 {
-  return IsMapHeader(mem->values[RawVal(map)]);
+  return IsObj(map) && IsMapHeader(mem->values[RawVal(map)]);
 }
 
 Val ValMapKeys(Val map, Mem *mem)
@@ -418,16 +418,15 @@ bool PrintVal(Val val, Mem *mem)
   } else if (IsNum(val)) {
     PrintFloat(RawNum(val), 3);
     return true;
+  } else if (IsFunction(val, mem)) {
+    Val num = ListAt(val, 1, mem);
+    Print("λ");
+    PrintInt(RawInt(num));
+    return true;
+  } else if (IsNil(val)) {
+    return true;
   } else if (IsPair(val)) {
-    if (IsNil(val)) {
-      return true;
-      return true;
-    } else if (IsTagged(val, "λ", mem)) {
-      Val num = ListAt(val, 1, mem);
-      Print("λ");
-      PrintInt(RawInt(num));
-      return true;
-    } else if (IsTagged(val, "ε", mem)) {
+    if (IsTagged(val, "*env*", mem)) {
       Print("ε");
       u32 num = RawVal(val);
       PrintInt(num);
@@ -470,20 +469,18 @@ u32 InspectVal(Val value, Mem *mem)
   } else if (IsSym(value)) {
     Print(":");
     return Print(SymbolName(value, mem)) + 1;
+  } else if (IsFunction(value, mem)) {
+    u32 entry = ProcEntry(value, mem);
+    u32 length = Print("λ");
+    length += PrintInt(entry);
+    return length;
+  } else if (IsPrimitive(value, mem)) {
+    u32 length = Print("@");
+    u32 num = PrimitiveNum(value, mem);
+    length += PrintInt(num);
+    return length;
   } else if (IsPair(value)) {
-    if (IsTagged(value, "λ", mem)) {
-      Val num = ListAt(value, 1, mem);
-      u32 length = Print("λ");
-      length += PrintInt(RawInt(num));
-      return length;
-    }
-    if (IsTagged(value, "@", mem)) {
-      u32 length = Print("@");
-      Val name = ListAt(value, 1, mem);
-      length += Print(SymbolName(name, mem));
-      return length;
-    }
-    if (IsTagged(value, "ε", mem)) {
+    if (IsTagged(value, "*env*", mem)) {
       u32 length = Print("ε");
       u32 num = RawVal(value);
       length += PrintInt(num);
@@ -581,46 +578,48 @@ static void PrintRawValN(Val value, u32 size, Mem *mem)
   }
 }
 
+static u32 ValSize(Val value)
+{
+  if (IsBinaryHeader(value)) {
+    return NumBinaryCells(RawVal(value)) + 1;
+  } else if (IsTupleHeader(value)) {
+    return RawVal(value) + 1;
+  } else if (IsMapHeader(value)) {
+    return 3;
+  } else {
+    return 1;
+  }
+}
+
 void PrintMem(Mem *mem)
 {
-  u32 ncols = 8;
-  u32 stride = VecCount(mem->values) / ncols + 1;
+  // divides the memory into 8 columns & print each column as a row
 
-  // as each row is printed, these store how many cells are left in an object, for each col
-  u32 bins[ncols];
-  u32 objs[ncols];
-  for (u32 c = 0; c < ncols; c++) {
-    bins[c] = 0;
-    objs[c] = 0;
-  }
+  u32 num_cols = 8;
+  u32 stride = VecCount(mem->values) / num_cols + 1;
 
-  // since each col might start in the middle of an object, first scan through mem to mark the
-  // starting values for the bins/objs arrays
-  u32 i = 0;
-  for (u32 c = 0; c < ncols-1 && i < VecCount(mem->values); c++) {
-    u32 next_col = (c+1)*stride;
-    while (i < next_col && i < VecCount(mem->values)) {
-      u32 len = 2;
-      if (IsTupleHeader(mem->values[i])) len = Max(1, RawVal(mem->values[i])) + 1;
-      if (IsBinaryHeader(mem->values[i])) len = NumBinaryCells(RawVal(mem->values[i])) + 1;
+  // for each cell, we'll print the value in it. we have to keep track of
+  // whether the current cell is part of a binary, so we can print that instead.
+  // for each column, we'll track a count of how many cells are left of a binary
+  u32 binaries[num_cols];
+  for (u32 col = 0; col < num_cols; col++) binaries[col] = 0;
 
-      // if the length would go over a column, we initialize the column's byte/obj count
-      if (i + len > next_col) {
-        u32 left = (i+len) - next_col;
-        if (IsBinaryHeader(mem->values[i])) {
-          bins[c+1] = left;
-        } else {
-          objs[c+1] = left;
-        }
-      }
-      i += len;
+  // since each column might start in the middle of a binary, we first scan
+  // through memory to find the initial values of each column
+  for (u32 i = 0, col = 0; i < VecCount(mem->values) && col < num_cols-1;) {
+    u32 next_col = stride*(col+1);
+
+    u32 length = ValSize(mem->values[i]);
+    if (IsBinaryHeader(mem->values[i]) && i + length > next_col) {
+      // a binary straddles a column boundary; set the counter for that column
+      u32 cells_left = i + length - next_col;
+      binaries[col+1] = cells_left;
     }
+    i += length;
   }
 
   // print header
-  u32 actual_cols = Min(VecCount(mem->values), ncols);
-
-  for (u32 c = 0; c < actual_cols; c++) {
+  for (u32 c = 0; c < num_cols; c++) {
     if (c == 0) Print("┏");
     else Print("┳");
     Print("━━━━┯━━━━━━━━━━");
@@ -628,52 +627,133 @@ void PrintMem(Mem *mem)
   Print("┓\n");
 
   for (u32 i = 0; i < stride; i++) {
-    for (u32 c = 0; c < ncols; c++) {
+    for (u32 c = 0; c < num_cols; c++) {
       u32 n = i+c*stride;
-      if (n < VecCount(mem->values)) {
-        Print("┃");
-        PrintIntN(n, 4, ' ');
-        Print("│");
 
-        Val value = mem->values[n];
-        if (bins[c] > 0) {
-          bins[c]--;
+      if (n >= VecCount(mem->values)) {
+        // the last column might have blanks
+        Print("┃    │          ");
+        continue;
+      }
 
-          char *data = (char*)(&value.as_i);
-          if (IsPrintable(data[0]) && IsPrintable(data[1]) && IsPrintable(data[2]) && IsPrintable(data[3])) {
-            Print("    \"");
-            for (u32 ch = 0; ch < 4; ch++) PrintChar(data[ch]);
-            Print("\"");
-          } else {
-            Print("  ");
-            PrintHexN(value.as_i, 8, '0');
-          }
-        } else if (objs[c] > 0) {
-          objs[c]--;
+      // print memory location
+      Print("┃");
+      PrintIntN(n, 4, ' ');
+      Print("│");
 
-          PrintRawValN(mem->values[n], 10, mem);
-        } else if (IsBinaryHeader(value)) {
-          bins[c] = NumBinaryCells(RawVal(value));
-          PrintRawValN(mem->values[n], 10, mem);
-        } else if (IsTupleHeader(value)) {
-          objs[c] = Max(1, RawVal(value));
-          PrintRawValN(mem->values[n], 10, mem);
+      Val value = mem->values[n];
+      if (IsBinaryHeader(value)) {
+        // beginning of a binary; set the cell counter
+        binaries[c] = NumBinaryCells(RawVal(value));
+        PrintRawValN(mem->values[n], 10, mem);
+      } else if (binaries[c] > 0) {
+        // this cell is part of a binary
+        binaries[c]--;
+
+        char *data = (char*)(&value.as_i);
+        if (IsPrintable(data[0]) && IsPrintable(data[1]) && IsPrintable(data[2]) && IsPrintable(data[3])) {
+          // if the data is printable, assume it's a string
+          Print("    \"");
+          for (u32 ch = 0; ch < 4; ch++) PrintChar(data[ch]);
+          Print("\"");
         } else {
-          objs[c] = 1;
-          PrintRawValN(mem->values[n], 10, mem);
+          // otherwise print the hex value
+          Print("  ");
+          PrintHexN(value.as_i, 8, '0');
         }
       } else {
-        Print("┃    │          ");
+        PrintRawValN(mem->values[n], 10, mem);
       }
     }
+
     Print("┃\n");
   }
 
   // print footer
-  for (u32 c = 0; c < actual_cols; c++) {
+  for (u32 c = 0; c < num_cols; c++) {
     if (c == 0) Print("┗");
     else Print("┻");
     Print("━━━━┷━━━━━━━━━━");
   }
   Print("┛\n");
+}
+
+static Val CopyValue(Val value, Mem *old_mem, Mem *new_mem)
+{
+  if (IsNil(value)) return nil;
+
+  if (IsPair(value)) {
+    u32 index = RawVal(value);
+    if (Eq(old_mem->values[index], SymbolFor("*moved*"))) {
+      return old_mem->values[index+1];
+    }
+
+    u32 next = VecCount(new_mem->values);
+    Val new_val = PairVal(next);
+    VecPush(new_mem->values, old_mem->values[index]);
+    VecPush(new_mem->values, old_mem->values[index+1]);
+
+    old_mem->values[index] = SymbolFor("*moved*");
+    old_mem->values[index+1] = new_val;
+
+    return new_val;
+  } else if (IsObj(value)) {
+    u32 index = RawVal(value);
+    if (Eq(old_mem->values[index], SymbolFor("*moved*"))) {
+      return old_mem->values[index+1];
+    }
+
+    u32 next = VecCount(new_mem->values);
+    Val new_val = ObjVal(next);
+
+    for (u32 i = 0; i < ValSize(old_mem->values[index]); i++) {
+      VecPush(new_mem->values, old_mem->values[index + i]);
+    }
+
+    old_mem->values[index] = SymbolFor("*moved*");
+    old_mem->values[index+1] = new_val;
+    return new_val;
+  } else {
+    return value;
+  }
+}
+
+void PrintSymbols(Mem *mem)
+{
+  Print("Symbols:\n");
+  for (u32 i = 0; i < MapCount(&mem->string_map); i++) {
+    u32 index = GetMapValue(&mem->string_map, i);
+    Print(":");
+    Print(mem->strings + index);
+    Print("\n");
+  }
+}
+
+void CollectGarbage(Val *roots, Mem *mem)
+{
+  MakeSymbol("*moved*", mem);
+
+  Val *new_vals = NewVec(Val, VecCount(mem->values) / 2);
+  VecPush(new_vals, nil);
+  VecPush(new_vals, nil);
+
+  Mem new_mem = {new_vals, mem->strings, mem->string_map};
+  u32 scan = VecCount(new_vals);
+
+  for (u32 i = 0; i < VecCount(roots); i++) {
+    roots[i] = CopyValue(roots[i], mem, &new_mem);
+  }
+
+  while (scan < VecCount(new_mem.values)) {
+    if (IsBinaryHeader(new_mem.values[scan])) {
+      scan += NumBinaryCells(RawVal(new_mem.values[scan])) + 1;
+    } else {
+      Val new_val = CopyValue(new_mem.values[scan], mem, &new_mem);
+      new_mem.values[scan] = new_val;
+      scan++;
+    }
+  }
+
+  FreeVec(mem->values);
+  mem->values = new_mem.values;
 }

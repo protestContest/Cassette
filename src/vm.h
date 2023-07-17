@@ -30,5 +30,7 @@ Val StackPop(VM *vm);
 Val StackPeek(VM *vm, u32 n);
 void StackPush(VM *vm, Val val);
 
+void TakeOutGarbage(VM *vm);
+
 void PrintStack(VM *vm);
 void PrintCallStack(VM *vm);

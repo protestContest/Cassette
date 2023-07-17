@@ -73,6 +73,8 @@ Val Eval(Val ast, VM *vm)
   Seq code = Preserving(RegEnv, compiled.result, MakeSeq(RegEnv, 0, nil), &vm->mem);
   Assemble(code, vm->chunk, &vm->mem);
 
+  TakeOutGarbage(vm);
+
   Val result = RunChunk(vm, vm->chunk);
   return result;
 }
@@ -88,9 +90,11 @@ static bool REPLCmd(char *text, VM *vm)
     Print("  @trace     Toggles instruction tracing\n");
     Print("  @env       Prints the current environment\n");
     Print("  @mem       Prints the current memory contents\n");
+    Print("  @symbols   Prints the symbol table\n");
     Print("  @stack     Prints the value stack\n");
     Print("  @calls     Prints the call stack\n");
     Print("  @code      Disassembles the current chunk\n");
+    Print("  @gc        Runs the garbage collector\n");
     return true;
   } else if (StrEq(text, "@reset")) {
     Chunk *chunk = vm->chunk;
@@ -106,6 +110,9 @@ static bool REPLCmd(char *text, VM *vm)
   } else if (StrEq(text, "@mem")) {
     PrintMem(&vm->mem);
     return true;
+  } else if (StrEq(text, "@symbols")) {
+    PrintSymbols(&vm->mem);
+    return true;
   } else if (StrEq(text, "@stack")) {
     PrintStack(vm);
     return true;
@@ -119,6 +126,14 @@ static bool REPLCmd(char *text, VM *vm)
     vm->trace = !vm->trace;
     if (vm->trace) Print("Trace on\n");
     else Print("Trace off\n");
+    return true;
+  } else if (StrEq(text, "@gc")) {
+    u32 start = VecCount(vm->mem.values);
+    TakeOutGarbage(vm);
+    u32 collected = start - VecCount(vm->mem.values);
+    Print("Collected ");
+    PrintInt(collected);
+    Print(" values\n");
     return true;
   }
 
@@ -200,7 +215,8 @@ void RunFile(char *filename)
   Chunk chunk;
   InitChunk(&chunk);
   vm.chunk = &chunk;
-  vm.trace = true;
+
+  // vm.trace = true;
 
   if (SniffFile(filename, 0xCA55E77E)) {
     if (ReadChunk(&chunk, filename)) {

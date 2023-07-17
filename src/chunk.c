@@ -37,7 +37,7 @@ void AddSymbol(Chunk *chunk, Val symbol, Mem *mem)
 
 void Disassemble(Chunk *chunk)
 {
-  Print("────┬─Chunk─\n");
+  Print("────┬─Chunk──────\n");
   for (u32 i = 0; i < VecCount(chunk->data);) {
     PrintIntN(i, 4, ' ');
     Print("│ ");

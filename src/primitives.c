@@ -1,5 +1,6 @@
 #include "primitives.h"
 #include "env.h"
+#include "proc.h"
 
 static Val PrimRemainder(u32 num_args, VM *vm);
 static Val PrimPrint(u32 num_args, VM *vm);
@@ -42,10 +43,7 @@ void DefinePrimitives(Val env, Mem *mem)
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
     char *name = primitives[i].name;
     Val var = MakeSymbol(name, mem);
-    Val proc =
-      Pair(MakeSymbol("@", mem),
-      Pair(var,
-      Pair(IntVal(i), nil, mem), mem), mem);
+    Val proc = MakePrimitive(IntVal(i), mem);
 
     if (primitives[i].mod == NULL) {
       Define(var, proc, env, mem);
@@ -91,13 +89,13 @@ static Val PrimPrint(u32 num_args, VM *vm)
   for (u32 i = 0; i < num_args; i++) {
     Val val = StackPop(vm);
     if (!PrintVal(val, &vm->mem)) {
-      return SymbolFor("error");
+      return MakeSymbol("error", &vm->mem);
     }
 
     if (i < num_args-1) Print(" ");
   }
   Print("\n");
-  return SymbolFor("ok");
+  return MakeSymbol("ok", &vm->mem);
 }
 
 static Val PrimInspect(u32 num_args, VM *vm)
@@ -107,7 +105,7 @@ static Val PrimInspect(u32 num_args, VM *vm)
     InspectVal(val, &vm->mem);
     Print("\n");
   }
-  return SymbolFor("ok");
+  return MakeSymbol("ok", &vm->mem);
 }
 
 static Val PrimRandom(u32 num_args, VM *vm)

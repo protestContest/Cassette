@@ -14,10 +14,6 @@ typedef union {
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
 #define mapMask           0xFFE00000
-#define objMask           0x7FF00000
-#define tupleMask         0xFFC00000
-#define binaryMask        0xFFD00000
-#define mapMask           0xFFE00000
 
 #define MakeVal(n, mask)  ((Val){.as_i = ((n) & ~typeMask) | (mask)})
 #define NumVal(n)         ((Val){.as_f = (float)(n)})
@@ -65,6 +61,7 @@ typedef struct {
 
 void InitMem(Mem *mem);
 void DestroyMem(Mem *mem);
+u32 MemSize(Mem *mem);
 
 Val MakeSymbolFrom(char *name, u32 length, Mem *mem);
 Val MakeSymbol(char *name, Mem *mem);
@@ -109,3 +106,6 @@ Val ValMapValues(Val map, Mem *mem);
 bool PrintVal(Val value, Mem *mem);
 u32 InspectVal(Val value, Mem *mem);
 void PrintMem(Mem *mem);
+void PrintSymbols(Mem *mem);
+
+void CollectGarbage(Val *roots, Mem *mem);

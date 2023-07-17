@@ -277,8 +277,16 @@ Val RunChunk(VM *vm, Chunk *chunk)
   vm->error = false;
   Mem *mem = &vm->mem;
 
+  u32 gc_threshold = 2*MemSize(mem);
+
   while (vm->pc < VecCount(chunk->data)) {
     if (vm->trace) TraceInstruction(vm);
+
+    if (MemSize(mem) > gc_threshold) {
+      if (vm->trace) Print("Collecting garbage...\n");
+      TakeOutGarbage(vm);
+      gc_threshold = 2*MemSize(mem);
+    }
 
     OpCode op = ChunkRef(chunk, vm->pc);
 
@@ -384,7 +392,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
     }
     case OpLambda: {
       Val pos = ChunkConst(chunk, vm->pc+1);
-      StackPush(vm, Pair(SymbolFor("λ"), Pair(pos, Pair(vm->env, nil, mem), mem), mem));
+      StackPush(vm, MakeFunction(pos, vm->env, mem));
       vm->pc += OpLength(op);
       break;
     }
@@ -406,7 +414,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       if (IsPrimitive(proc, mem)) {
         StackPush(vm, ApplyPrimitive(proc, num_args - 1, vm));
         vm->pc = RawInt(vm->cont);
-      } else if (IsCompoundProc(proc, mem)) {
+      } else if (IsFunction(proc, mem)) {
         vm->pc = ProcEntry(proc, mem);
         vm->env = ExtendEnv(ProcEnv(proc, mem), mem);
       } else if (num_args == 0) {
@@ -428,7 +436,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpLookup: {
       Val value = Lookup(ChunkConst(chunk, vm->pc+1), vm->env, &vm->mem);
-      if (Eq(value, SymbolFor("__UNDEFINED__"))) {
+      if (Eq(value, SymbolFor("*undefined*"))) {
         RuntimeError(vm, "Undefined variable");
       } else {
         StackPush(vm, value);
@@ -497,7 +505,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
     case OpImport: {
       Val mod = StackPop(vm);
       ImportEnv(mod, vm->env, mem);
-      StackPush(vm, SymbolFor("ok"));
+      StackPush(vm, MakeSymbol("ok", mem));
       vm->pc += OpLength(op);
       break;
     }
@@ -505,10 +513,45 @@ Val RunChunk(VM *vm, Chunk *chunk)
   }
 
   if (!vm->error && VecCount(vm->val) > 0) {
-    return StackPop(vm);
+    Val result = StackPop(vm);
+    return result;
   } else {
     return nil;
   }
+}
+
+void TakeOutGarbage(VM *vm)
+{
+  u32 val_size = VecCount(vm->val);
+  u32 stack_size = VecCount(vm->stack);
+  u32 num_mods = MapCount(&vm->modules);
+  u32 num_roots = num_mods + val_size + stack_size + 1;
+
+  Val *roots = NewVec(Val, num_roots);
+  RawVecCount(roots) = num_roots;
+
+  roots[0] = vm->env;
+
+  Copy(vm->val, roots+1, val_size*sizeof(Val));
+  Copy(vm->stack, roots+1+val_size, stack_size*sizeof(Val));
+
+  for (u32 i = 0; i < num_mods; i++) {
+    Val mod = (Val){.as_i = GetMapValue(&vm->modules, i)};
+    roots[i + 1 + val_size + stack_size] = mod;
+  }
+
+  CollectGarbage(roots, &vm->mem);
+
+  vm->env = roots[0];
+  Copy(roots+1, vm->val, val_size*sizeof(Val));
+  Copy(roots+1+val_size, vm->stack, stack_size*sizeof(Val));
+
+  for (u32 i = 0; i < num_mods; i++) {
+    u32 key = GetMapKey(&vm->modules, i);
+    MapSet(&vm->modules, key, roots[i+1+val_size+stack_size].as_i);
+  }
+
+  FreeVec(roots);
 }
 
 void PrintStack(VM *vm)

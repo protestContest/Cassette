@@ -4,31 +4,24 @@
 
 Val InitialEnv(Mem *mem)
 {
-  Val env = Pair(MakeSymbol("ε", mem), nil, mem);
-  env = ExtendEnv(env, mem);
+  Val env = ExtendEnv(nil, mem);
   DefinePrimitives(env, mem);
   return ExtendEnv(env, mem);
 }
 
 Val ExtendEnv(Val env, Mem *mem)
 {
-  Assert(Eq(Head(env, mem), SymbolFor("ε")));
-
-  Val frames = Pair(nil, Tail(env, mem), mem);
-  return Pair(SymbolFor("ε"), frames, mem);
+  return Pair(nil, env, mem);
 }
 
 void Define(Val var, Val val, Val env, Mem *mem)
 {
-  Assert(Eq(Head(env, mem), SymbolFor("ε")));
-
-  Val frames = Tail(env, mem);
-  Val frame = Head(frames, mem);
+  Val frame = Head(env, mem);
 
   if (IsNil(frame)) {
     Val pair = Pair(var, val, mem);
     frame = Pair(pair, nil, mem);
-    SetHead(frames, frame, mem);
+    SetHead(env, frame, mem);
     return;
   }
 
@@ -53,11 +46,8 @@ void Define(Val var, Val val, Val env, Mem *mem)
 
 Val Lookup(Val var, Val env, Mem *mem)
 {
-  Assert(Eq(Head(env, mem), SymbolFor("ε")));
-
-  Val frames = Tail(env, mem);
-  while (!IsNil(frames)) {
-    Val frame = Head(frames, mem);
+  while (!IsNil(env)) {
+    Val frame = Head(env, mem);
     while (!IsNil(frame)) {
       Val pair = Head(frame, mem);
 
@@ -66,10 +56,10 @@ Val Lookup(Val var, Val env, Mem *mem)
       frame = Tail(frame, mem);
     }
 
-    frames = Tail(frames, mem);
+    env = Tail(env, mem);
   }
 
-  return MakeSymbol("__UNDEFINED__", mem);
+  return MakeSymbol("*undefined*", mem);
 }
 
 void ImportEnv(Val imports, Val env, Mem *mem)
@@ -86,11 +76,8 @@ void ImportEnv(Val imports, Val env, Mem *mem)
 
 Val ExportEnv(Val env, Mem *mem)
 {
-  Assert(Eq(Head(env, mem), SymbolFor("ε")));
-
-  Val frames = Tail(env, mem);
-  if (IsNil(frames)) return nil;
-  Val frame = Head(frames, mem);
+  if (IsNil(env)) return nil;
+  Val frame = Head(env, mem);
 
   Val exports = MakeValMap(mem);
   while (!IsNil(frame)) {
@@ -106,13 +93,15 @@ Val ExportEnv(Val env, Mem *mem)
 
 void PrintEnv(Val env, Mem *mem)
 {
-  Print("┌╴Env╶───────────────\n");
-  Val frames = Tail(env, mem);
-  if (IsNil(frames)) {
+  Print("┌╴Env ");
+  PrintInt(RawVal(env));
+  Print("╶───────────────\n");
+
+  if (IsNil(env)) {
     Print("(empty)\n");
   }
-  while (!IsNil(frames)) {
-    Val frame = Head(frames, mem);
+  while (!IsNil(env)) {
+    Val frame = Head(env, mem);
 
     while (!IsNil(frame)) {
       Print("│");
@@ -125,12 +114,12 @@ void PrintEnv(Val env, Mem *mem)
       Print("\n");
       frame = Tail(frame, mem);
     }
-    if (!IsNil(Tail(frames, mem))) {
+    if (!IsNil(Tail(env, mem))) {
       Print("├────────────────────\n");
     }
 
 
-    frames = Tail(frames, mem);
+    env = Tail(env, mem);
   }
   Print("└────────────────────\n");
 }
