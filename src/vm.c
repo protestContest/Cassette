@@ -17,6 +17,7 @@ void InitVM(VM *vm)
   vm->env = InitialEnv(&vm->mem);
   vm->error = false;
   vm->trace = false;
+  vm->gc_threshold = 1024;
 }
 
 void DestroyVM(VM *vm)
@@ -277,15 +278,13 @@ Val RunChunk(VM *vm, Chunk *chunk)
   vm->error = false;
   Mem *mem = &vm->mem;
 
-  u32 gc_threshold = 2*MemSize(mem);
-
   while (vm->pc < VecCount(chunk->data)) {
     if (vm->trace) TraceInstruction(vm);
 
-    if (MemSize(mem) > gc_threshold) {
+    if (MemSize(mem) > vm->gc_threshold) {
       if (vm->trace) Print("Collecting garbage...\n");
       TakeOutGarbage(vm);
-      gc_threshold = 2*MemSize(mem);
+      vm->gc_threshold = 2*MemSize(mem);
     }
 
     OpCode op = ChunkRef(chunk, vm->pc);

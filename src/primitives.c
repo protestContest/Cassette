@@ -14,6 +14,7 @@ static Val PrimCos(u32 num_args, VM *vm);
 static Val PrimTan(u32 num_args, VM *vm);
 static Val PrimLog(u32 num_args, VM *vm);
 static Val PrimExp(u32 num_args, VM *vm);
+static Val PrimSqrt(u32 num_args, VM *vm);
 
 static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {NULL, "print", &PrimPrint},
@@ -23,11 +24,12 @@ static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {"Math", "ceil", &PrimCeil},
   {"Math", "floor", &PrimFloor},
   {"Math", "abs", &PrimAbs},
-  // {"Math", "sin", &PrimSin},
-  // {"Math", "cos", &PrimCos},
-  // {"Math", "tan", &PrimTan},
-  // {"Math", "log", &PrimLog},
-  // {"Math", "exp", &PrimExp},
+  {"Math", "sin", &PrimSin},
+  {"Math", "cos", &PrimCos},
+  {"Math", "tan", &PrimTan},
+  {"Math", "log", &PrimLog},
+  {"Math", "exp", &PrimExp},
+  {"Math", "sqrt", &PrimSqrt},
 };
 
 PrimitiveFn GetPrimitive(u32 index)
@@ -198,27 +200,44 @@ static Val PrimAbs(u32 num_args, VM *vm)
   return NumVal(-RawNum(n));
 }
 
-// static Val PrimSin(u32 num_args, VM *vm)
-// {
+static Val PrimSin(u32 num_args, VM *vm)
+{
+  Val arg = StackPop(vm);
+  float result = Sin(RawNum(arg));
+  return NumVal(result);
+}
 
-// }
+static Val PrimCos(u32 num_args, VM *vm)
+{
+  Val arg = StackPop(vm);
+  float result = Cos(RawNum(arg));
+  return NumVal(result);
+}
 
-// static Val PrimCos(u32 num_args, VM *vm)
-// {
+static Val PrimTan(u32 num_args, VM *vm)
+{
+  Val arg = StackPop(vm);
+  float result = Tan(RawNum(arg));
+  return NumVal(result);
+}
 
-// }
+static Val PrimLog(u32 num_args, VM *vm)
+{
+  Val arg = StackPop(vm);
+  float result = Log(RawNum(arg));
+  return NumVal(result);
+}
 
-// static Val PrimTan(u32 num_args, VM *vm)
-// {
+static Val PrimExp(u32 num_args, VM *vm)
+{
+  Val arg = StackPop(vm);
+  float result = Exp(RawNum(arg));
+  return NumVal(result);
+}
 
-// }
-
-// static Val PrimLog(u32 num_args, VM *vm)
-// {
-
-// }
-
-// static Val PrimExp(u32 num_args, VM *vm)
-// {
-
-// }
+static Val PrimSqrt(u32 num_args, VM *vm)
+{
+  Val arg = StackPop(vm);
+  float result = Sqrt(RawNum(arg));
+  return NumVal(result);
+}

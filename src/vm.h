@@ -13,6 +13,7 @@ typedef struct {
   Chunk *chunk;
   bool error;
   bool trace;
+  u32 gc_threshold;
 } VM;
 
 typedef enum {
