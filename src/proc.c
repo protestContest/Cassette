@@ -30,12 +30,12 @@ Val MakeFunction(Val pos, Val env, Mem *mem)
   return func;
 }
 
-u32 ProcEntry(Val proc, Mem *mem)
+u32 FunctionEntry(Val proc, Mem *mem)
 {
   return RawInt(TupleGet(proc, 1, mem));
 }
 
-Val ProcEnv(Val proc, Mem *mem)
+Val FunctionEnv(Val proc, Mem *mem)
 {
   return TupleGet(proc, 2, mem);
 }

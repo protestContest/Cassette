@@ -4,6 +4,8 @@
 #include "proc.h"
 #include "primitives.h"
 
+static void TraceInstruction(VM *vm);
+
 void InitVM(VM *vm)
 {
   InitMem(&vm->mem);
@@ -77,28 +79,6 @@ void RuntimeError(VM *vm, char *message)
   Print("\n");
   vm->error = true;
   Halt(vm);
-}
-
-void TraceInstruction(VM *vm)
-{
-  PrintIntN(vm->pc, 4, ' ');
-  Print("│ ");
-  u32 written = PrintInstruction(vm->chunk, vm->pc);
-
-  if (written < 20) {
-    for (u32 i = 0; i < 20 - written; i++) Print(" ");
-  }
-
-  Print(" │ ");
-  PrintIntN(RawInt(vm->cont), 4, ' ');
-  Print(" ║ ");
-
-  for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
-    InspectVal(vm->val[i], &vm->mem);
-    Print(" │ ");
-  }
-
-  Print("\n");
 }
 
 void SaveReg(VM *vm, i32 reg)
@@ -409,20 +389,20 @@ Val RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpApply: {
       u32 num_args = RawInt(ChunkConst(chunk, vm->pc+1));
-      Val proc = StackPop(vm);
-      if (IsPrimitive(proc, mem)) {
-        StackPush(vm, ApplyPrimitive(proc, num_args - 1, vm));
+      Val func = StackPop(vm);
+      if (IsPrimitive(func, mem)) {
+        StackPush(vm, ApplyPrimitive(func, num_args - 1, vm));
         vm->pc = RawInt(vm->cont);
-      } else if (IsFunction(proc, mem)) {
-        vm->pc = ProcEntry(proc, mem);
-        vm->env = ExtendEnv(ProcEnv(proc, mem), mem);
+      } else if (IsFunction(func, mem)) {
+        vm->pc = FunctionEntry(func, mem);
+        vm->env = ExtendEnv(FunctionEnv(func, mem), mem);
       } else if (num_args == 0) {
-        StackPush(vm, proc);
+        StackPush(vm, func);
         vm->pc += OpLength(op);
       } else {
-        if (num_args == 2 && (IsPair(proc) || IsObj(proc))) {
+        if (num_args == 2 && (IsPair(func) || IsObj(func))) {
           Val arg = StackPop(vm);
-          AccessOp(vm, proc, arg);
+          AccessOp(vm, func, arg);
         } else {
           RuntimeError(vm, "Not a function");
         }
@@ -551,6 +531,29 @@ void TakeOutGarbage(VM *vm)
   }
 
   FreeVec(roots);
+}
+
+
+static void TraceInstruction(VM *vm)
+{
+  PrintIntN(vm->pc, 4, ' ');
+  Print("│ ");
+  u32 written = PrintInstruction(vm->chunk, vm->pc);
+
+  if (written < 20) {
+    for (u32 i = 0; i < 20 - written; i++) Print(" ");
+  }
+
+  Print(" │ ");
+  PrintIntN(RawInt(vm->cont), 4, ' ');
+  Print(" ║ ");
+
+  for (u32 i = 0; i < VecCount(vm->val) && i < 8; i++) {
+    InspectVal(vm->val[i], &vm->mem);
+    Print(" │ ");
+  }
+
+  Print("\n");
 }
 
 void PrintStack(VM *vm)

@@ -470,7 +470,7 @@ u32 InspectVal(Val value, Mem *mem)
     Print(":");
     return Print(SymbolName(value, mem)) + 1;
   } else if (IsFunction(value, mem)) {
-    u32 entry = ProcEntry(value, mem);
+    u32 entry = FunctionEntry(value, mem);
     u32 length = Print("λ");
     length += PrintInt(entry);
     return length;
@@ -678,6 +678,17 @@ void PrintMem(Mem *mem)
   Print("┛\n");
 }
 
+void PrintSymbols(Mem *mem)
+{
+  Print("Symbols:\n");
+  for (u32 i = 0; i < MapCount(&mem->string_map); i++) {
+    u32 index = GetMapValue(&mem->string_map, i);
+    Print(":");
+    Print(mem->strings + index);
+    Print("\n");
+  }
+}
+
 static Val CopyValue(Val value, Mem *old_mem, Mem *new_mem)
 {
   if (IsNil(value)) return nil;
@@ -715,17 +726,6 @@ static Val CopyValue(Val value, Mem *old_mem, Mem *new_mem)
     return new_val;
   } else {
     return value;
-  }
-}
-
-void PrintSymbols(Mem *mem)
-{
-  Print("Symbols:\n");
-  for (u32 i = 0; i < MapCount(&mem->string_map); i++) {
-    u32 index = GetMapValue(&mem->string_map, i);
-    Print(":");
-    Print(mem->strings + index);
-    Print("\n");
   }
 }
 
