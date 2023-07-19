@@ -26,6 +26,8 @@ static Val PrimListToBinary(u32 num_args, VM *vm);
 static Val PrimListToTuple(u32 num_args, VM *vm);
 static Val PrimListToMap(u32 num_args, VM *vm);
 static Val PrimListInsert(u32 num_args, VM *vm);
+static Val PrimListZip(u32 num_args, VM *vm);
+static Val PrimListUnzip(u32 num_args, VM *vm);
 static Val PrimMapGet(u32 num_args, VM *vm);
 static Val PrimMapPut(u32 num_args, VM *vm);
 static Val PrimMapDelete(u32 num_args, VM *vm);
@@ -59,6 +61,8 @@ static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {"List", "to_tuple", &PrimListToTuple},
   {"List", "to_map", &PrimListToMap},
   {"List", "insert", &PrimListInsert},
+  {"List", "zip", &PrimListZip},
+  {"List", "unzip", &PrimListUnzip},
   {"Map", "get", &PrimMapGet},
   {"Map", "put", &PrimMapPut},
   {"Map", "delete", &PrimMapDelete},
@@ -489,6 +493,56 @@ static Val PrimListInsert(u32 num_args, VM *vm)
   Val new_list = ListTake(list, RawInt(index), &vm->mem);
   Val tail = Pair(item, ListFrom(list, RawInt(index), &vm->mem), &vm->mem);
   return ListConcat(new_list, tail, &vm->mem);
+}
+
+static Val PrimListZip(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValPair, ValPair};
+  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val heads = StackPop(vm);
+  Val tails = StackPop(vm);
+  Val zipped = nil;
+
+  while (!IsNil(heads)) {
+    Val head = Head(heads, mem);
+    Val tail = Head(tails, mem);
+    zipped = Pair(Pair(head, tail, mem), zipped, mem);
+    heads = Tail(heads, mem);
+    tails = Tail(tails, mem);
+  }
+  while (!IsNil(tails)) {
+    Val tail = Head(tails, mem);
+    zipped = Pair(Pair(nil, tail, mem), zipped, mem);
+    tails = Tail(tails, mem);
+  }
+
+  return zipped;
+}
+
+static Val PrimListUnzip(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValPair};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val zipped = StackPop(vm);
+  Val heads = nil;
+  Val tails = nil;
+  while (!IsNil(zipped)) {
+    Val item = Head(zipped, mem);
+    if (IsPair(item)) {
+      heads = Pair(Head(item, mem), heads, mem);
+      tails = Pair(Tail(item, mem), tails, mem);
+    } else {
+      heads = Pair(item, heads, mem);
+      tails = Pair(nil, tails, mem);
+    }
+    zipped = Tail(zipped, mem);
+  }
+
+  return Pair(heads, tails, mem);
 }
 
 static Val PrimMapGet(u32 num_args, VM *vm)
