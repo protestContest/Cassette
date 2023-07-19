@@ -35,6 +35,9 @@ static Val PrimMapKeys(u32 num_args, VM *vm);
 static Val PrimMapValues(u32 num_args, VM *vm);
 static Val PrimMapToList(u32 num_args, VM *vm);
 static Val PrimTupleToList(u32 num_args, VM *vm);
+static Val PrimFileRead(u32 num_args, VM *vm);
+static Val PrimFileWrite(u32 num_args, VM *vm);
+static Val PrimFileExists(u32 num_args, VM *vm);
 
 static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {NULL, "print", &PrimPrint},
@@ -70,6 +73,9 @@ static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {"Map", "values", &PrimMapValues},
   {"Map", "to_list", &PrimMapToList},
   {"Tuple", "to_list", &PrimTupleToList},
+  {"File", "read", &PrimFileRead},
+  {"File", "write", &PrimFileWrite},
+  {"File", "exists?", &PrimFileExists},
 };
 
 static struct {char *mod; char *name; Val val;} constants[] = {
@@ -637,4 +643,58 @@ static Val PrimTupleToList(u32 num_args, VM *vm)
   }
 
   return ReverseList(list, mem);
+}
+
+static Val PrimFileRead(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValBinary};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val filename = StackPop(vm);
+  u32 name_length = BinaryLength(filename, mem);
+  char path[name_length + 1];
+  Copy(BinaryData(filename, mem), path, name_length);
+  path[name_length] = '\0';
+
+  if (!FileExists(path)) return MakeSymbol("error", mem);
+
+  char *data = ReadFile(path);
+  return Pair(MakeSymbol("ok", mem), BinaryFrom(data, mem), mem);
+}
+
+static Val PrimFileWrite(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValBinary, ValBinary};
+  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val filename = StackPop(vm);
+  u32 name_length = BinaryLength(filename, mem);
+  char path[name_length + 1];
+  Copy(BinaryData(filename, mem), path, name_length);
+  path[name_length] = '\0';
+
+  Val data = StackPop(vm);
+
+  if (WriteFile(path, BinaryData(data, mem), BinaryLength(data, mem))) {
+    return MakeSymbol("ok", mem);
+  } else {
+    return MakeSymbol("error", mem);
+  }
+}
+
+static Val PrimFileExists(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValBinary};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val filename = StackPop(vm);
+  u32 name_length = BinaryLength(filename, mem);
+  char path[name_length + 1];
+  Copy(BinaryData(filename, mem), path, name_length);
+  path[name_length] = '\0';
+
+  return BoolVal(FileExists(path));
 }
