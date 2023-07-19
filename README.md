@@ -64,11 +64,11 @@ Cassette is dynamically typed. The basic data types in Cassette are:
 - Binaries (also used to represent strings)
 - Maps
 
-Numbers are either 32-bit signed integers or 32-bit IEEE 754 floating point numbers. Constants written with a decimal, like `31.0`, are floats; without a decimal, like `31`, are integers. Integers can also be written in hexadecimal, like `0x5A4D`. Numbers are converted between floating point and integer based on the operations applied to them. Addition, subtraction, multiplication, and exponentiation with two integers results in an integer, but any arithmetic where one operand is a float results in a float. Division always results in a float. Some functions, like `floor` or `round`, always result in an integer.
+Numbers are either 32-bit signed integers or 32-bit IEEE 754 floating point numbers. Constants written with a decimal, like `31.0`, are floats; without a decimal, like `31`, are integers. Integers can also be written in hexadecimal, like `0x5A4D`. Numbers are converted between floating point and integer based on the operations applied to them.
 
 A _symbol_ is a unique value that simply represent itself. A symbol is written like this: `:ok`, `:error`, `:symbols_can_be_really_long_but_maybe_shouldn't_be`. Two special symbols, `:true` and `:false`, represent boolean values, and can be written simply as `true` and `false`.
 
-A _pair_ is a value that contains two values, a _head_ and a _tail_. A pair can contain any two values. Pairs are created with the pipe operator: `1 | 2`. Conventionally, pairs are used to form linked lists: a list is a pair with the first item as the head and the rest of the list (another pair) as the tail. A special value, `nil`, is used as the tail of the last pair in the list. `nil` is also a pair, with `nil` as its head and `nil` as its tail. `nil` is also considered to be an empty list. Lists can be constructed from pairs, like this: `1 | 2 | 3 | 4 | nil`, but it's easier to use the list syntax: `[1, 2, 3, 4]` (commas optional).
+A _pair_ is a value that contains two values, a _head_ and a _tail_. A pair can contain any two values. Pairs are created with the pipe operator: `1 | 2`. Conventionally, pairs are used to form linked lists: a list is a pair with the first item as the head and the rest of the list (another pair) as the tail. A special value, `nil`, is used as the tail of the last pair in the list. `nil` is also a pair, with `nil` as its head and `nil` as its tail. `nil` is considered to be an empty list. Lists can be constructed from pairs, like this: `1 | 2 | 3 | 4 | nil`, but it's easier to use the list syntax: `[1, 2, 3, 4]` (commas optional).
 
 A _tuple_ is a fixed-size set of items. Tuples are a _persistent data structure_, which means when you change a tuple, the old version still exists (in case some other code is still using it). A tuple is similar to a list, but is more efficient to access items from. On the other hand, it's less efficient to change a tuple. Tuples can be created like this: `#[1, 2, 3, 4]` (commas optional).
 
@@ -76,7 +76,7 @@ A _binary_ is a sequence of bytes. Binaries are used to represent strings and ot
 
 A _map_ is a key-value map, known elsewhere as an _associative array_ or a _dictionary_. Maps can be written like this: `{foo: 1, bar: "ok"}` (commas optional). In this case, the keys are the symbols `:foo` and `:bar`. When creating maps like this, only symbols can be used as keys, but any value can be used as a key when using map functions like `Map.put`. Maps, like tuples and pairs, are persistent data structures.
 
-Pairs, tuples, binaries, and maps are _object types_: their data is stored in memory on the _heap_, and the values are references to that data.
+Pairs, tuples, binaries, and maps are _object types_: their data is stored in memory on the heap, and the values are references to that data.
 
 ## [Syntax](#syntax)
 
@@ -172,7 +172,7 @@ end
 Here are some intended standard functions:
 
 - `(List.from list n)`: returns the list starting from the nth element
-- `(List.truncate list n)`: returns a list up to the nth element (exclusive)
+- `(List.take list n)`: returns the first n elements of a list
 - `(List.slice list begin end)`: returns a list between `begin` (inclusive) and `end` (exclusive)
 - `(List.concat a b)`: concatenates two lists
 - `(List.append a b)`: appends `b` to the end of list `a`
@@ -181,17 +181,24 @@ Here are some intended standard functions:
 - `(List.to_tuple list)`: converts a list to a tuple
 - `(List.to_map list)`: converts a list of pairs to a map
 - `(List.insert list n value)`: returns a list with `value` inserted at position `n`
+- `(List.zip a b)`: returns a list of pairs taken from the lists `a` and `b`
+- `(List.unzip list)`: given a list of pairs, returns a pair of lists; the first containing the heads, the second containing the tails
 
 - `(Map.get map key)`: gets `key` from a map, or nil
 - `(Map.put map key value)`: returns a map with `key` set to `value`
 - `(Map.delete map key)`: returns a map without `key`
+- `(Map.keys map)`: returns a tuple of map keys
+- `(Map.values map)`: returns a tuple of map values
+- `(Map.to_list map)`: returns a list of (key, value) pairs
+
+- `(Tuple.to_list tuple)`
 
 - `(Math.ceil n)`
 - `(Math.floor n)`
 - `(Math.round n)`
 - `(Math.abs n)`
 - `(Math.sqrt n)`
-- `(Math.ln n)`
+- `(Math.log n)`
 - `(Math.exp n)`
 - `(Math.E)`
 - `(Math.sin n)`
@@ -199,7 +206,8 @@ Here are some intended standard functions:
 - `(Math.tan n)`
 - `(Math.Pi)`
 
-- `(Vec.add a b)`
+- `(Vec.add a b)`: vector addition
+- `(Vec.sub a b)`: vector subtraction
 - `(Vec.dot a b)`: dot product
 - `(Vec.cross a b)`: cross product
 - `(Matrix.id n)`
