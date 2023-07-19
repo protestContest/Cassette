@@ -400,51 +400,13 @@ static Val PrimListFlatten(u32 num_args, VM *vm)
   return ListFlatten(list, &vm->mem);
 }
 
-static bool IOLength(Val list, u32 *length, Mem *mem)
-{
-  if (IsNil(list)) return true;
-
-  Val item = Head(list, mem);
-  if (IsBinary(item, mem)) {
-    *length += BinaryLength(item, mem);
-  } else if (IsInt(item)) {
-    *length += 1;
-  } else {
-    return false;
-  }
-
-  return IOLength(Tail(list, mem), length, mem);
-}
-
 static Val PrimListToBinary(u32 num_args, VM *vm)
 {
   ValType types[] = {ValPair};
   if (!CheckArgs(types, 1, num_args, vm)) return nil;
 
-  Val list = ListFlatten(StackPop(vm), &vm->mem);
-  u32 length = 0;
-  if (!IOLength(list, &length, &vm->mem)) {
-    RuntimeError(vm, "Could not convert list to binary");
-    return nil;
-  }
-
-  Val bin = MakeBinary(length, &vm->mem);
-  char *data = BinaryData(bin, &vm->mem);
-  u32 i = 0;
-  while (!IsNil(list)) {
-    Val item = Head(list, &vm->mem);
-    if (IsInt(item)) {
-      data[i] = RawInt(item);
-      i++;
-    } else if (IsBinary(item, &vm->mem)) {
-      char *item_data = BinaryData(item, &vm->mem);
-      Copy(item_data, data + i, BinaryLength(item, &vm->mem));
-      i += BinaryLength(item, &vm->mem);
-    }
-    list = Tail(list, &vm->mem);
-  }
-
-  return bin;
+  Val list = StackPop(vm);
+  return ListToBinary(list, &vm->mem);
 }
 
 static Val PrimListToTuple(u32 num_args, VM *vm)

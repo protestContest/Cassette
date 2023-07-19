@@ -68,8 +68,8 @@ static Val LoadError(char *filename, Mem *mem)
 
 Val LoadModule(char *entry, Mem *mem)
 {
-  Map map;
-  InitMap(&map);
+  HashMap map;
+  InitHashMap(&map);
 
   char *source = (char*)ReadFile(entry);
   if (source == NULL) return LoadError(entry, mem);
@@ -90,7 +90,7 @@ Val LoadModule(char *entry, Mem *mem)
   while (!IsNil(imports)) {
     Val import = Head(imports, mem);
 
-    if (!MapContains(&map, import.as_i)) {
+    if (!HashMapContains(&map, import.as_i)) {
       char *import_name = SymbolName(import, mem);
       char *folder = FolderName(import_name);
 
@@ -102,7 +102,7 @@ Val LoadModule(char *entry, Mem *mem)
 
       ast = Pair(WrapModule(mod, import, mem), ast, mem);
       imports = ListConcat(imports, FindImports(mod, folder, mem), mem);
-      MapSet(&map, import.as_i, 1);
+      HashMapSet(&map, import.as_i, 1);
     }
     imports = Tail(imports, mem);
   }

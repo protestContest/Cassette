@@ -198,6 +198,63 @@ Val ListFlatten(Val list, Mem *mem)
   return ReverseList(flattened, mem);
 }
 
+Val ListJoin(Val list, Val joiner, Mem *mem)
+{
+  Assert(IsPair(list));
+
+  if (IsNil(list)) return BinaryFrom("", mem);
+
+  Val iolist = Pair(Head(list, mem), nil, mem);
+  list = Tail(list, mem);
+  while (!IsNil(list)) {
+    iolist = Pair(joiner, iolist, mem);
+    iolist = Pair(Head(list, mem), iolist, mem);
+    list = Tail(list, mem);
+  }
+
+  return ListToBinary(ReverseList(list, mem), mem);
+}
+
+static bool IOLength(Val list, u32 *length, Mem *mem)
+{
+  if (IsNil(list)) return true;
+
+  Val item = Head(list, mem);
+  if (IsBinary(item, mem)) {
+    *length += BinaryLength(item, mem);
+  } else if (IsInt(item)) {
+    *length += 1;
+  } else {
+    return false;
+  }
+
+  return IOLength(Tail(list, mem), length, mem);
+}
+
+Val ListToBinary(Val list, Mem *mem)
+{
+  u32 length = 0;
+  if (!IOLength(list, &length, mem)) return nil;
+
+  Val bin = MakeBinary(length, mem);
+  char *data = BinaryData(bin, mem);
+  u32 i = 0;
+  while (!IsNil(list)) {
+    Val item = Head(list, mem);
+    if (IsInt(item)) {
+      data[i] = RawInt(item);
+      i++;
+    } else if (IsBinary(item, mem)) {
+      char *item_data = BinaryData(item, mem);
+      Copy(item_data, data + i, BinaryLength(item, mem));
+      i += BinaryLength(item, mem);
+    }
+    list = Tail(list, mem);
+  }
+
+  return bin;
+}
+
 static u32 NumBinaryCells(u32 length)
 {
   if (length == 0) return 1;

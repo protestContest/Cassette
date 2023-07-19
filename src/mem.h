@@ -93,6 +93,8 @@ Val ListAt(Val list, u32 pos, Mem *mem);
 u32 ListLength(Val list, Mem *mem);
 Val ReverseList(Val list, Mem *mem);
 Val ListFlatten(Val list, Mem *mem);
+Val ListJoin(Val list, Val joiner, Mem *mem);
+Val ListToBinary(Val list, Mem *mem);
 
 Val MakeBinary(u32 num_bytes, Mem *mem);
 Val BinaryFrom(char *text, Mem *mem);
