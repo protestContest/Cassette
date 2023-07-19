@@ -7,12 +7,12 @@ void InitMem(Mem *mem)
   VecPush(mem->values, nil);
   VecPush(mem->values, nil);
   mem->strings = NULL;
-  InitMap(&mem->string_map);
+  InitHashMap(&mem->string_map);
 }
 
 void DestroyMem(Mem *mem)
 {
-  DestroyMap(&mem->string_map);
+  DestroyHashMap(&mem->string_map);
   FreeVec(mem->strings);
   FreeVec(mem->values);
 }
@@ -25,14 +25,14 @@ u32 MemSize(Mem *mem)
 Val MakeSymbolFrom(char *name, u32 length, Mem *mem)
 {
   Val sym = SymbolFrom(name, length);
-  if (MapContains(&mem->string_map, sym.as_i)) return sym;
+  if (HashMapContains(&mem->string_map, sym.as_i)) return sym;
 
   u32 index = VecCount(mem->strings);
   for (u32 i = 0; i < length && name[i] != '\0'; i++) {
     VecPush(mem->strings, name[i]);
   }
   VecPush(mem->strings, '\0');
-  MapSet(&mem->string_map, sym.as_i, index);
+  HashMapSet(&mem->string_map, sym.as_i, index);
   return sym;
 }
 
@@ -43,8 +43,8 @@ Val MakeSymbol(char *name, Mem *mem)
 
 char *SymbolName(Val symbol, Mem *mem)
 {
-  if (!MapContains(&mem->string_map, symbol.as_i)) return NULL;
-  u32 index = MapGet(&mem->string_map, symbol.as_i);
+  if (!HashMapContains(&mem->string_map, symbol.as_i)) return NULL;
+  u32 index = HashMapGet(&mem->string_map, symbol.as_i);
   if (index >= VecCount(mem->strings)) return NULL;
   return mem->strings + index;
 }
@@ -348,16 +348,16 @@ u32 TupleIndexOf(Val tuple, Val value, Mem *mem)
 }
 
 #define MAP_MIN_CAPACITY 8
-Val MakeValMap(u32 capacity, Mem *mem)
+Val MakeMap(u32 capacity, Mem *mem)
 {
   u32 size = Max(capacity, MAP_MIN_CAPACITY);
   Val keys = MakeTuple(size, mem);
   Val values = MakeTuple(size, mem);
 
-  return ValMapFrom(keys, values, mem);
+  return MapFrom(keys, values, mem);
 }
 
-Val ValMapFrom(Val keys, Val values, Mem *mem)
+Val MapFrom(Val keys, Val values, Mem *mem)
 {
   u32 index = VecCount(mem->values);
   u32 count = 0;
@@ -372,94 +372,94 @@ Val ValMapFrom(Val keys, Val values, Mem *mem)
   return ObjVal(index);
 }
 
-bool IsValMap(Val map, Mem *mem)
+bool IsMap(Val map, Mem *mem)
 {
   return IsObj(map) && IsMapHeader(mem->values[RawVal(map)]);
 }
 
-Val ValMapKeys(Val map, Mem *mem)
+Val MapKeys(Val map, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
   u32 obj = RawVal(map);
   return mem->values[obj+1];
 }
 
-Val ValMapValues(Val map, Mem *mem)
+Val MapValues(Val map, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
   u32 obj = RawVal(map);
   return mem->values[obj+2];
 }
 
-u32 ValMapCapacity(Val map, Mem *mem)
+u32 MapCapacity(Val map, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
-  return TupleLength(ValMapKeys(map, mem), mem);
+  Assert(IsMap(map, mem));
+  return TupleLength(MapKeys(map, mem), mem);
 }
 
-u32 ValMapCount(Val map, Mem *mem)
+u32 MapCount(Val map, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
   u32 obj = RawVal(map);
   return RawVal(mem->values[obj]);
 }
 
-void ValMapSet(Val map, Val key, Val value, Mem *mem)
+void MapSet(Val map, Val key, Val value, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
 
-  Val keys = ValMapKeys(map, mem);
-  Val vals = ValMapValues(map, mem);
+  Val keys = MapKeys(map, mem);
+  Val vals = MapValues(map, mem);
   u32 index = TupleIndexOf(keys, key, mem);
 
   if (index >= TupleLength(keys, mem)) {
-    index = ValMapCount(map, mem);
-    mem->values[RawVal(map)] = MapHeader(ValMapCount(map, mem) + 1);
+    index = MapCount(map, mem);
+    mem->values[RawVal(map)] = MapHeader(MapCount(map, mem) + 1);
   }
 
-  Assert(index < ValMapCapacity(map, mem));
+  Assert(index < MapCapacity(map, mem));
 
   TupleSet(keys, index, key, mem);
   TupleSet(vals, index, value, mem);
 }
 
-Val ValMapPut(Val map, Val key, Val value, Mem *mem)
+Val MapPut(Val map, Val key, Val value, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
 
-  if (ValMapContains(map, key, mem)) {
+  if (MapContains(map, key, mem)) {
     // if the map already has this key/val pair, we're fine
-    if (Eq(value, ValMapGet(map, key, mem))) return map;
+    if (Eq(value, MapGet(map, key, mem))) return map;
 
     // otherwise, make a new map with new values set to this value
-    Val keys = ValMapKeys(map, mem);
-    Val vals = ValMapValues(map, mem);
+    Val keys = MapKeys(map, mem);
+    Val vals = MapValues(map, mem);
     u32 index = TupleIndexOf(keys, key, mem);
     vals = TuplePut(vals, index, value, mem);
-    return ValMapFrom(keys, vals, mem);
+    return MapFrom(keys, vals, mem);
   }
 
   // map doesn't have key; create entirely new map
-  u32 capacity = ValMapCapacity(map, mem);
-  if (ValMapCount(map, mem) == capacity) capacity *= 2;
+  u32 capacity = MapCapacity(map, mem);
+  if (MapCount(map, mem) == capacity) capacity *= 2;
 
-  Val new_map = MakeValMap(capacity, mem);
+  Val new_map = MakeMap(capacity, mem);
 
-  Val keys = ValMapKeys(map, mem);
-  Val vals = ValMapValues(map, mem);
-  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
-    ValMapSet(new_map, TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
+  Val keys = MapKeys(map, mem);
+  Val vals = MapValues(map, mem);
+  for (u32 i = 0; i < MapCount(map, mem); i++) {
+    MapSet(new_map, TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
   }
-  ValMapSet(new_map, key, value, mem);
+  MapSet(new_map, key, value, mem);
   return new_map;
 }
 
-Val ValMapGet(Val map, Val key, Mem *mem)
+Val MapGet(Val map, Val key, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
 
-  Val keys = ValMapKeys(map, mem);
-  Val vals = ValMapValues(map, mem);
+  Val keys = MapKeys(map, mem);
+  Val vals = MapValues(map, mem);
 
   u32 index = TupleIndexOf(keys, key, mem);
   if (index >= TupleLength(keys, mem)) return nil;
@@ -467,31 +467,31 @@ Val ValMapGet(Val map, Val key, Mem *mem)
   return TupleGet(vals, index, mem);
 }
 
-Val ValMapDelete(Val map, Val key, Mem *mem)
+Val MapDelete(Val map, Val key, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
 
-  if (!ValMapContains(map, key, mem)) return map;
+  if (!MapContains(map, key, mem)) return map;
 
-  Val keys = ValMapKeys(map, mem);
-  Val vals = ValMapValues(map, mem);
+  Val keys = MapKeys(map, mem);
+  Val vals = MapValues(map, mem);
 
   u32 index = TupleIndexOf(keys, key, mem);
-  u32 count = ValMapCount(map, mem);
+  u32 count = MapCount(map, mem);
 
-  Val new_map = MakeValMap(count-1, mem);
+  Val new_map = MakeMap(count-1, mem);
   for (u32 i = 0; i < count; i++) {
     if (i == index) continue;
-    ValMapPut(map, TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
+    MapPut(map, TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
   }
   return new_map;
 }
 
-bool ValMapContains(Val map, Val key, Mem *mem)
+bool MapContains(Val map, Val key, Mem *mem)
 {
-  Assert(IsValMap(map, mem));
+  Assert(IsMap(map, mem));
 
-  Val keys = ValMapKeys(map, mem);
+  Val keys = MapKeys(map, mem);
   return TupleIndexOf(keys, key, mem) < TupleLength(keys, mem);
 }
 
@@ -598,9 +598,9 @@ u32 InspectVal(Val value, Mem *mem)
     return length;
   } else if (IsObj(value) && IsMapHeader(mem->values[RawVal(value)])) {
     u32 length = Print("{");
-    Val keys = ValMapKeys(value, mem);
-    Val values = ValMapValues(value, mem);
-    for (u32 i = 0; i < ValMapCapacity(value, mem); i++) {
+    Val keys = MapKeys(value, mem);
+    Val values = MapValues(value, mem);
+    for (u32 i = 0; i < MapCapacity(value, mem); i++) {
       Val key = TupleGet(keys, i, mem);
       if (IsNil(key)) break;
 
@@ -631,7 +631,7 @@ static char *TypeAbbr(Val value, Mem *mem)
   else if (IsSym(value))                return ":";
   else if (IsPair(value))               return "p";
   else if (IsTuple(value, mem))         return "t";
-  else if (IsValMap(value, mem))        return "m";
+  else if (IsMap(value, mem))           return "m";
   else if (IsBinary(value, mem))        return "b";
   else if (IsBinaryHeader(value))       return "$";
   else if (IsTupleHeader(value))        return "#";
@@ -773,8 +773,8 @@ void PrintMem(Mem *mem)
 void PrintSymbols(Mem *mem)
 {
   Print("Symbols:\n");
-  for (u32 i = 0; i < MapCount(&mem->string_map); i++) {
-    u32 index = GetMapValue(&mem->string_map, i);
+  for (u32 i = 0; i < HashMapCount(&mem->string_map); i++) {
+    u32 index = GetHashMapValue(&mem->string_map, i);
     Print(":");
     Print(mem->strings + index);
     Print("\n");

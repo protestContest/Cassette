@@ -67,7 +67,7 @@ typedef enum {
 typedef struct {
   Val *values;
   char *strings;
-  Map string_map;
+  HashMap string_map;
 } Mem;
 
 void InitMem(Mem *mem);
@@ -109,17 +109,17 @@ Val TuplePut(Val tuple, u32 index, Val value, Mem *mem);
 Val TupleGet(Val tuple, u32 index, Mem *mem);
 u32 TupleIndexOf(Val tuple, Val value, Mem *mem);
 
-Val MakeValMap(u32 capacity, Mem *mem);
-Val ValMapFrom(Val keys, Val values, Mem *mem);
-bool IsValMap(Val map, Mem *mem);
-void ValMapSet(Val map, Val key, Val value, Mem *mem);
-Val ValMapPut(Val map, Val key, Val value, Mem *mem);
-Val ValMapGet(Val map, Val key, Mem *mem);
-Val ValMapDelete(Val map, Val key, Mem *mem);
-bool ValMapContains(Val map, Val key, Mem *mem);
-u32 ValMapCount(Val map, Mem *mem);
-Val ValMapKeys(Val map, Mem *mem);
-Val ValMapValues(Val map, Mem *mem);
+Val MakeMap(u32 capacity, Mem *mem);
+Val MapFrom(Val keys, Val values, Mem *mem);
+bool IsMap(Val map, Mem *mem);
+void MapSet(Val map, Val key, Val value, Mem *mem);
+Val MapPut(Val map, Val key, Val value, Mem *mem);
+Val MapGet(Val map, Val key, Mem *mem);
+Val MapDelete(Val map, Val key, Mem *mem);
+bool MapContains(Val map, Val key, Mem *mem);
+u32 MapCount(Val map, Mem *mem);
+Val MapKeys(Val map, Mem *mem);
+Val MapValues(Val map, Mem *mem);
 
 bool PrintVal(Val value, Mem *mem);
 u32 InspectVal(Val value, Mem *mem);

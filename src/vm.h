@@ -9,7 +9,7 @@ typedef struct {
   Val *val;
   Val *stack;
   Mem mem;
-  Map modules;
+  HashMap modules;
   Chunk *chunk;
   bool error;
   bool trace;

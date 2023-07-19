@@ -10,7 +10,7 @@ static void MergeStrings(Mem *dst, Mem *src);
 void InitVM(VM *vm)
 {
   InitMem(&vm->mem);
-  InitMap(&vm->modules);
+  InitHashMap(&vm->modules);
 
   vm->pc = 0;
   vm->cont = nil;
@@ -26,7 +26,7 @@ void InitVM(VM *vm)
 void DestroyVM(VM *vm)
 {
   DestroyMem(&vm->mem);
-  DestroyMap(&vm->modules);
+  DestroyHashMap(&vm->modules);
   FreeVec(vm->val);
   FreeVec(vm->stack);
   vm->chunk = NULL;
@@ -69,16 +69,16 @@ void StackPush(VM *vm, Val val)
 
 static void MergeStrings(Mem *dst, Mem *src)
 {
-  for (u32 i = 0; i < MapCount(&src->string_map); i++) {
-    u32 key = GetMapKey(&src->string_map, i);
-    if (!MapContains(&dst->string_map, key)) {
-      char *string = src->strings + MapGet(&src->string_map, key);
+  for (u32 i = 0; i < HashMapCount(&src->string_map); i++) {
+    u32 key = GetHashMapKey(&src->string_map, i);
+    if (!HashMapContains(&dst->string_map, key)) {
+      char *string = src->strings + HashMapGet(&src->string_map, key);
       u32 index = VecCount(dst->strings);
       while (*string) {
         VecPush(dst->strings, *string++);
       }
       VecPush(dst->strings, '\0');
-      MapSet(&dst->string_map, key, index);
+      HashMapSet(&dst->string_map, key, index);
     }
   }
 }
@@ -208,11 +208,11 @@ static void CreateOp(VM *vm, OpCode op)
   }
   case OpMap: {
     u32 count = RawInt(ChunkConst(chunk, vm->pc+1));
-    Val map = MakeValMap(count, mem);
+    Val map = MakeMap(count, mem);
     for (u32 i = 0; i < count; i++) {
       Val key = StackPop(vm);
       Val value = StackPop(vm);
-      ValMapSet(map, key, value, mem);
+      MapSet(map, key, value, mem);
     }
     StackPush(vm, map);
     break;
@@ -262,8 +262,8 @@ static void AccessOp(VM *vm, Val obj, Val arg)
       char byte = BinaryData(obj, &vm->mem)[RawInt(arg)];
       StackPush(vm, IntVal(byte));
     }
-  } else if (IsValMap(obj, &vm->mem)) {
-    StackPush(vm, ValMapGet(obj, arg, &vm->mem));
+  } else if (IsMap(obj, &vm->mem)) {
+    StackPush(vm, MapGet(obj, arg, &vm->mem));
   }
 }
 
@@ -306,7 +306,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       if (IsPair(val)) StackPush(vm, IntVal(ListLength(val, mem)));
       else if (IsTuple(val, mem)) StackPush(vm, IntVal(TupleLength(val, mem)));
       else if (IsBinary(val, mem)) StackPush(vm, IntVal(BinaryLength(val, mem)));
-      else if (IsValMap(val, mem)) StackPush(vm, IntVal(ValMapCount(val, mem)));
+      else if (IsMap(val, mem)) StackPush(vm, IntVal(MapCount(val, mem)));
       else {
         PrintVal(val, mem);
         Print("\n");
@@ -369,8 +369,8 @@ Val RunChunk(VM *vm, Chunk *chunk)
         StackPush(vm, BoolVal(ListContains(collection, item, mem)));
       } else if (IsTuple(collection, mem)) {
         StackPush(vm, BoolVal(TupleContains(collection, item, mem)));
-      } else if (IsValMap(collection, mem)) {
-        StackPush(vm, BoolVal(ValMapContains(collection, item, mem)));
+      } else if (IsMap(collection, mem)) {
+        StackPush(vm, BoolVal(MapContains(collection, item, mem)));
       } else {
         RuntimeError(vm, "Not a collection");
       }
@@ -380,10 +380,10 @@ Val RunChunk(VM *vm, Chunk *chunk)
     case OpAccess: {
       Val key = StackPop(vm);
       Val map = StackPop(vm);
-      if (!ValMapContains(map, key, mem)) {
+      if (!MapContains(map, key, mem)) {
         RuntimeError(vm, "Undefined key");
       } else {
-        StackPush(vm, ValMapGet(map, key, mem));
+        StackPush(vm, MapGet(map, key, mem));
         vm->pc += OpLength(op);
       }
       break;
@@ -481,14 +481,14 @@ Val RunChunk(VM *vm, Chunk *chunk)
     case OpDefMod: {
       Val name = ChunkConst(chunk, vm->pc+1);
       Val mod = StackPeek(vm, 0);
-      MapSet(&vm->modules, name.as_i, mod.as_i);
+      HashMapSet(&vm->modules, name.as_i, mod.as_i);
       vm->pc += OpLength(op);
       break;
     }
     case OpGetMod: {
       Val name = ChunkConst(chunk, vm->pc+1);
-      if (MapContains(&vm->modules, name.as_i)) {
-        Val mod = (Val){.as_i = MapGet(&vm->modules, name.as_i)};
+      if (HashMapContains(&vm->modules, name.as_i)) {
+        Val mod = (Val){.as_i = HashMapGet(&vm->modules, name.as_i)};
         StackPush(vm, mod);
         vm->pc += OpLength(op);
       } else {
@@ -522,7 +522,7 @@ void TakeOutGarbage(VM *vm)
 {
   u32 val_size = VecCount(vm->val);
   u32 stack_size = VecCount(vm->stack);
-  u32 num_mods = MapCount(&vm->modules);
+  u32 num_mods = HashMapCount(&vm->modules);
   u32 num_roots = num_mods + val_size + stack_size + 1;
 
   Val *roots = NewVec(Val, num_roots);
@@ -534,7 +534,7 @@ void TakeOutGarbage(VM *vm)
   Copy(vm->stack, roots+1+val_size, stack_size*sizeof(Val));
 
   for (u32 i = 0; i < num_mods; i++) {
-    Val mod = (Val){.as_i = GetMapValue(&vm->modules, i)};
+    Val mod = (Val){.as_i = GetHashMapValue(&vm->modules, i)};
     roots[i + 1 + val_size + stack_size] = mod;
   }
 
@@ -545,8 +545,8 @@ void TakeOutGarbage(VM *vm)
   Copy(roots+1+val_size, vm->stack, stack_size*sizeof(Val));
 
   for (u32 i = 0; i < num_mods; i++) {
-    u32 key = GetMapKey(&vm->modules, i);
-    MapSet(&vm->modules, key, roots[i+1+val_size+stack_size].as_i);
+    u32 key = GetHashMapKey(&vm->modules, i);
+    HashMapSet(&vm->modules, key, roots[i+1+val_size+stack_size].as_i);
   }
 
   FreeVec(roots);

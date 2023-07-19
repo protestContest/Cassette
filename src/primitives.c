@@ -92,36 +92,36 @@ PrimitiveFn GetPrimitive(u32 index)
 
 void DefinePrimitives(Val env, Mem *mem)
 {
-  Map modules;
-  InitMap(&modules);
+  HashMap modules;
+  InitHashMap(&modules);
 
   // get a count of primitives + constants for each module
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
     if (primitives[i].mod == NULL) continue;
     Val mod_name = MakeSymbol(primitives[i].mod, mem);
     u32 count = 0;
-    if (MapContains(&modules, mod_name.as_i)) {
-      count = MapGet(&modules, mod_name.as_i);
+    if (HashMapContains(&modules, mod_name.as_i)) {
+      count = HashMapGet(&modules, mod_name.as_i);
     }
-    MapSet(&modules, mod_name.as_i, count + 1);
+    HashMapSet(&modules, mod_name.as_i, count + 1);
   }
   for (u32 i = 0; i < ArrayCount(constants); i++) {
     if (constants[i].mod == NULL) continue;
     Val mod_name = MakeSymbol(constants[i].mod, mem);
     u32 count = 0;
-    if (MapContains(&modules, mod_name.as_i)) {
-      count = MapGet(&modules, mod_name.as_i);
+    if (HashMapContains(&modules, mod_name.as_i)) {
+      count = HashMapGet(&modules, mod_name.as_i);
     }
-    MapSet(&modules, mod_name.as_i, count + 1);
+    HashMapSet(&modules, mod_name.as_i, count + 1);
   }
 
   // create each module
-  for (u32 i = 0; i < MapCount(&modules); i++) {
-    Val mod_name = (Val){.as_i = GetMapKey(&modules, i)};
-    u32 count = MapGet(&modules, mod_name.as_i);
-    Val module = MakeValMap(count, mem);
+  for (u32 i = 0; i < HashMapCount(&modules); i++) {
+    Val mod_name = (Val){.as_i = GetHashMapKey(&modules, i)};
+    u32 count = HashMapGet(&modules, mod_name.as_i);
+    Val module = MakeMap(count, mem);
     Define(mod_name, module, env, mem);
-    MapSet(&modules, mod_name.as_i, module.as_i);
+    HashMapSet(&modules, mod_name.as_i, module.as_i);
   }
 
   // define primitives for each module
@@ -133,8 +133,8 @@ void DefinePrimitives(Val env, Mem *mem)
       Define(primitive_name, func, env, mem);
     } else {
       Val mod_name = SymbolFor(primitives[i].mod);
-      Val module = (Val){.as_i = MapGet(&modules, mod_name.as_i)};
-      ValMapSet(module, primitive_name, func, mem);
+      Val module = (Val){.as_i = HashMapGet(&modules, mod_name.as_i)};
+      MapSet(module, primitive_name, func, mem);
     }
   }
 
@@ -147,12 +147,12 @@ void DefinePrimitives(Val env, Mem *mem)
       Define(const_name, value, env, mem);
     } else {
       Val mod_name = SymbolFor(constants[i].mod);
-      Val module = (Val){.as_i = MapGet(&modules, mod_name.as_i)};
-      ValMapSet(module, const_name, value, mem);
+      Val module = (Val){.as_i = HashMapGet(&modules, mod_name.as_i)};
+      MapSet(module, const_name, value, mem);
     }
   }
 
-  DestroyMap(&modules);
+  DestroyHashMap(&modules);
 }
 
 static bool CheckArg(Val arg, ValType type, Mem *mem)
@@ -165,7 +165,7 @@ static bool CheckArg(Val arg, ValType type, Mem *mem)
   case ValPair:     return IsPair(arg);
   case ValTuple:    return IsTuple(arg, mem);
   case ValBinary:   return IsBinary(arg, mem);
-  case ValMap:      return IsValMap(arg, mem);
+  case ValMap:      return IsMap(arg, mem);
   }
 }
 
@@ -472,7 +472,7 @@ static Val PrimListToMap(u32 num_args, VM *vm)
 
   Val list = StackPop(vm);
   u32 count = ListLength(list, &vm->mem);
-  Val map = MakeValMap(count, &vm->mem);
+  Val map = MakeMap(count, &vm->mem);
   while (!IsNil(list)) {
     Val item = Head(list, &vm->mem);
 
@@ -481,7 +481,7 @@ static Val PrimListToMap(u32 num_args, VM *vm)
       return nil;
     }
 
-    ValMapSet(map, Head(item, &vm->mem), Tail(item, &vm->mem), &vm->mem);
+    MapSet(map, Head(item, &vm->mem), Tail(item, &vm->mem), &vm->mem);
 
     list = Tail(list, &vm->mem);
   }
@@ -556,7 +556,7 @@ static Val PrimListUnzip(u32 num_args, VM *vm)
 static Val PrimMapNew(u32 num_args, VM *vm)
 {
   if (!CheckArgs(NULL, 0, num_args, vm)) return nil;
-  return MakeValMap(0, &vm->mem);
+  return MakeMap(0, &vm->mem);
 }
 
 static Val PrimMapGet(u32 num_args, VM *vm)
@@ -566,7 +566,7 @@ static Val PrimMapGet(u32 num_args, VM *vm)
 
   Val map = StackPop(vm);
   Val key = StackPop(vm);
-  return ValMapGet(map, key, &vm->mem);
+  return MapGet(map, key, &vm->mem);
 }
 
 static Val PrimMapPut(u32 num_args, VM *vm)
@@ -577,7 +577,7 @@ static Val PrimMapPut(u32 num_args, VM *vm)
   Val map = StackPop(vm);
   Val key = StackPop(vm);
   Val value = StackPop(vm);
-  return ValMapPut(map, key, value, &vm->mem);
+  return MapPut(map, key, value, &vm->mem);
 }
 
 static Val PrimMapDelete(u32 num_args, VM *vm)
@@ -587,7 +587,7 @@ static Val PrimMapDelete(u32 num_args, VM *vm)
 
   Val map = StackPop(vm);
   Val key = StackPop(vm);
-  return ValMapDelete(map, key, &vm->mem);
+  return MapDelete(map, key, &vm->mem);
 }
 
 static Val PrimMapKeys(u32 num_args, VM *vm)
@@ -597,9 +597,9 @@ static Val PrimMapKeys(u32 num_args, VM *vm)
 
   Mem *mem = &vm->mem;
   Val map = StackPop(vm);
-  Val keys = ValMapKeys(map, mem);
-  Val tuple = MakeTuple(ValMapCount(map, mem), mem);
-  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
+  Val keys = MapKeys(map, mem);
+  Val tuple = MakeTuple(MapCount(map, mem), mem);
+  for (u32 i = 0; i < MapCount(map, mem); i++) {
     TupleSet(tuple, i, TupleGet(keys, i, mem), mem);
   }
   return tuple;
@@ -612,9 +612,9 @@ static Val PrimMapValues(u32 num_args, VM *vm)
 
   Mem *mem = &vm->mem;
   Val map = StackPop(vm);
-  Val vals = ValMapValues(map, mem);
-  Val tuple = MakeTuple(ValMapCount(map, mem), mem);
-  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
+  Val vals = MapValues(map, mem);
+  Val tuple = MakeTuple(MapCount(map, mem), mem);
+  for (u32 i = 0; i < MapCount(map, mem); i++) {
     TupleSet(tuple, i, TupleGet(vals, i, mem), mem);
   }
   return tuple;
@@ -627,10 +627,10 @@ static Val PrimMapToList(u32 num_args, VM *vm)
 
   Mem *mem = &vm->mem;
   Val map = StackPop(vm);
-  Val keys = ValMapKeys(map, mem);
-  Val vals = ValMapValues(map, mem);
+  Val keys = MapKeys(map, mem);
+  Val vals = MapValues(map, mem);
   Val list = nil;
-  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
+  for (u32 i = 0; i < MapCount(map, mem); i++) {
     Val pair = Pair(TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
     list = Pair(pair, list, mem);
   }

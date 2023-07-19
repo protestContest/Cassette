@@ -64,10 +64,10 @@ Val Lookup(Val var, Val env, Mem *mem)
 
 void ImportEnv(Val imports, Val env, Mem *mem)
 {
-  Val keys = ValMapKeys(imports, mem);
-  Val vals = ValMapValues(imports, mem);
+  Val keys = MapKeys(imports, mem);
+  Val vals = MapValues(imports, mem);
 
-  for (u32 i = 0; i < ValMapCount(imports, mem); i++) {
+  for (u32 i = 0; i < MapCount(imports, mem); i++) {
     Val key = TupleGet(keys, i, mem);
     Val val = TupleGet(vals, i, mem);
     Define(key, val, env, mem);
@@ -80,12 +80,12 @@ Val ExportEnv(Val env, Mem *mem)
   Val frame = Head(env, mem);
   u32 num_exports = ListLength(frame, mem);
 
-  Val exports = MakeValMap(num_exports, mem);
+  Val exports = MakeMap(num_exports, mem);
   while (!IsNil(frame)) {
     Val pair = Head(frame, mem);
     Val var = Head(pair, mem);
     Val value = Tail(pair, mem);
-    ValMapSet(exports, var, value, mem);
+    MapSet(exports, var, value, mem);
     frame = Tail(frame, mem);
   }
 
