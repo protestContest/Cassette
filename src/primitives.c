@@ -32,6 +32,7 @@ static Val PrimMapDelete(u32 num_args, VM *vm);
 static Val PrimMapKeys(u32 num_args, VM *vm);
 static Val PrimMapValues(u32 num_args, VM *vm);
 static Val PrimMapToList(u32 num_args, VM *vm);
+static Val PrimTupleToList(u32 num_args, VM *vm);
 
 static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {NULL, "print", &PrimPrint},
@@ -64,6 +65,7 @@ static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {"Map", "keys", &PrimMapKeys},
   {"Map", "values", &PrimMapValues},
   {"Map", "to_list", &PrimMapToList},
+  {"Tuple", "to_list", &PrimTupleToList},
 };
 
 static struct {char *mod; char *name; Val val;} constants[] = {
@@ -564,5 +566,21 @@ static Val PrimMapToList(u32 num_args, VM *vm)
     Val pair = Pair(TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
     list = Pair(pair, list, mem);
   }
+  return ReverseList(list, mem);
+}
+
+static Val PrimTupleToList(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValTuple};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val tuple = StackPop(vm);
+  Val list = nil;
+
+  for (u32 i = 0; i < TupleLength(tuple, mem); i++) {
+    list = Pair(TupleGet(tuple, i, mem), list, mem);
+  }
+
   return ReverseList(list, mem);
 }
