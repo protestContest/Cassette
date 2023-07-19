@@ -306,6 +306,25 @@ void TupleSet(Val tuple, u32 index, Val value, Mem *mem)
   mem->values[obj_index + 1 + index] = value;
 }
 
+Val TuplePut(Val tuple, u32 index, Val value, Mem *mem)
+{
+  Assert(IsTuple(tuple, mem));
+  u32 obj_index = RawVal(tuple);
+  u32 length = RawVal(mem->values[obj_index]);
+  Assert(index < length);
+
+  Val new_tuple = MakeTuple(length, mem);
+  for (u32 i = 0; i < length; i++) {
+    if (i == index) {
+      TupleSet(new_tuple, i, value, mem);
+    } else {
+      TupleSet(new_tuple, i, TupleGet(tuple, i, mem), mem);
+    }
+  }
+
+  return new_tuple;
+}
+
 Val TupleGet(Val tuple, u32 index, Mem *mem)
 {
   Assert(IsTuple(tuple, mem));
@@ -315,15 +334,33 @@ Val TupleGet(Val tuple, u32 index, Mem *mem)
   return mem->values[obj_index + 1 + index];
 }
 
-#define INIT_MAP_CAPACITY 8
-Val MakeValMap(Mem *mem)
+u32 TupleIndexOf(Val tuple, Val value, Mem *mem)
 {
-  u32 size = INIT_MAP_CAPACITY;
+  Assert(IsTuple(tuple, mem));
+
+  for (u32 i = 0; i < TupleLength(tuple, mem); i++) {
+    if (Eq(value, TupleGet(tuple, i, mem))) {
+      return i;
+    }
+  }
+
+  return TupleLength(tuple, mem);
+}
+
+#define MAP_MIN_CAPACITY 8
+Val MakeValMap(u32 capacity, Mem *mem)
+{
+  u32 size = Max(capacity, MAP_MIN_CAPACITY);
   Val keys = MakeTuple(size, mem);
   Val values = MakeTuple(size, mem);
 
+  return ValMapFrom(keys, values, 0, mem);
+}
+
+Val ValMapFrom(Val keys, Val values, u32 count, Mem *mem)
+{
   u32 index = VecCount(mem->values);
-  VecPush(mem->values, MapHeader(0));
+  VecPush(mem->values, MapHeader(count));
   VecPush(mem->values, keys);
   VecPush(mem->values, values);
 
@@ -366,98 +403,87 @@ void ValMapSet(Val map, Val key, Val value, Mem *mem)
 {
   Assert(IsValMap(map, mem));
 
-  u32 cap = ValMapCapacity(map, mem);
-  u32 count = ValMapCount(map, mem);
-
   Val keys = ValMapKeys(map, mem);
   Val vals = ValMapValues(map, mem);
-  u32 last_nil = cap;
-  for (u32 i = 0; i < cap; i++) {
-    if (Eq(key, TupleGet(keys, i, mem))) {
-      TupleSet(vals, i, value, mem);
-      return;
-    } else if (IsNil(TupleGet(keys, i, mem))) {
-      last_nil = i;
-      break;
-    }
-  }
+  u32 index = TupleIndexOf(keys, key, mem);
+  if (index >= TupleLength(keys, mem)) index = ValMapCount(map, mem);
 
-  if (last_nil == cap) {
-    // map full
-    Val new_keys = MakeTuple(2*cap, mem);
-    Val new_vals = MakeTuple(2*cap, mem);
-    for (u32 i = 0; i < cap; i++) {
-      TupleSet(new_keys, i, TupleGet(keys, i, mem), mem);
-      TupleSet(new_vals, i, TupleGet(vals, i, mem), mem);
-    }
-    for (u32 i = cap; i < 2*cap; i++) {
-      TupleSet(new_keys, i, nil, mem);
-      TupleSet(new_vals, i, nil, mem);
-    }
+  Assert(index < ValMapCapacity(map, mem));
 
-    mem->values[RawVal(map)+1] = new_keys;
-    mem->values[RawVal(map)+2] = new_vals;
-    keys = new_keys;
-    vals = new_vals;
-  }
-
-  TupleSet(keys, last_nil, key, mem);
-  TupleSet(vals, last_nil, value, mem);
-  u32 index = RawVal(map);
-  mem->values[index] = MapHeader(count + 1);
+  TupleSet(keys, index, key, mem);
+  TupleSet(vals, index, value, mem);
 }
 
-void ValMapPut(Val map, Val key, Val value, Mem *mem)
+Val ValMapPut(Val map, Val key, Val value, Mem *mem)
 {
   Assert(IsValMap(map, mem));
 
-  if (ValMapContains(map, key, mem) && Eq(value, ValMapGet(map, key, mem))) return;
+  if (ValMapContains(map, key, mem)) {
+    // if the map already has this key/val pair, we're fine
+    if (Eq(value, ValMapGet(map, key, mem))) return map;
 
-  u32 cap = ValMapCapacity(map, mem);
-  if (ValMapCount(map, mem) == cap && !ValMapContains(map, key, mem)) {
-    cap = 2*cap;
+    // otherwise, make a new map with new values set to this value
+    Val keys = ValMapKeys(map, mem);
+    Val vals = ValMapValues(map, mem);
+    u32 index = TupleIndexOf(keys, key, mem);
+    vals = TuplePut(vals, index, value, mem);
+    return ValMapFrom(keys, vals, ValMapCount(map, mem), mem);
   }
+
+  // map doesn't have key; create entirely new map
+  u32 capacity = ValMapCapacity(map, mem);
+  if (ValMapCount(map, mem) == capacity) capacity *= 2;
+
+  Val new_map = MakeValMap(capacity, mem);
 
   Val keys = ValMapKeys(map, mem);
   Val vals = ValMapValues(map, mem);
-  Val new_vals = MakeTuple(cap, mem);
-  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
-    if (Eq(key, TupleGet(keys, i, mem))) {
-      TupleSet(new_vals, i, value, mem);
-    } else {
-      TupleSet(new_vals, i, TupleGet(vals, i, mem), mem);
-    }
+  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
+    ValMapSet(new_map, TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
   }
-  for (u32 i = TupleLength(keys, mem); i < cap; i++) {
-    TupleSet(new_vals, i, nil, mem);
-  }
+  ValMapSet(new_map, key, value, mem);
+  return new_map;
 }
 
 Val ValMapGet(Val map, Val key, Mem *mem)
 {
-  u32 obj = RawVal(map);
-  Assert(IsMapHeader(mem->values[obj]));
-  Val keys = mem->values[obj+1];
-  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
-    if (Eq(key, TupleGet(keys, i, mem))) {
-      Val vals = mem->values[obj+2];
-      return TupleGet(vals, i, mem);
-    }
+  Assert(IsValMap(map, mem));
+
+  Val keys = ValMapKeys(map, mem);
+  Val vals = ValMapValues(map, mem);
+
+  u32 index = TupleIndexOf(keys, key, mem);
+  if (index >= TupleLength(keys, mem)) return nil;
+
+  return TupleGet(vals, index, mem);
+}
+
+Val ValMapDelete(Val map, Val key, Mem *mem)
+{
+  Assert(IsValMap(map, mem));
+
+  if (!ValMapContains(map, key, mem)) return map;
+
+  Val keys = ValMapKeys(map, mem);
+  Val vals = ValMapValues(map, mem);
+
+  u32 index = TupleIndexOf(keys, key, mem);
+  u32 count = ValMapCount(map, mem);
+
+  Val new_map = MakeValMap(count-1, mem);
+  for (u32 i = 0; i < count; i++) {
+    if (i == index) continue;
+    ValMapPut(map, TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
   }
-  return nil;
+  return new_map;
 }
 
 bool ValMapContains(Val map, Val key, Mem *mem)
 {
   Assert(IsValMap(map, mem));
 
-  Val keys = mem->values[RawVal(map)+1];
-  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
-    if (Eq(key, TupleGet(keys, i, mem))) {
-      return true;
-    }
-  }
-  return false;
+  Val keys = ValMapKeys(map, mem);
+  return TupleIndexOf(keys, key, mem) < TupleLength(keys, mem);
 }
 
 bool PrintVal(Val val, Mem *mem)

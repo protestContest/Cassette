@@ -78,8 +78,9 @@ Val ExportEnv(Val env, Mem *mem)
 {
   if (IsNil(env)) return nil;
   Val frame = Head(env, mem);
+  u32 num_exports = ListLength(frame, mem);
 
-  Val exports = MakeValMap(mem);
+  Val exports = MakeValMap(num_exports, mem);
   while (!IsNil(frame)) {
     Val pair = Head(frame, mem);
     Val var = Head(pair, mem);

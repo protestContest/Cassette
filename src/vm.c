@@ -207,8 +207,9 @@ static void CreateOp(VM *vm, OpCode op)
     break;
   }
   case OpMap: {
-    Val map = MakeValMap(mem);
-    for (u32 i = 0; i < RawInt(ChunkConst(chunk, vm->pc+1)); i++) {
+    u32 count = RawInt(ChunkConst(chunk, vm->pc+1));
+    Val map = MakeValMap(count, mem);
+    for (u32 i = 0; i < count; i++) {
       Val key = StackPop(vm);
       Val value = StackPop(vm);
       ValMapSet(map, key, value, mem);

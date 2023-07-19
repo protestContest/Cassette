@@ -69,45 +69,60 @@ void DefinePrimitives(Val env, Mem *mem)
   Map modules;
   InitMap(&modules);
 
+  // get a count of primitives + constants for each module
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
-    char *name = primitives[i].name;
-    Val var = MakeSymbol(name, mem);
-    Val proc = MakePrimitive(IntVal(i), mem);
+    if (primitives[i].mod == NULL) continue;
+    Val mod_name = MakeSymbol(primitives[i].mod, mem);
+    u32 count = 0;
+    if (MapContains(&modules, mod_name.as_i)) {
+      count = MapGet(&modules, mod_name.as_i);
+    }
+    MapSet(&modules, mod_name.as_i, count + 1);
+  }
+  for (u32 i = 0; i < ArrayCount(constants); i++) {
+    if (constants[i].mod == NULL) continue;
+    Val mod_name = MakeSymbol(constants[i].mod, mem);
+    u32 count = 0;
+    if (MapContains(&modules, mod_name.as_i)) {
+      count = MapGet(&modules, mod_name.as_i);
+    }
+    MapSet(&modules, mod_name.as_i, count + 1);
+  }
+
+  // create each module
+  for (u32 i = 0; i < MapCount(&modules); i++) {
+    Val mod_name = (Val){.as_i = GetMapKey(&modules, i)};
+    u32 count = MapGet(&modules, mod_name.as_i);
+    Val module = MakeValMap(count, mem);
+    Define(mod_name, module, env, mem);
+    MapSet(&modules, mod_name.as_i, module.as_i);
+  }
+
+  // define primitives for each module
+  for (u32 i = 0; i < ArrayCount(primitives); i++) {
+    Val primitive_name = MakeSymbol(primitives[i].name, mem);
+    Val func = MakePrimitive(IntVal(i), mem);
 
     if (primitives[i].mod == NULL) {
-      Define(var, proc, env, mem);
+      Define(primitive_name, func, env, mem);
     } else {
-      Val name = MakeSymbol(primitives[i].mod, mem);
-      Val mod;
-      if (MapContains(&modules, name.as_i)) {
-        mod = (Val){.as_i = MapGet(&modules, name.as_i)};
-      } else {
-        mod = MakeValMap(mem);
-        MapSet(&modules, name.as_i, mod.as_i);
-        Define(name, mod, env, mem);
-      }
-      ValMapSet(mod, var, proc, mem);
+      Val mod_name = SymbolFor(primitives[i].mod);
+      Val module = (Val){.as_i = MapGet(&modules, mod_name.as_i)};
+      ValMapSet(module, primitive_name, func, mem);
     }
   }
 
+  // define constants for each module
   for (u32 i = 0; i < ArrayCount(constants); i++) {
-    char *name = constants[i].name;
-    Val var = MakeSymbol(name, mem);
+    Val const_name = MakeSymbol(constants[i].name, mem);
     Val value = constants[i].val;
 
     if (constants[i].mod == NULL) {
-      Define(var, value, env, mem);
+      Define(const_name, value, env, mem);
     } else {
-      Val name = MakeSymbol(constants[i].mod, mem);
-      Val mod;
-      if (MapContains(&modules, name.as_i)) {
-        mod = (Val){.as_i = MapGet(&modules, name.as_i)};
-      } else {
-        mod = MakeValMap(mem);
-        MapSet(&modules, name.as_i, mod.as_i);
-        Define(name, mod, env, mem);
-      }
-      ValMapSet(mod, var, value, mem);
+      Val mod_name = SymbolFor(constants[i].mod);
+      Val module = (Val){.as_i = MapGet(&modules, mod_name.as_i)};
+      ValMapSet(module, const_name, value, mem);
     }
   }
 
@@ -430,7 +445,8 @@ static Val PrimListToMap(u32 num_args, VM *vm)
   if (!CheckArgs(types, 1, num_args, vm)) return nil;
 
   Val list = StackPop(vm);
-  Val map = MakeValMap(&vm->mem);
+  u32 count = ListLength(list, &vm->mem);
+  Val map = MakeValMap(count, &vm->mem);
   while (!IsNil(list)) {
     Val item = Head(list, &vm->mem);
 
