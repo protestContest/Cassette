@@ -354,12 +354,17 @@ Val MakeValMap(u32 capacity, Mem *mem)
   Val keys = MakeTuple(size, mem);
   Val values = MakeTuple(size, mem);
 
-  return ValMapFrom(keys, values, 0, mem);
+  return ValMapFrom(keys, values, mem);
 }
 
-Val ValMapFrom(Val keys, Val values, u32 count, Mem *mem)
+Val ValMapFrom(Val keys, Val values, Mem *mem)
 {
   u32 index = VecCount(mem->values);
+  u32 count = 0;
+  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
+    if (!IsNil(TupleGet(keys, i, mem))) count++;
+  }
+
   VecPush(mem->values, MapHeader(count));
   VecPush(mem->values, keys);
   VecPush(mem->values, values);
@@ -406,7 +411,11 @@ void ValMapSet(Val map, Val key, Val value, Mem *mem)
   Val keys = ValMapKeys(map, mem);
   Val vals = ValMapValues(map, mem);
   u32 index = TupleIndexOf(keys, key, mem);
-  if (index >= TupleLength(keys, mem)) index = ValMapCount(map, mem);
+
+  if (index >= TupleLength(keys, mem)) {
+    index = ValMapCount(map, mem);
+    mem->values[RawVal(map)] = MapHeader(ValMapCount(map, mem) + 1);
+  }
 
   Assert(index < ValMapCapacity(map, mem));
 
@@ -427,7 +436,7 @@ Val ValMapPut(Val map, Val key, Val value, Mem *mem)
     Val vals = ValMapValues(map, mem);
     u32 index = TupleIndexOf(keys, key, mem);
     vals = TuplePut(vals, index, value, mem);
-    return ValMapFrom(keys, vals, ValMapCount(map, mem), mem);
+    return ValMapFrom(keys, vals, mem);
   }
 
   // map doesn't have key; create entirely new map

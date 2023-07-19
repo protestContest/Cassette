@@ -110,7 +110,7 @@ Val TupleGet(Val tuple, u32 index, Mem *mem);
 u32 TupleIndexOf(Val tuple, Val value, Mem *mem);
 
 Val MakeValMap(u32 capacity, Mem *mem);
-Val ValMapFrom(Val keys, Val values, u32 count, Mem *mem);
+Val ValMapFrom(Val keys, Val values, Mem *mem);
 bool IsValMap(Val map, Mem *mem);
 void ValMapSet(Val map, Val key, Val value, Mem *mem);
 Val ValMapPut(Val map, Val key, Val value, Mem *mem);
