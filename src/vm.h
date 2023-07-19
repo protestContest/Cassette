@@ -24,6 +24,8 @@ typedef enum {
 
 void InitVM(VM *vm);
 void DestroyVM(VM *vm);
+void ResetVM(VM *vm);
+
 Val RunChunk(VM *vm, Chunk *chunk);
 void RuntimeError(VM *vm, char *message);
 

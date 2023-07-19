@@ -97,12 +97,7 @@ static bool REPLCmd(char *text, VM *vm)
     Print("  @gc        Runs the garbage collector\n");
     return true;
   } else if (StrEq(text, "@reset")) {
-    Chunk *chunk = vm->chunk;
-    DestroyVM(vm);
-    DestroyChunk(chunk);
-    InitChunk(chunk);
-    InitVM(vm);
-    vm->chunk = chunk;
+    ResetVM(vm);
     return true;
   } else if (StrEq(text, "@env")) {
     PrintEnv(vm->env, &vm->mem);

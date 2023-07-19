@@ -5,6 +5,7 @@
 #include "primitives.h"
 
 static void TraceInstruction(VM *vm);
+static void MergeStrings(Mem *dst, Mem *src);
 
 void InitVM(VM *vm)
 {
@@ -32,6 +33,23 @@ void DestroyVM(VM *vm)
   vm->cont = nil;
   vm->error = false;
   vm->trace = false;
+}
+
+void ResetVM(VM *vm)
+{
+  DestroyMem(&vm->mem);
+  FreeVec(vm->val);
+  FreeVec(vm->stack);
+
+  InitMem(&vm->mem);
+  vm->pc = 0;
+  vm->cont = nil;
+  vm->val = NULL;
+  vm->stack = NULL;
+  vm->env = InitialEnv(&vm->mem);
+  vm->gc_threshold = 1024;
+  vm->error = false;
+  MergeStrings(&vm->mem, &vm->chunk->constants);
 }
 
 Val StackPop(VM *vm)
