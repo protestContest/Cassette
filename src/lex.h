@@ -7,7 +7,7 @@ typedef enum {
   TokenOr, TokenEqualEqual, TokenNotEqual, TokenGreater, TokenGreaterEqual, TokenLess, TokenLessEqual, TokenIn,
   TokenPlus, TokenMinus, TokenStar, TokenSlash, TokenNot, TokenNum, TokenString, TokenTrue, TokenFalse, TokenNil,
   TokenColon, TokenDot, TokenDo, TokenEnd, TokenIf, TokenElse, TokenCond, TokenLBracket, TokenRBracket,
-  TokenHashBracket, TokenLBrace, TokenRBrace, TokenNewline, TokenPipe, TokenImport, TokenAs, TokenCaret, TokenHash
+  TokenLBrace, TokenRBrace, TokenNewline, TokenPipe, TokenImport, TokenAs, TokenCaret, TokenHash
 } TokenType;
 
 typedef struct {

@@ -589,12 +589,12 @@ u32 InspectVal(Val value, Mem *mem)
     Print("\"");
     return BinaryLength(value, mem) + 2;
   } else if (IsObj(value) && IsTupleHeader(mem->values[RawVal(value)])) {
-    u32 length = Print("#[");
+    u32 length = Print("{");
     for (u32 i = 0; i < TupleLength(value, mem); i++) {
       length += InspectVal(TupleGet(value, i, mem), mem);
       if (i < TupleLength(value, mem) - 1) length += Print(" ");
     }
-    length += Print("]");
+    length += Print("}");
     return length;
   } else if (IsObj(value) && IsMapHeader(mem->values[RawVal(value)])) {
     u32 length = Print("{");

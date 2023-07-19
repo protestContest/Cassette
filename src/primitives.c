@@ -28,6 +28,7 @@ static Val PrimListToMap(u32 num_args, VM *vm);
 static Val PrimListInsert(u32 num_args, VM *vm);
 static Val PrimListZip(u32 num_args, VM *vm);
 static Val PrimListUnzip(u32 num_args, VM *vm);
+static Val PrimMapNew(u32 num_args, VM *vm);
 static Val PrimMapGet(u32 num_args, VM *vm);
 static Val PrimMapPut(u32 num_args, VM *vm);
 static Val PrimMapDelete(u32 num_args, VM *vm);
@@ -66,6 +67,7 @@ static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {"List", "insert", &PrimListInsert},
   {"List", "zip", &PrimListZip},
   {"List", "unzip", &PrimListUnzip},
+  {"Map", "new", &PrimMapNew},
   {"Map", "get", &PrimMapGet},
   {"Map", "put", &PrimMapPut},
   {"Map", "delete", &PrimMapDelete},
@@ -549,6 +551,12 @@ static Val PrimListUnzip(u32 num_args, VM *vm)
   }
 
   return Pair(heads, tails, mem);
+}
+
+static Val PrimMapNew(u32 num_args, VM *vm)
+{
+  if (!CheckArgs(NULL, 0, num_args, vm)) return nil;
+  return MakeValMap(0, &vm->mem);
 }
 
 static Val PrimMapGet(u32 num_args, VM *vm)

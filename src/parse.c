@@ -39,8 +39,7 @@ static Val ParseDo(Lexer *lex, Mem *mem);
 static Val ParseIf(Lexer *lex, Mem *mem);
 static Val ParseCond(Lexer *lex, Mem *mem);
 static Val ParseList(Lexer *lex, Mem *mem);
-static Val ParseTuple(Lexer *lex, Mem *mem);
-static Val ParseMap(Lexer *lex, Mem *mem);
+static Val ParseBraces(Lexer *lex, Mem *mem);
 static Val ParseImport(Lexer *lex, Mem *mem);
 static Val ParseAccess(Val lhs, Lexer *lex, Mem *mem);
 static Val ParseLeftAssoc(Val lhs, Lexer *lex, Mem *mem);
@@ -80,8 +79,7 @@ static ParseRule rules[] = {
   [TokenIf]           = {&ParseIf, NULL, PrecNone},
   [TokenCond]         = {&ParseCond, NULL, PrecNone},
   [TokenLBracket]     = {&ParseList, NULL, PrecNone},
-  [TokenHashBracket]  = {&ParseTuple, NULL, PrecNone},
-  [TokenLBrace]       = {&ParseMap, NULL, PrecNone},
+  [TokenLBrace]       = {&ParseBraces, NULL, PrecNone},
   [TokenEOF]          = {NULL, NULL, PrecNone},
   [TokenComma]        = {NULL, NULL, PrecNone},
   [TokenEqual]        = {NULL, NULL, PrecNone},
@@ -508,30 +506,8 @@ static Val ParseList(Lexer *lex, Mem *mem)
   return Pair(MakeSymbol("[", mem), ReverseList(items, mem), mem);
 }
 
-static Val ParseTuple(Lexer *lex, Mem *mem)
+static Val ParseMap(Val items, Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenHashBracket, lex)) return ParseError("Expected \"#[\"", lex->token, lex, mem);
-
-  SkipNewlines(lex);
-  Val items = nil;
-  while (!MatchToken(TokenRBracket, lex)) {
-    Val item = ParseExpr(PrecExpr, lex, mem);
-    if (IsTagged(item, "error", mem)) return item;
-
-    items = Pair(item, items, mem);
-    MatchToken(TokenComma, lex);
-    SkipNewlines(lex);
-  }
-
-  return Pair(MakeSymbol("#[", mem), ReverseList(items, mem), mem);
-}
-
-static Val ParseMap(Lexer *lex, Mem *mem)
-{
-  if (!ExpectToken(TokenLBrace, lex)) return ParseError("Expected \"{\"", lex->token, lex, mem);
-
-  SkipNewlines(lex);
-  Val items = nil;
   while (!MatchToken(TokenRBrace, lex)) {
     Val key = ParseID(lex, mem);
 
@@ -542,6 +518,44 @@ static Val ParseMap(Lexer *lex, Mem *mem)
     if (IsTagged(val, "error", mem)) return val;
 
     Val item = Pair(key, val, mem);
+    items = Pair(item, items, mem);
+    MatchToken(TokenComma, lex);
+    SkipNewlines(lex);
+  }
+
+  return Pair(MakeSymbol("#{", mem), ReverseList(items, mem), mem);
+}
+
+static Val ParseBraces(Lexer *lex, Mem *mem)
+{
+  if (!ExpectToken(TokenLBrace, lex)) return ParseError("Expected \"{\"", lex->token, lex, mem);
+
+  SkipNewlines(lex);
+
+  if (MatchToken(TokenRBrace, lex)) {
+    // empty tuple
+    return Pair(MakeSymbol("{", mem), nil, mem);
+  }
+
+  Token first_token = lex->token;
+  if (MatchToken(TokenID, lex) && MatchToken(TokenColon, lex)) {
+    // parse as a map
+    Val key = MakeSymbolFrom(first_token.lexeme, first_token.length, mem);
+    Val value = ParseExpr(PrecExpr, lex, mem);
+    if (IsTagged(value, "error", mem)) return value;
+
+    Val items = Pair(Pair(key, value, mem), nil, mem);
+    MatchToken(TokenComma, lex);
+    SkipNewlines(lex);
+    return ParseMap(items, lex, mem);
+  }
+
+  // not a map, normal tuple
+  Val items = nil;
+  while (!MatchToken(TokenRBrace, lex)) {
+    Val item = ParseExpr(PrecExpr, lex, mem);
+    if (IsTagged(item, "error", mem)) return item;
+
     items = Pair(item, items, mem);
     MatchToken(TokenComma, lex);
     SkipNewlines(lex);

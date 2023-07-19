@@ -416,8 +416,8 @@ static CompileResult CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsTagged(node, "\"", mem))      return CompileString(node, linkage, mem);
   if (IsTagged(node, ":", mem))       return CompileSymbol(node, linkage, mem);
   if (IsTagged(node, "[", mem))       return CompileList(node, linkage, mem);
-  if (IsTagged(node, "#[", mem))      return CompileTuple(node, linkage, mem);
-  if (IsTagged(node, "{", mem))       return CompileMap(node, linkage, mem);
+  if (IsTagged(node, "{", mem))       return CompileTuple(node, linkage, mem);
+  if (IsTagged(node, "#{", mem))      return CompileMap(node, linkage, mem);
   if (IsTagged(node, "do", mem))      return CompileDo(node, linkage, mem);
   if (IsTagged(node, "if", mem))      return CompileIf(node, linkage, mem);
   if (IsTagged(node, ".", mem))       return CompileInfix(OpSeq(OpAccess, mem), node, linkage, mem);
