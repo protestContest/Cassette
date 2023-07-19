@@ -327,7 +327,7 @@ static Val ParseLet(Lexer *lex, Mem *mem)
 
     Val assign = ParseAssign(lex, mem);
     if (IsTagged(assign, "error", mem)) return assign;
-    assigns = Pair(ParseAssign(lex, mem), assigns, mem);
+    assigns = Pair(assign, assigns, mem);
   }
 
   return Pair(MakeSymbol("let", mem), ReverseList(assigns, mem), mem);
