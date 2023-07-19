@@ -26,6 +26,12 @@ static Val PrimListToBinary(u32 num_args, VM *vm);
 static Val PrimListToTuple(u32 num_args, VM *vm);
 static Val PrimListToMap(u32 num_args, VM *vm);
 static Val PrimListInsert(u32 num_args, VM *vm);
+static Val PrimMapGet(u32 num_args, VM *vm);
+static Val PrimMapPut(u32 num_args, VM *vm);
+static Val PrimMapDelete(u32 num_args, VM *vm);
+static Val PrimMapKeys(u32 num_args, VM *vm);
+static Val PrimMapValues(u32 num_args, VM *vm);
+static Val PrimMapToList(u32 num_args, VM *vm);
 
 static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {NULL, "print", &PrimPrint},
@@ -52,6 +58,12 @@ static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {"List", "to_tuple", &PrimListToTuple},
   {"List", "to_map", &PrimListToMap},
   {"List", "insert", &PrimListInsert},
+  {"Map", "get", &PrimMapGet},
+  {"Map", "put", &PrimMapPut},
+  {"Map", "delete", &PrimMapDelete},
+  {"Map", "keys", &PrimMapKeys},
+  {"Map", "values", &PrimMapValues},
+  {"Map", "to_list", &PrimMapToList},
 };
 
 static struct {char *mod; char *name; Val val;} constants[] = {
@@ -477,3 +489,80 @@ static Val PrimListInsert(u32 num_args, VM *vm)
   return ListConcat(new_list, tail, &vm->mem);
 }
 
+static Val PrimMapGet(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValMap, ValAny};
+  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+
+  Val map = StackPop(vm);
+  Val key = StackPop(vm);
+  return ValMapGet(map, key, &vm->mem);
+}
+
+static Val PrimMapPut(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValMap, ValAny, ValAny};
+  if (!CheckArgs(types, 3, num_args, vm)) return nil;
+
+  Val map = StackPop(vm);
+  Val key = StackPop(vm);
+  Val value = StackPop(vm);
+  return ValMapPut(map, key, value, &vm->mem);
+}
+
+static Val PrimMapDelete(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValMap, ValAny};
+  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+
+  Val map = StackPop(vm);
+  Val key = StackPop(vm);
+  return ValMapDelete(map, key, &vm->mem);
+}
+
+static Val PrimMapKeys(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValMap};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val map = StackPop(vm);
+  Val keys = ValMapKeys(map, mem);
+  Val tuple = MakeTuple(ValMapCount(map, mem), mem);
+  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
+    TupleSet(tuple, i, TupleGet(keys, i, mem), mem);
+  }
+  return tuple;
+}
+
+static Val PrimMapValues(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValMap};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val map = StackPop(vm);
+  Val vals = ValMapValues(map, mem);
+  Val tuple = MakeTuple(ValMapCount(map, mem), mem);
+  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
+    TupleSet(tuple, i, TupleGet(vals, i, mem), mem);
+  }
+  return tuple;
+}
+
+static Val PrimMapToList(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValMap};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Mem *mem = &vm->mem;
+  Val map = StackPop(vm);
+  Val keys = ValMapKeys(map, mem);
+  Val vals = ValMapValues(map, mem);
+  Val list = nil;
+  for (u32 i = 0; i < ValMapCount(map, mem); i++) {
+    Val pair = Pair(TupleGet(keys, i, mem), TupleGet(vals, i, mem), mem);
+    list = Pair(pair, list, mem);
+  }
+  return ReverseList(list, mem);
+}
