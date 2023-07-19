@@ -161,7 +161,7 @@ static void CreateOp(VM *vm, OpCode op)
 
   switch (op) {
   case OpStr:
-    StackPush(vm, MakeBinary(SymbolName(StackPop(vm), mem), mem));
+    StackPush(vm, BinaryFrom(SymbolName(StackPop(vm), mem), mem));
     break;
   case OpPair: {
     Val tail = StackPop(vm);

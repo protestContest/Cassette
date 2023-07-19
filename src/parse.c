@@ -117,9 +117,9 @@ static Val ParseError(char *message, Token token, Lexer *lex, Mem *mem)
   return
     Pair(MakeSymbol("error", mem),
     Pair(MakeSymbol("parse", mem),
-    Pair(MakeBinary(message, mem),
+    Pair(BinaryFrom(message, mem),
     Pair(TokenVal(token, lex, mem),
-    Pair(MakeBinary(lex->text, mem), nil, mem), mem), mem), mem), mem);
+    Pair(BinaryFrom(lex->text, mem), nil, mem), mem), mem), mem), mem);
 }
 
 static bool MatchToken(TokenType type, Lexer *lex)

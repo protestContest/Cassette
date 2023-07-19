@@ -133,6 +133,18 @@ Val ListFrom(Val list, u32 pos, Mem *mem)
   return list;
 }
 
+Val ListTake(Val list, u32 n, Mem *mem)
+{
+  Assert(IsPair(list));
+  Val taken = nil;
+  for (u32 i = 0; i < n && !IsNil(list); i++) {
+    taken = Pair(Head(list, mem), taken, mem);
+    list = Tail(list, mem);
+  }
+
+  return ReverseList(taken, mem);
+}
+
 Val ListAt(Val list, u32 pos, Mem *mem)
 {
   if (pos == 0) return Head(list, mem);
@@ -159,13 +171,58 @@ Val ReverseList(Val list, Mem *mem)
   return new_list;
 }
 
+Val ListFlatten(Val list, Mem *mem)
+{
+  Assert(IsPair(list));
+
+  Val flattened = nil;
+
+  while (!IsNil(list)) {
+    Val item = Head(list, mem);
+
+    if (IsNil(item)) {
+      flattened = Pair(nil, flattened, mem);
+    } else if (IsPair(item)) {
+      item = ListFlatten(item, mem);
+      while (!IsNil(item)) {
+        flattened = Pair(Head(item, mem), flattened, mem);
+        item = Tail(item, mem);
+      }
+    } else {
+      flattened = Pair(item, flattened, mem);
+    }
+
+    list = Tail(list, mem);
+  }
+
+  return ReverseList(flattened, mem);
+}
+
 static u32 NumBinaryCells(u32 length)
 {
   if (length == 0) return 1;
   return (length - 1) / sizeof(Val) + 1;
 }
 
-Val MakeBinary(char *text, Mem *mem)
+Val MakeBinary(u32 num_bytes, Mem *mem)
+{
+  u32 index = VecCount(mem->values);
+  VecPush(mem->values, BinaryHeader(num_bytes));
+  if (num_bytes == 0) {
+    VecPush(mem->values, nil);
+  } else {
+    u32 words = NumBinaryCells(num_bytes);
+    GrowVec(mem->values, words);
+    char *data = (char*)(mem->values + index + 1);
+    for (u32 i = 0; i < num_bytes; i++) {
+      data[i] = 0;
+    }
+  }
+
+  return ObjVal(index);
+}
+
+Val BinaryFrom(char *text, Mem *mem)
 {
   u32 index = VecCount(mem->values);
   u32 length = StrLen(text);

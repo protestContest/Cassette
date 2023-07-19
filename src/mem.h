@@ -5,6 +5,17 @@ typedef union {
   float as_f;
 } Val;
 
+typedef enum {
+  ValAny,
+  ValNum,
+  ValInt,
+  ValSym,
+  ValPair,
+  ValTuple,
+  ValBinary,
+  ValMap,
+} ValType;
+
 #define nanMask           0x7FC00000
 #define typeMask          0xFFF00000
 #define intMask           0x7FC00000
@@ -17,7 +28,7 @@ typedef union {
 
 #define MakeVal(n, mask)  ((Val){.as_i = ((n) & ~typeMask) | (mask)})
 #define NumVal(n)         ((Val){.as_f = (float)(n)})
-#define IntVal(n)         MakeVal(n, intMask)
+#define IntVal(n)         MakeVal((i32)(n), intMask)
 #define SymVal(n)         MakeVal(n, symMask)
 #define PairVal(n)        MakeVal(n, pairMask)
 #define ObjVal(n)         MakeVal(n, objMask)
@@ -77,11 +88,14 @@ bool ListContains(Val list, Val value, Mem *mem);
 bool IsTagged(Val list, char *tag, Mem *mem);
 Val ListConcat(Val a, Val b, Mem *mem);
 Val ListFrom(Val list, u32 pos, Mem *mem);
+Val ListTake(Val list, u32 n, Mem *mem);
 Val ListAt(Val list, u32 pos, Mem *mem);
 u32 ListLength(Val list, Mem *mem);
 Val ReverseList(Val list, Mem *mem);
+Val ListFlatten(Val list, Mem *mem);
 
-Val MakeBinary(char *text, Mem *mem);
+Val MakeBinary(u32 num_bytes, Mem *mem);
+Val BinaryFrom(char *text, Mem *mem);
 bool IsBinary(Val bin, Mem *mem);
 u32 BinaryLength(Val bin, Mem *mem);
 char *BinaryData(Val bin, Mem *mem);
