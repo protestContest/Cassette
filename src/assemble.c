@@ -58,17 +58,17 @@ static u32 AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
   return OpLength(op);
 }
 
-static Map LabelMap(Seq seq, u32 offset, Mem *mem)
+static HashMap LabelMap(Seq seq, u32 offset, Mem *mem)
 {
-  Map labels;
-  InitMap(&labels);
+  HashMap labels;
+  InitHashMap(&labels);
 
   Val stmts = seq.stmts;
   while (!IsNil(stmts)) {
     Val stmt = Head(stmts, mem);
     if (IsTagged(stmt, "label", mem)) {
       Val label = Tail(stmt, mem);
-      MapSet(&labels, label.as_i, offset);
+      HashMapSet(&labels, label.as_i, offset);
     } else {
       offset++;
     }
@@ -80,7 +80,7 @@ static Map LabelMap(Seq seq, u32 offset, Mem *mem)
 
 static Val ReplaceLabels(Seq seq, u32 offset, Mem *mem)
 {
-  Map labels = LabelMap(seq, offset, mem);
+  HashMap labels = LabelMap(seq, offset, mem);
 
   // skip any leading labels
   while (IsTagged(Head(seq.stmts, mem), "label", mem)) seq.stmts = Tail(seq.stmts, mem);
@@ -91,8 +91,8 @@ static Val ReplaceLabels(Seq seq, u32 offset, Mem *mem)
     Val stmt = Head(stmts, mem);
     if (IsTagged(stmt, "label-ref", mem)) {
       Val label = Tail(stmt, mem);
-      Assert(MapContains(&labels, label.as_i));
-      SetHead(stmts, IntVal(MapGet(&labels, label.as_i)), mem);
+      Assert(HashMapContains(&labels, label.as_i));
+      SetHead(stmts, IntVal(HashMapGet(&labels, label.as_i)), mem);
     }
 
     Val next_stmts = Tail(stmts, mem);
@@ -103,7 +103,7 @@ static Val ReplaceLabels(Seq seq, u32 offset, Mem *mem)
     stmts = next_stmts;
   }
 
-  DestroyMap(&labels);
+  DestroyHashMap(&labels);
   return seq.stmts;
 }
 

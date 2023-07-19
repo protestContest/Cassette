@@ -66,7 +66,7 @@ static ChunkFileHeader ChunkSize(Chunk *chunk)
   header.version = 1;
 
   u32 size = 0;
-  u32 num_strings = MapCount(&chunk->constants.string_map);
+  u32 num_strings = HashMapCount(&chunk->constants.string_map);
   size += sizeof(u32)*2*num_strings;
   header.string_offset = size;
 
@@ -102,10 +102,10 @@ Format:
   u8 file_data[header.chunk_size];
   u32 cur = 0;
 
-  u32 num_strings = MapCount(&chunk->constants.string_map);
+  u32 num_strings = HashMapCount(&chunk->constants.string_map);
   for (u32 i = 0; i < num_strings; i++) {
-    u32 key = GetMapKey(&chunk->constants.string_map, i);
-    u32 val = GetMapValue(&chunk->constants.string_map, i);
+    u32 key = GetHashMapKey(&chunk->constants.string_map, i);
+    u32 val = GetHashMapValue(&chunk->constants.string_map, i);
 
     *((u32*)(file_data+cur)) = key;
     cur += sizeof(key);
@@ -156,13 +156,13 @@ bool ReadChunk(Chunk *chunk, char *filename)
   char *code = data + header.code_offset;
   char *end = data + header.chunk_size;
 
-  InitMap(&chunk->constants.string_map);
+  InitHashMap(&chunk->constants.string_map);
   while (data < strings) {
     u32 key = *((u32*)data);
     data += sizeof(key);
     u32 val = *((u32*)data);
     data += sizeof(val);
-    MapSet(&chunk->constants.string_map, key, val);
+    HashMapSet(&chunk->constants.string_map, key, val);
   }
 
   u32 strings_size = header.constant_offset - header.string_offset;
