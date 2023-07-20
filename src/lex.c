@@ -24,6 +24,7 @@ static struct {char *lexeme; TokenType type;} keywords[] = {
   {"true",    TokenTrue },
   {"import",  TokenImport},
   {"as",      TokenAs },
+  {"module",  TokenModule},
 };
 
 static Token AdvanceToken(Lexer *lex);

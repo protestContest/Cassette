@@ -116,6 +116,7 @@ Val MapFrom(Val keys, Val values, Mem *mem);
 bool IsMap(Val map, Mem *mem);
 void MapSet(Val map, Val key, Val value, Mem *mem);
 Val MapPut(Val map, Val key, Val value, Mem *mem);
+Val MapPutPath(Val map, Val path, Val value, Mem *mem);
 Val MapGet(Val map, Val key, Mem *mem);
 Val MapDelete(Val map, Val key, Mem *mem);
 bool MapContains(Val map, Val key, Mem *mem);

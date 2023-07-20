@@ -1,6 +1,7 @@
 #include "env.h"
 #include "proc.h"
 #include "primitives.h"
+#include "module.h"
 
 Val InitialEnv(Mem *mem)
 {
@@ -62,15 +63,34 @@ Val Lookup(Val var, Val env, Mem *mem)
   return MakeSymbol("*undefined*", mem);
 }
 
-void ImportEnv(Val imports, Val env, Mem *mem)
+bool IsUndefined(Val val)
 {
-  Val keys = MapKeys(imports, mem);
-  Val vals = MapValues(imports, mem);
+  return Eq(val, SymbolFor("*undefined*"));
+}
 
-  for (u32 i = 0; i < MapCount(imports, mem); i++) {
-    Val key = TupleGet(keys, i, mem);
-    Val val = TupleGet(vals, i, mem);
-    Define(key, val, env, mem);
+void ImportEnv(Val imports, Val alias, Val env, Mem *mem)
+{
+  if (IsNil(alias)) {
+    Val keys = MapKeys(imports, mem);
+    Val vals = MapValues(imports, mem);
+    for (u32 i = 0; i < MapCount(imports, mem); i++) {
+      Val key = TupleGet(keys, i, mem);
+      Val val = TupleGet(vals, i, mem);
+      Define(key, val, env, mem);
+    }
+  } else {
+    alias = SplitModName(alias, mem);
+    if (ListLength(alias, mem) == 1) {
+      alias = Head(alias, mem);
+      Define(alias, imports, env, mem);
+    } else {
+      Val top = Head(alias, mem);
+      Val map = Lookup(top, env, mem);
+      if (IsUndefined(map)) map = MakeMap(1, mem);
+
+      map = MapPutPath(map, Tail(alias, mem), imports, mem);
+      Define(top, map, env, mem);
+    }
   }
 }
 

@@ -359,7 +359,10 @@ static CompileResult CompileMap(Val node, Linkage linkage, Mem *mem)
 static CompileResult CompileImport(Val node, Linkage linkage, Mem *mem)
 {
   Val name = ListAt(node, 1, mem);
-  Val alias = ListAt(node, 2, mem);
+  Val alias = name;
+  if (ListLength(node, mem) > 2) {
+    alias = ListAt(node, 2, mem);
+  }
 
   Seq load = MakeSeq(0, 0,
     Pair(OpSymbol(OpGetMod),
@@ -375,15 +378,9 @@ static CompileResult CompileImport(Val node, Linkage linkage, Mem *mem)
         Pair(OpSymbol(OpPop),
         Pair(OpSymbol(OpExport), nil, mem), mem)), mem);
 
-  Seq import_seq;
-  if (IsNil(alias)) {
-    import_seq = MakeSeq(RegEnv, 0,
-      Pair(OpSymbol(OpImport), nil, mem));
-  } else {
-    import_seq = MakeSeq(RegEnv, 0,
-      Pair(OpSymbol(OpDefine),
+  Seq import_seq = MakeSeq(RegEnv, 0,
+      Pair(OpSymbol(OpImport),
       Pair(alias, nil, mem), mem));
-  }
 
   return CompileOk(
     AppendSeq(load,
@@ -454,7 +451,7 @@ static CompileResult CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsTagged(node, "->", mem))      return CompileLambda(node, linkage, mem);
   if (IsTagged(node, "let", mem))     return CompileLet(node, linkage, mem);
   if (IsTagged(node, "import", mem))  return CompileImport(node, linkage, mem);
-  if (IsTagged(node, "defmod", mem))  return CompileModule(node, linkage, mem);
+  if (IsTagged(node, "module", mem))  return CompileModule(node, linkage, mem);
 
   if (IsPair(node))                   return CompileApplication(node, linkage, mem);
 

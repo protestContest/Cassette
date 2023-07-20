@@ -202,7 +202,7 @@ Val ListJoin(Val list, Val joiner, Mem *mem)
 {
   Assert(IsPair(list));
 
-  if (IsNil(list)) return BinaryFrom("", mem);
+  if (IsNil(list)) return nil;
 
   Val iolist = Pair(Head(list, mem), nil, mem);
   list = Tail(list, mem);
@@ -212,7 +212,7 @@ Val ListJoin(Val list, Val joiner, Mem *mem)
     list = Tail(list, mem);
   }
 
-  return ListToBinary(ReverseList(list, mem), mem);
+  return ReverseList(iolist, mem);
 }
 
 static bool IOLength(Val list, u32 *length, Mem *mem)
@@ -224,6 +224,8 @@ static bool IOLength(Val list, u32 *length, Mem *mem)
     *length += BinaryLength(item, mem);
   } else if (IsInt(item)) {
     *length += 1;
+  } else if (IsSym(item)) {
+    *length += StrLen(SymbolName(item, mem));
   } else {
     return false;
   }
@@ -248,6 +250,10 @@ Val ListToBinary(Val list, Mem *mem)
       char *item_data = BinaryData(item, mem);
       Copy(item_data, data + i, BinaryLength(item, mem));
       i += BinaryLength(item, mem);
+    } else if (IsSym(item)) {
+      char *item_data = SymbolName(item, mem);
+      Copy(item_data, data + i, StrLen(item_data));
+      i += StrLen(item_data);
     }
     list = Tail(list, mem);
   }
@@ -509,6 +515,20 @@ Val MapPut(Val map, Val key, Val value, Mem *mem)
   }
   MapSet(new_map, key, value, mem);
   return new_map;
+}
+
+Val MapPutPath(Val map, Val path, Val value, Mem *mem)
+{
+  if (ListLength(path, mem) == 1) {
+    Val key = Head(path, mem);
+    return MapPut(map, key, value, mem);
+  } else {
+    Val next = Head(path, mem);
+    Val next_map = MapGet(map, next, mem);
+    if (IsNil(next_map)) next_map = MakeMap(1, mem);
+    next_map = MapPutPath(next_map, Tail(path, mem), value, mem);
+    return MapPut(map, next, next_map, mem);
+  }
 }
 
 Val MapGet(Val map, Val key, Mem *mem)

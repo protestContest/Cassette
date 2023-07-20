@@ -434,7 +434,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpLookup: {
       Val value = Lookup(ChunkConst(chunk, vm->pc+1), vm->env, &vm->mem);
-      if (Eq(value, SymbolFor("*undefined*"))) {
+      if (IsUndefined(value)) {
         RuntimeError(vm, "Undefined variable");
       } else {
         StackPush(vm, value);
@@ -502,7 +502,8 @@ Val RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpImport: {
       Val mod = StackPop(vm);
-      ImportEnv(mod, vm->env, mem);
+      Val alias = ChunkConst(chunk, vm->pc+1);
+      ImportEnv(mod, alias, vm->env, mem);
       StackPush(vm, MakeSymbol("ok", mem));
       vm->pc += OpLength(op);
       break;

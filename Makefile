@@ -31,7 +31,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 .PHONY: test
 test: $(TARGET)
-	@$(TARGET) test/test
+	@$(TARGET) test/test.cst
 
 .PHONY: run
 run: $(TARGET)

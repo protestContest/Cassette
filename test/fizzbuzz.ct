@@ -1,3 +1,5 @@
+module Fizz.Buzz
+
 def (fizzbuzz n) do
   def (loop m) do
     cond do
@@ -16,4 +18,4 @@ def (fizzbuzz n) do
   loop 1
 end
 
-fizzbuzz 100
+print "Fizzbuzz!"

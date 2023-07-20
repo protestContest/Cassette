@@ -41,6 +41,7 @@ static Val ParseCond(Lexer *lex, Mem *mem);
 static Val ParseList(Lexer *lex, Mem *mem);
 static Val ParseBraces(Lexer *lex, Mem *mem);
 static Val ParseImport(Lexer *lex, Mem *mem);
+static Val ParseModule(Lexer *lex, Mem *mem);
 static Val ParseAccess(Val lhs, Lexer *lex, Mem *mem);
 static Val ParseLeftAssoc(Val lhs, Lexer *lex, Mem *mem);
 static Val ParseRightAssoc(Val lhs, Lexer *lex, Mem *mem);
@@ -90,6 +91,7 @@ static ParseRule rules[] = {
   [TokenRBrace]       = {NULL, NULL, PrecNone},
   [TokenNewline]      = {NULL, NULL, PrecNone},
   [TokenImport]       = {&ParseImport, NULL, PrecNone},
+  [TokenModule]       = {&ParseModule, NULL, PrecNone},
 };
 
 #define GetRule(lex)    rules[PeekToken(lex).type]
@@ -564,25 +566,59 @@ static Val ParseBraces(Lexer *lex, Mem *mem)
   return Pair(MakeSymbol("{", mem), ReverseList(items, mem), mem);
 }
 
+static Val ParseModuleName(Lexer *lex, Mem *mem)
+{
+  Val part = ParseID(lex, mem);
+  if (IsTagged(part, "error", mem)) return part;
+
+  Val name = Pair(part, nil, mem);
+  Val dot = MakeSymbol(".", mem);
+  while (MatchToken(TokenDot, lex)) {
+    name = Pair(dot, name, mem);
+    part = ParseID(lex, mem);
+    if (IsTagged(part, "error", mem)) return part;
+
+    name = Pair(part, name, mem);
+  }
+
+  name = ReverseList(name, mem);
+  name = ListToBinary(name, mem);
+  name = MakeSymbolFrom(BinaryData(name, mem), BinaryLength(name, mem), mem);
+
+  return name;
+}
+
 static Val ParseImport(Lexer *lex, Mem *mem)
 {
   if (!ExpectToken(TokenImport, lex)) return ParseError("Expected \"import\"", lex->token, lex, mem);
   if (AtEnd(lex)) return PartialParse(mem);
 
-  Val name = ParseString(lex, mem);
+  Val name = ParseModuleName(lex, mem);
+  if (IsTagged(name, "error", mem)) return name;
+
   if (MatchToken(TokenAs, lex)) {
     Val alias = ParseID(lex, mem);
     if (IsTagged(alias, "error", mem)) return alias;
 
     return
       Pair(MakeSymbol("import", mem),
-      Pair(Tail(name, mem),
+      Pair(name,
       Pair(alias, nil, mem), mem), mem);
   } else {
     return
       Pair(MakeSymbol("import", mem),
-      Pair(Tail(name, mem), nil, mem), mem);
+      Pair(name, nil, mem), mem);
   }
+}
+
+static Val ParseModule(Lexer *lex, Mem *mem)
+{
+  if (!ExpectToken(TokenModule, lex)) return ParseError("Expected \"module\"", lex->token, lex, mem);
+
+  Val name = ParseModuleName(lex, mem);
+  if (IsTagged(name, "error", mem)) return name;
+
+  return Pair(MakeSymbol("module", mem), name, mem);
 }
 
 static Val ParseAccess(Val lhs, Lexer *lex, Mem *mem)
@@ -623,24 +659,47 @@ static Val ParseRightAssoc(Val lhs, Lexer *lex, Mem *mem)
   return Pair(op, Pair(lhs, Pair(rhs, nil, mem), mem), mem);
 }
 
+static Val WrapModule(Val ast, Val name, Mem *mem)
+{
+  return
+    Pair(MakeSymbol("module", mem),
+    Pair(name,
+    Pair(
+      Pair(MakeSymbol("->", mem),
+      Pair(nil,
+      Pair(ast, nil, mem), mem), mem), nil, mem), mem), mem);
+}
+
 Val Parse(char *source, Mem *mem)
 {
   Lexer lex;
   InitLexer(&lex, source);
   SkipNewlines(&lex);
 
+  Val module = nil;
+
   Val stmts = nil;
   while (!AtEnd(&lex)) {
     Val stmt = ParseStmt(&lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
 
-    stmts = Pair(stmt, stmts, mem);
+    if (IsTagged(stmt, "module", mem)) {
+      module = Tail(stmt, mem);
+    } else {
+      stmts = Pair(stmt, stmts, mem);
+    }
     SkipNewlines(&lex);
   }
 
-  if (ListLength(stmts, mem) < 2) {
-    return Head(stmts, mem);
+  if (ListLength(stmts, mem) > 1) {
+    stmts = Pair(MakeSymbol("do", mem), ReverseList(stmts, mem), mem);
+  } else {
+    stmts = Head(stmts, mem);
   }
 
-  return Pair(MakeSymbol("do", mem), ReverseList(stmts, mem), mem);
+  if (!IsNil(module)) {
+    return WrapModule(stmts, module, mem);
+  }
+
+  return stmts;
 }
