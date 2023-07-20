@@ -46,7 +46,7 @@ static Val LoadError(Val name, Mem *mem)
     Pair(name, nil, mem), mem), mem);
 }
 
-static void FindModules(char *path, HashMap *modules, Mem *mem)
+void FindModules(char *path, HashMap *modules, Mem *mem)
 {
   Folder folder = OpenFolder(path);
   if (folder == NULL) return;

@@ -137,17 +137,21 @@ static bool REPLCmd(char *text, VM *vm)
 
 void REPL(void)
 {
-  signal(SIGINT, OnSignal);
-  RawConsole();
-
-  PrintVersion();
-  Print("Exit with Ctrl+C. Type \"@help\" for help.\n");
-
   VM vm;
   InitVM(&vm);
   Chunk chunk;
   InitChunk(&chunk);
   vm.chunk = &chunk;
+
+  HashMap modules;
+  InitHashMap(&modules);
+  FindModules(".", &modules, &vm.mem);
+
+  signal(SIGINT, OnSignal);
+  RawConsole();
+
+  PrintVersion();
+  Print("Exit with Ctrl+C. Type \"@help\" for help.\n");
 
   u32 input_max = 1024;
   char text[input_max];
@@ -179,6 +183,19 @@ void REPL(void)
       text[0] = '\0';
     } else {
       Val expr = Parse(text, &vm.mem);
+
+      if (IsTagged(expr, "import", &vm.mem)) {
+        Val import = ListAt(expr, 1, &vm.mem);
+        if (HashMapContains(&modules, import.as_i)) {
+          Val module = (Val){.as_i = HashMapGet(&modules, import.as_i)};
+          if (!Eq(module, SymbolFor("*loaded*"))) {
+            HashMapSet(&modules, import.as_i, SymbolFor("*loaded*").as_i);
+            Eval(module, &vm);
+            expr = Parse(text, &vm.mem);
+          }
+        }
+      }
+      if (vm.error) continue;
 
       if (IsTagged(expr, "error", &vm.mem)) {
         if (Eq(Tail(expr, &vm.mem), SymbolFor("partial"))) {
