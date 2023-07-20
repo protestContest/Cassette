@@ -1,6 +1,6 @@
 ![Cassette](https://cassette-lang.com/banner.svg)
 
-Cassette is a small language for solo programming, inpired by Lua, Elixir, and Scheme. It looks like this:
+Cassette is a small language for solo programming, inpired by Elixir and Scheme. It looks like this:
 
 ```
 def (fizzbuzz n) do
@@ -32,15 +32,11 @@ Feedback is welcome — if anything is unclear or you spot any mistakes, please 
 
 Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
+- HAMT-based large maps
+- Lexical addressing
 - Source context on runtime errors
-- Module loading (90%)
-- Compiler optimization
-- VM optimization
 - Standard library
-  - Collections
-  - Math
-  - I/O ports
-  - Graphics
+- Profile VM
 - Documentation
 
 ## [Building](#building)
