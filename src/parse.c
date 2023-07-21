@@ -131,20 +131,12 @@ static bool MatchToken(TokenType type, Lexer *lex)
   return false;
 }
 
-static bool ExpectToken(TokenType type, Lexer *lex)
-{
-  if (!MatchToken(type, lex)) {
-    return false;
-  }
-  return true;
-}
-
 static void SkipNewlines(Lexer *lex)
 {
   while (MatchToken(TokenNewline, lex)) ;
 }
 
-Val ParseExpr(Precedence prec, Lexer *lex, Mem *mem)
+static Val ParseExpr(Precedence prec, Lexer *lex, Mem *mem)
 {
   if (AtEnd(lex)) return PartialParse(mem);
 
@@ -162,6 +154,24 @@ Val ParseExpr(Precedence prec, Lexer *lex, Mem *mem)
   }
 
   return expr;
+}
+
+static Val ParseCall(Lexer *lex, Mem *mem)
+{
+  if (AtEnd(lex)) return PartialParse(mem);
+
+  ParseRule rule = GetRule(lex);
+  Val args = nil;
+  while (rule.prefix != NULL) {
+    Val arg = ParseExpr(PrecExpr, lex, mem);
+    if (IsTagged(arg, "error", mem)) return arg;
+
+    args = Pair(arg, args, mem);
+    rule = GetRule(lex);
+  }
+
+  if (ListLength(args, mem) == 1) return Head(args, mem);
+  return ReverseList(args, mem);
 }
 
 static Val ParseID(Lexer *lex, Mem *mem)
@@ -262,7 +272,7 @@ static Val ParseLiteral(Lexer *lex, Mem *mem)
 
 static Val ParseSymbol(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenColon, lex)) return ParseError("Expected \":\"", lex->token, lex, mem);
+  if (!MatchToken(TokenColon, lex)) return ParseError("Expected \":\"", lex->token, lex, mem);
 
   Val id = ParseID(lex, mem);
   if (IsTagged(id, "error", mem)) return id;
@@ -271,7 +281,7 @@ static Val ParseSymbol(Lexer *lex, Mem *mem)
 
 static Val ParseParens(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
 
   SkipNewlines(lex);
   Val args = nil;
@@ -303,7 +313,7 @@ static Val ParseAssign(Lexer *lex, Mem *mem)
   SkipNewlines(lex);
   if (AtEnd(lex)) return PartialParse(mem);
 
-  if (!ExpectToken(TokenEqual, lex)) return ParseError("Expected \"=\"", lex->token, lex, mem);
+  if (!MatchToken(TokenEqual, lex)) return ParseError("Expected \"=\"", lex->token, lex, mem);
   SkipNewlines(lex);
 
   Val value = ParseExpr(PrecExpr, lex, mem);
@@ -315,7 +325,7 @@ static Val ParseAssign(Lexer *lex, Mem *mem)
 
 static Val ParseLet(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenLet, lex)) return ParseError("Expected \"let\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLet, lex)) return ParseError("Expected \"let\"", lex->token, lex, mem);
   SkipNewlines(lex);
   if (AtEnd(lex)) return PartialParse(mem);
 
@@ -337,9 +347,9 @@ static Val ParseLet(Lexer *lex, Mem *mem)
 
 static Val ParseDef(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenDef, lex)) return ParseError("Expected \"def\"", lex->token, lex, mem);
+  if (!MatchToken(TokenDef, lex)) return ParseError("Expected \"def\"", lex->token, lex, mem);
   if (AtEnd(lex)) return PartialParse(mem);
-  if (!ExpectToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
 
   Val id = ParseID(lex, mem);
   if (IsTagged(id, "error", mem)) return id;
@@ -364,22 +374,6 @@ static Val ParseDef(Lexer *lex, Mem *mem)
   return Pair(MakeSymbol("let", mem), Pair(assign, nil, mem), mem);
 }
 
-static Val ParseStmt(TokenType end_type, Lexer *lex, Mem *mem)
-{
-  Val args = nil;
-  while (PeekToken(lex).type != TokenNewline && PeekToken(lex).type != end_type) {
-    if (AtEnd(lex)) return PartialParse(mem);
-
-    Val arg = ParseExpr(PrecExpr, lex, mem);
-    if (IsTagged(arg, "error", mem)) return arg;
-
-    args = Pair(arg, args, mem);
-  }
-
-  if (ListLength(args, mem) == 1) return Head(args, mem);
-  return ReverseList(args, mem);
-}
-
 static Val ParseIfStmt(Lexer *lex, Mem *mem)
 {
   Val args = nil;
@@ -400,16 +394,19 @@ static Val ParseIfStmt(Lexer *lex, Mem *mem)
 
 static Val ParseDo(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
+  if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
   SkipNewlines(lex);
 
   Val stmts = nil;
   while (!MatchToken(TokenEnd, lex)) {
     if (AtEnd(lex)) return PartialParse(mem);
 
-    Val stmt = ParseStmt(TokenEnd, lex, mem);
+    Val stmt = ParseCall(lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
+
     stmts = Pair(stmt, stmts, mem);
+
+    MatchToken(TokenComma, lex);
     SkipNewlines(lex);
   }
 
@@ -420,22 +417,24 @@ static Val ParseDo(Lexer *lex, Mem *mem)
 
 static Val ParseIf(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenIf, lex)) return ParseError("Expected \"if\"", lex->token, lex, mem);
+  if (!MatchToken(TokenIf, lex)) return ParseError("Expected \"if\"", lex->token, lex, mem);
 
   Val predicate = ParseExpr(PrecExpr, lex, mem);
   if (IsTagged(predicate, "error", mem)) return predicate;
 
-  if (!ExpectToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
+  if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
   SkipNewlines(lex);
 
   Val true_block = nil;
   while (!MatchToken(TokenEnd, lex) && PeekToken(lex).type != TokenElse) {
     if (AtEnd(lex)) return PartialParse(mem);
 
-    Val stmt = ParseIfStmt(lex, mem);
+    Val stmt = ParseCall(lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
 
     true_block = Pair(stmt, true_block, mem);
+
+    MatchToken(TokenComma, lex);
     SkipNewlines(lex);
   }
 
@@ -452,10 +451,12 @@ static Val ParseIf(Lexer *lex, Mem *mem)
     while (!MatchToken(TokenEnd, lex)) {
       if (AtEnd(lex)) return PartialParse(mem);
 
-      Val stmt = ParseStmt(TokenEnd, lex, mem);
+      Val stmt = ParseCall(lex, mem);
       if (IsTagged(stmt, "error", mem)) return stmt;
 
       false_block = Pair(stmt, false_block, mem);
+
+      MatchToken(TokenComma, lex);
       SkipNewlines(lex);
     }
   }
@@ -481,10 +482,10 @@ static Val ParseClauses(Lexer *lex, Mem *mem)
   if (IsTagged(predicate, "error", mem)) return predicate;
 
   SkipNewlines(lex);
-  if (!ExpectToken(TokenArrow, lex)) return ParseError("Expected \"->\"", lex->token, lex, mem);
+  if (!MatchToken(TokenArrow, lex)) return ParseError("Expected \"->\"", lex->token, lex, mem);
 
   SkipNewlines(lex);
-  Val consequent = ParseStmt(TokenEnd, lex, mem);
+  Val consequent = ParseCall(lex, mem);
   if (IsTagged(consequent, "error", mem)) return consequent;
 
   SkipNewlines(lex);
@@ -503,12 +504,12 @@ static Val ParseClauses(Lexer *lex, Mem *mem)
 
 static Val ParseCond(Lexer *lex, Mem  *mem)
 {
-  if (!ExpectToken(TokenCond, lex)) return ParseError("Expected \"cond\"", lex->token, lex, mem);
+  if (!MatchToken(TokenCond, lex)) return ParseError("Expected \"cond\"", lex->token, lex, mem);
 
   SkipNewlines(lex);
   if (AtEnd(lex)) return PartialParse(mem);
 
-  if (!ExpectToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
+  if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
 
   SkipNewlines(lex);
   return ParseClauses(lex, mem);
@@ -516,7 +517,7 @@ static Val ParseCond(Lexer *lex, Mem  *mem)
 
 static Val ParseList(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenLBracket, lex)) return ParseError("Expected \"[\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLBracket, lex)) return ParseError("Expected \"[\"", lex->token, lex, mem);
   SkipNewlines(lex);
 
   Val items = nil;
@@ -537,7 +538,7 @@ static Val ParseMap(Val items, Lexer *lex, Mem *mem)
   while (!MatchToken(TokenRBrace, lex)) {
     Val key = ParseID(lex, mem);
 
-    if (!ExpectToken(TokenColon, lex)) return ParseError("Expected \":\"", lex->token, lex, mem);
+    if (!MatchToken(TokenColon, lex)) return ParseError("Expected \":\"", lex->token, lex, mem);
 
     SkipNewlines(lex);
     Val val = ParseExpr(PrecExpr, lex, mem);
@@ -554,7 +555,7 @@ static Val ParseMap(Val items, Lexer *lex, Mem *mem)
 
 static Val ParseBraces(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenLBrace, lex)) return ParseError("Expected \"{\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLBrace, lex)) return ParseError("Expected \"{\"", lex->token, lex, mem);
 
   SkipNewlines(lex);
 
@@ -571,7 +572,8 @@ static Val ParseBraces(Lexer *lex, Mem *mem)
     if (IsTagged(value, "error", mem)) return value;
 
     Val items = Pair(Pair(key, value, mem), nil, mem);
-    MatchToken(TokenComma, lex);
+    if (!MatchToken(TokenComma, lex)) return ParseError("Expected \",\"", lex->token, lex, mem);
+
     SkipNewlines(lex);
     return ParseMap(items, lex, mem);
   }
@@ -584,6 +586,8 @@ static Val ParseBraces(Lexer *lex, Mem *mem)
 
     items = Pair(item, items, mem);
     MatchToken(TokenComma, lex);
+    if (!MatchToken(TokenComma, lex)) return ParseError("Expected \",\"", lex->token, lex, mem);
+
     SkipNewlines(lex);
   }
 
@@ -614,7 +618,7 @@ static Val ParseModuleName(Lexer *lex, Mem *mem)
 
 static Val ParseImport(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenImport, lex)) return ParseError("Expected \"import\"", lex->token, lex, mem);
+  if (!MatchToken(TokenImport, lex)) return ParseError("Expected \"import\"", lex->token, lex, mem);
   if (AtEnd(lex)) return PartialParse(mem);
 
   Val name = ParseModuleName(lex, mem);
@@ -644,7 +648,7 @@ static Val ParseImport(Lexer *lex, Mem *mem)
 
 static Val ParseModule(Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenModule, lex)) return ParseError("Expected \"module\"", lex->token, lex, mem);
+  if (!MatchToken(TokenModule, lex)) return ParseError("Expected \"module\"", lex->token, lex, mem);
 
   Val name = ParseModuleName(lex, mem);
   if (IsTagged(name, "error", mem)) return name;
@@ -654,7 +658,7 @@ static Val ParseModule(Lexer *lex, Mem *mem)
 
 static Val ParseAccess(Val lhs, Lexer *lex, Mem *mem)
 {
-  if (!ExpectToken(TokenDot, lex)) return ParseError("Expected \".\"", lex->token, lex, mem);
+  if (!MatchToken(TokenDot, lex)) return ParseError("Expected \".\"", lex->token, lex, mem);
 
   Val id = ParseID(lex, mem);
   if (IsTagged(id, "error", mem)) return id;
@@ -711,7 +715,7 @@ Val Parse(char *source, Mem *mem)
 
   Val stmts = nil;
   while (!AtEnd(&lex)) {
-    Val stmt = ParseStmt(TokenEOF, &lex, mem);
+    Val stmt = ParseCall(&lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
 
     if (IsTagged(stmt, "module", mem)) {
@@ -719,6 +723,8 @@ Val Parse(char *source, Mem *mem)
     } else {
       stmts = Pair(stmt, stmts, mem);
     }
+
+    MatchToken(TokenComma, &lex);
     SkipNewlines(&lex);
   }
 
@@ -751,19 +757,17 @@ static void PrintTree(Val node, u32 indent, u32 lines, Mem *mem)
   if (IsNil(node)) {
     Print("╴");
     InspectVal(node, mem);
-    Print("\n");
   } else if (IsTagged(node, "\"", mem)) {
     Print("╴\"");
     InspectVal(Tail(node, mem), mem);
-    Print("\"\n");
   } else if (IsTagged(node, ":", mem)) {
     Print("╴");
     InspectVal(Tail(node, mem), mem);
-    Print("\n");
   } else if (IsPair(node)) {
-    Print("─┐\n");
+    Print("─┐");
     lines |= (1 << indent);
     while (!IsNil(node)) {
+      Print("\n");
       Indent(indent, lines);
       if (IsNil(Tail(node, mem))) {
         lines &= ~(1 << indent);
@@ -772,20 +776,19 @@ static void PrintTree(Val node, u32 indent, u32 lines, Mem *mem)
         Print(" ├");
       }
 
-      if (!IsPair(node)) {
-        Print("╴");
-        InspectVal(node, mem);
-        Print("\n");
-        node = nil;
-      } else {
-        PrintTree(Head(node, mem), indent+1, lines, mem);
+      PrintTree(Head(node, mem), indent+1, lines, mem);
+
+      if (IsPair(Tail(node, mem))) {
         node = Tail(node, mem);
+      } else {
+        node = nil;
+        Print(" | ");
+        InspectVal(Tail(node, mem), mem);
       }
     }
   } else {
     Print("╴");
     InspectVal(node, mem);
-    Print("\n");
   }
 }
 
@@ -794,4 +797,5 @@ void PrintAST(Val ast, Mem *mem)
   InspectVal(ast, mem);
   Print("\n");
   PrintTree(ast, 0, 0, mem);
+  Print("\n");
 }
