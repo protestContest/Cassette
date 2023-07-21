@@ -2,6 +2,8 @@
 #include "env.h"
 #include "function.h"
 
+static Val PrimHead(u32 num_args, VM *vm);
+static Val PrimTail(u32 num_args, VM *vm);
 static Val PrimPrint(u32 num_args, VM *vm);
 static Val PrimInspect(u32 num_args, VM *vm);
 static Val PrimRandom(u32 num_args, VM *vm);
@@ -50,6 +52,8 @@ static Val PrimFileWrite(u32 num_args, VM *vm);
 static Val PrimFileExists(u32 num_args, VM *vm);
 
 static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
+  {NULL, "head", &PrimHead},
+  {NULL, "tail", &PrimTail},
   {NULL, "print", &PrimPrint},
   {NULL, "inspect", &PrimInspect},
   {NULL, "random", &PrimRandom},
@@ -173,37 +177,20 @@ void DefinePrimitives(Val env, Mem *mem)
   DestroyHashMap(&modules);
 }
 
-static bool CheckArg(Val arg, ValType type, Mem *mem)
+static Val PrimHead(u32 num_args, VM *vm)
 {
-  switch (type) {
-  case ValAny:      return true;
-  case ValNum:      return IsNumeric(arg);
-  case ValInt:      return IsInt(arg);
-  case ValSym:      return IsSym(arg);
-  case ValPair:     return IsPair(arg);
-  case ValTuple:    return IsTuple(arg, mem);
-  case ValBinary:   return IsBinary(arg, mem);
-  case ValMap:      return IsMap(arg, mem);
-  }
+  ValType types[] = {ValPair};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+  Val pair = StackPop(vm);
+  return Head(pair, &vm->mem);
 }
 
-static bool CheckArgs(ValType *types, u32 num_expected, u32 num_args, VM *vm)
+static Val PrimTail(u32 num_args, VM *vm)
 {
-  if (num_expected != num_args) {
-    RuntimeError(vm, "Wrong number of arguments");
-    return false;
-  }
-
-  for (u32 i = 0; i < num_args; i++) {
-    Val arg = StackPeek(vm, i);
-
-    if (!CheckArg(arg, types[i], &vm->mem)) {
-      RuntimeError(vm, "Bad argument");
-      return false;
-    }
-  }
-
-  return true;
+  ValType types[] = {ValPair};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+  Val pair = StackPop(vm);
+  return Tail(pair, &vm->mem);
 }
 
 static Val PrimIsInt(u32 num_args, VM *vm)
@@ -540,7 +527,7 @@ static Val PrimListToMap(u32 num_args, VM *vm)
     Val item = Head(list, &vm->mem);
 
     if (!IsPair(item)) {
-      RuntimeError(vm, "Could not convert list to map");
+      RuntimeError(vm, "Could not convert list to map", item);
       return nil;
     }
 

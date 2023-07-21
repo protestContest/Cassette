@@ -88,11 +88,13 @@ void Halt(VM *vm)
   vm->pc = VecCount(vm->chunk->data);
 }
 
-void RuntimeError(VM *vm, char *message)
+void RuntimeError(VM *vm, char *message, Val value)
 {
   PrintEscape(IOFGRed);
   Print("Runtime error: ");
   Print(message);
+  Print(": ");
+  InspectVal(value, &vm->mem);
   PrintEscape(IOFGReset);
   Print("\n");
   vm->error = true;
@@ -106,7 +108,7 @@ void SaveReg(VM *vm, i32 reg)
   } else if (reg == RegEnv) {
     VecPush(vm->stack, vm->env);
   } else {
-    RuntimeError(vm, "Bad register reference");
+    RuntimeError(vm, "Bad register reference", IntVal(reg));
   }
 }
 
@@ -117,65 +119,109 @@ void RestoreReg(VM *vm, i32 reg)
   } else if (reg == RegEnv) {
     vm->env = VecPop(vm->stack);
   } else {
-    RuntimeError(vm, "Bad register reference");
+    RuntimeError(vm, "Bad register reference", IntVal(reg));
   }
 }
 
-i32 IntOp(i32 a, i32 b, OpCode op)
+static bool CheckArg(Val arg, ValType type, Mem *mem)
 {
+  switch (type) {
+  case ValAny:      return true;
+  case ValNum:      return IsNumeric(arg);
+  case ValInt:      return IsInt(arg);
+  case ValFloat:    return IsNum(arg);
+  case ValSym:      return IsSym(arg);
+  case ValPair:     return IsPair(arg);
+  case ValTuple:    return IsTuple(arg, mem);
+  case ValBinary:   return IsBinary(arg, mem);
+  case ValMap:      return IsMap(arg, mem);
+  }
+}
+
+bool CheckArgs(ValType *types, u32 num_expected, u32 num_args, VM *vm)
+{
+  if (num_expected != num_args) {
+    RuntimeError(vm, "Wrong number of arguments", IntVal(num_args));
+    return false;
+  }
+
+  for (u32 i = 0; i < num_args; i++) {
+    Val arg = StackPeek(vm, i);
+
+    if (!CheckArg(arg, types[i], &vm->mem)) {
+      RuntimeError(vm, "Bad argument", arg);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static void IntOp(VM *vm, OpCode op)
+{
+  ValType types[] = {ValInt, ValInt};
+  if (!CheckArgs(types, 2, 2, vm)) return;
+
+  i32 a = RawInt(StackPop(vm));
+  i32 b = RawInt(StackPop(vm));
+
+  i32 result = 0;
   switch (op) {
-  case OpAdd: return a + b;
-  case OpSub: return a - b;
-  case OpMul: return a * b;
-  case OpRem: return a % b;
+  case OpAdd: result = a + b; break;
+  case OpSub: result = a - b; break;
+  case OpMul: result = a * b; break;
+  case OpRem: result = a % b; break;
   case OpExp: {
-    i32 result = 1;
+    result = 1;
     for (i32 i = 0; i < b; i++) result *= a;
-    return result;
+    break;
   }
-  default: Abort();
+  default:
+    RuntimeError(vm, "Unknown int op", IntVal(op));
+    return;
   }
+
+  StackPush(vm, IntVal(result));
 }
 
-f32 FloatOp(f32 a, f32 b, OpCode op)
+static void FloatOp(VM *vm, OpCode op)
 {
+  ValType types[] = {ValNum, ValNum};
+  if (!CheckArgs(types, 2, 2, vm)) return;
+
+  float a = (float)RawNum(StackPop(vm));
+  float b = (float)RawNum(StackPop(vm));
+
+  float result = 0.0;
   switch (op) {
-  case OpAdd: return a + b;
-  case OpSub: return a - b;
-  case OpMul: return a * b;
-  case OpDiv: return a / b;
-  default: Abort();
-  }
-}
-
-void ArithmeticOp(VM *vm, OpCode op)
-{
-  Val b = StackPop(vm);
-  Val a = StackPop(vm);
-  Val result;
-
-  if (!IsNumeric(a) || !IsNumeric(b)) {
-    RuntimeError(vm, "Bad arithmetic argument");
-    return;
-  }
-
-  if (op == OpRem && (!IsInt(a) || !IsInt(b))) {
-    RuntimeError(vm, "Bad arithmetic argument");
-    return;
-  }
-
-  if (IsInt(a) && IsInt(b) && op != OpDiv) {
-    result = IntVal(IntOp(RawInt(a), RawInt(b), op));
-  } else {
-    if (op == OpDiv && IsZero(b)) {
-      RuntimeError(vm, "Divide by zero");
+  case OpAdd: result = a + b; break;
+  case OpSub: result = a - b; break;
+  case OpMul: result = a * b; break;
+  case OpDiv: {
+    if (b == 0) {
+      RuntimeError(vm, "Divide by zero", NumVal(0));
       return;
     }
-
-    result = NumVal(FloatOp(RawNum(a), RawNum(b), op));
+    result = a / b; break;
+  }
+  default:
+    RuntimeError(vm, "Unknown float op", IntVal(op));
+    return;
   }
 
-  StackPush(vm, result);
+  StackPush(vm, NumVal(result));
+}
+
+static void ArithmeticOp(VM *vm, OpCode op)
+{
+  ValType types[] = {ValNum, ValNum};
+  if (!CheckArgs(types, 2, 2, vm)) return;
+
+  if (op == OpDiv || (IsInt(StackPeek(vm, 0)) && IsInt(StackPeek(vm, 1)))) {
+    IntOp(vm, op);
+  } else {
+    FloatOp(vm, op);
+  }
 }
 
 static void CreateOp(VM *vm, OpCode op)
@@ -229,47 +275,36 @@ static void CreateOp(VM *vm, OpCode op)
 
 static void CompareOp(VM *vm, OpCode op)
 {
+  ValType types[] = {ValNum, ValNum};
+  if (!CheckArgs(types, 2, 2, vm)) return;
+
   Val b = StackPop(vm);
   Val a = StackPop(vm);
-
-  if (op == OpEq) {
-    Val res = BoolVal(Eq(a, b));
-    StackPush(vm, res);
-    return;
-  }
-
-  if (!IsNumeric(a) || !IsNumeric(b)) {
-    RuntimeError(vm, "Bad arithmetic argument");
-    return;
-  }
 
   if (op == OpLt) StackPush(vm, BoolVal(RawNum(a) < RawNum(b)));
   else if (op == OpGt) StackPush(vm, BoolVal(RawNum(a) > RawNum(b)));
 }
 
-static void AccessOp(VM *vm, Val obj, Val arg)
+static void AccessOp(VM *vm, Val obj)
 {
-  if (IsPair(obj)) {
-    if (!IsInt(arg)) {
-      RuntimeError(vm, "Must access lists with integers");
-    } else {
-      StackPush(vm, ListAt(obj, RawInt(arg), &vm->mem));
-    }
-  } else if (IsTuple(obj, &vm->mem)) {
-    if (!IsInt(arg)) {
-      RuntimeError(vm, "Must access tuples with integers");
-    } else {
-      StackPush(vm, TupleGet(obj, RawInt(arg), &vm->mem));
-    }
-  } else if (IsBinary(obj, &vm->mem)) {
-    if (!IsInt(arg)) {
-      RuntimeError(vm, "Must access binaries with integers");
-    } else {
-      char byte = BinaryData(obj, &vm->mem)[RawInt(arg)];
-      StackPush(vm, IntVal(byte));
-    }
-  } else if (IsMap(obj, &vm->mem)) {
+  if (IsMap(obj, &vm->mem)) {
+    Val arg = StackPop(vm);
     StackPush(vm, MapGet(obj, arg, &vm->mem));
+    return;
+  }
+
+  ValType types[] = {ValInt};
+  if (!CheckArgs(types, 1, 1, vm)) return;
+
+  u32 index = RawInt(StackPop(vm));
+
+  if (IsPair(obj)) {
+      StackPush(vm, ListAt(obj, index, &vm->mem));
+  } else if (IsTuple(obj, &vm->mem)) {
+      StackPush(vm, TupleGet(obj, index, &vm->mem));
+  } else if (IsBinary(obj, &vm->mem)) {
+    char byte = BinaryData(obj, &vm->mem)[index];
+    StackPush(vm, IntVal(byte));
   }
 }
 
@@ -287,23 +322,19 @@ static void ApplyOp(VM *vm, OpCode op)
   } else if (IsFunction(func, mem)) {
     u32 arity = FunctionArity(func, mem);
     if (arity != num_args) {
-      RuntimeError(vm, "Wrong number of arguments");
+      RuntimeError(vm, "Wrong number of arguments", func);
     } else {
       vm->pc = FunctionEntry(func, mem);
       vm->env = ExtendEnv(FunctionEnv(func, mem), mem);
     }
+  } else if (num_args == 1 && (IsPair(func) || IsObj(func))) {
+    AccessOp(vm, func);
+    vm->pc += OpLength(op);
   } else if (num_args == 0) {
-    // collection without args
     StackPush(vm, func);
     vm->pc += OpLength(op);
   } else {
-    if (num_args == 1 && (IsPair(func) || IsObj(func))) {
-      Val arg = StackPop(vm);
-      AccessOp(vm, func, arg);
-    } else {
-      RuntimeError(vm, "Not a function");
-    }
-    vm->pc += OpLength(op);
+    RuntimeError(vm, "Not a function", func);
   }
 }
 
@@ -347,11 +378,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       else if (IsTuple(val, mem)) StackPush(vm, IntVal(TupleLength(val, mem)));
       else if (IsBinary(val, mem)) StackPush(vm, IntVal(BinaryLength(val, mem)));
       else if (IsMap(val, mem)) StackPush(vm, IntVal(MapCount(val, mem)));
-      else {
-        PrintVal(val, mem);
-        Print("\n");
-        RuntimeError(vm, "Argument has no length");
-      }
+      else RuntimeError(vm, "Value has no length", val);
       vm->pc += OpLength(op);
       break;
     }
@@ -371,14 +398,17 @@ Val RunChunk(VM *vm, Chunk *chunk)
     case OpSub:
     case OpMul:
     case OpDiv:
-    case OpRem:
     case OpExp:
       ArithmeticOp(vm, op);
       vm->pc += OpLength(op);
       break;
+    case OpRem:
+      IntOp(vm, OpRem);
+      vm->pc += OpLength(op);
+      break;
     case OpNeg:
       if (!IsNumeric(StackPeek(vm, 0))) {
-        RuntimeError(vm, "Bad arithmetic argument");
+        RuntimeError(vm, "Bad arithmetic argument", StackPeek(vm, 0));
       } else {
         Val n = StackPop(vm);
         if (IsInt(n)) {
@@ -397,7 +427,13 @@ Val RunChunk(VM *vm, Chunk *chunk)
       }
       vm->pc += OpLength(op);
       break;
-    case OpEq:
+    case OpEq: {
+      Val a = StackPop(vm);
+      Val b = StackPop(vm);
+      StackPush(vm, BoolVal(Eq(a, b)));
+      vm->pc += OpLength(op);
+      break;
+    }
     case OpGt:
     case OpLt:
       CompareOp(vm, op);
@@ -413,7 +449,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       } else if (IsMap(collection, mem)) {
         StackPush(vm, BoolVal(MapContains(collection, item, mem)));
       } else {
-        RuntimeError(vm, "Not a collection");
+        RuntimeError(vm, "Not a collection", collection);
       }
       vm->pc += OpLength(op);
       break;
@@ -422,7 +458,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
       Val key = StackPop(vm);
       Val map = StackPop(vm);
       if (!MapContains(map, key, mem)) {
-        RuntimeError(vm, "Undefined key");
+        RuntimeError(vm, "Undefined key", key);
       } else {
         StackPush(vm, MapGet(map, key, mem));
         vm->pc += OpLength(op);
@@ -455,9 +491,10 @@ Val RunChunk(VM *vm, Chunk *chunk)
       vm->pc = RawInt(vm->cont);
       break;
     case OpLookup: {
-      Val value = Lookup(ChunkConst(chunk, vm->pc+1), vm->env, &vm->mem);
+      Val var = ChunkConst(chunk, vm->pc+1);
+      Val value = Lookup(var, vm->env, &vm->mem);
       if (IsUndefined(value)) {
-        RuntimeError(vm, "Undefined variable");
+        RuntimeError(vm, "Undefined variable", var);
       } else {
         StackPush(vm, value);
         vm->pc += OpLength(op);
@@ -514,7 +551,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
         StackPush(vm, mod);
         vm->pc += OpLength(op);
       } else {
-        RuntimeError(vm, "Module not found");
+        RuntimeError(vm, "Module not found", name);
       }
       break;
     }
@@ -624,4 +661,13 @@ void PrintCallStack(VM *vm)
     Print("\n");
   }
   Print("└────────────────────\n");
+}
+
+char *RegName(Reg reg)
+{
+  switch (reg) {
+  case RegCont: return "[con]";
+  case RegEnv:  return "[env]";
+  default:      return "[???]";
+  }
 }

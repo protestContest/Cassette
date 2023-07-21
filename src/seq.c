@@ -1,6 +1,7 @@
 #include "seq.h"
 #include "ops.h"
 #include "assemble.h"
+#include "vm.h"
 
 Seq AppendSeq(Seq seq1, Seq seq2, Mem *mem)
 {
@@ -67,14 +68,7 @@ Seq EndWithLinkage(Linkage linkage, Seq seq, Mem *mem)
 
 static void PrintReg(Reg reg)
 {
-  switch (reg) {
-  case RegCont:
-    Print("[con]");
-    break;
-  case RegEnv:
-    Print("[env]");
-    break;
-  }
+  Print(RegName(reg));
 }
 
 static u32 PrintStmt(Val stmts, Mem *mem)

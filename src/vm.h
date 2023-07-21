@@ -27,7 +27,7 @@ void DestroyVM(VM *vm);
 void ResetVM(VM *vm);
 
 Val RunChunk(VM *vm, Chunk *chunk);
-void RuntimeError(VM *vm, char *message);
+void RuntimeError(VM *vm, char *message, Val value);
 
 Val StackPop(VM *vm);
 Val StackPeek(VM *vm, u32 n);
@@ -35,5 +35,8 @@ void StackPush(VM *vm, Val val);
 
 void TakeOutGarbage(VM *vm);
 
+bool CheckArgs(ValType *types, u32 num_expected, u32 num_args, VM *vm);
+
+char *RegName(Reg reg);
 void PrintStack(VM *vm);
 void PrintCallStack(VM *vm);

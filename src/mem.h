@@ -9,6 +9,7 @@ typedef enum {
   ValAny,
   ValNum,
   ValInt,
+  ValFloat,
   ValSym,
   ValPair,
   ValTuple,
