@@ -1,11 +1,13 @@
 def (fizzbuzz n) do
+  def (div3 n) (Math.rem n 3) == 0
+  def (div5 n) (Math.rem n 5) == 0
+
   def (loop m) do
     cond do
-      (rem m 3) == 0 and
-          (rem m 5) == 0  -> print :FizzBuzz
-      (rem m 3) == 0      -> print :Fizz
-      (rem m 5) == 0      -> print :Buzz
-      true                -> print m
+      (div3 m) and (div5 m) -> print "FizzBuzz"
+      (div3 m)              -> print "Fizz"
+      (div5 m)              -> print "Buzz"
+      true                  -> print m
     end
 
     if m < n do
@@ -15,3 +17,5 @@ def (fizzbuzz n) do
 
   loop 1
 end
+
+fizzbuzz 100
