@@ -1,11 +1,20 @@
 #include "primitives.h"
 #include "env.h"
-#include "proc.h"
+#include "function.h"
 
-static Val PrimRemainder(u32 num_args, VM *vm);
 static Val PrimPrint(u32 num_args, VM *vm);
 static Val PrimInspect(u32 num_args, VM *vm);
 static Val PrimRandom(u32 num_args, VM *vm);
+static Val PrimIsInt(u32 num_args, VM *vm);
+static Val PrimIsFloat(u32 num_args, VM *vm);
+static Val PrimIsNumber(u32 num_args, VM *vm);
+static Val PrimIsSymbol(u32 num_args, VM *vm);
+static Val PrimIsList(u32 num_args, VM *vm);
+static Val PrimIsTuple(u32 num_args, VM *vm);
+static Val PrimIsBinary(u32 num_args, VM *vm);
+static Val PrimIsMap(u32 num_args, VM *vm);
+static Val PrimRemainder(u32 num_args, VM *vm);
+static Val PrimDiv(u32 num_args, VM *vm);
 static Val PrimCeil(u32 num_args, VM *vm);
 static Val PrimFloor(u32 num_args, VM *vm);
 static Val PrimAbs(u32 num_args, VM *vm);
@@ -17,17 +26,17 @@ static Val PrimExp(u32 num_args, VM *vm);
 static Val PrimSqrt(u32 num_args, VM *vm);
 static Val PrimRound(u32 num_args, VM *vm);
 static Val PrimListFrom(u32 num_args, VM *vm);
-static Val PrimListTake(u32 num_args, VM *vm);
-static Val PrimListSlice(u32 num_args, VM *vm);
-static Val PrimListConcat(u32 num_args, VM *vm);
-static Val PrimListAppend(u32 num_args, VM *vm);
-static Val PrimListFlatten(u32 num_args, VM *vm);
+// static Val PrimListTake(u32 num_args, VM *vm);
+// static Val PrimListSlice(u32 num_args, VM *vm);
+// static Val PrimListConcat(u32 num_args, VM *vm);
+// static Val PrimListAppend(u32 num_args, VM *vm);
+// static Val PrimListFlatten(u32 num_args, VM *vm);
 static Val PrimListToBinary(u32 num_args, VM *vm);
 static Val PrimListToTuple(u32 num_args, VM *vm);
 static Val PrimListToMap(u32 num_args, VM *vm);
-static Val PrimListInsert(u32 num_args, VM *vm);
-static Val PrimListZip(u32 num_args, VM *vm);
-static Val PrimListUnzip(u32 num_args, VM *vm);
+// static Val PrimListInsert(u32 num_args, VM *vm);
+// static Val PrimListZip(u32 num_args, VM *vm);
+// static Val PrimListUnzip(u32 num_args, VM *vm);
 static Val PrimMapNew(u32 num_args, VM *vm);
 static Val PrimMapGet(u32 num_args, VM *vm);
 static Val PrimMapPut(u32 num_args, VM *vm);
@@ -43,8 +52,17 @@ static Val PrimFileExists(u32 num_args, VM *vm);
 static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {NULL, "print", &PrimPrint},
   {NULL, "inspect", &PrimInspect},
-  {NULL, "rem", &PrimRemainder},
   {NULL, "random", &PrimRandom},
+  {NULL, "is-int", &PrimIsInt},
+  {NULL, "is-float", &PrimIsFloat},
+  {NULL, "is-number", &PrimIsNumber},
+  {NULL, "is-symbol", &PrimIsSymbol},
+  {NULL, "is-list", &PrimIsList},
+  {NULL, "is-tuple", &PrimIsTuple},
+  {NULL, "is-binary", &PrimIsBinary},
+  {NULL, "is-map", &PrimIsMap},
+  {"Math", "rem", &PrimRemainder},
+  {"Math", "div", &PrimDiv},
   {"Math", "ceil", &PrimCeil},
   {"Math", "floor", &PrimFloor},
   {"Math", "round", &PrimRound},
@@ -56,24 +74,24 @@ static struct {char *mod; char *name; PrimitiveFn fn;} primitives[] = {
   {"Math", "cos", &PrimCos},
   {"Math", "tan", &PrimTan},
   {"List", "from", &PrimListFrom},
-  {"List", "take", &PrimListTake},
-  {"List", "slice", &PrimListSlice},
-  {"List", "concat", &PrimListConcat},
-  {"List", "append", &PrimListAppend},
-  {"List", "flatten", &PrimListFlatten},
-  {"List", "to_binary", &PrimListToBinary},
-  {"List", "to_tuple", &PrimListToTuple},
-  {"List", "to_map", &PrimListToMap},
-  {"List", "insert", &PrimListInsert},
-  {"List", "zip", &PrimListZip},
-  {"List", "unzip", &PrimListUnzip},
+  // {"List", "take", &PrimListTake},
+  // {"List", "slice", &PrimListSlice},
+  // {"List", "concat", &PrimListConcat},
+  // {"List", "append", &PrimListAppend},
+  // {"List", "flatten", &PrimListFlatten},
+  {"List", "to-binary", &PrimListToBinary},
+  {"List", "to-tuple", &PrimListToTuple},
+  {"List", "to-map", &PrimListToMap},
+  // {"List", "insert", &PrimListInsert},
+  // {"List", "zip", &PrimListZip},
+  // {"List", "unzip", &PrimListUnzip},
   {"Map", "new", &PrimMapNew},
   {"Map", "get", &PrimMapGet},
   {"Map", "put", &PrimMapPut},
   {"Map", "delete", &PrimMapDelete},
   {"Map", "keys", &PrimMapKeys},
   {"Map", "values", &PrimMapValues},
-  {"Map", "to_list", &PrimMapToList},
+  {"Map", "to-list", &PrimMapToList},
   {"Tuple", "to_list", &PrimTupleToList},
   {"File", "read", &PrimFileRead},
   {"File", "write", &PrimFileWrite},
@@ -188,6 +206,78 @@ static bool CheckArgs(ValType *types, u32 num_expected, u32 num_args, VM *vm)
   return true;
 }
 
+static Val PrimIsInt(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsInt(arg));
+}
+
+static Val PrimIsFloat(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsNum(arg));
+}
+
+static Val PrimIsNumber(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsNumeric(arg));
+}
+
+static Val PrimIsSymbol(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsSym(arg));
+}
+
+static Val PrimIsList(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsPair(arg));
+}
+
+static Val PrimIsTuple(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsTuple(arg, &vm->mem));
+}
+
+static Val PrimIsBinary(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsBinary(arg, &vm->mem));
+}
+
+static Val PrimIsMap(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValAny};
+  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+
+  Val arg = StackPop(vm);
+  return BoolVal(IsMap(arg, &vm->mem));
+}
+
 static Val PrimRemainder(u32 num_args, VM *vm)
 {
   ValType types[] = {ValInt, ValInt};
@@ -199,6 +289,17 @@ static Val PrimRemainder(u32 num_args, VM *vm)
   i32 div = RawInt(a) / RawInt(b);
   i32 result = RawInt(a) - RawInt(b)*div;
   return IntVal(result);
+}
+
+static Val PrimDiv(u32 num_args, VM *vm)
+{
+  ValType types[] = {ValInt, ValInt};
+  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+
+  Val a = StackPop(vm);
+  Val b = StackPop(vm);
+
+  return IntVal(RawInt(a) / RawInt(b));
 }
 
 static Val PrimPrint(u32 num_args, VM *vm)
@@ -346,59 +447,59 @@ static Val PrimListFrom(u32 num_args, VM *vm)
   return ListFrom(list, RawInt(n), &vm->mem);
 }
 
-static Val PrimListTake(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair, ValInt};
-  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+// static Val PrimListTake(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair, ValInt};
+//   if (!CheckArgs(types, 2, num_args, vm)) return nil;
 
-  Val list = StackPop(vm);
-  Val n = StackPop(vm);
+//   Val list = StackPop(vm);
+//   Val n = StackPop(vm);
 
-  return ListTake(list, RawInt(n), &vm->mem);
-}
+//   return ListTake(list, RawInt(n), &vm->mem);
+// }
 
-static Val PrimListSlice(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair, ValInt, ValInt};
-  if (!CheckArgs(types, 3, num_args, vm)) return nil;
+// static Val PrimListSlice(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair, ValInt, ValInt};
+//   if (!CheckArgs(types, 3, num_args, vm)) return nil;
 
-  Val list = StackPop(vm);
-  Val start = StackPop(vm);
-  Val end = StackPop(vm);
+//   Val list = StackPop(vm);
+//   Val start = StackPop(vm);
+//   Val end = StackPop(vm);
 
-  return ListTake(ListFrom(list, RawInt(start), &vm->mem), RawInt(end), &vm->mem);
-}
+//   return ListTake(ListFrom(list, RawInt(start), &vm->mem), RawInt(end), &vm->mem);
+// }
 
-static Val PrimListConcat(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair, ValPair};
-  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+// static Val PrimListConcat(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair, ValPair};
+//   if (!CheckArgs(types, 2, num_args, vm)) return nil;
 
-  Val a = StackPop(vm);
-  Val b = StackPop(vm);
-  Val list = ListTake(a, ListLength(a, &vm->mem), &vm->mem);
-  return ListConcat(list, b, &vm->mem);
-}
+//   Val a = StackPop(vm);
+//   Val b = StackPop(vm);
+//   Val list = ListTake(a, ListLength(a, &vm->mem), &vm->mem);
+//   return ListConcat(list, b, &vm->mem);
+// }
 
-static Val PrimListAppend(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair, ValAny};
-  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+// static Val PrimListAppend(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair, ValAny};
+//   if (!CheckArgs(types, 2, num_args, vm)) return nil;
 
-  Val list = StackPop(vm);
-  Val item = StackPop(vm);
-  list = ListTake(list, ListLength(list, &vm->mem), &vm->mem);
-  return ListConcat(list, Pair(item, nil, &vm->mem), &vm->mem);
-}
+//   Val list = StackPop(vm);
+//   Val item = StackPop(vm);
+//   list = ListTake(list, ListLength(list, &vm->mem), &vm->mem);
+//   return ListConcat(list, Pair(item, nil, &vm->mem), &vm->mem);
+// }
 
-static Val PrimListFlatten(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair};
-  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+// static Val PrimListFlatten(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair};
+//   if (!CheckArgs(types, 1, num_args, vm)) return nil;
 
-  Val list = StackPop(vm);
-  return ListFlatten(list, &vm->mem);
-}
+//   Val list = StackPop(vm);
+//   return ListFlatten(list, &vm->mem);
+// }
 
 static Val PrimListToBinary(u32 num_args, VM *vm)
 {
@@ -451,69 +552,69 @@ static Val PrimListToMap(u32 num_args, VM *vm)
   return map;
 }
 
-static Val PrimListInsert(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair, ValInt, ValAny};
-  if (!CheckArgs(types, 3, num_args, vm)) return nil;
+// static Val PrimListInsert(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair, ValInt, ValAny};
+//   if (!CheckArgs(types, 3, num_args, vm)) return nil;
 
-  Val list = StackPop(vm);
-  Val index = StackPop(vm);
-  Val item = StackPop(vm);
+//   Val list = StackPop(vm);
+//   Val index = StackPop(vm);
+//   Val item = StackPop(vm);
 
-  Val new_list = ListTake(list, RawInt(index), &vm->mem);
-  Val tail = Pair(item, ListFrom(list, RawInt(index), &vm->mem), &vm->mem);
-  return ListConcat(new_list, tail, &vm->mem);
-}
+//   Val new_list = ListTake(list, RawInt(index), &vm->mem);
+//   Val tail = Pair(item, ListFrom(list, RawInt(index), &vm->mem), &vm->mem);
+//   return ListConcat(new_list, tail, &vm->mem);
+// }
 
-static Val PrimListZip(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair, ValPair};
-  if (!CheckArgs(types, 2, num_args, vm)) return nil;
+// static Val PrimListZip(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair, ValPair};
+//   if (!CheckArgs(types, 2, num_args, vm)) return nil;
 
-  Mem *mem = &vm->mem;
-  Val heads = StackPop(vm);
-  Val tails = StackPop(vm);
-  Val zipped = nil;
+//   Mem *mem = &vm->mem;
+//   Val heads = StackPop(vm);
+//   Val tails = StackPop(vm);
+//   Val zipped = nil;
 
-  while (!IsNil(heads)) {
-    Val head = Head(heads, mem);
-    Val tail = Head(tails, mem);
-    zipped = Pair(Pair(head, tail, mem), zipped, mem);
-    heads = Tail(heads, mem);
-    tails = Tail(tails, mem);
-  }
-  while (!IsNil(tails)) {
-    Val tail = Head(tails, mem);
-    zipped = Pair(Pair(nil, tail, mem), zipped, mem);
-    tails = Tail(tails, mem);
-  }
+//   while (!IsNil(heads)) {
+//     Val head = Head(heads, mem);
+//     Val tail = Head(tails, mem);
+//     zipped = Pair(Pair(head, tail, mem), zipped, mem);
+//     heads = Tail(heads, mem);
+//     tails = Tail(tails, mem);
+//   }
+//   while (!IsNil(tails)) {
+//     Val tail = Head(tails, mem);
+//     zipped = Pair(Pair(nil, tail, mem), zipped, mem);
+//     tails = Tail(tails, mem);
+//   }
 
-  return zipped;
-}
+//   return zipped;
+// }
 
-static Val PrimListUnzip(u32 num_args, VM *vm)
-{
-  ValType types[] = {ValPair};
-  if (!CheckArgs(types, 1, num_args, vm)) return nil;
+// static Val PrimListUnzip(u32 num_args, VM *vm)
+// {
+//   ValType types[] = {ValPair};
+//   if (!CheckArgs(types, 1, num_args, vm)) return nil;
 
-  Mem *mem = &vm->mem;
-  Val zipped = StackPop(vm);
-  Val heads = nil;
-  Val tails = nil;
-  while (!IsNil(zipped)) {
-    Val item = Head(zipped, mem);
-    if (IsPair(item)) {
-      heads = Pair(Head(item, mem), heads, mem);
-      tails = Pair(Tail(item, mem), tails, mem);
-    } else {
-      heads = Pair(item, heads, mem);
-      tails = Pair(nil, tails, mem);
-    }
-    zipped = Tail(zipped, mem);
-  }
+//   Mem *mem = &vm->mem;
+//   Val zipped = StackPop(vm);
+//   Val heads = nil;
+//   Val tails = nil;
+//   while (!IsNil(zipped)) {
+//     Val item = Head(zipped, mem);
+//     if (IsPair(item)) {
+//       heads = Pair(Head(item, mem), heads, mem);
+//       tails = Pair(Tail(item, mem), tails, mem);
+//     } else {
+//       heads = Pair(item, heads, mem);
+//       tails = Pair(nil, tails, mem);
+//     }
+//     zipped = Tail(zipped, mem);
+//   }
 
-  return Pair(heads, tails, mem);
-}
+//   return Pair(heads, tails, mem);
+// }
 
 static Val PrimMapNew(u32 num_args, VM *vm)
 {

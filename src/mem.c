@@ -1,5 +1,5 @@
 #include "mem.h"
-#include "proc.h"
+#include "function.h"
 
 void InitMem(Mem *mem)
 {
@@ -104,6 +104,19 @@ bool ListContains(Val list, Val value, Mem *mem)
   return false;
 }
 
+u32 ListLength(Val list, Mem *mem)
+{
+  Assert(IsPair(list));
+  if (IsNil(list)) return 0;
+  return ListLength(Tail(list, mem), mem) + 1;
+}
+
+bool IsTagged(Val list, char *tag, Mem *mem)
+{
+  if (!IsPair(list)) return false;
+  return Eq(SymbolFor(tag), Head(list, mem));
+}
+
 Val ListConcat(Val a, Val b, Mem *mem)
 {
   Assert(IsPair(a));
@@ -118,12 +131,6 @@ Val ListConcat(Val a, Val b, Mem *mem)
   return a;
 }
 
-bool IsTagged(Val list, char *tag, Mem *mem)
-{
-  if (!IsPair(list)) return false;
-  return Eq(SymbolFor(tag), Head(list, mem));
-}
-
 Val ListFrom(Val list, u32 pos, Mem *mem)
 {
   Assert(IsPair(list));
@@ -133,30 +140,11 @@ Val ListFrom(Val list, u32 pos, Mem *mem)
   return list;
 }
 
-Val ListTake(Val list, u32 n, Mem *mem)
-{
-  Assert(IsPair(list));
-  Val taken = nil;
-  for (u32 i = 0; i < n && !IsNil(list); i++) {
-    taken = Pair(Head(list, mem), taken, mem);
-    list = Tail(list, mem);
-  }
-
-  return ReverseList(taken, mem);
-}
-
 Val ListAt(Val list, u32 pos, Mem *mem)
 {
   if (pos == 0) return Head(list, mem);
   if (IsNil(list)) return nil;
   return ListAt(Tail(list, mem), pos-1, mem);
-}
-
-u32 ListLength(Val list, Mem *mem)
-{
-  Assert(IsPair(list));
-  if (IsNil(list)) return 0;
-  return ListLength(Tail(list, mem), mem) + 1;
 }
 
 Val ReverseList(Val list, Mem *mem)
@@ -169,50 +157,6 @@ Val ReverseList(Val list, Mem *mem)
     list = Tail(list, mem);
   }
   return new_list;
-}
-
-Val ListFlatten(Val list, Mem *mem)
-{
-  Assert(IsPair(list));
-
-  Val flattened = nil;
-
-  while (!IsNil(list)) {
-    Val item = Head(list, mem);
-
-    if (IsNil(item)) {
-      flattened = Pair(nil, flattened, mem);
-    } else if (IsPair(item)) {
-      item = ListFlatten(item, mem);
-      while (!IsNil(item)) {
-        flattened = Pair(Head(item, mem), flattened, mem);
-        item = Tail(item, mem);
-      }
-    } else {
-      flattened = Pair(item, flattened, mem);
-    }
-
-    list = Tail(list, mem);
-  }
-
-  return ReverseList(flattened, mem);
-}
-
-Val ListJoin(Val list, Val joiner, Mem *mem)
-{
-  Assert(IsPair(list));
-
-  if (IsNil(list)) return nil;
-
-  Val iolist = Pair(Head(list, mem), nil, mem);
-  list = Tail(list, mem);
-  while (!IsNil(list)) {
-    iolist = Pair(joiner, iolist, mem);
-    iolist = Pair(Head(list, mem), iolist, mem);
-    list = Tail(list, mem);
-  }
-
-  return ReverseList(iolist, mem);
 }
 
 static bool IOLength(Val list, u32 *length, Mem *mem)

@@ -1,4 +1,4 @@
-module Fizz.Buzz.Bar
+module std
 
 def (reduce list acc fn) do
   if list == nil do
@@ -9,7 +9,16 @@ def (reduce list acc fn) do
 end
 
 def (map list fn) do
-  reduce list [] (item acc) -> [(fn item) | acc]
+  reduce list [] (item acc) -> (fn item) | acc
+end
+
+def (filter list fn) do
+  reduce list [] (item) ->
+    if (fn item) do
+      item | acc
+    else
+      acc
+    end
 end
 
 def (iota n) do
@@ -23,5 +32,3 @@ def (iota n) do
 
   loop 0 []
 end
-
-:ok

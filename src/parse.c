@@ -308,7 +308,9 @@ static Val ParseAssign(Lexer *lex, Mem *mem)
 
   Val value = ParseExpr(PrecExpr, lex, mem);
   if (IsTagged(value, "error", mem)) return value;
-  return Pair(id, value, mem);
+  return
+    Pair(id,
+    Pair(value, nil, mem), mem);
 }
 
 static Val ParseLet(Lexer *lex, Mem *mem)
@@ -357,13 +359,35 @@ static Val ParseDef(Lexer *lex, Mem *mem)
     Pair(params,
     Pair(body, nil, mem), mem), mem);
 
-  return Pair(MakeSymbol("let", mem), Pair(Pair(id, lambda, mem), nil, mem), mem);
+  Val assign = Pair(id, Pair(lambda, nil, mem), mem);
+
+  return Pair(MakeSymbol("let", mem), Pair(assign, nil, mem), mem);
 }
 
-static Val ParseStmt(Lexer *lex, Mem *mem)
+static Val ParseStmt(TokenType end_type, Lexer *lex, Mem *mem)
 {
   Val args = nil;
-  while (PeekToken(lex).type != TokenNewline && !AtEnd(lex)) {
+  while (PeekToken(lex).type != TokenNewline && PeekToken(lex).type != end_type) {
+    if (AtEnd(lex)) return PartialParse(mem);
+
+    Val arg = ParseExpr(PrecExpr, lex, mem);
+    if (IsTagged(arg, "error", mem)) return arg;
+
+    args = Pair(arg, args, mem);
+  }
+
+  if (ListLength(args, mem) == 1) return Head(args, mem);
+  return ReverseList(args, mem);
+}
+
+static Val ParseIfStmt(Lexer *lex, Mem *mem)
+{
+  Val args = nil;
+  while (PeekToken(lex).type != TokenNewline &&
+         PeekToken(lex).type != TokenElse &&
+         PeekToken(lex).type != TokenEnd) {
+    if (AtEnd(lex)) return PartialParse(mem);
+
     Val arg = ParseExpr(PrecExpr, lex, mem);
     if (IsTagged(arg, "error", mem)) return arg;
 
@@ -383,7 +407,7 @@ static Val ParseDo(Lexer *lex, Mem *mem)
   while (!MatchToken(TokenEnd, lex)) {
     if (AtEnd(lex)) return PartialParse(mem);
 
-    Val stmt = ParseStmt(lex, mem);
+    Val stmt = ParseStmt(TokenEnd, lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
     stmts = Pair(stmt, stmts, mem);
     SkipNewlines(lex);
@@ -408,7 +432,7 @@ static Val ParseIf(Lexer *lex, Mem *mem)
   while (!MatchToken(TokenEnd, lex) && PeekToken(lex).type != TokenElse) {
     if (AtEnd(lex)) return PartialParse(mem);
 
-    Val stmt = ParseStmt(lex, mem);
+    Val stmt = ParseIfStmt(lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
 
     true_block = Pair(stmt, true_block, mem);
@@ -428,7 +452,7 @@ static Val ParseIf(Lexer *lex, Mem *mem)
     while (!MatchToken(TokenEnd, lex)) {
       if (AtEnd(lex)) return PartialParse(mem);
 
-      Val stmt = ParseStmt(lex, mem);
+      Val stmt = ParseStmt(TokenEnd, lex, mem);
       if (IsTagged(stmt, "error", mem)) return stmt;
 
       false_block = Pair(stmt, false_block, mem);
@@ -460,7 +484,7 @@ static Val ParseClauses(Lexer *lex, Mem *mem)
   if (!ExpectToken(TokenArrow, lex)) return ParseError("Expected \"->\"", lex->token, lex, mem);
 
   SkipNewlines(lex);
-  Val consequent = ParseStmt(lex, mem);
+  Val consequent = ParseStmt(TokenEnd, lex, mem);
   if (IsTagged(consequent, "error", mem)) return consequent;
 
   SkipNewlines(lex);
@@ -505,7 +529,7 @@ static Val ParseList(Lexer *lex, Mem *mem)
     SkipNewlines(lex);
   }
 
-  return Pair(MakeSymbol("[", mem), ReverseList(items, mem), mem);
+  return Pair(MakeSymbol("*list*", mem), ReverseList(items, mem), mem);
 }
 
 static Val ParseMap(Val items, Lexer *lex, Mem *mem)
@@ -525,7 +549,7 @@ static Val ParseMap(Val items, Lexer *lex, Mem *mem)
     SkipNewlines(lex);
   }
 
-  return Pair(MakeSymbol("#{", mem), ReverseList(items, mem), mem);
+  return Pair(MakeSymbol("*map*", mem), ReverseList(items, mem), mem);
 }
 
 static Val ParseBraces(Lexer *lex, Mem *mem)
@@ -536,7 +560,7 @@ static Val ParseBraces(Lexer *lex, Mem *mem)
 
   if (MatchToken(TokenRBrace, lex)) {
     // empty tuple
-    return Pair(MakeSymbol("{", mem), nil, mem);
+    return Pair(MakeSymbol("*tuple*", mem), nil, mem);
   }
 
   Token first_token = lex->token;
@@ -563,7 +587,7 @@ static Val ParseBraces(Lexer *lex, Mem *mem)
     SkipNewlines(lex);
   }
 
-  return Pair(MakeSymbol("{", mem), ReverseList(items, mem), mem);
+  return Pair(MakeSymbol("*tuple*", mem), ReverseList(items, mem), mem);
 }
 
 static Val ParseModuleName(Lexer *lex, Mem *mem)
@@ -597,7 +621,13 @@ static Val ParseImport(Lexer *lex, Mem *mem)
   if (IsTagged(name, "error", mem)) return name;
 
   if (MatchToken(TokenAs, lex)) {
-    Val alias = ParseID(lex, mem);
+    Val alias;
+    if (MatchToken(TokenStar, lex)) {
+      alias = nil;
+    } else {
+      alias = ParseID(lex, mem);
+    }
+
     if (IsTagged(alias, "error", mem)) return alias;
 
     return
@@ -607,7 +637,8 @@ static Val ParseImport(Lexer *lex, Mem *mem)
   } else {
     return
       Pair(MakeSymbol("import", mem),
-      Pair(name, nil, mem), mem);
+      Pair(name,
+      Pair(name, nil, mem), mem), mem);
   }
 }
 
@@ -680,7 +711,7 @@ Val Parse(char *source, Mem *mem)
 
   Val stmts = nil;
   while (!AtEnd(&lex)) {
-    Val stmt = ParseStmt(&lex, mem);
+    Val stmt = ParseStmt(TokenEOF, &lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
 
     if (IsTagged(stmt, "module", mem)) {
@@ -702,4 +733,65 @@ Val Parse(char *source, Mem *mem)
   }
 
   return stmts;
+}
+
+static void Indent(u32 n, u32 lines)
+{
+  for (u32 i = 0; i < n; i++) {
+    if (lines & (1 << i)) {
+      Print(" │");
+    } else {
+      Print("  ");
+    }
+  }
+}
+
+static void PrintTree(Val node, u32 indent, u32 lines, Mem *mem)
+{
+  if (IsNil(node)) {
+    Print("╴");
+    InspectVal(node, mem);
+    Print("\n");
+  } else if (IsTagged(node, "\"", mem)) {
+    Print("╴\"");
+    InspectVal(Tail(node, mem), mem);
+    Print("\"\n");
+  } else if (IsTagged(node, ":", mem)) {
+    Print("╴");
+    InspectVal(Tail(node, mem), mem);
+    Print("\n");
+  } else if (IsPair(node)) {
+    Print("─┐\n");
+    lines |= (1 << indent);
+    while (!IsNil(node)) {
+      Indent(indent, lines);
+      if (IsNil(Tail(node, mem))) {
+        lines &= ~(1 << indent);
+        Print(" └");
+      } else {
+        Print(" ├");
+      }
+
+      if (!IsPair(node)) {
+        Print("╴");
+        InspectVal(node, mem);
+        Print("\n");
+        node = nil;
+      } else {
+        PrintTree(Head(node, mem), indent+1, lines, mem);
+        node = Tail(node, mem);
+      }
+    }
+  } else {
+    Print("╴");
+    InspectVal(node, mem);
+    Print("\n");
+  }
+}
+
+void PrintAST(Val ast, Mem *mem)
+{
+  InspectVal(ast, mem);
+  Print("\n");
+  PrintTree(ast, 0, 0, mem);
 }

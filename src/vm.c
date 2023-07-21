@@ -1,7 +1,7 @@
 #include "vm.h"
 #include "ops.h"
 #include "env.h"
-#include "proc.h"
+#include "function.h"
 #include "primitives.h"
 
 static void TraceInstruction(VM *vm);
@@ -267,6 +267,40 @@ static void AccessOp(VM *vm, Val obj, Val arg)
   }
 }
 
+static void ApplyOp(VM *vm, OpCode op)
+{
+  Chunk *chunk = vm->chunk;
+  Mem *mem = &vm->mem;
+
+  u32 num_args = RawInt(ChunkConst(chunk, vm->pc+1));
+  Val func = StackPop(vm);
+
+  if (IsPrimitive(func, mem)) {
+    StackPush(vm, ApplyPrimitive(func, num_args, vm));
+    vm->pc = RawInt(vm->cont);
+  } else if (IsFunction(func, mem)) {
+    u32 arity = FunctionArity(func, mem);
+    if (arity != num_args) {
+      RuntimeError(vm, "Wrong number of arguments");
+    } else {
+      vm->pc = FunctionEntry(func, mem);
+      vm->env = ExtendEnv(FunctionEnv(func, mem), mem);
+    }
+  } else if (num_args == 0) {
+    // collection without args
+    StackPush(vm, func);
+    vm->pc += OpLength(op);
+  } else {
+    if (num_args == 1 && (IsPair(func) || IsObj(func))) {
+      Val arg = StackPop(vm);
+      AccessOp(vm, func, arg);
+    } else {
+      RuntimeError(vm, "Not a function");
+    }
+    vm->pc += OpLength(op);
+  }
+}
+
 Val RunChunk(VM *vm, Chunk *chunk)
 {
   vm->cont = nil;
@@ -390,7 +424,8 @@ Val RunChunk(VM *vm, Chunk *chunk)
     }
     case OpLambda: {
       Val pos = ChunkConst(chunk, vm->pc+1);
-      StackPush(vm, MakeFunction(pos, vm->env, mem));
+      Val arity = ChunkConst(chunk, vm->pc+2);
+      StackPush(vm, MakeFunction(pos, arity, vm->env, mem));
       vm->pc += OpLength(op);
       break;
     }
@@ -406,29 +441,9 @@ Val RunChunk(VM *vm, Chunk *chunk)
       vm->cont = ChunkConst(chunk, vm->pc+1);
       vm->pc += OpLength(op);
       break;
-    case OpApply: {
-      u32 num_args = RawInt(ChunkConst(chunk, vm->pc+1));
-      Val func = StackPop(vm);
-      if (IsPrimitive(func, mem)) {
-        StackPush(vm, ApplyPrimitive(func, num_args - 1, vm));
-        vm->pc = RawInt(vm->cont);
-      } else if (IsFunction(func, mem)) {
-        vm->pc = FunctionEntry(func, mem);
-        vm->env = ExtendEnv(FunctionEnv(func, mem), mem);
-      } else if (num_args == 0) {
-        StackPush(vm, func);
-        vm->pc += OpLength(op);
-      } else {
-        if (num_args == 2 && (IsPair(func) || IsObj(func))) {
-          Val arg = StackPop(vm);
-          AccessOp(vm, func, arg);
-        } else {
-          RuntimeError(vm, "Not a function");
-        }
-        vm->pc += OpLength(op);
-      }
+    case OpApply:
+      ApplyOp(vm, op);
       break;
-    }
     case OpReturn:
       vm->pc = RawInt(vm->cont);
       break;

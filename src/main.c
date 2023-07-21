@@ -1,32 +1,41 @@
+#include "args.h"
 #include "run.h"
 
 static void PrintUsage(void)
 {
   Print("Usage:\n");
-  Print("  cassette                Starts a REPL\n");
-  Print("  cassette file.csst      Runs a script\n");
-  Print("  cassette -c file.csst   Compiles a module\n");
-  Print("  cassette -v             Prints the runtime version\n");
-  Print("  cassette -h             Prints this help text\n");
+  Print("  cassette [-t]             Starts a REPL\n");
+  Print("  cassette [-t] file.cst    Runs a script\n");
+  Print("  cassette -c file.cst      Compiles a module\n");
+  Print("  cassette -v               Prints the runtime version\n");
+  Print("  cassette -h               Prints this help text\n");
+  Print("\n");
+  Print("Options:\n");
+  Print("  -t            Enables instruction tracing\n");
 }
 
 i32 main(i32 argc, char **argv)
 {
+  Opts opts = ParseArgs(argc, argv);
+
+  if (opts.version) PrintVersion();
+  if (opts.help) {
+    PrintUsage();
+    return 0;
+  }
+
   Seed(Time());
 
-  if (argc == 1) {
-    REPL();
-  } else if (argc == 2) {
-    if (StrEq(argv[1], "-h")) {
+  if (opts.compile) {
+    if (opts.filename == NULL) {
       PrintUsage();
-    } else if (StrEq(argv[1], "-v")) {
-      PrintVersion();
-    } else {
-      RunFile(argv[1]);
+      return 1;
     }
-  } else if (argc == 3 && StrEq(argv[1], "-c")) {
-    CompileFile(argv[2]);
+
+    CompileFile(opts.filename);
+  } else if (opts.filename != NULL) {
+    RunFile(opts);
   } else {
-    PrintUsage();
+    REPL(opts);
   }
 }

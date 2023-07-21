@@ -85,15 +85,12 @@ void SetHead(Val pair, Val head, Mem *mem);
 void SetTail(Val pair, Val tail, Mem *mem);
 
 bool ListContains(Val list, Val value, Mem *mem);
+u32 ListLength(Val list, Mem *mem);
 bool IsTagged(Val list, char *tag, Mem *mem);
 Val ListConcat(Val a, Val b, Mem *mem);
 Val ListFrom(Val list, u32 pos, Mem *mem);
-Val ListTake(Val list, u32 n, Mem *mem);
 Val ListAt(Val list, u32 pos, Mem *mem);
-u32 ListLength(Val list, Mem *mem);
 Val ReverseList(Val list, Mem *mem);
-Val ListFlatten(Val list, Mem *mem);
-Val ListJoin(Val list, Val joiner, Mem *mem);
 Val ListToBinary(Val list, Mem *mem);
 
 Val MakeBinary(u32 num_bytes, Mem *mem);

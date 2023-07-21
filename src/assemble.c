@@ -42,16 +42,17 @@ static u32 AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
 
     Val arg = Head(stmts, mem);
     switch (OpArgType(op)) {
-      case ArgsNone:
-        break;
-      case ArgsConst:
-        if (IsSym(arg)) AddSymbol(chunk, arg, mem);
-        PushByte(chunk, PushConst(chunk, arg));
-        break;
-      case ArgsReg:
-        Assert(IsTagged(arg, "reg-ref", mem));
-        PushByte(chunk, RawInt(Tail(arg, mem)));
-        break;
+    case ArgsNone:
+      break;
+    case ArgsConst:
+    case ArgsConstConst:
+      if (IsSym(arg)) AddSymbol(chunk, arg, mem);
+      PushByte(chunk, PushConst(chunk, arg));
+      break;
+    case ArgsReg:
+      Assert(IsTagged(arg, "reg-ref", mem));
+      PushByte(chunk, RawInt(Tail(arg, mem)));
+      break;
     }
   }
 

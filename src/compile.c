@@ -73,6 +73,7 @@ static CompileResult CompileLambda(Val node, Linkage linkage, Mem *mem)
   if (!body.ok) return body;
 
   Seq param_code = EmptySeq();
+  u32 arity = 0;
   while (!IsNil(params)) {
     Seq param = MakeSeq(0, RegEnv,
       Pair(OpSymbol(OpDefine),
@@ -80,6 +81,7 @@ static CompileResult CompileLambda(Val node, Linkage linkage, Mem *mem)
       Pair(OpSymbol(OpPop), nil, mem), mem), mem));
     param_code = Preserving(RegEnv | RegCont, param, param_code, mem);
     params = Tail(params, mem);
+    arity++;
   }
 
   Val entry = MakeLabel(mem);
@@ -97,7 +99,8 @@ static CompileResult CompileLambda(Val node, Linkage linkage, Mem *mem)
     EndWithLinkage(linkage,
       MakeSeq(RegEnv, 0,
         Pair(OpSymbol(OpLambda),
-        Pair(LabelRef(entry, mem), nil, mem), mem)), mem);
+        Pair(LabelRef(entry, mem),
+        Pair(IntVal(arity), nil, mem), mem), mem)), mem);
 
   return CompileOk(TackOnSeq(lambda_code, body_code, mem), node);
 }
@@ -163,7 +166,7 @@ static CompileResult CompileApplication(Val node, Linkage linkage, Mem *mem)
     node = Tail(node, mem);
   }
 
-  return CompileCall(args, num_args, node, linkage, mem);
+  return CompileCall(args, num_args-1, node, linkage, mem);
 }
 
 static CompileResult CompileDo(Val node, Linkage linkage, Mem *mem)
@@ -197,10 +200,11 @@ static CompileResult CompileLet(Val node, Linkage linkage, Mem *mem)
   Seq defines = EmptySeq();
 
   while (!IsNil(node)) {
-    Val pair = Head(node, mem);
-    Val var = Head(pair, mem);
-    Linkage def_linkage = (IsNil(Tail(node, mem))) ? linkage : LinkNext;
-    CompileResult value = CompileExpr(Tail(pair, mem), def_linkage, mem);
+    Val assign = Head(node, mem);
+    Val var = ListAt(assign, 0, mem);
+    Val val = ListAt(assign, 1, mem);
+
+    CompileResult value = CompileExpr(val, LinkNext, mem);
     if (!value.ok) return value;
 
     Seq def = Preserving(RegEnv,
@@ -213,7 +217,7 @@ static CompileResult CompileLet(Val node, Linkage linkage, Mem *mem)
     node = Tail(node, mem);
   }
 
-  return CompileOk(defines, node);
+  return CompileOk(EndWithLinkage(linkage, defines, mem), node);
 }
 
 static CompileResult CompileIf(Val node, Linkage linkage, Mem *mem)
@@ -359,16 +363,13 @@ static CompileResult CompileMap(Val node, Linkage linkage, Mem *mem)
 static CompileResult CompileImport(Val node, Linkage linkage, Mem *mem)
 {
   Val name = ListAt(node, 1, mem);
-  Val alias = name;
-  if (ListLength(node, mem) > 2) {
-    alias = ListAt(node, 2, mem);
-  }
+  Val alias = ListAt(node, 2, mem);
 
   Seq load = MakeSeq(0, 0,
     Pair(OpSymbol(OpGetMod),
     Pair(name, nil, mem), mem));
 
-  CompileResult call = CompileCall(EmptySeq(), 1, nil, linkage, mem);
+  CompileResult call = CompileCall(EmptySeq(), 0, nil, linkage, mem);
   if (!call.ok) return call;
 
   Seq export =
@@ -405,6 +406,28 @@ static CompileResult CompileEmpty(Val node, Linkage linkage, Mem *mem)
   return CompileOk(EndWithLinkage(linkage, EmptySeq(), mem), node);
 }
 
+static bool IsApplicable(Val node, Mem *mem)
+{
+  if (IsTagged(node, "->", mem)) return false;
+  if (IsTagged(node, "#", mem))  return false;
+  if (IsTagged(node, "not", mem)) return false;
+  if (IsTagged(node, "^", mem)) return false;
+  if (IsTagged(node, "*", mem)) return false;
+  if (IsTagged(node, "/", mem)) return false;
+  if (IsTagged(node, "+", mem)) return false;
+  if (IsTagged(node, "-", mem)) return false;
+  if (IsTagged(node, "|", mem)) return false;
+  if (IsTagged(node, "in", mem)) return false;
+  if (IsTagged(node, ">", mem)) return false;
+  if (IsTagged(node, "<", mem)) return false;
+  if (IsTagged(node, ">=", mem)) return false;
+  if (IsTagged(node, "<=", mem)) return false;
+  if (IsTagged(node, "==", mem)) return false;
+  if (IsTagged(node, "!=", mem)) return false;
+
+  return true;
+}
+
 static CompileResult CompileExpr(Val node, Linkage linkage, Mem *mem)
 {
   if (IsNil(node))                    return CompileEmpty(node, linkage, mem);
@@ -412,9 +435,9 @@ static CompileResult CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsSym(node))                    return CompileVar(node, linkage, mem);
   if (IsTagged(node, "\"", mem))      return CompileString(node, linkage, mem);
   if (IsTagged(node, ":", mem))       return CompileSymbol(node, linkage, mem);
-  if (IsTagged(node, "[", mem))       return CompileList(node, linkage, mem);
-  if (IsTagged(node, "{", mem))       return CompileTuple(node, linkage, mem);
-  if (IsTagged(node, "#{", mem))      return CompileMap(node, linkage, mem);
+  if (IsTagged(node, "*list*", mem))  return CompileList(node, linkage, mem);
+  if (IsTagged(node, "*tuple*", mem)) return CompileTuple(node, linkage, mem);
+  if (IsTagged(node, "*map*", mem))   return CompileMap(node, linkage, mem);
   if (IsTagged(node, "do", mem))      return CompileDo(node, linkage, mem);
   if (IsTagged(node, "if", mem))      return CompileIf(node, linkage, mem);
   if (IsTagged(node, ".", mem))       return CompileInfix(OpSeq(OpAccess, mem), node, linkage, mem);
@@ -453,7 +476,10 @@ static CompileResult CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsTagged(node, "import", mem))  return CompileImport(node, linkage, mem);
   if (IsTagged(node, "module", mem))  return CompileModule(node, linkage, mem);
 
-  if (IsPair(node))                   return CompileApplication(node, linkage, mem);
+  if (IsPair(node)) {
+    if (IsApplicable(Head(node, mem), mem)) return CompileApplication(node, linkage, mem);
+    else return CompileExpr(Head(node, mem), linkage, mem);
+  }
 
   return CompileError("Invalid node", node);
 }

@@ -34,7 +34,7 @@ static void PrintParseError(Val error, Mem *mem)
   Print(":");
   PrintInt(col);
   Print("]: ");
-  InspectVal(message, mem);
+  PrintVal(message, mem);
   Print("\n");
   PrintSourceContext(BinaryData(text, mem), line, 3, pos, length);
   PrintEscape(IOFGReset);
@@ -63,12 +63,16 @@ static void PrintCompileError(CompileResult error, Mem *mem)
 
 Val Eval(Val ast, VM *vm)
 {
+  PrintAST(ast, &vm->mem);
+
   CompileResult compiled = Compile(ast, &vm->mem);
   if (!compiled.ok) {
     PrintCompileError(compiled, &vm->mem);
     vm->error = true;
     return nil;
   }
+
+  PrintSeq(compiled.result, &vm->mem);
 
   Seq code = Preserving(RegEnv, compiled.result, MakeSeq(RegEnv, 0, nil), &vm->mem);
   Assemble(code, vm->chunk, &vm->mem);
@@ -135,13 +139,14 @@ static bool REPLCmd(char *text, VM *vm)
   return false;
 }
 
-void REPL(void)
+void REPL(Opts opts)
 {
   VM vm;
   InitVM(&vm);
   Chunk chunk;
   InitChunk(&chunk);
   vm.chunk = &chunk;
+  vm.trace = opts.trace;
 
   HashMap modules;
   InitHashMap(&modules);
@@ -220,15 +225,15 @@ void REPL(void)
   }
 }
 
-void RunFile(char *filename)
+void RunFile(Opts opts)
 {
   VM vm;
   InitVM(&vm);
   Chunk chunk;
   InitChunk(&chunk);
   vm.chunk = &chunk;
-
-  // vm.trace = true;
+  vm.trace = opts.trace;
+  char *filename = opts.filename;
 
   if (SniffFile(filename, 0xCA55E77E)) {
     if (ReadChunk(&chunk, filename)) {

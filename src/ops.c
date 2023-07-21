@@ -29,7 +29,7 @@ static OpInfo ops[] = {
   [OpLt]      = {"lt", ArgsNone},
   [OpIn]      = {"in", ArgsNone},
   [OpAccess]  = {"access", ArgsNone},
-  [OpLambda]  = {"lambda", ArgsConst},
+  [OpLambda]  = {"lambda", ArgsConstConst},
   [OpSave]    = {"save", ArgsReg},
   [OpRestore] = {"restore", ArgsReg},
   [OpCont]    = {"cont", ArgsConst},
@@ -63,9 +63,10 @@ char *OpName(OpCode op)
 u32 OpLength(OpCode op)
 {
   switch (ops[op].args) {
-  case ArgsNone:    return 1;
-  case ArgsConst:   return 2;
-  case ArgsReg:     return 2;
+  case ArgsNone:        return 1;
+  case ArgsConst:       return 2;
+  case ArgsReg:         return 2;
+  case ArgsConstConst:  return 3;
   }
 }
 
@@ -99,6 +100,12 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
     if (ChunkRef(chunk, index+1) == RegCont) length += Print("con");
     else if (ChunkRef(chunk, index+1) == RegEnv) length += Print("env");
     else length += PrintInt(ChunkRef(chunk, index+1));
+    return length;
+  case ArgsConstConst:
+    length += Print(" ");
+    length += InspectVal(ChunkConst(chunk, index+1), &chunk->constants);
+    length += Print(" ");
+    length += InspectVal(ChunkConst(chunk, index+2), &chunk->constants);
     return length;
   }
 }

@@ -6,6 +6,9 @@
 #define IsNewline(lex)  (Peek(lex) == '\n' || Peek(lex) == '\r')
 #define IsDigit(lex)    (Peek(lex) >= '0'  && Peek(lex) <= '9')
 #define IsHexDigit(lex) (IsDigit(lex) || (Peek(lex) >= 'A'  && Peek(lex) <= 'F'))
+#define IsUpper(lex)    (Peek(lex) >= 'A' && Peek(lex) <= 'Z')
+#define IsLower(lex)    (Peek(lex) >= 'a' && Peek(lex) <= 'z')
+#define IsAlpha(lex)    (IsUpper(lex) || IsLower(lex))
 
 static struct {char *lexeme; TokenType type;} keywords[] = {
   {"and",     TokenAnd },
@@ -115,9 +118,7 @@ static bool MatchKeyword(Lexer *lex, char *keyword)
     keyword++;
   }
 
-  if (IsSpace(lex) || IsNewline(lex) || IsEOF(lex)) {
-    return true;
-  }
+  if (!IsAlpha(lex)) return true;
 
   lex->pos = start;
   return false;
