@@ -16,6 +16,7 @@ typedef enum {
   OpSub,
   OpMul,
   OpDiv,
+  OpRem,
   OpExp,
   OpNeg,
   OpNot,

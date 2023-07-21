@@ -446,6 +446,7 @@ static CompileResult CompileExpr(Val node, Linkage linkage, Mem *mem)
   if (IsTagged(node, "^", mem))       return CompileInfix(OpSeq(OpExp, mem), node, linkage, mem);
   if (IsTagged(node, "*", mem))       return CompileInfix(OpSeq(OpMul, mem), node, linkage, mem);
   if (IsTagged(node, "/", mem))       return CompileInfix(OpSeq(OpDiv, mem), node, linkage, mem);
+  if (IsTagged(node, "%", mem))       return CompileInfix(OpSeq(OpRem, mem), node, linkage, mem);
   if (IsTagged(node, "+", mem))       return CompileInfix(OpSeq(OpAdd, mem), node, linkage, mem);
   if (IsTagged(node, "-", mem)) {
     if (ListLength(node, mem) > 2)    return CompileInfix(OpSeq(OpSub, mem), node, linkage, mem);

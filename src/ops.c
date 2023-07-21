@@ -21,6 +21,7 @@ static OpInfo ops[] = {
   [OpSub]     = {"sub", ArgsNone},
   [OpMul]     = {"mul", ArgsNone},
   [OpDiv]     = {"div", ArgsNone},
+  [OpRem]     = {"rem", ArgsNone},
   [OpExp]     = {"exp", ArgsNone},
   [OpNeg]     = {"neg", ArgsNone},
   [OpNot]     = {"not", ArgsNone},

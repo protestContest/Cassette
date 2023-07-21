@@ -4,10 +4,10 @@ def (fizzbuzz n) do
 
   def (loop m) do
     cond do
-      (div3 m) and (div5 m) -> print "FizzBuzz"
-      (div3 m)              -> print "Fizz"
-      (div5 m)              -> print "Buzz"
-      true                  -> print m
+      m % 3 == 0 and m % 5 == 0   -> print "FizzBuzz"
+      m % 3 == 0                  -> print "Fizz"
+      m % 5 == 0                  -> print "Buzz"
+      true                        -> print m
     end
 
     if m < n do

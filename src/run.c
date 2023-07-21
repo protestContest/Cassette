@@ -63,16 +63,12 @@ static void PrintCompileError(CompileResult error, Mem *mem)
 
 Val Eval(Val ast, VM *vm)
 {
-  PrintAST(ast, &vm->mem);
-
   CompileResult compiled = Compile(ast, &vm->mem);
   if (!compiled.ok) {
     PrintCompileError(compiled, &vm->mem);
     vm->error = true;
     return nil;
   }
-
-  PrintSeq(compiled.result, &vm->mem);
 
   Seq code = Preserving(RegEnv, compiled.result, MakeSeq(RegEnv, 0, nil), &vm->mem);
   Assemble(code, vm->chunk, &vm->mem);

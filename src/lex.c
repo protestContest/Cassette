@@ -99,6 +99,7 @@ static bool IsSymChar(Lexer *lex)
   case ']': return false;
   case '{': return false;
   case '}': return false;
+  case '%': return false;
   default: return true;
   }
 }
@@ -227,6 +228,7 @@ static Token AdvanceToken(Lexer *lex)
   if (Match(lex, ">=")) return MakeToken(TokenGreaterEqual, start, &Peek(lex) - start, line, col);
   if (Match(lex, "<=")) return MakeToken(TokenLessEqual, start, &Peek(lex) - start, line, col);
   if (Match(lex, "^")) return MakeToken(TokenCaret, start, &Peek(lex) - start, line, col);
+  if (Match(lex, "%")) return MakeToken(TokenPercent, start, &Peek(lex) - start, line, col);
   if (Match(lex, "#")) return MakeToken(TokenHash, start, &Peek(lex) - start, line, col);
   if (Match(lex, "|")) return MakeToken(TokenPipe, start, &Peek(lex) - start, line, col);
   if (Match(lex, ",")) return MakeToken(TokenComma, start, &Peek(lex) - start, line, col);

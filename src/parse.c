@@ -62,6 +62,7 @@ static ParseRule rules[] = {
   [TokenCaret]        = {NULL, &ParseLeftAssoc, PrecExponent},
   [TokenStar]         = {NULL, &ParseLeftAssoc, PrecProduct},
   [TokenSlash]        = {NULL, &ParseLeftAssoc, PrecProduct},
+  [TokenPercent]      = {NULL, &ParseLeftAssoc, PrecProduct},
   [TokenEqualEqual]   = {NULL, &ParseLeftAssoc, PrecEqual},
   [TokenNotEqual]     = {NULL, &ParseLeftAssoc, PrecEqual},
   [TokenGreater]      = {NULL, &ParseLeftAssoc, PrecCompare},
@@ -316,7 +317,7 @@ static Val ParseAssign(Lexer *lex, Mem *mem)
   if (!MatchToken(TokenEqual, lex)) return ParseError("Expected \"=\"", lex->token, lex, mem);
   SkipNewlines(lex);
 
-  Val value = ParseExpr(PrecExpr, lex, mem);
+  Val value = ParseCall(lex, mem);
   if (IsTagged(value, "error", mem)) return value;
   return
     Pair(id,
@@ -361,7 +362,7 @@ static Val ParseDef(Lexer *lex, Mem *mem)
     params = Pair(param, params, mem);
   }
 
-  Val body = ParseExpr(PrecExpr, lex, mem);
+  Val body = ParseCall(lex, mem);
   if (IsTagged(body, "error", mem)) return body;
 
   Val lambda =
@@ -719,7 +720,11 @@ Val Parse(char *source, Mem *mem)
     if (IsTagged(stmt, "error", mem)) return stmt;
 
     if (IsTagged(stmt, "module", mem)) {
-      module = Tail(stmt, mem);
+      if (IsNil(module)) {
+        module = Tail(stmt, mem);
+      } else {
+        return ParseError("Only one module statement is allowed", lex.token, &lex, mem);
+      }
     } else {
       stmts = Pair(stmt, stmts, mem);
     }

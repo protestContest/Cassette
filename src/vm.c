@@ -127,6 +127,7 @@ i32 IntOp(i32 a, i32 b, OpCode op)
   case OpAdd: return a + b;
   case OpSub: return a - b;
   case OpMul: return a * b;
+  case OpRem: return a % b;
   case OpExp: {
     i32 result = 1;
     for (i32 i = 0; i < b; i++) result *= a;
@@ -154,6 +155,11 @@ void ArithmeticOp(VM *vm, OpCode op)
   Val result;
 
   if (!IsNumeric(a) || !IsNumeric(b)) {
+    RuntimeError(vm, "Bad arithmetic argument");
+    return;
+  }
+
+  if (op == OpRem && (!IsInt(a) || !IsInt(b))) {
     RuntimeError(vm, "Bad arithmetic argument");
     return;
   }
@@ -365,6 +371,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
     case OpSub:
     case OpMul:
     case OpDiv:
+    case OpRem:
     case OpExp:
       ArithmeticOp(vm, op);
       vm->pc += OpLength(op);
