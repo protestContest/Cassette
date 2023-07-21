@@ -245,7 +245,7 @@ void RunFile(Opts opts)
     return;
   }
 
-  Val ast = LoadModule(filename, &vm.mem);
+  Val ast = LoadModule(filename, opts.module_path, &vm.mem);
   if (IsTagged(ast, "error", &vm.mem)) {
     Val type = ListAt(ast, 1, &vm.mem);
     if (Eq(type, SymbolFor("parse"))) {
@@ -254,16 +254,17 @@ void RunFile(Opts opts)
       PrintLoadError(ast, &vm.mem);
     }
   } else {
+    if (opts.print_ast) PrintAST(ast, &vm.mem);
     Eval(ast, &vm);
   }
 }
 
-void CompileFile(char *filename)
+void CompileFile(char *filename, char *module_path)
 {
   Mem mem;
   InitMem(&mem);
 
-  Val ast = LoadModule(filename, &mem);
+  Val ast = LoadModule(filename, module_path, &mem);
   if (IsTagged(ast, "error", &mem)) {
     Val type = ListAt(ast, 1, &mem);
     if (Eq(type, SymbolFor("parse"))) {

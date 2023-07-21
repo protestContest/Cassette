@@ -45,6 +45,7 @@ void Disassemble(Chunk *chunk)
     Print("\n");
     i += OpLength(chunk->data[i]);
   }
+  Print("\n");
 }
 
 typedef struct {

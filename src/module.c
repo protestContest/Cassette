@@ -71,7 +71,7 @@ void FindModules(char *path, HashMap *modules, Mem *mem)
   } while (item.type != TypeNone);
 }
 
-Val LoadModule(char *entry, Mem *mem)
+Val LoadModule(char *entry, char *module_path, Mem *mem)
 {
   char *source = (char*)ReadFile(entry);
   if (source == NULL) return LoadError(MakeSymbol(entry, mem), mem);
@@ -84,7 +84,7 @@ Val LoadModule(char *entry, Mem *mem)
 
   HashMap modules;
   InitHashMap(&modules);
-  FindModules(FolderName(entry), &modules, mem);
+  FindModules(module_path, &modules, mem);
 
   ast = Pair(ast, nil, mem);
 

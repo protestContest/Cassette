@@ -32,7 +32,7 @@ i32 main(i32 argc, char **argv)
       return 1;
     }
 
-    CompileFile(opts.filename);
+    CompileFile(opts.filename, opts.module_path);
   } else if (opts.filename != NULL) {
     RunFile(opts);
   } else {
