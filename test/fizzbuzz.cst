@@ -1,7 +1,4 @@
 def (fizzbuzz n) do
-  def (div3 n) (Math.rem n 3) == 0
-  def (div5 n) (Math.rem n 5) == 0
-
   def (loop m) do
     cond do
       m % 3 == 0 and m % 5 == 0   -> print "FizzBuzz"
