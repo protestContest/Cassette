@@ -319,6 +319,8 @@ static Val ParseAssign(Lexer *lex, Mem *mem)
 
   Val value = ParseCall(lex, mem);
   if (IsTagged(value, "error", mem)) return value;
+  if (IsNil(value)) return ParseError("Expected expression", lex->token, lex, mem);
+
   return
     Pair(id,
     Pair(value, nil, mem), mem);
@@ -364,6 +366,7 @@ static Val ParseDef(Lexer *lex, Mem *mem)
 
   Val body = ParseCall(lex, mem);
   if (IsTagged(body, "error", mem)) return body;
+  if (IsNil(body)) return ParseError("Expected expression", lex->token, lex, mem);
 
   Val lambda =
     Pair(MakeSymbol("->", mem),
@@ -404,6 +407,7 @@ static Val ParseDo(Lexer *lex, Mem *mem)
 
     Val stmt = ParseCall(lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
+    if (IsNil(stmt)) return ParseError("Expected expression", lex->token, lex, mem);
 
     stmts = Pair(stmt, stmts, mem);
 
@@ -432,6 +436,7 @@ static Val ParseIf(Lexer *lex, Mem *mem)
 
     Val stmt = ParseCall(lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
+    if (IsNil(stmt)) return ParseError("Expected expression", lex->token, lex, mem);
 
     true_block = Pair(stmt, true_block, mem);
 
@@ -454,6 +459,7 @@ static Val ParseIf(Lexer *lex, Mem *mem)
 
       Val stmt = ParseCall(lex, mem);
       if (IsTagged(stmt, "error", mem)) return stmt;
+      if (IsNil(stmt)) return ParseError("Expected expression", lex->token, lex, mem);
 
       false_block = Pair(stmt, false_block, mem);
 
@@ -488,6 +494,7 @@ static Val ParseClauses(Lexer *lex, Mem *mem)
   SkipNewlines(lex);
   Val consequent = ParseCall(lex, mem);
   if (IsTagged(consequent, "error", mem)) return consequent;
+  if (IsNil(consequent)) return ParseError("Expected expression", lex->token, lex, mem);
 
   SkipNewlines(lex);
   Val alternative = nil;
@@ -718,6 +725,7 @@ Val Parse(char *source, Mem *mem)
   while (!AtEnd(&lex)) {
     Val stmt = ParseCall(&lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
+    if (IsNil(stmt)) return ParseError("Expected expression", lex.token, &lex, mem);
 
     if (IsTagged(stmt, "module", mem)) {
       if (IsNil(module)) {
