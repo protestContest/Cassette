@@ -1,5 +1,6 @@
 #pragma once
 #include "chunk.h"
+#include "profile.h"
 
 typedef enum {
   OpConst,
@@ -61,3 +62,4 @@ OpCode OpFor(Val symbol);
 OpArgs OpArgType(OpCode op);
 u32 PrintInstruction(Chunk *chunk, u32 index);
 
+Metric *InitOpMetrics(void);

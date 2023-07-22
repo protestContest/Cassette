@@ -112,3 +112,17 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
     return length;
   }
 }
+
+Metric *InitOpMetrics(void)
+{
+  Metric *metrics = NewVec(Metric, ArrayCount(ops));
+
+  for (u32 i = 0; i < ArrayCount(ops); i++) {
+    Metric m = {ops[i].name, NULL};
+    VecPush(metrics, m);
+  }
+
+  return metrics;
+}
+
+

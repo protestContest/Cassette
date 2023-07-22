@@ -3,6 +3,7 @@
 #include "env.h"
 #include "function.h"
 #include "primitives.h"
+#include "profile.h"
 
 static void TraceInstruction(VM *vm);
 static void MergeStrings(Mem *dst, Mem *src);
@@ -348,6 +349,8 @@ Val RunChunk(VM *vm, Chunk *chunk)
   vm->error = false;
   Mem *mem = &vm->mem;
 
+  Metric *metrics = InitOpMetrics();
+
   while (vm->pc < VecCount(chunk->data)) {
     if (vm->trace) TraceInstruction(vm);
 
@@ -358,6 +361,8 @@ Val RunChunk(VM *vm, Chunk *chunk)
     }
 
     OpCode op = ChunkRef(chunk, vm->pc);
+
+    u32 metric_start = Nanotime();
 
     switch (op) {
     case OpConst:
@@ -568,7 +573,12 @@ Val RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     }
+
+    u32 metric_end = Nanotime();
+    VecPush(metrics[op].samples, metric_end - metric_start);
   }
+
+  PrintMetrics(metrics);
 
   if (!vm->error && VecCount(vm->val) > 0) {
     Val result = StackPop(vm);
