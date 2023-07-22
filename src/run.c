@@ -4,6 +4,7 @@
 #include "assemble.h"
 #include "env.h"
 #include "module.h"
+#include "std.h"
 #include <signal.h>
 
 static void OnSignal(int sig)
@@ -70,8 +71,7 @@ Val Eval(Val ast, VM *vm)
     return nil;
   }
 
-  Seq code = Preserving(RegEnv, compiled.result, MakeSeq(RegEnv, 0, nil), &vm->mem);
-  Assemble(code, vm->chunk, &vm->mem);
+  Assemble(compiled.result, vm->chunk, &vm->mem);
 
   TakeOutGarbage(vm);
 
@@ -139,14 +139,13 @@ void REPL(Opts opts)
 {
   VM vm;
   InitVM(&vm);
-  Chunk chunk;
-  InitChunk(&chunk);
+  Chunk chunk = GetStdChunk();
   vm.chunk = &chunk;
   vm.trace = opts.trace;
 
   HashMap modules;
   InitHashMap(&modules);
-  FindModules(".", &modules, &vm.mem);
+  FindModules(opts.module_path, &modules, &vm.mem);
 
   signal(SIGINT, OnSignal);
   RawConsole();
@@ -231,12 +230,12 @@ void RunFile(Opts opts)
   vm.trace = opts.trace;
   char *filename = opts.filename;
 
-  if (SniffFile(filename, 0xCA55E77E)) {
+  if (SniffChunk(filename)) {
     if (ReadChunk(&chunk, filename)) {
       RunChunk(&vm, &chunk);
     } else {
       PrintEscape(IOFGRed);
-      Print("Error loading module \"");
+      Print("Error loading chunk \"");
       Print(filename);
       Print("\"");
       PrintEscape(IOFGReset);
@@ -265,6 +264,8 @@ void CompileFile(char *filename, char *module_path)
   InitMem(&mem);
 
   Val ast = LoadModule(filename, module_path, &mem);
+  PrintAST(ast, &mem);
+
   if (IsTagged(ast, "error", &mem)) {
     Val type = ListAt(ast, 1, &mem);
     if (Eq(type, SymbolFor("parse"))) {
@@ -277,12 +278,10 @@ void CompileFile(char *filename, char *module_path)
     if (compiled.ok) {
       Chunk chunk;
       InitChunk(&chunk);
-      Seq code = Preserving(RegEnv, compiled.result, MakeSeq(RegEnv, 0, nil), &mem);
-      Assemble(code, &chunk, &mem);
+      Assemble(compiled.result, &chunk, &mem);
       WriteChunk(&chunk, ReplaceExtension(filename, "tape"));
     } else {
       PrintCompileError(compiled, &mem);
     }
-
   }
 }

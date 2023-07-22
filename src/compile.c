@@ -20,7 +20,11 @@ static CompileResult CompileOk(Seq seq, Val node)
 CompileResult Compile(Val ast, Mem *mem)
 {
   InitOps(mem);
-  return CompileExpr(ast, LinkNext, mem);
+  CompileResult compiled = CompileExpr(ast, LinkNext, mem);
+  if (!compiled.ok) return compiled;
+
+  Seq code = Preserving(RegEnv, compiled.result, MakeSeq(RegEnv, 0, nil), mem);
+  return CompileOk(code, ast);
 }
 
 static CompileResult CompileConst(Val node, Linkage linkage, Mem *mem)

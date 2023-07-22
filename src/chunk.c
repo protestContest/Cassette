@@ -48,6 +48,40 @@ void Disassemble(Chunk *chunk)
   Print("\n");
 }
 
+void AppendChunk(Chunk *base, Chunk *chunk)
+{
+  u32 base_length = VecCount(base->data);
+
+  for (u32 i = 0; i < VecCount(chunk->data);) {
+    OpCode op = chunk->data[i];
+
+    PushByte(base, op);
+    switch (OpArgType(op)) {
+    case ArgsNone:
+      break;
+    case ArgsLoc: {
+      i32 loc = RawInt(ChunkConst(chunk, i+1));
+      PushConst(base, IntVal(loc + base_length));
+      break;
+    }
+    case ArgsConst:
+      PushConst(base, ChunkConst(chunk, chunk->data[i+1]));
+      break;
+    case ArgsLocConst: {
+      i32 loc = RawInt(ChunkConst(chunk, i+1));
+      PushConst(base, IntVal(loc + base_length));
+      PushConst(base, ChunkConst(chunk, chunk->data[i+2]));
+      break;
+    }
+    case ArgsReg:
+      PushByte(base, chunk->data[i+1]);
+      break;
+    }
+
+    i += OpLength(op);
+  }
+}
+
 typedef struct {
   char id[4];
   u32 version;
@@ -57,16 +91,14 @@ typedef struct {
   u32 chunk_size;
 } ChunkFileHeader;
 
+static u8 chunk_tag[4] = {0xCA, 0x55, 0xE7, 0x7E};
 static ChunkFileHeader ChunkSize(Chunk *chunk)
 {
   ChunkFileHeader header;
-  header.id[0] = 0xCA;
-  header.id[1] = 0x55;
-  header.id[2] = 0xE7;
-  header.id[3] = 0x7E;
+  Copy(chunk_tag, header.id, sizeof(chunk_tag));
   header.version = 1;
 
-  u32 size = 0;
+  u32 size = sizeof(header);
   u32 num_strings = HashMapCount(&chunk->constants.string_map);
   size += sizeof(u32)*2*num_strings;
   header.string_offset = size;
@@ -83,110 +115,108 @@ static ChunkFileHeader ChunkSize(Chunk *chunk)
   return header;
 }
 
-bool WriteChunk(Chunk *chunk, char *filename)
+bool SniffChunk(char *filename)
 {
-/*
-Format:
-- Magic number, 0xCA55E77E
-- u32 position of string data
-- u32 position of constants
-- u32 position of code
-- u32 chunk size
-- string map: list of (u32 key, u32 value) pairs
-- string data
-- constants
-- code
-*/
+  return SniffFile(filename, *((u32*)chunk_tag));
+}
 
+u8 *SerializeChunk(Chunk *chunk)
+{
   ChunkFileHeader header = ChunkSize(chunk);
+  u8 *serialized = NewVec(u8, sizeof(header) + header.chunk_size);
 
-  u8 file_data[header.chunk_size];
-  u32 cur = 0;
+  Copy(&header, serialized, sizeof(header));
+  u32 cur = sizeof(header);
 
   u32 num_strings = HashMapCount(&chunk->constants.string_map);
   for (u32 i = 0; i < num_strings; i++) {
     u32 key = GetHashMapKey(&chunk->constants.string_map, i);
     u32 val = GetHashMapValue(&chunk->constants.string_map, i);
 
-    *((u32*)(file_data+cur)) = key;
+    *((u32*)(serialized+cur)) = key;
     cur += sizeof(key);
-    *((u32*)(file_data+cur)) = val;
+    *((u32*)(serialized+cur)) = val;
     cur += sizeof(val);
   }
 
   Assert(cur == header.string_offset);
-
-  for (u32 i = 0; i < VecCount(chunk->constants.strings); i++, cur++) {
-    file_data[cur] = chunk->constants.strings[i];
-  }
-
+  Copy(chunk->constants.strings, serialized+cur, VecCount(chunk->constants.strings));
+  cur += VecCount(chunk->constants.strings);
   Assert(cur == header.constant_offset);
-
-  for (u32 i = 0; i < VecCount(chunk->constants.values); i++, cur += sizeof(Val)) {
-    *((Val *)(file_data + cur)) = chunk->constants.values[i];
-  }
-
+  Copy(chunk->constants.values, serialized+cur, VecCount(chunk->constants.values)*sizeof(Val));
+  cur += VecCount(chunk->constants.values)*sizeof(Val);
   Assert(cur == header.code_offset);
-
-  for (u32 i = 0; i < VecCount(chunk->data); i++, cur++) {
-    file_data[cur] = chunk->data[i];
-  }
-
+  Copy(chunk->data, serialized+cur, VecCount(chunk->data));
+  cur += VecCount(chunk->data);
   Assert(cur == header.chunk_size);
 
-  HexDump(file_data, header.chunk_size);
+  RawVecCount(serialized) = sizeof(header) + header.chunk_size;
+  return serialized;
+}
 
-  u8 output[header.chunk_size + sizeof(header)];
-  *((ChunkFileHeader*)output) = header;
-  u8 *compressed = output + sizeof(header);
-  Compress(file_data, compressed, header.chunk_size);
+bool WriteChunk(Chunk *chunk, char *filename)
+{
+  u8 *serialized = SerializeChunk(chunk);
+  bool result = WriteFile(filename, serialized, VecCount(serialized));
+  FreeVec(serialized);
+  return result;
+}
 
-  return WriteFile(filename, output, sizeof(header) + header.chunk_size);
+void DeserializeChunk(u8 *serialized, Chunk *chunk)
+{
+  ChunkFileHeader header;
+  Copy(serialized, &header, sizeof(header));
+
+  u8 *strings = serialized + header.string_offset;
+  u8 *constants = serialized + header.constant_offset;
+  u8 *code = serialized + header.code_offset;
+  u8 *end = serialized + header.chunk_size;
+
+  u32 cur = sizeof(header);
+  InitHashMap(&chunk->constants.string_map);
+  while (serialized+cur < strings) {
+    u32 key = *((u32*)(serialized+cur));
+    cur += sizeof(key);
+    u32 val = *((u32*)(serialized+cur));
+    cur += sizeof(val);
+    HashMapSet(&chunk->constants.string_map, key, val);
+  }
+
+  u32 strings_len = constants - strings;
+  chunk->constants.strings = NewVec(char, strings_len);
+  Copy(serialized+cur, chunk->constants.strings, strings_len);
+  RawVecCount(chunk->constants.strings) = strings_len;
+  cur += strings_len;
+
+  u32 constants_len = code - constants;
+  chunk->constants.values = NewVec(Val, constants_len);
+  Copy(serialized+cur, chunk->constants.values, constants_len);
+  RawVecCount(chunk->constants.values) = constants_len / sizeof(Val);
+  cur += constants_len;
+
+  u32 code_len = end - code;
+  chunk->data = NewVec(u8, code_len);
+  Copy(serialized+cur, chunk->data, code_len);
+  RawVecCount(chunk->data) = code_len;
 }
 
 bool ReadChunk(Chunk *chunk, char *filename)
 {
-  char *data = (char*)ReadFile(filename);
+  u8 *data = ReadFile(filename);
   if (data == NULL) return false;
 
-  ChunkFileHeader header = *((ChunkFileHeader*)data);
-  data += sizeof(header);
-
-  char *strings = data + header.string_offset;
-  char *constants = data + header.constant_offset;
-  char *code = data + header.code_offset;
-  char *end = data + header.chunk_size;
-
-  InitHashMap(&chunk->constants.string_map);
-  while (data < strings) {
-    u32 key = *((u32*)data);
-    data += sizeof(key);
-    u32 val = *((u32*)data);
-    data += sizeof(val);
-    HashMapSet(&chunk->constants.string_map, key, val);
-  }
-
-  u32 strings_size = header.constant_offset - header.string_offset;
-  chunk->constants.strings = NewVec(char, strings_size);
-  while (data < constants) {
-    VecPush(chunk->constants.strings, *data);
-    data++;
-  }
-
-  u32 num_consts = (header.code_offset - header.constant_offset) / sizeof(Val);
-  chunk->constants.values = NewVec(Val, num_consts);
-  while (data < code) {
-    Val value = *((Val*)data);
-    data += sizeof(Val);
-    VecPush(chunk->constants.values, value);
-  }
-
-  u32 code_size = header.chunk_size - header.code_offset;
-  chunk->data = NewVec(u8, code_size);
-  while (data < end) {
-    VecPush(chunk->data, *data);
-    data++;
-  }
-
+  DeserializeChunk(data, chunk);
   return true;
+}
+
+void EmbedChunk(char *filename, char *name)
+{
+  u8 *data = ReadFile(filename);
+  if (data == NULL) return;
+
+  ChunkFileHeader header;
+  Copy(data, &header, sizeof(header));
+  u32 size = sizeof(header) + header.chunk_size;
+
+  CEmbed(name, data, size);
 }

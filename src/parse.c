@@ -713,6 +713,15 @@ static Val WrapModule(Val ast, Val name, Mem *mem)
       Pair(ast, nil, mem), mem), mem), nil, mem), mem), mem);
 }
 
+Val ModuleName(Val ast, Mem *mem)
+{
+  if (IsTagged(ast, "module", mem)) {
+    return ListAt(ast, 1, mem);
+  } else {
+    return SymbolFor("*");
+  }
+}
+
 Val Parse(char *source, Mem *mem)
 {
   Lexer lex;
@@ -747,7 +756,9 @@ Val Parse(char *source, Mem *mem)
     stmts = Head(stmts, mem);
   }
 
-  if (!IsNil(module)) {
+  if (IsNil(module)) {
+    return WrapModule(stmts, MakeSymbol("*", mem), mem);
+  } else {
     return WrapModule(stmts, module, mem);
   }
 

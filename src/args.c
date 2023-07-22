@@ -36,7 +36,7 @@ Opts ParseArgs(u32 argc, char *argv[])
       else i += args_parsed - 1;
     } else if (opts.filename == NULL) {
       opts.filename = argv[i];
-      if (opts.module_path == NULL) {
+      if (StrEq(opts.module_path, ".")) {
         opts.module_path = FolderName(argv[i]);
       }
     } else {

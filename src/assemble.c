@@ -44,8 +44,9 @@ static u32 AssembleInstruction(Val stmts, Chunk *chunk, Mem *mem)
     switch (OpArgType(op)) {
     case ArgsNone:
       break;
+    case ArgsLoc:
     case ArgsConst:
-    case ArgsConstConst:
+    case ArgsLocConst:
       if (IsSym(arg)) AddSymbol(chunk, arg, mem);
       PushByte(chunk, PushConst(chunk, arg));
       break;

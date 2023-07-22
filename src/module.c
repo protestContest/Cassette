@@ -1,5 +1,7 @@
 #include "module.h"
 #include "parse.h"
+#include <unistd.h>
+#include <dirent.h>
 
 Val SplitModName(Val mod_name, Mem *mem)
 {
@@ -38,7 +40,7 @@ Val FindImports(Val ast, Mem *mem)
   return imports;
 }
 
-static Val LoadError(Val name, Mem *mem)
+Val LoadError(Val name, Mem *mem)
 {
   return
     Pair(MakeSymbol("error", mem),
@@ -48,27 +50,39 @@ static Val LoadError(Val name, Mem *mem)
 
 void FindModules(char *path, HashMap *modules, Mem *mem)
 {
-  Folder folder = OpenFolder(path);
-  if (folder == NULL) return;
+  DIR *dir = opendir(path);
+  if (dir == NULL) return;
 
-  FolderItem item;
-  do {
-    item = NextFolderItem(folder);
+  for (struct dirent *item = readdir(dir); item != NULL; item = readdir(dir)) {
+    if (item->d_name[0] == '.') continue;
 
-    if (item.type == TypeFolder) {
-      FindModules(item.name, modules, mem);
-    } else if (item.type == TypeFile) {
-      char *item_path = JoinPath(path, item.name);
+    if (item->d_type == DT_DIR) {
+      FindModules(item->d_name, modules, mem);
+    } else if (item->d_type == DT_REG) {
+      char *item_path = JoinPath(path, item->d_name);
       char *source = ReadFile(item_path);
       if (source == NULL) continue;
 
       Val ast = Parse(source, mem);
-      if (IsTagged(ast, "module", mem)) {
+      Val mod_name = ModuleName(ast, mem);
+      if (!HashMapContains(modules, mod_name.as_i)) {
         Val name = ListAt(ast, 1, mem);
         HashMapSet(modules, name.as_i, ast.as_i);
       }
     }
-  } while (item.type != TypeNone);
+  }
+}
+
+static Val WrapEntryModule(Val module, Mem *mem)
+{
+  Val mod_name = ModuleName(module, mem);
+  Val run_mod =
+    Pair(MakeSymbol("import", mem),
+    Pair(mod_name,
+    Pair(nil, nil, mem), mem), mem);
+  return
+    Pair(module,
+    Pair(run_mod, nil, mem), mem);
 }
 
 Val LoadModule(char *entry, char *module_path, Mem *mem)
@@ -79,14 +93,20 @@ Val LoadModule(char *entry, char *module_path, Mem *mem)
   Val ast = Parse(source, mem);
   if (IsTagged(ast, "error", mem)) return ast;
 
+  Val entry_mod = ModuleName(ast, mem);
+  ast = WrapEntryModule(ast, mem);
+
   Val imports = FindImports(ast, mem);
   if (IsNil(imports)) return ast;
 
   HashMap modules;
   InitHashMap(&modules);
-  FindModules(module_path, &modules, mem);
+  // don't try to load non-modules
+  HashMapSet(&modules, SymbolFor("*").as_i, SymbolFor("*loaded*").as_i);
+  // don't try to load the entry module
+  HashMapSet(&modules, entry_mod.as_i, SymbolFor("*loaded*").as_i);
 
-  ast = Pair(ast, nil, mem);
+  FindModules(module_path, &modules, mem);
 
   while (!IsNil(imports)) {
     Val import = Head(imports, mem);

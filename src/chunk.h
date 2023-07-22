@@ -16,5 +16,9 @@ void PushByte(Chunk *chunk, u8 byte);
 void AddSymbol(Chunk *chunk, Val symbol, Mem *mem);
 void Disassemble(Chunk *chunk);
 
+bool SniffChunk(char *filename);
+u8 *SerializeChunk(Chunk *chunk);
+void DeserializeChunk(u8 *serialized, Chunk *chunk);
 bool WriteChunk(Chunk *chunk, char *filename);
 bool ReadChunk(Chunk *chunk, char *filename);
+void EmbedChunk(char *filename, char *name);

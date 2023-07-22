@@ -30,17 +30,17 @@ static OpInfo ops[] = {
   [OpLt]      = {"lt", ArgsNone},
   [OpIn]      = {"in", ArgsNone},
   [OpAccess]  = {"access", ArgsNone},
-  [OpLambda]  = {"lambda", ArgsConstConst},
+  [OpLambda]  = {"lambda", ArgsLocConst},
   [OpSave]    = {"save", ArgsReg},
   [OpRestore] = {"restore", ArgsReg},
-  [OpCont]    = {"cont", ArgsConst},
+  [OpCont]    = {"cont", ArgsLoc},
   [OpApply]   = {"apply", ArgsConst},
   [OpReturn]  = {"return", ArgsNone},
   [OpLookup]  = {"lookup", ArgsConst},
   [OpDefine]  = {"define", ArgsConst},
   [OpJump]    = {"jump", ArgsConst},
-  [OpBranch]  = {"branch", ArgsConst},
-  [OpBranchF] = {"branchf", ArgsConst},
+  [OpBranch]  = {"branch", ArgsLoc},
+  [OpBranchF] = {"branchf", ArgsLoc},
   [OpPop]     = {"pop", ArgsNone},
   [OpDefMod]  = {"defmod", ArgsConst},
   [OpGetMod]  = {"getmod", ArgsConst},
@@ -65,9 +65,10 @@ u32 OpLength(OpCode op)
 {
   switch (ops[op].args) {
   case ArgsNone:        return 1;
+  case ArgsLoc:         return 2;
   case ArgsConst:       return 2;
   case ArgsReg:         return 2;
-  case ArgsConstConst:  return 3;
+  case ArgsLocConst:    return 3;
   }
 }
 
@@ -93,6 +94,7 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
   case ArgsNone:
     return length;
   case ArgsConst:
+  case ArgsLoc:
     length += Print(" ");
     length += InspectVal(ChunkConst(chunk, index+1), &chunk->constants);
     return length;
@@ -102,7 +104,7 @@ u32 PrintInstruction(Chunk *chunk, u32 index)
     else if (ChunkRef(chunk, index+1) == RegEnv) length += Print("env");
     else length += PrintInt(ChunkRef(chunk, index+1));
     return length;
-  case ArgsConstConst:
+  case ArgsLocConst:
     length += Print(" ");
     length += InspectVal(ChunkConst(chunk, index+1), &chunk->constants);
     length += Print(" ");
