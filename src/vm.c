@@ -1,7 +1,6 @@
 #include "vm.h"
 #include "ops.h"
 #include "env.h"
-#include "function.h"
 #include "primitives.h"
 #include "profile.h"
 
@@ -163,8 +162,8 @@ static void IntOp(VM *vm, OpCode op)
   ValType types[] = {ValInt, ValInt};
   if (!CheckArgs(types, 2, 2, vm)) return;
 
-  i32 a = RawInt(StackPop(vm));
   i32 b = RawInt(StackPop(vm));
+  i32 a = RawInt(StackPop(vm));
 
   i32 result = 0;
   switch (op) {
@@ -473,7 +472,7 @@ Val RunChunk(VM *vm, Chunk *chunk)
     case OpLambda: {
       Val pos = ChunkConst(chunk, vm->pc+1);
       Val arity = ChunkConst(chunk, vm->pc+2);
-      StackPush(vm, MakeFunction(pos, arity, vm->env, mem));
+      StackPush(vm, MakeFunction(RawInt(pos), RawInt(arity), vm->env, mem));
       vm->pc += OpLength(op);
       break;
     }

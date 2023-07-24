@@ -1,5 +1,4 @@
 #include "env.h"
-#include "function.h"
 #include "primitives.h"
 #include "module.h"
 

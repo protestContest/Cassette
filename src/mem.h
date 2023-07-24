@@ -26,6 +26,7 @@ typedef enum {
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
 #define mapMask           0xFFE00000
+#define funcMask          0xFFF00000
 
 #define MakeVal(n, mask)  ((Val){.as_i = ((n) & ~typeMask) | (mask)})
 #define NumVal(n)         ((Val){.as_f = (float)(n)})
@@ -36,6 +37,7 @@ typedef enum {
 #define TupleHeader(n)    MakeVal(n, tupleMask)
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
 #define MapHeader(n)      MakeVal(n, mapMask)
+#define FuncHeader(n)     MakeVal(n, funcMask)
 
 #define IsType(v, mask)   (((v).as_i & typeMask) == (mask))
 #define IsNum(v)          (((v).as_i & nanMask) != nanMask)
@@ -46,6 +48,7 @@ typedef enum {
 #define IsTupleHeader(v)  IsType(v, tupleMask)
 #define IsBinaryHeader(v) IsType(v, binaryMask)
 #define IsMapHeader(v)    IsType(v, mapMask)
+#define IsFuncHeader(v)   IsType(v, funcMask)
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
@@ -121,6 +124,14 @@ bool MapContains(Val map, Val key, Mem *mem);
 u32 MapCount(Val map, Mem *mem);
 Val MapKeys(Val map, Mem *mem);
 Val MapValues(Val map, Mem *mem);
+
+Val MakeFunction(u32 entry, u32 arity, Val env, Mem *mem);
+Val MakePrimitive(u32 num, Mem *mem);
+bool IsFunction(Val func, Mem *mem);
+bool IsPrimitive(Val func, Mem *mem);
+u32 FunctionEntry(Val func, Mem *mem);
+u32 FunctionArity(Val func, Mem *mem);
+Val FunctionEnv(Val func, Mem  *mem);
 
 bool PrintVal(Val value, Mem *mem);
 u32 InspectVal(Val value, Mem *mem);

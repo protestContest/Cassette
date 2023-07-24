@@ -1,5 +1,4 @@
 #include "mem.h"
-#include "function.h"
 
 void InitMem(Mem *mem)
 {
@@ -516,6 +515,49 @@ bool MapContains(Val map, Val key, Mem *mem)
   return TupleIndexOf(keys, key, mem) < TupleLength(keys, mem);
 }
 
+Val MakeFunction(u32 entry, u32 arity, Val env, Mem *mem)
+{
+  u32 index = VecCount(mem->values);
+  VecPush(mem->values, FuncHeader(arity));
+  VecPush(mem->values, IntVal(entry));
+  VecPush(mem->values, env);
+  return ObjVal(index);
+}
+
+Val MakePrimitive(u32 num, Mem *mem)
+{
+  u32 index = VecCount(mem->values);
+  VecPush(mem->values, FuncHeader(-1));
+  VecPush(mem->values, IntVal(num));
+  VecPush(mem->values, nil);
+  return ObjVal(index);
+}
+
+bool IsFunction(Val func, Mem *mem)
+{
+  return IsFuncHeader(mem->values[RawVal(func)]);
+}
+
+bool IsPrimitive(Val func, Mem *mem)
+{
+  return RawInt(mem->values[RawVal(func)]) < 0;
+}
+
+u32 FunctionEntry(Val func, Mem *mem)
+{
+  return RawInt(mem->values[RawVal(func) + 1]);
+}
+
+u32 FunctionArity(Val func, Mem *mem)
+{
+  return RawVal(mem->values[RawVal(func)]);
+}
+
+Val FunctionEnv(Val func, Mem  *mem)
+{
+  return mem->values[RawVal(func) + 2];
+}
+
 bool PrintVal(Val val, Mem *mem)
 {
   if (IsBinary(val, mem)) {
@@ -532,9 +574,9 @@ bool PrintVal(Val val, Mem *mem)
     PrintFloat(RawNum(val), 3);
     return true;
   } else if (IsFunction(val, mem)) {
-    Val num = ListAt(val, 1, mem);
+    u32 num = FunctionEntry(val, mem);
     Print("λ");
-    PrintInt(RawInt(num));
+    PrintInt(num);
     return true;
   } else if (IsNil(val)) {
     return true;
@@ -589,7 +631,7 @@ u32 InspectVal(Val value, Mem *mem)
     return length;
   } else if (IsPrimitive(value, mem)) {
     u32 length = Print("@");
-    u32 num = PrimitiveNum(value, mem);
+    u32 num = FunctionEntry(value, mem);
     length += PrintInt(num);
     return length;
   } else if (IsPair(value)) {
@@ -598,18 +640,18 @@ u32 InspectVal(Val value, Mem *mem)
       u32 num = RawVal(value);
       length += PrintInt(num);
       return length;
+    } else {
+      u32 length = 0;
+      length += Print("[");
+      length += InspectVal(Head(value, mem), mem);
+      return length + InspectTail(Tail(value, mem), mem);
     }
-
-    u32 length = 0;
-    length += Print("[");
-    length += InspectVal(Head(value, mem), mem);
-    return length + InspectTail(Tail(value, mem), mem);
   } else if (IsObj(value) && IsBinaryHeader(mem->values[RawVal(value)])) {
     Print("\"");
     PrintN(BinaryData(value, mem), BinaryLength(value, mem));
     Print("\"");
     return BinaryLength(value, mem) + 2;
-  } else if (IsObj(value) && IsTupleHeader(mem->values[RawVal(value)])) {
+  } else if (IsTuple(value, mem)) {
     u32 length = Print("{");
     for (u32 i = 0; i < TupleLength(value, mem); i++) {
       length += InspectVal(TupleGet(value, i, mem), mem);
@@ -617,7 +659,7 @@ u32 InspectVal(Val value, Mem *mem)
     }
     length += Print("}");
     return length;
-  } else if (IsObj(value) && IsMapHeader(mem->values[RawVal(value)])) {
+  } else if (IsMap(value, mem)) {
     u32 length = Print("{");
     Val keys = MapKeys(value, mem);
     Val values = MapValues(value, mem);
@@ -654,9 +696,11 @@ static char *TypeAbbr(Val value, Mem *mem)
   else if (IsTuple(value, mem))         return "t";
   else if (IsMap(value, mem))           return "m";
   else if (IsBinary(value, mem))        return "b";
+  else if (IsFunction(value, mem))      return "f";
   else if (IsBinaryHeader(value))       return "$";
   else if (IsTupleHeader(value))        return "#";
   else if (IsMapHeader(value))          return "%";
+  else if (IsFuncHeader(value))         return "λ";
   else                                  return "?";
 }
 
@@ -698,6 +742,8 @@ static u32 ValSize(Val value)
   } else if (IsTupleHeader(value)) {
     return RawVal(value) + 1;
   } else if (IsMapHeader(value)) {
+    return 3;
+  } else if (IsFuncHeader(value)) {
     return 3;
   } else {
     return 1;

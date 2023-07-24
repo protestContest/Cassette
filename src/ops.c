@@ -56,6 +56,11 @@ void InitOps(Mem *mem)
   }
 }
 
+u32 NumOps(void)
+{
+  return ArrayCount(ops);
+}
+
 char *OpName(OpCode op)
 {
   return ops[op].name;

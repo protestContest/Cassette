@@ -1,6 +1,5 @@
 #include "primitives.h"
 #include "env.h"
-#include "function.h"
 
 static Val PrimHead(u32 num_args, VM *vm);
 static Val PrimTail(u32 num_args, VM *vm);
@@ -112,6 +111,36 @@ PrimitiveFn GetPrimitive(u32 index)
   return primitives[index].fn;
 }
 
+Val ApplyPrimitive(Val func, u32 num_args, VM *vm)
+{
+  Assert(IsPrimitive(func, &vm->mem));
+  u32 index = FunctionEntry(func, &vm->mem);
+  return GetPrimitive(index)(num_args, vm);
+}
+
+u32 NumPrimitives(void)
+{
+  return ArrayCount(primitives);
+}
+
+char *PrimitiveName(u32 index)
+{
+  char *name = primitives[index].name;
+  u32 name_len = StrLen(name);
+  char *mod = primitives[index].mod;
+
+  if (mod == NULL) return name;
+
+  u32 mod_len = StrLen(mod);
+  char *full_name = Allocate(mod_len + 1 + name_len + 1);
+  Copy(mod, full_name, mod_len);
+  full_name[mod_len] = '.';
+  Copy(name, full_name + mod_len + 1, name_len);
+  full_name[mod_len + name_len + 1] = '\0';
+
+  return full_name;
+}
+
 void DefinePrimitives(Val env, Mem *mem)
 {
   HashMap modules;
@@ -149,7 +178,7 @@ void DefinePrimitives(Val env, Mem *mem)
   // define primitives for each module
   for (u32 i = 0; i < ArrayCount(primitives); i++) {
     Val primitive_name = MakeSymbol(primitives[i].name, mem);
-    Val func = MakePrimitive(IntVal(i), mem);
+    Val func = MakePrimitive(i, mem);
 
     if (primitives[i].mod == NULL) {
       Define(primitive_name, func, env, mem);
