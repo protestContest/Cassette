@@ -1,0 +1,50 @@
+script          → module_def stmts | stmts
+module_def      → "module" ID
+
+stmts           → stmts stmt | ε
+stmt            → import_stmt | let_stmt | def_stmt | call_stmt
+import_stmt     → "import" ID "\n" | "import" ID "as" ID "\n"
+let_stmt        → "let" assigns "\n"
+assigns         → assigns "," assign | assign
+assign          → ID "=" call
+def_stmt        → "def" "(" ID args ")" call "\n"
+args            → args arg | ε
+call_stmt       → call "\n"
+call            → args arg
+
+arg             → lambda
+lambda          → logic | group "->" lambda | ID "->" lambda
+logic           → equality | logic "and" equality | logic "or" equality
+equality        → compare | equality "==" compare | equality "!=" compare
+compare         → member
+                  | compare "<" member
+                  | compare ">" member
+                  | compare "<=" member
+                  | compare ">=" member
+member          → pair | member "in" pair
+pair            → sum | sum "|" pair
+sum             → product | sum "+" product | sum "-" product
+product         → unary | product "*" unary | product "/" unary | product "%" unary
+unary           → access | "-" access | "not" access | "#" access
+access          → primary | access "." ID
+
+primary         → group | block | obj | value | ID
+group           → "(" call ")"
+
+block           → do_block | if_block | cond_block
+do_block        → "do" stmts "end"
+if_block        → "if" stmts "else" stmts "end"
+cond_block      → "cond" clauses "else" call "end"
+clauses         → clauses clause | ε
+clause          → logic "->" call
+
+obj             → list | tuple | map
+list            → "[" list_tail
+list_tail       → "]" | call "]" | call "," list_tail
+tuple           → "{" tuple_tail
+tuple_tail      → "}" | call "}" | call "," tuple_tail
+map             → "{" entry map_tail "}"
+map_tail        → "}" | entry "}" | entry "," entry_tail
+entry           → ID ":" call
+
+value           → "true" | "false" | "nil" | SYM | NUM | STR

@@ -1,5 +1,3 @@
-module std
-
 def (reduce list acc fn) do
   if list == nil do
     acc
@@ -13,7 +11,7 @@ def (map list fn) do
 end
 
 def (filter list fn) do
-  reduce list [] (item) ->
+  reduce list [] (item acc) ->
     if (fn item) do
       item | acc
     else

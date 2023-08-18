@@ -7,5 +7,4 @@ grammar.y
 bison*
 cassette
 deps/*
-include/*
 lib/*

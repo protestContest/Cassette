@@ -5,6 +5,7 @@
 -Wno-unused-parameter
 -I/Users/zack/.local/include
 -I/opt/homebrew/include
--Iinclude
+-I../src
+-I../include
 -include
 univ.h
