@@ -127,39 +127,6 @@ static Val PutNode(Val node, u32 depth, Val key, Val value, Heap *mem)
   }
 }
 
-static Val HashValDepth(Val value, u32 max_depth, Heap *mem)
-{
-  if (IsNil(value))   return SymVal(EmptyHash());
-  if (IsSym(value))   return value;
-  if (IsInt(value))   return SymVal(HashInt(RawInt(value)));
-  if (IsFloat(value)) return SymVal(HashInt((u32)RawFloat(value)));
-  if (IsPair(value)) {
-    Val head = HashValDepth(Head(value, mem), max_depth-1, mem);
-    Val tail = HashValDepth(Tail(value, mem), max_depth-1, mem);
-    return SymVal(AddHash(head.as_i, tail.as_i));
-  }
-
-  if (IsTuple(value, mem)) {
-    u32 hash = EmptyHash();
-    for (u32 i = 0; i < TupleLength(value, mem); i++) {
-      hash = AddHash(hash, RawVal(HashValDepth(TupleGet(value, i, mem), max_depth-1, mem)));
-    }
-    return SymVal(hash);
-  }
-
-  if (IsBinary(value, mem)) {
-    return SymVal(Hash(BinaryData(value, mem), BinaryLength(value, mem)));
-  }
-
-  // shitty default
-  return SymVal(Hash(&value, sizeof(value)));
-}
-
-static Val HashVal(Val value, Heap *mem)
-{
-  return HashValDepth(value, 32, mem);
-}
-
 Val MakeMap(Heap *mem)
 {
   Val map = ObjVal(MemSize(mem));
@@ -229,7 +196,7 @@ Val MapGet(Val map, Val key, Heap *mem)
 
 Val MapPut(Val map, Val key, Val value, Heap *mem)
 {
-  return PutNode(map, 0, HashVal(key, mem), value, mem);
+  return PutNode(map, 0, key, value, mem);
 }
 
 Val MapFrom(Val keys, Val vals, Heap *mem)

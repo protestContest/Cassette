@@ -4,11 +4,11 @@
 void InitMem(Heap *mem, u32 size)
 {
   mem->values = NewVec(Val, size);
-  mem->strings = NewVec(char, 0);
-  InitHashMap(&mem->string_map);
   VecPush(mem->values, nil);
   VecPush(mem->values, nil);
 
+  mem->strings = NewVec(char, 0);
+  InitHashMap(&mem->string_map);
   MakeSymbol("true", mem);
   MakeSymbol("false", mem);
 }
@@ -16,6 +16,8 @@ void InitMem(Heap *mem, u32 size)
 void DestroyMem(Heap *mem)
 {
   FreeVec(mem->values);
+  FreeVec(mem->strings);
+  DestroyHashMap(&mem->string_map);
 }
 
 u32 MemSize(Heap *mem)

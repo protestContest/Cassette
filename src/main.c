@@ -12,9 +12,6 @@ static PrimitiveDef primitives[] = {
 
 int main(int argc, char *argv[])
 {
-  Heap mem;
-  InitMem(&mem, 0);
-
   if (argc < 2) {
     Print("File required\n");
     return 1;
@@ -23,6 +20,9 @@ int main(int argc, char *argv[])
   char *source = ReadFile(argv[1]);
   Print(source);
   Print("\n");
+
+  Heap mem;
+  InitMem(&mem, 0);
 
   Val ast = Parse(source, &mem);
   if (IsTagged(ast, "error", &mem)) {
@@ -54,10 +54,15 @@ int main(int argc, char *argv[])
   Disassemble(&chunk);
   Print("\n");
 
-  Heap vm_mem;
-  InitMem(&vm_mem, 0);
+  DestroyMem(&mem);
+  InitMem(&mem, 0);
 
   VM vm;
-  InitVM(&vm, &vm_mem);
+  InitVM(&vm, &mem);
   RunChunk(&vm, &chunk);
+
+  DestroyChunk(&chunk);
+  DestroyVM(&vm);
+  DestroyMem(&mem);
+  Free(source);
 }
