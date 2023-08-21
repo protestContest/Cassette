@@ -16,7 +16,6 @@ typedef enum {
   PrecPair,
   PrecSum,
   PrecProduct,
-  PrecExponent,
   PrecUnary,
   PrecAccess
 } Precedence;
@@ -42,6 +41,7 @@ static Val ParseBraces(Lexer *lex, Heap *mem);
 
 static Val ParseLeftAssoc(Val lhs, Lexer *lex, Heap *mem);
 static Val ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem);
+static Val ParseAccess(Val lhs, Lexer *lex, Heap *mem);
 
 static ParseRule rules[] = {
   [TokenEOF]          = {NULL,          NULL,             PrecNone},
@@ -58,7 +58,7 @@ static ParseRule rules[] = {
   [TokenComma]        = {NULL,          NULL,             PrecNone},
   [TokenMinus]        = {&ParseUnary,   &ParseLeftAssoc,  PrecSum},
   [TokenArrow]        = {NULL,          &ParseRightAssoc, PrecLambda},
-  [TokenDot]          = {NULL,          &ParseLeftAssoc,  PrecAccess},
+  [TokenDot]          = {NULL,          &ParseAccess,     PrecAccess},
   [TokenSlash]        = {NULL,          &ParseLeftAssoc,  PrecProduct},
   [TokenNum]          = {&ParseNum,     NULL,             PrecNone},
   [TokenColon]        = {&ParseSymbol,  NULL,             PrecNone},
@@ -700,7 +700,9 @@ static Val ParseBraces(Lexer *lex, Heap *mem)
     SkipNewlines(lex);
   }
 
-  return Pair(SymbolFor("{"), ReverseList(items, mem), mem);
+  Val op = (is_map) ? SymbolFor("{:") : SymbolFor("{");
+
+  return Pair(op, ReverseList(items, mem), mem);
 }
 
 static Val ParseAssoc(Val lhs, Precedence prec, Lexer *lex, Heap *mem)
@@ -726,6 +728,16 @@ static Val ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem)
   return ParseAssoc(lhs, prec, lex, mem);
 }
 
+static Val ParseAccess(Val lhs, Lexer *lex, Heap *mem)
+{
+  MatchToken(TokenDot, lex);
+  Val key = ParseID(lex, mem);
+  if (IsTagged(key, "error", mem)) return key;
+
+  key = Pair(SymbolFor(":"), key, mem);
+  return Pair(SymbolFor("."), Pair(lhs, Pair(key, nil, mem), mem), mem);
+}
+
 static void MakeParseSymbols(Heap *mem)
 {
   MakeSymbol("do", mem);
@@ -740,6 +752,7 @@ static void MakeParseSymbols(Heap *mem)
   MakeSymbol("false", mem);
   MakeSymbol("nil", mem);
   MakeSymbol("{", mem);
+  MakeSymbol("{:", mem);
   MakeSymbol(".", mem);
   MakeSymbol("error", mem);
   MakeSymbol("partial", mem);

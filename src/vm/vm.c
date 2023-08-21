@@ -117,6 +117,33 @@ void RunChunk(VM *vm, Chunk *chunk)
       StackPush(vm, ChunkConst(chunk, vm->pc+1));
       vm->pc += OpLength(op);
       break;
+    case OpAccess: {
+      Val obj = StackPop(vm);
+      Val key = StackPop(vm);
+      if (IsPair(obj)) {
+        if (IsInt(key) && RawInt(key) >= 0) {
+          StackPush(vm, ListAt(obj, RawInt(key), mem));
+        } else {
+          vm->error = KeyError;
+        }
+      } else if (IsTuple(obj, mem)) {
+        if (IsInt(key) && RawInt(key) >= 0 && RawInt(key) < TupleLength(obj, mem)) {
+          StackPush(vm, TupleGet(obj, RawInt(key), mem));
+        } else {
+          vm->error = KeyError;
+        }
+      } else if (IsMap(obj, mem)) {
+        if (MapContains(obj, key, mem)) {
+          StackPush(vm, MapGet(obj, key, mem));
+        } else {
+          vm->error = KeyError;
+        }
+      } else {
+        vm->error = TypeError;
+      }
+      vm->pc += OpLength(op);
+      break;
+    }
     case OpNeg: {
       Val val = StackPop(vm);
       if (IsInt(val)) {
@@ -323,7 +350,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       if (!IsTuple(keys, mem) || !IsTuple(vals, mem) || TupleLength(keys, mem) != TupleLength(vals, mem)) {
         vm->error = TypeError;
       } else {
-        StackPush(vm, MapFrom(keys, vals, mem));
+        Val map = MapFrom(keys, vals, mem);
+        StackPush(vm, map);
       }
       vm->pc += OpLength(op);
       break;

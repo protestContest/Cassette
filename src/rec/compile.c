@@ -88,7 +88,7 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
   if (IsTagged(expr, "import", mem))    return CompileImport(Tail(expr, mem), linkage, c);
   if (IsTagged(expr, "module", mem))    return CompileModule(Tail(expr, mem), linkage, c);
 
-  // if (IsTagged(expr, ".", mem))         return CompileOp(OpSeq(OpAccess, mem), expr, linkage, c);
+  if (IsTagged(expr, ".", mem))         return CompileOp(OpSeq(OpAccess, mem), expr, linkage, c);
   if (IsTagged(expr, "not", mem))       return CompileOp(OpSeq(OpNot, mem), expr, linkage, c);
   if (IsTagged(expr, "#", mem))         return CompileOp(OpSeq(OpLen, mem), expr, linkage, c);
   if (IsTagged(expr, "*", mem))         return CompileOp(OpSeq(OpMul, mem), expr, linkage, c);
@@ -488,7 +488,7 @@ static CompileResult CompileLet(Val expr, Linkage linkage, Compiler *c)
         Preserving(REnv, value.result,
           MakeSeq(REnv, 0,
             Pair(IntVal(OpDefine),
-            Pair(IntVal(num_assigns), nil, mem), mem)), mem), mem);
+            Pair(IntVal(i), nil, mem), mem)), mem), mem);
     expr = Tail(expr, mem);
   }
 

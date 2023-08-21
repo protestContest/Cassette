@@ -5,6 +5,7 @@ static struct {char *name; u32 length;} ops[] = {
   [OpPop]       = { "pop", 1 },
   [OpDup]       = { "dup", 1 },
   [OpConst]     = { "const", 2 }, // const num
+  [OpAccess]    = { "access", 1 },
   [OpNeg]       = { "neg", 1 },
   [OpNot]       = { "not", 1 },
   [OpLen]       = { "len", 1 },

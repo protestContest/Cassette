@@ -5,6 +5,7 @@ typedef enum {
   OpPop,
   OpDup,
   OpConst,
+  OpAccess,
   OpNeg,
   OpNot,
   OpLen,

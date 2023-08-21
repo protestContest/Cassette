@@ -202,14 +202,11 @@ Val MapPut(Val map, Val key, Val value, Heap *mem)
 Val MapFrom(Val keys, Val vals, Heap *mem)
 {
   Val map = MakeMap(mem);
-  while (!IsNil(keys) && !IsNil(vals)) {
-    Val key = Head(keys, mem);
-    Val val = Head(vals, mem);
 
+  for (u32 i = 0; i < TupleLength(keys, mem); i++) {
+    Val key = TupleGet(keys, i, mem);
+    Val val = TupleGet(vals, i, mem);
     map = MapPut(map, key, val, mem);
-
-    keys = Tail(keys, mem);
-    vals = Tail(vals, mem);
   }
 
   return map;
