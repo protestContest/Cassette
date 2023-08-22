@@ -51,6 +51,11 @@ Token PeekToken(Lexer *lex)
   return lex->token;
 }
 
+Val TokenPos(Lexer *lex)
+{
+  return IntVal(lex->token.lexeme - lex->text);
+}
+
 static void Advance(Lexer *lex)
 {
   if (IsEOF(lex)) return;

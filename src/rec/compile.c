@@ -19,10 +19,6 @@ static void InitCompiler(Compiler *c, Val env, Heap *mem)
     c->env = env;
   }
 
-  Print("Env: ");
-  Inspect(c->env, mem);
-  Print("\n");
-
   MakeSymbol("return", mem);
   MakeSymbol("next", mem);
 }
@@ -63,6 +59,11 @@ CompileResult Compile(Val ast, Val env, Heap *mem)
 static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+
+  Val pos = Head(expr, mem);
+  expr = Tail(expr, mem);
+
+  PrintInt(RawInt(pos));
   Print("#> ");
   Inspect(expr, mem);
   Print("\n");
@@ -123,8 +124,6 @@ static CompileResult CompileConst(Val expr, Linkage linkage, Compiler *c)
 static CompileResult CompileVar(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
-
-  Inspect(c->env, mem);
 
   Val pos = FindVar(expr, c->env, mem);
   if (IsNil(pos)) return CompileError("Undefined variable");
@@ -266,7 +265,7 @@ static CompileResult CompileItems(Val items, Compiler *c)
 static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
-  CompileResult args = CompileItems(Tail(expr, mem), c);
+  CompileResult args = CompileItems(ReverseList(Tail(expr, mem), mem), c);
   if (!args.ok) return args;
 
   return CompileOk(EndWithLinkage(linkage, AppendSeq(args.result, op_seq, mem), mem));
@@ -388,14 +387,14 @@ static CompileResult CompileDo(Val expr, Linkage linkage, Compiler *c)
     if (!stmt.ok) return stmt;
 
     Seq stmt_seq = stmt.result;
-    if (IsTagged(Head(expr, mem), "let", mem)) {
+
+    if (IsTagged(Tail(Head(expr, mem), mem), "let", mem)) {
       num_frames++;
-      // no "pop" here, since "let" doesn't produce anything
-    } else {
-      stmt_seq = AppendSeq(stmt_seq,
-        MakeSeq(0, 0,
-          Pair(IntVal(OpPop), nil, mem)), mem);
     }
+
+    stmt_seq = AppendSeq(stmt_seq,
+      MakeSeq(0, 0,
+        Pair(IntVal(OpPop), nil, mem)), mem);
 
     seq = Preserving(REnv, seq, stmt_seq, mem);
     expr = Tail(expr, mem);
@@ -424,7 +423,7 @@ static CompileResult CompileDo(Val expr, Linkage linkage, Compiler *c)
 static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
-  Val params = ListAt(expr, 0, mem);
+  Val params = Tail(ListAt(expr, 0, mem), mem);
   Val body = ListAt(expr, 1, mem);
 
   Seq params_code;
@@ -441,7 +440,7 @@ static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
     u32 num_params = ListLength(params, mem);
     c->env = ExtendEnv(c->env, MakeTuple(num_params, mem), mem);
     for (u32 i = 0; i < num_params; i++) {
-      Val param = Head(params, mem);
+      Val param = Tail(Head(params, mem), mem);
       Define(i, param, c->env, mem);
       params = Tail(params, mem);
     }
@@ -477,7 +476,7 @@ static CompileResult CompileLet(Val expr, Linkage linkage, Compiler *c)
 
   for (u32 i = 0; i < num_assigns; i++) {
     Val assign = Head(expr, mem);
-    Val var = ListAt(assign, 0, mem);
+    Val var = Tail(ListAt(assign, 0, mem), mem);
     Define(i, var, c->env, mem);
 
     CompileResult value = CompileExpr(ListAt(assign, 1, mem), LinkNext, c);
@@ -491,6 +490,9 @@ static CompileResult CompileLet(Val expr, Linkage linkage, Compiler *c)
             Pair(IntVal(i), nil, mem), mem)), mem), mem);
     expr = Tail(expr, mem);
   }
+
+  assigns = AppendSeq(assigns,
+    MakeSeq(0, 0, Pair(IntVal(OpConst), Pair(MakeSymbol("ok", mem), nil, mem), mem)), mem);
 
   return CompileOk(
     EndWithLinkage(linkage,

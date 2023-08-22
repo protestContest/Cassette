@@ -1,4 +1,5 @@
 #pragma once
+#include "heap.h"
 
 typedef enum {
   TokenEOF,
@@ -65,3 +66,4 @@ typedef struct {
 void InitLexer(Lexer *lex, char *text);
 Token NextToken(Lexer *lex);
 Token PeekToken(Lexer *lex);
+Val TokenPos(Lexer *lex);

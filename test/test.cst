@@ -1,3 +1,13 @@
-let x = {a: 1, b: 2}
+def (fact n) do
+  def (loop m acc) do
+    if m == 1 do
+      acc
+    else
+      loop m-1 m*acc
+    end
+  end
 
-x.b
+  loop n 1
+end
+
+fact 5

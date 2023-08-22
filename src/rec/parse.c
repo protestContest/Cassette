@@ -1,9 +1,10 @@
 #include "parse.h"
-#include "lex.h"
 
+/* Function signatures for parsing callbacks */
 typedef Val (*PrefixFn)(Lexer *lex, Heap *mem);
 typedef Val (*InfixFn)(Val lhs, Lexer *lex, Heap *mem);
 
+/* Operator precedence */
 typedef enum {
   PrecNone,
   PrecExpr,
@@ -20,12 +21,14 @@ typedef enum {
   PrecAccess
 } Precedence;
 
+/* Rule structure for parsing an expression */
 typedef struct {
   PrefixFn prefix;
   InfixFn infix;
   Precedence precedence;
 } ParseRule;
 
+/* Prefix parsing callback declarations */
 static Val ParseID(Lexer *lex, Heap *mem);
 static Val ParseString(Lexer *lex, Heap *mem);
 static Val ParseUnary(Lexer *lex, Heap *mem);
@@ -39,10 +42,12 @@ static Val ParseLiteral(Lexer *lex, Heap *mem);
 static Val ParseIf(Lexer *lex, Heap *mem);
 static Val ParseBraces(Lexer *lex, Heap *mem);
 
+/* Infix parsing callback declarations */
 static Val ParseLeftAssoc(Val lhs, Lexer *lex, Heap *mem);
 static Val ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem);
 static Val ParseAccess(Val lhs, Lexer *lex, Heap *mem);
 
+/* Rules for parsing expressions based on the current token type */
 static ParseRule rules[] = {
   [TokenEOF]          = {NULL,          NULL,             PrecNone},
   [TokenID]           = {&ParseID,      NULL,             PrecNone},
@@ -93,20 +98,31 @@ static ParseRule rules[] = {
 };
 #define GetRule(lex)    rules[PeekToken(lex).type]
 
+/* Declarations for statement parsing functions */
 static Val ParseModuleName(Lexer *lex, Heap *mem);
-static Val ParseStmt(Lexer *lex, Heap *mem);
 static Val ParseImport(Lexer *lex, Heap *mem);
 static Val ParseLet(Lexer *lex, Heap *mem);
 static Val ParseDef(Lexer *lex, Heap *mem);
 static Val ParseCall(Lexer *lex, Heap *mem);
 static Val ParseExpr(Precedence prec, Lexer *lex, Heap *mem);
 
+/* Helper functions */
 static void MakeParseSymbols(Heap *mem);
 static Val ParseError(char *message, Token token, Lexer *lex, Heap *mem);
-static Val WrapModule(Val stmts, Val name, Heap *mem);
 static void SkipNewlines(Lexer *lex);
 static bool MatchToken(TokenType type, Lexer *lex);
 
+/* Parsing entrypoint. This parses a whole script, i.e. a sequence of statements
+ * until end-of-file.
+ *
+ * Parsing is split into statements and expressions. Statements are newline-
+ * separated, and are call expressions by default, which will continue to parse
+ * call argument expressions until a newline or EOF is reached. Expressions are
+ * infix or primary, and are parsed with the precedence parse table above.
+ *
+ * Each AST node is a pair containing its source position and value, or a list
+ * tagged with "error" containing a message and source position.
+ */
 Val Parse(char *source, Heap *mem)
 {
   Lexer lex;
@@ -114,14 +130,17 @@ Val Parse(char *source, Heap *mem)
   MakeParseSymbols(mem);
   SkipNewlines(&lex);
 
+  /* A script may begin with a module declaration */
   Val module = nil;
+  Val mod_pos = TokenPos(&lex);
   if (PeekToken(&lex).type == TokenModule) {
     module = ParseModuleName(&lex, mem);
     if (IsTagged(module, "error", mem)) return module;
+    SkipNewlines(&lex);
   }
 
-  SkipNewlines(&lex);
-
+  /* Parse each statement */
+  Val stmts_pos = TokenPos(&lex);
   Val stmts = nil;
   while (!AtEnd(&lex)) {
     Val stmt = ParseStmt(&lex, mem);
@@ -129,42 +148,59 @@ Val Parse(char *source, Heap *mem)
 
     stmts = Pair(stmt, stmts, mem);
 
+    /* Statements may be separated by commas */
     MatchToken(TokenComma, &lex);
+
     SkipNewlines(&lex);
   }
 
   if (IsNil(Tail(stmts, mem))) {
+    /* If there's only one statement, unwrap it from the list */
     stmts = Head(stmts, mem);
   } else {
-    stmts = Pair(SymbolFor("do"), ReverseList(stmts, mem), mem);
+    /* Otherwise, wrap the statements in a "do" expression */
+    stmts = Pair(stmts_pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
   }
 
   if (IsNil(module)) {
     return stmts;
   } else {
-    return WrapModule(stmts, module, mem);
+    /* If a module was declared, wrap the script in a module node */
+    return
+      Pair(mod_pos,
+      Pair(SymbolFor("module"),
+      Pair(module,
+      Pair(stmts, nil, mem), mem), mem), mem);
   }
-
-  return stmts;
 }
 
+/* Syntax: "module" ID
+ * AST: [module ID node]
+ */
 static Val ParseModuleName(Lexer *lex, Heap *mem)
 {
-  if (!MatchToken(TokenModule, lex)) return ParseError("Expected \"module\"", lex->token, lex, mem);
+  MatchToken(TokenModule, lex);
 
   return ParseID(lex, mem);
 }
 
-static Val ParseStmt(Lexer *lex, Heap *mem)
+/* Parses a statement: "let", "def", "import", or a call expression. Consecutive
+ * "let"s and "def"s are combined into a single "let" node.
+ */
+Val ParseStmt(Lexer *lex, Heap *mem)
 {
   Val stmt;
+
   switch (PeekToken(lex).type) {
-  case TokenLet:  stmt = ParseLet(lex, mem); break;
-  case TokenDef:  stmt = ParseDef(lex, mem); break;
-  default:        stmt = ParseCall(lex, mem); break;
+  case TokenLet:    stmt = ParseLet(lex, mem); break;
+  case TokenDef:    stmt = ParseDef(lex, mem); break;
+  case TokenImport: stmt = ParseImport(lex, mem); break;
+  default:          stmt = ParseCall(lex, mem); break;
   }
 
   SkipNewlines(lex);
+
+  /* Check for statements we can combine into this one */
   if (IsTagged(stmt, "let", mem)) {
     if (PeekToken(lex).type == TokenLet) {
       Val next_stmt = ParseStmt(lex, mem);
@@ -183,16 +219,17 @@ static Val ParseStmt(Lexer *lex, Heap *mem)
   return stmt;
 }
 
+/* Syntax:
+ *    "import" ID "as" ID
+ *    "import" ID "as" "*"
+ *    "import" ID
+ * AST:
+ *    [import ID ID]
+ *    [import ID nil]
+ */
 static Val ParseImport(Lexer *lex, Heap *mem)
 {
-  /*
-  import Foo as Bar     [import [Foo Bar]]
-  import Foo as *       [import [Foo nil]]
-  import Foo            [import [Foo Foo]]
-  */
-
-  u32 pos = lex->pos;
-
+  Val pos = TokenPos(lex);
   MatchToken(TokenImport, lex);
 
   Val name = ParseID(lex, mem);
@@ -208,13 +245,15 @@ static Val ParseImport(Lexer *lex, Heap *mem)
     }
   }
 
-  return
+  return Pair(pos,
     Pair(SymbolFor("import"),
-    Pair(IntVal(pos),
     Pair(name,
     Pair(alias, nil, mem), mem), mem), mem);
 }
 
+/* Syntax: ID "=" call
+ * AST: [ID call]
+ */
 static Val ParseAssign(Lexer *lex, Heap *mem)
 {
   /*
@@ -236,15 +275,12 @@ static Val ParseAssign(Lexer *lex, Heap *mem)
   return Pair(id, Pair(value, nil, mem), mem);
 }
 
+/* Syntax: "let" assign ("," assign)*
+ * AST: [let [assigns]]
+ */
 static Val ParseLet(Lexer *lex, Heap *mem)
 {
-  /*
-  let x = 1           [let [x 1]]
-  let x = 1, y = 2    [let [x 1] [y 2]]
-  */
-
-  // u32 pos = lex->pos;
-
+  Val pos = TokenPos(lex);
   MatchToken(TokenLet, lex);
   SkipNewlines(lex);
 
@@ -260,40 +296,43 @@ static Val ParseLet(Lexer *lex, Heap *mem)
     assigns = Pair(assign, assigns, mem);
   }
 
-  return Pair(SymbolFor("let"), ReverseList(assigns, mem), mem);
+  return Pair(pos, Pair(SymbolFor("let"), ReverseList(assigns, mem), mem), mem);
 }
 
+/* Syntax: "def" "(" ID (ID)* ")" expr
+ * AST: [let [ID [-> [params] expr]]]
+ */
 static Val ParseDef(Lexer *lex, Heap *mem)
 {
-  /*
-  def (foo) 3             [let [foo [-> nil 3]]]
-  def (foo x y) bar x y   [let [foo [-> [x y] [bar x y]]]]
-  */
-
+  Val pos = TokenPos(lex);
   MatchToken(TokenDef, lex);
   if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
 
   Val id = ParseID(lex, mem);
   if (IsTagged(id, "error", mem)) return id;
 
+  Val params_pos = TokenPos(lex);
   Val params = nil;
   while (!MatchToken(TokenRParen, lex)) {
     Val param = ParseID(lex, mem);
     if (IsTagged(param, "error", mem)) return param;
     params = Pair(param, params, mem);
   }
+  params = Pair(params_pos, ReverseList(params, mem), mem);
 
+  Val body_pos = TokenPos(lex);
   Val body = ParseCall(lex, mem);
   if (IsTagged(body, "error", mem)) return body;
 
   Val lambda =
+    Pair(body_pos,
     Pair(SymbolFor("->"),
-    Pair(ReverseList(params, mem),
-    Pair(body, nil, mem), mem), mem);
+    Pair(params,
+    Pair(body, nil, mem), mem), mem), mem);
 
   Val assign = Pair(id, Pair(lambda, nil, mem), mem);
 
-  return Pair(SymbolFor("let"), Pair(assign, nil, mem), mem);
+  return Pair(pos, Pair(SymbolFor("let"), Pair(assign, nil, mem), mem), mem);
 }
 
 static Val ParseCall(Lexer *lex, Heap *mem)
@@ -303,6 +342,7 @@ static Val ParseCall(Lexer *lex, Heap *mem)
   foo           foo
   */
 
+  Val pos = TokenPos(lex);
   ParseRule rule = GetRule(lex);
   Val args = nil;
   while (rule.prefix != NULL) {
@@ -315,7 +355,7 @@ static Val ParseCall(Lexer *lex, Heap *mem)
 
   if (IsNil(args)) return ParseError("Expected expression", lex->token, lex, mem);
   if (IsNil(Tail(args, mem))) return Head(args, mem);
-  return ReverseList(args, mem);
+  return Pair(pos, ReverseList(args, mem), mem);
 }
 
 static Val ParseExpr(Precedence prec, Lexer *lex, Heap *mem)
@@ -338,17 +378,15 @@ static Val ParseExpr(Precedence prec, Lexer *lex, Heap *mem)
 
 static Val ParseID(Lexer *lex, Heap *mem)
 {
+  Val pos = TokenPos(lex);
   Token token = NextToken(lex);
   if (token.type != TokenID) return ParseError("Expected identifier", token, lex, mem);
-  return MakeSymbolFrom(token.lexeme, token.length, mem);
+  return Pair(pos, MakeSymbolFrom(token.lexeme, token.length, mem), mem);
 }
 
 static Val ParseString(Lexer *lex, Heap *mem)
 {
-  /*
-  "foo"     [" foo]
-  */
-
+  Val pos = TokenPos(lex);
   Token token = NextToken(lex);
 
   char str[token.length+1];
@@ -361,7 +399,7 @@ static Val ParseString(Lexer *lex, Heap *mem)
   str[len] = '\0';
 
   Val sym = MakeSymbolFrom(str, len, mem);
-  return Pair(SymbolFor("\""), sym, mem);
+  return Pair(pos, Pair(SymbolFor("\""), sym, mem), mem);
 }
 
 static Val ParseUnary(Lexer *lex, Heap *mem)
@@ -372,11 +410,12 @@ static Val ParseUnary(Lexer *lex, Heap *mem)
   not foo   [not foo]
   */
 
+  Val pos = TokenPos(lex);
   Token token = NextToken(lex);
   Val op = MakeSymbolFrom(token.lexeme, token.length, mem);
   Val rhs = ParseExpr(PrecUnary, lex, mem);
   if (IsTagged(rhs, "error", mem)) return rhs;
-  return Pair(op, Pair(rhs, nil, mem), mem);
+  return Pair(pos, Pair(op, Pair(rhs, nil, mem), mem), mem);
 }
 
 static Val ParseGroup(Lexer *lex, Heap *mem)
@@ -386,6 +425,7 @@ static Val ParseGroup(Lexer *lex, Heap *mem)
   (foo)         [foo]
   */
 
+  Val pos = TokenPos(lex);
   if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
 
   SkipNewlines(lex);
@@ -398,7 +438,7 @@ static Val ParseGroup(Lexer *lex, Heap *mem)
     SkipNewlines(lex);
   }
 
-  return ReverseList(args, mem);
+  return Pair(pos, ReverseList(args, mem), mem);
 }
 
 
@@ -433,10 +473,11 @@ static Val ParseNum(Lexer *lex, Heap *mem)
   -4236
   */
 
+  Val pos = TokenPos(lex);
   Token token = NextToken(lex);
 
   if (token.length > 1 && token.lexeme[1] == 'x') {
-    return IntVal(ParseInt(token.lexeme + 2, token.length - 2, 16));
+    return Pair(pos, IntVal(ParseInt(token.lexeme + 2, token.length - 2, 16)), mem);
   }
 
   u32 decimal = 0;
@@ -457,38 +498,30 @@ static Val ParseNum(Lexer *lex, Heap *mem)
         place /= 10;
       }
 
-      return FloatVal(whole + frac);
+      return Pair(pos, FloatVal(whole + frac), mem);
     }
   }
 
-  return IntVal(whole);
+  return Pair(pos, IntVal(whole), mem);
 }
 
 static Val ParseSymbol(Lexer *lex, Heap *mem)
 {
-  /*
-  :foo    [: foo]
-  */
-
+  Val pos = TokenPos(lex);
   if (!MatchToken(TokenColon, lex)) return ParseError("Expected \":\"", lex->token, lex, mem);
 
   Val id = ParseID(lex, mem);
-  return Pair(SymbolFor(":"), id, mem);
+  return Pair(pos, Pair(SymbolFor(":"), id, mem), mem);
 }
 
 static Val ParseList(Lexer *lex, Heap *mem)
 {
-  /*
-  []        nil
-  [1]       [[ 1]
-  [1, 2]    [[ 1 2]
-  [1, 2,]   [[ 1 2]
-  */
+  Val pos = TokenPos(lex);
 
   if (!MatchToken(TokenLBracket, lex)) return ParseError("Expected \"[\"", lex->token, lex, mem);
   SkipNewlines(lex);
 
-  if (MatchToken(TokenRBracket, lex)) return SymbolFor("nil");
+  if (MatchToken(TokenRBracket, lex)) return Pair(pos, SymbolFor("nil"), mem);
 
   Val first_item = ParseCall(lex, mem);
   if (IsTagged(first_item, "error", mem)) return first_item;
@@ -506,7 +539,7 @@ static Val ParseList(Lexer *lex, Heap *mem)
 
   if (!MatchToken(TokenRBracket, lex)) return ParseError("Expected \"]\"", lex->token, lex, mem);
 
-  return Pair(SymbolFor("["), ReverseList(items, mem), mem);
+  return Pair(pos, Pair(SymbolFor("["), ReverseList(items, mem), mem), mem);
 }
 
 static Val ParseClauses(Lexer *lex, Heap *mem)
@@ -553,28 +586,17 @@ static Val ParseCond(Lexer *lex, Heap *mem)
   [if [== x 3] :three [if [== x 2] :two :err]]
   */
 
+  Val pos = TokenPos(lex);
   MatchToken(TokenCond, lex);
 
   SkipNewlines(lex);
 
-  return ParseClauses(lex, mem);
+  return Pair(pos, ParseClauses(lex, mem), mem);
 }
 
 static Val ParseDo(Lexer *lex, Heap *mem)
 {
-  /*
-  do
-    foo x y
-    bar z
-    baz
-  end
-  ; => [do [foo x y] [bar z] baz]
-
-  do
-    foo x
-  end
-  ; => [foo x]
-  */
+  Val pos = TokenPos(lex);
 
   MatchToken(TokenDo, lex);
   SkipNewlines(lex);
@@ -592,16 +614,18 @@ static Val ParseDo(Lexer *lex, Heap *mem)
 
   if (ListLength(stmts, mem) == 1) return Head(stmts, mem);
 
-  return Pair(SymbolFor("do"), ReverseList(stmts, mem), mem);
+  return Pair(pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
 }
 
 static Val ParseLiteral(Lexer *lex, Heap *mem)
 {
+  Val pos = TokenPos(lex);
+
   Token token = NextToken(lex);
   switch (token.type) {
-  case TokenTrue:   return SymbolFor("true");
-  case TokenFalse:  return SymbolFor("false");
-  case TokenNil:    return SymbolFor("nil");
+  case TokenTrue:   return Pair(pos, SymbolFor("true"), mem);
+  case TokenFalse:  return Pair(pos, SymbolFor("false"), mem);
+  case TokenNil:    return Pair(pos, SymbolFor("nil"), mem);
   default:          return ParseError("Unknown literal", token, lex, mem);
   }
 }
@@ -613,6 +637,7 @@ static Val ParseIf(Lexer *lex, Heap *mem)
   ; => [if [== [% x 2] 0] :ok :err]
   */
 
+  Val pos = TokenPos(lex);
   MatchToken(TokenIf, lex);
 
   Val predicate = ParseExpr(PrecExpr, lex, mem);
@@ -658,15 +683,16 @@ static Val ParseIf(Lexer *lex, Heap *mem)
     false_block = ReverseList(false_block, mem);
   }
 
-  return
+  return Pair(pos,
     Pair(SymbolFor("if"),
     Pair(predicate,
     Pair(true_block,
-    Pair(false_block, nil, mem), mem), mem), mem);
+    Pair(false_block, nil, mem), mem), mem), mem), mem);
 }
 
 static Val ParseBraces(Lexer *lex, Heap *mem)
 {
+  Val pos = TokenPos(lex);
   MatchToken(TokenLBrace, lex);
   SkipNewlines(lex);
 
@@ -702,18 +728,19 @@ static Val ParseBraces(Lexer *lex, Heap *mem)
 
   Val op = (is_map) ? SymbolFor("{:") : SymbolFor("{");
 
-  return Pair(op, ReverseList(items, mem), mem);
+  return Pair(pos, Pair(op, ReverseList(items, mem), mem), mem);
 }
 
 static Val ParseAssoc(Val lhs, Precedence prec, Lexer *lex, Heap *mem)
 {
+  Val pos = TokenPos(lex);
   Token token = NextToken(lex);
   Val op = MakeSymbolFrom(token.lexeme, token.length, mem);
   SkipNewlines(lex);
   Val rhs = ParseExpr(prec, lex, mem);
   if (IsTagged(rhs, "error", mem)) return rhs;
 
-  return Pair(op, Pair(lhs, Pair(rhs, nil, mem), mem), mem);
+  return Pair(pos, Pair(op, Pair(lhs, Pair(rhs, nil, mem), mem), mem), mem);
 }
 
 static Val ParseLeftAssoc(Val lhs, Lexer *lex, Heap *mem)
@@ -730,12 +757,14 @@ static Val ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem)
 
 static Val ParseAccess(Val lhs, Lexer *lex, Heap *mem)
 {
+  Val pos = TokenPos(lex);
   MatchToken(TokenDot, lex);
+  Val key_pos = TokenPos(lex);
   Val key = ParseID(lex, mem);
   if (IsTagged(key, "error", mem)) return key;
 
-  key = Pair(SymbolFor(":"), key, mem);
-  return Pair(SymbolFor("."), Pair(lhs, Pair(key, nil, mem), mem), mem);
+  key = Pair(key_pos, Pair(SymbolFor(":"), key, mem), mem);
+  return Pair(pos, Pair(SymbolFor("."), Pair(lhs, Pair(key, nil, mem), mem), mem), mem);
 }
 
 static void MakeParseSymbols(Heap *mem)
@@ -762,19 +791,14 @@ static void MakeParseSymbols(Heap *mem)
 
 static Val ParseError(char *message, Token token, Lexer *lex, Heap *mem)
 {
+  Val pos = IntVal(token.lexeme - lex->text);
+
   return
     Pair(SymbolFor("error"),
     Pair(SymbolFor("parse"),
+    Pair(pos,
     Pair(BinaryFrom(message, StrLen(message), mem),
-    Pair(BinaryFrom(lex->text, StrLen(lex->text), mem), nil, mem), mem), mem), mem);
-}
-
-static Val WrapModule(Val stmts, Val name, Heap *mem)
-{
-  return
-    Pair(SymbolFor("module"),
-    Pair(name,
-    Pair(stmts, nil, mem), mem), mem);
+    Pair(BinaryFrom(lex->text, StrLen(lex->text), mem), nil, mem), mem), mem), mem), mem);
 }
 
 static void SkipNewlines(Lexer *lex)

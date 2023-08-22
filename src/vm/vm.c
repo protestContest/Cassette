@@ -118,8 +118,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     case OpAccess: {
-      Val obj = StackPop(vm);
       Val key = StackPop(vm);
+      Val obj = StackPop(vm);
       if (IsPair(obj)) {
         if (IsInt(key) && RawInt(key) >= 0) {
           StackPush(vm, ListAt(obj, RawInt(key), mem));
@@ -173,8 +173,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpMul: {
-      Val a = StackPop(vm);
       Val b = StackPop(vm);
+      Val a = StackPop(vm);
       if (IsInt(a) && IsInt(b)) {
         StackPush(vm, IntVal(RawInt(a) * RawInt(b)));
       } else if (IsNum(a) && IsNum(b)) {
@@ -186,8 +186,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpDiv: {
-      Val a = StackPop(vm);
       Val b = StackPop(vm);
+      Val a = StackPop(vm);
       if (IsNum(b) && RawNum(b) == 0) {
         vm->error = ArithmeticError;
       } else if (IsNum(a) && IsNum(b)) {
@@ -199,8 +199,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpRem: {
-      Val a = StackPop(vm);
       Val b = StackPop(vm);
+      Val a = StackPop(vm);
       if (IsNum(b) && RawNum(b) == 0) {
         vm->error = ArithmeticError;
       } else if (IsInt(a) && IsInt(b)) {
@@ -212,8 +212,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpAdd: {
-      Val a = StackPop(vm);
       Val b = StackPop(vm);
+      Val a = StackPop(vm);
       if (IsInt(a) && IsInt(b)) {
         StackPush(vm, IntVal(RawInt(a) + RawInt(b)));
       } else if (IsNum(a) && IsNum(b)) {
@@ -225,8 +225,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpSub:{
-      Val a = StackPop(vm);
       Val b = StackPop(vm);
+      Val a = StackPop(vm);
       if (IsInt(a) && IsInt(b)) {
         StackPush(vm, IntVal(RawInt(a) - RawInt(b)));
       } else if (IsNum(a) && IsNum(b)) {
@@ -238,8 +238,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpIn: {
-      Val item = StackPop(vm);
       Val obj = StackPop(vm);
+      Val item = StackPop(vm);
       if (IsPair(obj)) {
         StackPush(vm, BoolVal(ListContains(obj, item, mem)));
       } else if (IsTuple(obj, mem)) {
@@ -253,8 +253,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpGt: {
-      Val a = StackPop(vm);
       Val b = StackPop(vm);
+      Val a = StackPop(vm);
       if (IsNum(a) && IsNum(b)) {
         StackPush(vm, BoolVal(RawNum(a) > RawNum(b)));
       } else {
@@ -264,8 +264,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpLt: {
-      Val a = StackPop(vm);
       Val b = StackPop(vm);
+      Val a = StackPop(vm);
       if (IsNum(a) && IsNum(b)) {
         StackPush(vm, BoolVal(RawNum(a) < RawNum(b)));
       } else {
