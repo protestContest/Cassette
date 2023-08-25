@@ -4,6 +4,7 @@ void InitChunk(Chunk *chunk)
 {
   chunk->data = NULL;
   InitMem(&chunk->constants, 0);
+  chunk->num_modules = 0;
 }
 
 void DestroyChunk(Chunk *chunk)

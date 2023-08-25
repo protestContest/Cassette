@@ -12,8 +12,9 @@ void InitVM(VM *vm, Heap *mem)
   vm->stack = NULL;
   vm->call_stack = NULL;
   vm->env = InitialEnv(mem);
-  vm->error = false;
+  vm->modules = nil;
   vm->mem = mem;
+  vm->error = false;
 }
 
 void DestroyVM(VM *vm)
@@ -88,6 +89,7 @@ void RunChunk(VM *vm, Chunk *chunk)
   vm->pc = 0;
   vm->cont = ChunkSize(chunk);
   vm->stack = NULL;
+  vm->modules = MakeTuple(chunk->num_modules, mem);
   vm->error = false;
 
   CopyStrings(&chunk->constants, mem);
@@ -117,7 +119,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       StackPush(vm, ChunkConst(chunk, vm->pc+1));
       vm->pc += OpLength(op);
       break;
-    case OpAccess: {
+    case OpGet: {
       Val key = StackPop(vm);
       Val obj = StackPop(vm);
       if (IsPair(obj)) {
@@ -127,7 +129,8 @@ void RunChunk(VM *vm, Chunk *chunk)
           vm->error = KeyError;
         }
       } else if (IsTuple(obj, mem)) {
-        if (IsInt(key) && RawInt(key) >= 0 && RawInt(key) < TupleLength(obj, mem)) {
+        if (IsInt(key) && RawInt(key) >= 0
+            && RawInt(key) < TupleLength(obj, mem)) {
           StackPush(vm, TupleGet(obj, RawInt(key), mem));
         } else {
           vm->error = KeyError;
@@ -173,12 +176,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpMul: {
-      Val b = StackPop(vm);
       Val a = StackPop(vm);
+      Val b = StackPop(vm);
       if (IsInt(a) && IsInt(b)) {
-        StackPush(vm, IntVal(RawInt(a) * RawInt(b)));
-      } else if (IsNum(a) && IsNum(b)) {
-        StackPush(vm, FloatVal(RawNum(a) * RawNum(b)));
+        StackPush(vm, IntVal(RawInt(b) * RawInt(a)));
+      } else if (IsNum(b) && IsNum(a)) {
+        StackPush(vm, FloatVal(RawNum(b) * RawNum(a)));
       } else {
         vm->error = TypeError;
       }
@@ -186,12 +189,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpDiv: {
-      Val b = StackPop(vm);
       Val a = StackPop(vm);
-      if (IsNum(b) && RawNum(b) == 0) {
+      Val b = StackPop(vm);
+      if (IsNum(a) && RawNum(a) == 0) {
         vm->error = ArithmeticError;
-      } else if (IsNum(a) && IsNum(b)) {
-        StackPush(vm, FloatVal((float)RawNum(a) / (float)RawNum(b)));
+      } else if (IsNum(b) && IsNum(a)) {
+        StackPush(vm, FloatVal((float)RawNum(b) / (float)RawNum(a)));
       } else {
         vm->error = TypeError;
       }
@@ -199,12 +202,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpRem: {
-      Val b = StackPop(vm);
       Val a = StackPop(vm);
-      if (IsNum(b) && RawNum(b) == 0) {
+      Val b = StackPop(vm);
+      if (IsNum(a) && RawNum(a) == 0) {
         vm->error = ArithmeticError;
       } else if (IsInt(a) && IsInt(b)) {
-        StackPush(vm, IntVal(RawInt(a) % RawInt(b)));
+        StackPush(vm, IntVal(RawInt(b) % RawInt(a)));
       } else {
         vm->error = TypeError;
       }
@@ -212,8 +215,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpAdd: {
-      Val b = StackPop(vm);
       Val a = StackPop(vm);
+      Val b = StackPop(vm);
       if (IsInt(a) && IsInt(b)) {
         StackPush(vm, IntVal(RawInt(a) + RawInt(b)));
       } else if (IsNum(a) && IsNum(b)) {
@@ -225,12 +228,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpSub:{
-      Val b = StackPop(vm);
       Val a = StackPop(vm);
+      Val b = StackPop(vm);
       if (IsInt(a) && IsInt(b)) {
-        StackPush(vm, IntVal(RawInt(a) - RawInt(b)));
+        StackPush(vm, IntVal(RawInt(b) - RawInt(a)));
       } else if (IsNum(a) && IsNum(b)) {
-        StackPush(vm, FloatVal(RawNum(a) - RawNum(b)));
+        StackPush(vm, FloatVal(RawNum(b) - RawNum(a)));
       } else {
         vm->error = TypeError;
       }
@@ -253,10 +256,10 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpGt: {
-      Val b = StackPop(vm);
       Val a = StackPop(vm);
+      Val b = StackPop(vm);
       if (IsNum(a) && IsNum(b)) {
-        StackPush(vm, BoolVal(RawNum(a) > RawNum(b)));
+        StackPush(vm, BoolVal(RawNum(b) > RawNum(a)));
       } else {
         vm->error = TypeError;
       }
@@ -264,10 +267,10 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     case OpLt: {
-      Val b = StackPop(vm);
       Val a = StackPop(vm);
+      Val b = StackPop(vm);
       if (IsNum(a) && IsNum(b)) {
-        StackPush(vm, BoolVal(RawNum(a) < RawNum(b)));
+        StackPush(vm, BoolVal(RawNum(b) < RawNum(a)));
       } else {
         vm->error = TypeError;
       }
@@ -278,51 +281,10 @@ void RunChunk(VM *vm, Chunk *chunk)
       StackPush(vm, BoolVal(Eq(StackPop(vm), StackPop(vm))));
       vm->pc += OpLength(op);
       break;
-    case OpGet: {
-      Val index = StackPop(vm);
-      Val obj = StackPop(vm);
-      if (IsPair(obj) && IsInt(index)) {
-        StackPush(vm, ListAt(obj, RawInt(index), mem));
-      } else if (IsTuple(obj, mem) && IsInt(index)) {
-        if (RawInt(index) < TupleLength(obj, mem)) {
-          vm->error = KeyError;
-        } else {
-          StackPush(vm, TupleGet(obj, RawInt(index), mem));
-        }
-      } else if (IsMap(obj, mem)) {
-        Val value = MapGet(obj, index, mem);
-        if (Eq(value, SymbolFor("*undefined*"))) {
-          vm->error = KeyError;
-        } else {
-          StackPush(vm, value);
-        }
-      } else {
-        vm->error = TypeError;
-      }
-      vm->pc += OpLength(op);
-      break;
-    }
-    case OpPair:
-      StackPush(vm, Pair(StackPop(vm), StackPop(vm), mem));
-      vm->pc += OpLength(op);
-      break;
-    case OpHead: {
-      Val val = StackPop(vm);
-      if (IsPair(val)) {
-        StackPush(vm, Head(val, mem));
-      } else {
-        vm->error = TypeError;
-      }
-      vm->pc += OpLength(op);
-      break;
-    }
-    case OpTail: {
-      Val val = StackPop(vm);
-      if (IsPair(val)) {
-        StackPush(vm, Tail(val, mem));
-      } else {
-        vm->error = TypeError;
-      }
+    case OpPair: {
+      Val head = StackPop(vm);
+      Val tail = StackPop(vm);
+      StackPush(vm, Pair(head, tail, mem));
       vm->pc += OpLength(op);
       break;
     }
@@ -347,7 +309,8 @@ void RunChunk(VM *vm, Chunk *chunk)
     case OpMap: {
       Val keys = StackPop(vm);
       Val vals = StackPop(vm);
-      if (!IsTuple(keys, mem) || !IsTuple(vals, mem) || TupleLength(keys, mem) != TupleLength(vals, mem)) {
+      if (!IsTuple(keys, mem) || !IsTuple(vals, mem)
+          || TupleLength(keys, mem) != TupleLength(vals, mem)) {
         vm->error = TypeError;
       } else {
         Val map = MapFrom(keys, vals, mem);
@@ -362,10 +325,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op) + size;
       break;
     }
-    case OpExtend:
-      vm->env = ExtendEnv(vm->env, StackPop(vm), mem);
+    case OpExtend: {
+      Val frame = StackPop(vm);
+      vm->env = ExtendEnv(vm->env, frame, mem);
       vm->pc += OpLength(op);
       break;
+    }
     case OpDefine:
       Define(RawInt(ChunkConst(chunk, vm->pc+1)), StackPop(vm), vm->env, mem);
       vm->pc += OpLength(op);
@@ -427,9 +392,19 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else if (IsFunc(func, mem)) {
         vm->env = FuncEnv(func, mem);
         vm->pc = RawInt(FuncEntry(func, mem));
-      } else {
-        vm->error = TypeError;
       }
+      break;
+    }
+    case OpModule: {
+      Val mod = StackPop(vm);
+      TupleSet(vm->modules, RawInt(ChunkConst(chunk, vm->pc+1)), mod, mem);
+      vm->pc += OpLength(op);
+      break;
+    }
+    case OpLoad: {
+      Val mod = TupleGet(vm->modules, RawInt(ChunkConst(chunk, vm->pc+1)), mem);
+      StackPush(vm, mod);
+      vm->pc += OpLength(op);
       break;
     }
     }

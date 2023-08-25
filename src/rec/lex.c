@@ -242,3 +242,147 @@ static Token AdvanceToken(Lexer *lex)
 
   return KeywordToken(lex);
 }
+
+void PrintToken(TokenType type)
+{
+  switch (type) {
+  case TokenEOF:
+    Print("TokenEOF\n");
+    break;
+  case TokenID:
+    Print("TokenID\n");
+    break;
+  case TokenBangEqual:
+    Print("TokenBangEqual\n");
+    break;
+  case TokenString:
+    Print("TokenString\n");
+    break;
+  case TokenNewline:
+    Print("TokenNewline\n");
+    break;
+  case TokenHash:
+    Print("TokenHash\n");
+    break;
+  case TokenPercent:
+    Print("TokenPercent\n");
+    break;
+  case TokenLParen:
+    Print("TokenLParen\n");
+    break;
+  case TokenRParen:
+    Print("TokenRParen\n");
+    break;
+  case TokenStar:
+    Print("TokenStar\n");
+    break;
+  case TokenPlus:
+    Print("TokenPlus\n");
+    break;
+  case TokenComma:
+    Print("TokenComma\n");
+    break;
+  case TokenMinus:
+    Print("TokenMinus\n");
+    break;
+  case TokenArrow:
+    Print("TokenArrow\n");
+    break;
+  case TokenDot:
+    Print("TokenDot\n");
+    break;
+  case TokenSlash:
+    Print("TokenSlash\n");
+    break;
+  case TokenNum:
+    Print("TokenNum\n");
+    break;
+  case TokenColon:
+    Print("TokenColon\n");
+    break;
+  case TokenLess:
+    Print("TokenLess\n");
+    break;
+  case TokenLessEqual:
+    Print("TokenLessEqual\n");
+    break;
+  case TokenEqual:
+    Print("TokenEqual\n");
+    break;
+  case TokenEqualEqual:
+    Print("TokenEqualEqual\n");
+    break;
+  case TokenGreater:
+    Print("TokenGreater\n");
+    break;
+  case TokenGreaterEqual:
+    Print("TokenGreaterEqual\n");
+    break;
+  case TokenLBracket:
+    Print("TokenLBracket\n");
+    break;
+  case TokenRBracket:
+    Print("TokenRBracket\n");
+    break;
+  case TokenAnd:
+    Print("TokenAnd\n");
+    break;
+  case TokenAs:
+    Print("TokenAs\n");
+    break;
+  case TokenCond:
+    Print("TokenCond\n");
+    break;
+  case TokenDef:
+    Print("TokenDef\n");
+    break;
+  case TokenDo:
+    Print("TokenDo\n");
+    break;
+  case TokenElse:
+    Print("TokenElse\n");
+    break;
+  case TokenEnd:
+    Print("TokenEnd\n");
+    break;
+  case TokenFalse:
+    Print("TokenFalse\n");
+    break;
+  case TokenIf:
+    Print("TokenIf\n");
+    break;
+  case TokenImport:
+    Print("TokenImport\n");
+    break;
+  case TokenIn:
+    Print("TokenIn\n");
+    break;
+  case TokenLet:
+    Print("TokenLet\n");
+    break;
+  case TokenModule:
+    Print("TokenModule\n");
+    break;
+  case TokenNil:
+    Print("TokenNil\n");
+    break;
+  case TokenNot:
+    Print("TokenNot\n");
+    break;
+  case TokenOr:
+    Print("TokenOr\n");
+    break;
+  case TokenTrue:
+    Print("TokenTrue\n");
+    break;
+  case TokenLBrace:
+    Print("TokenLBrace\n");
+    break;
+  case TokenBar:
+    Print("TokenBar\n");
+    break;
+  case TokenRBrace:
+    Print("TokenRBrace\n");
+    break;
+  }
+}

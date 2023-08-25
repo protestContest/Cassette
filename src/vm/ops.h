@@ -5,7 +5,7 @@ typedef enum {
   OpPop,
   OpDup,
   OpConst,
-  OpAccess,
+  OpGet,
   OpNeg,
   OpNot,
   OpLen,
@@ -18,10 +18,7 @@ typedef enum {
   OpGt,
   OpLt,
   OpEq,
-  OpGet,
   OpPair,
-  OpHead,
-  OpTail,
   OpTuple,
   OpSet,
   OpMap,
@@ -39,6 +36,8 @@ typedef enum {
   OpSaveCont,
   OpRestCont,
   OpApply,
+  OpModule,
+  OpLoad,
 } OpCode;
 
 char *OpName(OpCode op);

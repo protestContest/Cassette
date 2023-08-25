@@ -154,16 +154,9 @@ Val Parse(char *source, Heap *mem)
     SkipNewlines(&lex);
   }
 
-  if (IsNil(Tail(stmts, mem))) {
-    /* If there's only one statement, unwrap it from the list */
-    stmts = Head(stmts, mem);
-  } else {
-    /* Otherwise, wrap the statements in a "do" expression */
-    stmts = Pair(stmts_pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
-  }
 
   if (IsNil(module)) {
-    return stmts;
+    return Pair(stmts_pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
   } else {
     /* If a module was declared, wrap the script in a module node */
     return
@@ -201,18 +194,18 @@ Val ParseStmt(Lexer *lex, Heap *mem)
   SkipNewlines(lex);
 
   /* Check for statements we can combine into this one */
-  if (IsTagged(stmt, "let", mem)) {
+  if (IsTagged(Tail(stmt, mem), "let", mem)) {
     if (PeekToken(lex).type == TokenLet) {
       Val next_stmt = ParseStmt(lex, mem);
-      ListConcat(stmt, Tail(next_stmt, mem), mem);
+      ListConcat(stmt, Tail(Tail(next_stmt, mem), mem), mem);
     } else if (PeekToken(lex).type == TokenDef) {
       Val next_stmt = ParseStmt(lex, mem);
-      ListConcat(stmt, Tail(next_stmt, mem), mem);
+      ListConcat(stmt, Tail(Tail(next_stmt, mem), mem), mem);
     }
-  } else if (IsTagged(stmt, "import", mem)) {
+  } else if (IsTagged(Tail(stmt, mem), "import", mem)) {
     if (PeekToken(lex).type == TokenImport) {
       Val next_stmt = ParseStmt(lex, mem);
-      ListConcat(stmt, Tail(next_stmt, mem), mem);
+      ListConcat(stmt, Tail(Tail(next_stmt, mem), mem), mem);
     }
   }
 
@@ -247,8 +240,10 @@ static Val ParseImport(Lexer *lex, Heap *mem)
 
   return Pair(pos,
     Pair(SymbolFor("import"),
-    Pair(name,
-    Pair(alias, nil, mem), mem), mem), mem);
+    Pair(
+      Pair(name,
+      Pair(alias, nil, mem), mem),
+    nil, mem), mem), mem);
 }
 
 /* Syntax: ID "=" call
@@ -468,9 +463,7 @@ static Val ParseNum(Lexer *lex, Heap *mem)
   /*
   0x1234BEEF
   3.14
-  -1.2
   1_000_000
-  -4236
   */
 
   Val pos = TokenPos(lex);
@@ -544,13 +537,16 @@ static Val ParseList(Lexer *lex, Heap *mem)
 
 static Val ParseClauses(Lexer *lex, Heap *mem)
 {
-  if (MatchToken(TokenElse, lex)) {
-    Val alternative = ParseCall(lex, mem);
-    if (IsTagged(alternative, "error", mem)) return alternative;
-    SkipNewlines(lex);
-    if (!MatchToken(TokenEnd, lex)) return ParseError("Expected \"end\"", lex->token, lex, mem);
-    return alternative;
+  if (MatchToken(TokenEnd, lex)) {
+    return nil;
   }
+  // if (MatchToken(TokenElse, lex)) {
+  //   Val alternative = ParseCall(lex, mem);
+  //   if (IsTagged(alternative, "error", mem)) return alternative;
+  //   SkipNewlines(lex);
+  //   if (!MatchToken(TokenEnd, lex)) return ParseError("Expected \"end\"", lex->token, lex, mem);
+  //   return alternative;
+  // }
 
   Val predicate = ParseExpr(PrecLambda+1, lex, mem);
   if (IsTagged(predicate, "error", mem)) return predicate;
@@ -612,8 +608,6 @@ static Val ParseDo(Lexer *lex, Heap *mem)
     SkipNewlines(lex);
   }
 
-  if (ListLength(stmts, mem) == 1) return Head(stmts, mem);
-
   return Pair(pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
 }
 
@@ -643,11 +637,12 @@ static Val ParseIf(Lexer *lex, Heap *mem)
   Val predicate = ParseExpr(PrecExpr, lex, mem);
   if (IsTagged(predicate, "error", mem)) return predicate;
 
+  Val true_pos = TokenPos(lex);
   if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
   SkipNewlines(lex);
 
   Val true_block = nil;
-  while (!MatchToken(TokenElse, lex)) {
+  while (PeekToken(lex).type != TokenElse && !MatchToken(TokenEnd, lex)) {
     Val stmt = ParseStmt(lex, mem);
     if (IsTagged(stmt, "error", mem)) return stmt;
 
@@ -657,30 +652,25 @@ static Val ParseIf(Lexer *lex, Heap *mem)
     SkipNewlines(lex);
   }
 
-  if (ListLength(true_block, mem) == 1) {
-    true_block = Head(true_block, mem);
-  } else {
-    true_block = ReverseList(true_block, mem);
-  }
+  true_block = Pair(true_pos, Pair(SymbolFor("do"), ReverseList(true_block, mem), mem), mem);
 
   Val false_block = nil;
   SkipNewlines(lex);
 
-  while (!MatchToken(TokenEnd, lex)) {
-
-    Val stmt = ParseStmt(lex, mem);
-    if (IsTagged(stmt, "error", mem)) return stmt;
-
-    false_block = Pair(stmt, false_block, mem);
-
-    MatchToken(TokenComma, lex);
+  Val false_pos = TokenPos(lex);
+  if (MatchToken(TokenElse, lex)) {
     SkipNewlines(lex);
-  }
+    while (!MatchToken(TokenEnd, lex)) {
+      Val stmt = ParseStmt(lex, mem);
+      if (IsTagged(stmt, "error", mem)) return stmt;
 
-  if (ListLength(false_block, mem) == 1) {
-    false_block = Head(false_block, mem);
-  } else {
-    false_block = ReverseList(false_block, mem);
+      false_block = Pair(stmt, false_block, mem);
+
+      MatchToken(TokenComma, lex);
+      SkipNewlines(lex);
+    }
+
+    false_block = Pair(false_pos, Pair(SymbolFor("do"), ReverseList(false_block, mem), mem), mem);
   }
 
   return Pair(pos,
@@ -813,4 +803,55 @@ static bool MatchToken(TokenType type, Lexer *lex)
     return true;
   }
   return false;
+}
+
+typedef struct {
+  u32 line;
+  u32 col;
+} SourceLoc;
+
+static SourceLoc GetLocation(char *source, u32 src_len, u32 pos)
+{
+  SourceLoc loc = {1, 1};
+  for (u32 i = 0; i < pos && i < src_len; i++) {
+    if (source[i] == '\n') {
+      loc.line++;
+      loc.col = 1;
+    } else {
+      loc.col++;
+    }
+  }
+  return loc;
+}
+
+char *ParseErrorMessage(Val error, Heap *mem)
+{
+  Val pos = ListAt(error, 2, mem);
+  Val message = ListAt(error, 3, mem);
+  Val source = ListAt(error, 4, mem);
+  SourceLoc loc = GetLocation(BinaryData(source, mem), BinaryLength(source, mem), RawInt(pos));
+
+  u32 line_digits = NumDigits(loc.line);
+  u32 col_digits = NumDigits(loc.col);
+  u32 msg_len = BinaryLength(message, mem);
+
+  char *result = Allocate(1 + line_digits + 1 + col_digits + 2 + msg_len + 1);
+  char *cur = result;
+  *cur = '[';
+  cur++;
+  IntToStr(loc.line, cur, line_digits);
+  cur += line_digits;
+  *cur = ':';
+  cur++;
+  IntToStr(loc.col, cur, col_digits);
+  cur += col_digits;
+  *cur = ']';
+  cur++;
+  *cur = ' ';
+  cur++;
+  Copy(BinaryData(message, mem), cur, msg_len);
+  cur += msg_len;
+  *cur = '\0';
+
+  return cur;
 }

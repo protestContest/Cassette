@@ -67,3 +67,5 @@ void InitLexer(Lexer *lex, char *text);
 Token NextToken(Lexer *lex);
 Token PeekToken(Lexer *lex);
 Val TokenPos(Lexer *lex);
+
+void PrintToken(TokenType type);

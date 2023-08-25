@@ -8,7 +8,7 @@ void InitMem(Heap *mem, u32 size)
   VecPush(mem->values, nil);
 
   mem->strings = NewVec(char, 0);
-  InitHashMap(&mem->string_map);
+  mem->string_map = EmptyHashMap;
   MakeSymbol("true", mem);
   MakeSymbol("false", mem);
 }
@@ -27,8 +27,8 @@ u32 MemSize(Heap *mem)
 
 void CopyStrings(Heap *src, Heap *dst)
 {
-  for (u32 i = 0; i < HashMapCount(&src->string_map); i++) {
-    Val key = (Val){.as_i = GetHashMapKey(&src->string_map, i)};
+  for (u32 i = 0; i < src->string_map.count; i++) {
+    Val key = (Val){.as_i = HashMapKey(&src->string_map, i)};
     MakeSymbol(SymbolName(key, src), dst);
   }
 }

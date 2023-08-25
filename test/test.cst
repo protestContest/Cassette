@@ -1,13 +1,4 @@
-def (fact n) do
-  def (loop m acc) do
-    if m == 1 do
-      acc
-    else
-      loop m-1 m*acc
-    end
-  end
+let x = 1, d = {a: 2}
 
-  loop n 1
-end
-
-fact 5
+x + 1
+d.a

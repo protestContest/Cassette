@@ -17,6 +17,7 @@ typedef struct {
   Val *stack;
   Val *call_stack;
   Val env;
+  Val modules;
   Heap *mem;
   VMError error;
 } VM;

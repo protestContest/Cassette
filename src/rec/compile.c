@@ -2,12 +2,21 @@
 #include "debug.h"
 #include "vm.h"
 
+typedef struct {
+  bool ok;
+  union {
+    Seq result;
+    char *error;
+  };
+} CompileResult;
+
 #define CompileOk(seq)      ((CompileResult){true, {seq}})
 #define CompileError(err)   ((CompileResult){false, {.error = err}})
 
 typedef struct {
   Heap *mem;
   Val env;
+  Module module;
 } Compiler;
 
 static void InitCompiler(Compiler *c, Val env, Heap *mem)
@@ -18,13 +27,12 @@ static void InitCompiler(Compiler *c, Val env, Heap *mem)
   } else {
     c->env = env;
   }
+  c->module.name = nil;
+  c->module.code = EmptySeq();
+  c->module.imports = EmptyHashMap;
 
   MakeSymbol("return", mem);
   MakeSymbol("next", mem);
-}
-
-static void DestroyCompiler(Compiler *c)
-{
 }
 
 #define OpSeq(op, mem)  MakeSeq(0, 0, Pair(IntVal(op), nil, mem))
@@ -40,37 +48,41 @@ static CompileResult CompileAnd(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileIf(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileDo(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c);
-static CompileResult CompileLet(Val expr, Linkage linkage, Compiler *c);
-static CompileResult CompileImport(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileModule(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c);
 
-CompileResult Compile(Val ast, Val env, Heap *mem)
+ModuleResult Compile(Val ast, Val env, Heap *mem)
 {
   Compiler c;
   InitCompiler(&c, env, mem);
+  CompileResult compiled = CompileExpr(ast, LinkNext, &c);
 
-  CompileResult result = CompileExpr(ast, LinkNext, &c);
-  DestroyCompiler(&c);
-  return result;
+  if (compiled.ok) {
+    c.module.code = compiled.result;
+    return (ModuleResult){true, {c.module}};
+  } else {
+    return (ModuleResult){false, {.error = compiled.error}};
+  }
 }
 
 static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
 
-  Val pos = Head(expr, mem);
+  // Val pos = Head(expr, mem);
   expr = Tail(expr, mem);
 
-  PrintInt(RawInt(pos));
-  Print("#> ");
-  Inspect(expr, mem);
-  Print("\n");
+  // PrintInt(RawInt(pos));
+  // Print("#> ");
+  // Inspect(expr, mem);
+  // Print("\n  ");
+  // Inspect(c->env, mem);
+  // Print("\n");
 
   if (IsNil(expr))                      return CompileOk(EndWithLinkage(linkage, EmptySeq(), mem));
   if (IsNum(expr))                      return CompileConst(expr, linkage, c);
-  if (IsTagged(expr, ":", mem))         return CompileConst(Tail(expr, mem), linkage, c);
+  if (IsTagged(expr, ":", mem))         return CompileConst(Tail(Tail(expr, mem), mem), linkage, c);
   if (IsTagged(expr, "\"", mem))        return CompileConst(ListAt(expr, 1, mem), linkage, c);
   if (Eq(expr, SymbolFor("nil")))       return CompileConst(nil, linkage, c);
   if (Eq(expr, SymbolFor("true")))      return CompileConst(expr, linkage, c);
@@ -85,11 +97,9 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
   if (IsTagged(expr, "if", mem))        return CompileIf(Tail(expr, mem), linkage, c);
   if (IsTagged(expr, "do", mem))        return CompileDo(Tail(expr, mem), linkage, c);
   if (IsTagged(expr, "->", mem))        return CompileLambda(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "let", mem))       return CompileLet(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "import", mem))    return CompileImport(Tail(expr, mem), linkage, c);
   if (IsTagged(expr, "module", mem))    return CompileModule(Tail(expr, mem), linkage, c);
 
-  if (IsTagged(expr, ".", mem))         return CompileOp(OpSeq(OpAccess, mem), expr, linkage, c);
+  if (IsTagged(expr, ".", mem))         return CompileOp(OpSeq(OpGet, mem), expr, linkage, c);
   if (IsTagged(expr, "not", mem))       return CompileOp(OpSeq(OpNot, mem), expr, linkage, c);
   if (IsTagged(expr, "#", mem))         return CompileOp(OpSeq(OpLen, mem), expr, linkage, c);
   if (IsTagged(expr, "*", mem))         return CompileOp(OpSeq(OpMul, mem), expr, linkage, c);
@@ -199,7 +209,7 @@ static CompileResult CompileMap(Val expr, Linkage linkage, Compiler *c)
   Seq vals_seq = EmptySeq();
   while (!IsNil(expr)) {
     Val item = Head(expr, mem);
-    Val key = Head(item, mem);
+    Val key = Tail(Head(item, mem), mem);
 
     keys_seq =
       AppendSeq(
@@ -372,52 +382,164 @@ static CompileResult CompileIf(Val expr, Linkage linkage, Compiler *c)
       ParallelSeq(alt_seq, cons_seq, mem), mem));
 }
 
-static CompileResult CompileDo(Val expr, Linkage linkage, Compiler *c)
+static CompileResult CompileAssigns(Val expr, u32 index, Linkage linkage, Compiler *c)
+{
+  Heap *mem = c->mem;
+
+  Seq assigns = EmptySeq();
+  while (!IsNil(expr)) {
+    Val assign = Head(expr, mem);
+    Val var = Tail(ListAt(assign, 0, mem), mem);
+    Define(index, var, c->env, mem);
+
+    CompileResult value = CompileExpr(ListAt(assign, 1, mem), LinkNext, c);
+    if (!value.ok) return value;
+
+    assigns =
+      AppendSeq(assigns,
+        Preserving(REnv, value.result,
+          MakeSeq(REnv, 0,
+            Pair(IntVal(OpDefine),
+            Pair(IntVal(index), nil, mem), mem)), mem), mem);
+
+    index++;
+    expr = Tail(expr, mem);
+  }
+
+  return CompileOk(
+    EndWithLinkage(linkage,
+    AppendSeq(assigns,
+    MakeSeq(0, 0,
+      Pair(IntVal(OpConst),
+      Pair(MakeSymbol("ok", mem), nil, mem), mem)), mem), mem));
+}
+
+static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compiler *c)
+{
+  Heap *mem = c->mem;
+
+  Seq assigns = EmptySeq();
+  while (!IsNil(expr)) {
+    Val import = Head(expr, mem);
+    Val mod = Tail(ListAt(import, 0, mem), mem);
+    Val var = Tail(ListAt(import, 1, mem), mem);
+    Define(index, var, c->env, mem);
+    if (!HashMapContains(&c->module.imports, mod.as_i)) {
+      HashMapSet(&c->module.imports, mod.as_i, 1);
+    }
+
+    Val after_load = MakeLabel();
+    Seq load_seq =
+      MakeSeq(0, RCont | REnv,
+        Pair(IntVal(OpLoad),
+        Pair(ModuleRef(mod, mem),
+        Pair(IntVal(OpCont),
+        Pair(LabelRef(after_load, mem),
+        Pair(IntVal(OpApply),
+        Pair(Label(after_load, mem), nil, mem), mem), mem), mem), mem), mem));
+
+    assigns =
+      AppendSeq(assigns,
+      Preserving(REnv, load_seq,
+      MakeSeq(REnv, 0,
+        Pair(IntVal(OpDefine),
+        Pair(IntVal(index), nil, mem), mem)), mem), mem);
+
+    index++;
+    expr = Tail(expr, mem);
+  }
+
+  return CompileOk(
+    EndWithLinkage(linkage,
+      AppendSeq(assigns,
+        MakeSeq(0, 0,
+          Pair(IntVal(OpConst),
+          Pair(MakeSymbol("ok", mem), nil, mem), mem)), mem), mem));
+}
+
+static CompileResult CompileBlock(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
   if (IsNil(expr)) {
     return CompileOk(MakeSeq(0, 0, Pair(IntVal(OpConst), Pair(nil, nil, mem), mem)));
   }
 
-  u32 num_frames = 0;
-
   Seq seq = EmptySeq();
-  while (!IsNil(Tail(expr, mem))) {
-    CompileResult stmt = CompileExpr(Head(expr, mem), LinkNext, c);
-    if (!stmt.ok) return stmt;
+  u32 index = 0;
+  while (!IsNil(expr)) {
+    Val stmt = Head(expr, mem);
 
-    Seq stmt_seq = stmt.result;
+    Val stmt_linkage = IsNil(Tail(expr, mem)) ? linkage : LinkNext;
 
-    if (IsTagged(Tail(Head(expr, mem), mem), "let", mem)) {
-      num_frames++;
+    CompileResult stmt_res;
+    if (IsTagged(Tail(stmt, mem), "let", mem)) {
+      stmt_res = CompileAssigns(Tail(Tail(stmt, mem), mem), index, stmt_linkage, c);
+      index += ListLength(Tail(Tail(stmt, mem), mem), mem);
+    } else if (IsTagged(Tail(stmt, mem), "import", mem)) {
+      stmt_res = CompileImport(Tail(Tail(stmt, mem), mem), index, stmt_linkage, c);
+      index += ListLength(Tail(Tail(stmt, mem), mem), mem);
+    } else {
+      stmt_res = CompileExpr(stmt, stmt_linkage, c);
+    }
+    if (!stmt_res.ok) return stmt_res;
+
+    Seq stmt_seq = stmt_res.result;
+    u32 preserve = REnv;
+
+    if (IsNil(Tail(expr, mem))) {
+      preserve |= RCont;
+    } else {
+      stmt_seq = AppendSeq(stmt_seq,
+        MakeSeq(0, 0,
+          Pair(IntVal(OpPop), nil, mem)), mem);
     }
 
-    stmt_seq = AppendSeq(stmt_seq,
-      MakeSeq(0, 0,
-        Pair(IntVal(OpPop), nil, mem)), mem);
-
-    seq = Preserving(REnv, seq, stmt_seq, mem);
+    seq = Preserving(preserve, seq, stmt_seq, mem);
     expr = Tail(expr, mem);
   }
 
-
-  if (IsTagged(Head(expr, mem), "let", mem)) {
-    // last statement must produce some value
-    CompileResult stmt = CompileExpr(Head(expr, mem), linkage, c);
-    if (!stmt.ok) return stmt;
-
-    num_frames++;
-    seq = Preserving(REnv, seq, stmt.result, mem);
-    expr = Pair(SymbolFor("nil"), expr, mem);
+  if (index > 0) {
+    seq = AppendSeq(
+      MakeSeq(0, REnv,
+        Pair(IntVal(OpTuple),
+        Pair(IntVal(index),
+        Pair(IntVal(OpExtend), nil, mem), mem), mem)),
+      seq, mem);
   }
 
-  CompileResult last_stmt = CompileExpr(Head(expr, mem), linkage, c);
-  if (!last_stmt.ok) return last_stmt;
+  return CompileOk(seq);
+}
 
-  // all "let" frames go out of scope at the end
-  for (u32 i = 0; i < num_frames; i++) c->env = RestoreEnv(c->env, mem);
+static u32 CountAssigns(Val stmts, Heap *mem)
+{
+  u32 num_assigns = 0;
+  while (!IsNil(stmts)) {
+    Val stmt = Tail(Head(stmts, mem), mem);
+    if (IsTagged(stmt, "let", mem) || IsTagged(stmt, "import", mem)) {
+      num_assigns += ListLength(Tail(stmt, mem), mem);
+    }
+    stmts = Tail(stmts, mem);
+  }
+  return num_assigns;
+}
 
-  return CompileOk(Preserving(REnv | RCont, seq, last_stmt.result, mem));
+static CompileResult CompileDo(Val expr, Linkage linkage, Compiler *c)
+{
+  Heap *mem = c->mem;
+
+  u32 num_assigns = CountAssigns(expr, mem);
+
+  if (num_assigns > 0) {
+    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, mem), mem);
+  }
+
+  CompileResult block = CompileBlock(expr, linkage, c);
+
+  if (num_assigns > 0) {
+    c->env = RestoreEnv(c->env, mem);
+  }
+
+  return block;
 }
 
 static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
@@ -466,52 +588,59 @@ static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
     LabelSeq(after_lambda, mem), mem), mem), mem), mem));
 }
 
-static CompileResult CompileLet(Val expr, Linkage linkage, Compiler *c)
+static CompileResult CompileModule(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  Val name = Tail(ListAt(expr, 0, mem), mem);
+  c->module.name = name;
 
-  u32 num_assigns = ListLength(expr, mem);
-  c->env = ExtendEnv(c->env, MakeTuple(num_assigns, mem), mem);
-  Seq assigns = EmptySeq();
+  Val after = MakeLabel();
 
-  for (u32 i = 0; i < num_assigns; i++) {
-    Val assign = Head(expr, mem);
-    Val var = Tail(ListAt(assign, 0, mem), mem);
-    Define(i, var, c->env, mem);
+  Val stmts = ListAt(expr, 1, mem);
+  u32 num_assigns = CountAssigns(stmts, mem);
 
-    CompileResult value = CompileExpr(ListAt(assign, 1, mem), LinkNext, c);
-    if (!value.ok) return value;
-
-    assigns =
-      AppendSeq(assigns,
-        Preserving(REnv, value.result,
-          MakeSeq(REnv, 0,
-            Pair(IntVal(OpDefine),
-            Pair(IntVal(i), nil, mem), mem)), mem), mem);
-    expr = Tail(expr, mem);
+  if (num_assigns > 0) {
+    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, mem), mem);
   }
 
-  assigns = AppendSeq(assigns,
-    MakeSeq(0, 0, Pair(IntVal(OpConst), Pair(MakeSymbol("ok", mem), nil, mem), mem)), mem);
+  CompileResult block = CompileBlock(stmts, LinkNext, c);
+  if (!block.ok) return block;
+
+  Seq keys_seq = MakeSeq(0, 0,
+    Pair(IntVal(OpPop),
+    Pair(IntVal(OpExport),
+    Pair(IntVal(OpTuple),
+    Pair(IntVal(num_assigns), nil, mem), mem), mem), mem));
+  Val frame = Head(c->env, mem);
+  for (u32 i = 0; i < num_assigns; i++) {
+    Seq key_seq = MakeSeq(0, 0,
+      Pair(IntVal(OpConst),
+      Pair(TupleGet(frame, i, mem),
+      Pair(IntVal(OpSet),
+      Pair(IntVal(i), nil, mem), mem), mem), mem));
+    keys_seq = AppendSeq(keys_seq, key_seq, mem);
+  }
+
+  Seq mod_body = EndWithLinkage(LinkReturn,
+    AppendSeq(block.result,
+    AppendSeq(keys_seq,
+    MakeSeq(0, 0,
+      Pair(IntVal(OpMap),
+      Pair(IntVal(OpDup),
+      Pair(IntVal(OpModule),
+      Pair(ModuleRef(name, mem), nil, mem), mem), mem), mem)), mem), mem), mem);
 
   return CompileOk(
     EndWithLinkage(linkage,
     AppendSeq(
-      MakeSeq(0, 0,
-        Pair(IntVal(OpTuple),
-        Pair(IntVal(num_assigns),
-        Pair(IntVal(OpExtend), nil, mem), mem), mem)),
-      assigns, mem), mem));
-}
-
-static CompileResult CompileImport(Val expr, Linkage linkage, Compiler *c)
-{
-  return CompileError("Unimplemented");
-}
-
-static CompileResult CompileModule(Val expr, Linkage linkage, Compiler *c)
-{
-  return CompileError("Unimplemented");
+      TackOnSeq(MakeSeq(0, 0,
+        Pair(IntVal(OpLambda),
+        Pair(LabelRef(after, mem), nil, mem), mem)),
+      mod_body, mem),
+    MakeSeq(0, 0,
+      Pair(Label(after, mem),
+      Pair(IntVal(OpModule),
+      Pair(ModuleDef(name, mem), nil, mem), mem), mem)), mem), mem));
 }
 
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c)

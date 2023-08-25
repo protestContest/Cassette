@@ -5,7 +5,7 @@ static struct {char *name; u32 length;} ops[] = {
   [OpPop]       = { "pop", 1 },
   [OpDup]       = { "dup", 1 },
   [OpConst]     = { "const", 2 }, // const num
-  [OpAccess]    = { "access", 1 },
+  [OpGet]       = { "access", 1 },
   [OpNeg]       = { "neg", 1 },
   [OpNot]       = { "not", 1 },
   [OpLen]       = { "len", 1 },
@@ -18,10 +18,7 @@ static struct {char *name; u32 length;} ops[] = {
   [OpGt]        = { "gt", 1 },
   [OpLt]        = { "lt", 1 },
   [OpEq]        = { "eq", 1 },
-  [OpGet]       = { "get", 1 },
   [OpPair]      = { "pair", 1 },
-  [OpHead]      = { "head", 1 },
-  [OpTail]      = { "tail", 1 },
   [OpTuple]     = { "tuple", 2 }, // length
   [OpSet]       = { "set", 2 }, // tuple index
   [OpMap]       = { "map", 1 },
@@ -39,6 +36,8 @@ static struct {char *name; u32 length;} ops[] = {
   [OpSaveCont]  = { "save cont", 1 },
   [OpRestCont]  = { "restore cont", 1 },
   [OpApply]     = { "apply", 1 },
+  [OpModule]    = { "module", 2 },  // module ID
+  [OpLoad]      = { "load", 2 }, // module ID
 };
 
 char *OpName(OpCode op)

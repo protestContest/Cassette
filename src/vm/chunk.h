@@ -4,6 +4,7 @@
 typedef struct {
   u8 *data;
   Heap constants;
+  u32 num_modules;
 } Chunk;
 
 void InitChunk(Chunk *chunk);

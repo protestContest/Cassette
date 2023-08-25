@@ -38,6 +38,16 @@ Seq LabelSeq(Val label, Heap *mem)
     Pair(Label(label, mem), nil, mem));
 }
 
+Val ModuleRef(Val name, Heap *mem)
+{
+  return Pair(MakeSymbol("module-ref", mem), name, mem);
+}
+
+Val ModuleDef(Val name, Heap *mem)
+{
+  return Pair(MakeSymbol("module", mem), name, mem);
+}
+
 Seq AppendSeq(Seq seq1, Seq seq2, Heap *mem)
 {
   if (IsEmptySeq(seq1)) return seq2;

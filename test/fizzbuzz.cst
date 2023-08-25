@@ -1,18 +1,20 @@
-def (fizzbuzz n) do
-  def (loop m) do
-    cond do
-      m % 3 == 0 and m % 5 == 0   -> print "FizzBuzz"
-      m % 3 == 0                  -> print "Fizz"
-      m % 5 == 0                  -> print "Buzz"
-      true                        -> print m
-    end
+; module FizzBuzz
 
-    if m < n do
-      loop m + 1
-    end
-  end
+; def (fizzbuzz n) do
+;   def (loop m) do
+;     cond do
+;       m % 3 == 0 and m % 5 == 0   -> print "FizzBuzz"
+;       m % 3 == 0                  -> print "Fizz"
+;       m % 5 == 0                  -> print "Buzz"
+;       true                        -> print m
+;     end
 
-  loop 1
-end
+;     if m < n do
+;       loop m + 1
+;     end
+;   end
 
-fizzbuzz 100
+;   loop 1
+; end
+
+; fizzbuzz 100

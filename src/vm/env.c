@@ -41,12 +41,6 @@ Val Lookup(Val env, u32 fnum, u32 pos, Heap *mem)
 
 Val FindVar(Val var, Val env, Heap *mem)
 {
-  Inspect(env, mem);
-  Print("\n");
-  Print("Looking for ");
-  Inspect(var, mem);
-  Print(": ");
-
   u32 fnum = 0;
 
   while (!IsNil(env)) {
@@ -54,10 +48,6 @@ Val FindVar(Val var, Val env, Heap *mem)
     for (u32 i = 0; i < TupleLength(frame, mem); i++) {
       Val item = TupleGet(frame, i, mem);
       if (Eq(var, item)) {
-        PrintInt(fnum);
-        Print(",");
-        PrintInt(i);
-        Print("\n");
         return Pair(IntVal(fnum), IntVal(i), mem);
       }
     }
@@ -65,8 +55,6 @@ Val FindVar(Val var, Val env, Heap *mem)
     env = Tail(env, mem);
     fnum++;
   }
-
-  Print("X\n");
 
   return nil;
 }
