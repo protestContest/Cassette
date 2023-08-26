@@ -1,3 +1,9 @@
 import Foo
 
 Foo.foo 8
+IO.print 3
+
+let x = 2 | 3
+
+IO.print (head x)
+IO.print (tail x)

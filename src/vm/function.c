@@ -1,13 +1,12 @@
 #include "function.h"
-#include "primitive.h"
+#include "lib.h"
 
-static PrimitiveDef builtins[] = {
-  {"head", PrimHead},
-  {"tail", PrimTail},
+static PrimitiveDef primitives[] = {
+  {NULL, "head", StdHead},
+  {NULL, "tail", StdTail},
+  {"IO", "print", IOPrint},
+  {"IO", "inspect", IOInspect},
 };
-
-static u32 prim_count = 0;
-static PrimitiveDef *primitives = NULL;
 
 bool IsFunc(Val func, Heap *mem)
 {
@@ -41,41 +40,30 @@ bool IsPrimitive(Val value, Heap *mem)
 Val DoPrimitive(Val prim, VM *vm)
 {
   u32 index = RawInt(Tail(prim, vm->mem));
-  if (index < ArrayCount(builtins)) {
-    return builtins[index].impl(vm);
-  } else {
-    index -= ArrayCount(builtins);
-    return primitives[index].impl(vm);
-  }
+  return primitives[index].impl(vm, StackPop(vm));
 }
 
-void SetPrimitives(PrimitiveDef *prims, u32 count)
+Val DefinePrimitives(Heap *mem)
 {
-  primitives = prims;
-  prim_count = count;
-}
+  Val prims = MakeMap(mem);
+  for (u32 i = 0; i < ArrayCount(primitives); i++) {
+    Val primitive = Pair(MakeSymbol("*prim*", mem), IntVal(i), mem);
 
-Val PrimitiveNames(Heap *mem)
-{
-  u32 num_builtins = ArrayCount(builtins);
-  u32 num = num_builtins + prim_count;
-  Val names = MakeTuple(num, mem);
-  for (u32 i = 0; i < num_builtins; i++) {
-    TupleSet(names, i, MakeSymbol(builtins[i].name, mem), mem);
+    if (primitives[i].module == NULL) {
+      prims = MapPut(prims, MakeSymbol(primitives[i].name, mem), primitive, mem);
+    } else {
+      Val mod_name = MakeSymbol(primitives[i].module, mem);
+      if (MapContains(prims, mod_name, mem)) {
+        Val mod = MapGet(prims, mod_name, mem);
+        mod = MapPut(mod, MakeSymbol(primitives[i].name, mem), primitive, mem);
+        prims = MapPut(prims, mod_name, mod, mem);
+      } else {
+        Val mod = MakeMap(mem);
+        mod = MapPut(mod, MakeSymbol(primitives[i].name, mem), primitive, mem);
+        prims = MapPut(prims, mod_name, mod, mem);
+      }
+    }
   }
-  for (u32 i = num_builtins; i < num; i++) {
-    TupleSet(names, i, MakeSymbol(primitives[i-num_builtins].name, mem), mem);
-  }
-  return names;
-}
 
-Val GetPrimitives(Heap *mem)
-{
-  u32 num = ArrayCount(builtins) + prim_count;
-  Val prims = MakeTuple(num, mem);
-  for (u32 i = 0; i < num; i++) {
-    Val p = Pair(MakeSymbol("*prim*", mem), IntVal(i), mem);
-    TupleSet(prims, i, p, mem);
-  }
   return prims;
 }

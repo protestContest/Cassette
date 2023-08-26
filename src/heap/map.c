@@ -212,6 +212,58 @@ Val MapFrom(Val keys, Val vals, Heap *mem)
   return map;
 }
 
+static u32 CollectKeys(Val map, Val keys, u32 index, Heap *mem)
+{
+  if (IsLeaf(map, mem)) {
+    if (IsNil(LeafKey(map, mem))) return 0;
+    TupleSet(keys, index, LeafKey(map, mem), mem);
+    return 1;
+  }
+
+  Val children = NodeChildren(map, mem);
+  u32 count = 0;
+  for (u32 i = 0; i < TupleLength(children, mem); i++) {
+    count += CollectKeys(TupleGet(children, i, mem), keys, index + count, mem);
+  }
+
+  return count;
+}
+
+static u32 CollectValues(Val map, Val values, u32 index, Heap *mem)
+{
+  if (IsLeaf(map, mem)) {
+    if (IsNil(LeafKey(map, mem))) return 0;
+    TupleSet(values, index, LeafContents(map, mem), mem);
+    return 1;
+  }
+
+  Val children = NodeChildren(map, mem);
+  u32 count = 0;
+  for (u32 i = 0; i < TupleLength(children, mem); i++) {
+    count += CollectValues(TupleGet(children, i, mem), values, index + count, mem);
+  }
+
+  return count;
+}
+
+Val MapKeys(Val map, Heap *mem)
+{
+  u32 length = MapCount(map, mem);
+
+  Val keys = MakeTuple(length, mem);
+  CollectKeys(map, keys, 0, mem);
+  return keys;
+}
+
+Val MapValues(Val map, Heap *mem)
+{
+  u32 length = MapCount(map, mem);
+  Val values = MakeTuple(length, mem);
+  CollectValues(map, values, 0, mem);
+  return values;
+}
+
+
 u32 InspectMap(Val map, Heap *mem)
 {
   if (IsLeaf(map, mem)) {

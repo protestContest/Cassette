@@ -8,5 +8,7 @@ bool MapContains(Val map, Val key, Heap *mem);
 Val MapGet(Val map, Val key, Heap *mem);
 Val MapPut(Val map, Val key, Val value, Heap *mem);
 Val MapFrom(Val keys, Val vals, Heap *mem);
+Val MapKeys(Val map, Heap *mem);
+Val MapValues(Val map, Heap *mem);
 
 u32 InspectMap(Val map, Heap *mem);

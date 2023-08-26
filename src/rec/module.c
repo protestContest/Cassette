@@ -5,31 +5,28 @@
 
 ModuleResult LoadModule(char *path, Heap *mem)
 {
-  Print("Compiling ");
-  Print(path);
-  Print("\n");
-
   char *source = ReadFile(path);
 
   Val ast = Parse(source, mem);
 
   if (IsTagged(ast, "error", mem)) {
-    // PrintInt()
-    // Print("Error: ");
-    // Inspect(ListAt(ast, 3, mem), mem);
-    // Print(ParseErrorMessage(ast, mem));
     Inspect(ListAt(ast, 2, mem), mem);
     Print(":");
     Inspect(ListAt(ast, 3, mem), mem);
     Print("\n");
-    return (ModuleResult){false, {.error = ParseErrorMessage(ast, mem)}};
+    return (ModuleResult){false, {.error = {nil, "Parse error"}}};
   }
+
+  Print("Compiling ");
+  Print(path);
+  Print("\n");
 
   return Compile(ast, nil, mem);
 }
 
 ModuleResult LoadProject(char *source_folder, char *entry_file, Heap *mem)
 {
+  entry_file = JoinPath(source_folder, entry_file);
   char **files = ListFiles(source_folder);
 
   i32 entry = -1;
@@ -39,10 +36,15 @@ ModuleResult LoadProject(char *source_folder, char *entry_file, Heap *mem)
   for (i32 i = 0; i < (i32)VecCount(files); i++) {
     if (StrEq(files[i], entry_file)) {
       entry = VecCount(modules);
+    } else {
+      u32 len = StrLen(files[i]);
+      if (len < 4 || !StrEq(files[i] + len - 4, ".cst")) {
+        continue;
+      }
     }
 
     ModuleResult result = LoadModule(files[i], mem);
-    if (!result.ok) return result;
+    if (!result.ok) continue;
 
     if (IsNil(result.module.name) && !StrEq(files[i], entry_file)) continue;
 
@@ -66,7 +68,8 @@ ModuleResult LoadProject(char *source_folder, char *entry_file, Heap *mem)
   FreeVec(files);
 
   if (entry == -1) {
-    return (ModuleResult){false, {.error = "Could not find entry"}};
+    Val name = BinaryFrom(entry_file, StrLen(entry_file), mem);
+    return (ModuleResult){false, {.error = {name, "Could not find entry"}}};
   }
 
   ModuleResult result = (ModuleResult){true, {{nil, modules[entry].code, EmptyHashMap}}};

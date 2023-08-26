@@ -29,6 +29,11 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 run: $(TARGET)
 	@$(TARGET)
 
+.PHONY: install
+install: $(TARGET)
+	mkdir -p $(PREFIX)/bin
+	install $(TARGET) $(PREFIX)/bin
+
 .PHONY: deps
 deps:
 	@rm -rf deps/univ

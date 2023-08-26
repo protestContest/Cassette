@@ -1,8 +1,8 @@
-#include "primitive.h"
+#include "std.h"
 
-Val PrimHead(VM *vm)
+Val StdHead(VM *vm, Val args)
 {
-  Val pair = StackPop(vm);
+  Val pair = TupleGet(args, 0, vm->mem);
   if (IsPair(pair)) {
     return Head(pair, vm->mem);
   } else {
@@ -11,9 +11,9 @@ Val PrimHead(VM *vm)
   }
 }
 
-Val PrimTail(VM *vm)
+Val StdTail(VM *vm, Val args)
 {
-  Val pair = StackPop(vm);
+  Val pair = TupleGet(args, 0, vm->mem);
   if (IsPair(pair)) {
     return Tail(pair, vm->mem);
   } else {

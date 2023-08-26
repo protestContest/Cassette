@@ -6,12 +6,15 @@ typedef struct {
   bool ok;
   union {
     Seq result;
-    char *error;
+    struct {
+      Val expr;
+      char *message;
+    } error;
   };
 } CompileResult;
 
-#define CompileOk(seq)      ((CompileResult){true, {seq}})
-#define CompileError(err)   ((CompileResult){false, {.error = err}})
+#define CompileOk(seq)            ((CompileResult){true, {seq}})
+#define CompileError(msg, expr)   ((CompileResult){false, {.error = {expr, msg}}})
 
 typedef struct {
   Heap *mem;
@@ -33,6 +36,7 @@ static void InitCompiler(Compiler *c, Val env, Heap *mem)
 
   MakeSymbol("return", mem);
   MakeSymbol("next", mem);
+  MakeSymbol("ok", mem);
 }
 
 #define OpSeq(op, mem)  MakeSeq(0, 0, Pair(IntVal(op), nil, mem))
@@ -62,7 +66,11 @@ ModuleResult Compile(Val ast, Val env, Heap *mem)
     c.module.code = compiled.result;
     return (ModuleResult){true, {c.module}};
   } else {
-    return (ModuleResult){false, {.error = compiled.error}};
+    ModuleResult result;
+    result.ok = false;
+    result.error.expr = compiled.error.expr;
+    result.error.message = compiled.error.message;
+    return result;
   }
 }
 
@@ -118,7 +126,7 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
 
   if (IsPair(expr))                     return CompileApplication(expr, linkage, c);
 
-  return CompileError("Unknown expression");
+  return CompileError("Unknown expression", expr);
 }
 
 static CompileResult CompileConst(Val expr, Linkage linkage, Compiler *c)
@@ -136,7 +144,11 @@ static CompileResult CompileVar(Val expr, Linkage linkage, Compiler *c)
   Heap *mem = c->mem;
 
   Val pos = FindVar(expr, c->env, mem);
-  if (IsNil(pos)) return CompileError("Undefined variable");
+  if (IsNil(pos)) {
+    Inspect(c->env, mem);
+    Print("\n");
+    return CompileError("Undefined variable", expr);
+  }
 
   return CompileOk(
     EndWithLinkage(linkage,
@@ -411,7 +423,7 @@ static CompileResult CompileAssigns(Val expr, u32 index, Linkage linkage, Compil
     AppendSeq(assigns,
     MakeSeq(0, 0,
       Pair(IntVal(OpConst),
-      Pair(MakeSymbol("ok", mem), nil, mem), mem)), mem), mem));
+      Pair(SymbolFor("ok"), nil, mem), mem)), mem), mem));
 }
 
 static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compiler *c)
@@ -454,7 +466,7 @@ static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compile
       AppendSeq(assigns,
         MakeSeq(0, 0,
           Pair(IntVal(OpConst),
-          Pair(MakeSymbol("ok", mem), nil, mem), mem)), mem), mem));
+          Pair(SymbolFor("ok"), nil, mem), mem)), mem), mem));
 }
 
 static CompileResult CompileBlock(Val expr, Linkage linkage, Compiler *c)

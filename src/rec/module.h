@@ -12,7 +12,10 @@ typedef struct {
   bool ok;
   union {
     Module module;
-    char *error;
+    struct {
+      Val expr;
+      char *message;
+    } error;
   };
 } ModuleResult;
 

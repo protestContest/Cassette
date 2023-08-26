@@ -2,7 +2,7 @@
 #include "ops.h"
 #include "env.h"
 #include "function.h"
-#include "primitive.h"
+#include "lib.h"
 #include "debug.h"
 
 void InitVM(VM *vm, Heap *mem)
@@ -15,6 +15,9 @@ void InitVM(VM *vm, Heap *mem)
   vm->modules = nil;
   vm->mem = mem;
   vm->error = false;
+
+  MakeSymbol("ok", mem);
+  MakeSymbol("error", mem);
 }
 
 void DestroyVM(VM *vm)
@@ -392,6 +395,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else if (IsFunc(func, mem)) {
         vm->env = FuncEnv(func, mem);
         vm->pc = RawInt(FuncEntry(func, mem));
+      } else {
+        vm->pc += OpLength(op);
       }
       break;
     }

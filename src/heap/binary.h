@@ -14,5 +14,3 @@ void BinarySetByte(Val binary, u32 i, u8 b, Heap *mem);
 Val BinaryAfter(Val binary, u32 index, Heap *mem);
 Val BinaryTrunc(Val binary, u32 index, Heap *mem);
 Val JoinBinaries(Val b1, Val b2, Heap *mem);
-u32 IOListLength(Val iolist, Heap *mem);
-Val IOListToBin(Val iolist, Heap *mem);

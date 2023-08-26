@@ -101,7 +101,7 @@ static bool IsSymChar(Lexer *lex)
   case '{': return false;
   case '|': return false;
   case '}': return false;
-  default: return true;
+  default: return IsPrintable(Peek(lex));
   }
 }
 
