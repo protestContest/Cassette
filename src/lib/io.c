@@ -13,8 +13,10 @@ Val IOPrint(VM *vm, Val args)
   } else if (IsBinary(item, mem)) {
     PrintN(BinaryData(item, mem), BinaryLength(item, mem));
     Print("\n");
+  } else {
+    return SymbolFor("error");
   }
-  return SymbolFor("error");
+  return SymbolFor("ok");
 }
 
 Val IOInspect(VM *vm, Val args)

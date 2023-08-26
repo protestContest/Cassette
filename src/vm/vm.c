@@ -36,6 +36,7 @@ char *VMErrorMessage(VMError err)
   case ArithmeticError: return "  ArithmeticError";
   case EnvError:        return "  EnvError";
   case KeyError:        return "  KeyError";
+  case ArgError:        return "  ArgError";
   }
 }
 
@@ -413,7 +414,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       Val func = StackPop(vm);
       if (IsPrimitive(func, mem)) {
         StackPush(vm, DoPrimitive(func, vm));
-        vm->pc += OpLength(op);
+        vm->pc = vm->cont;
       } else if (IsFunc(func, mem)) {
         vm->env = FuncEnv(func, mem);
         vm->pc = RawInt(FuncEntry(func, mem));

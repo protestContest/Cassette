@@ -27,29 +27,29 @@ def (reduce enum acc fn) do
   end
 end
 
-; def (map enum fn) do
-;   reduce enum [] (item acc) -> (fn item) | acc
-; end
+def (map enum fn) do
+  reduce enum [] (item acc) -> (fn item) | acc
+end
 
-; def (filter enum fn) do
-;   reduce enum [] (item acc) ->
-;     if (fn item) do
-;       item | acc
-;     else
-;       acc
-;     end
-; end
+def (filter enum fn) do
+  reduce enum [] (item acc) ->
+    if (fn item) do
+      item | acc
+    else
+      acc
+    end
+end
 
-; def (iota n) do
-;   def (loop m enum) do
-;     if m == n do
-;       enum
-;     else
-;       loop m + 1 m | enum
-;     end
-;   end
+def (iota n) do
+  def (loop m acc) do
+    if m == n do
+      List.reverse acc
+    else
+      loop m + 1 m | acc
+    end
+  end
 
-;   loop 0 []
-; end
+  loop 0 []
+end
 
 ; iota 10

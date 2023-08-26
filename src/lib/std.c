@@ -6,7 +6,7 @@
 
 // fake a Vec so we can use VecCount
 static struct {u32 cap; u32 count; PrimitiveDef items[];} stdlib = {
-  21, 21, {
+  26, 26, {
     {NULL, "head", StdHead},
     {NULL, "tail", StdTail},
     {NULL, "nil?", StdIsNil},
@@ -25,9 +25,15 @@ static struct {u32 cap; u32 count; PrimitiveDef items[];} stdlib = {
     {"IO", "write_file", IOWriteFile},
     {"List", "to_binary", ListToBin},
     {"List", "to_tuple", ListToTuple},
+    {"List", "reverse", ListReverse},
+    {"List", "trunc", ListTrunc},
+    {"List", "tail", ListTail},
+    {"List", "join", ListJoin},
     {"Tuple", "to_list", TupleToList},
     {"Map", "keys", StdMapKeys},
     {"Map", "values", StdMapValues},
+    {"Map", "put", StdMapPut},
+    {"Map", "delete", StdMapDelete},
   }
 };
 

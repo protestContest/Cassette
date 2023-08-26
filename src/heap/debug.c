@@ -99,7 +99,9 @@ static u32 InspectTail(Val value, Heap *mem)
   if (IsNil(Tail(value, mem))) {
     len += Print("]");
   } else {
-    len += Print(" ");
+    if (IsPair(Tail(value, mem))) {
+      len += Print(", ");
+    }
     len += InspectTail(Tail(value, mem), mem);
   }
 
@@ -124,7 +126,7 @@ u32 Inspect(Val value, Heap *mem)
     u32 len = Print("{");
     for (u32 i = 0; i < TupleLength(value, mem); i++) {
       len += Inspect(TupleGet(value, i, mem), mem);
-      if (i < TupleLength(value, mem)-1) len += Print(" ");
+      if (i < TupleLength(value, mem)-1) len += Print(", ");
     }
     len += Print("}");
     return len;

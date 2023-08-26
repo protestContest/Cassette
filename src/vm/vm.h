@@ -9,6 +9,7 @@ typedef enum {
   ArithmeticError,
   EnvError,
   KeyError,
+  ArgError,
 } VMError;
 
 typedef struct {

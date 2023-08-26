@@ -55,6 +55,7 @@ static CompileResult CompileDo(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileModule(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *c);
+static CompileResult CompilePair(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c);
 
 ModuleResult Compile(Val ast, Val env, Heap *mem)
@@ -115,7 +116,7 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
     if (ListLength(expr, mem) == 2)     return CompileOp(OpSeq(OpNeg, mem), expr, linkage, c);
     else                                return CompileOp(OpSeq(OpSub, mem), expr, linkage, c);
   }
-  if (IsTagged(expr, "|", mem))         return CompileOp(OpSeq(OpPair, mem), expr, linkage, c);
+  if (IsTagged(expr, "|", mem))         return CompilePair(expr, linkage, c);
   if (IsTagged(expr, "in", mem))        return CompileOp(OpSeq(OpIn, mem), expr, linkage, c);
   if (IsTagged(expr, ">", mem))         return CompileOp(OpSeq(OpGt, mem), expr, linkage, c);
   if (IsTagged(expr, "<", mem))         return CompileOp(OpSeq(OpLt, mem), expr, linkage, c);
@@ -172,10 +173,7 @@ static CompileResult CompileList(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
 
-  Seq seq = MakeSeq(0, 0,
-    Pair(IntVal(OpConst),
-    Pair(nil, nil, mem), mem));
-
+  Seq seq = EmptySeq();
   while (!IsNil(expr)) {
     CompileResult item = CompileExpr(Head(expr, mem), LinkNext, c);
     if (!item.ok) return item;
@@ -188,6 +186,12 @@ static CompileResult CompileList(Val expr, Linkage linkage, Compiler *c)
 
     expr = Tail(expr, mem);
   }
+
+  seq = AppendSeq(
+    MakeSeq(0, 0,
+      Pair(IntVal(OpConst),
+      Pair(nil, nil, mem), mem)),
+    seq, mem);
 
   return CompileOk(EndWithLinkage(linkage, seq, mem));
 }
@@ -300,6 +304,18 @@ static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *
   CompileResult args = CompileItems(ReverseList(Tail(expr, mem), mem), c);
   if (!args.ok) return args;
 
+  return CompileOk(EndWithLinkage(linkage, AppendSeq(args.result, op_seq, mem), mem));
+}
+
+static CompileResult CompilePair(Val expr, Linkage linkage, Compiler *c)
+{
+
+
+  Heap *mem = c->mem;
+  CompileResult args = CompileItems(Tail(expr, mem), c);
+  if (!args.ok) return args;
+
+  Seq op_seq = OpSeq(OpPair, mem);
   return CompileOk(EndWithLinkage(linkage, AppendSeq(args.result, op_seq, mem), mem));
 }
 

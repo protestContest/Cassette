@@ -199,6 +199,11 @@ Val MapPut(Val map, Val key, Val value, Heap *mem)
   return PutNode(map, 0, key, value, mem);
 }
 
+Val MapDelete(Val map, Val key, Heap *mem)
+{
+  return SymbolFor("error");
+}
+
 Val MapFrom(Val keys, Val vals, Heap *mem)
 {
   Val map = MakeMap(mem);
@@ -263,14 +268,13 @@ Val MapValues(Val map, Heap *mem)
   return values;
 }
 
-
 u32 InspectMap(Val map, Heap *mem)
 {
   if (IsLeaf(map, mem)) {
     Val key = LeafKey(map, mem);
     if (IsNil(key)) return 0;
     Val val = LeafContents(map, mem);
-    u32 len = Inspect(key, mem);
+    u32 len = Print(SymbolName(key, mem));
     len += Print(": ");
     len += Inspect(val, mem);
     return len;

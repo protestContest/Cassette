@@ -1,5 +1,3 @@
-; import Enum
+import Enum
 
-; Enum.iota 10
-
-; ; IO.write "Hello, world!"
+inspect (Enum.iota 10)

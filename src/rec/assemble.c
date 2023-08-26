@@ -10,7 +10,7 @@ void Assemble(Seq seq, Chunk *chunk, Heap *mem)
   Val stmts = ReplaceReferences(seq, mem);
   while (!IsNil(stmts)) {
     u32 len = AssembleInstruction(stmts, chunk, mem);
-    stmts = ListAfter(stmts, len, mem);
+    stmts = TailList(stmts, len, mem);
   }
 }
 

@@ -59,7 +59,7 @@ bool IsTagged(Val list, char *tag, Heap *mem)
   }
 }
 
-Val ListAfter(Val list, u32 pos, Heap *mem)
+Val TailList(Val list, u32 pos, Heap *mem)
 {
   for (u32 i = 0; i < pos; i++) {
     list = Tail(list, mem);
@@ -67,10 +67,10 @@ Val ListAfter(Val list, u32 pos, Heap *mem)
   return list;
 }
 
-Val ListTrunc(Val list, u32 pos, Heap *mem)
+Val TruncList(Val list, u32 pos, Heap *mem)
 {
   if (pos == 0) return nil;
-  return Pair(Head(list, mem), ListTrunc(Tail(list, mem), pos-1, mem), mem);
+  return Pair(Head(list, mem), TruncList(Tail(list, mem), pos-1, mem), mem);
 }
 
 Val JoinLists(Val a, Val b, Heap *mem)
@@ -93,7 +93,7 @@ Val ListConcat(Val a, Val b, Heap *mem)
 
 Val ListAt(Val list, u32 pos, Heap *mem)
 {
-  return Head(ListAfter(list, pos, mem), mem);
+  return Head(TailList(list, pos, mem), mem);
 }
 
 Val ReverseList(Val list, Heap *mem)

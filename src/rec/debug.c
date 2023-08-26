@@ -24,6 +24,8 @@ void PrintSeq(Seq seq, Heap *mem)
           u32 label_num = RawInt(Tail(arg, mem));
           Print("L");
           PrintInt(label_num);
+        } else if (IsTagged(arg, "module-ref", mem) || IsTagged(arg, "module", mem)) {
+          Inspect(Tail(Head(stmts, mem), mem), mem);
         } else {
           Inspect(Head(stmts, mem), mem);
         }

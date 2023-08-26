@@ -227,13 +227,9 @@ static ParseResult ParseImport(Lexer *lex, Heap *mem)
 
   Val alias = name.value;
   if (MatchToken(TokenAs, lex)) {
-    if (MatchToken(TokenStar, lex)) {
-      alias = nil;
-    } else {
-      ParseResult alias_result = ParseID(lex, mem);
-      if (!alias_result.ok) return alias_result;
-      alias = alias_result.value;
-    }
+    ParseResult alias_result = ParseID(lex, mem);
+    if (!alias_result.ok) return alias_result;
+    alias = alias_result.value;
   }
 
   return ParseOk(
