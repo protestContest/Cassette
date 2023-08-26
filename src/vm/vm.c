@@ -312,6 +312,17 @@ void RunChunk(VM *vm, Chunk *chunk)
       vm->pc += OpLength(op);
       break;
     }
+    case OpStr: {
+      Val sym = StackPop(vm);
+      if (!IsSym(sym)) {
+        vm->error = TypeError;
+      } else {
+        char *name = SymbolName(sym, mem);
+        StackPush(vm, BinaryFrom(name, StrLen(name), mem));
+      }
+      vm->pc += OpLength(op);
+      break;
+    }
     case OpMap: {
       Val keys = StackPop(vm);
       Val vals = StackPop(vm);

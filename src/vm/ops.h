@@ -21,6 +21,7 @@ typedef enum {
   OpPair,
   OpTuple,
   OpSet,
+  OpStr,
   OpMap,
   OpLambda,
   OpExtend,

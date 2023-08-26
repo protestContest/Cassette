@@ -1,5 +1,6 @@
 #include "rec.h"
 #include "args.h"
+#include "lib.h"
 
 int main(int argc, char *argv[])
 {
@@ -9,6 +10,7 @@ int main(int argc, char *argv[])
 
   Heap mem;
   InitMem(&mem, 0);
+  SetPrimitives(StdLib());
 
   Chunk *chunk;
   if (SniffFile(args.entry, ChunkTag())) {

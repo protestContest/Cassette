@@ -183,6 +183,11 @@ Chunk *CompileChunk(Args *args, Heap *mem)
     return NULL;
   }
 
+  if (args->verbose) {
+    PrintSeq(result.module.code, mem);
+  }
+
   Assemble(result.module.code, chunk, mem);
+
   return chunk;
 }

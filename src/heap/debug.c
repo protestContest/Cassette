@@ -113,7 +113,8 @@ u32 Inspect(Val value, Heap *mem)
   } else if (IsInt(value)) {
     return PrintInt(RawInt(value));
   } else if (IsSym(value)) {
-    return Print(SymbolName(value, mem));
+    Print(":");
+    return 1 + Print(SymbolName(value, mem));
   } else if (IsNil(value)) {
     return Print("nil");
   } else if (IsPair(value)) {
@@ -155,12 +156,31 @@ void PrintMem(Heap *mem)
   }
   Print("╗\n");
 
+  u32 bin_cells = 0;
+  u32 bin_size = 0;
   for (u32 i = 0; i < MemSize(mem); i++) {
     Print("║");
     PrintIntN(i, 4);
     Print("│");
-    u32 printed = PeekVal(mem->values[i], col_size, mem);
-    if (printed < col_size) for (u32 j = printed; j < col_size; j++) Print(" ");
+
+    if (bin_cells == 0) {
+      u32 printed = PeekVal(mem->values[i], col_size, mem);
+      if (printed < col_size) for (u32 j = printed; j < col_size; j++) Print(" ");
+
+      if (IsBinaryHeader(mem->values[i])) {
+        bin_size = RawVal(mem->values[i]);
+        bin_cells = NumBinaryCells(bin_size);
+      }
+    } else {
+      char *str = (char *)&(mem->values[i]);
+      Print("\"");
+      u32 printed = PrintN(str, Min(4, bin_size)) + 2;
+      bin_size -= printed - 2;
+      Print("\"");
+
+      if (printed < col_size) for (u32 j = printed; j < col_size; j++) Print(" ");
+      bin_cells--;
+    }
 
     if (i % num_cols == num_cols-1) {
       Print("║\n");

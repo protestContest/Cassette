@@ -21,6 +21,7 @@ static struct {char *name; u32 length;} ops[] = {
   [OpPair]      = { "pair", 1 },
   [OpTuple]     = { "tuple", 2 }, // length
   [OpSet]       = { "set", 2 }, // tuple index
+  [OpStr]       = { "str", 1 },
   [OpMap]       = { "map", 1 },
   [OpLambda]    = { "lambda", 2 }, // code size
   [OpExtend]    = { "extend", 1 },

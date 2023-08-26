@@ -1,12 +1,7 @@
 #include "function.h"
 #include "lib.h"
 
-static PrimitiveDef primitives[] = {
-  {NULL, "head", StdHead},
-  {NULL, "tail", StdTail},
-  {"IO", "print", IOPrint},
-  {"IO", "inspect", IOInspect},
-};
+static PrimitiveDef *primitives = NULL;
 
 bool IsFunc(Val func, Heap *mem)
 {
@@ -32,6 +27,11 @@ Val FuncEnv(Val func, Heap *mem)
   return TupleGet(func, 2, mem);
 }
 
+void SetPrimitives(PrimitiveDef *prims)
+{
+  primitives = prims;
+}
+
 bool IsPrimitive(Val value, Heap *mem)
 {
   return IsTagged(value, "*prim*", mem);
@@ -46,7 +46,7 @@ Val DoPrimitive(Val prim, VM *vm)
 Val DefinePrimitives(Heap *mem)
 {
   Val prims = MakeMap(mem);
-  for (u32 i = 0; i < ArrayCount(primitives); i++) {
+  for (u32 i = 0; i < VecCount(primitives); i++) {
     Val primitive = Pair(MakeSymbol("*prim*", mem), IntVal(i), mem);
 
     if (primitives[i].module == NULL) {

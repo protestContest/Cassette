@@ -1,4 +1,1 @@
-let x = 1, d = {a: 2}
-
-x + 1
-d.a
+IO.print "Hello, world!"

@@ -43,6 +43,7 @@ static void InitCompiler(Compiler *c, Val env, Heap *mem)
 
 static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileConst(Val expr, Linkage linkage, Compiler *c);
+static CompileResult CompileString(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileVar(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileList(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileTuple(Val expr, Linkage linkage, Compiler *c);
@@ -91,7 +92,7 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
   if (IsNil(expr))                      return CompileOk(EndWithLinkage(linkage, EmptySeq(), mem));
   if (IsNum(expr))                      return CompileConst(expr, linkage, c);
   if (IsTagged(expr, ":", mem))         return CompileConst(Tail(Tail(expr, mem), mem), linkage, c);
-  if (IsTagged(expr, "\"", mem))        return CompileConst(ListAt(expr, 1, mem), linkage, c);
+  if (IsTagged(expr, "\"", mem))        return CompileString(Tail(expr, mem), linkage, c);
   if (Eq(expr, SymbolFor("nil")))       return CompileConst(nil, linkage, c);
   if (Eq(expr, SymbolFor("true")))      return CompileConst(expr, linkage, c);
   if (Eq(expr, SymbolFor("false")))     return CompileConst(expr, linkage, c);
@@ -137,6 +138,19 @@ static CompileResult CompileConst(Val expr, Linkage linkage, Compiler *c)
       MakeSeq(0, 0,
         Pair(IntVal(OpConst),
         Pair(expr, nil, mem), mem)), mem));
+}
+
+static CompileResult CompileString(Val expr, Linkage linkage, Compiler *c)
+{
+  Heap *mem = c->mem;
+
+  CompileResult item = CompileConst(expr, linkage, c);
+  if (!item.ok) return item;
+
+  return CompileOk(
+    AppendSeq(item.result,
+    MakeSeq(0, 0,
+      Pair(IntVal(OpStr), nil, mem)), mem));
 }
 
 static CompileResult CompileVar(Val expr, Linkage linkage, Compiler *c)
