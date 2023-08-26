@@ -8,21 +8,16 @@ static HashMap ModuleMap(Seq seq, Heap *mem);
 void Assemble(Seq seq, Chunk *chunk, Heap *mem)
 {
   Val stmts = ReplaceReferences(seq, mem);
-  chunk->num_modules = RawInt(Head(stmts, mem));
-  stmts = Tail(stmts, mem);
   while (!IsNil(stmts)) {
     u32 len = AssembleInstruction(stmts, chunk, mem);
     stmts = ListAfter(stmts, len, mem);
   }
-
-  AssembleInstruction(Pair(IntVal(OpHalt), nil, mem), chunk, mem);
 }
 
 static Val ReplaceReferences(Seq seq, Heap *mem)
 {
   HashMap labels = LabelMap(seq, mem);
   HashMap modules = ModuleMap(seq, mem);
-  u32 num_mods = 0;
 
   // skip any leading labels
   while (IsTagged(Head(seq.stmts, mem), "label", mem)) {
@@ -46,10 +41,9 @@ static Val ReplaceReferences(Seq seq, Heap *mem)
       u32 location = HashMapGet(&labels, label);
       SetHead(stmts, IntVal((i32)location - (offset + 1)), mem);
     } else if (IsTagged(stmt, "module-ref", mem) || IsTagged(stmt, "module", mem)) {
-      if (IsTagged(stmt, "module", mem)) num_mods++;
       Val name = Tail(stmt, mem);
-      u32 mod_num = HashMapGet(&modules, name.as_i);
-      SetHead(stmts, IntVal(mod_num), mem);
+      HashMapSet(&modules, name.as_i, 1);
+      SetHead(stmts, name, mem);
     }
 
     offset++;
@@ -58,7 +52,7 @@ static Val ReplaceReferences(Seq seq, Heap *mem)
 
   DestroyHashMap(&modules);
   DestroyHashMap(&labels);
-  return Pair(IntVal(num_mods), seq.stmts, mem);
+  return seq.stmts;
 }
 
 static u32 AssembleInstruction(Val stmts, Chunk *chunk, Heap *mem)

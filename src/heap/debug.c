@@ -131,7 +131,10 @@ u32 Inspect(Val value, Heap *mem)
   } else if (IsBinary(value, mem)) {
     char *data = BinaryData(value, mem);
     u32 length = BinaryLength(value, mem);
-    return PrintN(data, length);
+    Print("\"");
+    PrintN(data, length);
+    Print("\"");
+    return length + 2;
   } else if (IsMap(value, mem)) {
     Print("{");
     u32 len = InspectMap(value, mem);

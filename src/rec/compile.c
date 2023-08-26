@@ -1,25 +1,24 @@
 #include "compile.h"
 #include "debug.h"
 #include "vm.h"
+#include "source.h"
 
 typedef struct {
   bool ok;
   union {
     Seq result;
-    struct {
-      Val expr;
-      char *message;
-    } error;
+    CompileError error;
   };
 } CompileResult;
 
 #define CompileOk(seq)            ((CompileResult){true, {seq}})
-#define CompileError(msg, expr)   ((CompileResult){false, {.error = {expr, msg}}})
+#define ErrorResult(m, e, p)      ((CompileResult){false, {.error = {m, e, p}}})
 
 typedef struct {
   Heap *mem;
   Val env;
   Module module;
+  u32 pos;
 } Compiler;
 
 static void InitCompiler(Compiler *c, Val env, Heap *mem)
@@ -33,6 +32,7 @@ static void InitCompiler(Compiler *c, Val env, Heap *mem)
   c->module.name = nil;
   c->module.code = EmptySeq();
   c->module.imports = EmptyHashMap;
+  c->pos = 0;
 
   MakeSymbol("return", mem);
   MakeSymbol("next", mem);
@@ -67,11 +67,7 @@ ModuleResult Compile(Val ast, Val env, Heap *mem)
     c.module.code = compiled.result;
     return (ModuleResult){true, {c.module}};
   } else {
-    ModuleResult result;
-    result.ok = false;
-    result.error.expr = compiled.error.expr;
-    result.error.message = compiled.error.message;
-    return result;
+    return (ModuleResult){false, {.error = compiled.error}};
   }
 }
 
@@ -79,10 +75,10 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
 
-  // Val pos = Head(expr, mem);
+  c->pos = RawInt(Head(expr, mem));
   expr = Tail(expr, mem);
 
-  // PrintInt(RawInt(pos));
+  // PrintInt(c->pos);
   // Print("#> ");
   // Inspect(expr, mem);
   // Print("\n  ");
@@ -127,7 +123,7 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
 
   if (IsPair(expr))                     return CompileApplication(expr, linkage, c);
 
-  return CompileError("Unknown expression", expr);
+  return ErrorResult("Unknown expression", expr, c->pos);
 }
 
 static CompileResult CompileConst(Val expr, Linkage linkage, Compiler *c)
@@ -161,7 +157,7 @@ static CompileResult CompileVar(Val expr, Linkage linkage, Compiler *c)
   if (IsNil(pos)) {
     Inspect(c->env, mem);
     Print("\n");
-    return CompileError("Undefined variable", expr);
+    return ErrorResult("Undefined variable", expr, c->pos);
   }
 
   return CompileOk(

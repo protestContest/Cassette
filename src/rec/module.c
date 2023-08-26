@@ -3,27 +3,15 @@
 #include "parse.h"
 #include "compile.h"
 
-ModuleResult LoadModule(char *path, Heap *mem, Args *args)
+ModuleResult LoadModule(char *source, Heap *mem, Args *args)
 {
-  char *source = ReadFile(path);
+  ParseResult ast = Parse(source, mem);
 
-  Val ast = Parse(source, mem);
-
-  if (IsTagged(ast, "error", mem)) {
-    Inspect(ListAt(ast, 2, mem), mem);
-    Print(":");
-    Inspect(ListAt(ast, 3, mem), mem);
-    Print("\n");
-    return (ModuleResult){false, {.error = {nil, "Parse error"}}};
+  if (!ast.ok) {
+    return (ModuleResult){false, {.error = ast.error}};
   }
 
-  if (args->verbose) {
-    Print("Compiling ");
-    Print(path);
-    Print("\n");
-  }
-
-  return Compile(ast, nil, mem);
+  return Compile(ast.value, nil, mem);
 }
 
 ModuleResult LoadModules(Args *args, Heap *mem)
@@ -44,8 +32,16 @@ ModuleResult LoadModules(Args *args, Heap *mem)
       }
     }
 
-    ModuleResult result = LoadModule(files[i], mem, args);
-    if (!result.ok) continue;
+    char *source = ReadFile(files[i]);
+    ModuleResult result = LoadModule(source, mem, args);
+    if (!result.ok) {
+      PrintCompileError(&result.error, source);
+      if (StrEq(files[i], args->entry)) {
+        return result;
+      } else {
+        continue;
+      }
+    }
 
     if (IsNil(result.module.name) && !StrEq(files[i], args->entry)) continue;
 
@@ -69,8 +65,8 @@ ModuleResult LoadModules(Args *args, Heap *mem)
   FreeVec(files);
 
   if (entry == -1) {
-    Val name = BinaryFrom(args->entry, StrLen(args->entry), mem);
-    return (ModuleResult){false, {.error = {name, "Could not find entry"}}};
+    char *message = StrCat("Could not find entry ", args->entry);
+    return (ModuleResult){false, {.error = {message, nil, 0}}};
   }
 
   ModuleResult result = (ModuleResult){true, {{nil, modules[entry].code, EmptyHashMap}}};

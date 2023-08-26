@@ -5,7 +5,6 @@ void InitChunk(Chunk *chunk)
 {
   chunk->data = NULL;
   InitMem(&chunk->constants, 0);
-  chunk->num_modules = 0;
 }
 
 void DestroyChunk(Chunk *chunk)
@@ -69,7 +68,6 @@ u8 *SerializeChunk(Chunk *chunk)
 
   u32 size =
     sizeof(tag) + // tag
-    sizeof(u32) + // num modules
     sizeof(u32) + // size of code
     code_size + // code
     sizeof(u32) + // size of constants
@@ -84,8 +82,6 @@ u8 *SerializeChunk(Chunk *chunk)
 
   Copy(&tag, cur, sizeof(tag));
   cur += sizeof(tag);
-  Copy(&chunk->num_modules, cur, sizeof(chunk->num_modules));
-  cur += sizeof(chunk->num_modules);
   Copy(&code_size, cur, sizeof(code_size));
   cur += sizeof(code_size);
   Copy(chunk->data, cur, code_size);
@@ -121,8 +117,6 @@ void DeserializeChunk(u8 *serialized, Chunk *chunk)
   u32 code_size, const_size, strings_size, string_map_size;
 
   u8 *cur = serialized + sizeof(u32); // skip tag
-  Copy(cur, &chunk->num_modules, sizeof(chunk->num_modules));
-  cur += sizeof(chunk->num_modules);
   Copy(cur, &code_size, sizeof(code_size));
   cur += sizeof(code_size);
   chunk->data = NewVec(u8, code_size);

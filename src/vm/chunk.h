@@ -3,7 +3,6 @@
 #include "args.h"
 
 typedef struct {
-  u32 num_modules;
   u8 *data;
   Heap constants;
 } Chunk;

@@ -1,0 +1,55 @@
+module Enum
+
+def (reduce enum acc fn) do
+  def (reduce_list list acc fn) do
+    if (list == nil) do
+      acc
+    else
+      reduce (tail list) (fn (head list) acc) fn
+    end
+  end
+
+  def (reduce_tuple tuple acc fn) do
+    def (loop i acc) do
+      if i == #tuple do
+        acc
+      else
+        loop i+1 (fn tuple.i acc)
+      end
+    end
+
+    loop 0 acc
+  end
+
+  cond do
+    (pair? enum) -> reduce_list enum acc fn
+    (tuple? enum) -> reduce_tuple enum acc fn
+  end
+end
+
+; def (map enum fn) do
+;   reduce enum [] (item acc) -> (fn item) | acc
+; end
+
+; def (filter enum fn) do
+;   reduce enum [] (item acc) ->
+;     if (fn item) do
+;       item | acc
+;     else
+;       acc
+;     end
+; end
+
+; def (iota n) do
+;   def (loop m enum) do
+;     if m == n do
+;       enum
+;     else
+;       loop m + 1 m | enum
+;     end
+;   end
+
+;   loop 0 []
+; end
+
+; iota 10

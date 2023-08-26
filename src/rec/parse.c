@@ -1,8 +1,10 @@
 #include "parse.h"
 
+#define ParseOk(val)    ((ParseResult){true, {val}})
+
 /* Function signatures for parsing callbacks */
-typedef Val (*PrefixFn)(Lexer *lex, Heap *mem);
-typedef Val (*InfixFn)(Val lhs, Lexer *lex, Heap *mem);
+typedef ParseResult (*PrefixFn)(Lexer *lex, Heap *mem);
+typedef ParseResult (*InfixFn)(Val lhs, Lexer *lex, Heap *mem);
 
 /* Operator precedence */
 typedef enum {
@@ -29,23 +31,23 @@ typedef struct {
 } ParseRule;
 
 /* Prefix parsing callback declarations */
-static Val ParseID(Lexer *lex, Heap *mem);
-static Val ParseString(Lexer *lex, Heap *mem);
-static Val ParseUnary(Lexer *lex, Heap *mem);
-static Val ParseGroup(Lexer *lex, Heap *mem);
-static Val ParseNum(Lexer *lex, Heap *mem);
-static Val ParseSymbol(Lexer *lex, Heap *mem);
-static Val ParseList(Lexer *lex, Heap *mem);
-static Val ParseCond(Lexer *lex, Heap *mem);
-static Val ParseDo(Lexer *lex, Heap *mem);
-static Val ParseLiteral(Lexer *lex, Heap *mem);
-static Val ParseIf(Lexer *lex, Heap *mem);
-static Val ParseBraces(Lexer *lex, Heap *mem);
+static ParseResult ParseID(Lexer *lex, Heap *mem);
+static ParseResult ParseString(Lexer *lex, Heap *mem);
+static ParseResult ParseUnary(Lexer *lex, Heap *mem);
+static ParseResult ParseGroup(Lexer *lex, Heap *mem);
+static ParseResult ParseNum(Lexer *lex, Heap *mem);
+static ParseResult ParseSymbol(Lexer *lex, Heap *mem);
+static ParseResult ParseList(Lexer *lex, Heap *mem);
+static ParseResult ParseCond(Lexer *lex, Heap *mem);
+static ParseResult ParseDo(Lexer *lex, Heap *mem);
+static ParseResult ParseLiteral(Lexer *lex, Heap *mem);
+static ParseResult ParseIf(Lexer *lex, Heap *mem);
+static ParseResult ParseBraces(Lexer *lex, Heap *mem);
 
 /* Infix parsing callback declarations */
-static Val ParseLeftAssoc(Val lhs, Lexer *lex, Heap *mem);
-static Val ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem);
-static Val ParseAccess(Val lhs, Lexer *lex, Heap *mem);
+static ParseResult ParseLeftAssoc(Val lhs, Lexer *lex, Heap *mem);
+static ParseResult ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem);
+static ParseResult ParseAccess(Val lhs, Lexer *lex, Heap *mem);
 
 /* Rules for parsing expressions based on the current token type */
 static ParseRule rules[] = {
@@ -99,16 +101,17 @@ static ParseRule rules[] = {
 #define GetRule(lex)    rules[PeekToken(lex).type]
 
 /* Declarations for statement parsing functions */
-static Val ParseModuleName(Lexer *lex, Heap *mem);
-static Val ParseImport(Lexer *lex, Heap *mem);
-static Val ParseLet(Lexer *lex, Heap *mem);
-static Val ParseDef(Lexer *lex, Heap *mem);
-static Val ParseCall(Lexer *lex, Heap *mem);
-static Val ParseExpr(Precedence prec, Lexer *lex, Heap *mem);
+static ParseResult ParseStmt(Lexer *lex, Heap *mem);
+static ParseResult ParseModuleName(Lexer *lex, Heap *mem);
+static ParseResult ParseImport(Lexer *lex, Heap *mem);
+static ParseResult ParseLet(Lexer *lex, Heap *mem);
+static ParseResult ParseDef(Lexer *lex, Heap *mem);
+static ParseResult ParseCall(Lexer *lex, Heap *mem);
+static ParseResult ParseExpr(Precedence prec, Lexer *lex, Heap *mem);
 
 /* Helper functions */
 static void MakeParseSymbols(Heap *mem);
-static Val ParseError(char *message, Token token, Lexer *lex, Heap *mem);
+static ParseResult ParseError(char *message, Lexer *lex);
 static void SkipNewlines(Lexer *lex);
 static bool MatchToken(TokenType type, Lexer *lex);
 
@@ -123,7 +126,7 @@ static bool MatchToken(TokenType type, Lexer *lex);
  * Each AST node is a pair containing its source position and value, or a list
  * tagged with "error" containing a message and source position.
  */
-Val Parse(char *source, Heap *mem)
+ParseResult Parse(char *source, Heap *mem)
 {
   Lexer lex;
   InitLexer(&lex, source);
@@ -131,11 +134,13 @@ Val Parse(char *source, Heap *mem)
   SkipNewlines(&lex);
 
   /* A script may begin with a module declaration */
-  Val module = nil;
+  Val mod_name = nil;
   Val mod_pos = TokenPos(&lex);
   if (PeekToken(&lex).type == TokenModule) {
-    module = ParseModuleName(&lex, mem);
-    if (IsTagged(module, "error", mem)) return module;
+    ParseResult result = ParseModuleName(&lex, mem);
+    if (!result.ok) return result;
+
+    mod_name = result.value;
     SkipNewlines(&lex);
   }
 
@@ -143,10 +148,11 @@ Val Parse(char *source, Heap *mem)
   Val stmts_pos = TokenPos(&lex);
   Val stmts = nil;
   while (!AtEnd(&lex)) {
-    Val stmt = ParseStmt(&lex, mem);
-    if (IsTagged(stmt, "error", mem)) return stmt;
+    ParseResult stmt = ParseStmt(&lex, mem);
+    if (!stmt.ok) return stmt;
 
-    stmts = Pair(stmt, stmts, mem);
+
+    stmts = Pair(stmt.value, stmts, mem);
 
     /* Statements may be separated by commas */
     MatchToken(TokenComma, &lex);
@@ -154,35 +160,29 @@ Val Parse(char *source, Heap *mem)
     SkipNewlines(&lex);
   }
 
-
-  if (IsNil(module)) {
-    return Pair(stmts_pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
+  if (IsNil(mod_name)) {
+    Val ast = Pair(stmts_pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
+    return ParseOk(ast);
   } else {
     /* If a module was declared, wrap the script in a module node */
-    return
+    Val ast =
       Pair(mod_pos,
       Pair(SymbolFor("module"),
-      Pair(module,
-      Pair(stmts, nil, mem), mem), mem), mem);
+      Pair(mod_name,
+      Pair(ReverseList(stmts, mem), nil, mem), mem), mem), mem);
+    return ParseOk(ast);
   }
 }
 
-/* Syntax: "module" ID
- * AST: [module ID node]
- */
-static Val ParseModuleName(Lexer *lex, Heap *mem)
+static ParseResult ParseModuleName(Lexer *lex, Heap *mem)
 {
   MatchToken(TokenModule, lex);
-
   return ParseID(lex, mem);
 }
 
-/* Parses a statement: "let", "def", "import", or a call expression. Consecutive
- * "let"s and "def"s are combined into a single "let" node.
- */
-Val ParseStmt(Lexer *lex, Heap *mem)
+static ParseResult ParseStmt(Lexer *lex, Heap *mem)
 {
-  Val stmt;
+  ParseResult stmt;
 
   switch (PeekToken(lex).type) {
   case TokenLet:    stmt = ParseLet(lex, mem); break;
@@ -191,195 +191,179 @@ Val ParseStmt(Lexer *lex, Heap *mem)
   default:          stmt = ParseCall(lex, mem); break;
   }
 
+  if (!stmt.ok) return stmt;
+
   SkipNewlines(lex);
 
   /* Check for statements we can combine into this one */
-  if (IsTagged(Tail(stmt, mem), "let", mem)) {
+  if (IsTagged(Tail(stmt.value, mem), "let", mem)) {
     if (PeekToken(lex).type == TokenLet) {
-      Val next_stmt = ParseStmt(lex, mem);
-      ListConcat(stmt, Tail(Tail(next_stmt, mem), mem), mem);
+      ParseResult next_stmt = ParseStmt(lex, mem);
+      if (!next_stmt.ok) return next_stmt;
+      ListConcat(stmt.value, Tail(Tail(next_stmt.value, mem), mem), mem);
     } else if (PeekToken(lex).type == TokenDef) {
-      Val next_stmt = ParseStmt(lex, mem);
-      ListConcat(stmt, Tail(Tail(next_stmt, mem), mem), mem);
+      ParseResult next_stmt = ParseStmt(lex, mem);
+      if (!next_stmt.ok) return next_stmt;
+      ListConcat(stmt.value, Tail(Tail(next_stmt.value, mem), mem), mem);
     }
-  } else if (IsTagged(Tail(stmt, mem), "import", mem)) {
+  } else if (IsTagged(Tail(stmt.value, mem), "import", mem)) {
     if (PeekToken(lex).type == TokenImport) {
-      Val next_stmt = ParseStmt(lex, mem);
-      ListConcat(stmt, Tail(Tail(next_stmt, mem), mem), mem);
+      ParseResult next_stmt = ParseStmt(lex, mem);
+      if (!next_stmt.ok) return next_stmt;
+      ListConcat(stmt.value, Tail(Tail(next_stmt.value, mem), mem), mem);
     }
   }
 
   return stmt;
 }
 
-/* Syntax:
- *    "import" ID "as" ID
- *    "import" ID "as" "*"
- *    "import" ID
- * AST:
- *    [import ID ID]
- *    [import ID nil]
- */
-static Val ParseImport(Lexer *lex, Heap *mem)
+static ParseResult ParseImport(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
   MatchToken(TokenImport, lex);
 
-  Val name = ParseID(lex, mem);
-  if (IsTagged(name, "error", mem)) return name;
+  ParseResult name = ParseID(lex, mem);
+  if (!name.ok) return name;
 
-  Val alias = name;
+  Val alias = name.value;
   if (MatchToken(TokenAs, lex)) {
     if (MatchToken(TokenStar, lex)) {
       alias = nil;
     } else {
-      alias = ParseID(lex, mem);
-      if (IsTagged(alias, "error", mem)) return alias;
+      ParseResult alias_result = ParseID(lex, mem);
+      if (!alias_result.ok) return alias_result;
+      alias = alias_result.value;
     }
   }
 
-  return Pair(pos,
+  return ParseOk(
+    Pair(pos,
     Pair(SymbolFor("import"),
     Pair(
-      Pair(name,
+      Pair(name.value,
       Pair(alias, nil, mem), mem),
-    nil, mem), mem), mem);
+    nil, mem), mem), mem));
 }
 
-/* Syntax: ID "=" call
- * AST: [ID call]
- */
-static Val ParseAssign(Lexer *lex, Heap *mem)
+static ParseResult ParseAssign(Lexer *lex, Heap *mem)
 {
-  /*
-  x = 1     [x 1]
-  */
-
-  Val id = ParseID(lex, mem);
-  if (IsTagged(id, "error", mem)) return id;
+  ParseResult id = ParseID(lex, mem);
+  if (!id.ok) return id;
 
   SkipNewlines(lex);
 
-  if (!MatchToken(TokenEqual, lex)) return ParseError("Expected \"=\"", lex->token, lex, mem);
+  if (!MatchToken(TokenEqual, lex)) return ParseError("Expected \"=\"", lex);
   SkipNewlines(lex);
 
-  Val value = ParseCall(lex, mem);
-  if (IsTagged(value, "error", mem)) return value;
-  if (IsNil(value)) return ParseError("Expected expression", lex->token, lex, mem);
+  ParseResult value = ParseCall(lex, mem);
+  if (!value.ok) return value;
+  if (IsNil(value.value)) return ParseError("Expected expression", lex);
 
-  return Pair(id, Pair(value, nil, mem), mem);
+  return ParseOk(Pair(id.value, Pair(value.value, nil, mem), mem));
 }
 
-/* Syntax: "let" assign ("," assign)*
- * AST: [let [assigns]]
- */
-static Val ParseLet(Lexer *lex, Heap *mem)
+static ParseResult ParseLet(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
   MatchToken(TokenLet, lex);
   SkipNewlines(lex);
 
-  Val assign = ParseAssign(lex, mem);
-  if (IsTagged(assign, "error", mem)) return assign;
-  Val assigns = Pair(assign, nil, mem);
+  ParseResult assign = ParseAssign(lex, mem);
+  if (!assign.ok) return assign;
 
+  Val assigns = Pair(assign.value, nil, mem);
   while (MatchToken(TokenComma, lex)) {
     SkipNewlines(lex);
 
-    Val assign = ParseAssign(lex, mem);
-    if (IsTagged(assign, "error", mem)) return assign;
-    assigns = Pair(assign, assigns, mem);
+    ParseResult assign = ParseAssign(lex, mem);
+    if (!assign.ok) return assign;
+
+    assigns = Pair(assign.value, assigns, mem);
   }
 
-  return Pair(pos, Pair(SymbolFor("let"), ReverseList(assigns, mem), mem), mem);
+  return ParseOk(Pair(pos, Pair(SymbolFor("let"), ReverseList(assigns, mem), mem), mem));
 }
 
-/* Syntax: "def" "(" ID (ID)* ")" expr
- * AST: [let [ID [-> [params] expr]]]
- */
-static Val ParseDef(Lexer *lex, Heap *mem)
+static ParseResult ParseDef(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
   MatchToken(TokenDef, lex);
-  if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex);
 
-  Val id = ParseID(lex, mem);
-  if (IsTagged(id, "error", mem)) return id;
+  ParseResult id = ParseID(lex, mem);
+  if (!id.ok) return id;
 
   Val params_pos = TokenPos(lex);
   Val params = nil;
   while (!MatchToken(TokenRParen, lex)) {
-    Val param = ParseID(lex, mem);
-    if (IsTagged(param, "error", mem)) return param;
-    params = Pair(param, params, mem);
+    ParseResult param = ParseID(lex, mem);
+    if (!param.ok) return param;
+
+    params = Pair(param.value, params, mem);
   }
   params = Pair(params_pos, ReverseList(params, mem), mem);
 
   Val body_pos = TokenPos(lex);
-  Val body = ParseCall(lex, mem);
-  if (IsTagged(body, "error", mem)) return body;
+  ParseResult body = ParseCall(lex, mem);
+  if (!body.ok) return body;
 
   Val lambda =
     Pair(body_pos,
     Pair(SymbolFor("->"),
     Pair(params,
-    Pair(body, nil, mem), mem), mem), mem);
+    Pair(body.value, nil, mem), mem), mem), mem);
 
-  Val assign = Pair(id, Pair(lambda, nil, mem), mem);
+  Val assign = Pair(id.value, Pair(lambda, nil, mem), mem);
 
-  return Pair(pos, Pair(SymbolFor("let"), Pair(assign, nil, mem), mem), mem);
+  return ParseOk(Pair(pos, Pair(SymbolFor("let"), Pair(assign, nil, mem), mem), mem));
 }
 
-static Val ParseCall(Lexer *lex, Heap *mem)
+static ParseResult ParseCall(Lexer *lex, Heap *mem)
 {
-  /*
-  foo x + 1 y   [foo [+ x 1] y]
-  foo           foo
-  */
-
   Val pos = TokenPos(lex);
   ParseRule rule = GetRule(lex);
   Val args = nil;
   while (rule.prefix != NULL) {
-    Val arg = ParseExpr(PrecExpr, lex, mem);
-    if (IsTagged(arg, "error", mem)) return arg;
+    ParseResult arg = ParseExpr(PrecExpr, lex, mem);
+    if (!arg.ok) return arg;
 
-    args = Pair(arg, args, mem);
+    args = Pair(arg.value, args, mem);
     rule = GetRule(lex);
   }
 
-  if (IsNil(args)) return ParseError("Expected expression", lex->token, lex, mem);
-  if (IsNil(Tail(args, mem))) return Head(args, mem);
-  return Pair(pos, ReverseList(args, mem), mem);
+  if (IsNil(args)) return ParseError("Expected expression", lex);
+  if (IsNil(Tail(args, mem))) return ParseOk(Head(args, mem));
+  return ParseOk(Pair(pos, ReverseList(args, mem), mem));
 }
 
-static Val ParseExpr(Precedence prec, Lexer *lex, Heap *mem)
+static ParseResult ParseExpr(Precedence prec, Lexer *lex, Heap *mem)
 {
   ParseRule rule = GetRule(lex);
-  if (rule.prefix == NULL) return ParseError("Expected expression", lex->token, lex, mem);
+  if (rule.prefix == NULL) return ParseError("Expected expression", lex);
 
-  Val expr = rule.prefix(lex, mem);
-  if (IsTagged(expr, "error", mem)) return expr;
+  ParseResult expr = rule.prefix(lex, mem);
+  if (!expr.ok) return expr;
 
   rule = GetRule(lex);
   while (rule.precedence >= prec) {
-    expr = rule.infix(expr, lex, mem);
-    if (IsTagged(expr, "error", mem)) return expr;
+    expr = rule.infix(expr.value, lex, mem);
+    if (!expr.ok) return expr;
+
     rule = GetRule(lex);
   }
 
   return expr;
 }
 
-static Val ParseID(Lexer *lex, Heap *mem)
+static ParseResult ParseID(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
+  if (lex->token.type != TokenID) return ParseError("Expected identifier", lex);
   Token token = NextToken(lex);
-  if (token.type != TokenID) return ParseError("Expected identifier", token, lex, mem);
-  return Pair(pos, MakeSymbolFrom(token.lexeme, token.length, mem), mem);
+  return ParseOk(Pair(pos, MakeSymbolFrom(token.lexeme, token.length, mem), mem));
 }
 
-static Val ParseString(Lexer *lex, Heap *mem)
+static ParseResult ParseString(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
   Token token = NextToken(lex);
@@ -394,48 +378,37 @@ static Val ParseString(Lexer *lex, Heap *mem)
   str[len] = '\0';
 
   Val sym = MakeSymbolFrom(str, len, mem);
-  return Pair(pos, Pair(SymbolFor("\""), sym, mem), mem);
+  return ParseOk(Pair(pos, Pair(SymbolFor("\""), sym, mem), mem));
 }
 
-static Val ParseUnary(Lexer *lex, Heap *mem)
+static ParseResult ParseUnary(Lexer *lex, Heap *mem)
 {
-  /*
-  #foo      [# foo]
-  -foo      [- foo]
-  not foo   [not foo]
-  */
-
   Val pos = TokenPos(lex);
   Token token = NextToken(lex);
   Val op = MakeSymbolFrom(token.lexeme, token.length, mem);
-  Val rhs = ParseExpr(PrecUnary, lex, mem);
-  if (IsTagged(rhs, "error", mem)) return rhs;
-  return Pair(pos, Pair(op, Pair(rhs, nil, mem), mem), mem);
+  ParseResult rhs = ParseExpr(PrecUnary, lex, mem);
+  if (!rhs.ok) return rhs;
+
+  return ParseOk(Pair(pos, Pair(op, Pair(rhs.value, nil, mem), mem), mem));
 }
 
-static Val ParseGroup(Lexer *lex, Heap *mem)
+static ParseResult ParseGroup(Lexer *lex, Heap *mem)
 {
-  /*
-  (foo x + 1 y) [foo [+ x 1] y]
-  (foo)         [foo]
-  */
-
   Val pos = TokenPos(lex);
-  if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLParen, lex)) return ParseError("Expected \"(\"", lex);
 
   SkipNewlines(lex);
   Val args = nil;
   while (!MatchToken(TokenRParen, lex)) {
-    Val arg = ParseExpr(PrecExpr, lex, mem);
-    if (IsTagged(arg, "error", mem)) return arg;
+    ParseResult arg = ParseExpr(PrecExpr, lex, mem);
+    if (!arg.ok) return arg;
 
-    args = Pair(arg, args, mem);
+    args = Pair(arg.value, args, mem);
     SkipNewlines(lex);
   }
 
-  return Pair(pos, ReverseList(args, mem), mem);
+  return ParseOk(Pair(pos, ReverseList(args, mem), mem));
 }
-
 
 static u32 ParseDigit(char c)
 {
@@ -458,19 +431,13 @@ static u32 ParseInt(char *lexeme, u32 length, u32 base)
   return num;
 }
 
-static Val ParseNum(Lexer *lex, Heap *mem)
+static ParseResult ParseNum(Lexer *lex, Heap *mem)
 {
-  /*
-  0x1234BEEF
-  3.14
-  1_000_000
-  */
-
   Val pos = TokenPos(lex);
   Token token = NextToken(lex);
 
   if (token.length > 1 && token.lexeme[1] == 'x') {
-    return Pair(pos, IntVal(ParseInt(token.lexeme + 2, token.length - 2, 16)), mem);
+    return ParseOk(Pair(pos, IntVal(ParseInt(token.lexeme + 2, token.length - 2, 16)), mem));
   }
 
   u32 decimal = 0;
@@ -491,106 +458,95 @@ static Val ParseNum(Lexer *lex, Heap *mem)
         place /= 10;
       }
 
-      return Pair(pos, FloatVal(whole + frac), mem);
+      return ParseOk(Pair(pos, FloatVal(whole + frac), mem));
     }
   }
 
-  return Pair(pos, IntVal(whole), mem);
+  return ParseOk(Pair(pos, IntVal(whole), mem));
 }
 
-static Val ParseSymbol(Lexer *lex, Heap *mem)
+static ParseResult ParseSymbol(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
-  if (!MatchToken(TokenColon, lex)) return ParseError("Expected \":\"", lex->token, lex, mem);
+  if (!MatchToken(TokenColon, lex)) return ParseError("Expected \":\"", lex);
 
-  Val id = ParseID(lex, mem);
-  return Pair(pos, Pair(SymbolFor(":"), id, mem), mem);
+  ParseResult id = ParseID(lex, mem);
+  if (!id.ok) return id;
+
+  return ParseOk(Pair(pos, Pair(SymbolFor(":"), id.value, mem), mem));
 }
 
-static Val ParseList(Lexer *lex, Heap *mem)
+static ParseResult ParseList(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
 
-  if (!MatchToken(TokenLBracket, lex)) return ParseError("Expected \"[\"", lex->token, lex, mem);
+  if (!MatchToken(TokenLBracket, lex)) return ParseError("Expected \"[\"", lex);
   SkipNewlines(lex);
 
-  if (MatchToken(TokenRBracket, lex)) return Pair(pos, SymbolFor("nil"), mem);
+  if (MatchToken(TokenRBracket, lex)) return ParseOk(Pair(pos, SymbolFor("nil"), mem));
 
-  Val first_item = ParseCall(lex, mem);
-  if (IsTagged(first_item, "error", mem)) return first_item;
+  ParseResult first_item = ParseCall(lex, mem);
+  if (!first_item.ok) return first_item;
 
-  Val items = Pair(first_item, nil, mem);
+  Val items = Pair(first_item.value, nil, mem);
   while (MatchToken(TokenComma, lex)) {
     SkipNewlines(lex);
     if (PeekToken(lex).type == TokenRBracket) break;
 
-    Val item = ParseCall(lex, mem);
-    if (IsTagged(item, "error", mem)) return item;
+    ParseResult item = ParseCall(lex, mem);
+    if (!item.ok) return item;
 
-    items = Pair(item, items, mem);
+    items = Pair(item.value, items, mem);
   }
 
-  if (!MatchToken(TokenRBracket, lex)) return ParseError("Expected \"]\"", lex->token, lex, mem);
+  if (!MatchToken(TokenRBracket, lex)) return ParseError("Expected \"]\"", lex);
 
-  return Pair(pos, Pair(SymbolFor("["), ReverseList(items, mem), mem), mem);
+  return ParseOk(Pair(pos, Pair(SymbolFor("["), ReverseList(items, mem), mem), mem));
 }
 
-static Val ParseClauses(Lexer *lex, Heap *mem)
+static ParseResult ParseClauses(Lexer *lex, Heap *mem)
 {
   if (MatchToken(TokenEnd, lex)) {
-    return nil;
+    return ParseOk(nil);
   }
-  // if (MatchToken(TokenElse, lex)) {
-  //   Val alternative = ParseCall(lex, mem);
-  //   if (IsTagged(alternative, "error", mem)) return alternative;
-  //   SkipNewlines(lex);
-  //   if (!MatchToken(TokenEnd, lex)) return ParseError("Expected \"end\"", lex->token, lex, mem);
-  //   return alternative;
-  // }
 
-  Val predicate = ParseExpr(PrecLambda+1, lex, mem);
-  if (IsTagged(predicate, "error", mem)) return predicate;
+  ParseResult predicate = ParseExpr(PrecLambda+1, lex, mem);
+  if (!predicate.ok) return predicate;
 
   SkipNewlines(lex);
-  if (!MatchToken(TokenArrow, lex)) return ParseError("Expected \"->\"", lex->token, lex, mem);
+  if (!MatchToken(TokenArrow, lex)) return ParseError("Expected \"->\"", lex);
 
   SkipNewlines(lex);
-  Val consequent = ParseCall(lex, mem);
-  if (IsTagged(consequent, "error", mem)) return consequent;
+  ParseResult consequent = ParseCall(lex, mem);
+  if (!consequent.ok) return consequent;
 
   SkipNewlines(lex);
 
-  Val alternative = ParseClauses(lex, mem);
+  ParseResult alternative = ParseClauses(lex, mem);
+  if (!alternative.ok) return alternative;
 
-  return
+  return ParseOk(
     Pair(SymbolFor("if"),
-    Pair(predicate,
-    Pair(consequent,
-    Pair(alternative, nil, mem), mem), mem), mem);
+    Pair(predicate.value,
+    Pair(consequent.value,
+    Pair(alternative.value, nil, mem), mem), mem), mem));
 }
 
-static Val ParseCond(Lexer *lex, Heap *mem)
+static ParseResult ParseCond(Lexer *lex, Heap *mem)
 {
-  /*
-  cond
-    x == 3   -> :three
-    x == 2   -> :two
-  else
-    :err
-  end
-
-  [if [== x 3] :three [if [== x 2] :two :err]]
-  */
-
   Val pos = TokenPos(lex);
   MatchToken(TokenCond, lex);
+  if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex);
 
   SkipNewlines(lex);
 
-  return Pair(pos, ParseClauses(lex, mem), mem);
+  ParseResult clauses = ParseClauses(lex, mem);
+  if (!clauses.ok) return clauses;
+
+  return ParseOk(Pair(pos, clauses.value, mem));
 }
 
-static Val ParseDo(Lexer *lex, Heap *mem)
+static ParseResult ParseDo(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
 
@@ -599,54 +555,51 @@ static Val ParseDo(Lexer *lex, Heap *mem)
 
   Val stmts = nil;
   while (!MatchToken(TokenEnd, lex)) {
-    Val stmt = ParseStmt(lex, mem);
-    if (IsTagged(stmt, "error", mem)) return stmt;
+    ParseResult stmt = ParseStmt(lex, mem);
+    if (!stmt.ok) return stmt;
 
-    stmts = Pair(stmt, stmts, mem);
+    stmts = Pair(stmt.value, stmts, mem);
 
     MatchToken(TokenComma, lex);
     SkipNewlines(lex);
   }
 
-  return Pair(pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
+  return ParseOk(Pair(pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem));
 }
 
-static Val ParseLiteral(Lexer *lex, Heap *mem)
+static ParseResult ParseLiteral(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
 
-  Token token = NextToken(lex);
-  switch (token.type) {
-  case TokenTrue:   return Pair(pos, SymbolFor("true"), mem);
-  case TokenFalse:  return Pair(pos, SymbolFor("false"), mem);
-  case TokenNil:    return Pair(pos, SymbolFor("nil"), mem);
-  default:          return ParseError("Unknown literal", token, lex, mem);
+  if (MatchToken(TokenTrue, lex)) {
+    return ParseOk(Pair(pos, SymbolFor("true"), mem));
+  } else if (MatchToken(TokenFalse, lex)) {
+    return ParseOk(Pair(pos, SymbolFor("false"), mem));
+  } else if (MatchToken(TokenNil, lex)) {
+    return ParseOk(Pair(pos, SymbolFor("nil"), mem));
+  } else {
+    return ParseError("Unknown literal", lex);
   }
 }
 
-static Val ParseIf(Lexer *lex, Heap *mem)
+static ParseResult ParseIf(Lexer *lex, Heap *mem)
 {
-  /*
-  if x % 2 == 0 do :ok else :err end
-  ; => [if [== [% x 2] 0] :ok :err]
-  */
-
   Val pos = TokenPos(lex);
   MatchToken(TokenIf, lex);
 
-  Val predicate = ParseExpr(PrecExpr, lex, mem);
-  if (IsTagged(predicate, "error", mem)) return predicate;
+  ParseResult predicate = ParseExpr(PrecExpr, lex, mem);
+  if (!predicate.ok) return predicate;
 
   Val true_pos = TokenPos(lex);
-  if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex->token, lex, mem);
+  if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex);
   SkipNewlines(lex);
 
   Val true_block = nil;
   while (PeekToken(lex).type != TokenElse && !MatchToken(TokenEnd, lex)) {
-    Val stmt = ParseStmt(lex, mem);
-    if (IsTagged(stmt, "error", mem)) return stmt;
+    ParseResult stmt = ParseStmt(lex, mem);
+    if (!stmt.ok) return stmt;
 
-    true_block = Pair(stmt, true_block, mem);
+    true_block = Pair(stmt.value, true_block, mem);
 
     MatchToken(TokenComma, lex);
     SkipNewlines(lex);
@@ -661,10 +614,10 @@ static Val ParseIf(Lexer *lex, Heap *mem)
   if (MatchToken(TokenElse, lex)) {
     SkipNewlines(lex);
     while (!MatchToken(TokenEnd, lex)) {
-      Val stmt = ParseStmt(lex, mem);
-      if (IsTagged(stmt, "error", mem)) return stmt;
+      ParseResult stmt = ParseStmt(lex, mem);
+      if (!stmt.ok) return stmt;
 
-      false_block = Pair(stmt, false_block, mem);
+      false_block = Pair(stmt.value, false_block, mem);
 
       MatchToken(TokenComma, lex);
       SkipNewlines(lex);
@@ -673,14 +626,15 @@ static Val ParseIf(Lexer *lex, Heap *mem)
     false_block = Pair(false_pos, Pair(SymbolFor("do"), ReverseList(false_block, mem), mem), mem);
   }
 
-  return Pair(pos,
+  return ParseOk(
+    Pair(pos,
     Pair(SymbolFor("if"),
-    Pair(predicate,
+    Pair(predicate.value,
     Pair(true_block,
-    Pair(false_block, nil, mem), mem), mem), mem), mem);
+    Pair(false_block, nil, mem), mem), mem), mem), mem));
 }
 
-static Val ParseBraces(Lexer *lex, Heap *mem)
+static ParseResult ParseBraces(Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
   MatchToken(TokenLBrace, lex);
@@ -696,20 +650,20 @@ static Val ParseBraces(Lexer *lex, Heap *mem)
   *lex = saved_lex;
 
   while (!MatchToken(TokenRBrace, lex)) {
-    Val key;
+    ParseResult key;
     if (is_map) {
       key = ParseID(lex, mem);
-      if (IsTagged(key, "error", mem)) return key;
-      if (!MatchToken(TokenColon, lex)) return ParseError("Expected \":\"", lex->token, lex, mem);
+      if (!key.ok) return key;
+      if (!MatchToken(TokenColon, lex)) return ParseError("Expected \":\"", lex);
     }
 
-    Val item = ParseExpr(PrecExpr, lex, mem);
-    if (IsTagged(item, "error", mem)) return item;
+    ParseResult item = ParseExpr(PrecExpr, lex, mem);
+    if (!item.ok) return item;
 
     if (is_map) {
-      items = Pair(Pair(key, item, mem), items, mem);
+      items = Pair(Pair(key.value, item.value, mem), items, mem);
     } else {
-      items = Pair(item, items, mem);
+      items = Pair(item.value, items, mem);
     }
     MatchToken(TokenComma, lex);
 
@@ -718,43 +672,43 @@ static Val ParseBraces(Lexer *lex, Heap *mem)
 
   Val op = (is_map) ? SymbolFor("{:") : SymbolFor("{");
 
-  return Pair(pos, Pair(op, ReverseList(items, mem), mem), mem);
+  return ParseOk(Pair(pos, Pair(op, ReverseList(items, mem), mem), mem));
 }
 
-static Val ParseAssoc(Val lhs, Precedence prec, Lexer *lex, Heap *mem)
+static ParseResult ParseAssoc(Val lhs, Precedence prec, Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
   Token token = NextToken(lex);
   Val op = MakeSymbolFrom(token.lexeme, token.length, mem);
   SkipNewlines(lex);
-  Val rhs = ParseExpr(prec, lex, mem);
-  if (IsTagged(rhs, "error", mem)) return rhs;
+  ParseResult rhs = ParseExpr(prec, lex, mem);
+  if (!rhs.ok) return rhs;
 
-  return Pair(pos, Pair(op, Pair(lhs, Pair(rhs, nil, mem), mem), mem), mem);
+  return ParseOk(Pair(pos, Pair(op, Pair(lhs, Pair(rhs.value, nil, mem), mem), mem), mem));
 }
 
-static Val ParseLeftAssoc(Val lhs, Lexer *lex, Heap *mem)
+static ParseResult ParseLeftAssoc(Val lhs, Lexer *lex, Heap *mem)
 {
   Precedence prec = GetRule(lex).precedence;
   return ParseAssoc(lhs, prec+1, lex, mem);
 }
 
-static Val ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem)
+static ParseResult ParseRightAssoc(Val lhs, Lexer *lex, Heap *mem)
 {
   Precedence prec = GetRule(lex).precedence;
   return ParseAssoc(lhs, prec, lex, mem);
 }
 
-static Val ParseAccess(Val lhs, Lexer *lex, Heap *mem)
+static ParseResult ParseAccess(Val lhs, Lexer *lex, Heap *mem)
 {
   Val pos = TokenPos(lex);
   MatchToken(TokenDot, lex);
   Val key_pos = TokenPos(lex);
-  Val key = ParseID(lex, mem);
-  if (IsTagged(key, "error", mem)) return key;
+  ParseResult key = ParseID(lex, mem);
+  if (!key.ok) return key;
 
-  key = Pair(key_pos, Pair(SymbolFor(":"), key, mem), mem);
-  return Pair(pos, Pair(SymbolFor("."), Pair(lhs, Pair(key, nil, mem), mem), mem), mem);
+  key.value = Pair(key_pos, Pair(SymbolFor(":"), key.value, mem), mem);
+  return ParseOk(Pair(pos, Pair(SymbolFor("."), Pair(lhs, Pair(key.value, nil, mem), mem), mem), mem));
 }
 
 static void MakeParseSymbols(Heap *mem)
@@ -779,16 +733,14 @@ static void MakeParseSymbols(Heap *mem)
   MakeSymbol("module", mem);
 }
 
-static Val ParseError(char *message, Token token, Lexer *lex, Heap *mem)
+static ParseResult ParseError(char *message, Lexer *lex)
 {
-  Val pos = IntVal(token.lexeme - lex->text);
-
-  return
-    Pair(SymbolFor("error"),
-    Pair(SymbolFor("parse"),
-    Pair(pos,
-    Pair(BinaryFrom(message, StrLen(message), mem),
-    Pair(BinaryFrom(lex->text, StrLen(lex->text), mem), nil, mem), mem), mem), mem), mem);
+  ParseResult result;
+  result.ok = false;
+  result.error.message = message;
+  result.error.expr = nil;
+  result.error.pos = lex->token.lexeme - lex->text;
+  return result;
 }
 
 static void SkipNewlines(Lexer *lex)

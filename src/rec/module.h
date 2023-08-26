@@ -2,6 +2,7 @@
 #include "heap.h"
 #include "seq.h"
 #include "args.h"
+#include "source.h"
 
 typedef struct {
   Val name;
@@ -13,10 +14,7 @@ typedef struct {
   bool ok;
   union {
     Module module;
-    struct {
-      Val expr;
-      char *message;
-    } error;
+    CompileError error;
   };
 } ModuleResult;
 

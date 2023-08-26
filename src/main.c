@@ -19,6 +19,8 @@ int main(int argc, char *argv[])
     chunk = CompileChunk(&args, &mem);
   }
 
+  if (!chunk) return 1;
+
   if (args.verbose) {
     Disassemble(chunk);
     Print("\n");

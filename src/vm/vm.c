@@ -12,7 +12,8 @@ void InitVM(VM *vm, Heap *mem)
   vm->stack = NULL;
   vm->call_stack = NULL;
   vm->env = InitialEnv(mem);
-  vm->modules = nil;
+  vm->modules = NULL;
+  vm->mod_map = EmptyHashMap;
   vm->mem = mem;
   vm->error = false;
   vm->verbose = false;
@@ -93,7 +94,6 @@ void RunChunk(VM *vm, Chunk *chunk)
   vm->pc = 0;
   vm->cont = ChunkSize(chunk);
   vm->stack = NULL;
-  vm->modules = MakeTuple(chunk->num_modules, mem);
   vm->error = false;
 
   CopyStrings(&chunk->constants, mem);
@@ -144,6 +144,14 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else if (IsMap(obj, mem)) {
         if (MapContains(obj, key, mem)) {
           StackPush(vm, MapGet(obj, key, mem));
+        } else {
+          vm->error = KeyError;
+        }
+      } else if (IsBinary(obj, mem)) {
+        if (IsInt(key) && RawInt(key) >= 0
+          && RawInt(key) < BinaryLength(obj, mem)) {
+          char *data = BinaryData(obj, mem);
+          StackPush(vm, IntVal(data[RawInt(key)]));
         } else {
           vm->error = KeyError;
         }
@@ -416,13 +424,28 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
     case OpModule: {
       Val mod = StackPop(vm);
-      TupleSet(vm->modules, RawInt(ChunkConst(chunk, vm->pc+1)), mod, mem);
+      Val mod_name = ChunkConst(chunk, vm->pc+1);
+      if (HashMapContains(&vm->mod_map, mod_name.as_i)) {
+        u32 index = HashMapGet(&vm->mod_map, mod_name.as_i);
+        vm->modules[index] = mod;
+      } else {
+        u32 index = VecCount(vm->modules);
+        VecPush(vm->modules, mod);
+        HashMapSet(&vm->mod_map, mod_name.as_i, index);
+      }
+
       vm->pc += OpLength(op);
       break;
     }
     case OpLoad: {
-      Val mod = TupleGet(vm->modules, RawInt(ChunkConst(chunk, vm->pc+1)), mem);
-      StackPush(vm, mod);
+      Val mod_name = ChunkConst(chunk, vm->pc+1);
+      if (HashMapContains(&vm->mod_map, mod_name.as_i)) {
+        u32 index = HashMapGet(&vm->mod_map, mod_name.as_i);
+        StackPush(vm, vm->modules[index]);
+      } else {
+        vm->error = EnvError;
+      }
+
       vm->pc += OpLength(op);
       break;
     }
