@@ -15,6 +15,7 @@ void InitVM(VM *vm, Heap *mem)
   vm->modules = nil;
   vm->mem = mem;
   vm->error = false;
+  vm->verbose = false;
 
   MakeSymbol("ok", mem);
   MakeSymbol("error", mem);
@@ -98,7 +99,9 @@ void RunChunk(VM *vm, Chunk *chunk)
   CopyStrings(&chunk->constants, mem);
 
   while (vm->error == NoError && vm->pc < ChunkSize(chunk)) {
-    TraceInstruction(vm, chunk);
+    if (vm->verbose) {
+      TraceInstruction(vm, chunk);
+    }
 
     if (--gc == 0) {
       gc = GCFreq;
@@ -418,11 +421,8 @@ void RunChunk(VM *vm, Chunk *chunk)
   if (vm->error) {
     Print(VMErrorMessage(vm->error));
     Print("\n");
-  } else {
+  } else if (vm->verbose) {
     TraceInstruction(vm, chunk);
-    Print("=> ");
-    Inspect(StackPop(vm), mem);
-    Print("\n");
     PrintMem(mem);
   }
 }

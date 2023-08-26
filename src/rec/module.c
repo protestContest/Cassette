@@ -3,7 +3,7 @@
 #include "parse.h"
 #include "compile.h"
 
-ModuleResult LoadModule(char *path, Heap *mem)
+ModuleResult LoadModule(char *path, Heap *mem, Args *args)
 {
   char *source = ReadFile(path);
 
@@ -17,24 +17,25 @@ ModuleResult LoadModule(char *path, Heap *mem)
     return (ModuleResult){false, {.error = {nil, "Parse error"}}};
   }
 
-  Print("Compiling ");
-  Print(path);
-  Print("\n");
+  if (args->verbose) {
+    Print("Compiling ");
+    Print(path);
+    Print("\n");
+  }
 
   return Compile(ast, nil, mem);
 }
 
-ModuleResult LoadProject(char *source_folder, char *entry_file, Heap *mem)
+ModuleResult LoadModules(Args *args, Heap *mem)
 {
-  entry_file = JoinPath(source_folder, entry_file);
-  char **files = ListFiles(source_folder);
+  char **files = ListFiles(args->dir);
 
   i32 entry = -1;
   Module *modules = NULL;
   HashMap mod_map = EmptyHashMap;
 
   for (i32 i = 0; i < (i32)VecCount(files); i++) {
-    if (StrEq(files[i], entry_file)) {
+    if (StrEq(files[i], args->entry)) {
       entry = VecCount(modules);
     } else {
       u32 len = StrLen(files[i]);
@@ -43,10 +44,10 @@ ModuleResult LoadProject(char *source_folder, char *entry_file, Heap *mem)
       }
     }
 
-    ModuleResult result = LoadModule(files[i], mem);
+    ModuleResult result = LoadModule(files[i], mem, args);
     if (!result.ok) continue;
 
-    if (IsNil(result.module.name) && !StrEq(files[i], entry_file)) continue;
+    if (IsNil(result.module.name) && !StrEq(files[i], args->entry)) continue;
 
     u32 key = result.module.name.as_i;
     if (HashMapContains(&mod_map, key)) {
@@ -68,7 +69,7 @@ ModuleResult LoadProject(char *source_folder, char *entry_file, Heap *mem)
   FreeVec(files);
 
   if (entry == -1) {
-    Val name = BinaryFrom(entry_file, StrLen(entry_file), mem);
+    Val name = BinaryFrom(args->entry, StrLen(args->entry), mem);
     return (ModuleResult){false, {.error = {name, "Could not find entry"}}};
   }
 

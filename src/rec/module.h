@@ -1,6 +1,7 @@
 #pragma once
 #include "heap.h"
 #include "seq.h"
+#include "args.h"
 
 typedef struct {
   Val name;
@@ -19,5 +20,5 @@ typedef struct {
   };
 } ModuleResult;
 
-ModuleResult LoadModule(char *path, Heap *mem);
-ModuleResult LoadProject(char *source_folder, char *entry_file, Heap *mem);
+ModuleResult LoadModule(char *path, Heap *mem, Args *args);
+ModuleResult LoadModules(Args *args, Heap *mem);

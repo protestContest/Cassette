@@ -20,6 +20,7 @@ typedef struct {
   Val modules;
   Heap *mem;
   VMError error;
+  bool verbose;
 } VM;
 
 typedef enum {

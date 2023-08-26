@@ -14,6 +14,8 @@ void Assemble(Seq seq, Chunk *chunk, Heap *mem)
     u32 len = AssembleInstruction(stmts, chunk, mem);
     stmts = ListAfter(stmts, len, mem);
   }
+
+  AssembleInstruction(Pair(IntVal(OpHalt), nil, mem), chunk, mem);
 }
 
 static Val ReplaceReferences(Seq seq, Heap *mem)
@@ -44,10 +46,10 @@ static Val ReplaceReferences(Seq seq, Heap *mem)
       u32 location = HashMapGet(&labels, label);
       SetHead(stmts, IntVal((i32)location - (offset + 1)), mem);
     } else if (IsTagged(stmt, "module-ref", mem) || IsTagged(stmt, "module", mem)) {
+      if (IsTagged(stmt, "module", mem)) num_mods++;
       Val name = Tail(stmt, mem);
       u32 mod_num = HashMapGet(&modules, name.as_i);
       SetHead(stmts, IntVal(mod_num), mem);
-      num_mods++;
     }
 
     offset++;
