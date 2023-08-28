@@ -3,14 +3,16 @@
 #include "seq.h"
 #include "args.h"
 #include "source.h"
+#include "compile.h"
 
 typedef struct {
   Val name;
+  char *file;
   Seq code;
   HashMap imports;
 } Module;
 
-typedef struct {
+typedef struct ModuleResult {
   bool ok;
   union {
     Module module;
@@ -19,4 +21,4 @@ typedef struct {
 } ModuleResult;
 
 ModuleResult LoadModule(char *path, Heap *mem, Args *args);
-ModuleResult LoadModules(Args *args, Heap *mem);
+CompileResult LoadModules(Args *args, Heap *mem);

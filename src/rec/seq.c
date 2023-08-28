@@ -43,9 +43,19 @@ Val ModuleRef(Val name, Heap *mem)
   return Pair(MakeSymbol("module-ref", mem), name, mem);
 }
 
-Val ModuleDef(Val name, Heap *mem)
+Seq ModuleSeq(char *file, Heap *mem)
 {
-  return Pair(MakeSymbol("module", mem), name, mem);
+  return MakeSeq(0, 0, Pair(Pair(MakeSymbol("source-file", mem), MakeSymbol(file, mem), mem), nil, mem));
+}
+
+Val SourceRef(u32 pos, Heap *mem)
+{
+  return Pair(MakeSymbol("source-ref", mem), IntVal(pos), mem);
+}
+
+Seq SourceSeq(u32 pos, Heap *mem)
+{
+  return MakeSeq(0, 0, Pair(SourceRef(pos, mem), nil, mem));
 }
 
 Seq AppendSeq(Seq seq1, Seq seq2, Heap *mem)

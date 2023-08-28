@@ -502,8 +502,10 @@ static ParseResult ParseList(Lexer *lex, Heap *mem)
 
 static ParseResult ParseClauses(Lexer *lex, Heap *mem)
 {
+  Val pos = TokenPos(lex);
+
   if (MatchToken(TokenEnd, lex)) {
-    return ParseOk(nil);
+    return ParseOk(Pair(pos, SymbolFor("nil"), mem));
   }
 
   ParseResult predicate = ParseExpr(PrecLambda+1, lex, mem);
@@ -522,24 +524,21 @@ static ParseResult ParseClauses(Lexer *lex, Heap *mem)
   if (!alternative.ok) return alternative;
 
   return ParseOk(
+    Pair(pos,
     Pair(SymbolFor("if"),
     Pair(predicate.value,
     Pair(consequent.value,
-    Pair(alternative.value, nil, mem), mem), mem), mem));
+    Pair(alternative.value, nil, mem), mem), mem), mem), mem));
 }
 
 static ParseResult ParseCond(Lexer *lex, Heap *mem)
 {
-  Val pos = TokenPos(lex);
   MatchToken(TokenCond, lex);
   if (!MatchToken(TokenDo, lex)) return ParseError("Expected \"do\"", lex);
 
   SkipNewlines(lex);
 
-  ParseResult clauses = ParseClauses(lex, mem);
-  if (!clauses.ok) return clauses;
-
-  return ParseOk(Pair(pos, clauses.value, mem));
+  return ParseClauses(lex, mem);
 }
 
 static ParseResult ParseDo(Lexer *lex, Heap *mem)
@@ -620,6 +619,8 @@ static ParseResult ParseIf(Lexer *lex, Heap *mem)
     }
 
     false_block = Pair(false_pos, Pair(SymbolFor("do"), ReverseList(false_block, mem), mem), mem);
+  } else {
+    false_block = Pair(false_pos, SymbolFor("nil"), mem);
   }
 
   return ParseOk(

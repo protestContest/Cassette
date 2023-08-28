@@ -33,7 +33,7 @@ Val Lookup(Val env, u32 fnum, u32 pos, Heap *mem)
 {
   for (u32 i = 0; i < fnum; i++) env = Tail(env, mem);
   Val frame = Head(env, mem);
-  if (IsNil(frame) || TupleLength(frame, mem) < pos) {
+  if (!IsTuple(frame, mem) || TupleLength(frame, mem) < pos) {
     return MakeSymbol("*undefined*", mem);
   }
   return TupleGet(frame, pos, mem);

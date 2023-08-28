@@ -8,4 +8,4 @@ typedef struct {
 } CompileError;
 
 void PrintSourceContext(char *src, u32 pos);
-void PrintCompileError(CompileError *error, char *src);
+void PrintCompileError(CompileError *error, char *filename);

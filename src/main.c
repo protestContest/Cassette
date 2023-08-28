@@ -14,8 +14,10 @@ int main(int argc, char *argv[])
 
   Chunk *chunk;
   if (SniffFile(args.entry, ChunkTag())) {
+    // read compiled chunk from file
     chunk = LoadChunk(args.entry);
   } else {
+    // compile project into a chunk
     chunk = CompileChunk(&args, &mem);
   }
 

@@ -2,14 +2,7 @@
 #include "debug.h"
 #include "vm.h"
 #include "source.h"
-
-typedef struct {
-  bool ok;
-  union {
-    Seq result;
-    CompileError error;
-  };
-} CompileResult;
+#include "module.h"
 
 #define CompileOk(seq)            ((CompileResult){true, {seq}})
 #define ErrorResult(m, e, p)      ((CompileResult){false, {.error = {m, e, p}}})
@@ -62,14 +55,12 @@ ModuleResult Compile(Val ast, Val env, Heap *mem)
 {
   Compiler c;
   InitCompiler(&c, env, mem);
-  CompileResult compiled = CompileExpr(ast, LinkNext, &c);
-
-  if (compiled.ok) {
-    c.module.code = compiled.result;
-    return (ModuleResult){true, {c.module}};
-  } else {
-    return (ModuleResult){false, {.error = compiled.error}};
+  CompileResult result = CompileExpr(ast, LinkNext, &c);
+  if (!result.ok) {
+    return (ModuleResult){false, {.error = result.error}};
   }
+  c.module.code = result.code;
+  return (ModuleResult){true, {.module = c.module}};
 }
 
 static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
@@ -82,8 +73,8 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
   // PrintInt(c->pos);
   // Print("#> ");
   // Inspect(expr, mem);
-  // Print("\n  ");
-  // Inspect(c->env, mem);
+  // // Print("\n  ");
+  // // Inspect(c->env, mem);
   // Print("\n");
 
   if (IsNil(expr))                      return CompileOk(EndWithLinkage(linkage, EmptySeq(), mem));
@@ -130,11 +121,13 @@ static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
 static CompileResult CompileConst(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+
   return CompileOk(
     EndWithLinkage(linkage,
       MakeSeq(0, 0,
+        Pair(SourceRef(c->pos, mem),
         Pair(IntVal(OpConst),
-        Pair(expr, nil, mem), mem)), mem));
+        Pair(expr, nil, mem), mem), mem)), mem));
 }
 
 static CompileResult CompileString(Val expr, Linkage linkage, Compiler *c)
@@ -145,7 +138,7 @@ static CompileResult CompileString(Val expr, Linkage linkage, Compiler *c)
   if (!item.ok) return item;
 
   return CompileOk(
-    AppendSeq(item.result,
+    AppendSeq(item.code,
     MakeSeq(0, 0,
       Pair(IntVal(OpStr), nil, mem)), mem));
 }
@@ -153,25 +146,26 @@ static CompileResult CompileString(Val expr, Linkage linkage, Compiler *c)
 static CompileResult CompileVar(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   Val pos = FindVar(expr, c->env, mem);
   if (IsNil(pos)) {
-    Inspect(c->env, mem);
-    Print("\n");
     return ErrorResult("Undefined variable", expr, c->pos);
   }
 
   return CompileOk(
     EndWithLinkage(linkage,
       MakeSeq(REnv, 0,
+        Pair(SourceRef(source, mem),
         Pair(IntVal(OpLookup),
         Pair(Head(pos, mem),
-        Pair(Tail(pos, mem), nil, mem), mem), mem)), mem));
+        Pair(Tail(pos, mem), nil, mem), mem), mem), mem)), mem));
 }
 
 static CompileResult CompileList(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   Seq seq = EmptySeq();
   while (!IsNil(expr)) {
@@ -179,7 +173,7 @@ static CompileResult CompileList(Val expr, Linkage linkage, Compiler *c)
     if (!item.ok) return item;
 
     seq =
-      Preserving(REnv, item.result,
+      Preserving(REnv, item.code,
       AppendSeq(
         MakeSeq(0, 0, Pair(IntVal(OpPair), nil, mem)),
         seq, mem), mem);
@@ -189,8 +183,9 @@ static CompileResult CompileList(Val expr, Linkage linkage, Compiler *c)
 
   seq = AppendSeq(
     MakeSeq(0, 0,
+      Pair(SourceRef(source, mem),
       Pair(IntVal(OpConst),
-      Pair(nil, nil, mem), mem)),
+      Pair(nil, nil, mem), mem), mem)),
     seq, mem);
 
   return CompileOk(EndWithLinkage(linkage, seq, mem));
@@ -199,6 +194,7 @@ static CompileResult CompileList(Val expr, Linkage linkage, Compiler *c)
 static CompileResult CompileTuple(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   u32 num_items = 0;
   Seq items_seq = EmptySeq();
@@ -207,7 +203,7 @@ static CompileResult CompileTuple(Val expr, Linkage linkage, Compiler *c)
     if (!item.ok) return item;
 
     items_seq = Preserving(REnv,
-      AppendSeq(item.result,
+      AppendSeq(item.code,
         MakeSeq(0, 0,
           Pair(IntVal(OpSet),
           Pair(IntVal(num_items), nil, mem), mem)), mem),
@@ -221,14 +217,16 @@ static CompileResult CompileTuple(Val expr, Linkage linkage, Compiler *c)
     EndWithLinkage(linkage,
       AppendSeq(
         MakeSeq(0, 0,
+          Pair(SourceRef(source, mem),
           Pair(IntVal(OpTuple),
-          Pair(IntVal(num_items), nil, mem), mem)),
+          Pair(IntVal(num_items), nil, mem), mem), mem)),
         items_seq, mem), mem));
 }
 
 static CompileResult CompileMap(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   u32 num_items = 0;
   Seq keys_seq = EmptySeq();
@@ -251,7 +249,7 @@ static CompileResult CompileMap(Val expr, Linkage linkage, Compiler *c)
 
     vals_seq =
       Preserving(REnv,
-        AppendSeq(val.result,
+        AppendSeq(val.code,
         MakeSeq(0, 0,
           Pair(IntVal(OpSet),
           Pair(IntVal(num_items), nil, mem), mem)), mem),
@@ -277,9 +275,11 @@ static CompileResult CompileMap(Val expr, Linkage linkage, Compiler *c)
 
   return CompileOk(
     EndWithLinkage(linkage,
-    AppendSeq(
-      AppendSeq(vals_seq, keys_seq, mem),
-      MakeSeq(0, 0, Pair(IntVal(OpMap), nil, mem)), mem), mem));
+      AppendSeq(
+        AppendSeq(vals_seq, keys_seq, mem),
+        MakeSeq(0, 0,
+          Pair(SourceRef(source, mem),
+          Pair(IntVal(OpMap), nil, mem), mem)), mem), mem));
 }
 
 static CompileResult CompileItems(Val items, Compiler *c)
@@ -291,7 +291,7 @@ static CompileResult CompileItems(Val items, Compiler *c)
     CompileResult item = CompileExpr(Head(items, mem), LinkNext, c);
     if (!item.ok) return item;
 
-    items_seq = Preserving(REnv, item.result, items_seq, mem);
+    items_seq = Preserving(REnv, item.code, items_seq, mem);
     items = Tail(items, mem);
   }
 
@@ -301,27 +301,38 @@ static CompileResult CompileItems(Val items, Compiler *c)
 static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
+
   CompileResult args = CompileItems(ReverseList(Tail(expr, mem), mem), c);
   if (!args.ok) return args;
 
-  return CompileOk(EndWithLinkage(linkage, AppendSeq(args.result, op_seq, mem), mem));
+  return CompileOk(
+    EndWithLinkage(linkage,
+      AppendSeq(args.code,
+      AppendSeq(SourceSeq(source, mem),
+      op_seq, mem), mem), mem));
 }
 
 static CompileResult CompilePair(Val expr, Linkage linkage, Compiler *c)
 {
-
-
   Heap *mem = c->mem;
+  u32 source = c->pos;
+
   CompileResult args = CompileItems(Tail(expr, mem), c);
   if (!args.ok) return args;
 
   Seq op_seq = OpSeq(OpPair, mem);
-  return CompileOk(EndWithLinkage(linkage, AppendSeq(args.result, op_seq, mem), mem));
+  return CompileOk(
+    EndWithLinkage(linkage,
+      AppendSeq(args.code,
+      AppendSeq(SourceSeq(source, mem),
+      op_seq, mem), mem), mem));
 }
 
 static CompileResult CompileOr(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   CompileResult a = CompileExpr(ListAt(expr, 0, mem), LinkNext, c);
   if (!a.ok) return a;
@@ -338,20 +349,22 @@ static CompileResult CompileOr(Val expr, Linkage linkage, Compiler *c)
 
   return CompileOk(
     Preserving(REnv | RCont,
-      a.result,
+      a.code,
       EndWithLinkage(linkage,
         AppendSeq(
           MakeSeq(0, 0,
+            Pair(SourceRef(source, mem),
             Pair(IntVal(OpBranch),
             Pair(LabelRef(true_branch, mem),
-            Pair(IntVal(OpPop), nil, mem), mem), mem)),
-        AppendSeq(b.result,
+            Pair(IntVal(OpPop), nil, mem), mem), mem), mem)),
+        AppendSeq(b.code,
           LabelSeq(after_b, mem), mem), mem), mem), mem));
 }
 
 static CompileResult CompileAnd(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   CompileResult a = CompileExpr(ListAt(expr, 0, mem), LinkNext, c);
   if (!a.ok) return a;
@@ -366,23 +379,26 @@ static CompileResult CompileAnd(Val expr, Linkage linkage, Compiler *c)
 
   return CompileOk(
     Preserving(REnv | RCont,
-      a.result,
+      a.code,
       AppendSeq(
         EndWithLinkage(a_linkage,
           MakeSeq(0, 0,
+            Pair(SourceRef(source, mem),
             Pair(IntVal(OpBranch),
-            Pair(LabelRef(true_branch, mem), nil, mem), mem)), mem),
+            Pair(LabelRef(true_branch, mem), nil, mem), mem), mem)), mem),
       AppendSeq(
         MakeSeq(0, 0,
+          Pair(SourceRef(source, mem),
           Pair(Label(true_branch, mem),
-          Pair(IntVal(OpPop), nil, mem), mem)),
-      AppendSeq(b.result,
+          Pair(IntVal(OpPop), nil, mem), mem), mem)),
+      AppendSeq(b.code,
         LabelSeq(after_b, mem), mem), mem), mem), mem));
 }
 
 static CompileResult CompileIf(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   CompileResult predicate = CompileExpr(ListAt(expr, 0, mem), LinkNext, c);
   if (!predicate.ok) return predicate;
@@ -390,11 +406,11 @@ static CompileResult CompileIf(Val expr, Linkage linkage, Compiler *c)
   Val true_branch = MakeLabel();
   Val after = MakeLabel();
 
-  Seq pred_seq =
-    AppendSeq(predicate.result,
+  Seq pred_branch =
       MakeSeq(0, 0,
+        Pair(SourceRef(source, mem),
         Pair(IntVal(OpBranch),
-        Pair(LabelRef(true_branch, mem), nil, mem), mem)), mem);
+        Pair(LabelRef(true_branch, mem), nil, mem), mem), mem));
 
   Val alt_linkage = Eq(linkage, LinkNext) ? after : linkage;
   CompileResult alternative = CompileExpr(ListAt(expr, 2, mem), alt_linkage, c);
@@ -402,27 +418,31 @@ static CompileResult CompileIf(Val expr, Linkage linkage, Compiler *c)
 
   Seq alt_seq =
     AppendSeq(MakeSeq(0, 0, Pair(IntVal(OpPop), nil, mem)),
-    alternative.result, mem);
+    alternative.code, mem);
 
   CompileResult consequent = CompileExpr(ListAt(expr, 1, mem), linkage, c);
   if (!consequent.ok) return consequent;
 
   Seq cons_seq =
     AppendSeq(MakeSeq(0, 0,
+      Pair(SourceRef(source, mem),
       Pair(Label(true_branch, mem),
-      Pair(IntVal(OpPop), nil, mem), mem)),
-    AppendSeq(consequent.result,
+      Pair(IntVal(OpPop), nil, mem), mem), mem)),
+    AppendSeq(consequent.code,
     LabelSeq(after, mem), mem), mem);
 
   return CompileOk(
+    AppendSeq(SourceSeq(source, mem),
     Preserving(REnv | RCont,
-      pred_seq,
-      ParallelSeq(alt_seq, cons_seq, mem), mem));
+      predicate.code,
+      AppendSeq(pred_branch,
+        ParallelSeq(alt_seq, cons_seq, mem), mem), mem), mem));
 }
 
 static CompileResult CompileAssigns(Val expr, u32 index, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   Seq assigns = EmptySeq();
   while (!IsNil(expr)) {
@@ -435,10 +455,11 @@ static CompileResult CompileAssigns(Val expr, u32 index, Linkage linkage, Compil
 
     assigns =
       AppendSeq(assigns,
-        Preserving(REnv, value.result,
+        Preserving(REnv, value.code,
           MakeSeq(REnv, 0,
+            Pair(SourceRef(source, mem),
             Pair(IntVal(OpDefine),
-            Pair(IntVal(index), nil, mem), mem)), mem), mem);
+            Pair(IntVal(index), nil, mem), mem), mem)), mem), mem);
 
     index++;
     expr = Tail(expr, mem);
@@ -448,13 +469,15 @@ static CompileResult CompileAssigns(Val expr, u32 index, Linkage linkage, Compil
     EndWithLinkage(linkage,
     AppendSeq(assigns,
     MakeSeq(0, 0,
+      Pair(SourceRef(source, mem),
       Pair(IntVal(OpConst),
-      Pair(SymbolFor("ok"), nil, mem), mem)), mem), mem));
+      Pair(SymbolFor("ok"), nil, mem), mem), mem)), mem), mem));
 }
 
 static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   Seq assigns = EmptySeq();
   while (!IsNil(expr)) {
@@ -469,19 +492,21 @@ static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compile
     Val after_load = MakeLabel();
     Seq load_seq =
       MakeSeq(0, RCont | REnv,
+        Pair(SourceRef(source, mem),
         Pair(IntVal(OpLoad),
         Pair(ModuleRef(mod, mem),
         Pair(IntVal(OpCont),
         Pair(LabelRef(after_load, mem),
         Pair(IntVal(OpApply),
-        Pair(Label(after_load, mem), nil, mem), mem), mem), mem), mem), mem));
+        Pair(Label(after_load, mem), nil, mem), mem), mem), mem), mem), mem), mem));
 
     assigns =
       AppendSeq(assigns,
       Preserving(REnv, load_seq,
       MakeSeq(REnv, 0,
+        Pair(SourceRef(source, mem),
         Pair(IntVal(OpDefine),
-        Pair(IntVal(index), nil, mem), mem)), mem), mem);
+        Pair(IntVal(index), nil, mem), mem), mem)), mem), mem);
 
     index++;
     expr = Tail(expr, mem);
@@ -489,15 +514,18 @@ static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compile
 
   return CompileOk(
     EndWithLinkage(linkage,
+      AppendSeq(SourceSeq(source, mem),
       AppendSeq(assigns,
         MakeSeq(0, 0,
           Pair(IntVal(OpConst),
-          Pair(SymbolFor("ok"), nil, mem), mem)), mem), mem));
+          Pair(SymbolFor("ok"), nil, mem), mem)), mem), mem), mem));
 }
 
 static CompileResult CompileBlock(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
+
   if (IsNil(expr)) {
     return CompileOk(MakeSeq(0, 0, Pair(IntVal(OpConst), Pair(nil, nil, mem), mem)));
   }
@@ -521,7 +549,7 @@ static CompileResult CompileBlock(Val expr, Linkage linkage, Compiler *c)
     }
     if (!stmt_res.ok) return stmt_res;
 
-    Seq stmt_seq = stmt_res.result;
+    Seq stmt_seq = stmt_res.code;
     u32 preserve = REnv;
 
     if (IsNil(Tail(expr, mem))) {
@@ -539,9 +567,10 @@ static CompileResult CompileBlock(Val expr, Linkage linkage, Compiler *c)
   if (index > 0) {
     seq = AppendSeq(
       MakeSeq(0, REnv,
+        Pair(SourceRef(source, mem),
         Pair(IntVal(OpTuple),
         Pair(IntVal(index),
-        Pair(IntVal(OpExtend), nil, mem), mem), mem)),
+        Pair(IntVal(OpExtend), nil, mem), mem), mem), mem)),
       seq, mem);
   }
 
@@ -583,6 +612,7 @@ static CompileResult CompileDo(Val expr, Linkage linkage, Compiler *c)
 static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
   Val params = Tail(ListAt(expr, 0, mem), mem);
   Val body = ListAt(expr, 1, mem);
 
@@ -605,7 +635,8 @@ static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
       params = Tail(params, mem);
     }
 
-    params_code = MakeSeq(0, 0, Pair(IntVal(OpExtend), nil, mem));
+    params_code = MakeSeq(0, 0,
+      Pair(IntVal(OpExtend), nil, mem));
   }
 
   CompileResult body_code = CompileExpr(body, LinkReturn, c);
@@ -619,16 +650,18 @@ static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
     EndWithLinkage(linkage,
     TackOnSeq(
       MakeSeq(0, 0,
+        Pair(SourceRef(source, mem),
         Pair(IntVal(OpLambda),
-        Pair(LabelRef(after_lambda, mem), nil, mem), mem)),
+        Pair(LabelRef(after_lambda, mem), nil, mem), mem), mem)),
     AppendSeq(params_code,
-    AppendSeq(body_code.result,
+    AppendSeq(body_code.code,
     LabelSeq(after_lambda, mem), mem), mem), mem), mem));
 }
 
 static CompileResult CompileModule(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
   Val name = Tail(ListAt(expr, 0, mem), mem);
   c->module.name = name;
 
@@ -652,38 +685,43 @@ static CompileResult CompileModule(Val expr, Linkage linkage, Compiler *c)
   Val frame = Head(c->env, mem);
   for (u32 i = 0; i < num_assigns; i++) {
     Seq key_seq = MakeSeq(0, 0,
+      Pair(SourceRef(source, mem),
       Pair(IntVal(OpConst),
       Pair(TupleGet(frame, i, mem),
       Pair(IntVal(OpSet),
-      Pair(IntVal(i), nil, mem), mem), mem), mem));
+      Pair(IntVal(i), nil, mem), mem), mem), mem), mem));
     keys_seq = AppendSeq(keys_seq, key_seq, mem);
   }
 
   Seq mod_body = EndWithLinkage(LinkReturn,
-    AppendSeq(block.result,
+    AppendSeq(block.code,
     AppendSeq(keys_seq,
     MakeSeq(0, 0,
+      Pair(SourceRef(source, mem),
       Pair(IntVal(OpMap),
       Pair(IntVal(OpDup),
       Pair(IntVal(OpModule),
-      Pair(ModuleRef(name, mem), nil, mem), mem), mem), mem)), mem), mem), mem);
+      Pair(ModuleRef(name, mem), nil, mem), mem), mem), mem), mem)), mem), mem), mem);
 
   return CompileOk(
     EndWithLinkage(linkage,
     AppendSeq(
       TackOnSeq(MakeSeq(0, 0,
+        Pair(SourceRef(source, mem),
         Pair(IntVal(OpLambda),
-        Pair(LabelRef(after, mem), nil, mem), mem)),
+        Pair(LabelRef(after, mem), nil, mem), mem), mem)),
       mod_body, mem),
     MakeSeq(0, 0,
+      Pair(SourceRef(source, mem),
       Pair(Label(after, mem),
       Pair(IntVal(OpModule),
-      Pair(ModuleDef(name, mem), nil, mem), mem), mem)), mem), mem));
+      Pair(ModuleRef(name, mem), nil, mem), mem), mem), mem)), mem), mem));
 }
 
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
+  u32 source = c->pos;
 
   CompileResult op = CompileExpr(Head(expr, mem), LinkNext, c);
   if (!op.ok) return op;
@@ -691,13 +729,15 @@ static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c)
   CompileResult args = CompileTuple(Tail(expr, mem), LinkNext, c);
   if (!args.ok) return args;
 
-  Seq call = Preserving(REnv, args.result, op.result, mem);
+  Seq call = Preserving(REnv, args.code, op.code, mem);
 
   if (Eq(linkage, LinkReturn)) {
     return CompileOk(
       Preserving(RCont,
         call,
-        MakeSeq(RCont, REnv, Pair(IntVal(OpApply), nil, mem)), mem));
+        MakeSeq(RCont, REnv,
+          Pair(SourceRef(source, mem),
+          Pair(IntVal(OpApply), nil, mem), mem)), mem));
   }
 
   Val after_call = MakeLabel();
@@ -706,8 +746,9 @@ static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c)
   return CompileOk(
     AppendSeq(call,
     MakeSeq(0, REnv | RCont,
+      Pair(SourceRef(source, mem),
       Pair(IntVal(OpCont),
       Pair(LabelRef(linkage, mem),
       Pair(IntVal(OpApply),
-      Pair(Label(after_call, mem), nil, mem), mem), mem), mem)), mem));
+      Pair(Label(after_call, mem), nil, mem), mem), mem), mem), mem)), mem));
 }

@@ -54,6 +54,7 @@ typedef struct {
   TokenType type;
   char *lexeme;
   u32 length;
+  u32 pos;
 } Token;
 
 typedef struct {

@@ -1,48 +1,76 @@
 #include "assemble.h"
 
-static Val ReplaceReferences(Seq seq, Heap *mem);
+static Val ReplaceReferences(Seq seq, Chunk *chunk, Heap *mem);
 static u32 AssembleInstruction(Val stmts, Chunk *chunk, Heap *mem);
 static HashMap LabelMap(Seq seq, Heap *mem);
-static HashMap ModuleMap(Seq seq, Heap *mem);
 
 void Assemble(Seq seq, Chunk *chunk, Heap *mem)
 {
-  Val stmts = ReplaceReferences(seq, mem);
+  Val stmts = ReplaceReferences(seq, chunk, mem);
+
   while (!IsNil(stmts)) {
     u32 len = AssembleInstruction(stmts, chunk, mem);
     stmts = TailList(stmts, len, mem);
   }
 }
 
-static Val ReplaceReferences(Seq seq, Heap *mem)
+static Val ReplaceReferences(Seq seq, Chunk *chunk, Heap *mem)
 {
   HashMap labels = LabelMap(seq, mem);
-  HashMap modules = ModuleMap(seq, mem);
+  u32 offset = 0;
 
-  // skip any leading labels
-  while (IsTagged(Head(seq.stmts, mem), "label", mem)) {
-    seq.stmts = Tail(seq.stmts, mem);
+  // handle first statement special cases
+  while (true) {
+    Val stmt = Head(seq.stmts, mem);
+    if (IsTagged(stmt, "label", mem)) {
+      seq.stmts = Tail(seq.stmts, mem);
+    } else if (IsTagged(stmt, "source-ref", mem)) {
+      HashMapSet(&chunk->source_map, offset, RawInt(Tail(stmt, mem)));
+      seq.stmts = Tail(seq.stmts, mem);
+    } else if (IsTagged(stmt, "source-file", mem)) {
+      AddSourceFile(SymbolName(Tail(stmt, mem), mem), offset, chunk);
+      seq.stmts = Tail(seq.stmts, mem);
+    } else {
+      break;
+    }
   }
 
   Val stmts = seq.stmts;
-  u32 offset = 0;
-  // replace ("label-ref", some-label) pairs with their relative locations
   while (!IsNil(stmts)) {
-    // strip label statements
-    Val next = Tail(stmts, mem);
-    while (IsTagged(Head(next, mem), "label", mem)) {
-      next = Tail(next, mem);
+    Val rest = Tail(stmts, mem);
+    Val next = Head(rest, mem);
+
+    if (IsTagged(next, "label", mem)) {
+      // strip label markers
+      SetTail(stmts, Tail(rest, mem), mem);
+      continue;
     }
-    SetTail(stmts, next, mem);
+
+    if (IsTagged(next, "source-ref", mem)) {
+      HashMapSet(&chunk->source_map, offset, RawInt(Tail(next, mem)));
+
+      // strip source refs
+      SetTail(stmts, Tail(rest, mem), mem);
+      continue;
+    }
+
+    if (IsTagged(next, "source-file", mem)) {
+      AddSourceFile(SymbolName(Tail(next, mem), mem), offset, chunk);
+
+      // strip file refs
+      SetTail(stmts, Tail(rest, mem), mem);
+      continue;
+    }
 
     Val stmt = Head(stmts, mem);
     if (IsTagged(stmt, "label-ref", mem)) {
+      // replace label refs with relative offset
       u32 label = RawInt(Tail(stmt, mem));
       u32 location = HashMapGet(&labels, label);
       SetHead(stmts, IntVal((i32)location - (offset + 1)), mem);
-    } else if (IsTagged(stmt, "module-ref", mem) || IsTagged(stmt, "module", mem)) {
+    } else if (IsTagged(stmt, "module-ref", mem)) {
+      // replace module refs with module name symbol
       Val name = Tail(stmt, mem);
-      HashMapSet(&modules, name.as_i, 1);
       SetHead(stmts, name, mem);
     }
 
@@ -50,7 +78,6 @@ static Val ReplaceReferences(Seq seq, Heap *mem)
     stmts = Tail(stmts, mem);
   }
 
-  DestroyHashMap(&modules);
   DestroyHashMap(&labels);
   return seq.stmts;
 }
@@ -83,30 +110,11 @@ static HashMap LabelMap(Seq seq, Heap *mem)
     if (IsTagged(stmt, "label", mem)) {
       u32 label = RawInt(Tail(stmt, mem));
       HashMapSet(&labels, label, offset);
-    } else {
+    } else if (!IsTagged(stmt, "source-ref", mem) && !IsTagged(stmt, "source-file", mem)) {
       offset++;
     }
     stmts = Tail(stmts, mem);
   }
 
   return labels;
-}
-
-static HashMap ModuleMap(Seq seq, Heap *mem)
-{
-  HashMap mods = EmptyHashMap;
-
-  Val stmts = seq.stmts;
-  u32 num_mods = 0;
-  while (!IsNil(stmts)) {
-    Val stmt = Head(stmts, mem);
-    if (IsTagged(stmt, "module", mem)) {
-      Val name = Tail(stmt, mem);
-      HashMapSet(&mods, name.as_i, num_mods);
-      num_mods++;
-    }
-    stmts = Tail(stmts, mem);
-  }
-
-  return mods;
 }

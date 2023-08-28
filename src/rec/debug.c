@@ -6,14 +6,34 @@ void PrintSeq(Seq seq, Heap *mem)
   Val stmts = seq.stmts;
 
   while (!IsNil(stmts)) {
-    if (IsTagged(Head(stmts, mem), "label", mem)) {
-      u32 label_num = RawInt(Tail(Head(stmts, mem), mem));
+    Val stmt = Head(stmts, mem);
+
+    // print source refs in first column
+    if (IsTagged(stmt, "source-ref", mem)) {
+      PrintIntN(RawInt(Tail(stmt, mem)), 3);
+      Print(" ");
+      while (IsTagged(stmt, "source-ref", mem)) {
+        stmts = Tail(stmts, mem);
+        stmt = Head(stmts, mem);
+      }
+    } else if (IsTagged(stmt, "source-file", mem)) {
+      Print(SymbolName(Tail(stmt, mem), mem));
+      Print(":\n");
+      stmts = Tail(stmts, mem);
+      continue;
+    } else {
+      Print("    ");
+    }
+
+    // labels in second column
+    if (IsTagged(stmt, "label", mem)) {
+      u32 label_num = RawInt(Tail(stmt, mem));
       Print("L");
       PrintInt(label_num);
       Print(":");
       stmts = Tail(stmts, mem);
     } else {
-      OpCode op = RawInt(Head(stmts, mem));
+      OpCode op = RawInt(stmt);
       Print("  ");
       Print(OpName(op));
       stmts = Tail(stmts, mem);
@@ -24,8 +44,8 @@ void PrintSeq(Seq seq, Heap *mem)
           u32 label_num = RawInt(Tail(arg, mem));
           Print("L");
           PrintInt(label_num);
-        } else if (IsTagged(arg, "module-ref", mem) || IsTagged(arg, "module", mem)) {
-          Inspect(Tail(Head(stmts, mem), mem), mem);
+        } else if (IsTagged(arg, "module-ref", mem)) {
+          Inspect(Tail(arg, mem), mem);
         } else {
           Inspect(Head(stmts, mem), mem);
         }

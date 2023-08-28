@@ -5,12 +5,16 @@ void InitChunk(Chunk *chunk)
 {
   chunk->data = NULL;
   InitMem(&chunk->constants, 0);
+  chunk->source_map = EmptyHashMap;
+  chunk->sources = NULL;
 }
 
 void DestroyChunk(Chunk *chunk)
 {
   FreeVec(chunk->data);
   DestroyMem(&chunk->constants);
+  DestroyHashMap(&chunk->source_map);
+  FreeVec(chunk->sources);
 }
 
 void FreeChunk(Chunk *chunk)
@@ -50,6 +54,46 @@ void PushConst(Val value, Chunk *chunk)
   u32 index = VecCount(chunk->constants.values);
   VecPush(chunk->constants.values, value);
   VecPush(chunk->data, index);
+}
+
+static u32 FindModule(u32 pos, Chunk *chunk)
+{
+
+  return VecCount(chunk->sources);
+}
+
+void AddSourceFile(char *filename, u32 offset, Chunk *chunk)
+{
+  FileOffset *entry = VecNext(chunk->sources);
+  u32 len = StrLen(filename);
+  entry->filename = Allocate(len + 1);
+  Copy(filename, entry->filename, len);
+  entry->filename[len] = '\0';
+  entry->offset = offset;
+}
+
+char *SourceFile(u32 pos, Chunk *chunk)
+{
+  char *filename = NULL;
+  for (u32 i = 0; i < VecCount(chunk->sources); i++) {
+    if (chunk->sources[i].offset > pos) break;
+    filename = chunk->sources[i].filename;
+  }
+
+  return filename;
+}
+
+u32 SourcePos(u32 chunk_pos, Chunk *chunk)
+{
+  while (true) {
+    if (HashMapContains(&chunk->source_map, chunk_pos)) {
+      return HashMapGet(&chunk->source_map, chunk_pos);
+    } else if (chunk_pos == 0) {
+      return 0;
+    } else {
+      chunk_pos--;
+    }
+  }
 }
 
 u32 ChunkTag(void)
@@ -168,20 +212,17 @@ Chunk *CompileChunk(Args *args, Heap *mem)
   Chunk *chunk = Allocate(sizeof(Chunk));
   InitChunk(chunk);
 
-  ModuleResult result = LoadModules(args, mem);
+  // compile project
+  CompileResult result = LoadModules(args, mem);
   if (!result.ok) {
-    Print(result.error.message);
-    Print(": ");
-    Inspect(result.error.expr, mem);
-    Print("\n");
     return NULL;
   }
 
   if (args->verbose) {
-    PrintSeq(result.module.code, mem);
+    PrintSeq(result.code, mem);
   }
 
-  Assemble(result.module.code, chunk, mem);
+  Assemble(result.code, chunk, mem);
 
   return chunk;
 }

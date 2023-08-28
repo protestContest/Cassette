@@ -3,8 +3,15 @@
 #include "args.h"
 
 typedef struct {
+  char *filename;
+  u32 offset;
+} FileOffset;
+
+typedef struct {
   u8 *data;
   Heap constants;
+  HashMap source_map;
+  FileOffset *sources;
 } Chunk;
 
 void InitChunk(Chunk *chunk);
@@ -21,6 +28,10 @@ void PushConst(Val value, Chunk *chunk);
 
 u8 *SerializeChunk(Chunk *chunk);
 void DeserializeChunk(u8 *data, Chunk *chunk);
+
+void AddSourceFile(char *filename, u32 offset, Chunk *chunk);
+char *SourceFile(u32 pos, Chunk *chunk);
+u32 SourcePos(u32 pos, Chunk *chunk);
 
 u32 ChunkTag(void);
 Chunk *LoadChunk(char *path);

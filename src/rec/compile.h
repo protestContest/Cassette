@@ -1,6 +1,14 @@
 #pragma once
 #include "heap.h"
 #include "seq.h"
-#include "module.h"
+#include "source.h"
 
-ModuleResult Compile(Val ast, Val env, Heap *mem);
+typedef struct {
+  bool ok;
+  union {
+    Seq code;
+    CompileError error;
+  };
+} CompileResult;
+
+struct ModuleResult Compile(Val ast, Val env, Heap *mem);

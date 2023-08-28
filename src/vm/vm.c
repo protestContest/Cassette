@@ -4,6 +4,7 @@
 #include "function.h"
 #include "lib.h"
 #include "debug.h"
+#include "rec.h"
 
 void InitVM(VM *vm, Heap *mem)
 {
@@ -30,13 +31,13 @@ void DestroyVM(VM *vm)
 char *VMErrorMessage(VMError err)
 {
   switch (err) {
-  case NoError:         return "  NoError";
-  case StackError:      return "  StackError";
-  case TypeError:       return "  TypeError";
-  case ArithmeticError: return "  ArithmeticError";
-  case EnvError:        return "  EnvError";
-  case KeyError:        return "  KeyError";
-  case ArgError:        return "  ArgError";
+  case NoError:         return "NoError";
+  case StackError:      return "StackError";
+  case TypeError:       return "TypeError";
+  case ArithmeticError: return "ArithmeticError";
+  case EnvError:        return "EnvError";
+  case KeyError:        return "KeyError";
+  case ArgError:        return "ArgError";
   }
 }
 
@@ -116,7 +117,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpPop:
       StackPop(vm);
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     case OpDup:
       StackPush(vm, StackPeek(vm, 0));
@@ -159,7 +160,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpNeg: {
@@ -171,12 +172,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpNot:
       StackPush(vm, BoolVal(IsTrue(StackPop(vm))));
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     case OpLen: {
       Val val = StackPop(vm);
@@ -187,7 +188,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpMul: {
@@ -200,7 +201,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpDiv: {
@@ -213,7 +214,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpRem: {
@@ -226,7 +227,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpAdd: {
@@ -239,7 +240,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpSub:{
@@ -252,7 +253,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpIn: {
@@ -267,7 +268,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpGt: {
@@ -278,7 +279,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpLt: {
@@ -289,25 +290,25 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpEq:
       StackPush(vm, BoolVal(Eq(StackPop(vm), StackPop(vm))));
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     case OpPair: {
       Val head = StackPop(vm);
       Val tail = StackPop(vm);
       StackPush(vm, Pair(head, tail, mem));
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpTuple: {
       u32 len = RawInt(ChunkConst(chunk, vm->pc+1));
       Val tuple = MakeTuple(len, mem);
       StackPush(vm, tuple);
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpSet: {
@@ -318,7 +319,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         vm->error = TypeError;
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpStr: {
@@ -329,7 +330,7 @@ void RunChunk(VM *vm, Chunk *chunk)
         char *name = SymbolName(sym, mem);
         StackPush(vm, BinaryFrom(name, StrLen(name), mem));
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpMap: {
@@ -342,24 +343,24 @@ void RunChunk(VM *vm, Chunk *chunk)
         Val map = MapFrom(keys, vals, mem);
         StackPush(vm, map);
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpLambda: {
       u32 size = RawInt(ChunkConst(chunk, vm->pc+1));
       StackPush(vm, MakeFunc(IntVal(vm->pc+2), vm->env, mem));
-      vm->pc += OpLength(op) + size;
+      if (!vm->error) vm->pc += OpLength(op) + size;
       break;
     }
     case OpExtend: {
       Val frame = StackPop(vm);
       vm->env = ExtendEnv(vm->env, frame, mem);
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpDefine:
       Define(RawInt(ChunkConst(chunk, vm->pc+1)), StackPop(vm), vm->env, mem);
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     case OpLookup: {
       u32 frame = RawInt(ChunkConst(chunk, vm->pc+1));
@@ -370,12 +371,12 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         StackPush(vm, value);
       }
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpExport:
       StackPush(vm, Head(vm->env, mem));
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     case OpJump:
       vm->pc += OpLength(op) + RawInt(ChunkConst(chunk, vm->pc+1));
@@ -400,7 +401,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpRestEnv:
       vm->env = CallStackPop(vm);
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     case OpSaveCont:
       CallStackPush(vm, IntVal(vm->cont));
@@ -408,7 +409,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     case OpRestCont:
       vm->cont = RawInt(CallStackPop(vm));
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     case OpApply: {
       Val func = StackPop(vm);
@@ -419,7 +420,7 @@ void RunChunk(VM *vm, Chunk *chunk)
         vm->env = FuncEnv(func, mem);
         vm->pc = RawInt(FuncEntry(func, mem));
       } else {
-        vm->pc += OpLength(op);
+        if (!vm->error) vm->pc += OpLength(op);
       }
       break;
     }
@@ -435,7 +436,7 @@ void RunChunk(VM *vm, Chunk *chunk)
         HashMapSet(&vm->mod_map, mod_name.as_i, index);
       }
 
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     case OpLoad: {
@@ -447,15 +448,30 @@ void RunChunk(VM *vm, Chunk *chunk)
         vm->error = EnvError;
       }
 
-      vm->pc += OpLength(op);
+      if (!vm->error) vm->pc += OpLength(op);
       break;
     }
     }
   }
 
   if (vm->error) {
+    PrintEscape(IOFGRed);
     Print(VMErrorMessage(vm->error));
-    Print("\n");
+
+    char *file = SourceFile(vm->pc, chunk);
+    if (file) {
+      Print(" in ");
+      Print(file);
+      Print(":\n");
+      char *source = ReadFile(file);
+
+      u32 pos = SourcePos(vm->pc, chunk);
+
+      PrintSourceContext(source, pos);
+    } else {
+      Print("\n");
+    }
+    PrintEscape(IOFGReset);
   } else if (vm->verbose) {
     TraceInstruction(vm, chunk);
     PrintMem(mem);

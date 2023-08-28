@@ -30,7 +30,10 @@ Val LabelRef(Val label, Heap *mem);
 Seq LabelSeq(Val label, Heap *mem);
 
 Val ModuleRef(Val name, Heap *mem);
-Val ModuleDef(Val name, Heap *mem);
+Seq ModuleSeq(char *file, Heap *mem);
+
+Val SourceRef(u32 pos, Heap *mem);
+Seq SourceSeq(u32 pos, Heap *mem);
 
 Seq AppendSeq(Seq seq1, Seq seq2, Heap *mem);
 Seq TackOnSeq(Seq seq1, Seq seq2, Heap *mem);
