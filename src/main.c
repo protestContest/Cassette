@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[])
 {
-  Args args = {NULL, ".", false, false};
+  Args args = {NULL, ".", false, 0};
 
   if (!ParseArgs(argc, argv, &args)) return 1;
 
@@ -41,8 +41,7 @@ int main(int argc, char *argv[])
     InitMem(&mem, 0);
 
     VM vm;
-    InitVM(&vm, &mem);
-    vm.verbose = args.verbose;
+    InitVM(&vm, &args, &mem);
     RunChunk(&vm, chunk);
     DestroyVM(&vm);
   }

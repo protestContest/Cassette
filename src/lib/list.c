@@ -63,6 +63,11 @@ Val ListToTuple(VM *vm, Val args)
   Heap *mem = vm->mem;
 
   Val list = TupleGet(args, 0, mem);
+  if (!IsPair(list)) {
+    vm->error = TypeError;
+    return list;
+  }
+
   Val tuple = MakeTuple(ListLength(list, mem), mem);
   for (u32 i = 0; i < TupleLength(tuple, mem); i++) {
     TupleSet(tuple, i, Head(list, mem), mem);

@@ -2,7 +2,7 @@ module Enum
 
 def (reduce enum acc fn) do
   def (reduce_list list acc fn) do
-    if (list == nil) do
+    if list == nil do
       acc
     else
       reduce (tail list) (fn (head list) acc) fn
@@ -27,8 +27,16 @@ def (reduce enum acc fn) do
   end
 end
 
+def (reverse enum) do
+  cond do
+    (pair? enum)  -> List.reverse enum
+    (tuple? enum) -> (List.to_tuple (List.reverse (Tuple.to_list enum)))
+  end
+end
+
 def (map enum fn) do
-  reduce enum [] (item acc) -> (fn item) | acc
+  ; inspect :TEST
+  ; reduce (reverse enum) [] (item acc) -> (fn item) | acc
 end
 
 def (filter enum fn) do

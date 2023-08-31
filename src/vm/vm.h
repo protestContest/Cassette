@@ -22,7 +22,7 @@ typedef struct {
   HashMap mod_map;
   Heap *mem;
   VMError error;
-  bool verbose;
+  Args *args;
 } VM;
 
 typedef enum {
@@ -30,7 +30,7 @@ typedef enum {
   RegEnv,
 } Reg;
 
-void InitVM(VM *vm, Heap *mem);
+void InitVM(VM *vm, Args *args, Heap *mem);
 void DestroyVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
 void RuntimeError(VM *vm, VMError error);

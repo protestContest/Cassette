@@ -61,9 +61,11 @@ void PrintCompileError(CompileError *error, char *filename)
   PrintEscape(IOFGRed);
   Print(error->message);
   Print("\n");
-  char *src = ReadFile(filename);
-  if (src) {
-    PrintSourceContext(src, error->pos);
+  if (filename) {
+    char *src = ReadFile(filename);
+    if (src) {
+      PrintSourceContext(src, error->pos);
+    }
   }
   PrintEscape(IOFGReset);
 }

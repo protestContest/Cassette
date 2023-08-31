@@ -4,7 +4,7 @@ typedef struct {
   char *entry;
   char *dir;
   bool compile;
-  bool verbose;
+  u32 verbose;
 } Args;
 
 void PrintUsage(void);

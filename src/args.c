@@ -19,28 +19,30 @@ bool ParseArgs(int argc, char *argv[], Args *args)
 
   for (i32 i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
-      switch (argv[i][1]) {
-      case 'h':
-        PrintUsage();
-        return false;
-      case 'p':
-        if (i == argc - 1) {
+      for (u32 j = 1; argv[i][j] != '\0'; j++) {
+        switch (argv[i][j]) {
+        case 'h':
           PrintUsage();
           return false;
-        } else {
-          args->dir = argv[i+1];
-          i++;
+        case 'p':
+          if (i == argc - 1) {
+            PrintUsage();
+            return false;
+          } else {
+            args->dir = argv[i+1];
+            i++;
+          }
+          break;
+        case 'c':
+          args->compile = true;
+          break;
+        case 'v':
+          args->verbose++;
+          break;
+        default:
+          PrintUsage();
+          return false;
         }
-        break;
-      case 'c':
-        args->compile = true;
-        break;
-      case 'v':
-        args->verbose = true;
-        break;
-      default:
-        PrintUsage();
-        return false;
       }
     } else {
       args->entry = argv[i];

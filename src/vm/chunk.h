@@ -14,6 +14,8 @@ typedef struct {
   FileOffset *sources;
 } Chunk;
 
+#define CurrentVersion  1
+
 void InitChunk(Chunk *chunk);
 void DestroyChunk(Chunk *chunk);
 void FreeChunk(Chunk *chunk);

@@ -32,10 +32,10 @@ static struct {char *lexeme; TokenType type;} keywords[] = {
 
 static Token AdvanceToken(Lexer *lex);
 
-void InitLexer(Lexer *lex, char *text)
+void InitLexer(Lexer *lex, char *text, u32 start)
 {
   lex->text = text;
-  lex->pos = 0;
+  lex->pos = start;
   lex->token = AdvanceToken(lex);
 }
 
@@ -246,7 +246,12 @@ static Token AdvanceToken(Lexer *lex)
   return KeywordToken(lex);
 }
 
-void PrintToken(TokenType type)
+void PrintToken(Token token)
+{
+  PrintN(token.lexeme, token.length);
+}
+
+void PrintTokenType(TokenType type)
 {
   switch (type) {
   case TokenEOF:

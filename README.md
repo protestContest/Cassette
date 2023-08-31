@@ -254,7 +254,7 @@ Pairs, tuples, binaries, and maps are _object types_: their data is stored in me
 Values are represented as 32-bit NaN-boxed floats. Any floating point number represents itself, except when it's NaN, the unused 23 bits encode a type and value.
 
 ```
-         31      24       16       8       0
+         31      24       16       8       0  Bitmask
          ┌┴┬──────┴─┬──────┴───────┴───────┴┐
    Float │S│ <expnt>│       <mantissa>      │
      NaN │-│11111111│1----------------------│ 0x7FC00000
@@ -263,10 +263,10 @@ Values are represented as 32-bit NaN-boxed floats. Any floating point number rep
   Symbol │0│11111111│101   <symbol hash>    │ 0x7FD00000
     Pair │0│11111111│110    <heap index>    │ 0x7FE00000
   Object │0│11111111│111    <heap index>    │ 0x7FF00000
-   Tuple │1│11111111│100    <num items>     │
-  Binary │1│11111111│101    <num bytes>     │
-Reserved │1│11111111│110--------------------│
-Reserved │1│11111111│111--------------------│
+   Tuple │1│11111111│100    <num items>     │ 0xFFC00000
+  Binary │1│11111111│101    <num bytes>     │ 0xFFD00000
+     Map │1│11111111│110 <bitmap of buckets>│ 0xFFE00000
+Reserved │1│11111111│111--------------------│ 0xFFF00000
          └─┴────────┴───────────────────────┘
 ```
 

@@ -129,7 +129,7 @@ static bool MatchToken(TokenType type, Lexer *lex);
 ParseResult Parse(char *source, Heap *mem)
 {
   Lexer lex;
-  InitLexer(&lex, source);
+  InitLexer(&lex, source, 0);
   MakeParseSymbols(mem);
   SkipNewlines(&lex);
 

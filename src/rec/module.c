@@ -13,13 +13,19 @@ ModuleResult LoadModule(char *file, Heap *mem, Args *args)
     return (ModuleResult){false, {.error = ast.error}};
   }
 
+  if (args->verbose > 1) {
+    Print("AST:\n");
+    PrintAST(ast.value, 0, mem);
+    Print("\n");
+  }
+
   if (args->verbose) {
     Print("Compiling ");
     Print(file);
     Print("\n");
   }
 
-  return Compile(ast.value, nil, mem);
+  return Compile(ast.value, args, mem);
 }
 
 CompileResult LoadModules(Args *args, Heap *mem)
@@ -95,6 +101,11 @@ CompileResult LoadModules(Args *args, Heap *mem)
   while (VecCount(needed) > 0) {
     u32 key = VecPop(needed);
     if (!HashMapContains(&loaded, key)) {
+      if (!HashMapContains(&mod_map, key)) {
+        CompileResult result = {false, {.error = {"", nil, 0}}};
+        result.error.message = StrCat("Could not find module: ", SymbolName(SymVal(key), mem));
+        return result;
+      }
       Module mod = modules[HashMapGet(&mod_map, key)];
 
       code =

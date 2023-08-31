@@ -64,9 +64,9 @@ typedef struct {
 } Lexer;
 
 #define AtEnd(lex)  (PeekToken(lex).type == TokenEOF)
-void InitLexer(Lexer *lex, char *text);
+void InitLexer(Lexer *lex, char *text, u32 start);
 Token NextToken(Lexer *lex);
 Token PeekToken(Lexer *lex);
 Val TokenPos(Lexer *lex);
 
-void PrintToken(TokenType type);
+void PrintToken(Token token);

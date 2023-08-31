@@ -6,7 +6,7 @@
 #include "debug.h"
 #include "rec.h"
 
-void InitVM(VM *vm, Heap *mem)
+void InitVM(VM *vm, Args *args, Heap *mem)
 {
   vm->pc = 0;
   vm->cont = 0;
@@ -17,7 +17,7 @@ void InitVM(VM *vm, Heap *mem)
   vm->mod_map = EmptyHashMap;
   vm->mem = mem;
   vm->error = false;
-  vm->verbose = false;
+  vm->args = args;
 
   MakeSymbol("ok", mem);
   MakeSymbol("error", mem);
@@ -87,6 +87,21 @@ static u32 RunGC(VM *vm)
   return MemSize(vm->mem);
 }
 
+static void PrintCurrentToken(VM *vm, Chunk *chunk)
+{
+  char *file = SourceFile(vm->pc, chunk);
+  if (file) {
+    u32 pos = SourcePos(vm->pc, chunk);
+    char *source = ReadFile(file);
+    Lexer lex;
+    InitLexer(&lex, source, pos);
+
+    PrintToken(lex.token);
+    // PrintSourceContext(source, pos);
+  }
+}
+
+
 #define GCFreq  1024
 void RunChunk(VM *vm, Chunk *chunk)
 {
@@ -101,7 +116,7 @@ void RunChunk(VM *vm, Chunk *chunk)
   CopyStrings(&chunk->constants, mem);
 
   while (vm->error == NoError && vm->pc < ChunkSize(chunk)) {
-    if (vm->verbose) {
+    if (vm->args->verbose) {
       TraceInstruction(vm, chunk);
     }
 
@@ -232,13 +247,19 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
     case OpAdd: {
       Val a = StackPop(vm);
+      if (!IsNum(a)) {
+        vm->error = TypeError;
+        break;
+      }
       Val b = StackPop(vm);
+      if (!IsNum(b)) {
+        vm->error = TypeError;
+        break;
+      }
       if (IsInt(a) && IsInt(b)) {
         StackPush(vm, IntVal(RawInt(a) + RawInt(b)));
-      } else if (IsNum(a) && IsNum(b)) {
-        StackPush(vm, FloatVal(RawNum(a) + RawNum(b)));
       } else {
-        vm->error = TypeError;
+        StackPush(vm, FloatVal(RawNum(a) + RawNum(b)));
       }
       if (!vm->error) vm->pc += OpLength(op);
       break;
@@ -415,7 +436,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       Val func = StackPop(vm);
       if (IsPrimitive(func, mem)) {
         StackPush(vm, DoPrimitive(func, vm));
-        vm->pc = vm->cont;
+        if (!vm->error) vm->pc = vm->cont;
       } else if (IsFunc(func, mem)) {
         vm->env = FuncEnv(func, mem);
         vm->pc = RawInt(FuncEntry(func, mem));
@@ -458,6 +479,12 @@ void RunChunk(VM *vm, Chunk *chunk)
     PrintEscape(IOFGRed);
     Print(VMErrorMessage(vm->error));
 
+    if (vm->error == TypeError) {
+      Print(" (");
+      Inspect(StackPeek(vm, 0), mem);
+      Print(")");
+    }
+
     char *file = SourceFile(vm->pc, chunk);
     if (file) {
       Print(" in ");
@@ -469,11 +496,15 @@ void RunChunk(VM *vm, Chunk *chunk)
 
       PrintSourceContext(source, pos);
     } else {
+      u32 start = (vm->pc > 5) ? vm->pc - 5 : 0;
+      DisassemblePart(chunk, start, 10);
       Print("\n");
     }
     PrintEscape(IOFGReset);
-  } else if (vm->verbose) {
+  } else if (vm->args->verbose) {
     TraceInstruction(vm, chunk);
-    PrintMem(mem);
+    if (vm->args->verbose > 1) {
+      PrintMem(mem);
+    }
   }
 }

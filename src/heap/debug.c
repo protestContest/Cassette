@@ -119,6 +119,12 @@ u32 Inspect(Val value, Heap *mem)
     return 1 + Print(SymbolName(value, mem));
   } else if (IsNil(value)) {
     return Print("nil");
+  } else if (IsTagged(value, "*func*", mem)) {
+    Print("λ");
+    return 1 + Inspect(TupleGet(value, 1, mem), mem);
+  } else if (IsTagged(value, "*prim*", mem)) {
+    Print("@");
+    return 1 + Inspect(Tail(value, mem), mem);
   } else if (IsPair(value)) {
     Print("[");
     return InspectTail(value, mem) + 1;

@@ -29,6 +29,16 @@ void SetTail(Val pair, Val tail, Heap *mem)
   mem->values[RawVal(pair)+1] = tail;
 }
 
+u32 ListLength(Val list, Heap *mem)
+{
+  u32 length = 0;
+  while (!IsNil(list)) {
+    length++;
+    list = Tail(list, mem);
+  }
+  return length;
+}
+
 bool ListContains(Val list, Val value, Heap *mem)
 {
   while (!IsNil(list)) {
@@ -38,14 +48,9 @@ bool ListContains(Val list, Val value, Heap *mem)
   return false;
 }
 
-u32 ListLength(Val list, Heap *mem)
+Val ListAt(Val list, u32 pos, Heap *mem)
 {
-  u32 length = 0;
-  while (!IsNil(list)) {
-    length++;
-    list = Tail(list, mem);
-  }
-  return length;
+  return Head(TailList(list, pos, mem), mem);
 }
 
 bool IsTagged(Val list, char *tag, Heap *mem)
@@ -89,11 +94,6 @@ Val ListConcat(Val a, Val b, Heap *mem)
   while (!IsNil(Tail(a, mem))) a = Tail(a, mem);
   SetTail(a, b, mem);
   return a;
-}
-
-Val ListAt(Val list, u32 pos, Heap *mem)
-{
-  return Head(TailList(list, pos, mem), mem);
 }
 
 Val ReverseList(Val list, Heap *mem)

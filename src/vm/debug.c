@@ -1,6 +1,6 @@
 #include "debug.h"
 #include "ops.h"
-#include "debug.h"
+#include "function.h"
 
 static u32 PrintInstruction(Chunk *chunk, u32 index)
 {
@@ -39,4 +39,25 @@ void TraceInstruction(VM *vm, Chunk *chunk)
   }
 
   Print("\n");
+}
+
+void PrintEnv(Val env, Heap *mem)
+{
+  while (!IsNil(env)) {
+    Val frame = Head(env, mem);
+    for (u32 i = 0; i < TupleLength(frame, mem); i++) {
+      Val value = TupleGet(frame, i, mem);
+      if (IsFunc(value, mem)) {
+        Print("λ");
+        Inspect(ListAt(value, 1, mem), mem);
+      } else {
+        Inspect(value, mem);
+      }
+      if (i < TupleLength(frame, mem) - 1) {
+        Print(", ");
+      }
+    }
+    Print("\n");
+    env = Tail(env, mem);
+  }
 }

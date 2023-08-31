@@ -49,9 +49,18 @@ void PushByte(u8 byte, Chunk *chunk)
   VecPush(chunk->data, byte);
 }
 
+static u32 FindConst(Val value, Chunk *chunk)
+{
+  u32 count = VecCount(chunk->constants.values);
+  for (u32 i = 0; i < count; i++) {
+    if (Eq(value, chunk->constants.values[i])) return i;
+  }
+  return count;
+}
+
 void PushConst(Val value, Chunk *chunk)
 {
-  u32 index = VecCount(chunk->constants.values);
+  u32 index = FindConst(value, chunk);
   VecPush(chunk->constants.values, value);
   VecPush(chunk->data, index);
 }
@@ -105,27 +114,31 @@ u32 ChunkTag(void)
 u8 *SerializeChunk(Chunk *chunk)
 {
   u32 tag = ChunkTag();
+  u32 version = CurrentVersion;
   u32 code_size = VecCount(chunk->data);
   u32 const_size = MemSize(&chunk->constants)*sizeof(Val);
   u32 strings_size = VecCount(chunk->constants.strings);
   u32 string_map_size = chunk->constants.string_map.count*sizeof(u32)*2;
 
   u32 size =
-    sizeof(tag) + // tag
-    sizeof(u32) + // size of code
-    code_size + // code
-    sizeof(u32) + // size of constants
-    const_size + // constants
-    sizeof(u32) + // size of strings
-    strings_size + // strings
-    sizeof(u32) + // size of string map
-    string_map_size; // string map
+    sizeof(tag) +
+    sizeof(version) +
+    sizeof(code_size) +
+    code_size +
+    sizeof(const_size) +
+    const_size +
+    sizeof(strings_size) +
+    strings_size +
+    sizeof(string_map_size) +
+    string_map_size;
 
   u8 *serialized = NewVec(u8, size);
   u8 *cur = serialized;
 
   Copy(&tag, cur, sizeof(tag));
   cur += sizeof(tag);
+  Copy(&version, cur, sizeof(version));
+  cur += sizeof(version);
   Copy(&code_size, cur, sizeof(code_size));
   cur += sizeof(code_size);
   Copy(chunk->data, cur, code_size);
@@ -158,9 +171,11 @@ u8 *SerializeChunk(Chunk *chunk)
 
 void DeserializeChunk(u8 *serialized, Chunk *chunk)
 {
-  u32 code_size, const_size, strings_size, string_map_size;
+  u32 version, code_size, const_size, strings_size, string_map_size;
 
   u8 *cur = serialized + sizeof(u32); // skip tag
+  Copy(cur, &version, sizeof(version));
+  if (version != CurrentVersion) return;
   Copy(cur, &code_size, sizeof(code_size));
   cur += sizeof(code_size);
   chunk->data = NewVec(u8, code_size);
@@ -215,6 +230,7 @@ Chunk *CompileChunk(Args *args, Heap *mem)
   // compile project
   CompileResult result = LoadModules(args, mem);
   if (!result.ok) {
+    PrintCompileError(&result.error, NULL);
     return NULL;
   }
 

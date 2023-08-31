@@ -12,20 +12,18 @@ typedef struct {
   Val env;
   Module module;
   u32 pos;
+  Args *args;
 } Compiler;
 
-static void InitCompiler(Compiler *c, Val env, Heap *mem)
+static void InitCompiler(Compiler *c, Args *args, Heap *mem)
 {
   c->mem = mem;
-  if (IsNil(env)) {
-    c->env = CompileEnv(mem);
-  } else {
-    c->env = env;
-  }
+  c->env = CompileEnv(mem);
   c->module.name = nil;
   c->module.code = EmptySeq();
   c->module.imports = EmptyHashMap;
   c->pos = 0;
+  c->args = args;
 
   MakeSymbol("return", mem);
   MakeSymbol("next", mem);
@@ -51,10 +49,10 @@ static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *
 static CompileResult CompilePair(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c);
 
-ModuleResult Compile(Val ast, Val env, Heap *mem)
+ModuleResult Compile(Val ast, Args *args, Heap *mem)
 {
   Compiler c;
-  InitCompiler(&c, env, mem);
+  InitCompiler(&c, args, mem);
   CompileResult result = CompileExpr(ast, LinkNext, &c);
   if (!result.ok) {
     return (ModuleResult){false, {.error = result.error}};
@@ -63,59 +61,71 @@ ModuleResult Compile(Val ast, Val env, Heap *mem)
   return (ModuleResult){true, {.module = c.module}};
 }
 
-static CompileResult CompileExpr(Val expr, Linkage linkage, Compiler *c)
+static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
 
-  c->pos = RawInt(Head(expr, mem));
-  expr = Tail(expr, mem);
+  // if (c->args->verbose > 1) {
+  //   PrintInt(c->pos);
+  //   Print("#> ");
+    // PrintAST(expr, 3, mem);
+  //   Print("\n");
+  // }
 
-  // PrintInt(c->pos);
-  // Print("#> ");
-  // Inspect(expr, mem);
-  // // Print("\n  ");
-  // // Inspect(c->env, mem);
-  // Print("\n");
+  c->pos = RawInt(Head(ast, mem));
+  Val expr = Tail(ast, mem);
 
-  if (IsNil(expr))                      return CompileOk(EndWithLinkage(linkage, EmptySeq(), mem));
-  if (IsNum(expr))                      return CompileConst(expr, linkage, c);
-  if (IsTagged(expr, ":", mem))         return CompileConst(Tail(Tail(expr, mem), mem), linkage, c);
-  if (IsTagged(expr, "\"", mem))        return CompileString(Tail(expr, mem), linkage, c);
-  if (Eq(expr, SymbolFor("nil")))       return CompileConst(nil, linkage, c);
-  if (Eq(expr, SymbolFor("true")))      return CompileConst(expr, linkage, c);
-  if (Eq(expr, SymbolFor("false")))     return CompileConst(expr, linkage, c);
-  if (IsSym(expr))                      return CompileVar(expr, linkage, c);
+  CompileResult result;
 
-  if (IsTagged(expr, "[", mem))         return CompileList(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "{", mem))         return CompileTuple(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "{:", mem))        return CompileMap(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "or", mem))        return CompileOr(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "and", mem))       return CompileAnd(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "if", mem))        return CompileIf(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "do", mem))        return CompileDo(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "->", mem))        return CompileLambda(Tail(expr, mem), linkage, c);
-  if (IsTagged(expr, "module", mem))    return CompileModule(Tail(expr, mem), linkage, c);
+  if (IsNil(expr))                          result = CompileOk(EndWithLinkage(linkage, EmptySeq(), mem));
+  else if (IsNum(expr))                     result = CompileConst(expr, linkage, c);
+  else if (IsTagged(expr, ":", mem))        result = CompileConst(Tail(Tail(expr, mem), mem), linkage, c);
+  else if (IsTagged(expr, "\"", mem))       result = CompileString(Tail(expr, mem), linkage, c);
+  else if (Eq(expr, SymbolFor("nil")))      result = CompileConst(nil, linkage, c);
+  else if (Eq(expr, SymbolFor("true")))     result = CompileConst(expr, linkage, c);
+  else if (Eq(expr, SymbolFor("false")))    result = CompileConst(expr, linkage, c);
+  else if (IsSym(expr))                     result = CompileVar(expr, linkage, c);
 
-  if (IsTagged(expr, ".", mem))         return CompileOp(OpSeq(OpGet, mem), expr, linkage, c);
-  if (IsTagged(expr, "not", mem))       return CompileOp(OpSeq(OpNot, mem), expr, linkage, c);
-  if (IsTagged(expr, "#", mem))         return CompileOp(OpSeq(OpLen, mem), expr, linkage, c);
-  if (IsTagged(expr, "*", mem))         return CompileOp(OpSeq(OpMul, mem), expr, linkage, c);
-  if (IsTagged(expr, "/", mem))         return CompileOp(OpSeq(OpDiv, mem), expr, linkage, c);
-  if (IsTagged(expr, "%", mem))         return CompileOp(OpSeq(OpRem, mem), expr, linkage, c);
-  if (IsTagged(expr, "+", mem))         return CompileOp(OpSeq(OpAdd, mem), expr, linkage, c);
-  if (IsTagged(expr, "-", mem)) {
-    if (ListLength(expr, mem) == 2)     return CompileOp(OpSeq(OpNeg, mem), expr, linkage, c);
-    else                                return CompileOp(OpSeq(OpSub, mem), expr, linkage, c);
+  else if (IsTagged(expr, "[", mem))        result = CompileList(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "{", mem))        result = CompileTuple(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "{:", mem))       result = CompileMap(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "or", mem))       result = CompileOr(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "and", mem))      result = CompileAnd(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "if", mem))       result = CompileIf(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "do", mem))       result = CompileDo(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "->", mem))       result = CompileLambda(Tail(expr, mem), linkage, c);
+  else if (IsTagged(expr, "module", mem))   result = CompileModule(Tail(expr, mem), linkage, c);
+
+  else if (IsTagged(expr, ".", mem))        result = CompileOp(OpSeq(OpGet, mem), expr, linkage, c);
+  else if (IsTagged(expr, "not", mem))      result = CompileOp(OpSeq(OpNot, mem), expr, linkage, c);
+  else if (IsTagged(expr, "#", mem))        result = CompileOp(OpSeq(OpLen, mem), expr, linkage, c);
+  else if (IsTagged(expr, "*", mem))        result = CompileOp(OpSeq(OpMul, mem), expr, linkage, c);
+  else if (IsTagged(expr, "/", mem))        result = CompileOp(OpSeq(OpDiv, mem), expr, linkage, c);
+  else if (IsTagged(expr, "%", mem))        result = CompileOp(OpSeq(OpRem, mem), expr, linkage, c);
+  else if (IsTagged(expr, "+", mem))        result = CompileOp(OpSeq(OpAdd, mem), expr, linkage, c);
+  else if (IsTagged(expr, "-", mem)) {
+    if (ListLength(expr, mem) == 2)         result = CompileOp(OpSeq(OpNeg, mem), expr, linkage, c);
+    else                                    result = CompileOp(OpSeq(OpSub, mem), expr, linkage, c);
   }
-  if (IsTagged(expr, "|", mem))         return CompilePair(expr, linkage, c);
-  if (IsTagged(expr, "in", mem))        return CompileOp(OpSeq(OpIn, mem), expr, linkage, c);
-  if (IsTagged(expr, ">", mem))         return CompileOp(OpSeq(OpGt, mem), expr, linkage, c);
-  if (IsTagged(expr, "<", mem))         return CompileOp(OpSeq(OpLt, mem), expr, linkage, c);
-  if (IsTagged(expr, "==", mem))        return CompileOp(OpSeq(OpEq, mem), expr, linkage, c);
+  else if (IsTagged(expr, "|", mem))        result = CompilePair(expr, linkage, c);
+  else if (IsTagged(expr, "in", mem))       result = CompileOp(OpSeq(OpIn, mem), expr, linkage, c);
+  else if (IsTagged(expr, ">", mem))        result = CompileOp(OpSeq(OpGt, mem), expr, linkage, c);
+  else if (IsTagged(expr, "<", mem))        result = CompileOp(OpSeq(OpLt, mem), expr, linkage, c);
+  else if (IsTagged(expr, "==", mem))       result = CompileOp(OpSeq(OpEq, mem), expr, linkage, c);
 
-  if (IsPair(expr))                     return CompileApplication(expr, linkage, c);
+  else if (IsPair(expr))                    result = CompileApplication(expr, linkage, c);
+  else                                      result = ErrorResult("Unknown expression", expr, c->pos);
 
-  return ErrorResult("Unknown expression", expr, c->pos);
+  if (c->args->verbose > 1 && result.ok) {
+    Inspect(c->env, mem);
+    Print("\n");
+    PrintAST(ast, 0, mem);
+    Print("\n");
+    PrintSeq(result.code, mem);
+    Print("────────────────────────────────────────────────────────────\n");
+  }
+
+  return result;
 }
 
 static CompileResult CompileConst(Val expr, Linkage linkage, Compiler *c)
@@ -721,7 +731,7 @@ static CompileResult CompileModule(Val expr, Linkage linkage, Compiler *c)
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c)
 {
   Heap *mem = c->mem;
-  u32 source = c->pos;
+  u32 source = RawInt(Head(Head(expr, mem), mem));
 
   CompileResult op = CompileExpr(Head(expr, mem), LinkNext, c);
   if (!op.ok) return op;
