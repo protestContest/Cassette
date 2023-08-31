@@ -117,7 +117,7 @@ Val ListTrunc(VM *vm, Val args)
   return TruncList(list, RawInt(index), mem);
 }
 
-Val ListTail(VM *vm, Val args)
+Val ListAfter(VM *vm, Val args)
 {
   Heap *mem = vm->mem;
   if (TupleLength(args, mem) != 2) {

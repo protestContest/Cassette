@@ -1,4 +1,8 @@
 #include "symbol.h"
+#include "binary.h"
+#include "tuple.h"
+#include "map.h"
+#include "list.h"
 
 Val MakeSymbol(char *name, Heap *mem)
 {
@@ -27,4 +31,43 @@ char *SymbolName(Val symbol, Heap *mem)
 
   u32 index = HashMapGet(&mem->string_map, symbol.as_i);
   return mem->strings + index;
+}
+
+Val HashValue(Val value, Heap *mem)
+{
+  if (IsSym(value)) return value;
+  if (IsFloat(value)) return SymVal(Hash(&value, sizeof(value)));
+  if (IsInt(value)) {
+    u32 n = RawInt(value);
+    return SymVal(Hash(&n, sizeof(n)));
+  }
+  if (IsBinary(value, mem)) {
+    char *data = BinaryData(value, mem);
+    return SymVal(Hash(data, BinaryLength(value, mem)));
+  }
+  if (IsNil(value)) {
+    return SymVal(EmptyHash);
+  }
+  if (IsPair(value)) {
+    u32 hash = EmptyHash ^ pairMask;
+    Val head = HashValue(Head(value, mem), mem);
+    Val tail = HashValue(Tail(value, mem), mem);
+    return SymVal(hash ^ RawVal(head) ^ RawVal(tail));
+  }
+  if (IsTuple(value, mem)) {
+    u32 hash = EmptyHash ^ tupleMask;
+    for (u32 i = 0; i < TupleLength(value, mem); i++) {
+      Val item_hash = HashValue(TupleGet(value, i, mem), mem);
+      hash = hash ^ RawVal(item_hash);
+    }
+    return SymVal(hash);
+  }
+  if (IsMap(value, mem)) {
+    Val keys = HashValue(MapKeys(value, mem), mem);
+    Val values = HashValue(MapValues(value, mem), mem);
+    u32 hash = EmptyHash ^ mapMask;
+    return SymVal(hash ^ RawVal(keys) ^ RawVal(values));
+  }
+
+  return SymVal(Hash(&value, sizeof(value)));
 }

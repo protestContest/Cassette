@@ -1,4 +1,5 @@
 #include "io.h"
+#include "list.h"
 
 Val IOPrint(VM *vm, Val args)
 {
@@ -13,8 +14,14 @@ Val IOPrint(VM *vm, Val args)
   } else if (IsBinary(item, mem)) {
     PrintN(BinaryData(item, mem), BinaryLength(item, mem));
     Print("\n");
+  } else if (IsPair(item)) {
+    Val bin = ListToBin(vm, args);
+    if (vm->error) return bin;
+    PrintN(BinaryData(bin, mem), BinaryLength(bin, mem));
+    Print("\n");
   } else {
-    return SymbolFor("error");
+    vm->error = TypeError;
+    return item;
   }
   return SymbolFor("ok");
 }

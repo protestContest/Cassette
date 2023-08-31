@@ -72,6 +72,24 @@ Val BinaryAfter(Val binary, u32 index, Heap *mem)
   return new_bin;
 }
 
+Val SliceBinary(Val binary, u32 start, u32 end, Heap *mem)
+{
+  if (end > BinaryLength(binary, mem)) end = BinaryLength(binary, mem);
+  if (end <= start) {
+    return MakeBinary(0, mem);
+  }
+
+  u32 length = end - start;
+  Val slice = MakeBinary(length, mem);
+
+  char *src = BinaryData(binary, mem);
+  char *dst = BinaryData(slice, mem);
+  for (u32 i = 0; i < length; i++) {
+    dst[i] = src[start + i];
+  }
+  return slice;
+}
+
 Val JoinBinaries(Val b1, Val b2, Heap *mem)
 {
   u32 a_length = BinaryLength(b1, mem);

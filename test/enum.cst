@@ -35,8 +35,7 @@ def (reverse enum) do
 end
 
 def (map enum fn) do
-  ; inspect :TEST
-  ; reduce (reverse enum) [] (item acc) -> (fn item) | acc
+  reduce (reverse enum) [] (item acc) -> (fn item) | acc
 end
 
 def (filter enum fn) do

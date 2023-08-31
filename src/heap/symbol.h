@@ -4,3 +4,4 @@
 Val MakeSymbol(char *name, Heap *mem);
 Val MakeSymbolFrom(char *name, u32 length, Heap *mem);
 char *SymbolName(Val symbol, Heap *mem);
+Val HashValue(Val value, Heap *mem);

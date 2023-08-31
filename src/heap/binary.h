@@ -13,4 +13,5 @@ void BinarySetByte(Val binary, u32 i, u8 b, Heap *mem);
 
 Val BinaryAfter(Val binary, u32 index, Heap *mem);
 Val BinaryTrunc(Val binary, u32 index, Heap *mem);
+Val SliceBinary(Val binary, u32 start, u32 end, Heap *mem);
 Val JoinBinaries(Val b1, Val b2, Heap *mem);

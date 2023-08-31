@@ -1,7 +1,7 @@
 import Enum
 
 def (foo x) do
-  x + 1
+  x * x
 end
 
 let nums = (Enum.iota 3)
@@ -10,5 +10,4 @@ let nums = (Enum.iota 3)
 ;   inspect n
 ;   (foo n)
 ; end)
-inspect (Enum.map (Enum.iota 3) (n) -> (foo n))
-
+inspect (Enum.map nums foo)
