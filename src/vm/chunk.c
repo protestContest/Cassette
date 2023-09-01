@@ -240,7 +240,7 @@ Chunk *CompileChunk(Args *args, Heap *mem)
     return NULL;
   }
 
-  if (args->verbose) {
+  if (args->verbose > 1) {
     PrintSeq(result.code, mem);
   }
 

@@ -30,6 +30,7 @@ Leaf nodes:
 Empty map:
 - Map header: zero bitmap (a leaf)
 - nil key
+- nil value
 */
 
 static Val MakeNode(u32 branch_bitmap, Val children, Heap *mem)

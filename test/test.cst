@@ -4,7 +4,7 @@ def (foo x) do
   x * x
 end
 
-let nums = (Enum.iota 8)
+let nums = (Enum.iota 20)
 ; inspect nums
 ; inspect (Enum.map nums (n) -> do
 ;   inspect n

@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 
   if (!chunk) return 1;
 
-  if (args.verbose) {
+  if (args.verbose > 1) {
     Disassemble(chunk);
     Print("\n");
   }

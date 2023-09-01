@@ -86,7 +86,11 @@ void RuntimeError(VM *vm, VMError error)
 static u32 RunGC(VM *vm)
 {
   StackPush(vm, vm->env);
-  CollectGarbage(vm->stack, vm->mem);
+  Val *roots[3];
+  roots[0] = vm->stack;
+  roots[1] = vm->call_stack;
+  roots[2] = vm->modules;
+  CollectGarbage(roots, 3, vm->mem);
   vm->env = StackPop(vm);
   return MemSize(vm->mem);
 }
@@ -175,7 +179,17 @@ void RunChunk(VM *vm, Chunk *chunk)
 
     if (--gc == 0) {
       gc = GCFreq;
+      u32 start = MemSize(mem);
+      if (vm->args->verbose) {
+        Print("GARBAGE DAY!!");
+      }
       RunGC(vm);
+      u32 cleaned = start - MemSize(mem);
+      if (vm->args->verbose) {
+        Print(" Collected ");
+        PrintInt(cleaned);
+        Print("\n");
+      }
     }
 
     OpCode op = ChunkRef(chunk, vm->pc);

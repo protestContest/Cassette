@@ -8,72 +8,80 @@ static u32 ValSize(Val value)
     return RawVal(value) + 1;
   } else if (IsBinaryHeader(value)) {
     return NumBinaryCells(RawVal(value)) + 1;
+  } else if (IsMapHeader(value)) {
+    if (RawVal(value) == 0) {
+      return 3;
+    } else {
+      return 2;
+    }
   } else {
     return 1;
   }
 }
 
-static Val CopyValue(Val value, Heap *old_mem, Heap *new_mem)
+static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
 {
   if (IsNil(value)) return nil;
 
   if (IsPair(value)) {
     u32 index = RawVal(value);
-    if (Eq(old_mem->values[index], SymbolFor("*moved*"))) {
-      return old_mem->values[index+1];
+    if (Eq(from_space->values[index], SymbolFor("*moved*"))) {
+      return from_space->values[index+1];
     }
 
-    Val new_val = PairVal(MemSize(new_mem));
-    VecPush(new_mem->values, old_mem->values[index]);
-    VecPush(new_mem->values, old_mem->values[index+1]);
+    Val new_val = PairVal(MemSize(to_space));
+    VecPush(to_space->values, from_space->values[index]);
+    VecPush(to_space->values, from_space->values[index+1]);
 
-    old_mem->values[index] = SymbolFor("*moved*");
-    old_mem->values[index+1] = new_val;
+    from_space->values[index] = SymbolFor("*moved*");
+    from_space->values[index+1] = new_val;
 
     return new_val;
   } else if (IsObj(value)) {
     u32 index = RawVal(value);
-    if (Eq(old_mem->values[index], SymbolFor("*moved*"))) {
-      return old_mem->values[index+1];
+    if (Eq(from_space->values[index], SymbolFor("*moved*"))) {
+      return from_space->values[index+1];
     }
 
-    Val new_val = ObjVal(MemSize(new_mem));
-    for (u32 i = 0; i < ValSize(old_mem->values[index]); i++) {
-      VecPush(new_mem->values, old_mem->values[index + i]);
+    Val new_val = ObjVal(MemSize(to_space));
+    for (u32 i = 0; i < ValSize(from_space->values[index]); i++) {
+      VecPush(to_space->values, from_space->values[index + i]);
     }
 
-    old_mem->values[index] = SymbolFor("*moved*");
-    old_mem->values[index+1] = new_val;
+    from_space->values[index] = SymbolFor("*moved*");
+    from_space->values[index+1] = new_val;
     return new_val;
   } else {
     return value;
   }
 }
 
-void CollectGarbage(Val *roots, Heap *mem)
+void CollectGarbage(Val **roots, u32 num_roots, Heap *from_space)
 {
-  Heap new_mem;
-  InitMem(&new_mem, MemSize(mem)/2);
-  new_mem.string_map = mem->string_map;
-  new_mem.strings = mem->strings;
-  MakeSymbol("*moved*", mem);
+  MakeSymbol("*moved*", from_space);
+  Heap to_space = *from_space;
+  to_space.values = NewVec(Val, MemSize(from_space) / 2);
+  VecPush(to_space.values, nil);
+  VecPush(to_space.values, nil);
 
-  u32 scan = MemSize(&new_mem);
+  u32 scan = MemSize(&to_space);
 
-  for (u32 i = 0; i < VecCount(roots); i++) {
-    roots[i] = CopyValue(roots[i], mem, &new_mem);
+  for (u32 r = 0; r < num_roots; r++) {
+    for (u32 i = 0; i < VecCount(roots[r]); i++) {
+      roots[r][i] = CopyValue(roots[r][i], from_space, &to_space);
+    }
   }
 
-  while (scan < VecCount(new_mem.values)) {
-    if (IsBinaryHeader(new_mem.values[scan])) {
-      scan += ValSize(new_mem.values[scan]);
+  while (scan < VecCount(to_space.values)) {
+    if (IsBinaryHeader(to_space.values[scan])) {
+      scan += ValSize(to_space.values[scan]);
     } else {
-      Val new_val = CopyValue(new_mem.values[scan], mem, &new_mem);
-      new_mem.values[scan] = new_val;
+      Val new_val = CopyValue(to_space.values[scan], from_space, &to_space);
+      to_space.values[scan] = new_val;
       scan++;
     }
   }
 
-  DestroyMem(mem);
-  *mem = new_mem;
+  FreeVec(from_space->values);
+  *from_space = to_space;
 }
