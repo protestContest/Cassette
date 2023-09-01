@@ -12,10 +12,10 @@ typedef struct {
   Val env;
   Module module;
   u32 pos;
-  Args *args;
+  CassetteOpts *opts;
 } Compiler;
 
-static void InitCompiler(Compiler *c, Args *args, Heap *mem)
+static void InitCompiler(Compiler *c, CassetteOpts *opts, Heap *mem)
 {
   c->mem = mem;
   c->env = CompileEnv(mem);
@@ -23,7 +23,7 @@ static void InitCompiler(Compiler *c, Args *args, Heap *mem)
   c->module.code = EmptySeq();
   c->module.imports = EmptyHashMap;
   c->pos = 0;
-  c->args = args;
+  c->opts = opts;
 
   MakeSymbol("return", mem);
   MakeSymbol("next", mem);
@@ -49,10 +49,10 @@ static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *
 static CompileResult CompilePair(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c);
 
-ModuleResult Compile(Val ast, Args *args, Heap *mem)
+ModuleResult Compile(Val ast, CassetteOpts *opts, Heap *mem)
 {
   Compiler c;
-  InitCompiler(&c, args, mem);
+  InitCompiler(&c, opts, mem);
   CompileResult result = CompileExpr(ast, LinkNext, &c);
   if (!result.ok) {
     return (ModuleResult){false, {.error = result.error}};
@@ -117,7 +117,7 @@ static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
   else                                      result = ErrorResult("Unknown expression", expr, c->pos);
 
 #ifndef LIBCASSETTE
-  if (c->args->verbose > 1 && result.ok) {
+  if (c->opts->verbose > 1 && result.ok) {
     Inspect(c->env, mem);
     Print("\n");
     PrintAST(ast, 0, mem);

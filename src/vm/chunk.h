@@ -1,6 +1,6 @@
 #pragma once
 #include "heap.h"
-#include "args.h"
+#include "opts.h"
 
 typedef struct {
   char *filename;
@@ -37,4 +37,4 @@ u32 SourcePos(u32 pos, Chunk *chunk);
 
 u32 ChunkTag(void);
 Chunk *LoadChunk(char *path);
-Chunk *CompileChunk(Args *args, Heap *mem);
+Chunk *CompileChunk(CassetteOpts *args, Heap *mem);

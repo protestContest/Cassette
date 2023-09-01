@@ -228,20 +228,22 @@ Chunk *LoadChunk(char *path)
   return chunk;
 }
 
-Chunk *CompileChunk(Args *args, Heap *mem)
+Chunk *CompileChunk(CassetteOpts *opts, Heap *mem)
 {
   Chunk *chunk = Allocate(sizeof(Chunk));
   InitChunk(chunk);
 
+  SeedPrimitives();
+
   // compile project
-  CompileResult result = LoadModules(args, mem);
+  CompileResult result = LoadModules(opts, mem);
   if (!result.ok) {
     PrintCompileError(&result.error, NULL);
     return NULL;
   }
 
 #ifndef LIBCASSETTE
-  if (args->verbose > 1) {
+  if (opts->verbose > 1) {
     PrintSeq(result.code, mem);
   }
 #endif

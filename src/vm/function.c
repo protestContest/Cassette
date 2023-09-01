@@ -27,9 +27,21 @@ Val FuncEnv(Val func, Heap *mem)
   return TupleGet(func, 2, mem);
 }
 
-void SetPrimitives(PrimitiveDef *prims)
+void SeedPrimitives(void)
 {
-  primitives = prims;
+  if (primitives == NULL) {
+    PrimitiveDef *stdlib = StdLib();
+    for (u32 i = 0; i < StdLibSize(); i++) {
+      VecPush(primitives, stdlib[i]);
+    }
+  }
+}
+
+void AddPrimitive(char *module, char *name, PrimitiveImpl fn)
+{
+  SeedPrimitives();
+  PrimitiveDef def = {module, name, fn};
+  VecPush(primitives, def);
 }
 
 bool IsPrimitive(Val value, Heap *mem)
@@ -43,7 +55,7 @@ Val DoPrimitive(Val prim, VM *vm)
   return primitives[index].impl(vm, StackPop(vm));
 }
 
-Val DefinePrimitives(Heap *mem)
+Val PrimitiveMap(Heap *mem)
 {
   Val prims = MakeMap(mem);
   for (u32 i = 0; i < VecCount(primitives); i++) {

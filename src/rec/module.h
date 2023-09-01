@@ -1,7 +1,7 @@
 #pragma once
 #include "heap.h"
 #include "seq.h"
-#include "args.h"
+#include "opts.h"
 #include "source.h"
 #include "compile.h"
 
@@ -20,5 +20,5 @@ typedef struct ModuleResult {
   };
 } ModuleResult;
 
-ModuleResult LoadModule(char *path, Heap *mem, Args *args);
-CompileResult LoadModules(Args *args, Heap *mem);
+ModuleResult LoadModule(char *path, Heap *mem, CassetteOpts *opts);
+CompileResult LoadModules(CassetteOpts *opts, Heap *mem);

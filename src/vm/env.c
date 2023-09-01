@@ -3,13 +3,13 @@
 
 Val InitialEnv(Heap *mem)
 {
-  Val prims = DefinePrimitives(mem);
+  Val prims = PrimitiveMap(mem);
   return ExtendEnv(nil, MapValues(prims, mem), mem);
 }
 
 Val CompileEnv(Heap *mem)
 {
-  Val prims = DefinePrimitives(mem);
+  Val prims = PrimitiveMap(mem);
   return ExtendEnv(nil, MapKeys(prims, mem), mem);
 }
 

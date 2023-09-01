@@ -12,7 +12,7 @@ static u32 **op_data = NULL;
 static HashMap op_stats = EmptyHashMap;
 #endif
 
-void InitVM(VM *vm, Args *args, Heap *mem)
+void InitVM(VM *vm, CassetteOpts *opts, Heap *mem)
 {
   vm->pc = 0;
   vm->cont = 0;
@@ -23,10 +23,11 @@ void InitVM(VM *vm, Args *args, Heap *mem)
   vm->mod_map = EmptyHashMap;
   vm->mem = mem;
   vm->error = false;
-  vm->args = args;
+  vm->opts = opts;
 
   MakeSymbol("ok", mem);
   MakeSymbol("error", mem);
+  SeedPrimitives();
 }
 
 void DestroyVM(VM *vm)
@@ -168,14 +169,14 @@ void RunChunk(VM *vm, Chunk *chunk)
   CopyStrings(&chunk->constants, mem);
 
 #ifndef LIBCASSETTE
-  if (vm->args->verbose) {
+  if (vm->opts->verbose) {
     TraceHeader();
   }
 #endif
 
   while (vm->error == NoError && vm->pc < ChunkSize(chunk)) {
 #ifndef LIBCASSETTE
-    if (vm->args->verbose) {
+    if (vm->opts->verbose) {
       TraceInstruction(vm, chunk);
     }
 #endif
@@ -183,12 +184,12 @@ void RunChunk(VM *vm, Chunk *chunk)
     if (--gc == 0) {
       gc = GCFreq;
       u32 start = MemSize(mem);
-      if (vm->args->verbose) {
+      if (vm->opts->verbose) {
         Print("GARBAGE DAY!!");
       }
       RunGC(vm);
       u32 cleaned = start - MemSize(mem);
-      if (vm->args->verbose) {
+      if (vm->opts->verbose) {
         Print(" Collected ");
         PrintInt(cleaned);
         Print("\n");
@@ -585,9 +586,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       Print("\n");
     }
     PrintEscape(IOFGReset);
-  } else if (vm->args->verbose) {
+  } else if (vm->opts->verbose) {
     TraceInstruction(vm, chunk);
-    if (vm->args->verbose > 1) {
+    if (vm->opts->verbose > 1) {
       PrintMem(mem);
     }
   }

@@ -128,14 +128,14 @@ Val MapDelete(Val map, Val key, Heap *mem);
 Val MapKeys(Val map, Heap *mem);
 Val MapValues(Val map, Heap *mem);
 
-/* Args */
+/* Opts */
 
 typedef struct {
   char *entry;
   char *dir;
   bool compile;
   u32 verbose;
-} Args;
+} CassetteOpts;
 
 /* VM */
 
@@ -212,7 +212,7 @@ typedef struct {
   HashMap mod_map;
   Heap *mem;
   VMError error;
-  Args *args;
+  CassetteOpts *opts;
 } VM;
 
 typedef enum {
@@ -246,8 +246,8 @@ char *SourceFile(u32 pos, Chunk *chunk);
 u32 SourcePos(u32 pos, Chunk *chunk);
 u32 ChunkTag(void);
 Chunk *LoadChunk(char *path);
-Chunk *CompileChunk(Args *args, Heap *mem);
-void InitVM(VM *vm, Args *args, Heap *mem);
+Chunk *CompileChunk(CassetteOpts *opts, Heap *mem);
+void InitVM(VM *vm, CassetteOpts *opts, Heap *mem);
 void DestroyVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
 void StackPush(VM *vm, Val value);
@@ -263,11 +263,11 @@ bool IsFunc(Val func, Heap *mem);
 Val MakeFunc(Val entry, Val env, Heap *mem);
 Val FuncEntry(Val func, Heap *mem);
 Val FuncEnv(Val func, Heap *mem);
-void SetPrimitives(PrimitiveDef *prims);
+void SeedPrimitives(void);
+void AddPrimitive(char *module, char *name, PrimitiveImpl fn);
 bool IsPrimitive(Val value, Heap *mem);
 Val DoPrimitive(Val prim, VM *vm);
-Val DefinePrimitives(Heap *mem);
-
+Val PrimitiveMap(Heap *mem);
 
 /* Rec */
 
@@ -410,14 +410,15 @@ Seq TackOnSeq(Seq seq1, Seq seq2, Heap *mem);
 Seq ParallelSeq(Seq seq1, Seq seq2, Heap *mem);
 Seq Preserving(u32 regs, Seq seq1, Seq seq2, Heap *mem);
 Seq EndWithLinkage(Linkage linkage, Seq seq, Heap *mem);
-struct ModuleResult Compile(Val ast, Args *args, Heap *mem);
+struct ModuleResult Compile(Val ast, CassetteOpts *opts, Heap *mem);
 void Assemble(Seq seq, Chunk *chunk, Heap *mem);
-ModuleResult LoadModule(char *path, Heap *mem, Args *args);
-CompileResult LoadModules(Args *args, Heap *mem);
+ModuleResult LoadModule(char *path, Heap *mem, CassetteOpts *opts);
+CompileResult LoadModules(CassetteOpts *opts, Heap *mem);
 
 /* Lib */
 
 PrimitiveDef *StdLib(void);
+u32 StdLibSize(void);
 
 Val StdHead(VM *vm, Val args);
 Val StdTail(VM *vm, Val args);

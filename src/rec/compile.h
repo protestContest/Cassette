@@ -2,7 +2,7 @@
 #include "heap.h"
 #include "seq.h"
 #include "source.h"
-#include "args.h"
+#include "opts.h"
 
 typedef struct {
   bool ok;
@@ -12,4 +12,4 @@ typedef struct {
   };
 } CompileResult;
 
-struct ModuleResult Compile(Val ast, Args *args, Heap *mem);
+struct ModuleResult Compile(Val ast, CassetteOpts *opts, Heap *mem);

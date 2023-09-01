@@ -3,7 +3,7 @@
 #include "parse.h"
 #include "compile.h"
 
-ModuleResult LoadModule(char *file, Heap *mem, Args *args)
+ModuleResult LoadModule(char *file, Heap *mem, CassetteOpts *opts)
 {
   char *source = ReadFile(file);
 
@@ -14,26 +14,26 @@ ModuleResult LoadModule(char *file, Heap *mem, Args *args)
   }
 
 #ifndef LIBCASSETTE
-  if (args->verbose > 1) {
+  if (opts->verbose > 1) {
     Print("AST:\n");
     PrintAST(ast.value, 0, mem);
     Print("\n");
   }
 
-  if (args->verbose) {
+  if (opts->verbose) {
     Print("Compiling ");
     Print(file);
     Print("\n");
   }
 #endif
 
-  return Compile(ast.value, args, mem);
+  return Compile(ast.value, opts, mem);
 }
 
-CompileResult LoadModules(Args *args, Heap *mem)
+CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
 {
   // get all files from source directory
-  char **files = ListFiles(args->dir);
+  char **files = ListFiles(opts->dir);
 
   i32 entry = -1;
   Module *modules = NULL;
@@ -42,7 +42,7 @@ CompileResult LoadModules(Args *args, Heap *mem)
   // try to compile each file into a module
   for (i32 i = 0; i < (i32)VecCount(files); i++) {
     // only compile the entry file or files ending with ".cst"
-    if (StrEq(files[i], args->entry)) {
+    if (StrEq(files[i], opts->entry)) {
       entry = VecCount(modules);
     } else {
       u32 len = StrLen(files[i]);
@@ -51,11 +51,11 @@ CompileResult LoadModules(Args *args, Heap *mem)
       }
     }
 
-    ModuleResult result = LoadModule(files[i], mem, args);
+    ModuleResult result = LoadModule(files[i], mem, opts);
     if (!result.ok) {
       PrintCompileError(&result.error, files[i]);
       // ignore modules that fail to compile (except the entry file)
-      if (StrEq(files[i], args->entry)) {
+      if (StrEq(files[i], opts->entry)) {
         return (CompileResult){false, {.error = result.error}};
       } else {
         continue;
@@ -64,7 +64,7 @@ CompileResult LoadModules(Args *args, Heap *mem)
     result.module.file = files[i];
 
     // ignore files that aren't modules (except the entry file)
-    if (IsNil(result.module.name) && !StrEq(files[i], args->entry)) continue;
+    if (IsNil(result.module.name) && !StrEq(files[i], opts->entry)) continue;
 
     u32 key = result.module.name.as_i;
     if (HashMapContains(&mod_map, key)) {
@@ -85,7 +85,7 @@ CompileResult LoadModules(Args *args, Heap *mem)
   FreeVec(files);
 
   if (entry == -1) {
-    char *message = StrCat("Could not find entry ", args->entry);
+    char *message = StrCat("Could not find entry ", opts->entry);
     return (CompileResult){false, {.error = {message, nil, 0}}};
   }
 

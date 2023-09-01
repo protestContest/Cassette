@@ -6,7 +6,7 @@ INC_DIR := include
 LIB_DIR := lib
 PREFIX := $(HOME)/.local
 TARGET = ./$(NAME)
-LIBTARGET = ./lib$(NAME)
+LIBTARGET = ./lib$(NAME).a
 SHELL = bash
 
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
@@ -42,9 +42,11 @@ run: $(TARGET)
 	@$(TARGET)
 
 .PHONY: install
-install: $(TARGET)
+install: $(TARGET) $(LIBTARGET)
 	mkdir -p $(PREFIX)/bin
 	install $(TARGET) $(PREFIX)/bin
+	install $(LIBTARGET) $(PREFIX)/lib
+	install $(SRC_DIR)/$(NAME).h $(PREFIX)/include
 
 .PHONY: deps
 deps:

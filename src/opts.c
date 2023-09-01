@@ -1,4 +1,4 @@
-#include "args.h"
+#include "opts.h"
 
 #ifndef LIBCASSETTE
 
@@ -12,12 +12,12 @@ void PrintUsage(void)
   Print("  -v            Verbose mode\n");
 }
 
-Args DefaultArgs(void)
+CassetteOpts DefaultOpts(void)
 {
-  return (Args){NULL, ".", false, 0};
+  return (CassetteOpts){NULL, ".", false, 0};
 }
 
-bool ParseArgs(int argc, char *argv[], Args *args)
+bool ParseArgs(int argc, char *argv[], CassetteOpts *args)
 {
   if (argc < 2) {
     PrintUsage();
