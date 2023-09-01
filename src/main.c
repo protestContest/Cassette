@@ -7,8 +7,14 @@
 int main(int argc, char *argv[])
 {
   CassetteOpts opts = DefaultOpts();
-
   if (!ParseArgs(argc, argv, &opts)) return 1;
+
+#ifdef WITH_CANVAS
+  if (!InitCanvas(800, 600)) {
+    Print("SDL Error\n");
+    return 1;
+  }
+#endif
 
   Chunk *chunk = LoadChunk(&opts);
 
@@ -30,16 +36,21 @@ int main(int argc, char *argv[])
   } else {
     VM vm;
 
-    // for (u32 i = 0; i < 100; i++) {
-      InitVM(&vm, &opts);
-      RunChunk(&vm, chunk);
-      DestroyVM(&vm);
-    // }
+    InitVM(&vm, &opts);
+    RunChunk(&vm, chunk);
+    DestroyVM(&vm);
 
-    // PrintOpStats();
+#ifdef WITH_CANVAS
+    if (ShouldShowCanvas()) {
+      ShowCanvas();
+    }
+#endif
   }
 
   FreeChunk(chunk);
+#ifdef WITH_CANVAS
+  DestroyCanvas();
+#endif
 }
 
 #endif

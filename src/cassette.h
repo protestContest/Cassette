@@ -127,6 +127,7 @@ Val MapPut(Val map, Val key, Val value, Heap *mem);
 Val MapDelete(Val map, Val key, Heap *mem);
 Val MapKeys(Val map, Heap *mem);
 Val MapValues(Val map, Heap *mem);
+u32 Inspect(Val value, Heap *mem);
 
 /* Opts */
 

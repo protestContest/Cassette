@@ -559,7 +559,6 @@ void RunChunk(VM *vm, Chunk *chunk)
 #endif
   }
 
-#ifndef LIBCASSETTE
   if (vm->error) {
     PrintEscape(IOFGRed);
     Print(VMErrorMessage(vm->error));
@@ -588,9 +587,10 @@ void RunChunk(VM *vm, Chunk *chunk)
     PrintEscape(IOFGReset);
   } else if (vm->opts->verbose) {
     TraceInstruction(vm, chunk);
+#ifndef LIBCASSETTE
     if (vm->opts->verbose > 1) {
       PrintMem(mem);
     }
-  }
 #endif
+  }
 }

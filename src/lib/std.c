@@ -9,6 +9,7 @@
 #include "math.h"
 #include "string.h"
 #include "builtin.h"
+#include "canvas.h"
 
 static PrimitiveDef stdlib[] = {
   {NULL, "head", StdHead},
@@ -77,6 +78,9 @@ static PrimitiveDef stdlib[] = {
   {"String", "slice", StringSlice},
   {"System", "time", SysTime},
   {"System", "exit", SysExit},
+#ifdef WITH_CANVAS
+  {"Canvas", "line", CanvasLine},
+#endif
 };
 
 PrimitiveDef *StdLib(void)

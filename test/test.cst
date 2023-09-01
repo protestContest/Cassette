@@ -1,13 +1,3 @@
-import Enum
 
-def (foo x) do
-  x * x
-end
 
-let nums = (Enum.iota 20)
-; inspect nums
-; inspect (Enum.map nums (n) -> do
-;   inspect n
-;   (foo n)
-; end)
-inspect (Enum.map nums foo)
+Canvas.line 200 200 500 300
