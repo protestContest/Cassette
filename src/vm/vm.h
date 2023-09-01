@@ -37,3 +37,5 @@ void RuntimeError(VM *vm, VMError error);
 
 void StackPush(VM *vm, Val value);
 Val StackPop(VM *vm);
+
+void PrintOpStats(void);

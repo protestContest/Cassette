@@ -5,13 +5,17 @@
 #include "lib.h"
 #include "debug.h"
 #include "rec.h"
+#include <time.h>
+
+static u32 **op_data = NULL;
+static HashMap op_stats = EmptyHashMap;
 
 void InitVM(VM *vm, Args *args, Heap *mem)
 {
   vm->pc = 0;
   vm->cont = 0;
-  vm->stack = NULL;
-  vm->call_stack = NULL;
+  vm->stack = NewVec(Val, 256);
+  vm->call_stack = NewVec(Val, 256);
   vm->env = InitialEnv(mem);
   vm->modules = NULL;
   vm->mod_map = EmptyHashMap;
@@ -101,6 +105,51 @@ static void PrintCurrentToken(VM *vm, Chunk *chunk)
   }
 }
 
+static void RecordOp(OpCode op, u32 time)
+{
+  if (HashMapContains(&op_stats, op)) {
+    u32 index = HashMapGet(&op_stats, op);
+    VecPush(op_data[index], time);
+  } else {
+    u32 index = VecCount(op_data);
+    HashMapSet(&op_stats, op, index);
+    VecPush(op_data, NULL);
+    VecPush(op_data[index], time);
+  }
+}
+
+void PrintOpStats(void)
+{
+  for (u32 i = 0; i < op_stats.count; i++) {
+    u32 op = HashMapKey(&op_stats, i);
+    u32 *samples = op_data[HashMapGet(&op_stats, op)];
+    if (VecCount(samples) < 10) continue;
+
+    float avg = 0;
+    for (u32 j = 0; j < VecCount(samples); j++) {
+      avg += samples[j];
+    }
+    avg /= VecCount(samples);
+    float var = 0;
+    for (u32 j = 0; j < VecCount(samples); j++) {
+      u32 delta = samples[j] - avg;
+      var += delta * delta;
+    }
+    var /= VecCount(samples) - 1;
+    float std = Sqrt(var);
+    // float z = 1.960;
+    // float confidence = z * std / Sqrt(avg);
+
+    u32 written = Print(OpName(op));
+    for (u32 i = 0; i < 16 - written; i++) Print(" ");
+    PrintFloat(avg, 3);
+    Print("μs σ");
+    PrintFloat(std, 3);
+    Print(" (");
+    PrintInt(VecCount(samples));
+    Print(")\n");
+  }
+}
 
 #define GCFreq  1024
 void RunChunk(VM *vm, Chunk *chunk)
@@ -130,6 +179,7 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
 
     OpCode op = ChunkRef(chunk, vm->pc);
+    u32 start = clock();
     switch (op) {
     case OpHalt:
       vm->pc = ChunkSize(chunk);
@@ -447,6 +497,8 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         if (!vm->error) vm->pc += OpLength(op);
       }
+      u32 dt = clock() - start;
+      if (IsFunc(func, mem)) RecordOp(op, dt);
       break;
     }
     case OpModule: {
@@ -477,6 +529,9 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     }
+
+    u32 dt = clock() - start;
+    if (op != OpApply) RecordOp(op, dt);
   }
 
   if (vm->error) {

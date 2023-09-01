@@ -10,6 +10,11 @@ void PrintUsage(void)
   Print("  -v            Verbose mode\n");
 }
 
+Args DefaultArgs(void)
+{
+  return (Args){NULL, ".", false, 0};
+}
+
 bool ParseArgs(int argc, char *argv[], Args *args)
 {
   if (argc < 2) {

@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[])
 {
-  Args args = {NULL, ".", false, 0};
+  Args args = DefaultArgs();
 
   if (!ParseArgs(argc, argv, &args)) return 1;
 
@@ -41,9 +41,14 @@ int main(int argc, char *argv[])
     InitMem(&mem, 0);
 
     VM vm;
-    InitVM(&vm, &args, &mem);
-    RunChunk(&vm, chunk);
-    DestroyVM(&vm);
+
+    // for (u32 i = 0; i < 100; i++) {
+      InitVM(&vm, &args, &mem);
+      RunChunk(&vm, chunk);
+      DestroyVM(&vm);
+    // }
+
+    // PrintOpStats();
   }
 
   FreeChunk(chunk);

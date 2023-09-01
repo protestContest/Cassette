@@ -8,4 +8,5 @@ typedef struct {
 } Args;
 
 void PrintUsage(void);
+Args DefaultArgs(void);
 bool ParseArgs(int argc, char *argv[], Args *args);
