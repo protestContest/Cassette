@@ -2,6 +2,7 @@
 #include "ops.h"
 #include "function.h"
 
+#ifndef LIBCASSETTE
 static u32 PrintInstruction(Chunk *chunk, u32 index)
 {
   OpCode op = chunk->data[index];
@@ -80,3 +81,4 @@ void PrintEnv(Val env, Heap *mem)
     env = Tail(env, mem);
   }
 }
+#endif

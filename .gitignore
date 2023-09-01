@@ -6,5 +6,6 @@ dist/*
 grammar.y
 bison*
 cassette
+libcassette
 deps/*
 lib/*

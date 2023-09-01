@@ -13,6 +13,7 @@ ModuleResult LoadModule(char *file, Heap *mem, Args *args)
     return (ModuleResult){false, {.error = ast.error}};
   }
 
+#ifndef LIBCASSETTE
   if (args->verbose > 1) {
     Print("AST:\n");
     PrintAST(ast.value, 0, mem);
@@ -24,6 +25,7 @@ ModuleResult LoadModule(char *file, Heap *mem, Args *args)
     Print(file);
     Print("\n");
   }
+#endif
 
   return Compile(ast.value, args, mem);
 }

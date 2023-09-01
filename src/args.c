@@ -1,5 +1,7 @@
 #include "args.h"
 
+#ifndef LIBCASSETTE
+
 void PrintUsage(void)
 {
   Print("Usage: cassette script [options]\n");
@@ -60,3 +62,5 @@ bool ParseArgs(int argc, char *argv[], Args *args)
 
   return args->entry != NULL;
 }
+
+#endif

@@ -116,6 +116,7 @@ static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
   else if (IsPair(expr))                    result = CompileApplication(expr, linkage, c);
   else                                      result = ErrorResult("Unknown expression", expr, c->pos);
 
+#ifndef LIBCASSETTE
   if (c->args->verbose > 1 && result.ok) {
     Inspect(c->env, mem);
     Print("\n");
@@ -124,6 +125,7 @@ static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
     PrintSeq(result.code, mem);
     Print("────────────────────────────────────────────────────────────\n");
   }
+#endif
 
   return result;
 }

@@ -6,10 +6,12 @@ INC_DIR := include
 LIB_DIR := lib
 PREFIX := $(HOME)/.local
 TARGET = ./$(NAME)
+LIBTARGET = ./lib$(NAME)
 SHELL = bash
 
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+LIBOBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/lib%.o)
 
 CC = clang
 INCLUDE_FLAGS = -I$(PREFIX)/include -I$(SRC_DIR) -I$(INC_DIR) -include univ.h
@@ -21,9 +23,19 @@ $(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
+$(LIBTARGET): $(LIBOBJS)
+	ar rcs $@ $(LIBOBJS)
+
+$(BUILD_DIR)/lib%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DLIBCASSETTE -c $< -o $@
+
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: lib
+lib: $(LIBTARGET)
 
 .PHONY: run
 run: $(TARGET)
@@ -51,7 +63,7 @@ clean-all: clean clean-deps
 
 .PHONY: clean
 clean:
-	@rm -rf $(BUILD_DIR) $(TARGET)
+	@rm -rf $(BUILD_DIR) $(TARGET) $(LIBTARGET)
 
 .PHONY: clean-deps
 clean-deps:

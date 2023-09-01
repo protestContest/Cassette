@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "heap.h"
 
+#ifndef LIBCASSETTE
 void PrintSeq(Seq seq, Heap *mem)
 {
   Val stmts = seq.stmts;
@@ -224,3 +225,4 @@ void PrintAST(Val ast, u32 indent, Heap *mem)
   // if (IsPair(expr))                     return CompileApplication(expr, linkage, c);
 
 }
+#endif

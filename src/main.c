@@ -2,6 +2,8 @@
 #include "args.h"
 #include "lib.h"
 
+#ifndef LIBCASSETTE
+
 int main(int argc, char *argv[])
 {
   Args args = DefaultArgs();
@@ -54,3 +56,5 @@ int main(int argc, char *argv[])
   FreeChunk(chunk);
   DestroyMem(&mem);
 }
+
+#endif

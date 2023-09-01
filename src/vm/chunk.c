@@ -240,9 +240,11 @@ Chunk *CompileChunk(Args *args, Heap *mem)
     return NULL;
   }
 
+#ifndef LIBCASSETTE
   if (args->verbose > 1) {
     PrintSeq(result.code, mem);
   }
+#endif
 
   Assemble(result.code, chunk, mem);
 

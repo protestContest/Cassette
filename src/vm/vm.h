@@ -33,9 +33,10 @@ typedef enum {
 void InitVM(VM *vm, Args *args, Heap *mem);
 void DestroyVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
-void RuntimeError(VM *vm, VMError error);
 
 void StackPush(VM *vm, Val value);
 Val StackPop(VM *vm);
 
+#ifndef LIBCASSETTE
 void PrintOpStats(void);
+#endif

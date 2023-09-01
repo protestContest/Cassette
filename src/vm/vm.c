@@ -7,8 +7,10 @@
 #include "rec.h"
 #include <time.h>
 
+#ifndef LIBCASSETTE
 static u32 **op_data = NULL;
 static HashMap op_stats = EmptyHashMap;
+#endif
 
 void InitVM(VM *vm, Args *args, Heap *mem)
 {
@@ -78,11 +80,6 @@ static Val CallStackPop(VM *vm)
   return VecPop(vm->call_stack);
 }
 
-void RuntimeError(VM *vm, VMError error)
-{
-  vm->error = error;
-}
-
 static u32 RunGC(VM *vm)
 {
   StackPush(vm, vm->env);
@@ -109,6 +106,7 @@ static void PrintCurrentToken(VM *vm, Chunk *chunk)
   }
 }
 
+#ifndef LIBCASSETTE
 static void RecordOp(OpCode op, u32 time)
 {
   if (HashMapContains(&op_stats, op)) {
@@ -154,6 +152,7 @@ void PrintOpStats(void)
     Print(")\n");
   }
 }
+#endif
 
 #define GCFreq  1024
 void RunChunk(VM *vm, Chunk *chunk)
@@ -168,14 +167,18 @@ void RunChunk(VM *vm, Chunk *chunk)
 
   CopyStrings(&chunk->constants, mem);
 
+#ifndef LIBCASSETTE
   if (vm->args->verbose) {
     TraceHeader();
   }
+#endif
 
   while (vm->error == NoError && vm->pc < ChunkSize(chunk)) {
+#ifndef LIBCASSETTE
     if (vm->args->verbose) {
       TraceInstruction(vm, chunk);
     }
+#endif
 
     if (--gc == 0) {
       gc = GCFreq;
@@ -193,7 +196,10 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
 
     OpCode op = ChunkRef(chunk, vm->pc);
+#ifndef LIBCASSETTE
     u32 start = clock();
+#endif
+
     switch (op) {
     case OpHalt:
       vm->pc = ChunkSize(chunk);
@@ -511,8 +517,10 @@ void RunChunk(VM *vm, Chunk *chunk)
       } else {
         if (!vm->error) vm->pc += OpLength(op);
       }
+#ifndef LIBCASSETTE
       u32 dt = clock() - start;
       if (IsFunc(func, mem)) RecordOp(op, dt);
+#endif
       break;
     }
     case OpModule: {
@@ -544,10 +552,13 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
     }
 
+#ifndef LIBCASSETTE
     u32 dt = clock() - start;
     if (op != OpApply) RecordOp(op, dt);
+#endif
   }
 
+#ifndef LIBCASSETTE
   if (vm->error) {
     PrintEscape(IOFGRed);
     Print(VMErrorMessage(vm->error));
@@ -580,4 +591,5 @@ void RunChunk(VM *vm, Chunk *chunk)
       PrintMem(mem);
     }
   }
+#endif
 }

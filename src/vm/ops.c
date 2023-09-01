@@ -41,10 +41,12 @@ static struct {char *name; u32 length;} ops[] = {
   [OpLoad]      = { "load", 2 }, // module ID
 };
 
+#ifndef LIBCASSETTE
 char *OpName(OpCode op)
 {
   return ops[op].name;
 }
+#endif
 
 u32 OpLength(OpCode op)
 {

@@ -5,6 +5,79 @@
 #include "symbol.h"
 #include "map.h"
 
+static u32 InspectTail(Val value, Heap *mem)
+{
+  if (IsNil(value)) {
+    return Print("]");
+  }
+
+  if (!IsPair(value)) {
+    u32 len = Print(" | ");
+    len += Inspect(value, mem);
+    len += Print("]");
+    return len;
+  }
+
+  u32 len = Inspect(Head(value, mem), mem);
+
+  if (IsNil(Tail(value, mem))) {
+    len += Print("]");
+  } else {
+    if (IsPair(Tail(value, mem))) {
+      len += Print(", ");
+    }
+    len += InspectTail(Tail(value, mem), mem);
+  }
+
+  return len;
+}
+
+u32 Inspect(Val value, Heap *mem)
+{
+  if (IsFloat(value)) {
+    return PrintFloat(RawFloat(value), 2);
+  } else if (IsInt(value)) {
+    return PrintInt(RawInt(value));
+  } else if (IsSym(value)) {
+    Print(":");
+    return 1 + Print(SymbolName(value, mem));
+  } else if (IsNil(value)) {
+    return Print("nil");
+  } else if (IsTagged(value, "*func*", mem)) {
+    Print("λ");
+    return 1 + Inspect(TupleGet(value, 1, mem), mem);
+  } else if (IsTagged(value, "*prim*", mem)) {
+    Print("@");
+    return 1 + Inspect(Tail(value, mem), mem);
+  } else if (IsPair(value)) {
+    Print("[");
+    return InspectTail(value, mem) + 1;
+  } else if (IsTuple(value, mem)) {
+    u32 len = Print("{");
+    for (u32 i = 0; i < TupleLength(value, mem); i++) {
+      len += Inspect(TupleGet(value, i, mem), mem);
+      if (i < TupleLength(value, mem)-1) len += Print(", ");
+    }
+    len += Print("}");
+    return len;
+  } else if (IsBinary(value, mem)) {
+    char *data = BinaryData(value, mem);
+    u32 length = BinaryLength(value, mem);
+    Print("\"");
+    PrintN(data, length);
+    Print("\"");
+    return length + 2;
+  } else if (IsMap(value, mem)) {
+    Print("{");
+    u32 len = InspectMap(value, mem);
+    Print("}");
+    return len + 2;
+  } else {
+    return Print("?");
+  }
+}
+
+#ifndef LIBCASSETTE
 static u32 PeekVal(Val value, u32 size, Heap *mem)
 {
   if (IsFloat(value)) {
@@ -100,78 +173,6 @@ u32 DebugVal(Val value, Heap *mem)
   return PrintInt(RawVal(value)) + 1;
 }
 
-static u32 InspectTail(Val value, Heap *mem)
-{
-  if (IsNil(value)) {
-    return Print("]");
-  }
-
-  if (!IsPair(value)) {
-    u32 len = Print(" | ");
-    len += Inspect(value, mem);
-    len += Print("]");
-    return len;
-  }
-
-  u32 len = Inspect(Head(value, mem), mem);
-
-  if (IsNil(Tail(value, mem))) {
-    len += Print("]");
-  } else {
-    if (IsPair(Tail(value, mem))) {
-      len += Print(", ");
-    }
-    len += InspectTail(Tail(value, mem), mem);
-  }
-
-  return len;
-}
-
-u32 Inspect(Val value, Heap *mem)
-{
-  if (IsFloat(value)) {
-    return PrintFloat(RawFloat(value), 2);
-  } else if (IsInt(value)) {
-    return PrintInt(RawInt(value));
-  } else if (IsSym(value)) {
-    Print(":");
-    return 1 + Print(SymbolName(value, mem));
-  } else if (IsNil(value)) {
-    return Print("nil");
-  } else if (IsTagged(value, "*func*", mem)) {
-    Print("λ");
-    return 1 + Inspect(TupleGet(value, 1, mem), mem);
-  } else if (IsTagged(value, "*prim*", mem)) {
-    Print("@");
-    return 1 + Inspect(Tail(value, mem), mem);
-  } else if (IsPair(value)) {
-    Print("[");
-    return InspectTail(value, mem) + 1;
-  } else if (IsTuple(value, mem)) {
-    u32 len = Print("{");
-    for (u32 i = 0; i < TupleLength(value, mem); i++) {
-      len += Inspect(TupleGet(value, i, mem), mem);
-      if (i < TupleLength(value, mem)-1) len += Print(", ");
-    }
-    len += Print("}");
-    return len;
-  } else if (IsBinary(value, mem)) {
-    char *data = BinaryData(value, mem);
-    u32 length = BinaryLength(value, mem);
-    Print("\"");
-    PrintN(data, length);
-    Print("\"");
-    return length + 2;
-  } else if (IsMap(value, mem)) {
-    Print("{");
-    u32 len = InspectMap(value, mem);
-    Print("}");
-    return len + 2;
-  } else {
-    return Print("?");
-  }
-}
-
 void PrintMem(Heap *mem)
 {
   u32 num_cols = 10;
@@ -239,3 +240,4 @@ void PrintMem(Heap *mem)
   }
   Print("╝\n");
 }
+#endif

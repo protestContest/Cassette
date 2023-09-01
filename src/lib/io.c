@@ -5,9 +5,11 @@ Val IOPrint(VM *vm, Val args)
 {
   Heap *mem = vm->mem;
   Val item = TupleGet(args, 0, mem);
-  if (IsNum(item)) {
-    Inspect(item, mem);
+  if (IsInt(item)) {
+    PrintInt(RawInt(item));
     Print("\n");
+  } else if (IsFloat(item)) {
+    PrintFloat(RawNum(item), 1);
   } else if (IsSym(item)) {
     Print(SymbolName(item, mem));
     Print("\n");
