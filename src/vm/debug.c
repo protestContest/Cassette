@@ -44,7 +44,7 @@ void TraceInstruction(VM *vm, Chunk *chunk)
 
   written = 0;
   for (u32 i = 0; i < VecCount(vm->stack) && i < 4; i++) {
-    written += DebugVal(vm->stack[VecCount(vm->stack) - i - 1], vm->mem);
+    written += DebugVal(vm->stack[VecCount(vm->stack) - i - 1], &vm->mem);
     written += Print(" ");
   }
   if (written < 40) {
@@ -54,7 +54,7 @@ void TraceInstruction(VM *vm, Chunk *chunk)
   Print(" ║ ");
 
   for (u32 i = 0; i < VecCount(vm->call_stack) && i < 4; i++) {
-    DebugVal(vm->call_stack[VecCount(vm->call_stack) - i - 1], vm->mem);
+    DebugVal(vm->call_stack[VecCount(vm->call_stack) - i - 1], &vm->mem);
     Print(" ");
   }
 

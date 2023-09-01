@@ -10,17 +10,7 @@ int main(int argc, char *argv[])
 
   if (!ParseArgs(argc, argv, &opts)) return 1;
 
-  Heap mem;
-  InitMem(&mem, 0);
-
-  Chunk *chunk;
-  if (SniffFile(opts.entry, ChunkTag())) {
-    // read compiled chunk from file
-    chunk = LoadChunk(opts.entry);
-  } else {
-    // compile project into a chunk
-    chunk = CompileChunk(&opts, &mem);
-  }
+  Chunk *chunk = LoadChunk(&opts);
 
   if (!chunk) return 1;
 
@@ -38,13 +28,10 @@ int main(int argc, char *argv[])
       return 1;
     }
   } else {
-    DestroyMem(&mem);
-    InitMem(&mem, 0);
-
     VM vm;
 
     // for (u32 i = 0; i < 100; i++) {
-      InitVM(&vm, &opts, &mem);
+      InitVM(&vm, &opts);
       RunChunk(&vm, chunk);
       DestroyVM(&vm);
     // }
@@ -53,7 +40,6 @@ int main(int argc, char *argv[])
   }
 
   FreeChunk(chunk);
-  DestroyMem(&mem);
 }
 
 #endif

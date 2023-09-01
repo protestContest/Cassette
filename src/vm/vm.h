@@ -20,7 +20,7 @@ typedef struct {
   Val env;
   Val *modules;
   HashMap mod_map;
-  Heap *mem;
+  Heap mem;
   VMError error;
   CassetteOpts *opts;
 } VM;
@@ -30,7 +30,7 @@ typedef enum {
   RegEnv,
 } Reg;
 
-void InitVM(VM *vm, CassetteOpts *opts, Heap *mem);
+void InitVM(VM *vm, CassetteOpts *opts);
 void DestroyVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
 

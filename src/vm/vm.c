@@ -12,21 +12,21 @@ static u32 **op_data = NULL;
 static HashMap op_stats = EmptyHashMap;
 #endif
 
-void InitVM(VM *vm, CassetteOpts *opts, Heap *mem)
+void InitVM(VM *vm, CassetteOpts *opts)
 {
+  InitMem(&vm->mem, 0);
   vm->pc = 0;
   vm->cont = 0;
   vm->stack = NewVec(Val, 256);
   vm->call_stack = NewVec(Val, 256);
-  vm->env = InitialEnv(mem);
+  vm->env = InitialEnv(&vm->mem);
   vm->modules = NULL;
   vm->mod_map = EmptyHashMap;
-  vm->mem = mem;
   vm->error = false;
   vm->opts = opts;
 
-  MakeSymbol("ok", mem);
-  MakeSymbol("error", mem);
+  MakeSymbol("ok", &vm->mem);
+  MakeSymbol("error", &vm->mem);
   SeedPrimitives();
 }
 
@@ -88,9 +88,9 @@ static u32 RunGC(VM *vm)
   roots[0] = vm->stack;
   roots[1] = vm->call_stack;
   roots[2] = vm->modules;
-  CollectGarbage(roots, 3, vm->mem);
+  CollectGarbage(roots, 3, &vm->mem);
   vm->env = StackPop(vm);
-  return MemSize(vm->mem);
+  return MemSize(&vm->mem);
 }
 
 static void PrintCurrentToken(VM *vm, Chunk *chunk)
@@ -158,7 +158,7 @@ void PrintOpStats(void)
 #define GCFreq  1024
 void RunChunk(VM *vm, Chunk *chunk)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   u32 gc = GCFreq;
 
   vm->pc = 0;

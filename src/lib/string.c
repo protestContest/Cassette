@@ -2,7 +2,7 @@
 
 Val StringValid(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -39,7 +39,7 @@ Val StringValid(VM *vm, Val args)
 
 Val StringLength(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -62,7 +62,7 @@ Val StringLength(VM *vm, Val args)
 
 Val StringAt(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -94,7 +94,7 @@ Val StringAt(VM *vm, Val args)
 
 Val StringSlice(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 3) {
     vm->error = ArgError;
     return nil;

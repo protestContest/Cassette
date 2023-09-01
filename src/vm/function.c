@@ -51,7 +51,7 @@ bool IsPrimitive(Val value, Heap *mem)
 
 Val DoPrimitive(Val prim, VM *vm)
 {
-  u32 index = RawInt(Tail(prim, vm->mem));
+  u32 index = RawInt(Tail(prim, &vm->mem));
   return primitives[index].impl(vm, StackPop(vm));
 }
 

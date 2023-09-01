@@ -2,7 +2,7 @@
 
 Val TupleToList(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
 
   Val tuple = TupleGet(args, 0, mem);
 

@@ -8,7 +8,7 @@ Val MathRandom(VM *vm, Val args)
 
 Val MathRandInt(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   i32 min = 0, max;
 
   if (TupleLength(args, mem) == 1) {
@@ -39,7 +39,7 @@ Val MathRandInt(VM *vm, Val args)
 
 Val MathCeil(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -57,7 +57,7 @@ Val MathCeil(VM *vm, Val args)
 
 Val MathFloor(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -75,7 +75,7 @@ Val MathFloor(VM *vm, Val args)
 
 Val MathRound(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -93,7 +93,7 @@ Val MathRound(VM *vm, Val args)
 
 Val MathAbs(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -111,7 +111,7 @@ Val MathAbs(VM *vm, Val args)
 
 Val MathMax(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) == 0) {
     vm->error = ArgError;
     return nil;
@@ -134,7 +134,7 @@ Val MathMax(VM *vm, Val args)
 
 Val MathMin(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) == 0) {
     vm->error = ArgError;
     return nil;
@@ -157,7 +157,7 @@ Val MathMin(VM *vm, Val args)
 
 Val MathSin(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -173,7 +173,7 @@ Val MathSin(VM *vm, Val args)
 
 Val MathCos(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -189,7 +189,7 @@ Val MathCos(VM *vm, Val args)
 
 Val MathTan(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -205,7 +205,7 @@ Val MathTan(VM *vm, Val args)
 
 Val MathLn(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -221,7 +221,7 @@ Val MathLn(VM *vm, Val args)
 
 Val MathExp(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -237,7 +237,7 @@ Val MathExp(VM *vm, Val args)
 
 Val MathPow(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -258,7 +258,7 @@ Val MathPow(VM *vm, Val args)
 
 Val MathSqrt(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;

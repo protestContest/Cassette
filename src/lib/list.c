@@ -50,7 +50,7 @@ static u32 CopyIOListInto(char *data, Val iolist, Heap *mem)
 
 Val ListToBin(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   Val iolist = TupleGet(args, 0, mem);
   u32 length = IOListLength(iolist, mem);
   Val bin = MakeBinary(length, mem);
@@ -60,7 +60,7 @@ Val ListToBin(VM *vm, Val args)
 
 Val ListToTuple(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
 
   Val list = TupleGet(args, 0, mem);
   if (!IsPair(list)) {
@@ -79,7 +79,7 @@ Val ListToTuple(VM *vm, Val args)
 
 Val ListReverse(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return SymbolFor("error");
@@ -96,7 +96,7 @@ Val ListReverse(VM *vm, Val args)
 
 Val ListTrunc(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArgError;
     return SymbolFor("error");
@@ -119,7 +119,7 @@ Val ListTrunc(VM *vm, Val args)
 
 Val ListAfter(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArgError;
     return SymbolFor("error");
@@ -142,7 +142,7 @@ Val ListAfter(VM *vm, Val args)
 
 Val ListJoin(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArgError;
     return SymbolFor("error");

@@ -215,7 +215,7 @@ void DeserializeChunk(u8 *serialized, Chunk *chunk)
   }
 }
 
-Chunk *LoadChunk(char *path)
+static Chunk *ReadChunk(char *path)
 {
   Chunk *chunk = Allocate(sizeof(Chunk));
   InitChunk(chunk);
@@ -228,7 +228,7 @@ Chunk *LoadChunk(char *path)
   return chunk;
 }
 
-Chunk *CompileChunk(CassetteOpts *opts, Heap *mem)
+static Chunk *CompileChunk(CassetteOpts *opts, Heap *mem)
 {
   Chunk *chunk = Allocate(sizeof(Chunk));
   InitChunk(chunk);
@@ -249,6 +249,25 @@ Chunk *CompileChunk(CassetteOpts *opts, Heap *mem)
 #endif
 
   Assemble(result.code, chunk, mem);
+
+  return chunk;
+}
+
+Chunk *LoadChunk(CassetteOpts *opts)
+{
+  Chunk *chunk = NULL;
+
+  Heap mem;
+  InitMem(&mem, 0);
+
+  if (SniffFile(opts->entry, ChunkTag())) {
+    // read compiled chunk from file
+    chunk = ReadChunk(opts->entry);
+  } else {
+    // compile project into a chunk
+    chunk = CompileChunk(opts, &mem);
+  }
+  DestroyMem(&mem);
 
   return chunk;
 }

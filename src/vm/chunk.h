@@ -35,6 +35,4 @@ void AddSourceFile(char *filename, u32 offset, Chunk *chunk);
 char *SourceFile(u32 pos, Chunk *chunk);
 u32 SourcePos(u32 pos, Chunk *chunk);
 
-u32 ChunkTag(void);
-Chunk *LoadChunk(char *path);
-Chunk *CompileChunk(CassetteOpts *args, Heap *mem);
+Chunk *LoadChunk(CassetteOpts *opts);

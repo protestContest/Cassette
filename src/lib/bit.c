@@ -2,7 +2,7 @@
 
 Val BitAnd(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArgError;
     return nil;
@@ -24,7 +24,7 @@ Val BitAnd(VM *vm, Val args)
 
 Val BitOr(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArgError;
     return nil;
@@ -46,7 +46,7 @@ Val BitOr(VM *vm, Val args)
 
 Val BitNot(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;
@@ -63,7 +63,7 @@ Val BitNot(VM *vm, Val args)
 
 Val BitXOr(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArgError;
     return nil;
@@ -85,7 +85,7 @@ Val BitXOr(VM *vm, Val args)
 
 Val BitShift(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArgError;
     return nil;
@@ -107,7 +107,7 @@ Val BitShift(VM *vm, Val args)
 
 Val BitCount(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArgError;
     return nil;

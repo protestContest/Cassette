@@ -3,7 +3,7 @@
 
 Val IOPrint(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   Val item = TupleGet(args, 0, mem);
   if (IsInt(item)) {
     PrintInt(RawInt(item));
@@ -30,7 +30,7 @@ Val IOPrint(VM *vm, Val args)
 
 Val IOInspect(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   Val item = TupleGet(args, 0, mem);
   Inspect(item, mem);
   Print("\n");
@@ -39,7 +39,7 @@ Val IOInspect(VM *vm, Val args)
 
 Val IOOpen(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   Val arg = TupleGet(args, 0, mem);
 
   if (!IsBinary(arg, mem)) {
@@ -60,7 +60,7 @@ Val IOOpen(VM *vm, Val args)
 
 Val IORead(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) return ErrorResult("arg_num", mem);
 
   Val file = TupleGet(args, 0, mem);
@@ -78,7 +78,7 @@ Val IORead(VM *vm, Val args)
 
 Val IOWrite(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) == 1) return IOPrint(vm, args);
   if (TupleLength(args, mem) != 2) return ErrorResult("arg_num", mem);
 
@@ -96,7 +96,7 @@ Val IOWrite(VM *vm, Val args)
 
 Val IOReadFile(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) return ErrorResult("arg_num", mem);
 
   Val filename = TupleGet(args, 0, mem);
@@ -121,7 +121,7 @@ Val IOReadFile(VM *vm, Val args)
 
 Val IOWriteFile(VM *vm, Val args)
 {
-  Heap *mem = vm->mem;
+  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) return ErrorResult("arg_num", mem);
 
   Val filename = TupleGet(args, 0, mem);
