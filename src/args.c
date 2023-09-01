@@ -25,6 +25,7 @@ bool ParseArgs(int argc, char *argv[], Args *args)
   }
 
   for (i32 i = 1; i < argc; i++) {
+    bool skip_next = false;
     if (argv[i][0] == '-') {
       for (u32 j = 1; argv[i][j] != '\0'; j++) {
         switch (argv[i][j]) {
@@ -37,7 +38,7 @@ bool ParseArgs(int argc, char *argv[], Args *args)
             return false;
           } else {
             args->dir = argv[i+1];
-            i++;
+            skip_next = true;
           }
           break;
         case 'c':
@@ -54,6 +55,8 @@ bool ParseArgs(int argc, char *argv[], Args *args)
     } else {
       args->entry = argv[i];
     }
+
+    if (skip_next) i++;
   }
 
   if (args->entry != NULL && args->dir != NULL) {
