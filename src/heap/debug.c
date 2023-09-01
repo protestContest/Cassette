@@ -59,6 +59,12 @@ u32 DebugVal(Val value, Heap *mem)
     }
   } else if (IsNil(value)) {
     return Print("nil");
+  } else if (IsTagged(value, "*func*", mem)) {
+    Print("λ");
+    return PrintInt(RawVal(TupleGet(value, 1, mem))) + 1;
+  } else if (IsTagged(value, "*prim*", mem)) {
+    Print("@");
+    return PrintInt(RawVal(Tail(value, mem))) + 1;
   } else if (IsPair(value)) {
     Print("p");
   } else if (IsBinaryHeader(value)) {
@@ -69,7 +75,20 @@ u32 DebugVal(Val value, Heap *mem)
     Print("%");
     return PrintHexN(RawVal(value), 8) + 1;
   } else if (IsTuple(value, mem)) {
-    Print("t");
+    if (TupleLength(value, mem) < 5) {
+      u32 written = 0;
+      Print("{");
+      for (u32 i = 0; i < TupleLength(value, mem); i++) {
+        written += DebugVal(TupleGet(value, i, mem), mem);
+        if (i < TupleLength(value, mem) - 1) {
+          written += Print(" ");
+        }
+      }
+      Print("}");
+      return written + 2;
+    } else {
+      Print("t");
+    }
   } else if (IsBinary(value, mem)) {
     Print("b");
   } else if (IsMap(value, mem)) {

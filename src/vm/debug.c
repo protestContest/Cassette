@@ -15,8 +15,18 @@ static u32 PrintInstruction(Chunk *chunk, u32 index)
   return length;
 }
 
+void TraceHeader(void)
+{
+  Print("Cont Env   PC  Inst                   Stack                                      Call Stack\n");
+  Print("────┬────┬────┬──────────────────────╥──────────────────────────────────────────╥────────────────\n");
+}
+
 void TraceInstruction(VM *vm, Chunk *chunk)
 {
+  PrintIntN(vm->cont, 4);
+  Print("│");
+  PrintIntN(RawVal(vm->env), 4);
+  Print("│");
   PrintIntN(vm->pc, 4);
   Print("│ ");
 
@@ -29,13 +39,22 @@ void TraceInstruction(VM *vm, Chunk *chunk)
     for (u32 i = 0; i < 20 - written; i++) Print(" ");
   }
 
-  Print(" │ ");
-  PrintIntN(vm->cont, 4);
   Print(" ║ ");
 
-  for (u32 i = 0; i < VecCount(vm->stack) && i < 8; i++) {
-    DebugVal(vm->stack[i], vm->mem);
-    Print(" │ ");
+  written = 0;
+  for (u32 i = 0; i < VecCount(vm->stack) && i < 4; i++) {
+    written += DebugVal(vm->stack[VecCount(vm->stack) - i - 1], vm->mem);
+    written += Print(" ");
+  }
+  if (written < 40) {
+    for (u32 i = 0; i < 40 - written; i++) Print(" ");
+  }
+
+  Print(" ║ ");
+
+  for (u32 i = 0; i < VecCount(vm->call_stack) && i < 4; i++) {
+    DebugVal(vm->call_stack[VecCount(vm->call_stack) - i - 1], vm->mem);
+    Print(" ");
   }
 
   Print("\n");

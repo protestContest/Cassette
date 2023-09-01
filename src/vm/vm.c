@@ -115,6 +115,10 @@ void RunChunk(VM *vm, Chunk *chunk)
 
   CopyStrings(&chunk->constants, mem);
 
+  if (vm->args->verbose) {
+    TraceHeader();
+  }
+
   while (vm->error == NoError && vm->pc < ChunkSize(chunk)) {
     if (vm->args->verbose) {
       TraceInstruction(vm, chunk);
@@ -479,7 +483,7 @@ void RunChunk(VM *vm, Chunk *chunk)
     PrintEscape(IOFGRed);
     Print(VMErrorMessage(vm->error));
 
-    if (vm->error == TypeError) {
+    if (vm->error == TypeError && VecCount(vm->stack) > 0) {
       Print(" (");
       Inspect(StackPeek(vm, 0), mem);
       Print(")");

@@ -61,7 +61,13 @@ static u32 FindConst(Val value, Chunk *chunk)
 void PushConst(Val value, Chunk *chunk)
 {
   u32 index = FindConst(value, chunk);
-  VecPush(chunk->constants.values, value);
+  if (index > 255) {
+    Print("Constant overflow!\n");
+    Abort();
+  }
+  if (index == VecCount(chunk->constants.values)) {
+    VecPush(chunk->constants.values, value);
+  }
   VecPush(chunk->data, index);
 }
 
