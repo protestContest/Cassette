@@ -56,13 +56,13 @@ void PrintSourceContext(char *src, u32 pos)
   }
 }
 
-void PrintCompileError(CompileError *error, char *filename)
+void PrintCompileError(CompileError *error)
 {
   PrintEscape(IOFGRed);
   Print(error->message);
   Print("\n");
-  if (filename) {
-    char *src = ReadFile(filename);
+  if (error->file) {
+    char *src = ReadFile(error->file);
     if (src) {
       PrintSourceContext(src, error->pos);
     }

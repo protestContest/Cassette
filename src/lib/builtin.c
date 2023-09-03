@@ -22,6 +22,16 @@ Val StdTail(VM *vm, Val args)
   }
 }
 
+Val StdError(VM *vm, Val args)
+{
+  vm->error = RuntimeError;
+  if (TupleLength(args, &vm->mem) == 0) {
+    return nil;
+  } else {
+    return TupleGet(args, 1, &vm->mem);
+  }
+}
+
 Val StdIsNil(VM *vm, Val args)
 {
   return BoolVal(IsNil(TupleGet(args, 0, &vm->mem)));

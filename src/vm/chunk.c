@@ -238,7 +238,7 @@ static Chunk *CompileChunk(CassetteOpts *opts, Heap *mem)
   // compile project
   CompileResult result = LoadModules(opts, mem);
   if (!result.ok) {
-    PrintCompileError(&result.error, NULL);
+    PrintCompileError(&result.error);
     return NULL;
   }
 

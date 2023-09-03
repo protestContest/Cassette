@@ -3,9 +3,9 @@
 
 typedef struct {
   char *message;
-  Val expr;
+  char *file;
   u32 pos;
 } CompileError;
 
 void PrintSourceContext(char *src, u32 pos);
-void PrintCompileError(CompileError *error, char *filename);
+void PrintCompileError(CompileError *error);

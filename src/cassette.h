@@ -200,7 +200,8 @@ typedef enum {
   ArithmeticError,
   EnvError,
   KeyError,
-  ArgError,
+  ArityError,
+  RuntimeError
 } VMError;
 
 typedef struct {
@@ -272,7 +273,7 @@ Val PrimitiveMap(Heap *mem);
 
 typedef struct {
   char *message;
-  Val expr;
+  char *file;
   u32 pos;
 } CompileError;
 

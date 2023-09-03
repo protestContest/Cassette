@@ -81,7 +81,7 @@ Val ListReverse(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return SymbolFor("error");
   }
 
@@ -98,7 +98,7 @@ Val ListTrunc(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return SymbolFor("error");
   }
 
@@ -121,7 +121,7 @@ Val ListAfter(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return SymbolFor("error");
   }
 
@@ -144,7 +144,7 @@ Val ListJoin(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return SymbolFor("error");
   }
 

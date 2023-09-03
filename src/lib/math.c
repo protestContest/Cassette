@@ -29,7 +29,7 @@ Val MathRandInt(VM *vm, Val args)
     }
     max = RawInt(TupleGet(args, 1, mem));
   } else {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
 
@@ -41,14 +41,12 @@ Val MathCeil(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val num = TupleGet(args, 0, mem);
-  if (IsInt(num)) {
-    return IntVal(Ceil(RawInt(num)));
-  } else if (IsFloat(num)) {
-    return FloatVal(Ceil(RawNum(num)));
+  if (IsInt(num) || IsFloat(num)) {
+    return IntVal(Ceil(RawNum(num)));
   } else {
     vm->error = TypeError;
     return num;
@@ -59,14 +57,12 @@ Val MathFloor(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val num = TupleGet(args, 0, mem);
-  if (IsInt(num)) {
-    return IntVal(Floor(RawInt(num)));
-  } else if (IsFloat(num)) {
-    return FloatVal(Floor(RawNum(num)));
+  if (IsInt(num) || IsFloat(num)) {
+    return IntVal(Floor(RawNum(num)));
   } else {
     vm->error = TypeError;
     return num;
@@ -77,7 +73,7 @@ Val MathRound(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val num = TupleGet(args, 0, mem);
@@ -95,7 +91,7 @@ Val MathAbs(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val num = TupleGet(args, 0, mem);
@@ -113,7 +109,7 @@ Val MathMax(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) == 0) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val max = TupleGet(args, 0, mem);
@@ -136,7 +132,7 @@ Val MathMin(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) == 0) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val max = TupleGet(args, 0, mem);
@@ -159,7 +155,7 @@ Val MathSin(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val arg = TupleGet(args, 0, mem);
@@ -175,7 +171,7 @@ Val MathCos(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val arg = TupleGet(args, 0, mem);
@@ -191,7 +187,7 @@ Val MathTan(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val arg = TupleGet(args, 0, mem);
@@ -207,7 +203,7 @@ Val MathLn(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val arg = TupleGet(args, 0, mem);
@@ -223,7 +219,7 @@ Val MathExp(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val arg = TupleGet(args, 0, mem);
@@ -239,7 +235,7 @@ Val MathPow(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val base = TupleGet(args, 0, mem);
@@ -260,7 +256,7 @@ Val MathSqrt(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val arg = TupleGet(args, 0, mem);

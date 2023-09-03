@@ -114,7 +114,7 @@ static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
   else if (IsTagged(expr, "==", mem))       result = CompileOp(OpSeq(OpEq, mem), expr, linkage, c);
 
   else if (IsPair(expr))                    result = CompileApplication(expr, linkage, c);
-  else                                      result = ErrorResult("Unknown expression", expr, c->pos);
+  else                                      result = ErrorResult("Unknown expression", NULL, c->pos);
 
 #ifndef LIBCASSETTE
   if (c->opts->verbose > 1 && result.ok) {
@@ -162,7 +162,7 @@ static CompileResult CompileVar(Val expr, Linkage linkage, Compiler *c)
 
   Val pos = FindVar(expr, c->env, mem);
   if (IsNil(pos)) {
-    return ErrorResult("Undefined variable", expr, c->pos);
+    return ErrorResult("Undefined variable", NULL, c->pos);
   }
 
   return CompileOk(

@@ -44,7 +44,8 @@ char *VMErrorMessage(VMError err)
   case ArithmeticError: return "ArithmeticError";
   case EnvError:        return "EnvError";
   case KeyError:        return "KeyError";
-  case ArgError:        return "ArgError";
+  case ArityError:      return "ArityError";
+  case RuntimeError:    return "RuntimeError";
   }
 }
 
@@ -154,6 +155,43 @@ void PrintOpStats(void)
   }
 }
 #endif
+
+static void ApplyValue(Val value, VM *vm)
+{
+  Heap *mem = &vm->mem;
+  Val args = StackPop(vm);
+
+  if (IsPair(value) && TupleLength(args, mem) == 1) {
+    Val arg = TupleGet(args, 0, mem);
+    if (IsInt(arg)) {
+      StackPush(vm, ListAt(value, RawInt(arg), mem));
+    } else {
+      vm->error = TypeError;
+      StackPush(vm, arg);
+    }
+  } else if (IsTuple(value, mem) && TupleLength(args, mem) == 1) {
+    Val arg = TupleGet(args, 0, mem);
+    if (IsInt(arg)) {
+      StackPush(vm, TupleGet(value, RawInt(arg), mem));
+    } else {
+      vm->error = TypeError;
+      StackPush(vm, arg);
+    }
+  } else if (IsBinary(value, mem) && TupleLength(args, mem) == 1) {
+    Val arg = TupleGet(args, 0, mem);
+    if (IsInt(arg)) {
+      StackPush(vm, IntVal(BinaryGetByte(value, RawInt(arg), mem)));
+    } else {
+      vm->error = TypeError;
+      StackPush(vm, arg);
+    }
+  } else if (IsMap(value, mem) && TupleLength(args, mem) == 1) {
+    Val arg = TupleGet(args, 0, mem);
+    StackPush(vm, MapGet(value, arg, mem));
+  } else {
+    StackPush(vm, value);
+  }
+}
 
 #define GCFreq  1024
 void RunChunk(VM *vm, Chunk *chunk)
@@ -516,7 +554,8 @@ void RunChunk(VM *vm, Chunk *chunk)
         vm->env = FuncEnv(func, mem);
         vm->pc = RawInt(FuncEntry(func, mem));
       } else {
-        if (!vm->error) vm->pc += OpLength(op);
+        ApplyValue(func, vm);
+        if (!vm->error) vm->pc = vm->cont;
       }
 #ifndef LIBCASSETTE
       u32 dt = clock() - start;
@@ -563,7 +602,7 @@ void RunChunk(VM *vm, Chunk *chunk)
     PrintEscape(IOFGRed);
     Print(VMErrorMessage(vm->error));
 
-    if (vm->error == TypeError && VecCount(vm->stack) > 0) {
+    if ((vm->error == TypeError || vm->error == RuntimeError) && VecCount(vm->stack) > 0) {
       Print(" (");
       Inspect(StackPeek(vm, 0), mem);
       Print(")");

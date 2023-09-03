@@ -69,7 +69,7 @@ Val CanvasLine(VM *vm, Val args)
     x2 = TupleGet(args, 2, mem);
     y2 = TupleGet(args, 3, mem);
   } else {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
 

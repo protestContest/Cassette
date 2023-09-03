@@ -3,6 +3,7 @@
 
 Val StdHead(VM *vm, Val args);
 Val StdTail(VM *vm, Val args);
+Val StdError(VM *vm, Val args);
 Val StdIsNil(VM *vm, Val args);
 Val StdIsNum(VM *vm, Val args);
 Val StdIsInt(VM *vm, Val args);

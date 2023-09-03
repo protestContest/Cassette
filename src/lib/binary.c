@@ -4,7 +4,7 @@ Val BinToList(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val bin = TupleGet(args, 0, mem);
@@ -26,7 +26,7 @@ Val BinTrunc(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val bin = TupleGet(args, 0, mem);
@@ -47,7 +47,7 @@ Val BinAfter(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val bin = TupleGet(args, 0, mem);
@@ -68,7 +68,7 @@ Val BinSlice(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 3) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val bin = TupleGet(args, 0, mem);
@@ -94,7 +94,7 @@ Val BinJoin(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
-    vm->error = ArgError;
+    vm->error = ArityError;
     return nil;
   }
   Val b1 = TupleGet(args, 0, mem);

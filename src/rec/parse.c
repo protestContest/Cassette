@@ -735,7 +735,7 @@ static ParseResult ParseError(char *message, Lexer *lex)
   ParseResult result;
   result.ok = false;
   result.error.message = message;
-  result.error.expr = nil;
+  result.error.file = NULL;
   result.error.pos = lex->token.lexeme - lex->text;
   return result;
 }

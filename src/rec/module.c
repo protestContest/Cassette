@@ -53,13 +53,8 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
 
     ModuleResult result = LoadModule(files[i], mem, opts);
     if (!result.ok) {
-      PrintCompileError(&result.error, files[i]);
-      // ignore modules that fail to compile (except the entry file)
-      if (StrEq(files[i], opts->entry)) {
-        return (CompileResult){false, {.error = result.error}};
-      } else {
-        continue;
-      }
+      result.error.file = files[i];
+      return (CompileResult){false, {.error = result.error}};
     }
     result.module.file = files[i];
 
@@ -86,7 +81,7 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
 
   if (entry == -1) {
     char *message = StrCat("Could not find entry ", opts->entry);
-    return (CompileResult){false, {.error = {message, nil, 0}}};
+    return (CompileResult){false, {.error = {message, NULL, 0}}};
   }
 
   // starting with the entry file, recursively prepend imported module code into
@@ -104,7 +99,7 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
     u32 key = VecPop(needed);
     if (!HashMapContains(&loaded, key)) {
       if (!HashMapContains(&mod_map, key)) {
-        CompileResult result = {false, {.error = {"", nil, 0}}};
+        CompileResult result = {false, {.error = {"", NULL, 0}}};
         result.error.message = StrCat("Could not find module: ", SymbolName(SymVal(key), mem));
         return result;
       }

@@ -1,3 +1,3 @@
+let line = Canvas.line
 
-
-Canvas.line 200 200 500 300
+line 200 200 500 300
