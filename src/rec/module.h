@@ -20,5 +20,5 @@ typedef struct ModuleResult {
   };
 } ModuleResult;
 
-ModuleResult LoadModule(char *path, Heap *mem, CassetteOpts *opts);
+ModuleResult LoadModule(char *path, Heap *mem, Val env, CassetteOpts *opts);
 CompileResult LoadModules(CassetteOpts *opts, Heap *mem);

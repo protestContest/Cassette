@@ -28,6 +28,7 @@ void InitVM(VM *vm, CassetteOpts *opts)
   MakeSymbol("ok", &vm->mem);
   MakeSymbol("error", &vm->mem);
   SeedPrimitives();
+  Seed(Microtime());
 }
 
 void DestroyVM(VM *vm)

@@ -38,6 +38,15 @@ def (map enum fn) do
   reduce (reverse enum) [] (item acc) -> (fn item) | acc
 end
 
+def (each enum fn) do
+  if enum == nil do
+    :ok
+  else
+    (fn (head enum))
+    (each (tail enum) fn)
+  end
+end
+
 def (filter enum fn) do
   reduce enum [] (item acc) ->
     if (fn item) do
@@ -59,4 +68,3 @@ def (iota n) do
   loop 0 []
 end
 
-; iota 10

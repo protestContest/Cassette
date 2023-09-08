@@ -12,4 +12,4 @@ typedef struct {
   };
 } CompileResult;
 
-struct ModuleResult Compile(Val ast, CassetteOpts *opts, Heap *mem);
+struct ModuleResult Compile(Val ast, CassetteOpts *opts, Val env, Heap *mem);

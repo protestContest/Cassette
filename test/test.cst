@@ -1,3 +1,17 @@
-let line = Canvas.line
+import Enum
+let iota = Enum.iota
+let map = Enum.map
+let x = 0, y = 1
 
-line 200 200 500 300
+let dir1 = 2*(Math.Pi)*(Math.random),
+    dir2 = 2*(Math.Pi)*(Math.random),
+    p1 = {(Math.rand_int (Canvas.width)), (Math.rand_int (Canvas.height))},
+    p2 = {(Math.rand_int (Canvas.width)), (Math.rand_int (Canvas.height))}
+
+Enum.each (iota 10) (i) -> do
+  let x1 = Math.floor (p1 x) + (Math.cos dir1)*i*10,
+      y1 = Math.floor (p1 y) + (Math.sin dir1)*i*10,
+      x2 = Math.floor (p2 x) + (Math.cos dir2)*i*10,
+      y2 = Math.floor (p2 y) + (Math.sin dir2)*i*10
+  Canvas.line x1 y1 x2 y2
+end

@@ -68,9 +68,7 @@ u32 Inspect(Val value, Heap *mem)
     Print("\"");
     return length + 2;
   } else if (IsMap(value, mem)) {
-    Print("{");
     u32 len = InspectMap(value, mem);
-    Print("}");
     return len + 2;
   } else {
     return Print("?");

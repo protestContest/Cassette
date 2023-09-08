@@ -2,8 +2,9 @@
 #include "debug.h"
 #include "parse.h"
 #include "compile.h"
+#include "seq.h"
 
-ModuleResult LoadModule(char *file, Heap *mem, CassetteOpts *opts)
+ModuleResult LoadModule(char *file, Heap *mem, Val env, CassetteOpts *opts)
 {
   char *source = ReadFile(file);
 
@@ -27,7 +28,7 @@ ModuleResult LoadModule(char *file, Heap *mem, CassetteOpts *opts)
   }
 #endif
 
-  return Compile(ast.value, opts, mem);
+  return Compile(ast.value, opts, env, mem);
 }
 
 CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
@@ -38,6 +39,7 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
   i32 entry = -1;
   Module *modules = NULL;
   HashMap mod_map = EmptyHashMap;
+  Val env = CompileEnv(mem);
 
   // try to compile each file into a module
   for (i32 i = 0; i < (i32)VecCount(files); i++) {
@@ -51,7 +53,7 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
       }
     }
 
-    ModuleResult result = LoadModule(files[i], mem, opts);
+    ModuleResult result = LoadModule(files[i], mem, env, opts);
     if (!result.ok) {
       result.error.file = files[i];
       return (CompileResult){false, {.error = result.error}};
@@ -115,6 +117,18 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
       }
       HashMapSet(&loaded, key, 1);
     }
+  }
+
+  if (!IsNil(modules[entry].name)) {
+    Val after_load = MakeLabel();
+    code = AppendSeq(code,
+      MakeSeq(0, 0,
+        Pair(IntVal(OpLoad),
+        Pair(ModuleRef(modules[entry].name, mem),
+        Pair(IntVal(OpCont),
+        Pair(LabelRef(after_load, mem),
+        Pair(IntVal(OpApply),
+        Pair(Label(after_load, mem), nil, mem), mem), mem), mem), mem), mem)), mem);
   }
 
   FreeVec(needed);

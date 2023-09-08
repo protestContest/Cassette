@@ -68,6 +68,21 @@ Val CanvasLine(VM *vm, Val args)
     y1 = TupleGet(args, 1, mem);
     x2 = TupleGet(args, 2, mem);
     y2 = TupleGet(args, 3, mem);
+  } else if (TupleLength(args, mem) == 2) {
+    Val p1 = TupleGet(args, 0, mem);
+    Val p2 = TupleGet(args, 1, mem);
+    if (!IsTuple(p1, mem) || TupleLength(p1, mem) != 2) {
+      vm->error = TypeError;
+      return p1;
+    }
+    if (!IsTuple(p2, mem) || TupleLength(p2, mem) != 2) {
+      vm->error = TypeError;
+      return p2;
+    }
+    x1 = TupleGet(p1, 0, mem);
+    y1 = TupleGet(p1, 1, mem);
+    x2 = TupleGet(p2, 0, mem);
+    y2 = TupleGet(p2, 1, mem);
   } else {
     vm->error = ArityError;
     return nil;

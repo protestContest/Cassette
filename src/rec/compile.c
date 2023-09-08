@@ -15,10 +15,10 @@ typedef struct {
   CassetteOpts *opts;
 } Compiler;
 
-static void InitCompiler(Compiler *c, CassetteOpts *opts, Heap *mem)
+static void InitCompiler(Compiler *c, CassetteOpts *opts, Val env, Heap *mem)
 {
   c->mem = mem;
-  c->env = CompileEnv(mem);
+  c->env = env,
   c->module.name = nil;
   c->module.code = EmptySeq();
   c->module.imports = EmptyHashMap;
@@ -49,10 +49,10 @@ static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *
 static CompileResult CompilePair(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c);
 
-ModuleResult Compile(Val ast, CassetteOpts *opts, Heap *mem)
+ModuleResult Compile(Val ast, CassetteOpts *opts, Val env, Heap *mem)
 {
   Compiler c;
-  InitCompiler(&c, opts, mem);
+  InitCompiler(&c, opts, env, mem);
   CompileResult result = CompileExpr(ast, LinkNext, &c);
   if (!result.ok) {
     return (ModuleResult){false, {.error = result.error}};

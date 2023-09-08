@@ -70,36 +70,29 @@ static Val PutNodeChild(Val node, u32 slot, Val child, Heap *mem)
   return MakeNode(bitmap, children, mem);
 }
 
+static Val PutNode(Val node, u32 depth, Val key, Val value, Heap *mem);
+
 static Val PutLeaf(Val node, u32 depth, Val key, Val value, Heap *mem)
 {
-    if (IsNil(LeafKey(node, mem))) {
-      // empty map, return a new one
-      return MakeLeaf(key, value, mem);
-    } else if (Eq(key, LeafKey(node, mem))) {
-      if (Eq(value, LeafContents(node, mem))) {
-        // no-op
-        return node;
-      } else {
-        // replace leaf
-        return MakeLeaf(key, value, mem);
-      }
+  if (IsNil(LeafKey(node, mem))) {
+    // empty map, return a new one
+    return MakeLeaf(key, value, mem);
+  } else if (Eq(key, LeafKey(node, mem))) {
+    if (Eq(value, LeafContents(node, mem))) {
+      // no-op
+      return node;
     } else {
-      // split leaf
-      Val new_leaf = MakeLeaf(key, value, mem);
-      u32 new_index = SlotFromKey(key, depth);
-      u32 old_index = SlotFromKey(LeafKey(node, mem), depth);
-      Val children = MakeTuple(2, mem);
-      if (new_index < old_index) {
-        TupleSet(children, 0, new_leaf, mem);
-        TupleSet(children, 1, node, mem);
-      } else {
-        TupleSet(children, 0, node, mem);
-        TupleSet(children, 1, new_leaf, mem);
-      }
-
-      u32 bitmap = Bit(new_index) | Bit(old_index);
-      return MakeNode(bitmap, children, mem);
+      // replace leaf
+      return MakeLeaf(key, value, mem);
     }
+  } else {
+    // split leaf
+    u32 old_index = SlotFromKey(LeafKey(node, mem), depth);
+    Val children = MakeTuple(1, mem);
+    TupleSet(children, 0, node, mem);
+    Val new_node = MakeNode(Bit(old_index), children, mem);
+    return PutNode(new_node, depth, key, value, mem);
+  }
 }
 
 static Val PutNode(Val node, u32 depth, Val key, Val value, Heap *mem)
@@ -269,24 +262,57 @@ Val MapValues(Val map, Heap *mem)
   return values;
 }
 
-u32 InspectMap(Val map, Heap *mem)
+u32 InspectNode(Val node, u32 depth, Heap *mem)
 {
-  if (IsLeaf(map, mem)) {
-    Val key = LeafKey(map, mem);
-    if (IsNil(key)) return 0;
-    Val val = LeafContents(map, mem);
-    u32 len = Print(SymbolName(key, mem));
-    len += Print(": ");
-    len += Inspect(val, mem);
-    return len;
+  Print("[");
+  PrintInt(depth);
+  Print("]");
+  PrintHexN(NodeBitmap(node, mem), 4);
+
+  if (IsLeaf(node, mem)) {
+    Print(" ");
+    Inspect(LeafKey(node, mem), mem);
+    if (!IsNil(LeafKey(node, mem))) {
+      Print(" (");
+      PrintHexN(RawVal(HashValue(LeafKey(node, mem), mem)), 5);
+      Print(")");
+      Print(" => ");
+      DebugVal(LeafContents(node, mem), mem);
+    }
+  } else {
+    Print(" #");
+    Val children = NodeChildren(node, mem);
+    PrintInt(TupleLength(children, mem));
+    for (u32 i = 0; i < TupleLength(children, mem); i++) {
+      Print("\n");
+      for (u32 j = 0; j < depth + 1; j++) Print("  ");
+      InspectNode(TupleGet(children, i, mem), depth + 1, mem);
+    }
   }
 
-  Val children = NodeChildren(map, mem);
-  u32 num = TupleLength(children, mem);
-  u32 len = 0;
-  for (u32 i = 0; i < num; i++) {
-    len += InspectMap(TupleGet(children, i, mem), mem);
-    if (i < num-1) len += Print(", ");
-  }
-  return len;
+  // if (IsLeaf(map, mem)) {
+  //   Val key = LeafKey(map, mem);
+  //   if (IsNil(key)) return 0;
+  //   Val val = LeafContents(map, mem);
+  //   u32 len = Print(SymbolName(key, mem));
+  //   len += Print(": ");
+  //   len += Inspect(val, mem);
+  //   return len;
+  // }
+
+  // Val children = NodeChildren(map, mem);
+  // u32 num = TupleLength(children, mem);
+  // u32 len = 0;
+  // for (u32 i = 0; i < num; i++) {
+  //   len += InspectMap(TupleGet(children, i, mem), mem);
+  //   if (i < num-1) len += Print(", ");
+  // }
+  return 0;
+}
+
+u32 InspectMap(Val map, Heap *mem)
+{
+  InspectNode(map, 0, mem);
+  Print("\n");
+  return 0;
 }
