@@ -1,4 +1,5 @@
 #include "opts.h"
+#include <stdio.h>
 
 #ifndef LIBCASSETTE
 
@@ -10,11 +11,12 @@ void PrintUsage(void)
   Print("  -p sources    Project directory contiaining scripts\n");
   Print("  -c            Compile project\n");
   Print("  -v            Verbose mode\n");
+  Print("  -s seed       Set random seed\n");
 }
 
 CassetteOpts DefaultOpts(void)
 {
-  return (CassetteOpts){NULL, ".", false, 0};
+  return (CassetteOpts){NULL, ".", false, 0, Microtime()};
 }
 
 bool ParseArgs(int argc, char *argv[], CassetteOpts *args)
@@ -46,6 +48,15 @@ bool ParseArgs(int argc, char *argv[], CassetteOpts *args)
           break;
         case 'v':
           args->verbose++;
+          break;
+        case 's':
+          if (i == argc - 1) {
+            PrintUsage();
+            return false;
+          } else {
+            sscanf(argv[i+1], "%u", &args->seed);
+            skip_next = true;
+          }
           break;
         default:
           PrintUsage();

@@ -28,7 +28,7 @@ void InitVM(VM *vm, CassetteOpts *opts)
   MakeSymbol("ok", &vm->mem);
   MakeSymbol("error", &vm->mem);
   SeedPrimitives();
-  Seed(Microtime());
+  Seed(opts->seed);
 }
 
 void DestroyVM(VM *vm)
@@ -206,6 +206,10 @@ void RunChunk(VM *vm, Chunk *chunk)
   vm->error = false;
 
   CopyStrings(&chunk->constants, mem);
+
+  Print("Seed: ");
+  PrintUInt(vm->opts->seed);
+  Print("\n");
 
 #ifndef LIBCASSETTE
   if (vm->opts->verbose) {

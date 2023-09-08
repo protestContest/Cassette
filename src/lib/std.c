@@ -76,6 +76,7 @@ static PrimitiveDef stdlib[] = {
   {"System", "time", SysTime},
   {"System", "exit", SysExit},
 #ifdef WITH_CANVAS
+  {"Canvas", "set_size", CanvasSetSize},
   {"Canvas", "width", CanvasWidth},
   {"Canvas", "height", CanvasHeight},
   {"Canvas", "line", CanvasLine},

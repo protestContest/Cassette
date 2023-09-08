@@ -5,6 +5,7 @@ typedef struct {
   char *dir;
   bool compile;
   u32 verbose;
+  u32 seed;
 } CassetteOpts;
 
 #ifndef LIBCASSETTE

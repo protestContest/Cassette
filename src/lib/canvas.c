@@ -14,12 +14,14 @@ bool InitCanvas(u32 width, u32 height)
   canvas_height = height;
 
   SDL_Init(SDL_INIT_EVERYTHING);
-  SDL_CreateWindowAndRenderer(canvas_width, canvas_height, SDL_WINDOW_SHOWN, &canvas, &renderer);
+  SDL_CreateWindowAndRenderer(canvas_width*2, canvas_height*2, SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN, &canvas, &renderer);
   if (!canvas) return false;
   SDL_SetWindowTitle(canvas, "Canvas");
+  SDL_RenderSetLogicalSize(renderer, width, height);
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
   SDL_RenderClear(renderer);
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+
   return true;
 }
 
@@ -57,6 +59,29 @@ void ShowCanvas(void)
       }
     }
   }
+}
+
+Val CanvasSetSize(VM *vm, Val args)
+{
+  Heap *mem = &vm->mem;
+  if (TupleLength(args, mem) != 2) {
+    vm->error = ArityError;
+    return nil;
+  }
+  Val width = TupleGet(args, 0, mem);
+  Val height = TupleGet(args, 1, mem);
+  if (!IsInt(width)) {
+    vm->error = TypeError;
+    return width;
+  } else if (!IsInt(height)) {
+    vm->error =TypeError;
+    return height;
+  }
+
+  DestroyCanvas();
+  InitCanvas(RawInt(width), RawInt(height));
+
+  return SymbolFor("ok");
 }
 
 Val CanvasLine(VM *vm, Val args)

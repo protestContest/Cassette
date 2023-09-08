@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
   if (!ParseArgs(argc, argv, &opts)) return 1;
 
 #ifdef WITH_CANVAS
-  if (!InitCanvas(800, 600)) {
+  if (!InitCanvas(400, 240)) {
     Print("SDL Error\n");
     return 1;
   }
