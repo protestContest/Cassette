@@ -9,8 +9,8 @@ void InitMem(Heap *mem, u32 size)
 
   mem->strings = NewVec(char, 0);
   mem->string_map = EmptyHashMap;
-  MakeSymbol("true", mem);
-  MakeSymbol("false", mem);
+  Assert(Eq(True, MakeSymbol("true", mem)));
+  Assert(Eq(False, MakeSymbol("false", mem)));
 }
 
 void DestroyMem(Heap *mem)

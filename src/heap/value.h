@@ -49,8 +49,15 @@ typedef union {
 #define Eq(v1, v2)        ((v1).as_i == (v2).as_i)
 #define nil               PairVal(0)
 #define IsNil(v)          Eq(nil, v)
-#define BoolVal(v)        ((v) ? SymbolFor("true") : SymbolFor("false"))
-#define IsTrue(v)         !(IsNil(v) || Eq(v, SymbolFor("false")))
+#define BoolVal(v)        ((v) ? True : False)
+#define IsTrue(v)         !(IsNil(v) || Eq(v, False))
 #define IsNum(v)          (IsFloat(v) || IsInt(v))
 #define RawNum(v)         (IsFloat(v) ? RawFloat(v) : RawInt(v))
 #define IsZero(v)         ((IsFloat(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
+
+#define True              (Val){.as_i = 0x7FD69399}
+#define False             (Val){.as_i = 0x7FD8716C}
+#define Undefined         (Val){.as_i = 0x7FD0ED47}
+#define Primitive         (Val){.as_i = 0x7FDE8B53}
+#define Function          (Val){.as_i = 0x7FDBE559}
+#define Moved             (Val){.as_i = 0x7FDEC294}

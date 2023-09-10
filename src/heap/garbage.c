@@ -25,7 +25,7 @@ static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
 
   if (IsPair(value)) {
     u32 index = RawVal(value);
-    if (Eq(from_space->values[index], SymbolFor("*moved*"))) {
+    if (Eq(from_space->values[index], Moved)) {
       return from_space->values[index+1];
     }
 
@@ -33,13 +33,13 @@ static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
     VecPush(to_space->values, from_space->values[index]);
     VecPush(to_space->values, from_space->values[index+1]);
 
-    from_space->values[index] = SymbolFor("*moved*");
+    from_space->values[index] = Moved;
     from_space->values[index+1] = new_val;
 
     return new_val;
   } else if (IsObj(value)) {
     u32 index = RawVal(value);
-    if (Eq(from_space->values[index], SymbolFor("*moved*"))) {
+    if (Eq(from_space->values[index], Moved)) {
       return from_space->values[index+1];
     }
 
@@ -48,7 +48,7 @@ static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
       VecPush(to_space->values, from_space->values[index + i]);
     }
 
-    from_space->values[index] = SymbolFor("*moved*");
+    from_space->values[index] = Moved;
     from_space->values[index+1] = new_val;
     return new_val;
   } else {
@@ -58,7 +58,6 @@ static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
 
 void CollectGarbage(Val **roots, u32 num_roots, Heap *from_space)
 {
-  MakeSymbol("*moved*", from_space);
   Heap to_space = *from_space;
   to_space.values = NewVec(Val, MemSize(from_space) / 2);
   VecPush(to_space.values, nil);

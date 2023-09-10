@@ -98,9 +98,9 @@ void PrintAST(Val ast, u32 indent, Heap *mem)
     Print("\"");
   } else if (Eq(expr, SymbolFor("nil"))) {
     Print("nil");
-  } else if (Eq(expr, SymbolFor("true")))     {
+  } else if (Eq(expr, True))     {
     Print("true");
-  } else if (Eq(expr, SymbolFor("false"))) {
+  } else if (Eq(expr, False)) {
     Print("false");
   } else if (IsSym(expr)) {
     Print(SymbolName(expr, mem));

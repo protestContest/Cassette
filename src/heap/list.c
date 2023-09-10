@@ -53,6 +53,17 @@ Val ListAt(Val list, u32 pos, Heap *mem)
   return Head(TailList(list, pos, mem), mem);
 }
 
+bool IsTaggedWith(Val list, Val tag, Heap *mem)
+{
+  if (IsPair(list)) {
+    return Eq(tag, Head(list, mem));
+  } else if (IsTuple(list, mem)) {
+    return Eq(tag, TupleGet(list, 0, mem));
+  } else {
+    return false;
+  }
+}
+
 bool IsTagged(Val list, char *tag, Heap *mem)
 {
   if (IsPair(list)) {

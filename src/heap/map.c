@@ -177,13 +177,13 @@ static Val GetLeaf(Val node, u32 depth, Val key, Heap *mem)
 
 bool MapContains(Val map, Val key, Heap *mem)
 {
-  return !Eq(MapGet(map, key, mem), SymbolFor("*undefined*"));
+  return !Eq(MapGet(map, key, mem), Undefined);
 }
 
 Val MapGet(Val map, Val key, Heap *mem)
 {
   Val leaf = GetLeaf(map, 0, key, mem);
-  if (IsNil(leaf)) return MakeSymbol("*undefined*", mem);
+  if (IsNil(leaf)) return Undefined;
 
   return LeafContents(leaf, mem);
 }

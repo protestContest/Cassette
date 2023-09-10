@@ -17,7 +17,7 @@ void InitVM(VM *vm, CassetteOpts *opts)
   InitMem(&vm->mem, 0);
   vm->pc = 0;
   vm->cont = 0;
-  vm->stack = NewVec(Val, 256);
+  vm->stack = NewVec(Val, 1024);
   vm->call_stack = NewVec(Val, 256);
   vm->env = InitialEnv(&vm->mem);
   vm->modules = NULL;
@@ -27,6 +27,9 @@ void InitVM(VM *vm, CassetteOpts *opts)
 
   MakeSymbol("ok", &vm->mem);
   MakeSymbol("error", &vm->mem);
+  Assert(Eq(Function, MakeSymbol("*function*", &vm->mem)));
+  Assert(Eq(Undefined, MakeSymbol("*undefined*", &vm->mem)));
+  Assert(Eq(Moved, MakeSymbol("*moved*", &vm->mem)));
   SeedPrimitives();
   Seed(opts->seed);
 }
@@ -194,11 +197,10 @@ static void ApplyValue(Val value, VM *vm)
   }
 }
 
-#define GCFreq  1024
 void RunChunk(VM *vm, Chunk *chunk)
 {
   Heap *mem = &vm->mem;
-  u32 gc = GCFreq;
+  u32 next_gc = 1024;
 
   vm->pc = 0;
   vm->cont = ChunkSize(chunk);
@@ -224,24 +226,17 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
 #endif
 
-    if (--gc == 0) {
-      gc = GCFreq;
-      u32 start = MemSize(mem);
+    if (MemSize(mem) > next_gc) {
       if (vm->opts->verbose) {
         Print("GARBAGE DAY!!");
       }
       RunGC(vm);
-      u32 cleaned = start - MemSize(mem);
-      if (vm->opts->verbose) {
-        Print(" Collected ");
-        PrintInt(cleaned);
-        Print("\n");
-      }
+      next_gc = 2*MemSize(mem);
     }
 
     OpCode op = ChunkRef(chunk, vm->pc);
 #ifndef LIBCASSETTE
-    u32 start = clock();
+    // u32 start = clock();
 #endif
 
     switch (op) {
@@ -505,7 +500,7 @@ void RunChunk(VM *vm, Chunk *chunk)
       u32 frame = RawInt(ChunkConst(chunk, vm->pc+1));
       u32 pos = RawInt(ChunkConst(chunk, vm->pc+2));
       Val value = Lookup(vm->env, frame, pos, mem);
-      if (Eq(value, SymbolFor("*undefined*"))) {
+      if (Eq(value, Undefined)) {
         vm->error = EnvError;
       } else {
         StackPush(vm, value);
@@ -563,8 +558,8 @@ void RunChunk(VM *vm, Chunk *chunk)
         if (!vm->error) vm->pc = vm->cont;
       }
 #ifndef LIBCASSETTE
-      u32 dt = clock() - start;
-      if (IsFunc(func, mem)) RecordOp(op, dt);
+      // u32 dt = clock() - start;
+      // if (IsFunc(func, mem)) RecordOp(op, dt);
 #endif
       break;
     }
@@ -598,8 +593,8 @@ void RunChunk(VM *vm, Chunk *chunk)
     }
 
 #ifndef LIBCASSETTE
-    u32 dt = clock() - start;
-    if (op != OpApply) RecordOp(op, dt);
+    // u32 dt = clock() - start;
+    // if (op != OpApply) RecordOp(op, dt);
 #endif
   }
 

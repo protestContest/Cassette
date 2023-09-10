@@ -5,13 +5,13 @@ static PrimitiveDef *primitives = NULL;
 
 bool IsFunc(Val func, Heap *mem)
 {
-  return IsTagged(func, "*func*", mem);
+  return IsTaggedWith(func, Function, mem);
 }
 
 Val MakeFunc(Val entry, Val env, Heap *mem)
 {
   Val func = MakeTuple(3, mem);
-  TupleSet(func, 0, MakeSymbol("*func*", mem), mem);
+  TupleSet(func, 0, Function, mem);
   TupleSet(func, 1, entry, mem);
   TupleSet(func, 2, env, mem);
   return func;
@@ -46,7 +46,7 @@ void AddPrimitive(char *module, char *name, PrimitiveImpl fn)
 
 bool IsPrimitive(Val value, Heap *mem)
 {
-  return IsTagged(value, "*prim*", mem);
+  return IsTaggedWith(value, Primitive, mem);
 }
 
 Val DoPrimitive(Val prim, VM *vm)
@@ -57,9 +57,11 @@ Val DoPrimitive(Val prim, VM *vm)
 
 Val PrimitiveMap(Heap *mem)
 {
+  Assert(Eq(Primitive, MakeSymbol("*primitive*", mem)));
+
   Val prims = MakeMap(mem);
   for (u32 i = 0; i < VecCount(primitives); i++) {
-    Val primitive = Pair(MakeSymbol("*prim*", mem), IntVal(i), mem);
+    Val primitive = Pair(Primitive, IntVal(i), mem);
 
     if (primitives[i].module == NULL) {
       prims = MapPut(prims, MakeSymbol(primitives[i].name, mem), primitive, mem);

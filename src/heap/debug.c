@@ -43,10 +43,10 @@ u32 Inspect(Val value, Heap *mem)
     return 1 + Print(SymbolName(value, mem));
   } else if (IsNil(value)) {
     return Print("nil");
-  } else if (IsTagged(value, "*func*", mem)) {
+  } else if (IsTaggedWith(value, Function, mem)) {
     Print("λ");
     return 1 + Inspect(TupleGet(value, 1, mem), mem);
-  } else if (IsTagged(value, "*prim*", mem)) {
+  } else if (IsTaggedWith(value, Primitive, mem)) {
     Print("@");
     return 1 + Inspect(Tail(value, mem), mem);
   } else if (IsPair(value)) {
@@ -130,10 +130,10 @@ u32 DebugVal(Val value, Heap *mem)
     }
   } else if (IsNil(value)) {
     return Print("nil");
-  } else if (IsTagged(value, "*func*", mem)) {
+  } else if (IsTaggedWith(value, Function, mem)) {
     Print("λ");
     return PrintInt(RawVal(TupleGet(value, 1, mem))) + 1;
-  } else if (IsTagged(value, "*prim*", mem)) {
+  } else if (IsTaggedWith(value, Primitive, mem)) {
     Print("@");
     return PrintInt(RawVal(Tail(value, mem))) + 1;
   } else if (IsPair(value)) {

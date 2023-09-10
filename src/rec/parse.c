@@ -567,9 +567,9 @@ static ParseResult ParseLiteral(Lexer *lex, Heap *mem)
   Val pos = TokenPos(lex);
 
   if (MatchToken(TokenTrue, lex)) {
-    return ParseOk(Pair(pos, SymbolFor("true"), mem));
+    return ParseOk(Pair(pos, True, mem));
   } else if (MatchToken(TokenFalse, lex)) {
-    return ParseOk(Pair(pos, SymbolFor("false"), mem));
+    return ParseOk(Pair(pos, False, mem));
   } else if (MatchToken(TokenNil, lex)) {
     return ParseOk(Pair(pos, SymbolFor("nil"), mem));
   } else {
@@ -788,11 +788,15 @@ char *ParseErrorMessage(Val error, Heap *mem)
   char *cur = result;
   *cur = '[';
   cur++;
-  IntToStr(loc.line, cur, line_digits);
+  char *line = IntToStr(loc.line);
+  Copy(line, cur, line_digits);
+  Free(line);
   cur += line_digits;
   *cur = ':';
   cur++;
-  IntToStr(loc.col, cur, col_digits);
+  char *col = IntToStr(loc.col);
+  Copy(col, cur, col_digits);
+  Free(col);
   cur += col_digits;
   *cur = ']';
   cur++;

@@ -82,8 +82,8 @@ static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
   else if (IsTagged(expr, ":", mem))        result = CompileConst(Tail(Tail(expr, mem), mem), linkage, c);
   else if (IsTagged(expr, "\"", mem))       result = CompileString(Tail(expr, mem), linkage, c);
   else if (Eq(expr, SymbolFor("nil")))      result = CompileConst(nil, linkage, c);
-  else if (Eq(expr, SymbolFor("true")))     result = CompileConst(expr, linkage, c);
-  else if (Eq(expr, SymbolFor("false")))    result = CompileConst(expr, linkage, c);
+  else if (Eq(expr, True))                  result = CompileConst(expr, linkage, c);
+  else if (Eq(expr, False))                 result = CompileConst(expr, linkage, c);
   else if (IsSym(expr))                     result = CompileVar(expr, linkage, c);
 
   else if (IsTagged(expr, "[", mem))        result = CompileList(Tail(expr, mem), linkage, c);

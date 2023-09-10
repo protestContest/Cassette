@@ -10,6 +10,7 @@ void SetTail(Val pair, Val tail, Heap *mem);
 u32 ListLength(Val list, Heap *mem);
 bool ListContains(Val list, Val value, Heap *mem);
 Val ListAt(Val list, u32 pos, Heap *mem);
+bool IsTaggedWith(Val list, Val tag, Heap *mem);
 bool IsTagged(Val list, char *tag, Heap *mem);
 Val TailList(Val list, u32 pos, Heap *mem);
 Val TruncList(Val list, u32 pos, Heap *mem);
