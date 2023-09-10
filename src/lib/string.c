@@ -34,7 +34,7 @@ Val StringValid(VM *vm, Val args)
       return SymbolFor("false");
     }
   }
-  return SymbolFor("true");
+  return True;
 }
 
 Val StringLength(VM *vm, Val args)

@@ -31,7 +31,25 @@ Val IOPrint(VM *vm, Val args)
 Val IOInspect(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
-  Val item = TupleGet(args, 0, mem);
+  Val item;
+
+  if (TupleLength(args, mem) == 2) {
+    Val label = TupleGet(args, 1, mem);
+    if (!IsBinary(label, mem)) {
+      vm->error = TypeError;
+      return label;
+    }
+
+    item = TupleGet(args, 0, mem);
+    PrintN(BinaryData(label, mem), BinaryLength(label, mem));
+    Print(": ");
+  } else if (TupleLength(args, mem) == 1) {
+    item = TupleGet(args, 0, mem);
+  } else {
+    vm->error = ArityError;
+    return nil;
+  }
+
   Inspect(item, mem);
   Print("\n");
   return SymbolFor("ok");
@@ -40,10 +58,17 @@ Val IOInspect(VM *vm, Val args)
 Val IOOpen(VM *vm, Val args)
 {
   Heap *mem = &vm->mem;
+
+  if (TupleLength(args, mem) != 1) {
+    vm->error = ArityError;
+    return nil;
+  }
+
   Val arg = TupleGet(args, 0, mem);
 
   if (!IsBinary(arg, mem)) {
-    return ErrorResult("bad_arg", mem);
+    vm->error = TypeError;
+    return arg;
   }
 
   char path[BinaryLength(arg, mem) + 1];
@@ -51,6 +76,34 @@ Val IOOpen(VM *vm, Val args)
   path[BinaryLength(arg, mem)] = '\0';
 
   i32 file = Open(path);
+  if (file < 0) {
+    return ErrorResult("file_error", mem);
+  }
+
+  return OkResult(IntVal(file), mem);
+}
+
+Val IOOpenSerial(VM *vm, Val args)
+{
+  Heap *mem = &vm->mem;
+
+  if (TupleLength(args, mem) != 1) {
+    vm->error = ArityError;
+    return nil;
+  }
+
+  Val arg = TupleGet(args, 0, mem);
+
+  if (!IsBinary(arg, mem)) {
+    vm->error = TypeError;
+    return arg;
+  }
+
+  char path[BinaryLength(arg, mem) + 1];
+  Copy(BinaryData(arg, mem), path, BinaryLength(arg, mem));
+  path[BinaryLength(arg, mem)] = '\0';
+
+  i32 file = OpenSerial(path);
   if (file < 0) {
     return ErrorResult("file_error", mem);
   }

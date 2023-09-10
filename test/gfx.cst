@@ -1,0 +1,21 @@
+module Gfx
+
+def (Pt x y) do
+  (field) -> cond do
+    field == :x -> x
+    field == :y -> y
+    true        -> error :field_error
+  end
+end
+
+def (rect x y w h) do
+  Canvas.line x y x+w y
+  Canvas.line x y x y+h
+  Canvas.line x y+h x+w y+h
+  Canvas.line x+w y x+w y+h
+end
+
+def (draw_pt pt) do
+  let x = (pt :x) - 1, y = (pt :y) - 1
+  rect x y 2 2
+end

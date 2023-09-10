@@ -1,0 +1,39 @@
+module AxiDraw
+
+def (home port) do
+  IO.write port (List.to_binary ["hm,2000", 13])
+end
+
+def (open file) IO.serial file
+def (open! file) do
+  let port = open file
+  if (port 0) == :ok do
+    home (port 1)
+    (port 1)
+  else
+    error "Could not open port"
+  end
+end
+
+def (pen_up port) do
+  IO.write port (List.to_binary ["sp,1", 13])
+end
+
+def (pen_down port) do
+  IO.write port (List.to_binary ["sp,0", 13])
+end
+
+def (toggle_pen port) do
+  IO.write port (List.to_binary ["tp", 13])
+end
+
+def (move port x y) do
+  let msg = (List.to_binary [
+    "xm,2000,",
+    (Integer.to_string x),
+    ",",
+    (Integer.to_string y),
+    13 ])
+  inspect msg
+  IO.write port msg
+end

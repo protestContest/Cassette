@@ -113,22 +113,22 @@ Val CanvasLine(VM *vm, Val args)
     return nil;
   }
 
-  if (!IsInt(x1)) {
+  if (!IsNum(x1)) {
     vm->error = TypeError;
     return x1;
-  } else if(!IsInt(y1)) {
+  } else if(!IsNum(y1)) {
     vm->error = TypeError;
     return y1;
-  } else if (!IsInt(x2)) {
+  } else if (!IsNum(x2)) {
     vm->error = TypeError;
     return x2;
-  } else if(!IsInt(y2)) {
+  } else if(!IsNum(y2)) {
     vm->error = TypeError;
     return y2;
   }
 
   show_canvas = true;
-  SDL_RenderDrawLine(renderer, RawInt(x1), RawInt(y1), RawInt(x2), RawInt(y2));
+  SDL_RenderDrawLine(renderer, (i32)RawNum(x1), canvas_height - (i32)RawNum(y1) - 1, (i32)RawNum(x2), canvas_height - (i32)RawNum(y2) - 1);
 
   return SymbolFor("ok");
 }
