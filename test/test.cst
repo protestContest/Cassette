@@ -1,51 +1,58 @@
-import Gfx
 import Enum
 
-let Pt = Gfx.Pt
+let Pt = (Enum.record :x :y),
+    p = (Pt 2 3)
 
-def (dist p1 p2) do
-  let dx = (p1 :x) - (p2 :x),
-      dy = (p1 :y) - (p2 :y)
-  Math.sqrt (dx * dx) + (dy * dy)
-end
+inspect (p :x)
 
-def (midpoint p1 p2) do
-  let x = ((p1 :x) + (p2 :x)) / 2,
-      y = ((p1 :y) + (p2 :y)) / 2
-  Pt x y
-end
+; let p = (Geom.Pt 100 200)
+; inspect (p :x)
 
-def (bezier c1 c2 c3 c4) do
-  if (dist c1 c4) < 2 do
-    Canvas.line (c1 :x) (c1 :y) (c2 :x) (c2 :y)
-  else
-    let a1 = (midpoint c1 c2),
-        a2 = (midpoint c2 c3),
-        a3 = (midpoint c3 c4),
-        b1 = (midpoint a1 a2),
-        b2 = (midpoint a2 a3),
-        m = (midpoint b1 b2)
-    bezier c1 a1 b1 m
-    bezier m b2 a3 c4
-  end
-end
+; let Pt = Gfx.Pt
 
-def (random_pt) do
-  let x = Math.rand_int (Canvas.width),
-      y = Math.rand_int (Canvas.height)
-  Pt x y
-end
+; def (dist p1 p2) do
+;   let dx = (p1 :x) - (p2 :x),
+;       dy = (p1 :y) - (p2 :y)
+;   Math.sqrt (dx * dx) + (dy * dy)
+; end
 
-Enum.each (Enum.iota 1000) (i) -> do
-  let p1 = (random_pt),
-      p2 = (random_pt),
-      p3 = (random_pt),
-      p4 = (random_pt)
+; def (midpoint p1 p2) do
+;   let x = ((p1 :x) + (p2 :x)) / 2,
+;       y = ((p1 :y) + (p2 :y)) / 2
+;   Pt x y
+; end
 
-  Gfx.draw_pt p1
-  Gfx.draw_pt p2
-  Gfx.draw_pt p3
-  Gfx.draw_pt p4
+; def (bezier c1 c2 c3 c4) do
+;   if (dist c1 c4) < 2 do
+;     Canvas.line (c1 :x) (c1 :y) (c2 :x) (c2 :y)
+;   else
+;     let a1 = (midpoint c1 c2),
+;         a2 = (midpoint c2 c3),
+;         a3 = (midpoint c3 c4),
+;         b1 = (midpoint a1 a2),
+;         b2 = (midpoint a2 a3),
+;         m = (midpoint b1 b2)
+;     bezier c1 a1 b1 m
+;     bezier m b2 a3 c4
+;   end
+; end
 
-  bezier p1 p2 p3 p4
-end
+; def (random_pt) do
+;   let x = Math.rand_int (Canvas.width),
+;       y = Math.rand_int (Canvas.height)
+;   Pt x y
+; end
+
+; Enum.each (Enum.iota 10) (i) -> do
+;   let p1 = (random_pt),
+;       p2 = (random_pt),
+;       p3 = (random_pt),
+;       p4 = (random_pt)
+
+;   ; Gfx.draw_pt p1
+;   ; Gfx.draw_pt p2
+;   ; Gfx.draw_pt p3
+;   ; Gfx.draw_pt p4
+
+;   bezier p1 p2 p3 p4
+; end

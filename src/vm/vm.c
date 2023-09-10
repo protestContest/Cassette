@@ -25,8 +25,8 @@ void InitVM(VM *vm, CassetteOpts *opts)
   vm->error = false;
   vm->opts = opts;
 
-  MakeSymbol("ok", &vm->mem);
-  MakeSymbol("error", &vm->mem);
+  Assert(Eq(Ok, MakeSymbol("ok", &vm->mem)));
+  Assert(Eq(Error, MakeSymbol("error", &vm->mem)));
   Assert(Eq(Function, MakeSymbol("*function*", &vm->mem)));
   Assert(Eq(Undefined, MakeSymbol("*undefined*", &vm->mem)));
   Assert(Eq(Moved, MakeSymbol("*moved*", &vm->mem)));
@@ -200,7 +200,7 @@ static void ApplyValue(Val value, VM *vm)
 void RunChunk(VM *vm, Chunk *chunk)
 {
   Heap *mem = &vm->mem;
-  u32 next_gc = 1024;
+  // u32 next_gc = 1024;
 
   vm->pc = 0;
   vm->cont = ChunkSize(chunk);
@@ -220,19 +220,19 @@ void RunChunk(VM *vm, Chunk *chunk)
 #endif
 
   while (vm->error == NoError && vm->pc < ChunkSize(chunk)) {
+    // if (MemSize(mem) > next_gc) {
+    //   if (vm->opts->verbose) {
+    //     Print("GARBAGE DAY!!\n");
+    //   }
+    //   RunGC(vm);
+    //   next_gc = 2*MemSize(mem);
+    // }
+
 #ifndef LIBCASSETTE
     if (vm->opts->verbose) {
       TraceInstruction(vm, chunk);
     }
 #endif
-
-    if (MemSize(mem) > next_gc) {
-      if (vm->opts->verbose) {
-        Print("GARBAGE DAY!!");
-      }
-      RunGC(vm);
-      next_gc = 2*MemSize(mem);
-    }
 
     OpCode op = ChunkRef(chunk, vm->pc);
 #ifndef LIBCASSETTE

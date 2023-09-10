@@ -149,16 +149,22 @@ void PrintAST(Val ast, u32 indent, Heap *mem)
       expr = Tail(expr, mem);
     }
   } else if (IsTagged(expr, "->", mem)) {
-    Print("[");
-    Print("-> [");
+    Print("[-> ");
     Val args = Tail(ListAt(expr, 1, mem), mem);
-    while (!IsNil(args)) {
-      Val arg = Tail(Head(args, mem), mem);
-      Print(SymbolName(arg, mem));
-      if (!IsNil(Tail(args, mem))) Print(" ");
-      args = Tail(args, mem);
+
+    if (IsSym(args)) {
+      Print(SymbolName(args, mem));
+    } else {
+      Print("[");
+      while (!IsNil(args)) {
+        Val arg = Tail(Head(args, mem), mem);
+        Print(SymbolName(arg, mem));
+        if (!IsNil(Tail(args, mem))) Print(" ");
+        args = Tail(args, mem);
+      }
+      Print("]");
     }
-    Print("] ");
+    Print(" ");
     PrintAST(ListAt(expr, 2, mem), indent + 1, mem);
     Print("]");
   } else if (IsTagged(expr, ".", mem) ||

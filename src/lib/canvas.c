@@ -81,7 +81,7 @@ Val CanvasSetSize(VM *vm, Val args)
   DestroyCanvas();
   InitCanvas(RawInt(width), RawInt(height));
 
-  return SymbolFor("ok");
+  return Ok;
 }
 
 Val CanvasLine(VM *vm, Val args)
@@ -130,7 +130,7 @@ Val CanvasLine(VM *vm, Val args)
   show_canvas = true;
   SDL_RenderDrawLine(renderer, (i32)RawNum(x1), canvas_height - (i32)RawNum(y1) - 1, (i32)RawNum(x2), canvas_height - (i32)RawNum(y2) - 1);
 
-  return SymbolFor("ok");
+  return Ok;
 }
 
 Val CanvasWidth(VM *vm, Val args)

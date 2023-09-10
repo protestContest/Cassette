@@ -61,3 +61,5 @@ typedef union {
 #define Primitive         (Val){.as_i = 0x7FDE8B53}
 #define Function          (Val){.as_i = 0x7FDBE559}
 #define Moved             (Val){.as_i = 0x7FDEC294}
+#define Ok                (Val){.as_i = 0x7FD9C8D3}
+#define Error             (Val){.as_i = 0x7FD161DF}

@@ -68,3 +68,22 @@ def (iota n) do
   loop 0 []
 end
 
+def (index_of item tuple) do
+  def (loop n) do
+    cond do
+      n == #tuple         -> nil
+      (tuple n) == item   -> n
+      true                -> loop n + 1
+    end
+  end
+
+  loop 0
+end
+
+let record = fields -> do
+  elements -> do
+    (field) -> do
+      elements (index_of field fields)
+    end
+  end
+end

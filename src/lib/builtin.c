@@ -41,7 +41,7 @@ Val StdAssert(VM *vm, Val args)
   }
 
   if (IsTrue(TupleGet(args, 0, mem))) {
-    return SymbolFor("ok");
+    return Ok;
   } else {
     vm->error = RuntimeError;
     return TupleGet(args, 0, mem);

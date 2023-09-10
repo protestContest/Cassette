@@ -27,7 +27,7 @@ static void InitCompiler(Compiler *c, CassetteOpts *opts, Val env, Heap *mem)
 
   MakeSymbol("return", mem);
   MakeSymbol("next", mem);
-  MakeSymbol("ok", mem);
+  Assert(Eq(Ok, MakeSymbol("ok", mem)));
 }
 
 #define OpSeq(op, mem)  MakeSeq(0, 0, Pair(IntVal(op), nil, mem))
@@ -483,7 +483,7 @@ static CompileResult CompileAssigns(Val expr, u32 index, Linkage linkage, Compil
     MakeSeq(0, 0,
       Pair(SourceRef(source, mem),
       Pair(IntVal(OpConst),
-      Pair(SymbolFor("ok"), nil, mem), mem), mem)), mem), mem));
+      Pair(Ok, nil, mem), mem), mem)), mem), mem));
 }
 
 static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compiler *c)
@@ -530,7 +530,7 @@ static CompileResult CompileImport(Val expr, u32 index, Linkage linkage, Compile
       AppendSeq(assigns,
         MakeSeq(0, 0,
           Pair(IntVal(OpConst),
-          Pair(SymbolFor("ok"), nil, mem), mem)), mem), mem), mem));
+          Pair(Ok, nil, mem), mem)), mem), mem), mem));
 }
 
 static CompileResult CompileBlock(Val expr, Linkage linkage, Compiler *c)

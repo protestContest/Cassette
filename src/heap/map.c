@@ -195,7 +195,7 @@ Val MapPut(Val map, Val key, Val value, Heap *mem)
 
 Val MapDelete(Val map, Val key, Heap *mem)
 {
-  return SymbolFor("error");
+  return Error;
 }
 
 Val MapFrom(Val keys, Val vals, Heap *mem)

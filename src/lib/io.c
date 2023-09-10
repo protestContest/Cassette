@@ -25,7 +25,7 @@ Val IOPrint(VM *vm, Val args)
     vm->error = TypeError;
     return item;
   }
-  return SymbolFor("ok");
+  return Ok;
 }
 
 Val IOInspect(VM *vm, Val args)
@@ -52,7 +52,7 @@ Val IOInspect(VM *vm, Val args)
 
   Inspect(item, mem);
   Print("\n");
-  return SymbolFor("ok");
+  return Ok;
 }
 
 Val IOOpen(VM *vm, Val args)

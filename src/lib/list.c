@@ -82,13 +82,13 @@ Val ListReverse(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
 
   Val list = TupleGet(args, 0, mem);
   if (!IsPair(list)) {
     vm->error = TypeError;
-    return SymbolFor("error");
+    return Error;
   }
 
   return ReverseList(list, mem);
@@ -99,19 +99,19 @@ Val ListTrunc(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
 
   Val list = TupleGet(args, 0, mem);
   if (!IsPair(list)) {
     vm->error = TypeError;
-    return SymbolFor("error");
+    return Error;
   }
 
   Val index = TupleGet(args, 1, mem);
   if (!IsInt(index)) {
     vm->error = TypeError;
-    return SymbolFor("error");
+    return Error;
   }
 
   return TruncList(list, RawInt(index), mem);
@@ -122,19 +122,19 @@ Val ListAfter(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
 
   Val list = TupleGet(args, 0, mem);
   if (!IsPair(list)) {
     vm->error = TypeError;
-    return SymbolFor("error");
+    return Error;
   }
 
   Val index = TupleGet(args, 1, mem);
   if (!IsInt(index)) {
     vm->error = TypeError;
-    return SymbolFor("error");
+    return Error;
   }
 
   return TailList(list, RawInt(index), mem);
@@ -145,19 +145,19 @@ Val ListJoin(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
 
   Val list1 = TupleGet(args, 0, mem);
   if (!IsPair(list1)) {
     vm->error = TypeError;
-    return SymbolFor("error");
+    return Error;
   }
 
   Val list2 = TupleGet(args, 1, mem);
   if (!IsPair(list2)) {
     vm->error = TypeError;
-    return SymbolFor("error");
+    return Error;
   }
 
   return JoinLists(list1, list2, mem);

@@ -10,7 +10,7 @@ Val StdMapKeys(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
   Val map = TupleGet(args, 0, mem);
   if (!IsMap(map, mem)) {
@@ -26,7 +26,7 @@ Val StdMapValues(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
   Val map = TupleGet(args, 0, mem);
   if (!IsMap(map, mem)) {
@@ -42,7 +42,7 @@ Val StdMapPut(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 3) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
   Val map = TupleGet(args, 0, mem);
   if (!IsMap(map, mem)) {
@@ -59,7 +59,7 @@ Val StdMapGet(VM *vm, Val args)
 {  Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
   Val map = TupleGet(args, 0, mem);
   if (!IsMap(map, mem)) {
@@ -75,7 +75,7 @@ Val StdMapDelete(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 2) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
   Val map = TupleGet(args, 0, mem);
   if (!IsMap(map, mem)) {
@@ -92,7 +92,7 @@ Val StdMapToList(VM *vm, Val args)
   Heap *mem = &vm->mem;
   if (TupleLength(args, mem) != 1) {
     vm->error = ArityError;
-    return SymbolFor("error");
+    return Error;
   }
   Val map = TupleGet(args, 0, mem);
   if (!IsMap(map, mem)) {

@@ -43,6 +43,10 @@ lib: $(LIBTARGET)
 run: $(TARGET)
 	@$(TARGET)
 
+.PHONY: entitlements
+entitlements: $(TARGET)
+	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(TARGET)
+
 .PHONY: install
 install: $(TARGET) $(LIBTARGET)
 	mkdir -p $(PREFIX)/bin

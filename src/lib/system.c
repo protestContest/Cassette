@@ -8,5 +8,5 @@ Val SysTime(VM *vm, Val args)
 Val SysExit(VM *vm, Val args)
 {
   vm->cont = MaxUInt;
-  return SymbolFor("ok");
+  return Ok;
 }
