@@ -637,7 +637,8 @@ static CompileResult CompileLambda(Val expr, Linkage linkage, Compiler *c)
       Pair(IntVal(OpTuple),
       Pair(IntVal(1),
       Pair(IntVal(OpExtend),
-      Pair(IntVal(OpDefine), nil, mem), mem), mem), mem));
+      Pair(IntVal(OpDefine),
+      Pair(IntVal(0), nil, mem), mem), mem), mem), mem));
   } else {
     u32 num_params = ListLength(params, mem);
     c->env = ExtendEnv(c->env, MakeTuple(num_params, mem), mem);
