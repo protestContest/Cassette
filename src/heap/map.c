@@ -3,7 +3,7 @@
 #include "list.h"
 #include "binary.h"
 #include "symbol.h"
-#include "debug.h"
+#include "univ/math.h"
 
 #define slotBits            4
 #define slotMask            ((1 << slotBits) - 1)
@@ -36,17 +36,17 @@ Empty map:
 static Val MakeNode(u32 branch_bitmap, Val children, Heap *mem)
 {
   Val node = ObjVal(MemSize(mem));
-  VecPush(mem->values, MapHeader(branch_bitmap));
-  VecPush(mem->values, children);
+  PushVal(mem, MapHeader(branch_bitmap));
+  PushVal(mem, children);
   return node;
 }
 
 static Val MakeLeaf(Val key, Val value, Heap *mem)
 {
   Val leaf = ObjVal(MemSize(mem));
-  VecPush(mem->values, MapHeader(0));
-  VecPush(mem->values, key);
-  VecPush(mem->values, value);
+  PushVal(mem, MapHeader(0));
+  PushVal(mem, key);
+  PushVal(mem, value);
 
   return leaf;
 }
@@ -124,8 +124,8 @@ static Val PutNode(Val node, u32 depth, Val key, Val value, Heap *mem)
 Val MakeMap(Heap *mem)
 {
   Val map = ObjVal(MemSize(mem));
-  VecPush(mem->values, MapHeader(0));
-  VecPush(mem->values, nil);
+  PushVal(mem, MapHeader(0));
+  PushVal(mem, nil);
   return map;
 }
 
@@ -260,59 +260,4 @@ Val MapValues(Val map, Heap *mem)
   Val values = MakeTuple(length, mem);
   CollectValues(map, values, 0, mem);
   return values;
-}
-
-u32 InspectNode(Val node, u32 depth, Heap *mem)
-{
-  Print("[");
-  PrintInt(depth);
-  Print("]");
-  PrintHexN(NodeBitmap(node, mem), 4);
-
-  if (IsLeaf(node, mem)) {
-    Print(" ");
-    Inspect(LeafKey(node, mem), mem);
-    if (!IsNil(LeafKey(node, mem))) {
-      Print(" (");
-      PrintHexN(RawVal(HashValue(LeafKey(node, mem), mem)), 5);
-      Print(")");
-      Print(" => ");
-      DebugVal(LeafContents(node, mem), mem);
-    }
-  } else {
-    Print(" #");
-    Val children = NodeChildren(node, mem);
-    PrintInt(TupleLength(children, mem));
-    for (u32 i = 0; i < TupleLength(children, mem); i++) {
-      Print("\n");
-      for (u32 j = 0; j < depth + 1; j++) Print("  ");
-      InspectNode(TupleGet(children, i, mem), depth + 1, mem);
-    }
-  }
-
-  // if (IsLeaf(map, mem)) {
-  //   Val key = LeafKey(map, mem);
-  //   if (IsNil(key)) return 0;
-  //   Val val = LeafContents(map, mem);
-  //   u32 len = Print(SymbolName(key, mem));
-  //   len += Print(": ");
-  //   len += Inspect(val, mem);
-  //   return len;
-  // }
-
-  // Val children = NodeChildren(map, mem);
-  // u32 num = TupleLength(children, mem);
-  // u32 len = 0;
-  // for (u32 i = 0; i < num; i++) {
-  //   len += InspectMap(TupleGet(children, i, mem), mem);
-  //   if (i < num-1) len += Print(", ");
-  // }
-  return 0;
-}
-
-u32 InspectMap(Val map, Heap *mem)
-{
-  InspectNode(map, 0, mem);
-  Print("\n");
-  return 0;
 }

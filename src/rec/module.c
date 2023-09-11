@@ -3,6 +3,11 @@
 #include "parse.h"
 #include "compile.h"
 #include "seq.h"
+#include "vm.h"
+#include "univ/file.h"
+#include "univ/string.h"
+#include "univ/system.h"
+#include "univ/memory.h"
 
 ModuleResult LoadModule(char *file, Heap *mem, Val env, CassetteOpts *opts)
 {
@@ -14,54 +19,41 @@ ModuleResult LoadModule(char *file, Heap *mem, Val env, CassetteOpts *opts)
     return (ModuleResult){false, {.error = ast.error}};
   }
 
-#ifndef LIBCASSETTE
-  if (opts->verbose > 1) {
-    Print("AST:\n");
-    PrintAST(ast.value, 0, mem);
-    Print("\n");
-  }
-
-  if (opts->verbose) {
-    Print("Compiling ");
-    Print(file);
-    Print("\n");
-  }
-#endif
-
   return Compile(ast.value, opts, env, mem);
 }
 
 CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
 {
   // get all files from source directory
-  char **files = ListFiles(opts->dir);
+  FileSet fileset = ListFiles(opts->dir);
 
   i32 entry = -1;
-  Module *modules = NULL;
+  u32 num_modules = 0;
+  Module modules[ModuleMax];
   HashMap mod_map = EmptyHashMap;
   Val env = CompileEnv(mem);
 
   // try to compile each file into a module
-  for (i32 i = 0; i < (i32)VecCount(files); i++) {
+  for (u32 i = 0; i < fileset.count; i++) {
     // only compile the entry file or files ending with ".cst"
-    if (StrEq(files[i], opts->entry)) {
-      entry = VecCount(modules);
+    if (StrEq(fileset.files[i], opts->entry)) {
+      entry = num_modules;
     } else {
-      u32 len = StrLen(files[i]);
-      if (len < 4 || !StrEq(files[i] + len - 4, ".cst")) {
+      u32 len = StrLen(fileset.files[i]);
+      if (len < 4 || !StrEq(fileset.files[i] + len - 4, ".cst")) {
         continue;
       }
     }
 
-    ModuleResult result = LoadModule(files[i], mem, env, opts);
+    ModuleResult result = LoadModule(fileset.files[i], mem, env, opts);
     if (!result.ok) {
-      result.error.file = files[i];
+      result.error.file = fileset.files[i];
       return (CompileResult){false, {.error = result.error}};
     }
-    result.module.file = files[i];
+    result.module.file = fileset.files[i];
 
     // ignore files that aren't modules (except the entry file)
-    if (IsNil(result.module.name) && !StrEq(files[i], opts->entry)) continue;
+    if (IsNil(result.module.name) && !StrEq(fileset.files[i], opts->entry)) continue;
 
     u32 key = result.module.name.as_i;
     if (HashMapContains(&mod_map, key)) {
@@ -75,34 +67,35 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
       }
       old_mod.code = AppendSeq(old_mod.code, result.module.code, mem);
     } else {
-      HashMapSet(&mod_map, key, VecCount(modules));
-      VecPush(modules, result.module);
+      Assert(num_modules < ModuleMax);
+      HashMapSet(&mod_map, key, num_modules);
+      modules[num_modules++] = result.module;
     }
   }
-  FreeVec(files);
+  Free(fileset.files);
 
   if (entry == -1) {
-    char *message = StrCat("Could not find entry ", opts->entry);
-    return (CompileResult){false, {.error = {message, NULL, 0}}};
+    return (CompileResult){false, {.error = {"Could not find entry", NULL, 0}}};
   }
 
   // starting with the entry file, recursively prepend imported module code into
   // one big code sequence, including module identifiers
 
   Seq code = AppendSeq(ModuleSeq(modules[entry].file, mem), modules[entry].code, mem);
-  u32 *needed = NULL;
+  u32 num_needed = 0;
+  u32 needed[ModuleMax];
   for (u32 i = 0; i < modules[entry].imports.count; i++) {
-    VecPush(needed, HashMapKey(&modules[entry].imports, i));
+    needed[num_needed++] = HashMapKey(&modules[entry].imports, i);
   }
   HashMap loaded = EmptyHashMap;
   HashMapSet(&loaded, modules[entry].name.as_i, 1);
 
-  while (VecCount(needed) > 0) {
-    u32 key = VecPop(needed);
+  while (num_needed > 0) {
+    u32 key = needed[--num_needed];
     if (!HashMapContains(&loaded, key)) {
       if (!HashMapContains(&mod_map, key)) {
         CompileResult result = {false, {.error = {"", NULL, 0}}};
-        result.error.message = StrCat("Could not find module: ", SymbolName(SymVal(key), mem));
+        result.error.message = "Could not find module";
         return result;
       }
       Module mod = modules[HashMapGet(&mod_map, key)];
@@ -113,7 +106,7 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
         code, mem), mem);
 
       for (u32 i = 0; i < mod.imports.count; i++) {
-        VecPush(needed, HashMapKey(&mod.imports, i));
+        needed[num_needed++] = HashMapKey(&mod.imports, i);
       }
       HashMapSet(&loaded, key, 1);
     }
@@ -131,7 +124,6 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
         Pair(Label(after_load, mem), nil, mem), mem), mem), mem), mem), mem)), mem);
   }
 
-  FreeVec(needed);
   DestroyHashMap(&loaded);
 
   return (CompileResult){true, {code}};

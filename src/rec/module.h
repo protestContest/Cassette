@@ -4,6 +4,7 @@
 #include "opts.h"
 #include "source.h"
 #include "compile.h"
+#include "univ/hashmap.h"
 
 typedef struct {
   Val name;

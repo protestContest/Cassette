@@ -1,6 +1,7 @@
 #include "garbage.h"
 #include "symbol.h"
 #include "binary.h"
+#include "univ/memory.h"
 
 static u32 ValSize(Val value)
 {
@@ -19,7 +20,7 @@ static u32 ValSize(Val value)
   }
 }
 
-static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
+Val CopyValue(Val value, Heap *from_space, Heap *to_space)
 {
   if (IsNil(value)) return nil;
 
@@ -30,8 +31,8 @@ static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
     }
 
     Val new_val = PairVal(MemSize(to_space));
-    VecPush(to_space->values, from_space->values[index]);
-    VecPush(to_space->values, from_space->values[index+1]);
+    PushVal(to_space, from_space->values[index]);
+    PushVal(to_space, from_space->values[index+1]);
 
     from_space->values[index] = Moved;
     from_space->values[index+1] = new_val;
@@ -45,7 +46,7 @@ static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
 
     Val new_val = ObjVal(MemSize(to_space));
     for (u32 i = 0; i < ValSize(from_space->values[index]); i++) {
-      VecPush(to_space->values, from_space->values[index + i]);
+      PushVal(to_space, from_space->values[index + i]);
     }
 
     from_space->values[index] = Moved;
@@ -56,31 +57,28 @@ static Val CopyValue(Val value, Heap *from_space, Heap *to_space)
   }
 }
 
-void CollectGarbage(Val **roots, u32 num_roots, Heap *from_space)
+Heap BeginGC(Heap *from_space)
 {
   Heap to_space = *from_space;
-  to_space.values = NewVec(Val, MemSize(from_space) / 2);
-  VecPush(to_space.values, nil);
-  VecPush(to_space.values, nil);
+  to_space.capacity = MemSize(from_space)/2;
+  to_space.count = 0;
+  to_space.values = Allocate(to_space.capacity * sizeof(Val));
+  PushVal(&to_space, nil);
+  PushVal(&to_space, nil);
+  return to_space;
+}
 
-  u32 scan = MemSize(&to_space);
+void CollectGarbage(Heap *from_space, Heap *to_space)
+{
+  u32 scan = MemSize(to_space);
 
-  for (u32 r = 0; r < num_roots; r++) {
-    for (u32 i = 0; i < VecCount(roots[r]); i++) {
-      roots[r][i] = CopyValue(roots[r][i], from_space, &to_space);
-    }
-  }
-
-  while (scan < VecCount(to_space.values)) {
-    if (IsBinaryHeader(to_space.values[scan])) {
-      scan += ValSize(to_space.values[scan]);
+  while (scan < to_space->count) {
+    if (IsBinaryHeader(to_space->values[scan])) {
+      scan += ValSize(to_space->values[scan]);
     } else {
-      Val new_val = CopyValue(to_space.values[scan], from_space, &to_space);
-      to_space.values[scan] = new_val;
+      Val new_val = CopyValue(to_space->values[scan], from_space, to_space);
+      to_space->values[scan] = new_val;
       scan++;
     }
   }
-
-  FreeVec(from_space->values);
-  *from_space = to_space;
 }

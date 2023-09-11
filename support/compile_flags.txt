@@ -3,10 +3,7 @@
 -Werror
 -Wno-unused-function
 -Wno-unused-parameter
--I/Users/zack/.local/include
--I/opt/homebrew/include
 -I../src
 -I../include
 -include
-univ.h
--DWITH_CANVAS
+univ/base.h

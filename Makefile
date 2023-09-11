@@ -9,17 +9,18 @@ TARGET = ./$(NAME)
 LIBTARGET = ./lib$(NAME).a
 SHELL = bash
 
-DEFINES += -DWITH_CANVAS
+# DEFINES += -DWITH_CANVAS
+DEFINES += -DLIBCASSETTE
 
 SRCS := $(shell find $(SRC_DIR) -name *.c -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 LIBOBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/lib%.o)
 
 CC = clang
-INCLUDE_FLAGS = -I$(PREFIX)/include -I$(SRC_DIR) -I$(INC_DIR) -I$(shell sdl2-config --prefix)/include -include univ.h
+INCLUDE_FLAGS = -I$(PREFIX)/include -I$(SRC_DIR) -I$(INC_DIR) -include univ/base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter
 CFLAGS = -g -O0 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFINES)
-LDFLAGS = -L$(PREFIX)/lib -L$(LIB_DIR) -luniv $(shell sdl2-config --libs)
+LDFLAGS = -L$(PREFIX)/lib -L$(LIB_DIR)
 
 $(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)

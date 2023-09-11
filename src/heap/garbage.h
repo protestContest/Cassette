@@ -1,4 +1,6 @@
 #pragma once
 #include "heap.h"
 
-void CollectGarbage(Val **roots, u32 num_roots, Heap *mem);
+Heap BeginGC(Heap *from_space);
+Val CopyValue(Val value, Heap *from_space, Heap *to_space);
+void CollectGarbage(Heap *from_space, Heap *to_space);

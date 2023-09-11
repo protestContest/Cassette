@@ -1,6 +1,7 @@
 #pragma once
 #include "heap.h"
 #include "chunk.h"
+#include "univ/hashmap.h"
 
 typedef enum {
   NoError,
@@ -13,13 +14,20 @@ typedef enum {
   RuntimeError
 } VMError;
 
+#define StackMax 1024
+#define CallStackMax 1024
+#define ModuleMax 256
+
 typedef struct {
   u32 pc;
   u32 cont;
-  Val *stack;
-  Val *call_stack;
   Val env;
-  Val *modules;
+  u32 stack_count;
+  Val stack[StackMax];
+  u32 call_stack_count;
+  Val call_stack[CallStackMax];
+  u32 mod_count;
+  Val modules[ModuleMax];
   HashMap mod_map;
   Heap mem;
   VMError error;
@@ -37,7 +45,3 @@ void RunChunk(VM *vm, Chunk *chunk);
 
 void StackPush(VM *vm, Val value);
 Val StackPop(VM *vm);
-
-#ifndef LIBCASSETTE
-void PrintOpStats(void);
-#endif

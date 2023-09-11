@@ -1,6 +1,11 @@
 #include "function.h"
-#include "lib.h"
+#include "stdlib.h"
+#include "univ/memory.h"
+#include "univ/system.h"
+#include "univ/math.h"
 
+static u32 primitive_capacity = 0;
+static u32 primitive_count = 0;
 static PrimitiveDef *primitives = NULL;
 
 bool IsFunc(Val func, Heap *mem)
@@ -31,8 +36,10 @@ void SeedPrimitives(void)
 {
   if (primitives == NULL) {
     PrimitiveDef *stdlib = StdLib();
+    primitive_capacity = StdLibSize();
+    primitives = Allocate(sizeof(PrimitiveDef)*primitive_capacity);
     for (u32 i = 0; i < StdLibSize(); i++) {
-      VecPush(primitives, stdlib[i]);
+      primitives[primitive_count++] = stdlib[i];
     }
   }
 }
@@ -41,7 +48,11 @@ void AddPrimitive(char *module, char *name, PrimitiveImpl fn)
 {
   SeedPrimitives();
   PrimitiveDef def = {module, name, fn};
-  VecPush(primitives, def);
+  if (primitive_count >= primitive_capacity) {
+    primitive_capacity = Max(2, 2*primitive_capacity);
+    primitives = Reallocate(primitives, primitive_capacity);
+  }
+  primitives[primitive_count++] = def;
 }
 
 bool IsPrimitive(Val value, Heap *mem)
@@ -60,7 +71,7 @@ Val PrimitiveMap(Heap *mem)
   Assert(Eq(Primitive, MakeSymbol("*primitive*", mem)));
 
   Val prims = MakeMap(mem);
-  for (u32 i = 0; i < VecCount(primitives); i++) {
+  for (u32 i = 0; i < primitive_count; i++) {
     Val primitive = Pair(Primitive, IntVal(i), mem);
 
     if (primitives[i].module == NULL) {

@@ -1,9 +1,16 @@
 #include "chunk.h"
 #include "rec.h"
+#include "univ/memory.h"
+#include "univ/math.h"
+#include "univ/string.h"
+#include "univ/system.h"
+#include "univ/file.h"
 
 void InitChunk(Chunk *chunk)
 {
-  chunk->data = NULL;
+  chunk->capacity = 256;
+  chunk->count = 0;
+  chunk->data = Allocate(chunk->capacity);
   InitMem(&chunk->constants, 0);
   chunk->source_map = EmptyHashMap;
   chunk->sources = NULL;
@@ -11,10 +18,10 @@ void InitChunk(Chunk *chunk)
 
 void DestroyChunk(Chunk *chunk)
 {
-  FreeVec(chunk->data);
+  Free(chunk->data);
   DestroyMem(&chunk->constants);
   DestroyHashMap(&chunk->source_map);
-  FreeVec(chunk->sources);
+  Free(chunk->sources);
 }
 
 void FreeChunk(Chunk *chunk)
@@ -25,7 +32,7 @@ void FreeChunk(Chunk *chunk)
 
 u32 ChunkSize(Chunk *chunk)
 {
-  return VecCount(chunk->data);
+  return chunk->count;
 }
 
 u8 ChunkRef(Chunk *chunk, u32 i)
@@ -46,12 +53,16 @@ Val *ChunkBinary(Chunk *chunk, u32 i)
 
 void PushByte(u8 byte, Chunk *chunk)
 {
-  VecPush(chunk->data, byte);
+  if (chunk->count >= chunk->capacity) {
+    chunk->capacity = Max(256, chunk->capacity*2);
+    chunk->data = Reallocate(chunk->data, chunk->capacity);
+  }
+  chunk->data[chunk->count++] = byte;
 }
 
 static u32 FindConst(Val value, Chunk *chunk)
 {
-  u32 count = VecCount(chunk->constants.values);
+  u32 count = MemSize(&chunk->constants);
   for (u32 i = 0; i < count; i++) {
     if (Eq(value, chunk->constants.values[i])) return i;
   }
@@ -61,25 +72,22 @@ static u32 FindConst(Val value, Chunk *chunk)
 void PushConst(Val value, Chunk *chunk)
 {
   u32 index = FindConst(value, chunk);
-  if (index > 255) {
-    Print("Constant overflow!\n");
-    Abort();
-  }
-  if (index == VecCount(chunk->constants.values)) {
-    VecPush(chunk->constants.values, value);
-  }
-  VecPush(chunk->data, index);
-}
+  Assert(index < 256);
 
-static u32 FindModule(u32 pos, Chunk *chunk)
-{
-
-  return VecCount(chunk->sources);
+  if (index == MemSize(&chunk->constants)) {
+    PushVal(&chunk->constants, value);
+  }
+  PushByte(index, chunk);
 }
 
 void AddSourceFile(char *filename, u32 offset, Chunk *chunk)
 {
-  FileOffset *entry = VecNext(chunk->sources);
+  if (chunk->sources_count >= chunk->sources_capacity) {
+    chunk->sources_capacity = Max(2, 2*chunk->sources_capacity);
+    chunk->sources = Reallocate(chunk->sources, sizeof(FileOffset)*chunk->sources_capacity);
+  }
+  FileOffset *entry = &chunk->sources[chunk->sources_count++];
+
   u32 len = StrLen(filename);
   entry->filename = Allocate(len + 1);
   Copy(filename, entry->filename, len);
@@ -90,7 +98,7 @@ void AddSourceFile(char *filename, u32 offset, Chunk *chunk)
 char *SourceFile(u32 pos, Chunk *chunk)
 {
   char *filename = NULL;
-  for (u32 i = 0; i < VecCount(chunk->sources); i++) {
+  for (u32 i = 0; i < chunk->sources_count; i++) {
     if (chunk->sources[i].offset > pos) break;
     filename = chunk->sources[i].filename;
   }
@@ -117,13 +125,35 @@ u32 ChunkTag(void)
   return (0x7E << 24) | (0xE7 << 16) | (0x55 << 8) | (0xCA);
 }
 
+u32 SerializedSize(Chunk *chunk)
+{
+  u32 tag = ChunkTag();
+  u32 version = CurrentVersion;
+  u32 code_size = chunk->count;
+  u32 const_size = MemSize(&chunk->constants)*sizeof(Val);
+  u32 strings_size = chunk->constants.strings_count;
+  u32 string_map_size = chunk->constants.string_map.count*sizeof(u32)*2;
+
+  return
+    sizeof(tag) +
+    sizeof(version) +
+    sizeof(code_size) +
+    code_size +
+    sizeof(const_size) +
+    const_size +
+    sizeof(strings_size) +
+    strings_size +
+    sizeof(string_map_size) +
+    string_map_size;
+}
+
 u8 *SerializeChunk(Chunk *chunk)
 {
   u32 tag = ChunkTag();
   u32 version = CurrentVersion;
-  u32 code_size = VecCount(chunk->data);
+  u32 code_size = chunk->count;
   u32 const_size = MemSize(&chunk->constants)*sizeof(Val);
-  u32 strings_size = VecCount(chunk->constants.strings);
+  u32 strings_size = chunk->constants.strings_count;
   u32 string_map_size = chunk->constants.string_map.count*sizeof(u32)*2;
 
   u32 size =
@@ -138,7 +168,7 @@ u8 *SerializeChunk(Chunk *chunk)
     sizeof(string_map_size) +
     string_map_size;
 
-  u8 *serialized = NewVec(u8, size);
+  u8 *serialized = Allocate(size);
   u8 *cur = serialized;
 
   Copy(&tag, cur, sizeof(tag));
@@ -170,8 +200,6 @@ u8 *SerializeChunk(Chunk *chunk)
     cur += sizeof(value);
   }
 
-  RawVecCount(serialized) = size;
-
   return serialized;
 }
 
@@ -184,20 +212,23 @@ void DeserializeChunk(u8 *serialized, Chunk *chunk)
   if (version != CurrentVersion) return;
   Copy(cur, &code_size, sizeof(code_size));
   cur += sizeof(code_size);
-  chunk->data = NewVec(u8, code_size);
-  RawVecCount(chunk->data) = code_size;
+  chunk->data = Allocate(code_size);
+  chunk->count = code_size;
+  chunk->capacity = code_size;
   Copy(cur, chunk->data, code_size);
   cur += code_size;
   Copy(cur, &const_size, sizeof(const_size));
   cur += sizeof(const_size);
-  chunk->constants.values = NewVec(Val, const_size/sizeof(Val));
-  RawVecCount(chunk->constants.values) = const_size/sizeof(Val);
+  chunk->constants.values = Allocate(const_size);
+  chunk->constants.count = const_size/sizeof(Val);
+  chunk->constants.capacity = const_size/sizeof(Val);
   Copy(cur, chunk->constants.values, const_size);
   cur += const_size;
   Copy(cur, &strings_size, sizeof(strings_size));
   cur += sizeof(strings_size);
-  chunk->constants.strings = NewVec(char, strings_size);
-  RawVecCount(chunk->constants.strings) = strings_size;
+  chunk->constants.strings = Allocate(strings_size);
+  chunk->constants.strings_capacity = strings_size;
+  chunk->constants.strings_count = strings_size;
   Copy(cur, chunk->constants.strings, strings_size);
   cur += strings_size;
   Copy(cur, &string_map_size, sizeof(string_map_size));
@@ -238,15 +269,8 @@ static Chunk *CompileChunk(CassetteOpts *opts, Heap *mem)
   // compile project
   CompileResult result = LoadModules(opts, mem);
   if (!result.ok) {
-    PrintCompileError(&result.error);
     return NULL;
   }
-
-#ifndef LIBCASSETTE
-  if (opts->verbose > 1) {
-    PrintSeq(result.code, mem);
-  }
-#endif
 
   Assemble(result.code, chunk, mem);
 

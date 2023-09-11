@@ -2,24 +2,10 @@
 #include "debug.h"
 #include "vm.h"
 
-static char **labels = NULL;
-
 Val MakeLabel(void)
 {
   static u32 label_num = 0;
   return IntVal(label_num++);
-}
-
-char *GetLabel(Val label)
-{
-  for (u32 i = 0; i < VecCount(labels); i++) {
-    Val s = SymbolFor(labels[i]);
-    if (Eq(s, label)) {
-      return labels[i];
-    }
-  }
-
-  return NULL;
 }
 
 Val Label(Val label, Heap *mem)
@@ -106,12 +92,6 @@ Seq Preserving(u32 regs, Seq seq1, Seq seq2, Heap *mem)
 static Seq CompileLinkage(Linkage linkage, Heap *mem)
 {
   if (Eq(linkage, LinkNext)) return EmptySeq();
-
-  if (Eq(linkage, LinkExport)) {
-    return MakeSeq(RCont | REnv, 0,
-      Pair(IntVal(OpExport),
-      Pair(IntVal(OpReturn), nil, mem), mem));
-  }
 
   if (Eq(linkage, LinkReturn)) {
     return MakeSeq(RCont, 0, Pair(IntVal(OpReturn), nil, mem));

@@ -1,11 +1,13 @@
 #include "list.h"
 #include "tuple.h"
+#include "univ/string.h"
+#include "univ/hash.h"
 
 Val Pair(Val head, Val tail, Heap *mem)
 {
   u32 index = MemSize(mem);
-  VecPush(mem->values, head);
-  VecPush(mem->values, tail);
+  PushVal(mem, head);
+  PushVal(mem, tail);
   return PairVal(index);
 }
 

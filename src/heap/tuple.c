@@ -3,12 +3,12 @@
 Val MakeTuple(u32 length, Heap *mem)
 {
   u32 index = MemSize(mem);
-  VecPush(mem->values, TupleHeader(length));
+  PushVal(mem, TupleHeader(length));
   if (length == 0) {
-    VecPush(mem->values, nil);
+    PushVal(mem, nil);
   } else {
     for (u32 i = 0; i < length; i++) {
-      VecPush(mem->values, nil);
+      PushVal(mem, nil);
     }
   }
   return ObjVal(index);

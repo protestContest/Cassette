@@ -3,6 +3,9 @@
 #include "tuple.h"
 #include "map.h"
 #include "list.h"
+#include "univ/string.h"
+#include "univ/hash.h"
+#include "univ/memory.h"
 
 Val MakeSymbol(char *name, Heap *mem)
 {
@@ -16,10 +19,15 @@ Val MakeSymbolFrom(char *name, u32 length, Heap *mem)
     return sym;
   }
 
-  u32 index = VecCount(mem->strings);
-  GrowVec(mem->strings, length);
+  u32 bytes_needed = mem->strings_count + length + 1;
+  if (bytes_needed < mem->strings_capacity) {
+    mem->strings_capacity += bytes_needed;
+    mem->strings = Reallocate(mem->strings, mem->strings_capacity);
+  }
+
+  u32 index = mem->strings_count;
   Copy(name, mem->strings + index, length);
-  VecPush(mem->strings, '\0');
+  mem->strings[index + length] = '\0';
   HashMapSet(&mem->string_map, sym.as_i, index);
 
   return sym;

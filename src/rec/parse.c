@@ -1,4 +1,5 @@
 #include "parse.h"
+#include "univ/system.h"
 
 #define ParseOk(val)    ((ParseResult){true, {val}})
 
@@ -161,13 +162,13 @@ ParseResult Parse(char *source, Heap *mem)
   }
 
   if (IsNil(mod_name)) {
-    Val ast = Pair(stmts_pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem);
+    Val ast = Pair(stmts_pos, Pair(DoTag, ReverseList(stmts, mem), mem), mem);
     return ParseOk(ast);
   } else {
     /* If a module was declared, wrap the script in a module node */
     Val ast =
       Pair(mod_pos,
-      Pair(SymbolFor("module"),
+      Pair(ModuleTag,
       Pair(mod_name,
       Pair(ReverseList(stmts, mem), nil, mem), mem), mem), mem);
     return ParseOk(ast);
@@ -234,7 +235,7 @@ static ParseResult ParseImport(Lexer *lex, Heap *mem)
 
   return ParseOk(
     Pair(pos,
-    Pair(SymbolFor("import"),
+    Pair(ImportTag,
     Pair(
       Pair(name.value,
       Pair(alias, nil, mem), mem),
@@ -277,7 +278,7 @@ static ParseResult ParseLet(Lexer *lex, Heap *mem)
     assigns = Pair(assign.value, assigns, mem);
   }
 
-  return ParseOk(Pair(pos, Pair(SymbolFor("let"), ReverseList(assigns, mem), mem), mem));
+  return ParseOk(Pair(pos, Pair(LetTag, ReverseList(assigns, mem), mem), mem));
 }
 
 static ParseResult ParseDef(Lexer *lex, Heap *mem)
@@ -305,13 +306,13 @@ static ParseResult ParseDef(Lexer *lex, Heap *mem)
 
   Val lambda =
     Pair(body_pos,
-    Pair(SymbolFor("->"),
+    Pair(LambdaTag,
     Pair(params,
     Pair(body.value, nil, mem), mem), mem), mem);
 
   Val assign = Pair(id.value, Pair(lambda, nil, mem), mem);
 
-  return ParseOk(Pair(pos, Pair(SymbolFor("let"), Pair(assign, nil, mem), mem), mem));
+  return ParseOk(Pair(pos, Pair(LetTag, Pair(assign, nil, mem), mem), mem));
 }
 
 static ParseResult ParseCall(Lexer *lex, Heap *mem)
@@ -374,7 +375,7 @@ static ParseResult ParseString(Lexer *lex, Heap *mem)
   str[len] = '\0';
 
   Val sym = MakeSymbolFrom(str, len, mem);
-  return ParseOk(Pair(pos, Pair(SymbolFor("\""), sym, mem), mem));
+  return ParseOk(Pair(pos, Pair(QuoteTag, sym, mem), mem));
 }
 
 static ParseResult ParseUnary(Lexer *lex, Heap *mem)
@@ -469,7 +470,7 @@ static ParseResult ParseSymbol(Lexer *lex, Heap *mem)
   ParseResult id = ParseID(lex, mem);
   if (!id.ok) return id;
 
-  return ParseOk(Pair(pos, Pair(SymbolFor(":"), id.value, mem), mem));
+  return ParseOk(Pair(pos, Pair(SymbolTag, id.value, mem), mem));
 }
 
 static ParseResult ParseList(Lexer *lex, Heap *mem)
@@ -479,7 +480,7 @@ static ParseResult ParseList(Lexer *lex, Heap *mem)
   if (!MatchToken(TokenLBracket, lex)) return ParseError("Expected \"[\"", lex);
   SkipNewlines(lex);
 
-  if (MatchToken(TokenRBracket, lex)) return ParseOk(Pair(pos, SymbolFor("nil"), mem));
+  if (MatchToken(TokenRBracket, lex)) return ParseOk(Pair(pos, NilTag, mem));
 
   ParseResult first_item = ParseCall(lex, mem);
   if (!first_item.ok) return first_item;
@@ -497,7 +498,7 @@ static ParseResult ParseList(Lexer *lex, Heap *mem)
 
   if (!MatchToken(TokenRBracket, lex)) return ParseError("Expected \"]\"", lex);
 
-  return ParseOk(Pair(pos, Pair(SymbolFor("["), ReverseList(items, mem), mem), mem));
+  return ParseOk(Pair(pos, Pair(ListTag, ReverseList(items, mem), mem), mem));
 }
 
 static ParseResult ParseClauses(Lexer *lex, Heap *mem)
@@ -505,7 +506,7 @@ static ParseResult ParseClauses(Lexer *lex, Heap *mem)
   Val pos = TokenPos(lex);
 
   if (MatchToken(TokenEnd, lex)) {
-    return ParseOk(Pair(pos, SymbolFor("nil"), mem));
+    return ParseOk(Pair(pos, NilTag, mem));
   }
 
   ParseResult predicate = ParseExpr(PrecLambda+1, lex, mem);
@@ -525,7 +526,7 @@ static ParseResult ParseClauses(Lexer *lex, Heap *mem)
 
   return ParseOk(
     Pair(pos,
-    Pair(SymbolFor("if"),
+    Pair(IfTag,
     Pair(predicate.value,
     Pair(consequent.value,
     Pair(alternative.value, nil, mem), mem), mem), mem), mem));
@@ -559,7 +560,7 @@ static ParseResult ParseDo(Lexer *lex, Heap *mem)
     SkipNewlines(lex);
   }
 
-  return ParseOk(Pair(pos, Pair(SymbolFor("do"), ReverseList(stmts, mem), mem), mem));
+  return ParseOk(Pair(pos, Pair(DoTag, ReverseList(stmts, mem), mem), mem));
 }
 
 static ParseResult ParseLiteral(Lexer *lex, Heap *mem)
@@ -571,7 +572,7 @@ static ParseResult ParseLiteral(Lexer *lex, Heap *mem)
   } else if (MatchToken(TokenFalse, lex)) {
     return ParseOk(Pair(pos, False, mem));
   } else if (MatchToken(TokenNil, lex)) {
-    return ParseOk(Pair(pos, SymbolFor("nil"), mem));
+    return ParseOk(Pair(pos, NilTag, mem));
   } else {
     return ParseError("Unknown literal", lex);
   }
@@ -600,7 +601,7 @@ static ParseResult ParseIf(Lexer *lex, Heap *mem)
     SkipNewlines(lex);
   }
 
-  true_block = Pair(true_pos, Pair(SymbolFor("do"), ReverseList(true_block, mem), mem), mem);
+  true_block = Pair(true_pos, Pair(DoTag, ReverseList(true_block, mem), mem), mem);
 
   Val false_block = nil;
   SkipNewlines(lex);
@@ -618,14 +619,14 @@ static ParseResult ParseIf(Lexer *lex, Heap *mem)
       SkipNewlines(lex);
     }
 
-    false_block = Pair(false_pos, Pair(SymbolFor("do"), ReverseList(false_block, mem), mem), mem);
+    false_block = Pair(false_pos, Pair(DoTag, ReverseList(false_block, mem), mem), mem);
   } else {
-    false_block = Pair(false_pos, SymbolFor("nil"), mem);
+    false_block = Pair(false_pos, NilTag, mem);
   }
 
   return ParseOk(
     Pair(pos,
-    Pair(SymbolFor("if"),
+    Pair(IfTag,
     Pair(predicate.value,
     Pair(true_block,
     Pair(false_block, nil, mem), mem), mem), mem), mem));
@@ -667,7 +668,7 @@ static ParseResult ParseBraces(Lexer *lex, Heap *mem)
     SkipNewlines(lex);
   }
 
-  Val op = (is_map) ? SymbolFor("{:") : SymbolFor("{");
+  Val op = (is_map) ? MapTag : TupleTag;
 
   return ParseOk(Pair(pos, Pair(op, ReverseList(items, mem), mem), mem));
 }
@@ -704,30 +705,25 @@ static ParseResult ParseAccess(Val lhs, Lexer *lex, Heap *mem)
   ParseResult key = ParseID(lex, mem);
   if (!key.ok) return key;
 
-  key.value = Pair(key_pos, Pair(SymbolFor(":"), key.value, mem), mem);
-  return ParseOk(Pair(pos, Pair(SymbolFor("."), Pair(lhs, Pair(key.value, nil, mem), mem), mem), mem));
+  key.value = Pair(key_pos, Pair(SymbolTag, key.value, mem), mem);
+  return ParseOk(Pair(pos, Pair(AccessTag, Pair(lhs, Pair(key.value, nil, mem), mem), mem), mem));
 }
 
 static void MakeParseSymbols(Heap *mem)
 {
-  MakeSymbol("do", mem);
-  MakeSymbol("import", mem);
-  MakeSymbol("let", mem);
-  MakeSymbol("->", mem);
-  MakeSymbol("\"", mem);
-  MakeSymbol(":", mem);
-  MakeSymbol("[", mem);
-  MakeSymbol("if", mem);
-  MakeSymbol("true", mem);
-  MakeSymbol("false", mem);
-  MakeSymbol("nil", mem);
-  MakeSymbol("{", mem);
-  MakeSymbol("{:", mem);
-  MakeSymbol(".", mem);
-  MakeSymbol("error", mem);
-  MakeSymbol("partial", mem);
-  MakeSymbol("parse", mem);
-  MakeSymbol("module", mem);
+  Assert(Eq(DoTag, MakeSymbol("do", mem)));
+  Assert(Eq(ImportTag, MakeSymbol("import", mem)));
+  Assert(Eq(LetTag, MakeSymbol("let", mem)));
+  Assert(Eq(LambdaTag, MakeSymbol("->", mem)));
+  Assert(Eq(QuoteTag, MakeSymbol("\"", mem)));
+  Assert(Eq(SymbolTag, MakeSymbol(":", mem)));
+  Assert(Eq(ListTag, MakeSymbol("[", mem)));
+  Assert(Eq(IfTag, MakeSymbol("if", mem)));
+  Assert(Eq(TupleTag, MakeSymbol("{", mem)));
+  Assert(Eq(MapTag, MakeSymbol("{:", mem)));
+  Assert(Eq(AccessTag, MakeSymbol(".", mem)));
+  Assert(Eq(ModuleTag, MakeSymbol("module", mem)));
+  Assert(Eq(NilTag, MakeSymbol("nil", mem)));
 }
 
 static ParseResult ParseError(char *message, Lexer *lex)
@@ -773,38 +769,3 @@ static SourceLoc GetLocation(char *source, u32 src_len, u32 pos)
   return loc;
 }
 
-char *ParseErrorMessage(Val error, Heap *mem)
-{
-  Val pos = ListAt(error, 2, mem);
-  Val message = ListAt(error, 3, mem);
-  Val source = ListAt(error, 4, mem);
-  SourceLoc loc = GetLocation(BinaryData(source, mem), BinaryLength(source, mem), RawInt(pos));
-
-  u32 line_digits = NumDigits(loc.line);
-  u32 col_digits = NumDigits(loc.col);
-  u32 msg_len = BinaryLength(message, mem);
-
-  char *result = Allocate(1 + line_digits + 1 + col_digits + 2 + msg_len + 1);
-  char *cur = result;
-  *cur = '[';
-  cur++;
-  char *line = IntToStr(loc.line);
-  Copy(line, cur, line_digits);
-  Free(line);
-  cur += line_digits;
-  *cur = ':';
-  cur++;
-  char *col = IntToStr(loc.col);
-  Copy(col, cur, col_digits);
-  Free(col);
-  cur += col_digits;
-  *cur = ']';
-  cur++;
-  *cur = ' ';
-  cur++;
-  Copy(BinaryData(message, mem), cur, msg_len);
-  cur += msg_len;
-  *cur = '\0';
-
-  return cur;
-}

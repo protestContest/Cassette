@@ -1,13 +1,14 @@
 #include "binary.h"
 #include "list.h"
+#include "univ/memory.h"
 
 Val MakeBinary(u32 length, Heap *mem)
 {
   u32 index = MemSize(mem);
-  VecPush(mem->values, BinaryHeader(length));
+  PushVal(mem, BinaryHeader(length));
   u32 num_cells = NumBinaryCells(length);
   for (u32 i = 0; i < num_cells; i++) {
-    VecPush(mem->values, (Val){.as_i = 0});
+    PushVal(mem, (Val){.as_i = 0});
   }
   return ObjVal(index);
 }

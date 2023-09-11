@@ -2,25 +2,24 @@
 #include "ops.h"
 #include "env.h"
 #include "function.h"
-#include "lib.h"
-#include "debug.h"
 #include "rec.h"
+#include "univ/math.h"
+#include "univ/system.h"
+#include "univ/memory.h"
+#include "univ/string.h"
 #include <time.h>
 
-#ifndef LIBCASSETTE
-static u32 **op_data = NULL;
-static HashMap op_stats = EmptyHashMap;
-#endif
+#define StackPeek(vm, n)  (vm)->stack[(vm)->stack_count - 1 - (n)]
 
 void InitVM(VM *vm, CassetteOpts *opts)
 {
   InitMem(&vm->mem, 0);
   vm->pc = 0;
   vm->cont = 0;
-  vm->stack = NewVec(Val, 1024);
-  vm->call_stack = NewVec(Val, 256);
   vm->env = InitialEnv(&vm->mem);
-  vm->modules = NULL;
+  vm->stack_count = 0;
+  vm->call_stack_count = 0;
+  vm->mod_count = 0;
   vm->mod_map = EmptyHashMap;
   vm->error = false;
   vm->opts = opts;
@@ -36,7 +35,7 @@ void InitVM(VM *vm, CassetteOpts *opts)
 
 void DestroyVM(VM *vm)
 {
-  FreeVec(vm->stack);
+  // FreeVec(vm->stack);
 }
 
 char *VMErrorMessage(VMError err)
@@ -55,114 +54,63 @@ char *VMErrorMessage(VMError err)
 
 void StackPush(VM *vm, Val value)
 {
-  VecPush(vm->stack, value);
+  vm->stack[vm->stack_count++] = value;
 }
 
 Val StackPop(VM *vm)
 {
-  if (VecCount(vm->stack) == 0) {
+  if (vm->stack_count == 0) {
     vm->error = StackError;
     return nil;
   }
 
-  return VecPop(vm->stack);
+  return vm->stack[--vm->stack_count];
 }
-
-#define StackSize(vm)     VecCount((vm)->stack)
-#define StackPeek(vm, n)  VecPeek((vm)->stack, n)
 
 static void CallStackPush(VM *vm, Val value)
 {
-  VecPush(vm->call_stack, value);
+  vm->call_stack[vm->call_stack_count++] = value;
 }
 
 static Val CallStackPop(VM *vm)
 {
-  if (VecCount(vm->call_stack) == 0) {
+  if (vm->call_stack_count == 0) {
     vm->error = StackError;
     return nil;
   }
 
-  return VecPop(vm->call_stack);
+  return vm->call_stack[--vm->call_stack_count];
 }
 
 static u32 RunGC(VM *vm)
 {
-  StackPush(vm, vm->env);
-  Val *roots[3];
-  roots[0] = vm->stack;
-  roots[1] = vm->call_stack;
-  roots[2] = vm->modules;
-  CollectGarbage(roots, 3, &vm->mem);
-  vm->env = StackPop(vm);
+  Heap new_mem = BeginGC(&vm->mem);
+  vm->env = CopyValue(vm->env, &vm->mem, &new_mem);
+  for (u32 i = 0; i < vm->stack_count; i++) {
+    vm->stack[i] = CopyValue(vm->stack[i], &vm->mem, &new_mem);
+  }
+  for (u32 i = 0; i < vm->call_stack_count; i++) {
+    vm->call_stack[i] = CopyValue(vm->call_stack[i], &vm->mem, &new_mem);
+  }
+  for (u32 i = 0; i < vm->mod_count; i++) {
+    vm->modules[i] = CopyValue(vm->modules[i], &vm->mem, &new_mem);
+  }
+
+  CollectGarbage(&vm->mem, &new_mem);
+  Free(vm->mem.values);
+  vm->mem = new_mem;
+
   return MemSize(&vm->mem);
 }
-
-static void PrintCurrentToken(VM *vm, Chunk *chunk)
-{
-  char *file = SourceFile(vm->pc, chunk);
-  if (file) {
-    u32 pos = SourcePos(vm->pc, chunk);
-    char *source = ReadFile(file);
-    Lexer lex;
-    InitLexer(&lex, source, pos);
-
-    PrintToken(lex.token);
-    // PrintSourceContext(source, pos);
-  }
-}
-
-#ifndef LIBCASSETTE
-static void RecordOp(OpCode op, u32 time)
-{
-  if (HashMapContains(&op_stats, op)) {
-    u32 index = HashMapGet(&op_stats, op);
-    VecPush(op_data[index], time);
-  } else {
-    u32 index = VecCount(op_data);
-    HashMapSet(&op_stats, op, index);
-    VecPush(op_data, NULL);
-    VecPush(op_data[index], time);
-  }
-}
-
-void PrintOpStats(void)
-{
-  for (u32 i = 0; i < op_stats.count; i++) {
-    u32 op = HashMapKey(&op_stats, i);
-    u32 *samples = op_data[HashMapGet(&op_stats, op)];
-    if (VecCount(samples) < 10) continue;
-
-    float avg = 0;
-    for (u32 j = 0; j < VecCount(samples); j++) {
-      avg += samples[j];
-    }
-    avg /= VecCount(samples);
-    float var = 0;
-    for (u32 j = 0; j < VecCount(samples); j++) {
-      u32 delta = samples[j] - avg;
-      var += delta * delta;
-    }
-    var /= VecCount(samples) - 1;
-    float std = Sqrt(var);
-    // float z = 1.960;
-    // float confidence = z * std / Sqrt(avg);
-
-    u32 written = Print(OpName(op));
-    for (u32 i = 0; i < 16 - written; i++) Print(" ");
-    PrintFloat(avg, 3);
-    Print("μs σ");
-    PrintFloat(std, 3);
-    Print(" (");
-    PrintInt(VecCount(samples));
-    Print(")\n");
-  }
-}
-#endif
 
 static void ApplyValue(Val value, VM *vm)
 {
   Heap *mem = &vm->mem;
+  if (vm->stack_count == 0) {
+    StackPush(vm, value);
+    return;
+  }
+
   Val args = StackPop(vm);
 
   if (IsPair(value) && TupleLength(args, mem) == 1) {
@@ -200,44 +148,24 @@ static void ApplyValue(Val value, VM *vm)
 void RunChunk(VM *vm, Chunk *chunk)
 {
   Heap *mem = &vm->mem;
-  // u32 next_gc = 1024;
+  u32 next_gc = 2048;
 
   vm->pc = 0;
   vm->cont = ChunkSize(chunk);
-  vm->stack = NULL;
+  vm->stack_count = 0;
+  vm->call_stack_count = 0;
+  vm->mod_count = 0;
   vm->error = false;
 
   CopyStrings(&chunk->constants, mem);
 
-  Print("Seed: ");
-  PrintUInt(vm->opts->seed);
-  Print("\n");
-
-#ifndef LIBCASSETTE
-  if (vm->opts->verbose) {
-    TraceHeader();
-  }
-#endif
-
   while (vm->error == NoError && vm->pc < ChunkSize(chunk)) {
-    // if (MemSize(mem) > next_gc) {
-    //   if (vm->opts->verbose) {
-    //     Print("GARBAGE DAY!!\n");
-    //   }
-    //   RunGC(vm);
-    //   next_gc = 2*MemSize(mem);
-    // }
-
-#ifndef LIBCASSETTE
-    if (vm->opts->verbose) {
-      TraceInstruction(vm, chunk);
+    if (MemSize(mem) > next_gc) {
+      RunGC(vm);
+      next_gc = 2*MemSize(mem);
     }
-#endif
 
     OpCode op = ChunkRef(chunk, vm->pc);
-#ifndef LIBCASSETTE
-    // u32 start = clock();
-#endif
 
     switch (op) {
     case OpHalt:
@@ -557,10 +485,6 @@ void RunChunk(VM *vm, Chunk *chunk)
         ApplyValue(func, vm);
         if (!vm->error) vm->pc = vm->cont;
       }
-#ifndef LIBCASSETTE
-      // u32 dt = clock() - start;
-      // if (IsFunc(func, mem)) RecordOp(op, dt);
-#endif
       break;
     }
     case OpModule: {
@@ -570,9 +494,8 @@ void RunChunk(VM *vm, Chunk *chunk)
         u32 index = HashMapGet(&vm->mod_map, mod_name.as_i);
         vm->modules[index] = mod;
       } else {
-        u32 index = VecCount(vm->modules);
-        VecPush(vm->modules, mod);
-        HashMapSet(&vm->mod_map, mod_name.as_i, index);
+        HashMapSet(&vm->mod_map, mod_name.as_i, vm->mod_count);
+        vm->modules[vm->mod_count++] = mod;
       }
 
       if (!vm->error) vm->pc += OpLength(op);
@@ -591,45 +514,5 @@ void RunChunk(VM *vm, Chunk *chunk)
       break;
     }
     }
-
-#ifndef LIBCASSETTE
-    // u32 dt = clock() - start;
-    // if (op != OpApply) RecordOp(op, dt);
-#endif
-  }
-
-  if (vm->error) {
-    PrintEscape(IOFGRed);
-    Print(VMErrorMessage(vm->error));
-
-    if ((vm->error == TypeError || vm->error == RuntimeError) && VecCount(vm->stack) > 0) {
-      Print(" (");
-      Inspect(StackPeek(vm, 0), mem);
-      Print(")");
-    }
-
-    char *file = SourceFile(vm->pc, chunk);
-    if (file) {
-      Print(" in ");
-      Print(file);
-      Print(":\n");
-      char *source = ReadFile(file);
-
-      u32 pos = SourcePos(vm->pc, chunk);
-
-      PrintSourceContext(source, pos);
-    } else {
-      u32 start = (vm->pc > 5) ? vm->pc - 5 : 0;
-      DisassemblePart(chunk, start, 10);
-      Print("\n");
-    }
-    PrintEscape(IOFGReset);
-  } else if (vm->opts->verbose) {
-    TraceInstruction(vm, chunk);
-#ifndef LIBCASSETTE
-    if (vm->opts->verbose > 1) {
-      PrintMem(mem);
-    }
-#endif
   }
 }

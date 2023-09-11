@@ -1,8 +1,11 @@
 #include "compile.h"
 #include "debug.h"
+#include "parse.h"
 #include "vm.h"
 #include "source.h"
 #include "module.h"
+#include "univ/hashmap.h"
+#include "univ/system.h"
 
 #define CompileOk(seq)            ((CompileResult){true, {seq}})
 #define ErrorResult(m, e, p)      ((CompileResult){false, {.error = {m, e, p}}})
@@ -25,8 +28,8 @@ static void InitCompiler(Compiler *c, CassetteOpts *opts, Val env, Heap *mem)
   c->pos = 0;
   c->opts = opts;
 
-  MakeSymbol("return", mem);
-  MakeSymbol("next", mem);
+  Assert(Eq(LinkReturn, MakeSymbol("*return*", mem)));
+  Assert(Eq(LinkNext, MakeSymbol("*next*", mem)));
   Assert(Eq(Ok, MakeSymbol("ok", mem)));
 }
 
@@ -81,7 +84,7 @@ static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
   else if (IsNum(expr))                     result = CompileConst(expr, linkage, c);
   else if (IsTagged(expr, ":", mem))        result = CompileConst(Tail(Tail(expr, mem), mem), linkage, c);
   else if (IsTagged(expr, "\"", mem))       result = CompileString(Tail(expr, mem), linkage, c);
-  else if (Eq(expr, SymbolFor("nil")))      result = CompileConst(nil, linkage, c);
+  else if (Eq(expr, NilTag))                result = CompileConst(nil, linkage, c);
   else if (Eq(expr, True))                  result = CompileConst(expr, linkage, c);
   else if (Eq(expr, False))                 result = CompileConst(expr, linkage, c);
   else if (IsSym(expr))                     result = CompileVar(expr, linkage, c);
@@ -115,17 +118,6 @@ static CompileResult CompileExpr(Val ast, Linkage linkage, Compiler *c)
 
   else if (IsPair(expr))                    result = CompileApplication(expr, linkage, c);
   else                                      result = ErrorResult("Unknown expression", NULL, c->pos);
-
-#ifndef LIBCASSETTE
-  if (c->opts->verbose > 1 && result.ok) {
-    Inspect(c->env, mem);
-    Print("\n");
-    PrintAST(ast, 0, mem);
-    Print("\n");
-    PrintSeq(result.code, mem);
-    Print("────────────────────────────────────────────────────────────\n");
-  }
-#endif
 
   return result;
 }

@@ -41,8 +41,4 @@ typedef enum {
   OpLoad,
 } OpCode;
 
-#ifndef LIBCASSETTE
-char *OpName(OpCode op);
-#endif
-
 u32 OpLength(OpCode op);

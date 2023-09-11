@@ -15,16 +15,14 @@ typedef struct {
 #define Modifies(seq, reg)  ((seq).modifies & (reg))
 
 typedef Val Linkage;
-#define LinkReturn  SymbolFor("return")
-#define LinkExport  SymbolFor("export")
-#define LinkNext    SymbolFor("next")
+#define LinkReturn  (Val){.as_i = 0x7FD336A7}
+#define LinkNext    (Val){.as_i = 0x7FD9CB70}
 
 #define MakeSeq(needs, modifies, stmts)   (Seq){true, needs, modifies, stmts}
 #define EmptySeq(mem)   MakeSeq(0, 0, nil)
 #define IsEmptySeq(seq) (IsNil((seq).stmts))
 
 Val MakeLabel(void);
-char *GetLabel(Val label);
 Val Label(Val label, Heap *mem);
 Val LabelRef(Val label, Heap *mem);
 Seq LabelSeq(Val label, Heap *mem);
