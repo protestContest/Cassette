@@ -1,19 +1,15 @@
 #pragma once
-#include "heap.h"
+#include "mem.h"
 
-Val Pair(Val head, Val tail, Heap *mem);
-Val Head(Val pair, Heap *mem);
-Val Tail(Val pair, Heap *mem);
-void SetHead(Val pair, Val head, Heap *mem);
-void SetTail(Val pair, Val tail, Heap *mem);
+Val Pair(Val head, Val tail, Mem *mem);
+Val Head(Val pair, Mem *mem);
+Val Tail(Val pair, Mem *mem);
+void SetHead(Val pair, Val head, Mem *mem);
+void SetTail(Val pair, Val tail, Mem *mem);
 
-u32 ListLength(Val list, Heap *mem);
-bool ListContains(Val list, Val value, Heap *mem);
-Val ListAt(Val list, u32 pos, Heap *mem);
-bool IsTaggedWith(Val list, Val tag, Heap *mem);
-bool IsTagged(Val list, char *tag, Heap *mem);
-Val TailList(Val list, u32 pos, Heap *mem);
-Val TruncList(Val list, u32 pos, Heap *mem);
-Val JoinLists(Val a, Val b, Heap *mem);
-Val ListConcat(Val a, Val b, Heap *mem);
-Val ReverseList(Val list, Heap *mem);
+u32 ListLength(Val list, Mem *mem);
+bool ListContains(Val list, Val value, Mem *mem);
+Val ListAt(Val list, u32 pos, Mem *mem);
+Val TailList(Val list, u32 pos, Mem *mem);
+Val ListConcat(Val a, Val b, Mem *mem);
+Val ReverseList(Val list, Mem *mem);

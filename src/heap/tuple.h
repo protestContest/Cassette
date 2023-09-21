@@ -1,13 +1,9 @@
 #pragma once
-#include "heap.h"
+#include "mem.h"
 
-Val MakeTuple(u32 length, Heap *mem);
-bool IsTuple(Val tuple, Heap *mem);
-u32 TupleLength(Val tuple, Heap *mem);
-bool TupleContains(Val tuple, Val value, Heap *mem);
-Val TupleGet(Val tuple, u32 index, Heap *mem);
-void TupleSet(Val tuple, u32 index, Val value, Heap *mem);
-Val TuplePut(Val tuple, u32 index, Val value, Heap *mem);
-Val TupleInsert(Val tuple, u32 index, Val value, Heap *mem);
-Val TupleDelete(Val tuple, u32 index, Heap *mem);
-Val JoinTuples(Val tuple1, Val tuple2, Heap *mem);
+Val MakeTuple(u32 length, Mem *mem);
+bool IsTuple(Val tuple, Mem *mem);
+u32 TupleLength(Val tuple, Mem *mem);
+bool TupleContains(Val tuple, Val value, Mem *mem);
+Val TupleGet(Val tuple, u32 index, Mem *mem);
+void TupleSet(Val tuple, u32 index, Val value, Mem *mem);

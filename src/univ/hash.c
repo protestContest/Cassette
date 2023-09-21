@@ -5,7 +5,8 @@
 static u32 FNV(u8 *data, u32 size, u32 base)
 {
     u32 hash = base;
-    for (u32 i = 0; i < size; i++) {
+    u32 i;
+    for (i = 0; i < size; i++) {
         hash ^= data[i];
         hash *= HashPrime;
     }

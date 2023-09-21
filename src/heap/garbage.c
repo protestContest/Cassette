@@ -1,7 +1,6 @@
 #include "garbage.h"
-#include "symbol.h"
 #include "binary.h"
-#include "univ/memory.h"
+#include "list.h"
 
 static u32 ValSize(Val value)
 {
@@ -20,64 +19,58 @@ static u32 ValSize(Val value)
   }
 }
 
-Val CopyValue(Val value, Heap *from_space, Heap *to_space)
+Val CopyValue(Val value, Mem *from_space, Mem *to_space)
 {
-  if (IsNil(value)) return nil;
+  if (IsNil(value)) return value;
 
   if (IsPair(value)) {
-    u32 index = RawVal(value);
-    if (Eq(from_space->values[index], Moved)) {
-      return from_space->values[index+1];
+    if (Head(value, from_space) == Moved) {
+      return Tail(value, from_space);
+    } else {
+      return Pair(Head(value, from_space), Tail(value, from_space), to_space);
     }
-
-    Val new_val = PairVal(MemSize(to_space));
-    PushVal(to_space, from_space->values[index]);
-    PushVal(to_space, from_space->values[index+1]);
-
-    from_space->values[index] = Moved;
-    from_space->values[index+1] = new_val;
-
-    return new_val;
   } else if (IsObj(value)) {
     u32 index = RawVal(value);
-    if (Eq(from_space->values[index], Moved)) {
-      return from_space->values[index+1];
-    }
+    if ((*from_space->values)[index] == Moved) {
+      return (*from_space->values)[index+1];
+    } else {
+      Val new_val = ObjVal(MemSize(to_space));
+      u32 i;
 
-    Val new_val = ObjVal(MemSize(to_space));
-    for (u32 i = 0; i < ValSize(from_space->values[index]); i++) {
-      PushVal(to_space, from_space->values[index + i]);
-    }
+      for (i = 0; i < ValSize((*from_space->values)[index]); i++) {
+        PushVal(to_space, (*from_space->values)[index + i]);
+      }
 
-    from_space->values[index] = Moved;
-    from_space->values[index+1] = new_val;
-    return new_val;
+      (*from_space->values)[index] = Moved;
+      (*from_space->values)[index+1] = new_val;
+      return new_val;
+    }
   } else {
     return value;
   }
 }
 
-Heap BeginGC(Heap *from_space)
+Mem BeginGC(Mem *from_space)
 {
-  Heap to_space = *from_space;
+  Mem to_space = *from_space;
   to_space.capacity = MemSize(from_space)/2;
   to_space.count = 0;
-  to_space.values = Allocate(to_space.capacity * sizeof(Val));
-  PushVal(&to_space, nil);
-  PushVal(&to_space, nil);
+  to_space.values = (Val**)NewHandle(to_space.capacity * sizeof(Val));
+  PushVal(&to_space, Nil);
+  PushVal(&to_space, Nil);
   return to_space;
 }
 
-void CollectGarbage(Heap *from_space, Heap *to_space)
+void CollectGarbage(Mem *from_space, Mem *to_space)
 {
-  u32 scan = MemSize(to_space);
+  u32 scan = 0;
 
-  while (scan < to_space->count) {
-    if (IsBinaryHeader(to_space->values[scan])) {
-      scan += ValSize(to_space->values[scan]);
+  while (scan < MemSize(to_space)) {
+    if (IsBinaryHeader((*to_space->values)[scan])) {
+      scan += ValSize((*to_space->values)[scan]);
     } else {
-      Val new_val = CopyValue(to_space->values[scan], from_space, to_space);
-      to_space->values[scan] = new_val;
+      Val new_val = CopyValue((*to_space->values)[scan], from_space, to_space);
+      (*to_space->values)[scan] = new_val;
       scan++;
     }
   }

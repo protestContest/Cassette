@@ -1,7 +1,6 @@
 #pragma once
 #include "heap.h"
 #include "seq.h"
-#include "opts.h"
 #include "source.h"
 #include "compile.h"
 #include "univ/hashmap.h"
@@ -21,5 +20,5 @@ typedef struct ModuleResult {
   };
 } ModuleResult;
 
-ModuleResult LoadModule(char *path, Heap *mem, Val env, CassetteOpts *opts);
-CompileResult LoadModules(CassetteOpts *opts, Heap *mem);
+ModuleResult LoadModule(char *file, Heap *mem, Val env);
+CompileResult LoadModules(char *entry_file, char *mod_path, Heap *mem);

@@ -1,15 +1,18 @@
 #pragma once
 
-typedef struct MapBucket MapBucket;
+typedef struct MapBucket {
+  u32 key;
+  u32 value;
+  i32 probe;
+} MapBucket;
 
-typedef struct HashMap {
+typedef struct {
   u32 capacity;
   u32 count;
-  MapBucket *buckets;
+  struct MapBucket **buckets;
 } HashMap;
 
-#define EmptyHashMap  ((HashMap){0, 0, NULL})
-
+void InitHashMap(HashMap *map);
 void DestroyHashMap(HashMap *map);
 void HashMapSet(HashMap *map, u32 key, u32 value);
 bool HashMapContains(HashMap *map, u32 key);

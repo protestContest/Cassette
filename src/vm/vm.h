@@ -31,7 +31,6 @@ typedef struct {
   HashMap mod_map;
   Heap mem;
   VMError error;
-  CassetteOpts *opts;
 } VM;
 
 typedef enum {
@@ -39,7 +38,7 @@ typedef enum {
   RegEnv,
 } Reg;
 
-void InitVM(VM *vm, CassetteOpts *opts);
+void InitVM(VM *vm);
 void DestroyVM(VM *vm);
 void RunChunk(VM *vm, Chunk *chunk);
 

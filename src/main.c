@@ -1,30 +1,27 @@
 #include "rec.h"
-#include "opts.h"
 #include "univ/file.h"
 
 int main(int argc, char *argv[])
 {
-  CassetteOpts opts = {argv[1], NULL, false, 0, 0};
+  Chunk *chunk;
 
-  Chunk *chunk = LoadChunk(&opts);
+  switch (argc) {
+  case 1:
+    chunk = LoadChunk(argv[1], NULL);
+    break;
+  case 2:
+    chunk = LoadChunk(argv[1], argv[2]);
+    break;
+  default:
+    return 1;
+  }
 
   if (!chunk) return 1;
 
-  if (opts.compile) {
-    u8 *serialized = SerializeChunk(chunk);
-    u32 serialized_size = SerializedSize(chunk);
-    if (WriteFile(opts.entry, serialized, serialized_size)) {
-      return 0;
-    } else {
-      return 1;
-    }
-  } else {
-    VM vm;
+  VM vm;
 
-    InitVM(&vm, &opts);
-    RunChunk(&vm, chunk);
-    DestroyVM(&vm);
-  }
-
+  InitVM(&vm);
+  RunChunk(&vm, chunk);
+  DestroyVM(&vm);
   FreeChunk(chunk);
 }

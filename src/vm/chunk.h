@@ -1,6 +1,5 @@
 #pragma once
 #include "heap.h"
-#include "opts.h"
 #include "univ/hashmap.h"
 
 typedef struct {
@@ -41,4 +40,4 @@ void AddSourceFile(char *filename, u32 offset, Chunk *chunk);
 char *SourceFile(u32 pos, Chunk *chunk);
 u32 SourcePos(u32 pos, Chunk *chunk);
 
-Chunk *LoadChunk(CassetteOpts *opts);
+Chunk *LoadChunk(char *entry_file, char *project_path);

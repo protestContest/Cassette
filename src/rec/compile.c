@@ -15,10 +15,9 @@ typedef struct {
   Val env;
   Module module;
   u32 pos;
-  CassetteOpts *opts;
 } Compiler;
 
-static void InitCompiler(Compiler *c, CassetteOpts *opts, Val env, Heap *mem)
+static void InitCompiler(Compiler *c, Val env, Heap *mem)
 {
   c->mem = mem;
   c->env = env,
@@ -26,7 +25,6 @@ static void InitCompiler(Compiler *c, CassetteOpts *opts, Val env, Heap *mem)
   c->module.code = EmptySeq();
   c->module.imports = EmptyHashMap;
   c->pos = 0;
-  c->opts = opts;
 
   Assert(Eq(LinkReturn, MakeSymbol("*return*", mem)));
   Assert(Eq(LinkNext, MakeSymbol("*next*", mem)));
@@ -52,10 +50,10 @@ static CompileResult CompileOp(Seq op_seq, Val expr, Linkage linkage, Compiler *
 static CompileResult CompilePair(Val expr, Linkage linkage, Compiler *c);
 static CompileResult CompileApplication(Val expr, Linkage linkage, Compiler *c);
 
-ModuleResult Compile(Val ast, CassetteOpts *opts, Val env, Heap *mem)
+ModuleResult Compile(Val ast, Val env, Heap *mem)
 {
   Compiler c;
-  InitCompiler(&c, opts, env, mem);
+  InitCompiler(&c, env, mem);
   CompileResult result = CompileExpr(ast, LinkNext, &c);
   if (!result.ok) {
     return (ModuleResult){false, {.error = result.error}};

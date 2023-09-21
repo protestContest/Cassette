@@ -3,7 +3,9 @@
 -Werror
 -Wno-unused-function
 -Wno-unused-parameter
+-pedantic
 -I../src
 -I../include
 -include
-univ/base.h
+base.h
+-std=c89

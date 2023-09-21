@@ -1,107 +1,33 @@
 #include "binary.h"
-#include "list.h"
-#include "univ/memory.h"
 
-Val MakeBinary(u32 length, Heap *mem)
+Val MakeBinary(u32 length, Mem *mem)
 {
   u32 index = MemSize(mem);
-  PushVal(mem, BinaryHeader(length));
   u32 num_cells = NumBinaryCells(length);
-  for (u32 i = 0; i < num_cells; i++) {
-    PushVal(mem, (Val){.as_i = 0});
-  }
+  u32 i;
+  PushVal(mem, BinaryHeader(length));
+  for (i = 0; i < num_cells; i++) PushVal(mem, 0);
   return ObjVal(index);
 }
 
-Val BinaryFrom(void *data, u32 length, Heap *mem)
+Val BinaryFrom(void *data, u32 length, Mem *mem)
 {
   Val binary = MakeBinary(length, mem);
   Copy(data, BinaryData(binary, mem), length);
   return binary;
 }
 
-bool IsBinary(Val binary, Heap *mem)
+bool IsBinary(Val binary, Mem *mem)
 {
-  return IsObj(binary) && IsBinaryHeader(mem->values[RawVal(binary)]);
+  return IsObj(binary) && IsBinaryHeader((*mem->values)[RawVal(binary)]);
 }
 
-u32 BinaryLength(Val binary, Heap *mem)
+u32 BinaryLength(Val binary, Mem *mem)
 {
-  return RawVal(mem->values[RawVal(binary)]);
+  return RawVal((*mem->values)[RawVal(binary)]);
 }
 
-void *BinaryData(Val binary, Heap *mem)
+void *BinaryData(Val binary, Mem *mem)
 {
-  return mem->values + RawVal(binary) + 1;
-}
-
-u8 BinaryGetByte(Val binary, u32 i, Heap *mem)
-{
-  return ((u8*)BinaryData(binary, mem))[i];
-}
-
-void BinarySetByte(Val binary, u32 i, u8 b, Heap *mem)
-{
-  ((u8*)BinaryData(binary, mem))[i] = b;
-}
-
-Val BinaryTrunc(Val binary, u32 index, Heap *mem)
-{
-  if (index == 0) return binary;
-  u32 length = BinaryLength(binary, mem);
-  if (index >= length) return binary;
-
-  char *data = BinaryData(binary, mem);
-
-  Val new_bin = MakeBinary(index, mem);
-  char *new_data = BinaryData(new_bin, mem);
-  Copy(data, new_data, index);
-  return new_bin;
-}
-
-Val BinaryAfter(Val binary, u32 index, Heap *mem)
-{
-  if (index == 0) return binary;
-  u32 length = BinaryLength(binary, mem);
-  if (index >= length) return binary;
-
-  char *data = BinaryData(binary, mem);
-
-  Val new_bin = MakeBinary(length - index, mem);
-  char *new_data = BinaryData(new_bin, mem);
-  Copy(data + index, new_data, length - index);
-  return new_bin;
-}
-
-Val SliceBinary(Val binary, u32 start, u32 end, Heap *mem)
-{
-  if (end > BinaryLength(binary, mem)) end = BinaryLength(binary, mem);
-  if (end <= start) {
-    return MakeBinary(0, mem);
-  }
-
-  u32 length = end - start;
-  Val slice = MakeBinary(length, mem);
-
-  char *src = BinaryData(binary, mem);
-  char *dst = BinaryData(slice, mem);
-  for (u32 i = 0; i < length; i++) {
-    dst[i] = src[start + i];
-  }
-  return slice;
-}
-
-Val JoinBinaries(Val b1, Val b2, Heap *mem)
-{
-  u32 a_length = BinaryLength(b1, mem);
-  char *a_data = BinaryData(b1, mem);
-  u32 b_length = BinaryLength(b2, mem);
-  char *b_data = BinaryData(b2, mem);
-
-  Val bin = MakeBinary(a_length + b_length, mem);
-  char *data = BinaryData(bin, mem);
-
-  Copy(a_data, data, a_length);
-  Copy(b_data, data+a_length, b_length);
-  return bin;
+  return (*mem->values) + RawVal(binary) + 1;
 }

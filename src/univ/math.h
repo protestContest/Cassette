@@ -1,6 +1,5 @@
 #pragma once
 
-
 #define Pi              3.141593
 #define E               2.718282
 #define Epsilon         1e-6
@@ -20,14 +19,6 @@
 #define Clamp(x, a, b)  Min(Max((x), a), b)
 #define Lerp(a, b, w)   (((b) - (a))*(w) + (a))
 #define Norm(a, b, w)   (((w) - (a)) / ((b) - (a)))
-
-f32 Sin(f32 r);
-f32 Cos(f32 r);
-f32 Tan(f32 r);
-f32 Log(f32 x);
-f32 Exp(f32 x);
-f32 Sqrt(f32 x);
-f32 Pow(f32 b, f32 e);
 
 void Seed(u32 seed);
 u32 Random(void);

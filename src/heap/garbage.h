@@ -1,6 +1,6 @@
 #pragma once
-#include "heap.h"
+#include "mem.h"
 
-Heap BeginGC(Heap *from_space);
-Val CopyValue(Val value, Heap *from_space, Heap *to_space);
-void CollectGarbage(Heap *from_space, Heap *to_space);
+Mem BeginGC(Mem *from_space);
+Val CopyValue(Val value, Mem *from_space, Mem *to_space);
+void CollectGarbage(Mem *from_space, Mem *to_space);

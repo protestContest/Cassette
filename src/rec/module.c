@@ -9,7 +9,7 @@
 #include "univ/system.h"
 #include "univ/memory.h"
 
-ModuleResult LoadModule(char *file, Heap *mem, Val env, CassetteOpts *opts)
+ModuleResult LoadModule(char *file, Heap *mem, Val env)
 {
   char *source = ReadFile(file);
 
@@ -19,13 +19,13 @@ ModuleResult LoadModule(char *file, Heap *mem, Val env, CassetteOpts *opts)
     return (ModuleResult){false, {.error = ast.error}};
   }
 
-  return Compile(ast.value, opts, env, mem);
+  return Compile(ast.value, env, mem);
 }
 
-CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
+CompileResult LoadModules(char *entry_file, char *mod_path, Heap *mem)
 {
   // get all files from source directory
-  FileSet fileset = ListFiles(opts->dir);
+  FileSet fileset = ListFiles(mod_path);
 
   i32 entry = -1;
   u32 num_modules = 0;
@@ -36,7 +36,7 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
   // try to compile each file into a module
   for (u32 i = 0; i < fileset.count; i++) {
     // only compile the entry file or files ending with ".cst"
-    if (StrEq(fileset.files[i], opts->entry)) {
+    if (StrEq(fileset.files[i], entry_file)) {
       entry = num_modules;
     } else {
       u32 len = StrLen(fileset.files[i]);
@@ -53,7 +53,7 @@ CompileResult LoadModules(CassetteOpts *opts, Heap *mem)
     result.module.file = fileset.files[i];
 
     // ignore files that aren't modules (except the entry file)
-    if (IsNil(result.module.name) && !StrEq(fileset.files[i], opts->entry)) continue;
+    if (IsNil(result.module.name) && !StrEq(fileset.files[i], entry_file)) continue;
 
     u32 key = result.module.name.as_i;
     if (HashMapContains(&mod_map, key)) {

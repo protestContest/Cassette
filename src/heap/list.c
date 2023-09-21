@@ -1,9 +1,7 @@
 #include "list.h"
-#include "tuple.h"
-#include "univ/string.h"
-#include "univ/hash.h"
+#include "univ.h"
 
-Val Pair(Val head, Val tail, Heap *mem)
+Val Pair(Val head, Val tail, Mem *mem)
 {
   u32 index = MemSize(mem);
   PushVal(mem, head);
@@ -11,27 +9,27 @@ Val Pair(Val head, Val tail, Heap *mem)
   return PairVal(index);
 }
 
-Val Head(Val pair, Heap *mem)
+Val Head(Val pair, Mem *mem)
 {
-  return mem->values[RawVal(pair)];
+  return (*mem->values)[RawVal(pair)];
 }
 
-Val Tail(Val pair, Heap *mem)
+Val Tail(Val pair, Mem *mem)
 {
-  return mem->values[RawVal(pair)+1];
+  return (*mem->values)[RawVal(pair)+1];
 }
 
-void SetHead(Val pair, Val head, Heap *mem)
+void SetHead(Val pair, Val head, Mem *mem)
 {
-  mem->values[RawVal(pair)] = head;
+  (*mem->values)[RawVal(pair)] = head;
 }
 
-void SetTail(Val pair, Val tail, Heap *mem)
+void SetTail(Val pair, Val tail, Mem *mem)
 {
-  mem->values[RawVal(pair)+1] = tail;
+  (*mem->values)[RawVal(pair)+1] = tail;
 }
 
-u32 ListLength(Val list, Heap *mem)
+u32 ListLength(Val list, Mem *mem)
 {
   u32 length = 0;
   while (!IsNil(list)) {
@@ -41,65 +39,30 @@ u32 ListLength(Val list, Heap *mem)
   return length;
 }
 
-bool ListContains(Val list, Val value, Heap *mem)
+bool ListContains(Val list, Val value, Mem *mem)
 {
   while (!IsNil(list)) {
-    if (Eq(value, Head(list, mem))) return true;
+    if (value == Head(list, mem)) return true;
     list = Tail(list, mem);
   }
   return false;
 }
 
-Val ListAt(Val list, u32 pos, Heap *mem)
+Val ListAt(Val list, u32 pos, Mem *mem)
 {
   return Head(TailList(list, pos, mem), mem);
 }
 
-bool IsTaggedWith(Val list, Val tag, Heap *mem)
+Val TailList(Val list, u32 pos, Mem *mem)
 {
-  if (IsPair(list)) {
-    return Eq(tag, Head(list, mem));
-  } else if (IsTuple(list, mem)) {
-    return Eq(tag, TupleGet(list, 0, mem));
-  } else {
-    return false;
-  }
-}
-
-bool IsTagged(Val list, char *tag, Heap *mem)
-{
-  if (IsPair(list)) {
-    return Eq(SymbolFor(tag), Head(list, mem));
-  } else if (IsTuple(list, mem)) {
-    return Eq(SymbolFor(tag), TupleGet(list, 0, mem));
-  } else {
-    return false;
-  }
-}
-
-Val TailList(Val list, u32 pos, Heap *mem)
-{
-  for (u32 i = 0; i < pos; i++) {
+  u32 i;
+  for (i = 0; i < pos; i++) {
     list = Tail(list, mem);
   }
   return list;
 }
 
-Val TruncList(Val list, u32 pos, Heap *mem)
-{
-  if (pos == 0) return nil;
-  return Pair(Head(list, mem), TruncList(Tail(list, mem), pos-1, mem), mem);
-}
-
-Val JoinLists(Val a, Val b, Heap *mem)
-{
-  if (IsNil(a)) return b;
-  if (IsNil(b)) return a;
-
-  return Pair(Head(a, mem), JoinLists(Tail(a, mem), b, mem), mem);
-}
-
-Val ListConcat(Val a, Val b, Heap *mem)
+Val ListConcat(Val a, Val b, Mem *mem)
 {
   if (IsNil(a)) return b;
   if (IsNil(b)) return a;
@@ -109,9 +72,9 @@ Val ListConcat(Val a, Val b, Heap *mem)
   return a;
 }
 
-Val ReverseList(Val list, Heap *mem)
+Val ReverseList(Val list, Mem *mem)
 {
-  Val new_list = nil;
+  Val new_list = Nil;
   while (!IsNil(list)) {
     new_list = Pair(Head(list, mem), new_list, mem);
     list = Tail(list, mem);
