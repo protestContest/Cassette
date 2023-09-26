@@ -1,6 +1,7 @@
-NAME = test
+NAME = mem
 
-TARGET = ../../$(NAME)
+TARGET = ../../lib/lib$(NAME).a
+HEADER = $(NAME).h
 
 SRC_DIR = .
 BUILD_DIR = ../../build/$(NAME)
@@ -14,24 +15,17 @@ CC = clang
 INCLUDE_FLAGS = -I$(SRC_DIR) -I$(INC_DIR) -include ../base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
 CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFINES)
-LDFLAGS = -L$(LIB_DIR) -luniv -lheap
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
+	ar rcs $@ $(OBJS)
+	cp $(HEADER) $(INC_DIR)/
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: test
-test: $(TARGET)
-	@$(TARGET)
-
-.PHONY: debug
-debug: $(TARGET)
-	@lldb $(TARGET)
-
 .PHONY: clean
 clean:
 	rm -rf $(OBJS)
 	rm -rf $(TARGET)
+	rm -rf $(INC_DIR)/$(HEADER)

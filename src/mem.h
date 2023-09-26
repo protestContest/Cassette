@@ -1,5 +1,13 @@
 #pragma once
-#include "univ.h"
+
+/************************************************\
+*     _  __     _____ _  __    ____   ___ __  __ *
+*    / |/  |   / ___// |/  |  / __ \ / _ \\ \/ / *
+*   /      |  / /__ /      | / / / //   _/ \  /  *
+*  / /| /| | / /__ / /| /| |/ /_/ // /\ \  / /   *
+* /_/ |/ |_|/____//_/ |/ |_|\____//_/ /_/ /_/    *
+*                                                *
+\************************************************/
 
 typedef u32 Val;
 
@@ -58,59 +66,23 @@ typedef u32 Val;
 #define Function          0x7FDBE559
 #define Moved             0x7FDEC294
 
-struct Mem;
-
 typedef struct {
-  u32 capacity;
   u32 count;
-  char **names;
-  HashMap map;
-} SymbolMap;
-
-void InitSymbolMap(SymbolMap *symbols);
-void DestroySymbolMap(SymbolMap *symbols);
-Val MakeSymbol(char *name, struct Mem *mem);
-Val MakeSymbolFrom(char *name, u32 length, struct Mem *mem);
-char *SymbolName(Val symbol, struct Mem *mem);
-
-typedef struct Mem {
   u32 capacity;
-  u32 count;
   Val **values;
-  SymbolMap symbols;
 } Mem;
 
 void InitMem(Mem *mem, u32 size);
 void DestroyMem(Mem *mem);
-u32 MemSize(Mem *mem);
-void PushVal(Mem *mem, Val value);
-
 Val Pair(Val head, Val tail, Mem *mem);
 Val Head(Val pair, Mem *mem);
 Val Tail(Val pair, Mem *mem);
-void SetHead(Val pair, Val head, Mem *mem);
-void SetTail(Val pair, Val tail, Mem *mem);
-
-u32 ListLength(Val list, Mem *mem);
-bool ListContains(Val list, Val value, Mem *mem);
-Val ListAt(Val list, u32 pos, Mem *mem);
-Val TailList(Val list, u32 pos, Mem *mem);
-Val ListConcat(Val a, Val b, Mem *mem);
-Val ReverseList(Val list, Mem *mem);
-
 Val MakeTuple(u32 length, Mem *mem);
-bool IsTuple(Val tuple, Mem *mem);
+bool IsTuple(Val value, Mem *mem);
 u32 TupleLength(Val tuple, Mem *mem);
-bool TupleContains(Val tuple, Val value, Mem *mem);
-Val TupleGet(Val tuple, u32 index, Mem *mem);
 void TupleSet(Val tuple, u32 index, Val value, Mem *mem);
-
+Val TupleGet(Val tuple, u32 index, Mem *mem);
 Val MakeBinary(u32 length, Mem *mem);
-Val BinaryFrom(void *data, u32 length, Mem *mem);
-bool IsBinary(Val binary, Mem *mem);
+bool IsBinary(Val value, Mem *mem);
 u32 BinaryLength(Val binary, Mem *mem);
 void *BinaryData(Val binary, Mem *mem);
-
-Mem BeginGC(Mem *from_space);
-Val CopyValue(Val value, Mem *from_space, Mem *to_space);
-void CollectGarbage(Mem *from_space, Mem *to_space);

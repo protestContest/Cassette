@@ -1,4 +1,4 @@
-#include "string.h"
+#include "univ.h"
 
 u32 StrLen(char *str)
 {

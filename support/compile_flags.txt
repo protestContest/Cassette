@@ -5,7 +5,6 @@
 -Wno-unused-parameter
 -pedantic
 -I../src
--I../include
 -include
 base.h
 -std=c89

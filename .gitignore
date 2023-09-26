@@ -9,3 +9,4 @@ cassette
 libcassette.a
 deps/*
 lib/*
+oldsrc/*

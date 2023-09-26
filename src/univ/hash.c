@@ -1,4 +1,4 @@
-#include "hash.h"
+#include "univ.h"
 
 #define HashPrime           ((u32)0x01000193)
 

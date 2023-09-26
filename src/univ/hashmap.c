@@ -1,7 +1,4 @@
-#include "hashmap.h"
-#include "hash.h"
-#include "math.h"
-#include "system.h"
+#include "univ.h"
 
 #define IndexFor(hash, cap)   ((hash) & ((cap) - 1))
 #define IsEmpty(bucket)       ((bucket).probe < 0)

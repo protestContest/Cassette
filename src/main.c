@@ -1,27 +1,13 @@
-#include "rec.h"
-#include "univ/file.h"
+/******************************************************\
+*     ____  __    ____ ____  _____ ______ ______ _____ *
+*    / __/ /  |  / __// __/ / ___//_  __//_  __// ___/ *
+*   / /   / | | /_/__/_/__ / /__   / /    / /  / /__   *
+*  / /__ / _  | __/ /__/ // /__   / /    / /  / /__    *
+* /____//_/ |_|/___//___//____/  /_/    /_/  /____/    *
+*                                                      *
+\******************************************************/
 
-int main(int argc, char *argv[])
+int main(void)
 {
-  Chunk *chunk;
-
-  switch (argc) {
-  case 1:
-    chunk = LoadChunk(argv[1], NULL);
-    break;
-  case 2:
-    chunk = LoadChunk(argv[1], argv[2]);
-    break;
-  default:
-    return 1;
-  }
-
-  if (!chunk) return 1;
-
-  VM vm;
-
-  InitVM(&vm);
-  RunChunk(&vm, chunk);
-  DestroyVM(&vm);
-  FreeChunk(chunk);
+  return 0;
 }
