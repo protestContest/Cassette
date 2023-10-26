@@ -14,7 +14,7 @@ WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedan
 CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFINES)
 
 $(TARGET): $(OBJS)
-	echo $<
+	@echo $<
 	$(CC) $(CFLAGS) $(OBJS) -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c

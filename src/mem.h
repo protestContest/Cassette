@@ -1,14 +1,6 @@
 #pragma once
 
-/************************************************\
-*     _  __     _____ _  __    ____   ___ __  __ *
-*    / |/  |   / ___// |/  |  / __ \ / _ \\ \/ / *
-*   /      |  / /__ /      | / / / //   _/ \  /  *
-*  / /| /| | / /__ / /| /| |/ /_/ // /\ \  / /   *
-* /_/ |/ |_|/____//_/ |/ |_|\____//_/ /_/ /_/    *
-*                                                *
-\************************************************/
-
+#include "univ.h"
 typedef u32 Val;
 
 #define nanMask           0x7FC00000
@@ -23,7 +15,6 @@ typedef u32 Val;
 #define mapMask           0xFFE00000
 
 #define MakeVal(n, mask)  (((n) & ~typeMask) | (mask))
-#define FloatVal(n)       ((Val)((f32)(n)))
 #define IntVal(n)         MakeVal((i32)(n), intMask)
 #define SymVal(n)         MakeVal(n, symMask)
 #define PairVal(n)        MakeVal(n, pairMask)
@@ -45,7 +36,6 @@ typedef u32 Val;
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
 
-#define RawFloat(v)       ((f32)(v))
 #define RawInt(v)         SignExt(v)
 #define RawVal(v)         ((v) & ~typeMask)
 
@@ -61,19 +51,36 @@ typedef u32 Val;
 #define False             0x7FD8716C
 #define Ok                0x7FD9C8D3
 #define Error             0x7FD161DF
-#define Undefined         0x7FD0ED47
 #define Primitive         0x7FDE8B53
 #define Function          0x7FDBE559
 #define Moved             0x7FDEC294
+
+Val FloatVal(float num);
+float RawFloat(Val value);
+void PrintVal(Val value);
+
+typedef struct {
+  u32 count;
+  u32 capacity;
+  char *names;
+  HashMap map;
+} SymbolTable;
 
 typedef struct {
   u32 count;
   u32 capacity;
   Val **values;
+  SymbolTable symbols;
 } Mem;
 
+void InitSymbolTable(SymbolTable *symbols);
+void DestroySymbolTable(SymbolTable *symbols);
 void InitMem(Mem *mem, u32 size);
 void DestroyMem(Mem *mem);
+Val SymbolFor(char *name);
+Val Sym(char *name, Mem *mem);
+Val MakeSymbol(char *name, u32 length, SymbolTable *symbols);
+char *SymbolName(Val sym, Mem *mem);
 Val Pair(Val head, Val tail, Mem *mem);
 Val Head(Val pair, Mem *mem);
 Val Tail(Val pair, Mem *mem);

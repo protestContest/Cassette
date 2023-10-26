@@ -1,16 +1,5 @@
 #pragma once
 
-/********************************************\
-*     ___    _____ ____  ____   ___    ____  *
-*    / _ \  / ___// __/ / __ \ / _ \  / __ \ *
-*   /   _/ / /__ / /   / / / //   _/ / / / / *
-*  / /\ \ / /__ / /__ / /_/ // /\ \ / /_/ /  *
-* /_/ /_//____//____/ \____//_/ /_//____,'   *
-*                                            *
-\********************************************/
-
-#include "mem.h"
-
 typedef enum {
   TokenEOF, TokenID, TokenBangEqual, TokenString, TokenNewline, TokenHash,
   TokenPercent, TokenLParen, TokenRParen, TokenStar, TokenPlus, TokenComma,
@@ -19,7 +8,7 @@ typedef enum {
   TokenLBracket, TokenRBracket, TokenAnd, TokenAs, TokenCond, TokenDef, TokenDo,
   TokenElse, TokenEnd, TokenFalse, TokenIf, TokenImport, TokenIn, TokenLet,
   TokenModule, TokenNil, TokenNot, TokenOr, TokenTrue, TokenLBrace, TokenBar,
-  TokenRBrace
+  TokenRBrace, NumTokenTypes
 } TokenType;
 
 typedef struct {
@@ -36,3 +25,6 @@ typedef struct {
 
 void InitLexer(Lexer *lex, char *source);
 Token NextToken(Lexer *lex);
+bool MatchToken(TokenType type, Lexer *lex);
+void SkipNewlines(Lexer *lex);
+void PrintToken(Token token);

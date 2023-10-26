@@ -1,11 +1,40 @@
 #include "mem.h"
-#include "univ/univ.h"
+#include "univ.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+Val FloatVal(float num)
+{
+  union {Val as_v; float as_f;} convert;
+  convert.as_f = num;
+  return convert.as_v;
+}
+
+float RawFloat(Val value)
+{
+  union {Val as_v; float as_f;} convert;
+  convert.as_v = value;
+  return convert.as_f;
+}
+
+void PrintVal(Val value)
+{
+  if (IsInt(value)) {
+    printf("%u", RawInt(value));
+  } else if (IsFloat(value)) {
+    printf("%f", RawFloat(value));
+  } else {
+    printf("%08X", value);
+  }
+}
 
 void InitMem(Mem *mem, u32 size)
 {
   mem->values = (Val**)NewHandle(sizeof(Val) * size);
   mem->count = 0;
   mem->capacity = size;
+  InitSymbolTable(&mem->symbols);
 }
 
 void DestroyMem(Mem *mem)
@@ -14,6 +43,63 @@ void DestroyMem(Mem *mem)
   mem->count = 0;
   mem->capacity = 0;
   mem->values = NULL;
+  DestroySymbolTable(&mem->symbols);
+}
+
+void InitSymbolTable(SymbolTable *symbols)
+{
+  symbols->count = 0;
+  symbols->capacity = 256;
+  symbols->names = malloc(256);
+  InitHashMap(&symbols->map);
+}
+
+void DestroySymbolTable(SymbolTable *symbols)
+{
+  symbols->count = 0;
+  symbols->capacity = 0;
+  free(symbols->names);
+  DestroyHashMap(&symbols->map);
+}
+
+Val SymbolFor(char *name)
+{
+  return SymVal(Hash(name, strlen(name)));
+}
+
+Val Sym(char *name, Mem *mem)
+{
+  return MakeSymbol(name, strlen(name), &mem->symbols);
+}
+
+static void AddSymbol(char *name, u32 length, SymbolTable *symbols)
+{
+  if (symbols->count >= symbols->capacity) {
+    u32 needed = Max(symbols->capacity*2, symbols->capacity+length);
+    symbols->names = realloc(symbols->names, needed);
+  }
+  memcpy(symbols->names + symbols->count, name, length);
+  symbols->count += length;
+  symbols->names[symbols->count++] = 0;
+}
+
+Val MakeSymbol(char *name, u32 length, SymbolTable *symbols)
+{
+  Val symbol = SymVal(Hash(name, length));
+  if (!HashMapContains(&symbols->map, symbol)) {
+    HashMapSet(&symbols->map, symbol, symbols->count);
+    AddSymbol(name, length, symbols);
+  }
+  return symbol;
+}
+
+char *SymbolName(Val sym, Mem *mem)
+{
+  if (HashMapContains(&mem->symbols.map, sym)) {
+    return mem->symbols.names + HashMapGet(&mem->symbols.map, sym);
+  } else {
+    return 0;
+  }
 }
 
 Val Pair(Val head, Val tail, Mem *mem)
@@ -57,7 +143,7 @@ bool IsTuple(Val value, Mem *mem)
 u32 TupleLength(Val tuple, Mem *mem)
 {
   Assert(IsTuple(tuple, mem));
-  return (*mem->values)[RawVal(tuple)];
+  return RawVal((*mem->values)[RawVal(tuple)]);
 }
 
 void TupleSet(Val tuple, u32 i, Val value, Mem *mem)
@@ -97,7 +183,7 @@ bool IsBinary(Val value, Mem *mem)
 u32 BinaryLength(Val binary, Mem *mem)
 {
   Assert(IsBinary(binary, mem));
-  return RawInt((*mem->values)[RawVal(binary)]);
+  return RawVal((*mem->values)[RawVal(binary)]);
 }
 
 void *BinaryData(Val binary, Mem *mem)

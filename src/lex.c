@@ -1,5 +1,6 @@
-#include "rec.h"
-#include "mem/mem.h"
+#include "lex.h"
+#include "mem.h"
+#include <stdio.h>
 
 #define Peek(lex)     (lex)->source[(lex)->pos]
 #define IsSpace(c)    ((c) == ' ' || (c) == '\t')
@@ -10,6 +11,7 @@ static bool IsSymChar(char c);
 static void SkipWhitespace(Lexer *lex);
 static bool Match(char *test, Lexer *lex);
 static bool MatchKeyword(char *test, Lexer *lex);
+static Token AdvanceToken(Lexer *lex);
 static Token MakeToken(TokenType type, char *lexeme, u32 length);
 static Token NumberToken(Lexer *lex);
 static Token StringToken(Lexer *lex);
@@ -19,12 +21,32 @@ void InitLexer(Lexer *lex, char *source)
 {
   lex->source = source;
   lex->pos = 0;
-  lex->token = NextToken(lex);
+  lex->token = AdvanceToken(lex);
 }
 
 Token NextToken(Lexer *lex)
 {
+  Token token = lex->token;
+  lex->token = AdvanceToken(lex);
+  return token;
+}
+
+bool MatchToken(TokenType type, Lexer *lex)
+{
+  if (lex->token.type == type) {
+    NextToken(lex);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static Token AdvanceToken(Lexer *lex)
+{
   char *start;
+
+  start = lex->source + lex->pos;
+  if (Match(".", lex))  return MakeToken(TokenDot, start, 1);
 
   SkipWhitespace(lex);
   start = lex->source + lex->pos;
@@ -47,7 +69,6 @@ Token NextToken(Lexer *lex)
   if (Match("+", lex))  return MakeToken(TokenPlus, start, 1);
   if (Match(",", lex))  return MakeToken(TokenComma, start, 1);
   if (Match("-", lex))  return MakeToken(TokenMinus, start, 1);
-  if (Match(".", lex))  return MakeToken(TokenDot, start, 1);
   if (Match("/", lex))  return MakeToken(TokenSlash, start, 1);
   if (Match(":", lex))  return MakeToken(TokenColon, start, 1);
   if (Match("<", lex))  return MakeToken(TokenLess, start, 1);
@@ -65,6 +86,9 @@ Token NextToken(Lexer *lex)
 static bool IsSymChar(char c)
 {
   switch (c) {
+  case ' ':
+  case '\t':
+  case '\n':
   case ';':
   case '#':
   case '%':
@@ -99,6 +123,11 @@ static void SkipWhitespace(Lexer *lex)
     if (Peek(lex) == '\n') lex->pos++;
     SkipWhitespace(lex);
   }
+}
+
+void SkipNewlines(Lexer *lex)
+{
+  while (lex->token.type == TokenNewline) NextToken(lex);
 }
 
 static bool Match(char *test, Lexer *lex)
@@ -138,7 +167,7 @@ static Token MakeToken(TokenType type, char *lexeme, u32 length)
 static Token NumberToken(Lexer *lex)
 {
   u32 start = lex->pos;
-  if (Match("0x", lex) && IsDigit(Peek(lex))) {
+  if (Match("0x", lex) && IsHexDigit(Peek(lex))) {
     while (IsHexDigit(Peek(lex))) lex->pos++;
     return MakeToken(TokenNum, lex->source + start, lex->pos - start);
   } else {
@@ -191,4 +220,9 @@ static Token KeywordToken(Lexer *lex)
 
   while (IsSymChar(Peek(lex))) lex->pos++;
   return MakeToken(TokenID, lex->source + start, lex->pos - start);
+}
+
+void PrintToken(Token token)
+{
+  printf("\"%.*s\"\n", token.length, token.lexeme);
 }
