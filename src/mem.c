@@ -1,8 +1,11 @@
 #include "mem.h"
+#include "symbols.h"
 #include "univ.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+static bool CheckCapacity(Mem *mem, u32 amount);
 
 Val FloatVal(float num)
 {
@@ -18,23 +21,27 @@ float RawFloat(Val value)
   return convert.as_f;
 }
 
-void PrintVal(Val value)
+void PrintVal(Val value, SymbolTable *symbols)
 {
-  if (IsInt(value)) {
+  if (IsNil(value)) {
+    printf("nil");
+  } else if (IsInt(value)) {
     printf("%u", RawInt(value));
   } else if (IsFloat(value)) {
     printf("%f", RawFloat(value));
+  } else if (IsSym(value) && symbols) {
+    printf("%s", SymbolName(value, symbols));
   } else {
     printf("%08X", value);
   }
 }
 
-void InitMem(Mem *mem, u32 size)
+void InitMem(Mem *mem, u32 capacity)
 {
-  mem->values = (Val**)NewHandle(sizeof(Val) * size);
+  mem->values = (Val**)NewHandle(sizeof(Val) * capacity);
   mem->count = 0;
-  mem->capacity = size;
-  InitSymbolTable(&mem->symbols);
+  mem->capacity = capacity;
+  Pair(Nil, Nil, mem);
 }
 
 void DestroyMem(Mem *mem)
@@ -43,69 +50,12 @@ void DestroyMem(Mem *mem)
   mem->count = 0;
   mem->capacity = 0;
   mem->values = NULL;
-  DestroySymbolTable(&mem->symbols);
-}
-
-void InitSymbolTable(SymbolTable *symbols)
-{
-  symbols->count = 0;
-  symbols->capacity = 256;
-  symbols->names = malloc(256);
-  InitHashMap(&symbols->map);
-}
-
-void DestroySymbolTable(SymbolTable *symbols)
-{
-  symbols->count = 0;
-  symbols->capacity = 0;
-  free(symbols->names);
-  DestroyHashMap(&symbols->map);
-}
-
-Val SymbolFor(char *name)
-{
-  return SymVal(Hash(name, strlen(name)));
-}
-
-Val Sym(char *name, Mem *mem)
-{
-  return MakeSymbol(name, strlen(name), &mem->symbols);
-}
-
-static void AddSymbol(char *name, u32 length, SymbolTable *symbols)
-{
-  if (symbols->count >= symbols->capacity) {
-    u32 needed = Max(symbols->capacity*2, symbols->capacity+length);
-    symbols->names = realloc(symbols->names, needed);
-  }
-  memcpy(symbols->names + symbols->count, name, length);
-  symbols->count += length;
-  symbols->names[symbols->count++] = 0;
-}
-
-Val MakeSymbol(char *name, u32 length, SymbolTable *symbols)
-{
-  Val symbol = SymVal(Hash(name, length));
-  if (!HashMapContains(&symbols->map, symbol)) {
-    HashMapSet(&symbols->map, symbol, symbols->count);
-    AddSymbol(name, length, symbols);
-  }
-  return symbol;
-}
-
-char *SymbolName(Val sym, Mem *mem)
-{
-  if (HashMapContains(&mem->symbols.map, sym)) {
-    return mem->symbols.names + HashMapGet(&mem->symbols.map, sym);
-  } else {
-    return 0;
-  }
 }
 
 Val Pair(Val head, Val tail, Mem *mem)
 {
   Val pair = PairVal(mem->count);
-  Assert(mem->count + 2 <= mem->capacity);
+  Assert(CheckCapacity(mem, 2));
   (*mem->values)[mem->count++] = head;
   (*mem->values)[mem->count++] = tail;
   return pair;
@@ -123,11 +73,22 @@ Val Tail(Val pair, Mem *mem)
   return (*mem->values)[RawVal(pair)+1];
 }
 
+Val ReverseList(Val list, Mem *mem)
+{
+  Val reversed = Nil;
+  Assert(IsPair(list));
+  while (list != Nil) {
+    reversed = Pair(Head(list, mem), reversed, mem);
+    list = Tail(list, mem);
+  }
+  return reversed;
+}
+
 Val MakeTuple(u32 length, Mem *mem)
 {
   u32 i;
   Val tuple = ObjVal(mem->count);
-  Assert(mem->count + length + 1 <= mem->capacity);
+  Assert(CheckCapacity(mem, length + 1));
   (*mem->values)[mem->count++] = TupleHeader(length);
   for (i = 0; i < length; i++) {
     (*mem->values)[mem->count++] = Nil;
@@ -167,7 +128,7 @@ Val MakeBinary(u32 length, Mem *mem)
   Val binary = ObjVal(mem->count);
   u32 cells = NumBinCells(length);
   u32 i;
-  Assert(mem->count + cells + 1 <= mem->capacity);
+  Assert(CheckCapacity(mem, cells + 1));
   (*mem->values)[mem->count++] = BinaryHeader(length);
   for (i = 0; i < cells; i++) {
     (*mem->values)[mem->count++] = 0;
@@ -190,4 +151,9 @@ void *BinaryData(Val binary, Mem *mem)
 {
   Assert(IsBinary(binary, mem));
   return &(*mem->values)[RawVal(binary)];
+}
+
+static bool CheckCapacity(Mem *mem, u32 amount)
+{
+  return mem->count + amount <= mem->capacity;
 }

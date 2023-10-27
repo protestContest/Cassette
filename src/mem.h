@@ -47,43 +47,35 @@ typedef u32 Val;
 #define IsZero(v)         ((IsFloat(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
 
 #define Nil               0x7FE00000
-#define True              0x7FD69399
-#define False             0x7FD8716C
-#define Ok                0x7FD9C8D3
-#define Error             0x7FD161DF
-#define Primitive         0x7FDE8B53
-#define Function          0x7FDBE559
-#define Moved             0x7FDEC294
+
+/* pre-computed symbols */
+#define True              0x7FD9395C
+#define False             0x7FDE2C6F
+#define Ok                0x7FD72346
+#define Error             0x7FDC3AAA
+#define Primitive         0x7FD6E58F
+#define Function          0x7FDE36D4
+#define Moved             0x7FD162D1
+#define Undefined         0x7FD19F74
 
 Val FloatVal(float num);
 float RawFloat(Val value);
-void PrintVal(Val value);
 
-typedef struct {
-  u32 count;
-  u32 capacity;
-  char *names;
-  HashMap map;
-} SymbolTable;
+struct SymbolTable;
+void PrintVal(Val value, struct SymbolTable *symbols);
 
 typedef struct {
   u32 count;
   u32 capacity;
   Val **values;
-  SymbolTable symbols;
 } Mem;
 
-void InitSymbolTable(SymbolTable *symbols);
-void DestroySymbolTable(SymbolTable *symbols);
-void InitMem(Mem *mem, u32 size);
+void InitMem(Mem *mem, u32 capacity);
 void DestroyMem(Mem *mem);
-Val SymbolFor(char *name);
-Val Sym(char *name, Mem *mem);
-Val MakeSymbol(char *name, u32 length, SymbolTable *symbols);
-char *SymbolName(Val sym, Mem *mem);
 Val Pair(Val head, Val tail, Mem *mem);
 Val Head(Val pair, Mem *mem);
 Val Tail(Val pair, Mem *mem);
+Val ReverseList(Val list, Mem *mem);
 Val MakeTuple(u32 length, Mem *mem);
 bool IsTuple(Val value, Mem *mem);
 u32 TupleLength(Val tuple, Mem *mem);

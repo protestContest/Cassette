@@ -88,7 +88,7 @@ void DumpConstants(Chunk *chunk)
 {
   u32 i;
   for (i = 0; i < chunk->num_constants; i++) {
-    PrintVal(chunk->constants[i]);
+    PrintVal(chunk->constants[i], 0);
     if (i < chunk->num_constants-1) printf(", ");
   }
   printf("\n");
@@ -121,7 +121,7 @@ void Disassemble(Chunk *chunk)
     printf("  %s", OpName(op));
     if (op == OpConst) {
       printf(" ");
-      PrintVal(ChunkConst(chunk, i+1));
+      PrintVal(ChunkConst(chunk, i+1), 0);
     } else if (op == OpLookup) {
       printf(" %d,%d", ChunkRef(chunk, i+1), ChunkRef(chunk, i+2));
     }

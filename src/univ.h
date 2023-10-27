@@ -72,3 +72,4 @@ void DisposeHandle(Handle handle);
 void Copy(void *src, void *dst, u32 size);
 void Exit(void);
 void Alert(char *message);
+char *ReadFile(char *path);

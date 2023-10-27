@@ -133,17 +133,13 @@ static bool CompileBlock(Compiler *c, Chunk *chunk, Val linkage)
   SkipNewlines(&c->lex);
 
   while (ExprNext(c)) {
-    /* compile first argument */
     if (!CompileExpr(PrecExpr, c, &op, LinkNext)) return false;
 
     if (ExprNext(c)) {
-      /* stmt has more args, so we want to call it */
       if (!CompileArgs(c, chunk)) return false;
-      /* TODO: preserve env */
       AppendChunk(chunk, &op);
       ResetChunk(&op);
 
-      /* if there's another stmt, we need to return here */
       SkipNewlines(&c->lex);
       if (ExprNext(c)) {
         CompileApplication(LinkNext, chunk);
@@ -152,12 +148,9 @@ static bool CompileBlock(Compiler *c, Chunk *chunk, Val linkage)
         CompileApplication(linkage, chunk);
       }
     } else {
-      /* stand-alone expr, don't call it */
-      /* TODO: preserve env */
       AppendChunk(chunk, &op);
       ResetChunk(&op);
 
-      /* if there's another stmt, discard this stmt result */
       SkipNewlines(&c->lex);
       if (ExprNext(c)) {
         PushByte(OpPop, chunk);
@@ -172,9 +165,6 @@ static bool CompileBlock(Compiler *c, Chunk *chunk, Val linkage)
 
 static bool CompileArgs(Compiler *c, Chunk *chunk)
 {
-  /* Arguments in a call must be pushed onto the stack in reverse order, so we
-     compile into an arg chunk and continually prepend it to an args chunk. Then
-     we can tack on the whole call at the end */
   Chunk args;
   Chunk arg, tmp;
   u32 num_args = 0;
@@ -185,8 +175,6 @@ static bool CompileArgs(Compiler *c, Chunk *chunk)
   while (ExprNext(c)) {
     if (!CompileExpr(PrecExpr, c, &arg, LinkNext)) return false;
 
-    /* swap so that args is the variable that got modified */
-    /* TODO: preserve env */
     tmp = args;
     AppendChunk(&arg, &args);
     args = arg;
@@ -199,7 +187,6 @@ static bool CompileArgs(Compiler *c, Chunk *chunk)
   AppendChunk(chunk, &args);
   DestroyChunk(&args);
 
-  /* create a tuple of the args */
   PushConst(IntVal(num_args), chunk);
   PushByte(OpTuple, chunk);
 
@@ -209,17 +196,13 @@ static bool CompileArgs(Compiler *c, Chunk *chunk)
 static void CompileApplication(Val linkage, Chunk *chunk)
 {
   if (linkage == LinkReturn) {
-    /* preserve return reg before OpApply */
-    /* needs return, modifies env */
     PushByte(OpApply, chunk);
   } else {
     if (linkage == LinkNext) {
-      /* link to after the call */
       PushConst(IntVal(2), chunk);
     } else {
       PushConst(linkage, chunk);
     }
-    /* modifies env, return */
     PushByte(OpLink, chunk);
     PushByte(OpApply, chunk);
   }
@@ -228,14 +211,8 @@ static void CompileApplication(Val linkage, Chunk *chunk)
 static bool CompileExpr(Prec prec, Compiler *c, Chunk *chunk, Val linkage)
 {
   if (MatchToken(TokenLParen, &c->lex)) {
-    /* groups require special care:
-      - is it actually a lambda?
-      - if not, should we apply it with the given linkage? (i.e. is there an operater after it?)
-    */
-
     Val params = ParseParams(c);
     if (params != Error) {
-      /* it's a lambda */
       c->env = ExtendEnv(c->env, params, &c->mem);
       return CompileLambda(c, chunk);
     } else {
@@ -249,16 +226,13 @@ static bool CompileExpr(Prec prec, Compiler *c, Chunk *chunk, Val linkage)
       Assert(MatchToken(TokenRParen, &c->lex));
 
       if (rules[c->lex.token.type].precedence < prec) {
-        /* this is the only part of the expr, apply with our linkage */
         CompileApplication(linkage, chunk);
         return true;
       } else {
-        /* an infix op follows - apply but return here */
         CompileApplication(LinkNext, chunk);
       }
     }
   } else {
-    /* not a group, look it up in the rules */
     if (!ExprNext(c)) return false;
     if (!rules[c->lex.token.type].prefix(c, chunk)) return false;
   }
@@ -302,11 +276,10 @@ static bool CompileLambda(Compiler *c, Chunk *chunk)
 {
   u32 patch;
 
-  PushConst(IntVal(0), chunk); /* placeholder */
+  PushConst(IntVal(0), chunk);
   patch = chunk->count;
   PushByte(OpLambda, chunk);
 
-  /* lambda body */
   PushByte(OpExtend, chunk);
   if (!CompileExpr(PrecExpr, c, chunk, LinkReturn)) return false;
 
@@ -422,7 +395,6 @@ static bool CompileVar(Compiler *c, Chunk *chunk)
 
   if (def == -1) return false;
 
-  /* needs env */
   PushByte(OpLookup, chunk);
   PushByte(def >> 8, chunk);
   PushByte(def & 0xFF, chunk);

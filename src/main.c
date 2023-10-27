@@ -1,21 +1,21 @@
-#include "compile.h"
-#include "chunk.h"
+#include "parse.h"
 #include <stdio.h>
 
 int main(void)
 {
-  char *source = "(x) -> (x x) + 1 4\n73";
-  Chunk *chunk = Compile(source);
-  Assert(chunk);
+  /*char *source = "def (foo x) x + 1\nlet x = 1\nlet y = 2";*/
+  char *source = ReadFile("./test.cst");
+  Parser p;
+  Val ast;
 
-  printf("%s\n", source);
-  printf("---\n");
-  printf("Constants: ");
-  DumpConstants(chunk);
-  printf("---\n");
-  DumpChunk(chunk);
-  printf("---\n");
-  Disassemble(chunk);
+  InitParser(&p);
+  ast = Parse(source, &p);
+
+  if (ast == Error) {
+    PrintParseError(&p);
+  } else {
+    PrintAST(ast, 0, &p.mem, &p.symbols);
+  }
 
   return 0;
 }
