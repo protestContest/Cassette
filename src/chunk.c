@@ -15,6 +15,7 @@ void InitChunk(Chunk *chunk)
   chunk->count = 0;
   chunk->code = 0;
   chunk->num_constants = 0;
+  chunk->regs = 0;
   ResizeChunk(chunk, 256);
 }
 
@@ -22,11 +23,13 @@ void ResetChunk(Chunk *chunk)
 {
   chunk->count = 0;
   chunk->num_constants = 0;
+  chunk->regs = 0;
 }
 
 void DestroyChunk(Chunk *chunk)
 {
   if (chunk->code != 0) free(chunk->code);
+  ResetChunk(chunk);
 }
 
 void PushByte(u8 byte, Chunk *chunk)
@@ -54,7 +57,6 @@ u8 AddConst(Val value, Chunk *chunk)
 
 void PushConst(Val value, Chunk *chunk)
 {
-  PushByte(OpConst, chunk);
   PushByte(AddConst(value, chunk), chunk);
 }
 
@@ -118,12 +120,11 @@ void Disassemble(Chunk *chunk)
   u32 i = 0;
   for (i = 0; i < chunk->count; i += OpLength(ChunkRef(chunk, i))) {
     u8 op = ChunkRef(chunk, i);
+    u32 j;
     printf("  %s", OpName(op));
-    if (op == OpConst) {
+    for (j = 0; j < OpLength(op) - 1; j++) {
       printf(" ");
       PrintVal(ChunkConst(chunk, i+1), 0);
-    } else if (op == OpLookup) {
-      printf(" %d,%d", ChunkRef(chunk, i+1), ChunkRef(chunk, i+2));
     }
     printf("\n");
   }

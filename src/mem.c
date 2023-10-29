@@ -84,6 +84,16 @@ Val ReverseList(Val list, Mem *mem)
   return reversed;
 }
 
+u32 ListLength(Val list, Mem *mem)
+{
+  u32 length = 0;
+  while (list != Nil) {
+    length++;
+    list = Tail(list, mem);
+  }
+  return length;
+}
+
 Val MakeTuple(u32 length, Mem *mem)
 {
   u32 i;

@@ -1,8 +1,2 @@
-def (reduce list acc fn) do
-  if list == nil do
-    acc
-  else
-    let new_acc = fn (head list) acc
-    reduce (tail list) new_acc fn
-  end
-end
+let x = 1
+x

@@ -76,6 +76,7 @@ Val Pair(Val head, Val tail, Mem *mem);
 Val Head(Val pair, Mem *mem);
 Val Tail(Val pair, Mem *mem);
 Val ReverseList(Val list, Mem *mem);
+u32 ListLength(Val list, Mem *mem);
 Val MakeTuple(u32 length, Mem *mem);
 bool IsTuple(Val value, Mem *mem);
 u32 TupleLength(Val tuple, Mem *mem);

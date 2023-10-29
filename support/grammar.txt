@@ -12,7 +12,8 @@ args            → args arg | ε
 call_stmt       → call "\n"
 call            → args arg
 
-arg             → logic
+arg             → lambda
+lambda          → group "->" arg | ID "->" arg
 logic           → equality | logic "and" equality | logic "or" equality
 equality        → compare | equality "==" compare | equality "!=" compare
 compare         → member
@@ -37,8 +38,7 @@ cond_block      → "cond" clauses "else" call "end"
 clauses         → clauses clause | ε
 clause          → logic "->" call
 
-obj             → lambda | list | tuple | map
-lambda          → group "->" arg | ID "->" arg
+obj             → list | tuple | map
 list            → "[" list_tail
 list_tail       → "]" | call "]" | call "," list_tail
 tuple           → "{" tuple_tail

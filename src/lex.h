@@ -23,7 +23,7 @@ typedef struct {
   Token token;
 } Lexer;
 
-void InitLexer(Lexer *lex, char *source);
+void InitLexer(Lexer *lex, char *source, u32 pos);
 Token NextToken(Lexer *lex);
 bool MatchToken(TokenType type, Lexer *lex);
 void SkipNewlines(Lexer *lex);

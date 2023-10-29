@@ -8,10 +8,13 @@ typedef struct {
   u8 *code;
   u32 num_constants;
   Val constants[MaxConstants];
+  u8 regs; /* bitfield: [needs ret, needs env, modifies ret, modifies env] */
 } Chunk;
 
-#define ChunkRef(chunk, i)    ((chunk)->code[i])
-#define ChunkConst(chunk, i)  ((chunk)->constants[ChunkRef(chunk, i)])
+#define ChunkRef(chunk, i)        ((chunk)->code[i])
+#define ChunkConst(chunk, i)      ((chunk)->constants[ChunkRef(chunk, i)])
+#define Needs(reg)                ((reg) << 2)
+#define Modifies(reg)             (reg)
 
 void InitChunk(Chunk *chunk);
 void ResetChunk(Chunk *chunk);

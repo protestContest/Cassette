@@ -35,7 +35,7 @@ i32 FindDefinition(Val var, Val env, Mem *mem)
   while (env != Nil) {
     for (i = 0; i < TupleLength(Head(env, mem), mem); i++) {
       if (TupleGet(Head(env, mem), i, mem) == var) {
-        return (frame << 8) | i;
+        return (frame << 16) | i;
       }
     }
     frame++;

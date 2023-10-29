@@ -1,33 +1,46 @@
 #pragma once
 
 typedef enum {
-  OpConst,
+  RegEnv = 0x1,
+  RegRet = 0x2
+} Reg;
+
+typedef enum {
+  OpHalt,
   OpPop,
+  OpDup,
+  OpConst,
   OpNeg,
   OpNot,
-  OpAnd,
-  OpOr,
-  OpEq,
-  OpLt,
-  OpGt,
-  OpAdd,
-  OpSub,
+  OpLen,
   OpMul,
   OpDiv,
   OpRem,
-  OpLen,
+  OpAdd,
+  OpSub,
   OpIn,
+  OpLt,
+  OpGt,
+  OpEq,
+  OpStr,
   OpPair,
   OpTuple,
-  OpLambda,
-
+  OpSet,
+  OpGet,
   OpExtend,
+  OpDefine,
   OpLookup,
-
+  OpExport,
   OpJump,
+  OpBranch,
   OpLink,
   OpReturn,
+  OpLambda,
   OpApply,
+  OpSaveEnv,
+  OpRestEnv,
+  OpSaveRet,
+  OpRestRet,
 
   NumOps
 } OpCode;

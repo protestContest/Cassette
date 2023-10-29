@@ -17,10 +17,10 @@ static Token NumberToken(Lexer *lex);
 static Token StringToken(Lexer *lex);
 static Token KeywordToken(Lexer *lex);
 
-void InitLexer(Lexer *lex, char *source)
+void InitLexer(Lexer *lex, char *source, u32 pos)
 {
   lex->source = source;
-  lex->pos = 0;
+  lex->pos = pos;
   lex->token = AdvanceToken(lex);
 }
 
