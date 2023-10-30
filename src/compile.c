@@ -220,6 +220,9 @@ static Val CompileCall(Val call, Val linkage, Compiler *c, Chunk *chunk)
   u32 i = 0;
   Val result;
 
+  u32 patch = PushByte(OpNoop, chunk);
+  PushByte(OpNoop, chunk);
+
   PushByte(OpTuple, chunk);
   PushConst(IntVal(num_args), chunk);
 
@@ -244,8 +247,8 @@ static Val CompileCall(Val call, Val linkage, Compiler *c, Chunk *chunk)
   } else {
     if (linkage == LinkNext) linkage = IntVal(2);
 
-    PushByte(OpLink, chunk);
-    PushByte(linkage, chunk);
+    PatchChunk(chunk, patch, OpLink);
+    PatchChunk(chunk, patch+1, linkage);
     PushByte(OpApply, chunk);
   }
 

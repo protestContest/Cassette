@@ -6,6 +6,7 @@ typedef struct {
 } OpInfo;
 
 static OpInfo ops[NumOps] = {
+  [OpNoop]    = {1, "noop"},
   [OpHalt]    = {1, "halt"},
   [OpPop]     = {1, "pop"},
   [OpDup]     = {1, "dup"},

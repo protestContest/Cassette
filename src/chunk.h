@@ -20,7 +20,7 @@ void InitChunk(Chunk *chunk);
 void ResetChunk(Chunk *chunk);
 void DestroyChunk(Chunk *chunk);
 
-void PushByte(u8 byte, Chunk *chunk);
+u32 PushByte(u8 byte, Chunk *chunk);
 u8 AddConst(Val value, Chunk *chunk);
 void PushConst(Val value, Chunk *chunk);
 void PatchChunk(Chunk *chunk, u32 index, Val value);

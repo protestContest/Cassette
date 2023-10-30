@@ -6,6 +6,7 @@ typedef enum {
 } Reg;
 
 typedef enum {
+  OpNoop,
   OpHalt,
   OpPop,
   OpDup,

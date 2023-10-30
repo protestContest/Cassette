@@ -32,13 +32,15 @@ void DestroyChunk(Chunk *chunk)
   ResetChunk(chunk);
 }
 
-void PushByte(u8 byte, Chunk *chunk)
+u32 PushByte(u8 byte, Chunk *chunk)
 {
+  u32 pos = chunk->count;
   if (chunk->count + 1 == chunk->capacity) {
     ResizeChunk(chunk, chunk->capacity * 2);
   }
 
   ChunkRef(chunk, chunk->count++) = byte;
+  return pos;
 }
 
 u8 AddConst(Val value, Chunk *chunk)
