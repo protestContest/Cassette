@@ -96,7 +96,7 @@ static Val CompileExpr(Val node, Val linkage, Compiler *c, Chunk *chunk)
   case SymPlus:
     return CompileOp(OpAdd, expr, linkage, c, chunk);
   case SymMinus:
-    if (ListLength(node, &c->mem) == 2) return CompileOp(OpNeg, expr, linkage, c, chunk);
+    if (ListLength(expr, &c->mem) == 2) return CompileOp(OpNeg, expr, linkage, c, chunk);
     else return CompileOp(OpSub, expr, linkage, c, chunk);
   case SymArrow:
     return CompileLambda(expr, linkage, c, chunk);
@@ -191,17 +191,19 @@ static Val CompileAssigns(Val assigns, Val linkage, Compiler *c, Chunk *chunk)
   c->env = ExtendEnv(c->env, MakeTuple(num_assigns, &c->mem), &c->mem);
   PushByte(OpTuple, chunk);
   PushConst(IntVal(num_assigns), chunk);
+  PushByte(OpExtend, chunk);
 
   while (assigns != Nil) {
     Val assign = Head(assigns, &c->mem);
     Val var = Head(assign, &c->mem);
     Val value = Tail(assign, &c->mem);
     Val val_linkage = (Tail(assigns, &c->mem) == Nil) ? linkage : LinkNext;
-    Val result = CompileExpr(value, val_linkage, c, chunk);
+    Val result;
+    Define(var, i, c->env, &c->mem);
 
+    result = CompileExpr(value, val_linkage, c, chunk);
     if (result != Ok) return result;
 
-    Define(var, i, c->env, &c->mem);
     PushByte(OpDefine, chunk);
     PushConst(IntVal(i), chunk);
 
@@ -242,37 +244,133 @@ static Val CompileCall(Val call, Val linkage, Compiler *c, Chunk *chunk)
   result = CompileExpr(op, LinkNext, c, chunk);
   if (result != Ok) return result;
 
-  if (linkage == LinkReturn) {
-    PushByte(OpApply, chunk);
-  } else {
-    if (linkage == LinkNext) linkage = IntVal(2);
-
-    PatchChunk(chunk, patch, OpLink);
+  PushByte(OpApply, chunk);
+  if (linkage == LinkNext) linkage = IntVal(chunk->count - patch);
+  if (linkage != LinkReturn) {
+    chunk->code[patch] = OpLink;
     PatchChunk(chunk, patch+1, linkage);
-    PushByte(OpApply, chunk);
   }
 
   return Ok;
 }
 
-static Val CompileLambda(Val node, Val linkage, Compiler *c, Chunk *chunk)
+static Val CompileLambda(Val expr, Val linkage, Compiler *c, Chunk *chunk)
 {
-  return CompileError("Unimplemented", c);
+  Val params = Head(expr, &c->mem);
+  Val body = Tail(expr, &c->mem);
+  Val result;
+  u32 patch, i;
+  u32 num_params = ListLength(params, &c->mem);
+
+  c->env = ExtendEnv(c->env, MakeTuple(num_params, &c->mem), &c->mem);
+  for (i = 0; i < num_params; i++) {
+    Val param = Head(params, &c->mem);
+    Define(param, i, c->env, &c->mem);
+    params = Tail(params, &c->mem);
+  }
+
+  patch = PushByte(OpLambda, chunk);
+  PushByte(0, chunk);
+  PushByte(OpExtend, chunk);
+
+  result = CompileExpr(body, LinkReturn, c, chunk);
+  if (result != Ok) return result;
+
+  PatchChunk(chunk, patch+1, IntVal(chunk->count - patch));
+
+  return Ok;
 }
 
-static Val CompileIf(Val node, Val linkage, Compiler *c, Chunk *chunk)
+static Val CompileIf(Val expr, Val linkage, Compiler *c, Chunk *chunk)
 {
-  return CompileError("Unimplemented", c);
+  Val pred = Head(expr, &c->mem);
+  Val cons = Head(Tail(expr, &c->mem), &c->mem);
+  Val alt = Head(Tail(Tail(expr, &c->mem), &c->mem), &c->mem);
+  Val result;
+  u32 branch, jump;
+
+  result = CompileExpr(pred, LinkNext, c, chunk);
+  if (result != Ok) return result;
+
+  branch = PushByte(OpBranch, chunk);
+  PushByte(0, chunk);
+
+  PushByte(OpPop, chunk);
+  result = CompileExpr(alt, linkage, c, chunk);
+  if (result != Ok) return result;
+  if (linkage == LinkNext) {
+    jump = PushByte(OpJump, chunk);
+    PushByte(0, chunk);
+  }
+
+  PatchChunk(chunk, branch+1, IntVal(chunk->count - branch));
+
+  PushByte(OpPop, chunk);
+  result = CompileExpr(cons, linkage, c, chunk);
+
+  if (linkage == LinkNext) {
+    PatchChunk(chunk, jump, IntVal(chunk->count  - jump));
+  }
+
+  return Ok;
 }
 
-static Val CompileAnd(Val node, Val linkage, Compiler *c, Chunk *chunk)
+static Val CompileAnd(Val expr, Val linkage, Compiler *c, Chunk *chunk)
 {
-  return CompileError("Unimplemented", c);
+  Val a = Head(expr, &c->mem);
+  Val b = Head(Tail(expr, &c->mem), &c->mem);
+  u32 branch, jump;
+
+  Val result = CompileExpr(a, LinkNext, c, chunk);
+  if (result != Ok) return result;
+
+  branch = PushByte(OpBranch, chunk);
+  PushByte(0, chunk);
+
+  if (linkage == LinkNext) {
+    jump = PushByte(OpJump, chunk);
+    PushByte(0, chunk);
+  } else {
+    CompileLinkage(linkage, chunk);
+  }
+
+  PatchChunk(chunk, branch+1, IntVal(chunk->count - branch));
+
+  PushByte(OpPop, chunk);
+  result = CompileExpr(b, linkage, c, chunk);
+  if (result != Ok) return result;
+
+  if (linkage == LinkNext) {
+    PatchChunk(chunk, jump+1, IntVal(chunk->count - jump));
+  }
+
+  return Ok;
 }
 
-static Val CompileOr(Val node, Val linkage, Compiler *c, Chunk *chunk)
+static Val CompileOr(Val expr, Val linkage, Compiler *c, Chunk *chunk)
 {
-  return CompileError("Unimplemented", c);
+  Val a = Head(expr, &c->mem);
+  Val b = Head(Tail(expr, &c->mem), &c->mem);
+  u32 branch;
+
+  Val result = CompileExpr(a, LinkNext, c, chunk);
+  if (result != Ok) return result;
+
+  branch = PushByte(OpBranch, chunk);
+  PushByte(0, chunk);
+
+  PushByte(OpPop, chunk);
+  result = CompileExpr(b, linkage, c, chunk);
+  if (result != Ok) return result;
+
+  if (linkage == LinkNext || linkage == LinkReturn) {
+    PatchChunk(chunk, branch+1, IntVal(chunk->count - branch));
+    CompileLinkage(linkage, chunk);
+  } else {
+    PatchChunk(chunk, branch+1, linkage);
+  }
+
+  return Ok;
 }
 
 static Val CompileOp(OpCode op, Val args, Val linkage, Compiler *c, Chunk *chunk)
@@ -280,6 +378,7 @@ static Val CompileOp(OpCode op, Val args, Val linkage, Compiler *c, Chunk *chunk
   while (args != Nil) {
     Val result = CompileExpr(Head(args, &c->mem), LinkNext, c, chunk);
     if (result != Ok) return result;
+    args = Tail(args, &c->mem);
   }
   PushByte(op, chunk);
   CompileLinkage(linkage, chunk);
@@ -360,7 +459,6 @@ static Val CompileVar(Val id, Val linkage, Compiler *c, Chunk *chunk)
   PushConst(IntVal(def >> 16), chunk);
   PushConst(IntVal(def & 0xFFFF), chunk);
   CompileLinkage(linkage, chunk);
-  chunk->regs |= Needs(RegEnv);
   return Ok;
 }
 
@@ -411,7 +509,7 @@ static void PrintCompileError(Val error, Compiler *c)
   }
 
   printf("Error: %s\n", message);
-  printf("%3d⏐ %.*s\n", line_num, (i32)(end - line), line);
+  printf("%3d⏐ %.*s\n", line_num+1, (i32)(end - line), line);
   printf("     ");
   for (i = line; i < token.lexeme; i++) printf(" ");
   for (i = token.lexeme; i < token.lexeme + token.length; i++) printf("^");

@@ -15,7 +15,6 @@ void InitChunk(Chunk *chunk)
   chunk->count = 0;
   chunk->code = 0;
   chunk->num_constants = 0;
-  chunk->regs = 0;
   ResizeChunk(chunk, 256);
 }
 
@@ -23,7 +22,6 @@ void ResetChunk(Chunk *chunk)
 {
   chunk->count = 0;
   chunk->num_constants = 0;
-  chunk->regs = 0;
 }
 
 void DestroyChunk(Chunk *chunk)

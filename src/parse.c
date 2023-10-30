@@ -24,6 +24,7 @@ static Val ParseLetAssigns(Val assigns, Compiler *p);
 static Val ParseDefAssigns(Val assigns, Compiler *p);
 static Val ParseCall(Compiler *p);
 static Val ParseExpr(Precedence prec, Compiler *p);
+static Val ParseLambda(Val prefix, Compiler *p);
 static Val ParseLeftAssoc(Val prefix, Compiler *p);
 static Val ParseRightAssoc(Val prefix, Compiler *p);
 static Val ParseUnary(Compiler *p);
@@ -51,52 +52,52 @@ typedef struct {
 } Rule;
 
 static Rule rules[NumTokenTypes] = {
-  [TokenEOF]          = {SymEOF,            0,             0,                  PrecNone},
-  [TokenID]           = {SymID,             ParseVar,      0,                  PrecNone},
-  [TokenBangEqual]    = {SymBangEqual,      0,             ParseLeftAssoc,     PrecEqual},
-  [TokenString]       = {SymString,         ParseString,   0,                  PrecNone},
-  [TokenNewline]      = {SymNewline,        0,             0,                  PrecNone},
-  [TokenHash]         = {SymHash,           ParseUnary,    0,                  PrecNone},
-  [TokenPercent]      = {SymPercent,        0,             ParseLeftAssoc,     PrecProduct},
-  [TokenLParen]       = {SymLParen,         ParseGroup,    0,                  PrecNone},
-  [TokenRParen]       = {SymRParen,         0,             0,                  PrecNone},
-  [TokenStar]         = {SymStar,           0,             ParseLeftAssoc,     PrecProduct},
-  [TokenPlus]         = {SymPlus,           0,             ParseLeftAssoc,     PrecSum},
-  [TokenComma]        = {SymComma,          0,             0,                  PrecNone},
-  [TokenMinus]        = {SymMinus,          ParseUnary,    ParseLeftAssoc,     PrecSum},
-  [TokenArrow]        = {SymArrow,          0,             ParseRightAssoc,    PrecLambda},
-  [TokenDot]          = {SymDot,            0,             ParseLeftAssoc,     PrecAccess},
-  [TokenSlash]        = {SymSlash,          0,             ParseLeftAssoc,     PrecProduct},
-  [TokenNum]          = {SymNum,            ParseNum,      0,                  PrecNone},
-  [TokenColon]        = {SymColon,          ParseSymbol,   0,                  PrecNone},
-  [TokenLess]         = {SymLess,           0,             ParseLeftAssoc,     PrecCompare},
-  [TokenLessEqual]    = {SymLessEqual,      0,             ParseLeftAssoc,     PrecCompare},
-  [TokenEqual]        = {SymEqual,          0,             0,                  PrecNone},
-  [TokenEqualEqual]   = {SymEqualEqual,     0,             ParseLeftAssoc,     PrecEqual},
-  [TokenGreater]      = {SymGreater,        0,             ParseLeftAssoc,     PrecCompare},
-  [TokenGreaterEqual] = {SymGreaterEqual,   0,             ParseLeftAssoc,     PrecCompare},
-  [TokenLBracket]     = {SymLBracket,       ParseList,     0,                  PrecNone},
-  [TokenRBracket]     = {SymRBracket,       0,             0,                  PrecNone},
-  [TokenAnd]          = {SymAnd,            0,             ParseLeftAssoc,     PrecLogic},
-  [TokenAs]           = {SymAs,             0,             0,                  PrecNone},
-  [TokenCond]         = {SymCond,           ParseCond,     0,                  PrecNone},
-  [TokenDef]          = {SymDef,            0,             0,                  PrecNone},
-  [TokenDo]           = {SymDo,             ParseDo,       0,                  PrecNone},
-  [TokenElse]         = {SymElse,           0,             0,                  PrecNone},
-  [TokenEnd]          = {SymEnd,            0,             0,                  PrecNone},
-  [TokenFalse]        = {SymFalse,          ParseLiteral,  0,                  PrecNone},
-  [TokenIf]           = {SymIf,             ParseIf,       0,                  PrecNone},
-  [TokenImport]       = {SymImport,         0,             0,                  PrecNone},
-  [TokenIn]           = {SymIn,             0,             ParseLeftAssoc,     PrecMember},
-  [TokenLet]          = {SymLet,            0,             0,                  PrecNone},
-  [TokenModule]       = {SymModule,         0,             0,                  PrecNone},
-  [TokenNil]          = {SymNil,            ParseLiteral,  0,                  PrecNone},
-  [TokenNot]          = {SymNot,            ParseUnary,    0,                  PrecNone},
-  [TokenOr]           = {SymOr,             0,             ParseLeftAssoc,     PrecLogic},
-  [TokenTrue]         = {SymTrue,           ParseLiteral,  0,                  PrecNone},
-  [TokenLBrace]       = {SymLBrace,         ParseTuple,    0,                  PrecNone},
-  [TokenBar]          = {SymBar,            0,             ParseRightAssoc,    PrecPair},
-  [TokenRBrace]       = {SymRBrace,         0,             0,                  PrecNone}
+  [TokenEOF]          = {SymEOF,            0,            0,                  PrecNone},
+  [TokenID]           = {SymID,             ParseVar,     0,                  PrecNone},
+  [TokenBangEqual]    = {SymBangEqual,      0,            ParseLeftAssoc,     PrecEqual},
+  [TokenString]       = {SymString,         ParseString,  0,                  PrecNone},
+  [TokenNewline]      = {SymNewline,        0,            0,                  PrecNone},
+  [TokenHash]         = {SymHash,           ParseUnary,   0,                  PrecNone},
+  [TokenPercent]      = {SymPercent,        0,            ParseLeftAssoc,     PrecProduct},
+  [TokenLParen]       = {SymLParen,         ParseGroup,   0,                  PrecNone},
+  [TokenRParen]       = {SymRParen,         0,            0,                  PrecNone},
+  [TokenStar]         = {SymStar,           0,            ParseLeftAssoc,     PrecProduct},
+  [TokenPlus]         = {SymPlus,           0,            ParseLeftAssoc,     PrecSum},
+  [TokenComma]        = {SymComma,          0,            0,                  PrecNone},
+  [TokenMinus]        = {SymMinus,          ParseUnary,   ParseLeftAssoc,     PrecSum},
+  [TokenArrow]        = {SymArrow,          0,            ParseLambda,       PrecLambda},
+  [TokenDot]          = {SymDot,            0,            ParseLeftAssoc,     PrecAccess},
+  [TokenSlash]        = {SymSlash,          0,            ParseLeftAssoc,     PrecProduct},
+  [TokenNum]          = {SymNum,            ParseNum,     0,                  PrecNone},
+  [TokenColon]        = {SymColon,          ParseSymbol,  0,                  PrecNone},
+  [TokenLess]         = {SymLess,           0,            ParseLeftAssoc,     PrecCompare},
+  [TokenLessEqual]    = {SymLessEqual,      0,            ParseLeftAssoc,     PrecCompare},
+  [TokenEqual]        = {SymEqual,          0,            0,                  PrecNone},
+  [TokenEqualEqual]   = {SymEqualEqual,     0,            ParseLeftAssoc,     PrecEqual},
+  [TokenGreater]      = {SymGreater,        0,            ParseLeftAssoc,     PrecCompare},
+  [TokenGreaterEqual] = {SymGreaterEqual,   0,            ParseLeftAssoc,     PrecCompare},
+  [TokenLBracket]     = {SymLBracket,       ParseList,    0,                  PrecNone},
+  [TokenRBracket]     = {SymRBracket,       0,            0,                  PrecNone},
+  [TokenAnd]          = {SymAnd,            0,            ParseLeftAssoc,     PrecLogic},
+  [TokenAs]           = {SymAs,             0,            0,                  PrecNone},
+  [TokenCond]         = {SymCond,           ParseCond,    0,                  PrecNone},
+  [TokenDef]          = {SymDef,            0,            0,                  PrecNone},
+  [TokenDo]           = {SymDo,             ParseDo,      0,                  PrecNone},
+  [TokenElse]         = {SymElse,           0,            0,                  PrecNone},
+  [TokenEnd]          = {SymEnd,            0,            0,                  PrecNone},
+  [TokenFalse]        = {SymFalse,          ParseLiteral, 0,                  PrecNone},
+  [TokenIf]           = {SymIf,             ParseIf,      0,                  PrecNone},
+  [TokenImport]       = {SymImport,         0,            0,                  PrecNone},
+  [TokenIn]           = {SymIn,             0,            ParseLeftAssoc,     PrecMember},
+  [TokenLet]          = {SymLet,            0,            0,                  PrecNone},
+  [TokenModule]       = {SymModule,         0,            0,                  PrecNone},
+  [TokenNil]          = {SymNil,            ParseLiteral, 0,                  PrecNone},
+  [TokenNot]          = {SymNot,            ParseUnary,   0,                  PrecNone},
+  [TokenOr]           = {SymOr,             0,            ParseLeftAssoc,     PrecLogic},
+  [TokenTrue]         = {SymTrue,           ParseLiteral, 0,                  PrecNone},
+  [TokenLBrace]       = {SymLBrace,         ParseTuple,   0,                  PrecNone},
+  [TokenBar]          = {SymBar,            0,            ParseRightAssoc,    PrecPair},
+  [TokenRBrace]       = {SymRBrace,         0,            0,                  PrecNone}
 };
 
 #define ExprNext(lex)   (rules[(lex)->token.type].prefix)
@@ -189,6 +190,7 @@ static Val ParseLetAssigns(Val assigns, Compiler *p)
 static Val ParseDefAssigns(Val assigns, Compiler *p)
 {
   while (MatchToken(TokenDef, &p->lex)) {
+    u32 pos = p->lex.token.lexeme - p->lex.source;
     Val var, params = Nil, body, lambda, assign;
     if (!MatchToken(TokenLParen, &p->lex)) return Error;
 
@@ -196,18 +198,16 @@ static Val ParseDefAssigns(Val assigns, Compiler *p)
     if (var == Error) return Error;
 
     while (!MatchToken(TokenRParen, &p->lex)) {
-      Val param = ParseID(p);
-      if (param == Error) return Error;
-      params = Pair(param, params, &p->mem);
+      Val id = ParseID(p);
+      if (id == Error) return Error;
+      params = Pair(id, params, &p->mem);
     }
 
     body = ParseExpr(PrecExpr, p);
     if (body == Error) return Error;
 
-    lambda =
-      Pair(SymArrow,
-      Pair(ReverseList(params, &p->mem),
-      Pair(body, Nil, &p->mem), &p->mem), &p->mem);
+    lambda = MakeNode(SymArrow, pos,
+      Pair(ReverseList(params, &p->mem), body, &p->mem), &p->mem);
 
     assign = Pair(var, lambda, &p->mem);
     assigns = Pair(assign, assigns, &p->mem);
@@ -252,6 +252,29 @@ static Val ParseExpr(Precedence prec, Compiler *p)
   }
 
   return expr;
+}
+
+static Val ParseLambda(Val prefix, Compiler *p)
+{
+  Val params = Nil;
+  Val body;
+  u32 pos = RawInt(TupleGet(prefix, 1, &p->mem));
+  InitLexer(&p->lex, p->lex.source, pos);
+
+  if (!MatchToken(TokenLParen, &p->lex)) return Error;
+
+  while (!MatchToken(TokenRParen, &p->lex)) {
+    Val param = ParseID(p);
+    if (param == Error) return Error;
+    params = Pair(param, params, &p->mem);
+  }
+
+  Assert(MatchToken(TokenArrow, &p->lex));
+
+  body = ParseExpr(PrecLambda, p);
+  if (body == Error) return Error;
+
+  return MakeNode(SymArrow, pos, Pair(ReverseList(params, &p->mem), body, &p->mem), &p->mem);
 }
 
 static Val ParseLeftAssoc(Val prefix, Compiler *p)
@@ -616,6 +639,23 @@ void PrintAST(Val node, u32 level, Mem *mem, SymbolTable *symbols)
     for (i = 0; i < level; i++) printf("  ");
     printf(")\n");
     break;
+  case SymArrow: {
+    Val params = Head(expr, mem);
+    Val body = Tail(expr, mem);
+    printf ("((");
+    while (params != Nil) {
+      Val param = Head(params, mem);
+      PrintVal(param, symbols);
+      params = Tail(params, mem);
+      if (params != Nil) printf(" ");
+    }
+
+    printf(") ->\n");
+    PrintAST(body, level + 1, mem, symbols);
+    for (i = 0; i < level; i++) printf("  ");
+    printf(")\n");
+    break;
+  }
   default:
     printf("(%s\n", SymbolName(tag, symbols));
     while (expr != Nil) {
