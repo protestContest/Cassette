@@ -138,8 +138,9 @@ static Val CompileAssigns(Val assigns, Val linkage, Compiler *c)
   u32 i = 0;
 
   c->env = ExtendEnv(c->env, MakeTuple(num_assigns, &c->mem), &c->mem);
-  PushByte(OpTuple, c->chunk);
+  PushByte(OpConst, c->chunk);
   PushConst(IntVal(num_assigns), c->chunk);
+  PushByte(OpTuple, c->chunk);
   PushByte(OpExtend, c->chunk);
 
   while (assigns != Nil) {
@@ -167,33 +168,27 @@ static Val CompileCall(Val call, Val linkage, Compiler *c)
 {
   Val op = Head(call, &c->mem);
   Val args = Tail(call, &c->mem);
-  u32 num_args = ListLength(args, &c->mem);
-  u32 i = 0;
+  u32 num_args = 0;
   Val result;
 
   u32 patch = PushByte(OpNoop, c->chunk);
   PushByte(OpNoop, c->chunk);
-
-  PushByte(OpTuple, c->chunk);
-  PushConst(IntVal(num_args), c->chunk);
 
   while (args != Nil) {
     Val arg = Head(args, &c->mem);
 
     result = CompileExpr(arg, LinkNext, c);
     if (result != Ok) return result;
-
-    PushByte(OpSet, c->chunk);
-    PushConst(IntVal(i), c->chunk);
-
-    i++;
     args = Tail(args, &c->mem);
+    num_args++;
   }
 
   result = CompileExpr(op, LinkNext, c);
   if (result != Ok) return result;
 
   PushByte(OpApply, c->chunk);
+  PushConst(IntVal(num_args), c->chunk);
+
   if (linkage == LinkNext) linkage = IntVal(c->chunk->count - patch);
   if (linkage != LinkReturn) {
     c->chunk->code[patch] = OpLink;
@@ -211,16 +206,19 @@ static Val CompileLambda(Val expr, Val linkage, Compiler *c)
   u32 patch, i;
   u32 num_params = ListLength(params, &c->mem);
 
+  patch = PushByte(OpLambda, c->chunk);
+  PushByte(0, c->chunk);
+  PushByte(OpTuple, c->chunk);
+  PushByte(OpExtend, c->chunk);
+
   c->env = ExtendEnv(c->env, MakeTuple(num_params, &c->mem), &c->mem);
   for (i = 0; i < num_params; i++) {
     Val param = Head(params, &c->mem);
     Define(param, i, c->env, &c->mem);
+    PushByte(OpDefine, c->chunk);
+    PushConst(IntVal(num_params - i - 1), c->chunk);
     params = Tail(params, &c->mem);
   }
-
-  patch = PushByte(OpLambda, c->chunk);
-  PushByte(0, c->chunk);
-  PushByte(OpExtend, c->chunk);
 
   result = CompileExpr(body, LinkReturn, c);
   if (result != Ok) return result;
@@ -372,20 +370,22 @@ static Val CompileList(Val items, Val linkage, Compiler *c)
 
 static Val CompileTuple(Val items, Val linkage, Compiler *c)
 {
-  u32 length = ListLength(items, &c->mem);
-  u32 i = 0;
-
-  PushByte(OpTuple, c->chunk);
-  PushConst(IntVal(length), c->chunk);
+  u32 i, num_items = 0;
 
   while (items != Nil) {
     Val item = Head(items, &c->mem);
     Val result = CompileExpr(item, LinkNext, c);
     if (result != Ok) return result;
+    items = Tail(items, &c->mem);
+    num_items++;
+  }
+
+  PushByte(OpConst, c->chunk);
+  PushConst(IntVal(num_items), c->chunk);
+  PushByte(OpTuple, c->chunk);
+  for (i = 0; i < num_items; i++) {
     PushByte(OpSet, c->chunk);
     PushConst(IntVal(i), c->chunk);
-    i++;
-    items = Tail(items, &c->mem);
   }
 
   CompileLinkage(linkage, c);

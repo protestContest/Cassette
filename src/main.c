@@ -20,6 +20,8 @@ int main(void)
     return 1;
   }
 
+  Disassemble(&chunk);
+  printf("---\n");
 
   InitVM(&vm);
   error = RunChunk(&chunk, &vm);

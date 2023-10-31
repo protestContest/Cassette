@@ -27,7 +27,7 @@ static OpInfo ops[NumOps] = {
   [OpEq]      = {1, "eq"},
   [OpStr]     = {1, "str"},
   [OpPair]    = {1, "pair"},
-  [OpTuple]   = {2, "tuple"},
+  [OpTuple]   = {1, "tuple"},
   [OpSet]     = {2, "set"},
   [OpGet]     = {1, "get"},
   [OpExtend]  = {1, "extend"},
@@ -39,7 +39,7 @@ static OpInfo ops[NumOps] = {
   [OpLink]    = {2, "link"},
   [OpReturn]  = {1, "return"},
   [OpLambda]  = {2, "lambda"},
-  [OpApply]   = {1, "apply"}
+  [OpApply]   = {2, "apply"}
 };
 
 char *OpName(OpCode op)
@@ -232,8 +232,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       vm->pc += OpLength(op);
       break;
     case OpTuple:
-      vm->stack.count++;
-      StackRef(vm, 0) = MakeTuple(RawInt(ChunkConst(chunk, vm->pc+1)), &vm->mem);
+      StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
       vm->pc += OpLength(op);
       break;
     case OpSet:
@@ -241,10 +240,10 @@ char *RunChunk(Chunk *chunk, VM *vm)
         if (TupleLength(StackRef(vm, 0), &vm->mem) > RawInt(ChunkConst(chunk, vm->pc+1))) {
           TupleSet(StackRef(vm, 0), RawInt(ChunkConst(chunk, vm->pc+1)), StackRef(vm, 1), &vm->mem);
           StackRef(vm, 1) = StackRef(vm, 0);
+          vm->stack.count--;
         } else {
           return "Out of bounds";
         }
-        vm->stack.count--;
       } else {
         return "Type error";
       }
@@ -309,11 +308,15 @@ char *RunChunk(Chunk *chunk, VM *vm)
       if (IsTrap(StackRef(vm, 0))) {
         return "Unimplemented";
       } else if (IsPair(StackRef(vm, 0))) {
+        Val num_args = ChunkConst(chunk, vm->pc+1);
         vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
         vm->env = Tail(StackRef(vm, 0), &vm->mem);
-        vm->stack.count--;
+        StackRef(vm, 0) = num_args;
       } else {
-        return "Type error";
+        vm->pc = RawInt(StackRef(vm, 1));
+        vm->env = StackRef(vm, 2);
+        StackRef(vm, 2) = StackRef(vm, 0);
+        vm->stack.count -= 2;
       }
       break;
     default:
