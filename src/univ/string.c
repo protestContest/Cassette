@@ -16,3 +16,9 @@ bool StrEq(char *str1, char *str2)
 
   return *str1 == *str2;
 }
+
+char HexDigit(u8 n)
+{
+  if (n < 10) return n + '0';
+  else return n - 10 + 'A';
+}

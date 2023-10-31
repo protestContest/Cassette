@@ -87,6 +87,7 @@ static Val CompileExpr(Val node, Val linkage, Compiler *c)
   case SymLParen:       return CompileCall(expr, linkage, c);
   case SymNum:          return CompileConst(expr, linkage, c);
   case SymID:           return CompileVar(expr, linkage, c);
+  case SymBar:          return CompileOp(OpPair, expr, linkage, c);
   default:              return CompileError("Unknown expression", c);
   }
 }

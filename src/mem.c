@@ -19,25 +19,6 @@ float RawFloat(Val value)
   return convert.as_f;
 }
 
-u32 PrintVal(Val value, SymbolTable *symbols)
-{
-  if (IsNil(value)) {
-    return printf("nil");
-  } else if (IsInt(value)) {
-    return printf("%d", RawInt(value));
-  } else if (IsFloat(value)) {
-    return printf("%f", RawFloat(value));
-  } else if (IsSym(value) && symbols) {
-    return printf("%s", SymbolName(value, symbols));
-  } else if (IsPair(value)) {
-    return printf("p%d", RawVal(value));
-  } else if (IsObj(value)) {
-    return printf("t%d", RawVal(value));
-  } else {
-    return printf("%08X", value);
-  }
-}
-
 void InitMem(Mem *mem, u32 capacity)
 {
   mem->values = (Val**)NewHandle(sizeof(Val) * capacity);
@@ -166,10 +147,12 @@ Val TupleGet(Val tuple, u32 i, Mem *mem)
 Val MakeBinary(u32 size, Mem *mem)
 {
   Val binary = ObjVal(mem->count);
-  u32 cells = NumBinCells(size);
+  u32 cells = (size == 0) ? 1 : NumBinCells(size);
   u32 i;
+
   Assert(CheckCapacity(mem, cells + 1));
   (*mem->values)[mem->count++] = BinaryHeader(size);
+
   for (i = 0; i < cells; i++) {
     (*mem->values)[mem->count++] = 0;
   }
@@ -199,7 +182,7 @@ u32 BinaryLength(Val binary, Mem *mem)
 void *BinaryData(Val binary, Mem *mem)
 {
   Assert(IsBinary(binary, mem));
-  return &(*mem->values)[RawVal(binary)];
+  return &(*mem->values)[RawVal(binary)+1];
 }
 
 bool CheckCapacity(Mem *mem, u32 amount)
@@ -258,4 +241,112 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
 
   DisposeHandle((Handle)mem->values);
   *mem = new_mem;
+}
+
+u32 PrintVal(Val value, SymbolTable *symbols)
+{
+  if (IsNil(value)) {
+    return printf("nil");
+  } else if (IsInt(value)) {
+    return printf("%d", RawInt(value));
+  } else if (IsFloat(value)) {
+    return printf("%f", RawFloat(value));
+  } else if (IsSym(value) && symbols) {
+    return printf("%s", SymbolName(value, symbols));
+  } else if (IsPair(value)) {
+    return printf("p%d", RawVal(value));
+  } else if (IsObj(value)) {
+    return printf("t%d", RawVal(value));
+  } else {
+    return printf("%08X", value);
+  }
+}
+
+static void PrintCell(u32 index, Val value, SymbolTable *symbols)
+{
+  u32 width = 8;
+
+  if (IsInt(value)) {
+    printf("%*d", width, RawInt(value));
+  } else if (IsFloat(value)) {
+    printf("%*.1f", width, RawFloat(value));
+  } else if (IsSym(value) && symbols) {
+    printf(":%*.*s", width-1, width-1, SymbolName(value, symbols));
+  } else if (IsNil(value)) {
+    printf("     nil");
+  } else if (IsPair(value)) {
+    printf("p%*d", width-1, RawVal(value));
+  } else if (IsObj(value)) {
+    printf("o%*d", width-1, RawVal(value));
+  } else if (IsTupleHeader(value)) {
+    printf("t%*d", width-1, RawVal(value));
+  } else if (IsBinaryHeader(value)) {
+    printf("b%*d", width-1, RawVal(value));
+  } else {
+    printf("%04.4X", value);
+  }
+}
+
+static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
+{
+  u32 j, size = RawVal((*mem->values)[index]), width = 8;
+  u32 cells = NumBinCells(size);
+
+  for (j = 0; j < cells; j++) {
+    Val value = (*mem->values)[index+j];
+    u32 bytes = (j == cells-1) ? size % 4 : 4;
+    bool printable  = true;
+    u32 k;
+
+    for (k = 0; k < bytes; k++) {
+      if (!Printable(value >> (k*8))) {
+        printable = false;
+        break;
+      }
+    }
+
+    if ((index+j) % cols == 0) printf("║%04d║", index+j);
+    else printf("│");
+    if (printable) {
+      printf("%04d│  \"", index+1+j);
+      for (k = 0; k < 4-bytes; k++) printf(" ");
+      for (k = 0; k < bytes; k++) printf("%c", value >> (k*8));
+      printf("\"");
+    } else {
+      printf("%04d│%.*X", index+1+j, width, value);
+    }
+    if ((index+j) % cols == 0) printf("║\n");
+  }
+  return cells;
+}
+
+void DumpMem(Mem *mem, SymbolTable *symbols)
+{
+  u32 i;
+  u32 cols = 8;
+
+  printf("╔════╦");
+  for (i = 0; i < cols-1; i++) printf("════════╤");
+  printf("════════╗\n");
+
+  for (i = 0; i < mem->count; i++) {
+    if (i % cols == 0) printf("║%04d║", i);
+    else printf("│");
+    PrintCell(i, (*mem->values)[i], symbols);
+    if ((i+1) % cols == 0) printf("║\n");
+    if (IsBinaryHeader((*mem->values)[i])) {
+      i += PrintBinData(i, cols, mem);
+    }
+  }
+  if (i % cols != 0) {
+    while (i % cols != 0) {
+      printf("│        ");
+      i++;
+    }
+    printf("║\n");
+  }
+
+  printf("╚════╩");
+  for (i = 0; i < cols-1; i++) printf("════════╧");
+  printf("════════╝\n");
 }

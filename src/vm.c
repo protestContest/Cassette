@@ -1,4 +1,5 @@
 #include "vm.h"
+#include "compile.h"
 #include "env.h"
 #include <stdio.h>
 #include <stdlib.h>

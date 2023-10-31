@@ -12,7 +12,6 @@ typedef u32 Val;
 #define objMask           0x7FF00000
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
-#define mapMask           0xFFE00000
 
 #define MakeVal(n, mask)  (((n) & ~typeMask) | (mask))
 #define IntVal(n)         MakeVal((i32)(n), intMask)
@@ -21,7 +20,6 @@ typedef u32 Val;
 #define ObjVal(n)         MakeVal(n, objMask)
 #define TupleHeader(n)    MakeVal(n, tupleMask)
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
-#define MapHeader(n)      MakeVal(n, mapMask)
 
 #define IsType(v, mask)   (((v) & typeMask) == (mask))
 #define IsFloat(v)        (((v) & nanMask) != nanMask)
@@ -31,7 +29,6 @@ typedef u32 Val;
 #define IsObj(v)          IsType(v, objMask)
 #define IsTupleHeader(v)  IsType(v, tupleMask)
 #define IsBinaryHeader(v) IsType(v, binaryMask)
-#define IsMapHeader(v)    IsType(v, mapMask)
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
@@ -60,16 +57,13 @@ typedef u32 Val;
 Val FloatVal(float num);
 float RawFloat(Val value);
 
-struct SymbolTable;
-u32 PrintVal(Val value, struct SymbolTable *symbols);
-
 typedef struct {
   u32 count;
   u32 capacity;
   Val **values;
 } Mem;
 
-#define NumBinCells(size)   ((size + 1) / 4 - 1)
+#define NumBinCells(size)   ((size - 1) / 4 + 1)
 
 void InitMem(Mem *mem, u32 capacity);
 void DestroyMem(Mem *mem);
@@ -94,3 +88,7 @@ bool IsBinary(Val value, Mem *mem);
 u32 BinaryLength(Val binary, Mem *mem);
 void *BinaryData(Val binary, Mem *mem);
 void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);
+
+struct SymbolTable;
+u32 PrintVal(Val value, struct SymbolTable *symbols);
+void DumpMem(Mem *mem, struct SymbolTable *symbols);

@@ -73,3 +73,8 @@ char *ReadFile(char *path)
   data[size] = '\0';
   return data;
 }
+
+bool Printable(char c)
+{
+  return c >= 0x20 && c < 0x7F;
+}

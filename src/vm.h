@@ -66,5 +66,4 @@ typedef struct {
 
 void InitVM(VM *vm);
 void DestroyVM(VM *vm);
-
 char *RunChunk(Chunk *chunk, VM *vm);

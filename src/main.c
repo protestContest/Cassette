@@ -32,5 +32,7 @@ int main(void)
     printf("\n");
   }
 
+  DumpMem(&vm.mem, &chunk.symbols);
+
   return 0;
 }
