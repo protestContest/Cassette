@@ -12,7 +12,6 @@ typedef enum {
   OpNoop,
   OpHalt,
   OpPop,
-  OpDup,
   OpConst,
   OpNeg,
   OpNot,
@@ -61,6 +60,9 @@ typedef struct {
 } VM;
 
 #define StackRef(vm, i)     (vm)->stack.data[(vm)->stack.count - 1 - i]
+#define Env(vm)             (vm)->stack.data[0]
+
+#define GCFreq  10
 
 void InitVM(VM *vm);
 void DestroyVM(VM *vm);

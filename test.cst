@@ -1,3 +1,13 @@
-let x = [4 2 5 7]
+def (fact n) do
+  def (loop i acc) do
+    if i == 1 do
+      acc
+    else
+      loop i-1 i*acc
+    end
+  end
 
-x.2
+  loop n 1
+end
+
+fact 10

@@ -18,31 +18,32 @@ typedef enum {
   PrecAccess
 } Precedence;
 
-static Val ParseScript(Compiler *p);
-static Val ParseStmt(Compiler *p);
-static Val ParseLetAssigns(Val assigns, Compiler *p);
-static Val ParseDefAssigns(Val assigns, Compiler *p);
-static Val ParseCall(Compiler *p);
-static Val ParseExpr(Precedence prec, Compiler *p);
-static Val ParseLambda(Val prefix, Compiler *p);
-static Val ParseLeftAssoc(Val prefix, Compiler *p);
-static Val ParseRightAssoc(Val prefix, Compiler *p);
-static Val ParseUnary(Compiler *p);
-static Val ParseGroup(Compiler *p);
-static Val ParseDo(Compiler *p);
-static Val ParseIf(Compiler *p);
-static Val ParseCond(Compiler *p);
-static Val ParseList(Compiler *p);
-static Val ParseTuple(Compiler *p);
-static Val ParseID(Compiler *p);
-static Val ParseVar(Compiler *p);
-static Val ParseNum(Compiler *p);
-static Val ParseString(Compiler *p);
-static Val ParseSymbol(Compiler *p);
-static Val ParseLiteral(Compiler *p);
+static Val ParseScript(Compiler *c);
+static Val ParseStmt(Compiler *c);
+static Val ParseImport(Compiler *c);
+static Val ParseLetAssigns(Val assigns, Compiler *c);
+static Val ParseDefAssigns(Val assigns, Compiler *c);
+static Val ParseCall(Compiler *c);
+static Val ParseExpr(Precedence prec, Compiler *c);
+static Val ParseLambda(Val prefix, Compiler *c);
+static Val ParseLeftAssoc(Val prefix, Compiler *c);
+static Val ParseRightAssoc(Val prefix, Compiler *c);
+static Val ParseUnary(Compiler *c);
+static Val ParseGroup(Compiler *c);
+static Val ParseDo(Compiler *c);
+static Val ParseIf(Compiler *c);
+static Val ParseCond(Compiler *c);
+static Val ParseList(Compiler *c);
+static Val ParseTuple(Compiler *c);
+static Val ParseID(Compiler *c);
+static Val ParseVar(Compiler *c);
+static Val ParseNum(Compiler *c);
+static Val ParseString(Compiler *c);
+static Val ParseSymbol(Compiler *c);
+static Val ParseLiteral(Compiler *c);
 
-typedef Val (*ParseFn)(Compiler *p);
-typedef Val (*InfixFn)(Val prefix, Compiler *p);
+typedef Val (*ParseFn)(Compiler *c);
+typedef Val (*InfixFn)(Val prefix, Compiler *c);
 
 typedef struct {
   Val symbol;
@@ -106,367 +107,387 @@ static Rule rules[NumTokenTypes] = {
 
 static Val MakeNode(Val sym, u32 position, Val value, Mem *mem);
 
-Val Parse(char *source, Compiler *p)
+Val Parse(char *source, Compiler *c)
 {
-  InitLexer(&p->lex, source, 0);
-  return ParseScript(p);
+  InitLexer(&c->lex, source, 0);
+  return ParseScript(c);
 }
 
-static Val ParseScript(Compiler *p)
+static Val ParseScript(Compiler *c)
 {
   Val stmts = Nil;
-  SkipNewlines(&p->lex);
-  while (!MatchToken(TokenEOF, &p->lex)) {
-    Val stmt = ParseStmt(p);
+  SkipNewlines(&c->lex);
+  while (!MatchToken(TokenEOF, &c->lex)) {
+    Val stmt = ParseStmt(c);
     if (stmt == Error) return Error;
 
-    stmts = Pair(stmt, stmts, &p->mem);
-    SkipNewlines(&p->lex);
+    stmts = Pair(stmt, stmts, &c->mem);
+    SkipNewlines(&c->lex);
   }
 
-  return MakeNode(SymDo, 0, ReverseList(stmts, &p->mem), &p->mem);
+  return MakeNode(SymDo, 0, ReverseList(stmts, &c->mem), &c->mem);
 }
 
-static Val ParseStmt(Compiler *p)
+static Val ParseStmt(Compiler *c)
 {
   Val assigns;
-  u32 pos = p->lex.token.lexeme - p->lex.source;
+  u32 pos = c->lex.token.lexeme - c->lex.source;
 
-  switch (p->lex.token.type) {
+  switch (c->lex.token.type) {
+  case TokenImport:
+    return ParseImport(c);
   case TokenLet:
-    assigns = ParseLetAssigns(Nil, p);
+    assigns = ParseLetAssigns(Nil, c);
     if (assigns == Error) return Error;
-    return MakeNode(SymLet, pos, ReverseList(assigns, &p->mem), &p->mem);
+    return MakeNode(SymLet, pos, ReverseList(assigns, &c->mem), &c->mem);
   case TokenDef:
-    assigns = ParseDefAssigns(Nil, p);
+    assigns = ParseDefAssigns(Nil, c);
     if (assigns == Error) return Error;
-    return MakeNode(SymLet, pos, ReverseList(assigns, &p->mem), &p->mem);
+    return MakeNode(SymLet, pos, ReverseList(assigns, &c->mem), &c->mem);
   default:
-    return ParseCall(p);
+    return ParseCall(c);
   }
 }
 
-static Val ParseLetAssigns(Val assigns, Compiler *p)
+static Val ParseImport(Compiler *c)
 {
-  while (MatchToken(TokenLet, &p->lex)) {
-    SkipNewlines(&p->lex);
-    while (!MatchToken(TokenNewline, &p->lex)) {
-      Val var, val, assign;
-      if (MatchToken(TokenEOF, &p->lex)) break;
+  u32 pos = c->lex.token.lexeme - c->lex.source;
+  Val mod, alias, assign;
+  Assert(MatchToken(TokenImport, &c->lex));
 
-      var = ParseID(p);
-      if (var == Error) return Error;
+  mod = ParseID(c);
 
-      if (!MatchToken(TokenEqual, &p->lex)) return Error;
-      SkipNewlines(&p->lex);
-      val = ParseCall(p);
-      if (val == Error) return Error;
-
-      assign = Pair(var, val, &p->mem);
-      assigns = Pair(assign, assigns, &p->mem);
-
-      if (MatchToken(TokenComma, &p->lex)) SkipNewlines(&p->lex);
-    }
-    SkipNewlines(&p->lex);
+  if (MatchToken(TokenAs, &c->lex)) {
+    alias = ParseID(c);
+  } else {
+    alias = mod;
   }
 
-  if (p->lex.token.type == TokenDef) return ParseDefAssigns(assigns, p);
+  assign = Pair(alias, MakeNode(SymImport, pos, mod, &c->mem), &c->mem);
+  return MakeNode(SymLet, pos, Pair(assign, Nil, &c->mem), &c->mem);
+}
+
+static Val ParseLetAssigns(Val assigns, Compiler *c)
+{
+  while (MatchToken(TokenLet, &c->lex)) {
+    SkipNewlines(&c->lex);
+    while (!MatchToken(TokenNewline, &c->lex)) {
+      Val var, val, assign;
+      if (MatchToken(TokenEOF, &c->lex)) break;
+
+      var = ParseID(c);
+      if (var == Error) return Error;
+
+      if (!MatchToken(TokenEqual, &c->lex)) return Error;
+      SkipNewlines(&c->lex);
+      val = ParseCall(c);
+      if (val == Error) return Error;
+
+      assign = Pair(var, val, &c->mem);
+      assigns = Pair(assign, assigns, &c->mem);
+
+      if (MatchToken(TokenComma, &c->lex)) SkipNewlines(&c->lex);
+    }
+    SkipNewlines(&c->lex);
+  }
+
+  if (c->lex.token.type == TokenDef) return ParseDefAssigns(assigns, c);
   return assigns;
 }
 
-static Val ParseDefAssigns(Val assigns, Compiler *p)
+static Val ParseDefAssigns(Val assigns, Compiler *c)
 {
-  while (MatchToken(TokenDef, &p->lex)) {
-    u32 pos = p->lex.token.lexeme - p->lex.source;
+  while (MatchToken(TokenDef, &c->lex)) {
+    u32 pos = c->lex.token.lexeme - c->lex.source;
     Val var, params = Nil, body, lambda, assign;
-    if (!MatchToken(TokenLParen, &p->lex)) return Error;
+    if (!MatchToken(TokenLParen, &c->lex)) return Error;
 
-    var = ParseID(p);
+    var = ParseID(c);
     if (var == Error) return Error;
 
-    while (!MatchToken(TokenRParen, &p->lex)) {
-      Val id = ParseID(p);
+    while (!MatchToken(TokenRParen, &c->lex)) {
+      Val id = ParseID(c);
       if (id == Error) return Error;
-      params = Pair(id, params, &p->mem);
+      params = Pair(id, params, &c->mem);
     }
 
-    body = ParseExpr(PrecExpr, p);
+    body = ParseExpr(PrecExpr, c);
     if (body == Error) return Error;
 
     lambda = MakeNode(SymArrow, pos,
-      Pair(ReverseList(params, &p->mem), body, &p->mem), &p->mem);
+      Pair(ReverseList(params, &c->mem), body, &c->mem), &c->mem);
 
-    assign = Pair(var, lambda, &p->mem);
-    assigns = Pair(assign, assigns, &p->mem);
+    assign = Pair(var, lambda, &c->mem);
+    assigns = Pair(assign, assigns, &c->mem);
 
-    SkipNewlines(&p->lex);
+    SkipNewlines(&c->lex);
   }
 
-  if (p->lex.token.type == TokenLet) return ParseLetAssigns(assigns, p);
+  if (c->lex.token.type == TokenLet) return ParseLetAssigns(assigns, c);
   return assigns;
 }
 
-static Val ParseCall(Compiler *p)
+static Val ParseCall(Compiler *c)
 {
-  u32 pos = p->lex.token.lexeme - p->lex.source;
-  Val op = ParseExpr(PrecExpr, p);
+  u32 pos = c->lex.token.lexeme - c->lex.source;
+  Val op = ParseExpr(PrecExpr, c);
   Val args = Nil;
 
   if (op == Error) return Error;
 
-  while (p->lex.token.type != TokenNewline
-      && p->lex.token.type != TokenComma
-      && p->lex.token.type != TokenEOF) {
-    Val arg = ParseExpr(PrecExpr, p);
+  while (c->lex.token.type != TokenNewline
+      && c->lex.token.type != TokenComma
+      && c->lex.token.type != TokenEOF) {
+    Val arg = ParseExpr(PrecExpr, c);
     if (arg == Error) return Error;
 
-    args = Pair(arg, args, &p->mem);
+    args = Pair(arg, args, &c->mem);
   }
 
   if (args == Nil) return op;
-  return MakeNode(SymLParen, pos, Pair(op, ReverseList(args, &p->mem), &p->mem), &p->mem);
+  return MakeNode(SymLParen, pos, Pair(op, ReverseList(args, &c->mem), &c->mem), &c->mem);
 }
 
-static Val ParseExpr(Precedence prec, Compiler *p)
+static Val ParseExpr(Precedence prec, Compiler *c)
 {
   Val expr;
 
-  if (!ExprNext(&p->lex)) return Error;
-  expr = ExprNext(&p->lex)(p);
+  if (!ExprNext(&c->lex)) return Error;
+  expr = ExprNext(&c->lex)(c);
 
-  while (expr != Error && PrecNext(&p->lex) >= prec) {
-    expr = rules[p->lex.token.type].infix(expr, p);
+  while (expr != Error && PrecNext(&c->lex) >= prec) {
+    expr = rules[c->lex.token.type].infix(expr, c);
   }
 
   return expr;
 }
 
-static Val ParseLambda(Val prefix, Compiler *p)
+static Val ParseLambda(Val prefix, Compiler *c)
 {
   Val params = Nil;
   Val body;
-  u32 pos = RawInt(TupleGet(prefix, 1, &p->mem));
-  InitLexer(&p->lex, p->lex.source, pos);
+  u32 pos = RawInt(TupleGet(prefix, 1, &c->mem));
+  InitLexer(&c->lex, c->lex.source, pos);
 
-  if (!MatchToken(TokenLParen, &p->lex)) return Error;
+  if (!MatchToken(TokenLParen, &c->lex)) return Error;
 
-  while (!MatchToken(TokenRParen, &p->lex)) {
-    Val param = ParseID(p);
+  while (!MatchToken(TokenRParen, &c->lex)) {
+    Val param = ParseID(c);
     if (param == Error) return Error;
-    params = Pair(param, params, &p->mem);
+    params = Pair(param, params, &c->mem);
   }
 
-  Assert(MatchToken(TokenArrow, &p->lex));
+  Assert(MatchToken(TokenArrow, &c->lex));
 
-  body = ParseExpr(PrecLambda, p);
+  body = ParseExpr(PrecLambda, c);
   if (body == Error) return Error;
 
-  return MakeNode(SymArrow, pos, Pair(ReverseList(params, &p->mem), body, &p->mem), &p->mem);
+  return MakeNode(SymArrow, pos, Pair(ReverseList(params, &c->mem), body, &c->mem), &c->mem);
 }
 
-static Val ParseLeftAssoc(Val prefix, Compiler *p)
+static Val ParseLeftAssoc(Val prefix, Compiler *c)
 {
-  Token token = NextToken(&p->lex);
+  Token token = NextToken(&c->lex);
   Precedence prec = rules[token.type].prec;
-  u32 pos = token.lexeme - p->lex.source;
+  u32 pos = token.lexeme - c->lex.source;
   Val op = TokenSym(token.type);
-  Val arg = ParseExpr(prec+1, p);
+  Val arg = ParseExpr(prec+1, c);
   if (arg == Error) return Error;
 
-  return MakeNode(op, pos, Pair(prefix, Pair(arg, Nil, &p->mem), &p->mem), &p->mem);
+  return MakeNode(op, pos, Pair(prefix, Pair(arg, Nil, &c->mem), &c->mem), &c->mem);
 }
 
-static Val ParseRightAssoc(Val prefix, Compiler *p)
+static Val ParseRightAssoc(Val prefix, Compiler *c)
 {
-  Token token = NextToken(&p->lex);
+  Token token = NextToken(&c->lex);
   Precedence prec = rules[token.type].prec;
-  u32 pos = token.lexeme - p->lex.source;
+  u32 pos = token.lexeme - c->lex.source;
   Val op = TokenSym(token.type);
-  Val arg = ParseExpr(prec, p);
+  Val arg = ParseExpr(prec, c);
   if (arg == Error) return Error;
 
-  return MakeNode(op, pos, Pair(prefix, Pair(arg, Nil, &p->mem), &p->mem), &p->mem);
+  return MakeNode(op, pos, Pair(prefix, Pair(arg, Nil, &c->mem), &c->mem), &c->mem);
 }
 
-static Val ParseUnary(Compiler *p)
+static Val ParseUnary(Compiler *c)
 {
-  Token token = NextToken(&p->lex);
-  u32 pos = token.lexeme - p->lex.source;
+  Token token = NextToken(&c->lex);
+  u32 pos = token.lexeme - c->lex.source;
   Val op = TokenSym(token.type);
-  Val expr = ParseExpr(PrecUnary, p);
+  Val expr = ParseExpr(PrecUnary, c);
   if (expr == Error) return Error;
 
-  return MakeNode(op, pos, Pair(expr, Nil, &p->mem), &p->mem);
+  return MakeNode(op, pos, Pair(expr, Nil, &c->mem), &c->mem);
 }
 
-static Val ParseGroup(Compiler *p)
+static Val ParseGroup(Compiler *c)
 {
-  u32 pos = p->lex.token.lexeme - p->lex.source;
+  u32 pos = c->lex.token.lexeme - c->lex.source;
   Val expr = Nil;
-  Assert(MatchToken(TokenLParen, &p->lex));
+  Assert(MatchToken(TokenLParen, &c->lex));
 
-  SkipNewlines(&p->lex);
-  while (!MatchToken(TokenRParen, &p->lex)) {
-    Val arg = ParseExpr(PrecExpr, p);
+  SkipNewlines(&c->lex);
+  while (!MatchToken(TokenRParen, &c->lex)) {
+    Val arg = ParseExpr(PrecExpr, c);
     if (arg == Error) return Error;
-    expr = Pair(arg, expr, &p->mem);
-    SkipNewlines(&p->lex);
+    expr = Pair(arg, expr, &c->mem);
+    SkipNewlines(&c->lex);
   }
-  return MakeNode(SymLParen, pos, ReverseList(expr, &p->mem), &p->mem);
+  return MakeNode(SymLParen, pos, ReverseList(expr, &c->mem), &c->mem);
 }
 
-static Val ParseDo(Compiler *p)
+static Val ParseDo(Compiler *c)
 {
   Val stmts = Nil;
-  u32 pos = p->lex.token.lexeme - p->lex.source;
-  Assert(MatchToken(TokenDo, &p->lex));
+  u32 pos = c->lex.token.lexeme - c->lex.source;
+  Assert(MatchToken(TokenDo, &c->lex));
 
-  SkipNewlines(&p->lex);
-  while (!MatchToken(TokenEnd, &p->lex)) {
-    Val stmt = ParseStmt(p);
+  SkipNewlines(&c->lex);
+  while (!MatchToken(TokenEnd, &c->lex)) {
+    Val stmt = ParseStmt(c);
     if (stmt == Error) return Error;
-    stmts = Pair(stmt, stmts, &p->mem);
-    SkipNewlines(&p->lex);
+    stmts = Pair(stmt, stmts, &c->mem);
+    SkipNewlines(&c->lex);
   }
 
-  if (Tail(stmts, &p->mem) == Nil) return Head(stmts, &p->mem);
-  return MakeNode(SymDo, pos, ReverseList(stmts, &p->mem), &p->mem);
+  if (Tail(stmts, &c->mem) == Nil) return Head(stmts, &c->mem);
+  return MakeNode(SymDo, pos, ReverseList(stmts, &c->mem), &c->mem);
 }
 
-static Val ParseIf(Compiler *p)
+static Val ParseIf(Compiler *c)
 {
   Val pred, cons = Nil, alt = Nil;
-  u32 pos = p->lex.token.lexeme - p->lex.source;
+  u32 pos = c->lex.token.lexeme - c->lex.source;
   u32 else_pos;
 
-  Assert(MatchToken(TokenIf, &p->lex));
+  Assert(MatchToken(TokenIf, &c->lex));
 
-  pred = ParseExpr(PrecExpr, p);
+  pred = ParseExpr(PrecExpr, c);
   if (pred == Error) return Error;
 
-  if (!MatchToken(TokenDo, &p->lex)) return Error;
-  SkipNewlines(&p->lex);
-  while (p->lex.token.type != TokenElse && p->lex.token.type != TokenEnd) {
-    Val stmt = ParseStmt(p);
+  if (!MatchToken(TokenDo, &c->lex)) return Error;
+  SkipNewlines(&c->lex);
+  while (c->lex.token.type != TokenElse && c->lex.token.type != TokenEnd) {
+    Val stmt = ParseStmt(c);
     if (stmt == Error) return Error;
-    cons = Pair(stmt, cons, &p->mem);
+    cons = Pair(stmt, cons, &c->mem);
 
-    SkipNewlines(&p->lex);
+    SkipNewlines(&c->lex);
   }
-  if (Tail(cons, &p->mem) == Nil) {
-    cons = Head(cons, &p->mem);
+  if (Tail(cons, &c->mem) == Nil) {
+    cons = Head(cons, &c->mem);
   } else {
-    cons = MakeNode(SymDo, pos, ReverseList(cons, &p->mem), &p->mem);
+    cons = MakeNode(SymDo, pos, ReverseList(cons, &c->mem), &c->mem);
   }
 
-  else_pos = p->lex.token.lexeme - p->lex.source;
-  if (MatchToken(TokenElse, &p->lex)) {
-    SkipNewlines(&p->lex);
-    while (p->lex.token.type != TokenEnd) {
-      Val stmt = ParseStmt(p);
+  else_pos = c->lex.token.lexeme - c->lex.source;
+  if (MatchToken(TokenElse, &c->lex)) {
+    SkipNewlines(&c->lex);
+    while (c->lex.token.type != TokenEnd) {
+      Val stmt = ParseStmt(c);
       if (stmt == Error) return Error;
-      alt = Pair(stmt, alt, &p->mem);
+      alt = Pair(stmt, alt, &c->mem);
 
-      SkipNewlines(&p->lex);
+      SkipNewlines(&c->lex);
     }
-    if (Tail(alt, &p->mem) == Nil) {
-      alt = Head(alt, &p->mem);
+    if (Tail(alt, &c->mem) == Nil) {
+      alt = Head(alt, &c->mem);
     } else {
-      alt = MakeNode(SymDo, else_pos, ReverseList(alt, &p->mem), &p->mem);
+      alt = MakeNode(SymDo, else_pos, ReverseList(alt, &c->mem), &c->mem);
     }
   }
 
-  if (!MatchToken(TokenEnd, &p->lex)) return Error;
+  if (!MatchToken(TokenEnd, &c->lex)) return Error;
 
   return MakeNode(SymIf, pos,
     Pair(pred,
     Pair(cons,
-    Pair(alt, Nil, &p->mem), &p->mem), &p->mem), &p->mem);
+    Pair(alt, Nil, &c->mem), &c->mem), &c->mem), &c->mem);
 }
 
-static Val ParseClauses(Compiler *p)
+static Val ParseClauses(Compiler *c)
 {
-  u32 pos = p->lex.token.lexeme - p->lex.source;
+  u32 pos = c->lex.token.lexeme - c->lex.source;
 
-  if (MatchToken(TokenEnd, &p->lex)) {
-    return MakeNode(SymColon, pos, Nil, &p->mem);
+  if (MatchToken(TokenEnd, &c->lex)) {
+    return MakeNode(SymColon, pos, Nil, &c->mem);
   } else {
     Val pred, cons, alt;
-    pred = ParseExpr(PrecLogic, p);
+    pred = ParseExpr(PrecLogic, c);
     if (pred == Error) return Error;
-    if (!MatchToken(TokenArrow, &p->lex)) return Error;
-    SkipNewlines(&p->lex);
-    cons = ParseCall(p);
+    if (!MatchToken(TokenArrow, &c->lex)) return Error;
+    SkipNewlines(&c->lex);
+    cons = ParseCall(c);
     if (cons == Error) return Error;
-    SkipNewlines(&p->lex);
-    alt = ParseClauses(p);
+    SkipNewlines(&c->lex);
+    alt = ParseClauses(c);
     if (alt == Error) return Error;
     return MakeNode(SymIf, pos,
       Pair(pred,
       Pair(cons,
-      Pair(alt, Nil, &p->mem), &p->mem), &p->mem), &p->mem);
+      Pair(alt, Nil, &c->mem), &c->mem), &c->mem), &c->mem);
   }
 }
 
-static Val ParseCond(Compiler *p)
+static Val ParseCond(Compiler *c)
 {
-  Assert(MatchToken(TokenCond, &p->lex));
-  if (!MatchToken(TokenDo, &p->lex)) return Error;
-  SkipNewlines(&p->lex);
-  return ParseClauses(p);
+  Assert(MatchToken(TokenCond, &c->lex));
+  if (!MatchToken(TokenDo, &c->lex)) return Error;
+  SkipNewlines(&c->lex);
+  return ParseClauses(c);
 }
 
-static Val ParseList(Compiler *p)
+static Val ParseList(Compiler *c)
 {
   Val items = Nil;
-  u32 pos = p->lex.token.lexeme - p->lex.source;
+  u32 pos = c->lex.token.lexeme - c->lex.source;
 
-  Assert(MatchToken(TokenLBracket, &p->lex));
-  while (!MatchToken(TokenRBracket, &p->lex)) {
-    Val item = ParseExpr(PrecExpr, p);
+  Assert(MatchToken(TokenLBracket, &c->lex));
+  while (!MatchToken(TokenRBracket, &c->lex)) {
+    Val item = ParseExpr(PrecExpr, c);
     if (item == Error) return Error;
 
-    items = Pair(item, items, &p->mem);
+    items = Pair(item, items, &c->mem);
   }
 
-  return MakeNode(SymLBracket, pos, items, &p->mem);
+  return MakeNode(SymLBracket, pos, items, &c->mem);
 }
 
-static Val ParseTuple(Compiler *p)
+static Val ParseTuple(Compiler *c)
 {
   Val items = Nil;
-  u32 pos = p->lex.token.lexeme - p->lex.source;
+  u32 pos = c->lex.token.lexeme - c->lex.source;
 
-  Assert(MatchToken(TokenLBrace, &p->lex));
-  while (!MatchToken(TokenRBrace, &p->lex)) {
-    Val item = ParseExpr(PrecExpr, p);
+  Assert(MatchToken(TokenLBrace, &c->lex));
+  while (!MatchToken(TokenRBrace, &c->lex)) {
+    Val item = ParseExpr(PrecExpr, c);
     if (item == Error) return Error;
 
-    items = Pair(item, items, &p->mem);
+    items = Pair(item, items, &c->mem);
   }
 
-  return MakeNode(SymLBrace, pos, items, &p->mem);
+  return MakeNode(SymLBrace, pos, items, &c->mem);
 }
 
-static bool ParseID(Compiler *p)
+static bool ParseID(Compiler *c)
 {
-  Token token = NextToken(&p->lex);
+  Token token = NextToken(&c->lex);
   if (token.type != TokenID) return false;
-  return MakeSymbol(token.lexeme, token.length, &p->chunk->symbols);
+  return MakeSymbol(token.lexeme, token.length, &c->chunk->symbols);
 }
 
-static Val ParseVar(Compiler *p)
+static Val ParseVar(Compiler *c)
 {
-  u32 pos = p->lex.token.lexeme - p->lex.source;
-  Val id = ParseID(p);
+  u32 pos = c->lex.token.lexeme - c->lex.source;
+  Val id = ParseID(c);
   if (id == Error) return Error;
-  return MakeNode(SymID, pos, id, &p->mem);
+  return MakeNode(SymID, pos, id, &c->mem);
 }
 
-static bool ParseNum(Compiler *p)
+static bool ParseNum(Compiler *c)
 {
-  Token token = NextToken(&p->lex);
-  u32 pos = token.lexeme - p->lex.source;
+  Token token = NextToken(&c->lex);
+  u32 pos = token.lexeme - c->lex.source;
   u32 whole = 0, frac = 0, frac_size = 1, i;
 
   for (i = 0; i < token.length; i++) {
@@ -483,45 +504,45 @@ static bool ParseNum(Compiler *p)
 
   if (frac != 0) {
     float num = (float)whole + (float)frac / (float)frac_size;
-    return MakeNode(SymNum, pos, FloatVal(num), &p->mem);
+    return MakeNode(SymNum, pos, FloatVal(num), &c->mem);
   } else {
-    return MakeNode(SymNum, pos, IntVal(whole), &p->mem);
+    return MakeNode(SymNum, pos, IntVal(whole), &c->mem);
   }
 }
 
-static Val ParseString(Compiler *p)
+static Val ParseString(Compiler *c)
 {
-  Token token = NextToken(&p->lex);
-  u32 pos = token.lexeme - p->lex.source;
-  Val symbol = MakeSymbol(token.lexeme + 1, token.length - 2, &p->chunk->symbols);
-  return MakeNode(SymString, pos, symbol, &p->mem);
+  Token token = NextToken(&c->lex);
+  u32 pos = token.lexeme - c->lex.source;
+  Val symbol = MakeSymbol(token.lexeme + 1, token.length - 2, &c->chunk->symbols);
+  return MakeNode(SymString, pos, symbol, &c->mem);
 }
 
-static Val ParseSymbol(Compiler *p)
+static Val ParseSymbol(Compiler *c)
 {
   Val expr;
-  u32 pos = p->lex.token.lexeme - p->lex.source;
-  Assert(MatchToken(TokenColon, &p->lex));
-  expr = ParseID(p);
+  u32 pos = c->lex.token.lexeme - c->lex.source;
+  Assert(MatchToken(TokenColon, &c->lex));
+  expr = ParseID(c);
   if (expr == Error) return Error;
 
-  return MakeNode(SymColon, pos, expr, &p->mem);
+  return MakeNode(SymColon, pos, expr, &c->mem);
 }
 
-static Val ParseLiteral(Compiler *p)
+static Val ParseLiteral(Compiler *c)
 {
-  Token token = NextToken(&p->lex);
-  u32 pos = token.lexeme - p->lex.source;
+  Token token = NextToken(&c->lex);
+  u32 pos = token.lexeme - c->lex.source;
 
   switch (token.type) {
   case TokenTrue:
-    return MakeNode(SymColon, pos, True, &p->mem);
+    return MakeNode(SymColon, pos, True, &c->mem);
     break;
   case TokenFalse:
-    return MakeNode(SymColon, pos, False, &p->mem);
+    return MakeNode(SymColon, pos, False, &c->mem);
     break;
   case TokenNil:
-    return MakeNode(SymColon, pos, Nil, &p->mem);
+    return MakeNode(SymColon, pos, Nil, &c->mem);
     break;
   default:
     return Error;

@@ -5,8 +5,6 @@
 #include <string.h>
 #include <stdio.h>
 
-static bool CheckCapacity(Mem *mem, u32 amount);
-
 Val FloatVal(float num)
 {
   union {Val as_v; float as_f;} convert;
@@ -75,6 +73,16 @@ Val Tail(Val pair, Mem *mem)
 {
   Assert(IsPair(pair));
   return (*mem->values)[RawVal(pair)+1];
+}
+
+void SetHead(Val pair, Val value, Mem *mem)
+{
+  (*mem->values)[RawVal(pair)] = value;
+}
+
+void SetTail(Val pair, Val value, Mem *mem)
+{
+  (*mem->values)[RawVal(pair)+1] = value;
 }
 
 u32 ListLength(Val list, Mem *mem)
@@ -155,15 +163,13 @@ Val TupleGet(Val tuple, u32 i, Mem *mem)
   return (*mem->values)[RawVal(tuple) + i + 1];
 }
 
-#define NumBinCells(length)   ((length + 1) / 4 - 1)
-
-Val MakeBinary(u32 length, Mem *mem)
+Val MakeBinary(u32 size, Mem *mem)
 {
   Val binary = ObjVal(mem->count);
-  u32 cells = NumBinCells(length);
+  u32 cells = NumBinCells(size);
   u32 i;
   Assert(CheckCapacity(mem, cells + 1));
-  (*mem->values)[mem->count++] = BinaryHeader(length);
+  (*mem->values)[mem->count++] = BinaryHeader(size);
   for (i = 0; i < cells; i++) {
     (*mem->values)[mem->count++] = 0;
   }
@@ -196,7 +202,60 @@ void *BinaryData(Val binary, Mem *mem)
   return &(*mem->values)[RawVal(binary)];
 }
 
-static bool CheckCapacity(Mem *mem, u32 amount)
+bool CheckCapacity(Mem *mem, u32 amount)
 {
   return mem->count + amount <= mem->capacity;
+}
+
+static Val CopyValue(Val value, Mem *from, Mem *to)
+{
+  Val new_val;
+
+  if ((*from->values)[RawVal(value)] == Moved) {
+    return (*from->values)[RawVal(value)+1];
+  }
+
+  if (IsPair(value)) {
+    new_val = Pair(Head(value, from), Tail(value, from), to);
+  } else if (IsTuple(value, from)) {
+    u32 i;
+    new_val = MakeTuple(TupleLength(value, from), to);
+    for (i = 0; i < TupleLength(value, from); i++) {
+      TupleSet(new_val, i, TupleGet(value, i, from), to);
+    }
+  } else if (IsBinary(value, from)) {
+    new_val = MakeBinary(BinaryLength(value, from), to);
+    Copy(BinaryData(value, from), BinaryData(new_val, to), BinaryLength(value, from));
+  } else {
+    return value;
+  }
+
+  SetHead(value, Moved, from);
+  SetTail(value, new_val, from);
+  return new_val;
+}
+
+void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
+{
+  u32 i;
+  Mem new_mem;
+  InitMem(&new_mem, mem->capacity);
+
+  for (i = 0; i < num_roots; i++) {
+    roots[i] = CopyValue(roots[i], mem, &new_mem);
+  }
+
+  i = 0;
+  while (i < new_mem.count) {
+    Val value = (*new_mem.values)[i];
+    if (IsBinaryHeader(value)) {
+      i += NumBinCells(RawVal(value));
+    } else {
+      (*new_mem.values)[i] = CopyValue((*new_mem.values)[i], mem, &new_mem);
+      i++;
+    }
+  }
+
+  DisposeHandle((Handle)mem->values);
+  *mem = new_mem;
 }
