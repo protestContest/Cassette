@@ -21,18 +21,22 @@ float RawFloat(Val value)
   return convert.as_f;
 }
 
-void PrintVal(Val value, SymbolTable *symbols)
+u32 PrintVal(Val value, SymbolTable *symbols)
 {
   if (IsNil(value)) {
-    printf("nil");
+    return printf("nil");
   } else if (IsInt(value)) {
-    printf("%u", RawInt(value));
+    return printf("%d", RawInt(value));
   } else if (IsFloat(value)) {
-    printf("%f", RawFloat(value));
+    return printf("%f", RawFloat(value));
   } else if (IsSym(value) && symbols) {
-    printf("%s", SymbolName(value, symbols));
+    return printf("%s", SymbolName(value, symbols));
+  } else if (IsPair(value)) {
+    return printf("p%d", RawVal(value));
+  } else if (IsObj(value)) {
+    return printf("t%d", RawVal(value));
   } else {
-    printf("%08X", value);
+    return printf("%08X", value);
   }
 }
 
@@ -73,6 +77,25 @@ Val Tail(Val pair, Mem *mem)
   return (*mem->values)[RawVal(pair)+1];
 }
 
+u32 ListLength(Val list, Mem *mem)
+{
+  u32 length = 0;
+  while (IsPair(list) && list != Nil) {
+    length++;
+    list = Tail(list, mem);
+  }
+  return length;
+}
+
+bool ListContains(Val list, Val item, Mem *mem)
+{
+  while (IsPair(list) && list != Nil) {
+    if (Head(list, mem) == item) return true;
+    list = Tail(list, mem);
+  }
+  return false;
+}
+
 Val ReverseList(Val list, Mem *mem)
 {
   Val reversed = Nil;
@@ -82,16 +105,6 @@ Val ReverseList(Val list, Mem *mem)
     list = Tail(list, mem);
   }
   return reversed;
-}
-
-u32 ListLength(Val list, Mem *mem)
-{
-  u32 length = 0;
-  while (list != Nil) {
-    length++;
-    list = Tail(list, mem);
-  }
-  return length;
 }
 
 Val MakeTuple(u32 length, Mem *mem)
@@ -115,6 +128,17 @@ u32 TupleLength(Val tuple, Mem *mem)
 {
   Assert(IsTuple(tuple, mem));
   return RawVal((*mem->values)[RawVal(tuple)]);
+}
+
+bool TupleContains(Val tuple, Val item, Mem *mem)
+{
+  u32 i;
+  Assert(IsTuple(tuple, mem));
+  for (i = 0; i < TupleLength(tuple, mem); i++) {
+    if (TupleGet(tuple, i, mem) == item) return true;
+  }
+
+  return false;
 }
 
 void TupleSet(Val tuple, u32 i, Val value, Mem *mem)
@@ -144,6 +168,15 @@ Val MakeBinary(u32 length, Mem *mem)
     (*mem->values)[mem->count++] = 0;
   }
   return binary;
+}
+
+Val BinaryFrom(char *str, Mem *mem)
+{
+  u32 len = StrLen(str);
+  Val bin = MakeBinary(len, mem);
+  char *data = BinaryData(bin, mem);
+  Copy(str, data, len);
+  return bin;
 }
 
 bool IsBinary(Val value, Mem *mem)

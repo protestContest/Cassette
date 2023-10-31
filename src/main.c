@@ -1,18 +1,33 @@
 #include "compile.h"
+#include "vm.h"
 #include <stdio.h>
 
 int main(void)
 {
   char *source = ReadFile("./test.cst");
-  Chunk *chunk;
+  Chunk chunk;
+  Compiler c;
+  VM vm;
+  Val result;
+  char *error;
 
-  printf("%s\n", source);
-  printf("---\n");
+  InitChunk(&chunk);
+  InitCompiler(&c, &chunk);
 
-  chunk = Compile(source);
+  result = Compile(source, &c);
+  if (result != Ok) {
+    PrintCompileError(result, &c);
+    return 1;
+  }
 
-  if (chunk) {
-    Disassemble(chunk);
+
+  InitVM(&vm);
+  error = RunChunk(&chunk, &vm);
+  if (error) {
+    printf("\nRuntime error: %s\n", error);
+  } else {
+    PrintVal(StackRef(&vm, 0), &chunk.symbols);
+    printf("\n");
   }
 
   return 0;

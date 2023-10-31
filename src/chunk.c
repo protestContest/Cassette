@@ -1,5 +1,5 @@
 #include "chunk.h"
-#include "ops.h"
+#include "vm.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -16,6 +16,7 @@ void InitChunk(Chunk *chunk)
   chunk->code = 0;
   chunk->num_constants = 0;
   ResizeChunk(chunk, 256);
+  InitSymbolTable(&chunk->symbols);
 }
 
 void ResetChunk(Chunk *chunk)
@@ -65,27 +66,6 @@ void PatchChunk(Chunk *chunk, u32 index, Val value)
   chunk->code[index] = AddConst(value, chunk);
 }
 
-void AppendChunk(Chunk *chunk1, Chunk *chunk2)
-{
-  /* TODO: add needs/modifies metadata */
-  u32 i;
-
-  if (chunk1->count + chunk2->count >= chunk1->capacity) {
-    ResizeChunk(chunk1, Max(chunk1->count + chunk2->count, 2*chunk1->capacity));
-  }
-
-  for (i = 0; i < chunk2->count; i += OpLength(ChunkRef(chunk2, i))) {
-    if (ChunkRef(chunk2, i) == OpConst) {
-      PushConst(ChunkConst(chunk2, i+1), chunk1);
-    } else {
-      u32 j;
-      for (j = 0; j < OpLength(ChunkRef(chunk2, i)); j++) {
-        PushByte(ChunkRef(chunk2, i+j), chunk1);
-      }
-    }
-  }
-}
-
 void DumpConstants(Chunk *chunk)
 {
   u32 i;
@@ -121,10 +101,10 @@ void Disassemble(Chunk *chunk)
   for (i = 0; i < chunk->count; i += OpLength(ChunkRef(chunk, i))) {
     u8 op = ChunkRef(chunk, i);
     u32 j;
-    printf("  %s", OpName(op));
+    printf("%3d│ %s", i, OpName(op));
     for (j = 0; j < OpLength(op) - 1; j++) {
       printf(" ");
-      PrintVal(ChunkConst(chunk, i+1), 0);
+      PrintVal(ChunkConst(chunk, i+j+1), 0);
     }
     printf("\n");
   }

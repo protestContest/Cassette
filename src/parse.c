@@ -106,19 +106,6 @@ static Rule rules[NumTokenTypes] = {
 
 static Val MakeNode(Val sym, u32 position, Val value, Mem *mem);
 
-void InitParser(Compiler *p)
-{
-  InitSymbolTable(&p->symbols);
-  InitMem(&p->mem, 1024);
-  MakeParseSyms(&p->symbols);
-}
-
-void DestroyParser(Compiler *p)
-{
-  DestroySymbolTable(&p->symbols);
-  DestroyMem(&p->mem);
-}
-
 Val Parse(char *source, Compiler *p)
 {
   InitLexer(&p->lex, source, 0);
@@ -343,7 +330,7 @@ static Val ParseDo(Compiler *p)
   }
 
   if (Tail(stmts, &p->mem) == Nil) return Head(stmts, &p->mem);
-  return MakeNode(SymDo, pos, stmts, &p->mem);
+  return MakeNode(SymDo, pos, ReverseList(stmts, &p->mem), &p->mem);
 }
 
 static Val ParseIf(Compiler *p)
@@ -465,7 +452,7 @@ static bool ParseID(Compiler *p)
 {
   Token token = NextToken(&p->lex);
   if (token.type != TokenID) return false;
-  return MakeSymbol(token.lexeme, token.length, &p->symbols);
+  return MakeSymbol(token.lexeme, token.length, &p->chunk->symbols);
 }
 
 static Val ParseVar(Compiler *p)
@@ -506,7 +493,7 @@ static Val ParseString(Compiler *p)
 {
   Token token = NextToken(&p->lex);
   u32 pos = token.lexeme - p->lex.source;
-  Val symbol = MakeSymbol(token.lexeme + 1, token.length - 2, &p->symbols);
+  Val symbol = MakeSymbol(token.lexeme + 1, token.length - 2, &p->chunk->symbols);
   return MakeNode(SymString, pos, symbol, &p->mem);
 }
 

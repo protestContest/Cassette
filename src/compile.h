@@ -6,8 +6,13 @@
 typedef struct {
   Val env;
   Mem mem;
-  SymbolTable symbols;
   Lexer lex;
+  Chunk *chunk;
 } Compiler;
 
-Chunk *Compile(char *source);
+void InitCompiler(Compiler *c, Chunk *chunk);
+void DestroyCompiler(Compiler *c);
+
+Val Compile(char *source, Compiler *c);
+
+void PrintCompileError(Val error, Compiler *c);

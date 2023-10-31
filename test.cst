@@ -1,9 +1,1 @@
-def (fact n) do
-  if n == 1 do
-    1
-  else
-    n * (fact n - 1)
-  end
-end
-
-fact 3
+2 * (3 + 1)

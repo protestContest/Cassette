@@ -1,4 +1,7 @@
 #pragma once
+#include "mem.h"
+#include "symbols.h"
+#include "chunk.h"
 
 typedef enum {
   RegEnv = 0x1,
@@ -38,13 +41,28 @@ typedef enum {
   OpReturn,
   OpLambda,
   OpApply,
-  OpSaveEnv,
-  OpRestEnv,
-  OpSaveRet,
-  OpRestRet,
 
   NumOps
 } OpCode;
 
 char *OpName(OpCode op);
 u32 OpLength(OpCode op);
+
+typedef struct {
+  u32 pc;
+  Val env;
+  struct {
+    u32 count;
+    u32 capacity;
+    Val *data;
+  } stack;
+  Mem mem;
+  SymbolTable symbols;
+} VM;
+
+#define StackRef(vm, i)     (vm)->stack.data[(vm)->stack.count - 1 - i]
+
+void InitVM(VM *vm);
+void DestroyVM(VM *vm);
+
+char *RunChunk(Chunk *chunk, VM *vm);

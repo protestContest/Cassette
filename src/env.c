@@ -22,7 +22,7 @@ Val Lookup(u32 frames, u32 index, Val env, Mem *mem)
     if (env == Nil) return Undefined;
   }
 
-  if (index <= TupleLength(Head(env, mem), mem)) return Undefined;
+  if (index >= TupleLength(Head(env, mem), mem)) return Undefined;
 
   return TupleGet(Head(env, mem), index, mem);
 }

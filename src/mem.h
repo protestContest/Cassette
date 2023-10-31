@@ -13,6 +13,7 @@ typedef u32 Val;
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
 #define mapMask           0xFFE00000
+#define trapMask          0xFFF00000
 
 #define MakeVal(n, mask)  (((n) & ~typeMask) | (mask))
 #define IntVal(n)         MakeVal((i32)(n), intMask)
@@ -22,6 +23,7 @@ typedef u32 Val;
 #define TupleHeader(n)    MakeVal(n, tupleMask)
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
 #define MapHeader(n)      MakeVal(n, mapMask)
+#define TrapVal(n)        MakeVal(n, trapMask)
 
 #define IsType(v, mask)   (((v) & typeMask) == (mask))
 #define IsFloat(v)        (((v) & nanMask) != nanMask)
@@ -32,6 +34,7 @@ typedef u32 Val;
 #define IsTupleHeader(v)  IsType(v, tupleMask)
 #define IsBinaryHeader(v) IsType(v, binaryMask)
 #define IsMapHeader(v)    IsType(v, mapMask)
+#define IsTrap(v)         IsType(v, trapMask)
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
@@ -41,7 +44,6 @@ typedef u32 Val;
 
 #define IsNil(v)          (Nil == (v))
 #define BoolVal(v)        ((v) ? True : False)
-#define IsTrue(v)         !(IsNil(v) || Eq(v, False))
 #define IsNum(v)          (IsFloat(v) || IsInt(v))
 #define RawNum(v)         (IsFloat(v) ? RawFloat(v) : RawInt(v))
 #define IsZero(v)         ((IsFloat(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
@@ -62,7 +64,7 @@ Val FloatVal(float num);
 float RawFloat(Val value);
 
 struct SymbolTable;
-void PrintVal(Val value, struct SymbolTable *symbols);
+u32 PrintVal(Val value, struct SymbolTable *symbols);
 
 typedef struct {
   u32 count;
@@ -75,14 +77,17 @@ void DestroyMem(Mem *mem);
 Val Pair(Val head, Val tail, Mem *mem);
 Val Head(Val pair, Mem *mem);
 Val Tail(Val pair, Mem *mem);
-Val ReverseList(Val list, Mem *mem);
 u32 ListLength(Val list, Mem *mem);
+bool ListContains(Val list, Val item, Mem *mem);
+Val ReverseList(Val list, Mem *mem);
 Val MakeTuple(u32 length, Mem *mem);
 bool IsTuple(Val value, Mem *mem);
 u32 TupleLength(Val tuple, Mem *mem);
+bool TupleContains(Val tuple, Val item, Mem *mem);
 void TupleSet(Val tuple, u32 index, Val value, Mem *mem);
 Val TupleGet(Val tuple, u32 index, Mem *mem);
 Val MakeBinary(u32 length, Mem *mem);
+Val BinaryFrom(char *str, Mem *mem);
 bool IsBinary(Val value, Mem *mem);
 u32 BinaryLength(Val binary, Mem *mem);
 void *BinaryData(Val binary, Mem *mem);
