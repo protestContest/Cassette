@@ -104,7 +104,7 @@ void Disassemble(Chunk *chunk)
     printf("%3d│ %s", i, OpName(op));
     for (j = 0; j < OpLength(op) - 1; j++) {
       printf(" ");
-      PrintVal(ChunkConst(chunk, i+j+1), 0);
+      PrintVal(ChunkConst(chunk, i+j+1), &chunk->symbols);
     }
     printf("\n");
   }

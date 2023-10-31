@@ -54,17 +54,17 @@ u32 OpLength(OpCode op)
 }
 
 static bool CheckMem(VM *vm, u32 amount);
-static void TraceInstruction(VM *vm, Chunk *chunk);
+static void TraceInstruction(OpCode op, VM *vm, Chunk *chunk);
 static void PrintStack(VM *vm, Chunk *chunk);
 
 void InitVM(VM *vm)
 {
   vm->pc = 0;
-  vm->stack.capacity = 1024;
+  vm->stack.capacity = 256;
   vm->stack.count = 0;
-  vm->stack.data = malloc(sizeof(Val)*1024);
+  vm->stack.data = malloc(sizeof(Val)*vm->stack.capacity);
   vm->stack.data[vm->stack.count++] = Nil;
-  InitMem(&vm->mem, 1024);
+  InitMem(&vm->mem, 256);
   InitSymbolTable(&vm->symbols);
   Env(vm) = ExtendEnv(Env(vm), DefinePrimitives(&vm->mem), &vm->mem);
 }
@@ -87,7 +87,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
     OpCode op = ChunkRef(chunk, vm->pc);
 
 #ifdef DEBUG
-    TraceInstruction(vm, chunk);
+    TraceInstruction(op, vm, chunk);
     PrintStack(vm, chunk);
     printf("\n");
 #endif
@@ -272,7 +272,6 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-
       StackPop(vm);
       vm->pc += OpLength(op);
       break;
@@ -358,7 +357,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
   }
 
 #ifdef DEBUG
-    TraceInstruction(vm, chunk);
+    TraceInstruction(OpHalt, vm, chunk);
     PrintStack(vm, chunk);
     printf("\n");
 #endif
@@ -366,16 +365,13 @@ char *RunChunk(Chunk *chunk, VM *vm)
   return 0;
 }
 
-static void TraceInstruction(VM *vm, Chunk *chunk)
+static void TraceInstruction(OpCode op, VM *vm, Chunk *chunk)
 {
-  OpCode op = ChunkRef(chunk, vm->pc);
   i32 i, col_width = 20;
 
   printf("%3d│", vm->pc);
-  col_width = 5;
-  if (Env(vm) == Nil) col_width -= printf("   ");
-  else col_width -= PrintVal(Env(vm), 0);
-  for (i = 0; i < col_width; i++) printf(" ");
+  if (Env(vm) == Nil) printf("    ");
+  else printf("%4d", RawVal(Env(vm)));
   printf("│ ");
 
   col_width = 20;
@@ -398,7 +394,10 @@ static void PrintStack(VM *vm, Chunk *chunk)
   for (i = 0; i < (i32)vm->stack.count; i++) {
     col_width -= printf(" ");
     col_width -= PrintVal(StackRef(vm, i), &chunk->symbols);
-    if (col_width < 0) break;
+    if (col_width < 0) {
+      printf(" ...");
+      break;
+    }
   }
 }
 

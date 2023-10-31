@@ -1,1 +1,18 @@
-print "Hello, world!"
+def (fizzbuzz n) do
+  def (loop i) do
+    cond do
+      i % 3 == 0 and i % 5 == 0 -> print "FizzBuzz"
+      i % 3 == 0 -> print "Fizz"
+      i % 5 == 0 -> print "Buzz"
+      true -> print i
+    end
+
+    if i < n do
+      loop i+1
+    end
+  end
+
+  loop 1
+end
+
+fizzbuzz 100

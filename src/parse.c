@@ -408,6 +408,8 @@ static Val ParseIf(Compiler *c)
     } else {
       alt = MakeNode(SymDo, else_pos, ReverseList(alt, &c->mem), &c->mem);
     }
+  } else {
+    alt = MakeNode(SymNil, else_pos, Nil, &c->mem);
   }
 
   if (!MatchToken(TokenEnd, &c->lex)) return Error;

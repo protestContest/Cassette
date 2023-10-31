@@ -53,6 +53,7 @@ typedef u32 Val;
 #define Function          0x7FDE36D4
 #define Moved             0x7FD162D1
 #define Undefined         0x7FD19F74
+#define File              0x7FD934AA
 
 Val FloatVal(float num);
 float RawFloat(Val value);

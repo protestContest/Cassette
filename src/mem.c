@@ -192,7 +192,9 @@ bool CheckCapacity(Mem *mem, u32 amount)
 
 static Val CopyValue(Val value, Mem *from, Mem *to)
 {
-  Val new_val;
+  Val new_val = Nil;
+
+  if (!IsObj(value) && !IsPair(value)) return value;
 
   if ((*from->values)[RawVal(value)] == Moved) {
     return (*from->values)[RawVal(value)+1];
@@ -209,8 +211,6 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
   } else if (IsBinary(value, from)) {
     new_val = MakeBinary(BinaryLength(value, from), to);
     Copy(BinaryData(value, from), BinaryData(new_val, to), BinaryLength(value, from));
-  } else {
-    return value;
   }
 
   SetHead(value, Moved, from);
@@ -228,7 +228,7 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
     roots[i] = CopyValue(roots[i], mem, &new_mem);
   }
 
-  i = 0;
+  i = 2;
   while (i < new_mem.count) {
     Val value = (*new_mem.values)[i];
     if (IsBinaryHeader(value)) {
@@ -250,7 +250,7 @@ u32 PrintVal(Val value, SymbolTable *symbols)
   } else if (IsInt(value)) {
     return printf("%d", RawInt(value));
   } else if (IsFloat(value)) {
-    return printf("%f", RawFloat(value));
+    return printf("%.2f", RawFloat(value));
   } else if (IsSym(value) && symbols) {
     return printf("%s", SymbolName(value, symbols));
   } else if (IsPair(value)) {
@@ -294,7 +294,7 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
 
   for (j = 0; j < cells; j++) {
     Val value = (*mem->values)[index+j+1];
-    u32 bytes = (j == cells-1) ? size % 4 : 4;
+    u32 bytes = (j == cells-1) ? (size-1) % 4 + 1 : 4;
     bool printable  = true;
     u32 k;
 
@@ -315,7 +315,7 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
     } else {
       printf("%04.4X", value);
     }
-    if ((index+j+1) % cols == 0) printf("║\n");
+    if ((index+j+2) % cols == 0) printf("║\n");
   }
   return cells;
 }

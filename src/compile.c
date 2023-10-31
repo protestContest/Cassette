@@ -272,7 +272,7 @@ static CompileResult CompileIf(Val expr, Val linkage, Compiler *c)
   result = CompileExpr(cons, linkage, c);
 
   if (linkage == LinkNext) {
-    PatchChunk(c->chunk, jump, IntVal(c->chunk->count  - jump));
+    PatchChunk(c->chunk, jump+1, IntVal(c->chunk->count  - jump));
   }
 
   return CompileOk();

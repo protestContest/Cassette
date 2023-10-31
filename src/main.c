@@ -21,19 +21,18 @@ int main(void)
     return 1;
   }
 
+#ifdef DEBUG
   Disassemble(&chunk);
   printf("---\n");
+#endif
 
   InitVM(&vm);
   error = RunChunk(&chunk, &vm);
   if (error) {
     printf("\nRuntime error: %s\n", error);
-  } else {
-    PrintVal(StackRef(&vm, 0), &chunk.symbols);
-    printf("\n");
   }
 
+#ifdef DEBUG
   DumpMem(&vm.mem, &chunk.symbols);
-
-  return 0;
+#endif
 }

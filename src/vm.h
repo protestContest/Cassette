@@ -49,7 +49,6 @@ u32 OpLength(OpCode op);
 
 typedef struct {
   u32 pc;
-  Val env;
   struct {
     u32 count;
     u32 capacity;
