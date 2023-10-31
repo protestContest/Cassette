@@ -1,3 +1,5 @@
+module Foo
+
 def (fact n) do
   def (loop i acc) do
     if i == 1 do
@@ -10,4 +12,4 @@ def (fact n) do
   loop n 1
 end
 
-fact 10
+fact 5

@@ -8,25 +8,26 @@
 #define LinkReturn  0x7FD336A7
 #define LinkNext    0x7FD9CB70
 
-static Val CompileExpr(Val node, Val linkage, Compiler *c);
-static Val CompileDo(Val stmts, Val linkage, Compiler *c);
-static Val CompileAssigns(Val assigns, Val linkage, Compiler *c);
-static Val CompileCall(Val call, Val linkage, Compiler *c);
-static Val CompileLambda(Val expr, Val linkage, Compiler *c);
-static Val CompileIf(Val expr, Val linkage, Compiler *c);
-static Val CompileAnd(Val expr, Val linkage, Compiler *c);
-static Val CompileOr(Val expr, Val linkage, Compiler *c);
-static Val CompileOp(OpCode op, Val expr, Val linkage, Compiler *c);
-static Val CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
-static Val CompileList(Val items, Val linkage, Compiler *c);
-static Val CompileTuple(Val items, Val linkage, Compiler *c);
-static Val CompileString(Val sym, Val linkage, Compiler *c);
-static Val CompileVar(Val id, Val linkage, Compiler *c);
-static Val CompileConst(Val value, Val linkage, Compiler *c);
-static Val CompileGroup(Val expr, Val linkage, Compiler *c);
+static CompileResult CompileExpr(Val node, Val linkage, Compiler *c);
+static CompileResult CompileDo(Val stmts, Val linkage, Compiler *c);
+static CompileResult CompileAssigns(Val assigns, Val linkage, Compiler *c);
+static CompileResult CompileCall(Val call, Val linkage, Compiler *c);
+static CompileResult CompileLambda(Val expr, Val linkage, Compiler *c);
+static CompileResult CompileIf(Val expr, Val linkage, Compiler *c);
+static CompileResult CompileAnd(Val expr, Val linkage, Compiler *c);
+static CompileResult CompileOr(Val expr, Val linkage, Compiler *c);
+static CompileResult CompileOp(OpCode op, Val expr, Val linkage, Compiler *c);
+static CompileResult CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
+static CompileResult CompileList(Val items, Val linkage, Compiler *c);
+static CompileResult CompileTuple(Val items, Val linkage, Compiler *c);
+static CompileResult CompileString(Val sym, Val linkage, Compiler *c);
+static CompileResult CompileVar(Val id, Val linkage, Compiler *c);
+static CompileResult CompileConst(Val value, Val linkage, Compiler *c);
+static CompileResult CompileGroup(Val expr, Val linkage, Compiler *c);
 
 static void CompileLinkage(Val linkage, Compiler *c);
-static Val CompileError(char *message, Compiler *c);
+static CompileResult CompileOk(void);
+static CompileResult CompileError(char *message, Compiler *c);
 
 void InitCompiler(Compiler *c, Chunk *chunk)
 {
@@ -41,27 +42,29 @@ void DestroyCompiler(Compiler *c)
   DestroyMem(&c->mem);
 }
 
-Val Compile(char *source, Compiler *c)
+CompileResult Compile(char *source, Compiler *c)
 {
   Val ast;
 
   ast = Parse(source, c);
-  if (ast == Error) return 0;
+  if (ast == Error) return CompileError("Parse error", c);
 
   return CompileExpr(ast, LinkNext, c);
 }
 
-static Val CompileExpr(Val node, Val linkage, Compiler *c)
+static CompileResult CompileExpr(Val node, Val linkage, Compiler *c)
 {
   Val tag = TupleGet(node, 0, &c->mem);
   Val expr = TupleGet(node, 2, &c->mem);
   c->lex.pos = RawInt(TupleGet(node, 1, &c->mem));
 
   switch (tag) {
+  case SymID:           return CompileVar(expr, linkage, c);
   case SymBangEqual:    return CompileNotOp(OpEq, expr, linkage, c);
   case SymString:       return CompileString(expr, linkage, c);
   case SymHash:         return CompileOp(OpLen, expr, linkage, c);
   case SymPercent:      return CompileOp(OpRem, expr, linkage, c);
+  case SymLParen:       return CompileCall(expr, linkage, c);
   case SymStar:         return CompileOp(OpMul, expr, linkage, c);
   case SymPlus:         return CompileOp(OpAdd, expr, linkage, c);
   case SymMinus:
@@ -70,6 +73,7 @@ static Val CompileExpr(Val node, Val linkage, Compiler *c)
   case SymArrow:        return CompileLambda(expr, linkage, c);
   case SymDot:          return CompileOp(OpGet, expr, linkage, c);
   case SymSlash:        return CompileOp(OpDiv, expr, linkage, c);
+  case SymNum:          return CompileConst(expr, linkage, c);
   case SymColon:        return CompileConst(expr, linkage, c);
   case SymLess:         return CompileOp(OpLt, expr, linkage, c);
   case SymLessEqual:    return CompileNotOp(OpGt, expr, linkage, c);
@@ -80,19 +84,17 @@ static Val CompileExpr(Val node, Val linkage, Compiler *c)
   case SymAnd:          return CompileAnd(expr, linkage, c);
   case SymDo:           return CompileDo(expr, linkage, c);
   case SymIf:           return CompileIf(expr, linkage, c);
+  case SymIn:           return CompileOp(OpIn, expr, linkage, c);
   case SymNil:          return CompileConst(Nil, linkage, c);
   case SymNot:          return CompileOp(OpNot, expr, linkage, c);
   case SymOr:           return CompileOr(expr, linkage, c);
   case SymLBrace:       return CompileTuple(expr, linkage, c);
-  case SymLParen:       return CompileCall(expr, linkage, c);
-  case SymNum:          return CompileConst(expr, linkage, c);
-  case SymID:           return CompileVar(expr, linkage, c);
   case SymBar:          return CompileOp(OpPair, expr, linkage, c);
   default:              return CompileError("Unknown expression", c);
   }
 }
 
-static Val CompileDo(Val stmts, Val linkage, Compiler *c)
+static CompileResult CompileDo(Val stmts, Val linkage, Compiler *c)
 {
   u32 scopes = 0, i;
 
@@ -104,8 +106,8 @@ static Val CompileDo(Val stmts, Val linkage, Compiler *c)
     Val expr = TupleGet(stmt, 2, &c->mem);
 
     if (tag == SymLet) {
-      Val result = CompileAssigns(expr, stmt_linkage, c);
-      if (result != Ok) return result;
+      CompileResult result = CompileAssigns(expr, stmt_linkage, c);
+      if (!result.ok) return result;
 
       scopes++;
       if (is_last) {
@@ -113,8 +115,8 @@ static Val CompileDo(Val stmts, Val linkage, Compiler *c)
         PushConst(Ok, c->chunk);
       }
     } else {
-      Val result = CompileExpr(stmt, stmt_linkage, c);
-      if (result != Ok) return result;
+      CompileResult result = CompileExpr(stmt, stmt_linkage, c);
+      if (!result.ok) return result;
 
       if (!is_last) {
         PushByte(OpPop, c->chunk);
@@ -129,10 +131,10 @@ static Val CompileDo(Val stmts, Val linkage, Compiler *c)
     c->env = Tail(c->env, &c->mem);
   }
 
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileAssigns(Val assigns, Val linkage, Compiler *c)
+static CompileResult CompileAssigns(Val assigns, Val linkage, Compiler *c)
 {
   u32 num_assigns = ListLength(assigns, &c->mem);
   u32 i = 0;
@@ -148,11 +150,11 @@ static Val CompileAssigns(Val assigns, Val linkage, Compiler *c)
     Val var = Head(assign, &c->mem);
     Val value = Tail(assign, &c->mem);
     Val val_linkage = (Tail(assigns, &c->mem) == Nil) ? linkage : LinkNext;
-    Val result;
+    CompileResult result;
     Define(var, i, c->env, &c->mem);
 
     result = CompileExpr(value, val_linkage, c);
-    if (result != Ok) return result;
+    if (!result.ok) return result;
 
     PushByte(OpDefine, c->chunk);
     PushConst(IntVal(i), c->chunk);
@@ -161,15 +163,15 @@ static Val CompileAssigns(Val assigns, Val linkage, Compiler *c)
     assigns = Tail(assigns, &c->mem);
   }
 
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileCall(Val call, Val linkage, Compiler *c)
+static CompileResult CompileCall(Val call, Val linkage, Compiler *c)
 {
   Val op = Head(call, &c->mem);
   Val args = Tail(call, &c->mem);
   u32 num_args = 0;
-  Val result;
+  CompileResult result;
 
   u32 patch = PushByte(OpNoop, c->chunk);
   PushByte(OpNoop, c->chunk);
@@ -178,13 +180,13 @@ static Val CompileCall(Val call, Val linkage, Compiler *c)
     Val arg = Head(args, &c->mem);
 
     result = CompileExpr(arg, LinkNext, c);
-    if (result != Ok) return result;
+    if (!result.ok) return result;
     args = Tail(args, &c->mem);
     num_args++;
   }
 
   result = CompileExpr(op, LinkNext, c);
-  if (result != Ok) return result;
+  if (!result.ok) return result;
 
   PushByte(OpApply, c->chunk);
   PushConst(IntVal(num_args), c->chunk);
@@ -195,58 +197,61 @@ static Val CompileCall(Val call, Val linkage, Compiler *c)
     PatchChunk(c->chunk, patch+1, linkage);
   }
 
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileLambda(Val expr, Val linkage, Compiler *c)
+static CompileResult CompileLambda(Val expr, Val linkage, Compiler *c)
 {
   Val params = Head(expr, &c->mem);
   Val body = Tail(expr, &c->mem);
-  Val result;
+  CompileResult result;
   u32 patch, i;
   u32 num_params = ListLength(params, &c->mem);
 
   patch = PushByte(OpLambda, c->chunk);
   PushByte(0, c->chunk);
-  PushByte(OpTuple, c->chunk);
-  PushByte(OpExtend, c->chunk);
 
-  c->env = ExtendEnv(c->env, MakeTuple(num_params, &c->mem), &c->mem);
-  for (i = 0; i < num_params; i++) {
-    Val param = Head(params, &c->mem);
-    Define(param, i, c->env, &c->mem);
-    PushByte(OpDefine, c->chunk);
-    PushConst(IntVal(num_params - i - 1), c->chunk);
-    params = Tail(params, &c->mem);
+  if (num_params > 0) {
+    PushByte(OpTuple, c->chunk);
+    PushByte(OpExtend, c->chunk);
+
+    c->env = ExtendEnv(c->env, MakeTuple(num_params, &c->mem), &c->mem);
+    for (i = 0; i < num_params; i++) {
+      Val param = Head(params, &c->mem);
+      Define(param, i, c->env, &c->mem);
+      PushByte(OpDefine, c->chunk);
+      PushConst(IntVal(num_params - i - 1), c->chunk);
+      params = Tail(params, &c->mem);
+    }
   }
 
   result = CompileExpr(body, LinkReturn, c);
-  if (result != Ok) return result;
+  if (!result.ok) return result;
 
   PatchChunk(c->chunk, patch+1, IntVal(c->chunk->count - patch));
 
-  c->env = Tail(c->env, &c->mem);
+  if (num_params > 0) c->env = Tail(c->env, &c->mem);
 
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileIf(Val expr, Val linkage, Compiler *c)
+static CompileResult CompileIf(Val expr, Val linkage, Compiler *c)
 {
   Val pred = Head(expr, &c->mem);
   Val cons = Head(Tail(expr, &c->mem), &c->mem);
   Val alt = Head(Tail(Tail(expr, &c->mem), &c->mem), &c->mem);
-  Val result;
+  CompileResult result;
   u32 branch, jump;
 
   result = CompileExpr(pred, LinkNext, c);
-  if (result != Ok) return result;
+  if (!result.ok) return result;
 
   branch = PushByte(OpBranch, c->chunk);
   PushByte(0, c->chunk);
 
   PushByte(OpPop, c->chunk);
   result = CompileExpr(alt, linkage, c);
-  if (result != Ok) return result;
+  if (!result.ok) return result;
   if (linkage == LinkNext) {
     jump = PushByte(OpJump, c->chunk);
     PushByte(0, c->chunk);
@@ -261,17 +266,17 @@ static Val CompileIf(Val expr, Val linkage, Compiler *c)
     PatchChunk(c->chunk, jump, IntVal(c->chunk->count  - jump));
   }
 
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileAnd(Val expr, Val linkage, Compiler *c)
+static CompileResult CompileAnd(Val expr, Val linkage, Compiler *c)
 {
   Val a = Head(expr, &c->mem);
   Val b = Head(Tail(expr, &c->mem), &c->mem);
   u32 branch, jump;
 
-  Val result = CompileExpr(a, LinkNext, c);
-  if (result != Ok) return result;
+  CompileResult result = CompileExpr(a, LinkNext, c);
+  if (!result.ok) return result;
 
   branch = PushByte(OpBranch, c->chunk);
   PushByte(0, c->chunk);
@@ -287,30 +292,30 @@ static Val CompileAnd(Val expr, Val linkage, Compiler *c)
 
   PushByte(OpPop, c->chunk);
   result = CompileExpr(b, linkage, c);
-  if (result != Ok) return result;
+  if (!result.ok) return result;
 
   if (linkage == LinkNext) {
     PatchChunk(c->chunk, jump+1, IntVal(c->chunk->count - jump));
   }
 
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileOr(Val expr, Val linkage, Compiler *c)
+static CompileResult CompileOr(Val expr, Val linkage, Compiler *c)
 {
   Val a = Head(expr, &c->mem);
   Val b = Head(Tail(expr, &c->mem), &c->mem);
   u32 branch;
 
-  Val result = CompileExpr(a, LinkNext, c);
-  if (result != Ok) return result;
+  CompileResult result = CompileExpr(a, LinkNext, c);
+  if (!result.ok) return result;
 
   branch = PushByte(OpBranch, c->chunk);
   PushByte(0, c->chunk);
 
   PushByte(OpPop, c->chunk);
   result = CompileExpr(b, linkage, c);
-  if (result != Ok) return result;
+  if (!result.ok) return result;
 
   if (linkage == LinkNext || linkage == LinkReturn) {
     PatchChunk(c->chunk, branch+1, IntVal(c->chunk->count - branch));
@@ -319,58 +324,58 @@ static Val CompileOr(Val expr, Val linkage, Compiler *c)
     PatchChunk(c->chunk, branch+1, linkage);
   }
 
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileOp(OpCode op, Val args, Val linkage, Compiler *c)
+static CompileResult CompileOp(OpCode op, Val args, Val linkage, Compiler *c)
 {
   while (args != Nil) {
-    Val result = CompileExpr(Head(args, &c->mem), LinkNext, c);
-    if (result != Ok) return result;
+    CompileResult result = CompileExpr(Head(args, &c->mem), LinkNext, c);
+    if (!result.ok) return result;
     args = Tail(args, &c->mem);
   }
   PushByte(op, c->chunk);
   CompileLinkage(linkage, c);
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
+static CompileResult CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
 {
   while (args != Nil) {
-    Val result = CompileExpr(Head(args, &c->mem), LinkNext, c);
-    if (result != Ok) return result;
+    CompileResult result = CompileExpr(Head(args, &c->mem), LinkNext, c);
+    if (!result.ok) return result;
   }
   PushByte(op, c->chunk);
   PushByte(OpNot, c->chunk);
   CompileLinkage(linkage, c);
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileList(Val items, Val linkage, Compiler *c)
+static CompileResult CompileList(Val items, Val linkage, Compiler *c)
 {
   PushByte(OpConst, c->chunk);
   PushConst(Nil, c->chunk);
 
   while (items != Nil) {
     Val item = Head(items, &c->mem);
-    Val result = CompileExpr(item, LinkNext, c);
-    if (result != Ok) return result;
+    CompileResult result = CompileExpr(item, LinkNext, c);
+    if (!result.ok) return result;
     PushByte(OpPair, c->chunk);
     items = Tail(items, &c->mem);
   }
 
   CompileLinkage(linkage, c);
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileTuple(Val items, Val linkage, Compiler *c)
+static CompileResult CompileTuple(Val items, Val linkage, Compiler *c)
 {
   u32 i, num_items = 0;
 
   while (items != Nil) {
     Val item = Head(items, &c->mem);
-    Val result = CompileExpr(item, LinkNext, c);
-    if (result != Ok) return result;
+    CompileResult result = CompileExpr(item, LinkNext, c);
+    if (!result.ok) return result;
     items = Tail(items, &c->mem);
     num_items++;
   }
@@ -384,19 +389,19 @@ static Val CompileTuple(Val items, Val linkage, Compiler *c)
   }
 
   CompileLinkage(linkage, c);
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileString(Val sym, Val linkage, Compiler *c)
+static CompileResult CompileString(Val sym, Val linkage, Compiler *c)
 {
   PushByte(OpConst, c->chunk);
   PushConst(sym, c->chunk);
   PushByte(OpStr, c->chunk);
   CompileLinkage(linkage, c);
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileVar(Val id, Val linkage, Compiler *c)
+static CompileResult CompileVar(Val id, Val linkage, Compiler *c)
 {
   i32 def = FindDefinition(id, c->env, &c->mem);
   if (def == -1) return CompileError("Undefined variable", c);
@@ -405,15 +410,15 @@ static Val CompileVar(Val id, Val linkage, Compiler *c)
   PushConst(IntVal(def >> 16), c->chunk);
   PushConst(IntVal(def & 0xFFFF), c->chunk);
   CompileLinkage(linkage, c);
-  return Ok;
+  return CompileOk();
 }
 
-static Val CompileConst(Val value, Val linkage, Compiler *c)
+static CompileResult CompileConst(Val value, Val linkage, Compiler *c)
 {
   PushByte(OpConst, c->chunk);
   PushConst(value, c->chunk);
   CompileLinkage(linkage, c);
-  return Ok;
+  return CompileOk();
 }
 
 static void CompileLinkage(Val linkage, Compiler *c)
@@ -426,20 +431,28 @@ static void CompileLinkage(Val linkage, Compiler *c)
   }
 }
 
-static Val CompileError(char *message, Compiler *c)
+static CompileResult CompileOk(void)
 {
-  return Pair(Sym(message, &c->chunk->symbols), IntVal(c->lex.pos), &c->mem);
+  CompileResult result = {true, 0, 0};
+  return result;
 }
 
-void PrintCompileError(Val error, Compiler *c)
+static CompileResult CompileError(char *message, Compiler *c)
 {
-  char *message = SymbolName(Head(error, &c->mem), &c->chunk->symbols);
-  u32 pos = RawInt(Tail(error, &c->mem));
+  CompileResult result;
+  result.ok = false;
+  result.error = message;
+  result.pos = c->lex.pos;
+  return result;
+}
+
+void PrintCompileError(CompileResult error, Compiler *c)
+{
   Token token;
   char *line, *end, *i;
   u32 line_num;
 
-  InitLexer(&c->lex, c->lex.source, pos);
+  InitLexer(&c->lex, c->lex.source, error.pos);
 
   token = c->lex.token;
   line = token.lexeme;
@@ -454,7 +467,7 @@ void PrintCompileError(Val error, Compiler *c)
     i++;
   }
 
-  printf("Error: %s\n", message);
+  printf("Error: %s\n", error.error);
   printf("%3d⏐ %.*s\n", line_num+1, (i32)(end - line), line);
   printf("     ");
   for (i = line; i < token.lexeme; i++) printf(" ");

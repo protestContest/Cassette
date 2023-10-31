@@ -8,14 +8,14 @@ int main(void)
   Chunk chunk;
   Compiler c;
   VM vm;
-  Val result;
+  CompileResult result;
   char *error;
 
   InitChunk(&chunk);
   InitCompiler(&c, &chunk);
 
   result = Compile(source, &c);
-  if (result != Ok) {
+  if (!result.ok) {
     PrintCompileError(result, &c);
     return 1;
   }

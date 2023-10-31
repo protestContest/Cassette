@@ -10,9 +10,14 @@ typedef struct {
   Chunk *chunk;
 } Compiler;
 
+typedef struct {
+  bool ok;
+  char *error;
+  u32 pos;
+} CompileResult;
+
 void InitCompiler(Compiler *c, Chunk *chunk);
 void DestroyCompiler(Compiler *c);
 
-Val Compile(char *source, Compiler *c);
-
-void PrintCompileError(Val error, Compiler *c);
+CompileResult Compile(char *source, Compiler *c);
+void PrintCompileError(CompileResult error, Compiler *c);

@@ -115,8 +115,15 @@ Val Parse(char *source, Compiler *c)
 
 static Val ParseScript(Compiler *c)
 {
-  Val stmts = Nil;
+  Val stmts = Nil, mod = Nil;
   SkipNewlines(&c->lex);
+
+  if (MatchToken(TokenModule, &c->lex)) {
+    mod = ParseID(c);
+    if (mod == Error) return mod;
+    SkipNewlines(&c->lex);
+  }
+
   while (!MatchToken(TokenEOF, &c->lex)) {
     Val stmt = ParseStmt(c);
     if (stmt == Error) return Error;
@@ -125,7 +132,13 @@ static Val ParseScript(Compiler *c)
     SkipNewlines(&c->lex);
   }
 
-  return MakeNode(SymDo, 0, ReverseList(stmts, &c->mem), &c->mem);
+  stmts = MakeNode(SymDo, 0, ReverseList(stmts, &c->mem), &c->mem);
+
+  if (mod == Nil) {
+    return stmts;
+  } else {
+    return MakeNode(SymModule, 0, Pair(mod, stmts, &c->mem), &c->mem);
+  }
 }
 
 static Val ParseStmt(Compiler *c)
