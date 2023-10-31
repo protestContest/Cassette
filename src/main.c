@@ -1,5 +1,6 @@
 #include "compile.h"
 #include "vm.h"
+#include "primitives.h"
 #include <stdio.h>
 
 int main(void)
@@ -12,7 +13,7 @@ int main(void)
   char *error;
 
   InitChunk(&chunk);
-  InitCompiler(&c, &chunk);
+  InitCompiler(&c, &chunk, Primitives(), NumPrimitives());
 
   result = Compile(source, &c);
   if (!result.ok) {

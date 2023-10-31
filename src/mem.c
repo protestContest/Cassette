@@ -256,7 +256,7 @@ u32 PrintVal(Val value, SymbolTable *symbols)
   } else if (IsPair(value)) {
     return printf("p%d", RawVal(value));
   } else if (IsObj(value)) {
-    return printf("t%d", RawVal(value));
+    return printf("o%d", RawVal(value));
   } else {
     return printf("%08X", value);
   }
@@ -271,7 +271,7 @@ static void PrintCell(u32 index, Val value, SymbolTable *symbols)
   } else if (IsFloat(value)) {
     printf("%*.1f", width, RawFloat(value));
   } else if (IsSym(value) && symbols) {
-    printf(":%*.*s", width-1, width-1, SymbolName(value, symbols));
+    printf("%*.*s", width, width, SymbolName(value, symbols));
   } else if (IsNil(value)) {
     printf("     nil");
   } else if (IsPair(value)) {
@@ -293,7 +293,7 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
   u32 cells = NumBinCells(size);
 
   for (j = 0; j < cells; j++) {
-    Val value = (*mem->values)[index+j];
+    Val value = (*mem->values)[index+j+1];
     u32 bytes = (j == cells-1) ? size % 4 : 4;
     bool printable  = true;
     u32 k;
@@ -305,17 +305,17 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
       }
     }
 
-    if ((index+j) % cols == 0) printf("║%04d║", index+j);
+    if ((index+j+1) % cols == 0) printf("║%04d║", index+j+1);
     else printf("│");
     if (printable) {
-      printf("%04d│  \"", index+1+j);
-      for (k = 0; k < 4-bytes; k++) printf(" ");
+      for (k = 0; k < width-bytes-2; k++) printf(" ");
+      printf("\"");
       for (k = 0; k < bytes; k++) printf("%c", value >> (k*8));
       printf("\"");
     } else {
-      printf("%04d│%.*X", index+1+j, width, value);
+      printf("%04.4X", value);
     }
-    if ((index+j) % cols == 0) printf("║\n");
+    if ((index+j+1) % cols == 0) printf("║\n");
   }
   return cells;
 }

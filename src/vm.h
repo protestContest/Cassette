@@ -60,6 +60,8 @@ typedef struct {
 } VM;
 
 #define StackRef(vm, i)     (vm)->stack.data[(vm)->stack.count - 1 - i]
+#define StackPop(vm)        ((vm)->stack.data[--(vm)->stack.count])
+#define StackPush(vm, v)    ((vm)->stack.data[(vm)->stack.count++] = (v))
 #define Env(vm)             (vm)->stack.data[0]
 
 #define GCFreq  10

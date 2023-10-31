@@ -1,6 +1,7 @@
 #include "vm.h"
 #include "compile.h"
 #include "env.h"
+#include "primitives.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -65,6 +66,7 @@ void InitVM(VM *vm)
   vm->stack.data[vm->stack.count++] = Nil;
   InitMem(&vm->mem, 1024);
   InitSymbolTable(&vm->symbols);
+  Env(vm) = ExtendEnv(Env(vm), DefinePrimitives(&vm->mem), &vm->mem);
 }
 
 void DestroyVM(VM *vm)
@@ -86,6 +88,8 @@ char *RunChunk(Chunk *chunk, VM *vm)
 
 #ifdef DEBUG
     TraceInstruction(vm, chunk);
+    PrintStack(vm, chunk);
+    printf("\n");
 #endif
 
     switch (op) {
@@ -96,12 +100,11 @@ char *RunChunk(Chunk *chunk, VM *vm)
       vm->pc = chunk->count;
       break;
     case OpPop:
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpConst:
-      vm->stack.count++;
-      StackRef(vm, 0) = ChunkConst(chunk, vm->pc+1);
+      StackPush(vm, ChunkConst(chunk, vm->pc+1));
       vm->pc += OpLength(op);
       break;
     case OpNeg:
@@ -138,7 +141,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpDiv:
@@ -147,7 +150,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpRem:
@@ -156,7 +159,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpAdd:
@@ -167,7 +170,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpSub:
@@ -178,7 +181,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpIn:
@@ -189,7 +192,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpLt:
@@ -198,7 +201,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpGt:
@@ -207,12 +210,12 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         return "Type error";
       }
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpEq:
       StackRef(vm, 1) = BoolVal(StackRef(vm, 1) == StackRef(vm, 0));
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpStr: {
@@ -232,7 +235,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
     case OpPair:
       if (!CheckMem(vm, 2)) return "Out of memory";
       StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpTuple:
@@ -246,7 +249,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
 
       TupleSet(StackRef(vm, 0), RawInt(ChunkConst(chunk, vm->pc+1)), StackRef(vm, 1), &vm->mem);
       StackRef(vm, 1) = StackRef(vm, 0);
-      vm->stack.count--;
+      StackPop(vm);
 
       vm->pc += OpLength(op);
       break;
@@ -270,7 +273,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
         return "Type error";
       }
 
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpExtend:
@@ -278,17 +281,16 @@ char *RunChunk(Chunk *chunk, VM *vm)
       if (!CheckMem(vm, 2)) return "Out of memory";
 
       Env(vm) = ExtendEnv(Env(vm), StackRef(vm, 0), &vm->mem);
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpDefine:
       Define(StackRef(vm, 0), RawInt(ChunkConst(chunk, vm->pc+1)), Env(vm), &vm->mem);
-      vm->stack.count--;
+      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpLookup:
-      vm->stack.count++;
-      StackRef(vm, 0) = Lookup(RawInt(ChunkConst(chunk, vm->pc+1)), RawInt(ChunkConst(chunk, vm->pc+2)), Env(vm), &vm->mem);
+      StackPush(vm, Lookup(RawInt(ChunkConst(chunk, vm->pc+1)), RawInt(ChunkConst(chunk, vm->pc+2)), Env(vm), &vm->mem));
       if (StackRef(vm, 0) == Undefined) {
         return "Undefined variable";
       }
@@ -308,50 +310,58 @@ char *RunChunk(Chunk *chunk, VM *vm)
       }
       break;
     case OpLink:
-      vm->stack.count += 2;
-      StackRef(vm, 1) = Env(vm);
-      StackRef(vm, 0) = IntVal(vm->pc + ChunkConst(chunk, vm->pc+1));
+      StackPush(vm, Env(vm));
+      StackPush(vm, IntVal(vm->pc + ChunkConst(chunk, vm->pc+1)));
       vm->pc += OpLength(op);
       break;
     case OpReturn:
       vm->pc = RawInt(StackRef(vm, 1));
       Env(vm) = StackRef(vm, 2);
-      StackRef(vm, 2) = StackRef(vm, 0);
-      vm->stack.count -= 2;
+      StackRef(vm, 2) = StackPop(vm);
+      StackPop(vm);
+
+      reductions++;
+      if (reductions > GCFreq) {
+        printf("\nCollecing garbage\n");
+        CollectGarbage(vm->stack.data, vm->stack.count, &vm->mem);
+      }
       break;
     case OpLambda:
       if (!CheckMem(vm, 2)) return "Out of memory";
-      vm->stack.count++;
-      StackRef(vm, 0) = Pair(IntVal(vm->pc + OpLength(op)), Env(vm), &vm->mem);
+      StackPush(vm, Pair(IntVal(vm->pc + OpLength(op)), Env(vm), &vm->mem));
       vm->pc += RawInt(ChunkConst(chunk, vm->pc+1));
       break;
     case OpApply:
       if (IsPair(StackRef(vm, 0))) {
         Val num_args = ChunkConst(chunk, vm->pc+1);
-        vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
-        Env(vm) = Tail(StackRef(vm, 0), &vm->mem);
-        StackRef(vm, 0) = num_args;
-        reductions++;
-        if (reductions > GCFreq) {
-          printf("\nCollecing garbage\n");
-          CollectGarbage(vm->stack.data, vm->stack.count, &vm->mem);
+        if (Head(StackRef(vm, 0), &vm->mem) == Primitive) {
+          Val prim = StackPop(vm);
+          Val result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
+          vm->pc = RawInt(StackPop(vm));
+          Env(vm) = StackPop(vm);
+          StackPush(vm, result);
+        } else {
+          vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
+          Env(vm) = Tail(StackRef(vm, 0), &vm->mem);
+          StackRef(vm, 0) = num_args;
         }
       } else {
         vm->pc = RawInt(StackRef(vm, 1));
         Env(vm) = StackRef(vm, 2);
-        StackRef(vm, 2) = StackRef(vm, 0);
-        vm->stack.count -= 2;
+        StackRef(vm, 2) = StackPop(vm);
+        StackPop(vm);
       }
       break;
     default:
       return "Undefined op";
     }
+  }
 
 #ifdef DEBUG
+    TraceInstruction(vm, chunk);
     PrintStack(vm, chunk);
     printf("\n");
 #endif
-  }
 
   return 0;
 }

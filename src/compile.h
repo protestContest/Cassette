@@ -2,6 +2,7 @@
 #include "chunk.h"
 #include "symbols.h"
 #include "lex.h"
+#include "primitives.h"
 
 typedef struct {
   Val env;
@@ -16,7 +17,7 @@ typedef struct {
   u32 pos;
 } CompileResult;
 
-void InitCompiler(Compiler *c, Chunk *chunk);
+void InitCompiler(Compiler *c, Chunk *chunk, PrimitiveDef *primitives, u32 num_primitives);
 void DestroyCompiler(Compiler *c);
 
 CompileResult Compile(char *source, Compiler *c);

@@ -29,12 +29,21 @@ static void CompileLinkage(Val linkage, Compiler *c);
 static CompileResult CompileOk(void);
 static CompileResult CompileError(char *message, Compiler *c);
 
-void InitCompiler(Compiler *c, Chunk *chunk)
+void InitCompiler(Compiler *c, Chunk *chunk, PrimitiveDef *primitives, u32 num_primitives)
 {
   c->env = Nil;
   InitMem(&c->mem, 1024);
   MakeParseSyms(&chunk->symbols);
   c->chunk = chunk;
+
+  if (num_primitives > 0) {
+    Val frame = MakeTuple(num_primitives, &c->mem);
+    u32 i;
+    for (i = 0; i < num_primitives; i++) {
+      TupleSet(frame, i, Sym(primitives[i].name, &c->chunk->symbols), &c->mem);
+    }
+    c->env = ExtendEnv(c->env, frame, &c->mem);
+  }
 }
 
 void DestroyCompiler(Compiler *c)
