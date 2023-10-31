@@ -18,7 +18,6 @@ static Val CompileAnd(Val expr, Val linkage, Compiler *c);
 static Val CompileOr(Val expr, Val linkage, Compiler *c);
 static Val CompileOp(OpCode op, Val expr, Val linkage, Compiler *c);
 static Val CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
-static Val CompileAccess(Val expr, Val linkage, Compiler *c);
 static Val CompileList(Val items, Val linkage, Compiler *c);
 static Val CompileTuple(Val items, Val linkage, Compiler *c);
 static Val CompileString(Val sym, Val linkage, Compiler *c);
@@ -69,7 +68,7 @@ static Val CompileExpr(Val node, Val linkage, Compiler *c)
     if (ListLength(expr, &c->mem) == 1) return CompileOp(OpNeg, expr, linkage, c);
     else return CompileOp(OpSub, expr, linkage, c);
   case SymArrow:        return CompileLambda(expr, linkage, c);
-  case SymDot:          return CompileAccess(expr, linkage, c);
+  case SymDot:          return CompileOp(OpGet, expr, linkage, c);
   case SymSlash:        return CompileOp(OpDiv, expr, linkage, c);
   case SymColon:        return CompileConst(expr, linkage, c);
   case SymLess:         return CompileOp(OpLt, expr, linkage, c);
@@ -344,11 +343,6 @@ static Val CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
   PushByte(OpNot, c->chunk);
   CompileLinkage(linkage, c);
   return Ok;
-}
-
-static Val CompileAccess(Val node, Val linkage, Compiler *c)
-{
-  return CompileError("Unimplemented", c);
 }
 
 static Val CompileList(Val items, Val linkage, Compiler *c)

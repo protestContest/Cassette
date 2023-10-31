@@ -227,7 +227,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       vm->pc += OpLength(op);
       break;
     case OpPair:
-      StackRef(vm, 1) = Pair(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+      StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
       vm->stack.count--;
       vm->pc += OpLength(op);
       break;
@@ -250,6 +250,26 @@ char *RunChunk(Chunk *chunk, VM *vm)
       vm->pc += OpLength(op);
       break;
     case OpGet:
+      if (!IsInt(StackRef(vm, 0))) return "Type error";
+      if (IsPair(StackRef(vm, 1))) {
+        u32 index = RawInt(StackRef(vm, 0));
+        Val list = StackRef(vm, 1);
+        while (index > 0) {
+          if (list == Nil) return "Out of bounds";
+          list = Tail(list, &vm->mem);
+          index--;
+        }
+        StackRef(vm, 1) = Head(list, &vm->mem);
+      } else if (IsTuple(StackRef(vm, 1), &vm->mem)) {
+        u32 index = RawInt(StackRef(vm, 0));
+        Val tuple = StackRef(vm, 1);
+        if (index >= TupleLength(tuple, &vm->mem)) return "Out of bounds";
+        StackRef(vm, 1) = TupleGet(tuple, index, &vm->mem);
+      } else {
+        return "Type error";
+      }
+
+      vm->stack.count--;
       vm->pc += OpLength(op);
       break;
     case OpExtend:

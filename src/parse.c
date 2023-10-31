@@ -421,8 +421,8 @@ static Val ParseList(Compiler *p)
   Val items = Nil;
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
-  Assert(MatchToken(TokenLBrace, &p->lex));
-  while (!MatchToken(TokenRBrace, &p->lex)) {
+  Assert(MatchToken(TokenLBracket, &p->lex));
+  while (!MatchToken(TokenRBracket, &p->lex)) {
     Val item = ParseExpr(PrecExpr, p);
     if (item == Error) return Error;
 
@@ -437,8 +437,8 @@ static Val ParseTuple(Compiler *p)
   Val items = Nil;
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
-  Assert(MatchToken(TokenLBracket, &p->lex));
-  while (!MatchToken(TokenRBracket, &p->lex)) {
+  Assert(MatchToken(TokenLBrace, &p->lex));
+  while (!MatchToken(TokenRBrace, &p->lex)) {
     Val item = ParseExpr(PrecExpr, p);
     if (item == Error) return Error;
 

@@ -1,13 +1,3 @@
-def (fact n) do
-  def (loop i acc) do
-    if i == 0 do
-      acc
-    else
-      loop (i-1) acc*i
-    end
-  end
+let x = [4 2 5 7]
 
-  loop n 1
-end
-
-fact 3
+x.2
