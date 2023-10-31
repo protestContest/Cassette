@@ -49,6 +49,8 @@ typedef u32 Val;
 #define False             0x7FDE2C6F
 #define Ok                0x7FD72346
 #define Error             0x7FDC3AAA
+#define Empty             0x7FD811AD
+#define ParseError        0x7FD257DC
 #define Primitive         0x7FD6E58F
 #define Function          0x7FDE36D4
 #define Moved             0x7FD162D1
@@ -83,8 +85,8 @@ u32 TupleLength(Val tuple, Mem *mem);
 bool TupleContains(Val tuple, Val item, Mem *mem);
 void TupleSet(Val tuple, u32 index, Val value, Mem *mem);
 Val TupleGet(Val tuple, u32 index, Mem *mem);
-Val MakeBinary(u32 length, Mem *mem);
-Val BinaryFrom(char *str, Mem *mem);
+Val MakeBinary(u32 size, Mem *mem);
+Val BinaryFrom(char *str, u32 size, Mem *mem);
 bool IsBinary(Val value, Mem *mem);
 u32 BinaryLength(Val binary, Mem *mem);
 void *BinaryData(Val binary, Mem *mem);

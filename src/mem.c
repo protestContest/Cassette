@@ -159,12 +159,11 @@ Val MakeBinary(u32 size, Mem *mem)
   return binary;
 }
 
-Val BinaryFrom(char *str, Mem *mem)
+Val BinaryFrom(char *str, u32 size, Mem *mem)
 {
-  u32 len = StrLen(str);
-  Val bin = MakeBinary(len, mem);
+  Val bin = MakeBinary(size, mem);
   char *data = BinaryData(bin, mem);
-  Copy(str, data, len);
+  Copy(str, data, size);
   return bin;
 }
 
@@ -313,7 +312,8 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
       for (k = 0; k < bytes; k++) printf("%c", value >> (k*8));
       printf("\"");
     } else {
-      printf("%04.4X", value);
+      for (k = 0; k < width-(bytes*2); k++) printf(".");
+      for (k = 0; k < bytes; k++) printf("%02X", value >> (k*8));
     }
     if ((index+j+2) % cols == 0) printf("║\n");
   }

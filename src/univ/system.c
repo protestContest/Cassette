@@ -54,14 +54,19 @@ void Alert(char *message)
   printf("%s\n", message);
 }
 
+int Open(char *path)
+{
+  mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
+  return open(path, O_RDWR|O_CREAT, mode);
+}
+
 char *ReadFile(char *path)
 {
-  mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR;
   int file;
   u32 size, pos;
   char *data;
 
-  file = open(path, O_RDWR|O_CREAT, mode);
+  file = Open(path);
   if (file < 0) return NULL;
 
   pos = lseek(file, 0, 1);

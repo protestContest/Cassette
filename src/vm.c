@@ -228,7 +228,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
 
       if (!CheckMem(vm, NumBinCells(size))) return "Out of memory";
 
-      StackRef(vm, 0) = BinaryFrom(str, &vm->mem);
+      StackRef(vm, 0) = BinaryFrom(str, StrLen(str), &vm->mem);
       vm->pc += OpLength(op);
       break;
     }

@@ -1,7 +1,9 @@
 #include "compile.h"
 #include "vm.h"
 #include "primitives.h"
+#include "univ.h"
 #include <stdio.h>
+#include <unistd.h>
 
 int main(void)
 {

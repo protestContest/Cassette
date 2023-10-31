@@ -56,7 +56,7 @@ CompileResult Compile(char *source, Compiler *c)
   Val ast;
 
   ast = Parse(source, c);
-  if (ast == Error) return CompileError("Parse error", c);
+  if (ast == ParseError) return CompileError("Parse error", c);
 
   return CompileExpr(ast, LinkNext, c);
 }
@@ -353,6 +353,7 @@ static CompileResult CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
   while (args != Nil) {
     CompileResult result = CompileExpr(Head(args, &c->mem), LinkNext, c);
     if (!result.ok) return result;
+    args = Tail(args, &c->mem);
   }
   PushByte(op, c->chunk);
   PushByte(OpNot, c->chunk);
