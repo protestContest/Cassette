@@ -2,6 +2,7 @@
 #include "vm.h"
 #include "primitives.h"
 #include "univ.h"
+#include "source.h"
 #include <stdio.h>
 #include <unistd.h>
 
@@ -32,6 +33,7 @@ int main(void)
   error = RunChunk(&chunk, &vm);
   if (error) {
     printf("\nRuntime error: %s\n", error);
+    PrintSourceContext(GetSourcePosition(vm.pc, &chunk), source);
   }
 
 #ifdef DEBUG

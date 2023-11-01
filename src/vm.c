@@ -146,6 +146,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpDiv:
       if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
+        if ((float)RawNum(StackRef(vm, 0)) == 0.0) return "Divide by zero";
         StackRef(vm, 1) = FloatVal((float)RawNum(StackRef(vm, 1)) / (float)RawNum(StackRef(vm, 0)));
       } else {
         return "Type error";
@@ -347,8 +348,8 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else {
         vm->pc = RawInt(StackRef(vm, 1));
         Env(vm) = StackRef(vm, 2);
-        StackRef(vm, 2) = StackPop(vm);
-        StackPop(vm);
+        StackRef(vm, 2) = StackRef(vm, 0);
+        vm->stack.count -= 2;
       }
       break;
     default:

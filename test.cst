@@ -1,3 +1,13 @@
-let file = open "/dev/stdin"
+def (fact n) do
+  def (loop i acc) do
+    if i == 1 do
+      acc / (3 - 4 + 1)
+    else
+      loop i-1 i*acc
+    end
+  end
 
-inspect (read file)
+  loop n 1
+end
+
+fact 5

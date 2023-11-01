@@ -3,6 +3,13 @@
 #include "symbols.h"
 
 #define MaxConstants  256
+
+typedef struct {
+  u32 capacity;
+  u32 count;
+  u32 *sources;
+} SourceMap;
+
 typedef struct {
   u32 capacity;
   u32 count;
@@ -10,20 +17,19 @@ typedef struct {
   u32 num_constants;
   Val constants[MaxConstants];
   SymbolTable symbols;
+  SourceMap source_map;
 } Chunk;
 
 #define ChunkRef(chunk, i)        ((chunk)->code[i])
 #define ChunkConst(chunk, i)      ((chunk)->constants[ChunkRef(chunk, i)])
 
 void InitChunk(Chunk *chunk);
-void ResetChunk(Chunk *chunk);
 void DestroyChunk(Chunk *chunk);
 
-u32 PushByte(u8 byte, Chunk *chunk);
+u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk);
 u8 AddConst(Val value, Chunk *chunk);
-void PushConst(Val value, Chunk *chunk);
+void PushConst(Val value, u32 source_pos, Chunk *chunk);
 void PatchChunk(Chunk *chunk, u32 index, Val value);
 
-void DumpConstants(Chunk *chunk);
-void DumpChunk(Chunk *chunk);
+u32 GetSourcePosition(u32 byte_pos, Chunk *chunk);
 void Disassemble(Chunk *chunk);

@@ -15,12 +15,15 @@ void InitSymbolTable(SymbolTable *symbols)
   Assert(Ok == Sym("ok", symbols));
   Assert(Error == Sym("error", symbols));
   Assert(Empty == Sym("empty", symbols));
+
+#ifdef DEBUG
   Assert(ParseError == Sym("*parse-error*", symbols));
   Assert(Primitive == Sym("*primitive*", symbols));
   Assert(Function == Sym("*function*", symbols));
   Assert(Moved == Sym("*moved*", symbols));
   Assert(Undefined == Sym("*undefined*", symbols));
   Assert(File == Sym("*file*", symbols));
+#endif
 }
 
 void DestroySymbolTable(SymbolTable *symbols)
