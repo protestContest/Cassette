@@ -100,17 +100,71 @@ u32 GetSourcePosition(u32 byte_pos, Chunk *chunk)
 
 void Disassemble(Chunk *chunk)
 {
-  u32 i = 0;
+  u32 longest_sym, width, col1, col2;
+  u32 i, line;
+  char *sym = chunk->symbols.names;
+
+  longest_sym = Min(17, LongestSymbol(&chunk->symbols));
+  col1 = 20 + longest_sym;
+  col2 = col1 + 6 + longest_sym;
+  width = col2 + longest_sym + 2;
+
+  printf("╔");
+  for (i = 0; i < width-2; i++) printf("═");
+  printf("╗\n");
+
+  printf("║  src  idx  Instruction");
+  for (i = 24; i < col1; i++) printf(" ");
+  i += printf("Constants");
+  while (i < col2) i += printf(" ");
+  i += printf("Symbols");
+  while (i < width - 1) i += printf(" ");
+  printf("║\n");
+
+  printf("╟─────┬────┬");
+  for (i = 12; i < width-1; i++) printf("─");
+  printf("╢\n");
+
+  line = 0;
+  sym = chunk->symbols.names;
   for (i = 0; i < chunk->count; i += OpLength(ChunkRef(chunk, i))) {
     u8 op = ChunkRef(chunk, i);
-    u32 j;
+    u32 j, k;
     u32 source = GetSourcePosition(i, chunk);
 
-    printf("%3d│%3d│ %s", source, i, OpName(op));
+    printf("║");
+    printf(" %4d│%4d│", source, i);
+    k = 12;
+    k += printf(" %s", OpName(op));
     for (j = 0; j < OpLength(op) - 1; j++) {
-      printf(" ");
-      PrintVal(ChunkConst(chunk, i+j+1), &chunk->symbols);
+      k += printf(" ");
+      k += PrintVal(ChunkConst(chunk, i+j+1), &chunk->symbols);
     }
-    printf("\n");
+
+    while (k < col1) k += printf(" ");
+    if (line < chunk->num_constants) {
+      Val value = chunk->constants[line];
+      k += printf("%3d: ", line);
+      if (IsSym(value)) {
+        k += printf("%.*s", longest_sym, SymbolName(value, &chunk->symbols));
+      } else {
+        k += PrintVal(chunk->constants[line], &chunk->symbols);
+      }
+    }
+
+    while (k < col2) k += printf(" ");
+    if (sym < chunk->symbols.names + chunk->symbols.count) {
+      u32 length = StrLen(sym);
+      k += printf("%.*s", longest_sym, sym);
+      sym += length + 1;
+    }
+
+    while (k < width - 1) k += printf(" ");
+    printf("║\n");
+    line++;
   }
+
+  printf("╚");
+  for (i = 0; i < width-2; i++) printf("═");
+  printf("╝\n");
 }

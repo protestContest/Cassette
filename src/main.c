@@ -26,14 +26,13 @@ int main(void)
 
 #ifdef DEBUG
   Disassemble(&chunk);
-  printf("---\n");
 #endif
 
   InitVM(&vm);
   error = RunChunk(&chunk, &vm);
   if (error) {
     printf("\nRuntime error: %s\n", error);
-    PrintSourceContext(GetSourcePosition(vm.pc, &chunk), source);
+    PrintSourceContext(GetSourcePosition(vm.pc, &chunk), source, 4);
   }
 
 #ifdef DEBUG

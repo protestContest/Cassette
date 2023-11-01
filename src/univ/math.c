@@ -32,10 +32,3 @@ u32 PopCount(u32 n)
   n = n + (n >> 16);
   return n & 0x0000003F;
 }
-
-u32 NumDigits(i32 n)
-{
-  if (n < 0) return 1 + NumDigits(-n);
-  if (n == 0) return 1;
-  return 1 + NumDigits(n/10);
-}

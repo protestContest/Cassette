@@ -1,7 +1,7 @@
 def (fact n) do
   def (loop i acc) do
     if i == 1 do
-      acc / (3 - 4 + 1)
+      acc
     else
       loop i-1 i*acc
     end
@@ -10,4 +10,4 @@ def (fact n) do
   loop n 1
 end
 
-fact 5
+fact 45

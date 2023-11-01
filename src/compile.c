@@ -142,6 +142,9 @@ static CompileResult CompileDo(Val stmts, Val linkage, Compiler *c)
   /* cast off our accumulated scopes */
   for (i = 0; i < scopes; i++) {
     c->env = Tail(c->env, &c->mem);
+    if (linkage != LinkReturn) {
+      PushByte(OpPopEnv, c->lex.pos, c->chunk);
+    }
   }
 
   return CompileOk();

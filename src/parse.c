@@ -576,7 +576,7 @@ void MakeParseSyms(SymbolTable *symbols)
   Assert(TokenSym(TokenID) == Sym("*id*", symbols));
   Assert(TokenSym(TokenBangEqual) == Sym("!=", symbols));
   Assert(TokenSym(TokenString) == Sym("\"", symbols));
-  Assert(TokenSym(TokenNewline) == Sym("\n", symbols));
+  Assert(TokenSym(TokenNewline) == Sym("*newline*", symbols));
   Assert(TokenSym(TokenHash) == Sym("#", symbols));
   Assert(TokenSym(TokenPercent) == Sym("%", symbols));
   Assert(TokenSym(TokenLParen) == Sym("(", symbols));

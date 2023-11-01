@@ -3,47 +3,76 @@
 #include "univ.h"
 #include <stdio.h>
 
-void PrintSourceContext(u32 pos, char *source)
+u32 SourceLine(u32 pos, char *source)
 {
   char *cur = source;
-  char *lines[5] = {0, 0, 0, 0, 0};
-  u32 line_num = 0;
-  u32 i;
+  u32 line = 0;
 
-  Lexer lex;
-  InitLexer(&lex, source, pos);
-
-  lines[4] = source;
-
-  /* cursed algorithm */
-  while (*cur != 0) {
-    if (*cur == '\n') {
-      lines[0] = lines[1];
-      lines[1] = lines[2];
-      lines[2] = lines[3];
-      lines[3] = lines[4];
-      lines[4] = cur+1;
-      if (lines[3] > source+pos) break;
-      if (cur < source+pos) line_num++;
-    }
+  while (cur < source + pos) {
+    if (*cur == '\n') line++;
     cur++;
   }
 
-  for (i = 0; i < 5; i++) {
-    if (lines[i] == 0) continue;
+  return line;
+}
 
-    printf("%3d│ ", line_num+i-1);
-    cur = lines[i];
-    while (*cur != '\n') printf("%c", *cur++);
-    printf("\n");
+u32 SourceCol(u32 pos, char *source)
+{
+  char *cur = source + pos;
 
-    if (lines[i] < source+pos && (i == 4 || lines[i+1] > source+pos)) {
-      u32 col = source + pos - lines[i];
-      u32 j;
-      printf("     ");
-      for (j = 0; j < col; j++) printf(" ");
-      for (j = 0; j < lex.token.length; j++) printf("^");
-      printf("\n");
+  while (cur > source) {
+    cur--;
+    if (*cur == '\n') break;
+  }
+  return source + pos - cur - 1;
+}
+
+void PrintSourceContext(u32 pos, char *source, u32 context)
+{
+  Lexer lex;
+
+  u32 line = SourceLine(pos, source);
+  u32 col = SourceCol(pos, source);
+
+  u32 start_line = Max((i32)line - (i32)context, 0);
+  u32 end_line = line + context + 1;
+
+  char *cur = source;
+  u32 cur_line = 0, i;
+
+  InitLexer(&lex, source, pos);
+
+  while (cur_line < start_line) {
+    if (*cur == '\n') cur_line++;
+    cur++;
+  }
+
+  while (cur_line <= line) {
+    printf("%3d│ ", cur_line+1);
+    while (*cur != 0 && *cur != '\n') {
+      printf("%c", *cur);
+      cur++;
     }
+    printf("\n");
+    cur_line++;
+    cur++;
+  }
+
+  printf("   │ ");
+  for (i = 0; i < col; i++) printf(" ");
+  for (i = 0; i < lex.token.length; i++) printf("^");
+  printf("\n");
+
+  while (cur_line < end_line) {
+    printf("%3d│ ", cur_line+1);
+
+    while (*cur != 0 && *cur != '\n') {
+      printf("%c", *cur);
+      cur++;
+    }
+    printf("\n");
+    if (*cur == 0) break;
+    cur_line++;
+    cur++;
   }
 }

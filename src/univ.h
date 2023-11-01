@@ -59,7 +59,6 @@ u32 HashMapKey(HashMap *map, u32 key_num);
 void Seed(u32 seed);
 u32 Random(void);
 u32 PopCount(u32 n);
-u32 NumDigits(i32 n);
 
 u32 StrLen(char *str);
 bool StrEq(char *str1, char *str2);

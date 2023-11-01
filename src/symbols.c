@@ -73,3 +73,15 @@ char *SymbolName(Val sym, SymbolTable *symbols)
     return 0;
   }
 }
+
+u32 LongestSymbol(SymbolTable *symbols)
+{
+  char *cur = symbols->names;
+  u32 max_length = 0;
+  while (cur < symbols->names + symbols->count) {
+    u32 length = StrLen(cur);
+    max_length = Max(max_length, length);
+    cur += length + 1;
+  }
+  return max_length;
+}

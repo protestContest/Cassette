@@ -94,4 +94,5 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);
 
 struct SymbolTable;
 u32 PrintVal(Val value, struct SymbolTable *symbols);
+u32 PrintValLen(Val value, struct SymbolTable *symbols);
 void DumpMem(Mem *mem, struct SymbolTable *symbols);

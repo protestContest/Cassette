@@ -261,6 +261,25 @@ u32 PrintVal(Val value, SymbolTable *symbols)
   }
 }
 
+u32 PrintValLen(Val value, SymbolTable *symbols)
+{
+  if (value == Nil) {
+    return 3;
+  } else if (IsInt(value)) {
+    return snprintf(0, 0, "%d", RawInt(value));
+  } else if (IsFloat(value)) {
+    return snprintf(0, 0, "%.2f", RawFloat(value));
+  } else if (IsSym(value) && symbols) {
+    return StrLen(SymbolName(value, symbols));
+  } else if (IsPair(value)) {
+    return snprintf(0, 0, "%d", RawVal(value)) + 1;
+  } else if (IsObj(value)) {
+    return snprintf(0, 0, "%d", RawVal(value)) + 1;
+  } else {
+    return 8;
+  }
+}
+
 static void PrintCell(u32 index, Val value, SymbolTable *symbols)
 {
   u32 width = 8;

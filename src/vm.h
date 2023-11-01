@@ -31,6 +31,7 @@ typedef enum {
   OpSet,
   OpGet,
   OpExtend,
+  OpPopEnv,
   OpDefine,
   OpLookup,
   OpExport,

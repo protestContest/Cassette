@@ -32,6 +32,7 @@ static OpInfo ops[NumOps] = {
   [OpSet]     = {2, "set"},
   [OpGet]     = {1, "get"},
   [OpExtend]  = {1, "extend"},
+  [OpPopEnv]  = {1, "popenv"},
   [OpDefine]  = {2, "define"},
   [OpLookup]  = {3, "lookup"},
   [OpExport]  = {1, "export"},
@@ -81,8 +82,6 @@ void DestroyVM(VM *vm)
 
 char *RunChunk(Chunk *chunk, VM *vm)
 {
-  u32 reductions = 0;
-
   while (vm->pc < chunk->count) {
     OpCode op = ChunkRef(chunk, vm->pc);
 
@@ -284,6 +283,10 @@ char *RunChunk(Chunk *chunk, VM *vm)
       StackPop(vm);
       vm->pc += OpLength(op);
       break;
+    case OpPopEnv:
+      Env(vm) = Tail(Env(vm), &vm->mem);
+      vm->pc += OpLength(op);
+      break;
     case OpDefine:
       Define(StackRef(vm, 0), RawInt(ChunkConst(chunk, vm->pc+1)), Env(vm), &vm->mem);
       StackPop(vm);
@@ -317,14 +320,8 @@ char *RunChunk(Chunk *chunk, VM *vm)
     case OpReturn:
       vm->pc = RawInt(StackRef(vm, 1));
       Env(vm) = StackRef(vm, 2);
-      StackRef(vm, 2) = StackPop(vm);
-      StackPop(vm);
-
-      reductions++;
-      if (reductions > GCFreq) {
-        printf("\nCollecing garbage\n");
-        CollectGarbage(vm->stack.data, vm->stack.count, &vm->mem);
-      }
+      StackRef(vm, 2) = StackRef(vm, 0);
+      vm->stack.count -= 2;
       break;
     case OpLambda:
       if (!CheckMem(vm, 2)) return "Out of memory";
@@ -405,6 +402,7 @@ static void PrintStack(VM *vm, Chunk *chunk)
 static bool CheckMem(VM *vm, u32 amount)
 {
   if (!CheckCapacity(&vm->mem, amount)) {
+    printf("Collecting Garbage\n");
     CollectGarbage(vm->stack.data, vm->stack.count, &vm->mem);
   }
 
