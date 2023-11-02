@@ -6,9 +6,10 @@
 
 typedef struct {
   Val env;
-  Mem mem;
-  Lexer lex;
+  Mem *mem;
+  HashMap *modules;
   Chunk *chunk;
+  u32 pos;
 } Compiler;
 
 typedef struct {
@@ -17,8 +18,6 @@ typedef struct {
   u32 pos;
 } CompileResult;
 
-void InitCompiler(Compiler *c, Chunk *chunk, PrimitiveDef *primitives, u32 num_primitives);
-void DestroyCompiler(Compiler *c);
-
-CompileResult Compile(char *source, Compiler *c);
-void PrintCompileError(CompileResult error, Compiler *c);
+void InitCompiler(Compiler *c, Mem *mem, HashMap *modules, Chunk *chunk);
+CompileResult CompileModule(Val module, Val env, u32 mod_num, Compiler *c);
+void PrintCompileError(CompileResult error, char *filename);

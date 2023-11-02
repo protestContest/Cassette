@@ -14,13 +14,9 @@ void InitSymbolTable(SymbolTable *symbols)
   Assert(False == Sym("false", symbols));
   Assert(Ok == Sym("ok", symbols));
   Assert(Error == Sym("error", symbols));
-  Assert(Empty == Sym("empty", symbols));
 
 #ifdef DEBUG
-  Assert(ParseError == Sym("*parse-error*", symbols));
-  Assert(Primitive == Sym("*primitive*", symbols));
-  Assert(Function == Sym("*function*", symbols));
-  Assert(Moved == Sym("*moved*", symbols));
+  Assert(Primitive == Sym("*prim*", symbols));
   Assert(Undefined == Sym("*undefined*", symbols));
   Assert(File == Sym("*file*", symbols));
 #endif
@@ -37,6 +33,11 @@ void DestroySymbolTable(SymbolTable *symbols)
 Val SymbolFor(char *name)
 {
   return SymVal(Hash(name, strlen(name)));
+}
+
+Val SymbolFrom(char *name, u32 length)
+{
+  return SymVal(Hash(name, length));
 }
 
 Val Sym(char *name, SymbolTable *symbols)

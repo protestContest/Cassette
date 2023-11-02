@@ -12,3 +12,4 @@ PrimitiveDef *Primitives(void);
 u32 NumPrimitives(void);
 Val DefinePrimitives(Mem *mem);
 Val DoPrimitive(Val id, u32 num_args, VM *vm);
+Val CompileEnv(Mem *mem, SymbolTable *symbols);

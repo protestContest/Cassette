@@ -164,6 +164,18 @@ void Disassemble(Chunk *chunk)
     line++;
   }
 
+  while (sym < chunk->symbols.names + chunk->symbols.count) {
+    u32 length = StrLen(sym);
+    printf("║");
+    i = 1;
+    while (i < col2) i += printf(" ");
+    i += printf("%.*s", longest_sym, sym);
+    sym += length + 1;
+
+    while (i < width - 1) i += printf(" ");
+    printf("║\n");
+  }
+
   printf("╚");
   for (i = 0; i < width-2; i++) printf("═");
   printf("╝\n");

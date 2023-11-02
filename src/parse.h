@@ -51,7 +51,19 @@
 #define SymBar           0x7FD8D520
 #define SymRBrace        0x7FD8D6B3
 
-Val Parse(char *source, Compiler *c);
+#define ParseError       0x7FD257DC
+
+typedef struct {
+  Lexer lex;
+  Mem *mem;
+  SymbolTable *symbols;
+} Parser;
+
+void InitParser(Parser *p, Mem *mem, SymbolTable *symbols);
+
+Val Parse(char *source, Parser *p);
+Val ParseModule(char *filename, Parser *p);
+
 Val TokenSym(TokenType type);
 void MakeParseSyms(SymbolTable *symbols);
 void PrintAST(Val ast, u32 level, Mem *mem, SymbolTable *symbols);

@@ -195,7 +195,7 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
 
   if (!IsObj(value) && !IsPair(value)) return value;
 
-  if ((*from->values)[RawVal(value)] == Moved) {
+  if ((*from->values)[RawVal(value)] == Undefined) {
     return (*from->values)[RawVal(value)+1];
   }
 
@@ -212,7 +212,7 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
     Copy(BinaryData(value, from), BinaryData(new_val, to), BinaryLength(value, from));
   }
 
-  SetHead(value, Moved, from);
+  SetHead(value, Undefined, from);
   SetTail(value, new_val, from);
   return new_val;
 }

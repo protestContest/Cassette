@@ -1,4 +1,5 @@
 #include "primitives.h"
+#include "env.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -164,7 +165,7 @@ static Val VMRead(u32 num_args, VM *vm)
   char *buf;
   i32 bytes_read;
 
-  if (num_args < 1) return Sym("arity_error", &vm->symbols);
+  if (num_args < 1) return Error;
 
   ref = StackPop(vm);
   if (num_args > 1) {
@@ -175,14 +176,14 @@ static Val VMRead(u32 num_args, VM *vm)
     vm->stack.count -= num_args-1;
   }
 
-  if (!IsPair(ref)) return Sym("type_error", &vm->symbols);
-  if (Head(ref, &vm->mem) != File) return Sym("type_error", &vm->symbols);
-  if (!IsInt(size)) return Sym("type_error", &vm->symbols);
+  if (!IsPair(ref)) return Error;
+  if (Head(ref, &vm->mem) != File) return Error;
+  if (!IsInt(size)) return Error;
 
   buf = malloc(RawInt(size));
   bytes_read = read(RawInt(Tail(ref, &vm->mem)), buf, size);
-  if (bytes_read < 0) return Sym("read_error", &vm->symbols);
-  if (bytes_read == 0) return Empty;
+  if (bytes_read < 0) return Error;
+  if (bytes_read == 0) return Nil;
 
   result = BinaryFrom(buf, bytes_read, &vm->mem);
   free(buf);
@@ -221,4 +222,14 @@ static Val VMWrite(u32 num_args, VM *vm)
   }
 
   return Ok;
+}
+
+Val CompileEnv(Mem *mem, SymbolTable *symbols)
+{
+  Val frame = MakeTuple(NumPrimitives(), mem);
+  u32 i;
+  for (i = 0; i < NumPrimitives(); i++) {
+    TupleSet(frame, i, Sym(primitives[i].name, symbols), mem);
+  }
+  return ExtendEnv(Nil, frame, mem);
 }

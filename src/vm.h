@@ -12,6 +12,7 @@ typedef enum {
   OpNoop,
   OpHalt,
   OpPop,
+  OpDup,
   OpConst,
   OpNeg,
   OpNot,

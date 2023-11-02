@@ -14,6 +14,7 @@ static OpInfo ops[NumOps] = {
   [OpNoop]    = {1, "noop"},
   [OpHalt]    = {1, "halt"},
   [OpPop]     = {1, "pop"},
+  [OpDup]     = {1, "dup"},
   [OpConst]   = {2, "const"},
   [OpNeg]     = {1, "neg"},
   [OpNot]     = {1, "not"},
@@ -30,7 +31,7 @@ static OpInfo ops[NumOps] = {
   [OpPair]    = {1, "pair"},
   [OpTuple]   = {1, "tuple"},
   [OpSet]     = {2, "set"},
-  [OpGet]     = {1, "get"},
+  [OpGet]     = {2, "get"},
   [OpExtend]  = {1, "extend"},
   [OpPopEnv]  = {1, "popenv"},
   [OpDefine]  = {2, "define"},
@@ -87,7 +88,6 @@ char *RunChunk(Chunk *chunk, VM *vm)
 
 #ifdef DEBUG
     TraceInstruction(op, vm, chunk);
-    PrintStack(vm, chunk);
     printf("\n");
 #endif
 
@@ -100,6 +100,10 @@ char *RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpPop:
       StackPop(vm);
+      vm->pc += OpLength(op);
+      break;
+    case OpDup:
+      StackPush(vm, StackRef(vm, 0));
       vm->pc += OpLength(op);
       break;
     case OpConst:
@@ -254,25 +258,23 @@ char *RunChunk(Chunk *chunk, VM *vm)
       vm->pc += OpLength(op);
       break;
     case OpGet:
-      if (!IsInt(StackRef(vm, 0))) return "Type error";
-      if (IsPair(StackRef(vm, 1))) {
-        u32 index = RawInt(StackRef(vm, 0));
+      if (IsPair(StackRef(vm, 0))) {
+        u32 index = RawInt(ChunkConst(chunk, vm->pc+1));
         Val list = StackRef(vm, 1);
         while (index > 0) {
           if (list == Nil) return "Out of bounds";
           list = Tail(list, &vm->mem);
           index--;
         }
-        StackRef(vm, 1) = Head(list, &vm->mem);
-      } else if (IsTuple(StackRef(vm, 1), &vm->mem)) {
-        u32 index = RawInt(StackRef(vm, 0));
-        Val tuple = StackRef(vm, 1);
+        StackPush(vm, Head(list, &vm->mem));
+      } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
+        u32 index = RawInt(ChunkConst(chunk, vm->pc+1));
+        Val tuple = StackRef(vm, 0);
         if (index >= TupleLength(tuple, &vm->mem)) return "Out of bounds";
-        StackRef(vm, 1) = TupleGet(tuple, index, &vm->mem);
+        StackPush(vm, TupleGet(tuple, index, &vm->mem));
       } else {
         return "Type error";
       }
-      StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpExtend:
@@ -300,6 +302,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       vm->pc += OpLength(op);
       break;
     case OpExport:
+      StackPush(vm, Head(Env(vm), &vm->mem));
       vm->pc += OpLength(op);
       break;
     case OpJump:
@@ -332,17 +335,20 @@ char *RunChunk(Chunk *chunk, VM *vm)
       if (IsPair(StackRef(vm, 0))) {
         Val num_args = ChunkConst(chunk, vm->pc+1);
         if (Head(StackRef(vm, 0), &vm->mem) == Primitive) {
+          /* apply primitive */
           Val prim = StackPop(vm);
           Val result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
           vm->pc = RawInt(StackPop(vm));
           Env(vm) = StackPop(vm);
           StackPush(vm, result);
         } else {
+          /* normal function */
           vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
           Env(vm) = Tail(StackRef(vm, 0), &vm->mem);
           StackRef(vm, 0) = num_args;
         }
       } else {
+        /* not a function, just return */
         vm->pc = RawInt(StackRef(vm, 1));
         Env(vm) = StackRef(vm, 2);
         StackRef(vm, 2) = StackRef(vm, 0);
@@ -356,7 +362,6 @@ char *RunChunk(Chunk *chunk, VM *vm)
 
 #ifdef DEBUG
     TraceInstruction(OpHalt, vm, chunk);
-    PrintStack(vm, chunk);
     printf("\n");
 #endif
 
@@ -384,6 +389,7 @@ static void TraceInstruction(OpCode op, VM *vm, Chunk *chunk)
   }
   for (i = 0; i < col_width; i++) printf(" ");
   printf(" │");
+  PrintStack(vm, chunk);
 }
 
 static void PrintStack(VM *vm, Chunk *chunk)

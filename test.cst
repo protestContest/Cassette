@@ -1,13 +1,2 @@
-def (fact n) do
-  def (loop i acc) do
-    if i == 1 do
-      acc
-    else
-      loop i-1 i*acc
-    end
-  end
-
-  loop n 1
-end
-
-fact 45
+import Foo
+print x

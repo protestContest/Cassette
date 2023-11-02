@@ -44,3 +44,21 @@ i32 FindDefinition(Val var, Val env, Mem *mem)
 
   return -1;
 }
+
+void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
+{
+  printf("Env:\n");
+  while (env != Nil) {
+    Val frame = Head(env, mem);
+    u32 i;
+    printf("- ");
+    for (i = 0; i < TupleLength(frame, mem); i++) {
+      Val item = TupleGet(frame, i, mem);
+      PrintVal(item, symbols);
+      printf(" ");
+    }
+
+    printf("\n");
+    env = Tail(env, mem);
+  }
+}
