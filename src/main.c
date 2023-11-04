@@ -1,23 +1,30 @@
-#include "project.h"
-#include "source.h"
+#include "compile/project.h"
+#include "runtime/vm.h"
+#include "univ/string.h"
 #include <stdio.h>
-#include <unistd.h>
 
-int main(void)
+int main(int argc, char *argv[])
 {
+  Chunk chunk;
+  BuildResult result;
   VM vm;
 
-  char *sources[] = {"test.cst", "test2.cst"};
-  Chunk *chunk = BuildProject(sources, ArrayCount(sources));
+  if (argc < 2) {
+    printf("Usage: cassette manifest.txt\n");
+    return 1;
+  }
 
-#ifdef DEBUG
-  Disassemble(chunk);
-#endif
+  InitChunk(&chunk);
+  result = BuildProject(argv[1], &chunk);
+  if (!result.ok) {
+    PrintBuildError(result);
+    return 1;
+  }
 
   InitVM(&vm);
-  RunChunk(chunk, &vm);
+  RunChunk(&chunk, &vm);
 
-#ifdef DEBUG
-  DumpMem(&vm.mem, &chunk->symbols);
-#endif
+  DestroyChunk(&chunk);
+  DestroyVM(&vm);
+  return 0;
 }

@@ -1,4 +1,4 @@
-#include "univ.h"
+#include "system.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -57,7 +57,7 @@ void Alert(char *message)
 int Open(char *path)
 {
   mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
-  return open(path, O_RDWR|O_CREAT, mode);
+  return open(path, O_RDWR, mode);
 }
 
 char *ReadFile(char *path)
@@ -67,7 +67,7 @@ char *ReadFile(char *path)
   char *data;
 
   file = Open(path);
-  if (file < 0) return NULL;
+  if (file < 0) return 0;
 
   pos = lseek(file, 0, 1);
   size = lseek(file, 0, 2);
@@ -75,11 +75,6 @@ char *ReadFile(char *path)
 
   data = malloc(size + 1);
   read(file, data, size);
-  data[size] = '\0';
+  data[size] = 0;
   return data;
-}
-
-bool Printable(char c)
-{
-  return c >= 0x20 && c < 0x7F;
 }

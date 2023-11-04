@@ -32,7 +32,6 @@ Feedback is welcome — if anything is unclear or you spot any mistakes, please 
 Cassette is in early stages of development. Not everything described here has been implemented, and everything is subject to change.
 
 - HAMT-based large maps
-- Lexical addressing
 - Source context on runtime errors
 - Standard library
 - Profile VM
@@ -42,11 +41,10 @@ Cassette is in early stages of development. Not everything described here has be
 
 This project requires a C build toolchain. You may need to install `make` and `clang`.
 
-The source code can be found [here](https://git.sr.ht/~zjm/Cassette). This project depends on the [univ](https://git.sr.ht/~zjm/univ) library.
+The source code can be found [here](https://git.sr.ht/~zjm/Cassette).
 
 - Clone the repo with `git clone https://git.sr.ht/~zjm/Cassette`.
-- Run `make deps`. This clones, builds, and copies the univ library into this project. (Alternatively, build that library separately and copy the files into "lib" and "include".)
-- Run `make` to build the project. This creates the executable `cassette`, which can be called with a file to execute, or launch a REPL. `make test` will run the file `test/test.csst`.
+- Run `make` to build the project. This creates the executable `cassette`, which can be called with a file to execute, or launch a REPL.
 
 ## [Syntax](#syntax)
 
