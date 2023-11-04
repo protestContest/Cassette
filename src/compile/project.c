@@ -14,107 +14,113 @@ typedef struct {
   HashMap modules;
   Mem mem;
   SymbolTable symbols;
-  ObjVec manifest;
+  Manifest *manifest;
 } Project;
 
-static void InitProject(Project *p);
+static void InitProject(Project *p, Manifest *manifest);
 static void DestroyProject(Project *p);
-static BuildResult ReadManifest(char *filename, Project *p);
-static BuildResult ParseModules(Project *project);
-static BuildResult ScanDependencies(Project *project);
-static BuildResult CompileProject(Val build_list, Chunk *chunk, Project *p);
+static Result ParseModules(Project *project);
+static Result ScanDependencies(Project *project);
+static Result CompileProject(Val build_list, Chunk *chunk, Project *p);
 
-BuildResult BuildProject(char *manifest, Chunk *chunk)
+void InitManifest(Manifest *manifest)
 {
-  Project p;
-  BuildResult result;
-
-  InitProject(&p);
-
-  result = ReadManifest(manifest, &p);
-  if (!result.ok) return result;
-
-  result = ParseModules(&p);
-  if (!result.ok) return result;
-
-  result = ScanDependencies(&p);
-  if (!result.ok) return result;
-
-  result = CompileProject(result.value, chunk, &p);
-  if (!result.ok) return result;
-
-  DestroyProject(&p);
-  return BuildOk(Nil);
+  manifest->name = 0;
+  InitVec((Vec*)&manifest->files, sizeof(char*), 8);
 }
 
-static void InitProject(Project *p)
-{
-  p->entry = Nil;
-  InitHashMap(&p->modules);
-  InitMem(&p->mem, 1024);
-  InitSymbolTable(&p->symbols);
-  InitVec((Vec*)&p->manifest, sizeof(char*), 8);
-}
-
-static void DestroyProject(Project *p)
+void DestroyManifest(Manifest *manifest)
 {
   u32 i;
-  DestroyHashMap(&p->modules);
-  DestroyMem(&p->mem);
-  DestroySymbolTable(&p->symbols);
-  for (i = 0; i < p->manifest.count; i++) free(p->manifest.items[i]);
-  DestroyVec((Vec*)&p->manifest);
-  p->entry = Nil;
+  for (i = 0; i < manifest->files.count; i++) {
+    free(manifest->files.items[i]);
+  }
+  DestroyVec((Vec*)&manifest->files);
 }
 
-static BuildResult ReadManifest(char *filename, Project *p)
+bool ReadManifest(char *filename, Manifest *manifest)
 {
   char *source;
   char *cur;
   char *basename = Basename(filename, '/');
 
   source = ReadFile(filename);
-  if (source == 0) return BuildError("Could not read manifest", filename, 0, 0);
+  if (source == 0) return false;
 
-  /* count lines */
   cur = SkipBlankLines(source);
   while (*cur != 0) {
     char *end = LineEnd(cur);
     if (*end == '\n') {
+      /* replace newline with string terminator */
       *end = 0;
       end++;
     }
-    ObjVecPush(&p->manifest, JoinStr(basename, cur, '/'));
+    /* add full path filename */
+    ObjVecPush(&manifest->files, JoinStr(basename, cur, '/'));
     cur = end;
 
+    /* skip to next non-space character */
     cur = SkipBlankLines(cur);
   }
 
+  free(source);
   free(basename);
 
-  return BuildOk(Nil);
+  return true;
 }
 
-static BuildResult ParseModules(Project *project)
+Result BuildProject(Manifest *manifest, Chunk *chunk)
 {
-  u32 i;
+  Result result;
+  Project project;
+
+  InitProject(&project, manifest);
+
+  result = ParseModules(&project);
+  result = ScanDependencies(&project);
+  result = CompileProject(result.value, chunk, &project);
+
+  DestroyProject(&project);
+  return OkResult(Nil);
+}
+
+static void InitProject(Project *p, Manifest *manifest)
+{
+  p->entry = Nil;
+  p->manifest = manifest;
+  InitHashMap(&p->modules);
+  InitMem(&p->mem, 1024);
+  InitSymbolTable(&p->symbols);
+}
+
+static void DestroyProject(Project *p)
+{
+  DestroyHashMap(&p->modules);
+  DestroyMem(&p->mem);
+  DestroySymbolTable(&p->symbols);
+  p->entry = Nil;
+  p->manifest = 0;
+}
+
+/* parses each file and puts the result in a hashmap, keyed by module name (or
+   filename if it isn't a module) */
+static Result ParseModules(Project *project)
+{
+  Result result;
   Parser p;
-  BuildResult result = {true, 0, 0, 0, 0, 0};
+  u32 i;
 
   InitParser(&p, &project->mem, &project->symbols);
 
-  /* parse each module and save in the module map */
-  for (i = 0; i < project->manifest.count; i++) {
+  for (i = 0; i < project->manifest->files.count; i++) {
     Val name;
-    result = ParseModule(project->manifest.items[i], &p);
+    result = ParseModule(project->manifest->files.items[i], &p);
     if (!result.ok) return result;
 
     name = ModuleName(result.value, &project->mem);
 
     /* first file is the entry point */
-    if (i == 0) {
-      project->entry = name;
-    }
+    if (i == 0) project->entry = name;
 
     HashMapSet(&project->modules, name, result.value);
   }
@@ -122,56 +128,63 @@ static BuildResult ParseModules(Project *project)
   return result;
 }
 
-static BuildResult ScanDependencies(Project *project)
+/* starting with the entry module, assemble a list of modules in order of dependency */
+static Result ScanDependencies(Project *project)
 {
-  Val queue = Pair(project->entry, Nil, &project->mem), build_list = Nil;
+  Val stack = Pair(project->entry, Nil, &project->mem);
+  Val build_list = Nil;
 
-  while (queue != Nil) {
-    Val cur = Head(queue, &project->mem);
-    Val module, imports;
+  while (stack != Nil) {
+    Val name, module, imports;
 
-    Assert(HashMapContains(&project->modules, cur));
-    module = HashMapGet(&project->modules, cur);
+    /* get the next module in the stack */
+    name = Head(stack, &project->mem);
+    stack = Tail(stack, &project->mem);
+
+    Assert(HashMapContains(&project->modules, name));
+    module = HashMapGet(&project->modules, name);
     imports = ModuleImports(module, &project->mem);
 
     /* add current module to build list */
     build_list = Pair(module, build_list, &project->mem);
 
-    queue = Tail(queue, &project->mem);
+    /* add each of the module's imports to the stack */
     while (imports != Nil) {
       Val import = Head(imports, &project->mem);
       Val import_name = Tail(NodeExpr(import, &project->mem), &project->mem);
 
       /* make sure we know about the imported module */
       if (!HashMapContains(&project->modules, import_name)) {
-        char *filename = ModuleFile(module, &project->mem, &project->symbols);
-        return BuildError("Missing module", filename, 0, NodePos(import, &project->mem));
+        char *filename = SymbolName(ModuleFile(module, &project->mem), &project->symbols);
+        return ErrorResult("Missing module", filename, NodePos(import, &project->mem));
       }
 
-      /* add import to the queue of modules to scan */
+      /* add import to the stack if it's not already in the build list */
       if (!ListContains(build_list, import_name, &project->mem)) {
-        queue = Pair(import_name, queue, &project->mem);
+        stack = Pair(import_name, stack, &project->mem);
       }
+
       imports = Tail(imports, &project->mem);
     }
   }
 
-  return BuildOk(build_list);
+  return OkResult(build_list);
 }
 
-static BuildResult CompileProject(Val build_list, Chunk *chunk, Project *p)
+/* compiles a list of modules into a chunk that can be run */
+static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
 {
   Compiler c;
-  Val module_env = CompileEnv(&p->mem, &p->symbols);
   u32 i = 0, patch;
   u32 num_modules = ListLength(build_list, &p->mem);
+  Val module_env = CompileEnv(&p->mem, &p->symbols);
 
   InitChunk(chunk);
   InitCompiler(&c, &p->mem, &p->symbols, &p->modules, chunk);
 
   /* env is {modules} -> {primitives} -> nil
      although modules are technically reachable at runtime in the environment,
-     the compiler wouldn't be able to resolve them, and so would never compile
+     the compiler wouldn't be able to resolve them, so it would never compile
      access to them */
   module_env = ExtendEnv(module_env, MakeTuple(num_modules, &p->mem), &p->mem);
   PushByte(OpConst, 0, chunk);
@@ -180,15 +193,25 @@ static BuildResult CompileProject(Val build_list, Chunk *chunk, Project *p)
   PushByte(OpExtend, 0, chunk);
 
   while (build_list != Nil) {
-    BuildResult result;
+    Result result;
+    char *module_name;
     Val module = Head(build_list, &p->mem);
-    build_list = Tail(build_list, &p->mem);
 
-    printf("Compiling %s\n", SymbolName(ModuleName(module, &p->mem), &p->symbols));
+    build_list = Tail(build_list, &p->mem);
+    module_name = SymbolName(ModuleName(module, &p->mem), &p->symbols);
+
+    printf("Compiling %s\n", module_name);
+
+    /* copy filename symbol to chunk */
+    Sym(SymbolName(ModuleFile(module, &p->mem), &p->symbols), &chunk->symbols);
+
+    BeginChunkFile(ModuleFile(module, &p->mem), chunk);
 
     /* each module will create a lambda and define itself */
-    result = CompileModule(module, module_env, i, &c);
+    result = CompileModule(module, module_name, module_env, i, &c);
     if (!result.ok) return result;
+
+    EndChunkFile(chunk);
 
     /* modules can't reference themselves, so we define each module after */
     Define(ModuleName(module, &p->mem), i, module_env, &p->mem);
@@ -205,5 +228,5 @@ static BuildResult CompileProject(Val build_list, Chunk *chunk, Project *p)
   PatchChunk(chunk, patch+1, IntVal(chunk->code.count - patch));
   PushByte(OpPop, 0, chunk);
 
-  return BuildOk(Nil);
+  return OkResult(Nil);
 }

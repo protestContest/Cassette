@@ -2,12 +2,14 @@
 #include "mem/mem.h"
 #include "mem/symbols.h"
 #include "chunk.h"
+#include "result.h"
 
 typedef struct {
   u32 pc;
   Mem stack;
   Mem mem;
   SymbolTable symbols;
+  Chunk *chunk;
 } VM;
 
 #define StackPush(vm, v)    PushMem(&(vm)->stack, v)
@@ -17,4 +19,4 @@ typedef struct {
 
 void InitVM(VM *vm);
 void DestroyVM(VM *vm);
-char *RunChunk(Chunk *chunk, VM *vm);
+Result RunChunk(Chunk *chunk, VM *vm);

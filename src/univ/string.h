@@ -6,6 +6,8 @@
 #define IsHexDigit(c)   (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
 #define IsPrintable(c)  ((c) >= 0x20 && (c) < 0x7F)
 
+#define ANSIRed     "\033[31m"
+#define ANSINormal  "\033[0m"
 
 u32 StrLen(char *str);
 bool StrEq(char *str1, char *str2);

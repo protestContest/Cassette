@@ -60,7 +60,7 @@ typedef struct {
 
 void InitParser(Parser *p, Mem *mem, SymbolTable *symbols);
 
-BuildResult ParseModule(char *filename, Parser *p);
+Result ParseModule(char *filename, Parser *p);
 
 Val NodeType(Val node, Mem *mem);
 u32 NodePos(Val node, Mem *mem);

@@ -10,29 +10,28 @@
 #define LinkReturn  0x7FD336A7
 #define LinkNext    0x7FD9CB70
 
-static BuildResult CompileExpr(Val node, Val linkage, Compiler *c);
-static BuildResult CompileDo(Val stmts, Val linkage, Compiler *c);
-static BuildResult CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compiler *c);
-static BuildResult CompileImport(Val name, u32 prev_assigned, Val linkage, Compiler *c);
-static BuildResult CompileCall(Val call, Val linkage, Compiler *c);
-static BuildResult CompileLambda(Val expr, Val linkage, Compiler *c);
-static BuildResult CompileIf(Val expr, Val linkage, Compiler *c);
-static BuildResult CompileAnd(Val expr, Val linkage, Compiler *c);
-static BuildResult CompileOr(Val expr, Val linkage, Compiler *c);
-static BuildResult CompileOp(OpCode op, Val expr, Val linkage, Compiler *c);
-static BuildResult CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
-static BuildResult CompileList(Val items, Val linkage, Compiler *c);
-static BuildResult CompileTuple(Val items, Val linkage, Compiler *c);
-static BuildResult CompileString(Val sym, Val linkage, Compiler *c);
-static BuildResult CompileVar(Val id, Val linkage, Compiler *c);
-static BuildResult CompileConst(Val value, Val linkage, Compiler *c);
-static BuildResult CompileGroup(Val expr, Val linkage, Compiler *c);
-
-u32 ScanAssigns(Val stmts, Compiler *c);
+static Result CompileExpr(Val node, Val linkage, Compiler *c);
+static Result CompileDo(Val stmts, Val linkage, Compiler *c);
+static Result CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compiler *c);
+static Result CompileImport(Val name, u32 prev_assigned, Val linkage, Compiler *c);
+static Result CompileCall(Val call, Val linkage, Compiler *c);
+static Result CompileLambda(Val expr, Val linkage, Compiler *c);
+static Result CompileIf(Val expr, Val linkage, Compiler *c);
+static Result CompileAnd(Val expr, Val linkage, Compiler *c);
+static Result CompileOr(Val expr, Val linkage, Compiler *c);
+static Result CompileOp(OpCode op, Val expr, Val linkage, Compiler *c);
+static Result CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
+static Result CompileList(Val items, Val linkage, Compiler *c);
+static Result CompileTuple(Val items, Val linkage, Compiler *c);
+static Result CompileString(Val sym, Val linkage, Compiler *c);
+static Result CompileVar(Val id, Val linkage, Compiler *c);
+static Result CompileConst(Val value, Val linkage, Compiler *c);
+static Result CompileGroup(Val expr, Val linkage, Compiler *c);
 
 static void CompileLinkage(Val linkage, Compiler *c);
-static BuildResult CompileOk(void);
-static BuildResult CompileError(char *message, Compiler *c);
+static u32 ScanAssigns(Val stmts, Compiler *c);
+static Result CompileError(char *message, Compiler *c);
+#define CompileOk()  OkResult(Nil)
 
 void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules, Chunk *chunk)
 {
@@ -42,22 +41,29 @@ void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules,
   c->chunk = chunk;
 }
 
-BuildResult CompileModule(Val module, Val env, u32 mod_num, Compiler *c)
+Result CompileModule(Val module, char *filename, Val env, u32 mod_num, Compiler *c)
 {
   Val ast = ModuleBody(module, c->mem);
   Val stmts = TupleGet(ast, 2, c->mem);
-  u32 num_assigns = ScanAssigns(stmts, c), assigned = 0;
+  u32 num_assigns = ScanAssigns(stmts, c);
+  u32 assigned = 0;
+  u32 patch;
 
-  u32 patch = PushByte(OpLambda, 0, c->chunk);
-  PushByte(0, 0, c->chunk);
-  PushByte(OpPop, 0, c->chunk);
-
+  c->filename = filename;
   c->pos = 0;
   c->env = ExtendEnv(env, MakeTuple(num_assigns, c->mem), c->mem);
-  PushByte(OpConst, 0, c->chunk);
-  PushConst(IntVal(num_assigns), 0, c->chunk);
-  PushByte(OpTuple, 0, c->chunk);
-  PushByte(OpExtend, 0, c->chunk);
+
+  /* a module is a lambda */
+  patch = PushByte(OpLambda, c->pos, c->chunk);
+  PushByte(0, 0, c->chunk);
+  /* discard arity from apply */
+  PushByte(OpPop, 0, c->chunk);
+
+  /* extend env for local assigns */
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_assigns), c->pos, c->chunk);
+  PushByte(OpTuple, c->pos, c->chunk);
+  PushByte(OpExtend, c->pos, c->chunk);
 
   while (stmts != Nil) {
     Val stmt = Head(stmts, c->mem);
@@ -65,17 +71,17 @@ BuildResult CompileModule(Val module, Val env, u32 mod_num, Compiler *c)
     Val expr = TupleGet(stmt, 2, c->mem);
 
     if (tag == SymLet) {
-      BuildResult result = CompileAssigns(expr, assigned, LinkNext, c);
+      Result result = CompileAssigns(expr, assigned, LinkNext, c);
       if (!result.ok) return result;
       assigned += ListLength(expr, c->mem);
     } else if (tag == SymImport) {
       Val mod;
-      BuildResult result = CompileImport(expr, assigned, LinkNext, c);
+      Result result = CompileImport(expr, assigned, LinkNext, c);
       if (!result.ok) return result;
       mod = HashMapGet(c->modules, Head(expr, c->mem));
       assigned += ListLength(ModuleExports(mod, c->mem), c->mem);
     } else {
-      BuildResult result = CompileExpr(stmt, LinkNext, c);
+      Result result = CompileExpr(stmt, LinkNext, c);
       if (!result.ok) return result;
     }
 
@@ -107,7 +113,7 @@ BuildResult CompileModule(Val module, Val env, u32 mod_num, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileExpr(Val node, Val linkage, Compiler *c)
+static Result CompileExpr(Val node, Val linkage, Compiler *c)
 {
   Val tag = TupleGet(node, 0, c->mem);
   Val expr = TupleGet(node, 2, c->mem);
@@ -149,7 +155,7 @@ static BuildResult CompileExpr(Val node, Val linkage, Compiler *c)
   }
 }
 
-static BuildResult CompileDo(Val stmts, Val linkage, Compiler *c)
+static Result CompileDo(Val stmts, Val linkage, Compiler *c)
 {
   u32 num_assigns = ScanAssigns(stmts, c);
   u32 assigned = 0;
@@ -168,17 +174,17 @@ static BuildResult CompileDo(Val stmts, Val linkage, Compiler *c)
     Val expr = TupleGet(stmt, 2, c->mem);
 
     if (tag == SymLet) {
-      BuildResult result = CompileAssigns(expr, assigned, stmt_linkage, c);
+      Result result = CompileAssigns(expr, assigned, stmt_linkage, c);
       if (!result.ok) return result;
       assigned += ListLength(expr, c->mem);
     } else if (tag == SymImport) {
       Val mod;
-      BuildResult result = CompileImport(expr, assigned, stmt_linkage, c);
+      Result result = CompileImport(expr, assigned, stmt_linkage, c);
       if (!result.ok) return result;
       mod = HashMapGet(c->modules, Head(expr, c->mem));
       assigned += ListLength(ModuleExports(mod, c->mem), c->mem);
     } else {
-      BuildResult result = CompileExpr(stmt, stmt_linkage, c);
+      Result result = CompileExpr(stmt, stmt_linkage, c);
       if (!result.ok) return result;
     }
 
@@ -199,7 +205,7 @@ static BuildResult CompileDo(Val stmts, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compiler *c)
+static Result CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compiler *c)
 {
   u32 i = 0;
 
@@ -208,7 +214,7 @@ static BuildResult CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, C
     Val var = Head(assign, c->mem);
     Val value = Tail(assign, c->mem);
     Val val_linkage = (Tail(assigns, c->mem) == Nil) ? linkage : LinkNext;
-    BuildResult result;
+    Result result;
     Define(var, prev_assigned + i, c->env, c->mem);
 
     result = CompileExpr(value, val_linkage, c);
@@ -227,7 +233,7 @@ static BuildResult CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, C
   return CompileOk();
 }
 
-static BuildResult CompileImport(Val import, u32 prev_assigned, Val linkage, Compiler *c)
+static Result CompileImport(Val import, u32 prev_assigned, Val linkage, Compiler *c)
 {
   Val mod_name = Head(import, c->mem);
   Val env = c->env;
@@ -287,12 +293,12 @@ static BuildResult CompileImport(Val import, u32 prev_assigned, Val linkage, Com
   return CompileOk();
 }
 
-static BuildResult CompileCall(Val call, Val linkage, Compiler *c)
+static Result CompileCall(Val call, Val linkage, Compiler *c)
 {
   Val op = Head(call, c->mem);
   Val args = Tail(call, c->mem);
   u32 num_args = 0, patch;
-  BuildResult result;
+  Result result;
 
   if (linkage != LinkReturn) {
     patch = PushByte(OpLink, c->pos, c->chunk);
@@ -323,11 +329,11 @@ static BuildResult CompileCall(Val call, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileLambda(Val expr, Val linkage, Compiler *c)
+static Result CompileLambda(Val expr, Val linkage, Compiler *c)
 {
   Val params = Head(expr, c->mem);
   Val body = Tail(expr, c->mem);
-  BuildResult result;
+  Result result;
   u32 patch, i;
   u32 num_params = ListLength(params, c->mem);
 
@@ -358,12 +364,12 @@ static BuildResult CompileLambda(Val expr, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileIf(Val expr, Val linkage, Compiler *c)
+static Result CompileIf(Val expr, Val linkage, Compiler *c)
 {
   Val pred = Head(expr, c->mem);
   Val cons = Head(Tail(expr, c->mem), c->mem);
   Val alt = Head(Tail(Tail(expr, c->mem), c->mem), c->mem);
-  BuildResult result;
+  Result result;
   u32 branch, jump;
 
   result = CompileExpr(pred, LinkNext, c);
@@ -392,13 +398,13 @@ static BuildResult CompileIf(Val expr, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileAnd(Val expr, Val linkage, Compiler *c)
+static Result CompileAnd(Val expr, Val linkage, Compiler *c)
 {
   Val a = Head(expr, c->mem);
   Val b = Head(Tail(expr, c->mem), c->mem);
   u32 branch, jump;
 
-  BuildResult result = CompileExpr(a, LinkNext, c);
+  Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
   branch = PushByte(OpBranch, c->pos, c->chunk);
@@ -424,13 +430,13 @@ static BuildResult CompileAnd(Val expr, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileOr(Val expr, Val linkage, Compiler *c)
+static Result CompileOr(Val expr, Val linkage, Compiler *c)
 {
   Val a = Head(expr, c->mem);
   Val b = Head(Tail(expr, c->mem), c->mem);
   u32 branch;
 
-  BuildResult result = CompileExpr(a, LinkNext, c);
+  Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
   branch = PushByte(OpBranch, c->pos, c->chunk);
@@ -450,11 +456,11 @@ static BuildResult CompileOr(Val expr, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileOp(OpCode op, Val args, Val linkage, Compiler *c)
+static Result CompileOp(OpCode op, Val args, Val linkage, Compiler *c)
 {
   u32 pos = c->pos;
   while (args != Nil) {
-    BuildResult result = CompileExpr(Head(args, c->mem), LinkNext, c);
+    Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
     if (!result.ok) return result;
     args = Tail(args, c->mem);
   }
@@ -463,10 +469,10 @@ static BuildResult CompileOp(OpCode op, Val args, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
+static Result CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
 {
   while (args != Nil) {
-    BuildResult result = CompileExpr(Head(args, c->mem), LinkNext, c);
+    Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
     if (!result.ok) return result;
     args = Tail(args, c->mem);
   }
@@ -476,14 +482,14 @@ static BuildResult CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileList(Val items, Val linkage, Compiler *c)
+static Result CompileList(Val items, Val linkage, Compiler *c)
 {
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(Nil, c->pos, c->chunk);
 
   while (items != Nil) {
     Val item = Head(items, c->mem);
-    BuildResult result = CompileExpr(item, LinkNext, c);
+    Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
     PushByte(OpPair, c->pos, c->chunk);
     items = Tail(items, c->mem);
@@ -493,13 +499,13 @@ static BuildResult CompileList(Val items, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileTuple(Val items, Val linkage, Compiler *c)
+static Result CompileTuple(Val items, Val linkage, Compiler *c)
 {
   u32 i, num_items = 0;
 
   while (items != Nil) {
     Val item = Head(items, c->mem);
-    BuildResult result = CompileExpr(item, LinkNext, c);
+    Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
     items = Tail(items, c->mem);
     num_items++;
@@ -517,7 +523,7 @@ static BuildResult CompileTuple(Val items, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileString(Val sym, Val linkage, Compiler *c)
+static Result CompileString(Val sym, Val linkage, Compiler *c)
 {
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(sym, c->pos, c->chunk);
@@ -526,7 +532,7 @@ static BuildResult CompileString(Val sym, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileVar(Val id, Val linkage, Compiler *c)
+static Result CompileVar(Val id, Val linkage, Compiler *c)
 {
   i32 def = FindDefinition(id, c->env, c->mem);
   if (def == -1) return CompileError("Undefined variable", c);
@@ -538,7 +544,7 @@ static BuildResult CompileVar(Val id, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static BuildResult CompileConst(Val value, Val linkage, Compiler *c)
+static Result CompileConst(Val value, Val linkage, Compiler *c)
 {
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(value, c->pos, c->chunk);
@@ -559,24 +565,7 @@ static void CompileLinkage(Val linkage, Compiler *c)
   }
 }
 
-static BuildResult CompileOk(void)
-{
-  BuildResult result = {true, 0, 0, 0, 0, Nil};
-  return result;
-}
-
-static BuildResult CompileError(char *message, Compiler *c)
-{
-  BuildResult result;
-  result.ok = false;
-  result.error = message;
-  result.pos = c->pos;
-  result.source = 0;
-  result.value = Nil;
-  return result;
-}
-
-u32 ScanAssigns(Val stmts, Compiler *c)
+static u32 ScanAssigns(Val stmts, Compiler *c)
 {
   u32 assigns = 0;
   while (stmts != Nil) {
@@ -597,4 +586,9 @@ u32 ScanAssigns(Val stmts, Compiler *c)
     stmts = Tail(stmts, c->mem);
   }
   return assigns;
+}
+
+static Result CompileError(char *message, Compiler *c)
+{
+  return ErrorResult(message, c->filename, c->pos);
 }

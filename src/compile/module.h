@@ -8,4 +8,4 @@ Val ModuleName(Val mod, Mem *mem);
 Val ModuleBody(Val mod, Mem *mem);
 Val ModuleImports(Val mod, Mem *mem);
 Val ModuleExports(Val mod, Mem *mem);
-char *ModuleFile(Val mod, Mem *mem, SymbolTable *symbols);
+Val ModuleFile(Val mod, Mem *mem);

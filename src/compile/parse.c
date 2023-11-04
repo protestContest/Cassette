@@ -21,31 +21,31 @@ typedef enum {
   PrecAccess
 } Precedence;
 
-static BuildResult ParseStmt(Parser *p);
-static BuildResult ParseImport(Parser *p);
-static BuildResult ParseLetAssigns(Val assigns, Parser *p);
-static BuildResult ParseDefAssigns(Val assigns, Parser *p);
-static BuildResult ParseCall(Parser *p);
-static BuildResult ParseExpr(Precedence prec, Parser *p);
-static BuildResult ParseLambda(Val prefix, Parser *p);
-static BuildResult ParseLeftAssoc(Val prefix, Parser *p);
-static BuildResult ParseRightAssoc(Val prefix, Parser *p);
-static BuildResult ParseUnary(Parser *p);
-static BuildResult ParseGroup(Parser *p);
-static BuildResult ParseDo(Parser *p);
-static BuildResult ParseIf(Parser *p);
-static BuildResult ParseCond(Parser *p);
-static BuildResult ParseList(Parser *p);
-static BuildResult ParseTuple(Parser *p);
-static BuildResult ParseID(Parser *p);
-static BuildResult ParseVar(Parser *p);
-static BuildResult ParseNum(Parser *p);
-static BuildResult ParseString(Parser *p);
-static BuildResult ParseSymbol(Parser *p);
-static BuildResult ParseLiteral(Parser *p);
+static Result ParseStmt(Parser *p);
+static Result ParseImport(Parser *p);
+static Result ParseLetAssigns(Val assigns, Parser *p);
+static Result ParseDefAssigns(Val assigns, Parser *p);
+static Result ParseCall(Parser *p);
+static Result ParseExpr(Precedence prec, Parser *p);
+static Result ParseLambda(Val prefix, Parser *p);
+static Result ParseLeftAssoc(Val prefix, Parser *p);
+static Result ParseRightAssoc(Val prefix, Parser *p);
+static Result ParseUnary(Parser *p);
+static Result ParseGroup(Parser *p);
+static Result ParseDo(Parser *p);
+static Result ParseIf(Parser *p);
+static Result ParseCond(Parser *p);
+static Result ParseList(Parser *p);
+static Result ParseTuple(Parser *p);
+static Result ParseID(Parser *p);
+static Result ParseVar(Parser *p);
+static Result ParseNum(Parser *p);
+static Result ParseString(Parser *p);
+static Result ParseSymbol(Parser *p);
+static Result ParseLiteral(Parser *p);
 
-typedef BuildResult (*ParseFn)(Parser *p);
-typedef BuildResult (*InfixFn)(Val prefix, Parser *p);
+typedef Result (*ParseFn)(Parser *p);
+typedef Result (*InfixFn)(Val prefix, Parser *p);
 
 typedef struct {
   Val symbol;
@@ -108,8 +108,8 @@ static Rule rules[NumTokenTypes] = {
 #define TokenSym(type)  (rules[type].symbol)
 
 static Val MakeNode(Val sym, u32 position, Val value, Mem *mem);
-static BuildResult ParseError(char *message, Parser *p);
-#define ParseOk(val)  BuildOk(val)
+static Result ParseError(char *message, Parser *p);
+#define ParseOk(val)  OkResult(val)
 
 void InitParser(Parser *p, Mem *mem, SymbolTable *symbols)
 {
@@ -117,9 +117,9 @@ void InitParser(Parser *p, Mem *mem, SymbolTable *symbols)
   p->symbols = symbols;
 }
 
-BuildResult ParseModule(char *filename, Parser *p)
+Result ParseModule(char *filename, Parser *p)
 {
-  BuildResult result;
+  Result result;
   Val stmts, name, imports, exports;
   char *source;
 
@@ -171,12 +171,12 @@ BuildResult ParseModule(char *filename, Parser *p)
   stmts = MakeNode(SymDo, 0, ReverseList(stmts, p->mem), p->mem);
 
   free(source);
-  return ParseOk(MakeModule(name, stmts, imports, exports, Nil, p->mem));
+  return ParseOk(MakeModule(name, stmts, imports, exports, Sym(filename, p->symbols), p->mem));
 }
 
-static BuildResult ParseStmt(Parser *p)
+static Result ParseStmt(Parser *p)
 {
-  BuildResult result;
+  Result result;
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
   switch (p->lex.token.type) {
@@ -195,9 +195,9 @@ static BuildResult ParseStmt(Parser *p)
   }
 }
 
-static BuildResult ParseImport(Parser *p)
+static Result ParseImport(Parser *p)
 {
-  BuildResult result;
+  Result result;
   u32 pos = p->lex.token.lexeme - p->lex.source;
   Val mod, alias;
   Assert(MatchToken(TokenImport, &p->lex));
@@ -217,9 +217,9 @@ static BuildResult ParseImport(Parser *p)
   return ParseOk(MakeNode(SymImport, pos, Pair(alias, mod, p->mem), p->mem));
 }
 
-static BuildResult ParseLetAssigns(Val assigns, Parser *p)
+static Result ParseLetAssigns(Val assigns, Parser *p)
 {
-  BuildResult result;
+  Result result;
   while (MatchToken(TokenLet, &p->lex)) {
     SkipNewlines(&p->lex);
     while (!MatchToken(TokenNewline, &p->lex)) {
@@ -249,9 +249,9 @@ static BuildResult ParseLetAssigns(Val assigns, Parser *p)
   return ParseOk(assigns);
 }
 
-static BuildResult ParseDefAssigns(Val assigns, Parser *p)
+static Result ParseDefAssigns(Val assigns, Parser *p)
 {
-  BuildResult result;
+  Result result;
   while (MatchToken(TokenDef, &p->lex)) {
     u32 pos = p->lex.token.lexeme - p->lex.source;
     Val var, params = Nil, body, lambda, assign;
@@ -284,9 +284,9 @@ static BuildResult ParseDefAssigns(Val assigns, Parser *p)
   return ParseOk(assigns);
 }
 
-static BuildResult ParseCall(Parser *p)
+static Result ParseCall(Parser *p)
 {
-  BuildResult result;
+  Result result;
   u32 pos = p->lex.token.lexeme - p->lex.source;
   Val args = Nil;
   Val op;
@@ -307,9 +307,9 @@ static BuildResult ParseCall(Parser *p)
   return ParseOk(MakeNode(SymLParen, pos, Pair(op, ReverseList(args, p->mem), p->mem), p->mem));
 }
 
-static BuildResult ParseExpr(Precedence prec, Parser *p)
+static Result ParseExpr(Precedence prec, Parser *p)
 {
-  BuildResult result;
+  Result result;
 
   if (!ExprNext(&p->lex)) {
     return ParseError("Expected expression", p);
@@ -323,9 +323,9 @@ static BuildResult ParseExpr(Precedence prec, Parser *p)
   return result;
 }
 
-static BuildResult ParseLambda(Val prefix, Parser *p)
+static Result ParseLambda(Val prefix, Parser *p)
 {
-  BuildResult result;
+  Result result;
   Val params = Nil;
   u32 pos = NodePos(prefix, p->mem);
   InitLexer(&p->lex, p->lex.source, pos);
@@ -347,9 +347,9 @@ static BuildResult ParseLambda(Val prefix, Parser *p)
   return ParseOk(MakeNode(SymArrow, pos, Pair(ReverseList(params, p->mem), result.value, p->mem), p->mem));
 }
 
-static BuildResult ParseLeftAssoc(Val prefix, Parser *p)
+static Result ParseLeftAssoc(Val prefix, Parser *p)
 {
-  BuildResult result;
+  Result result;
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
   u32 pos = token.lexeme - p->lex.source;
@@ -361,9 +361,9 @@ static BuildResult ParseLeftAssoc(Val prefix, Parser *p)
   return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(result.value, Nil, p->mem), p->mem), p->mem));
 }
 
-static BuildResult ParseRightAssoc(Val prefix, Parser *p)
+static Result ParseRightAssoc(Val prefix, Parser *p)
 {
-  BuildResult result;
+  Result result;
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
   u32 pos = token.lexeme - p->lex.source;
@@ -375,9 +375,9 @@ static BuildResult ParseRightAssoc(Val prefix, Parser *p)
   return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(result.value, Nil, p->mem), p->mem), p->mem));
 }
 
-static BuildResult ParseUnary(Parser *p)
+static Result ParseUnary(Parser *p)
 {
-  BuildResult result;
+  Result result;
   Token token = NextToken(&p->lex);
   u32 pos = token.lexeme - p->lex.source;
   Val op = TokenSym(token.type);
@@ -387,9 +387,9 @@ static BuildResult ParseUnary(Parser *p)
   return ParseOk(MakeNode(op, pos, Pair(result.value, Nil, p->mem), p->mem));
 }
 
-static BuildResult ParseGroup(Parser *p)
+static Result ParseGroup(Parser *p)
 {
-  BuildResult result;
+  Result result;
   u32 pos = p->lex.token.lexeme - p->lex.source;
   Val expr = Nil;
   Assert(MatchToken(TokenLParen, &p->lex));
@@ -404,9 +404,9 @@ static BuildResult ParseGroup(Parser *p)
   return ParseOk(MakeNode(SymLParen, pos, ReverseList(expr, p->mem), p->mem));
 }
 
-static BuildResult ParseDo(Parser *p)
+static Result ParseDo(Parser *p)
 {
-  BuildResult result;
+  Result result;
   Val stmts = Nil;
   u32 pos = p->lex.token.lexeme - p->lex.source;
   Assert(MatchToken(TokenDo, &p->lex));
@@ -423,9 +423,9 @@ static BuildResult ParseDo(Parser *p)
   return ParseOk(MakeNode(SymDo, pos, ReverseList(stmts, p->mem), p->mem));
 }
 
-static BuildResult ParseIf(Parser *p)
+static Result ParseIf(Parser *p)
 {
-  BuildResult result;
+  Result result;
   Val pred, cons = Nil, alt = Nil;
   u32 pos = p->lex.token.lexeme - p->lex.source;
   u32 else_pos;
@@ -484,9 +484,9 @@ static BuildResult ParseIf(Parser *p)
     Pair(alt, Nil, p->mem), p->mem), p->mem), p->mem));
 }
 
-static BuildResult ParseClauses(Parser *p)
+static Result ParseClauses(Parser *p)
 {
-  BuildResult result;
+  Result result;
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
   if (MatchToken(TokenEnd, &p->lex)) {
@@ -515,7 +515,7 @@ static BuildResult ParseClauses(Parser *p)
   }
 }
 
-static BuildResult ParseCond(Parser *p)
+static Result ParseCond(Parser *p)
 {
   Assert(MatchToken(TokenCond, &p->lex));
   if (!MatchToken(TokenDo, &p->lex)) return ParseError("Expected \"do\"", p);
@@ -523,9 +523,9 @@ static BuildResult ParseCond(Parser *p)
   return ParseClauses(p);
 }
 
-static BuildResult ParseList(Parser *p)
+static Result ParseList(Parser *p)
 {
-  BuildResult result;
+  Result result;
   Val items = Nil;
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
@@ -539,9 +539,9 @@ static BuildResult ParseList(Parser *p)
   return ParseOk(MakeNode(SymLBracket, pos, items, p->mem));
 }
 
-static BuildResult ParseTuple(Parser *p)
+static Result ParseTuple(Parser *p)
 {
-  BuildResult result;
+  Result result;
   Val items = Nil;
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
@@ -556,22 +556,22 @@ static BuildResult ParseTuple(Parser *p)
   return ParseOk(MakeNode(SymLBrace, pos, items, p->mem));
 }
 
-static BuildResult ParseID(Parser *p)
+static Result ParseID(Parser *p)
 {
   Token token = NextToken(&p->lex);
   if (token.type != TokenID) return ParseError("Expected identifier", p);
   return ParseOk(MakeSymbol(token.lexeme, token.length, p->symbols));
 }
 
-static BuildResult ParseVar(Parser *p)
+static Result ParseVar(Parser *p)
 {
   u32 pos = p->lex.token.lexeme - p->lex.source;
-  BuildResult result = ParseID(p);
+  Result result = ParseID(p);
   if (!result.ok) return result;
   return ParseOk(MakeNode(SymID, pos, result.value, p->mem));
 }
 
-static BuildResult ParseNum(Parser *p)
+static Result ParseNum(Parser *p)
 {
   Token token = NextToken(&p->lex);
   u32 pos = token.lexeme - p->lex.source;
@@ -597,7 +597,7 @@ static BuildResult ParseNum(Parser *p)
   }
 }
 
-static BuildResult ParseString(Parser *p)
+static Result ParseString(Parser *p)
 {
   Token token = NextToken(&p->lex);
   u32 pos = token.lexeme - p->lex.source;
@@ -605,9 +605,9 @@ static BuildResult ParseString(Parser *p)
   return ParseOk(MakeNode(SymString, pos, symbol, p->mem));
 }
 
-static BuildResult ParseSymbol(Parser *p)
+static Result ParseSymbol(Parser *p)
 {
-  BuildResult result;
+  Result result;
   u32 pos = p->lex.token.lexeme - p->lex.source;
   Assert(MatchToken(TokenColon, &p->lex));
   result = ParseID(p);
@@ -616,7 +616,7 @@ static BuildResult ParseSymbol(Parser *p)
   return ParseOk(MakeNode(SymColon, pos, result.value, p->mem));
 }
 
-static BuildResult ParseLiteral(Parser *p)
+static Result ParseLiteral(Parser *p)
 {
   Token token = NextToken(&p->lex);
   u32 pos = token.lexeme - p->lex.source;
@@ -654,9 +654,9 @@ Val NodeExpr(Val node, Mem *mem)
   return TupleGet(node, 2, mem);
 }
 
-static BuildResult ParseError(char *message, Parser *p)
+static Result ParseError(char *message, Parser *p)
 {
-  return BuildError(message, p->filename, p->lex.source, p->lex.token.lexeme - p->lex.source);
+  return ErrorResult(message, p->filename, p->lex.token.lexeme - p->lex.source);
 }
 
 

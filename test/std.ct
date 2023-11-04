@@ -1,2 +1,43 @@
 module Std
-let x = 99
+
+; def (reduce enum acc fn) do
+;   let type = (typeof enum)
+
+;   def (reduce_list list acc) do
+;     cond do
+;       list == nil -> acc
+;       (typeof list) != :pair -> (fn list acc)
+;       true -> reduce_list (tail list) (fn (head list) acc)
+;     end
+;   end
+
+;   def (reduce_tuple n acc) do
+;     if n == #enum do
+;       acc
+;     else
+;       reduce_tuple n + 1 (fn (enum n) acc)
+;     end
+;   end
+
+;   cond do
+;     type == :pair   -> reduce_list enum acc
+;     type == :tuple  -> reduce_tuple 0 acc
+;     true -> :error
+;   end
+; end
+
+def (range min max) do
+  def (loop n acc) do
+    if n == max do
+      acc
+    else
+      loop n + 1 n | acc
+    end
+  end
+
+  if min > max do
+    nil
+  else
+    loop min nil
+  end
+end

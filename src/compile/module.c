@@ -31,7 +31,7 @@ Val ModuleExports(Val mod, Mem *mem)
   return TupleGet(mod, 3, mem);
 }
 
-char *ModuleFile(Val mod, Mem *mem, SymbolTable *symbols)
+Val ModuleFile(Val mod, Mem *mem)
 {
-  return SymbolName(TupleGet(mod, 4, mem), symbols);
+  return TupleGet(mod, 4, mem);
 }

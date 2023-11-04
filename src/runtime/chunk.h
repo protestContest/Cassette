@@ -11,6 +11,7 @@ typedef struct {
   Val constants[MaxConstants];
   SymbolTable symbols;
   IntVec source_map;
+  IntVec file_map;
 } Chunk;
 
 #define ChunkRef(chunk, i)        ((chunk)->code.items[i])
@@ -18,6 +19,10 @@ typedef struct {
 
 void InitChunk(Chunk *chunk);
 void DestroyChunk(Chunk *chunk);
+
+void BeginChunkFile(Val filename, Chunk *chunk);
+void EndChunkFile(Chunk *chunk);
+char *ChunkFile(u32 pos, Chunk *chunk);
 
 u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk);
 u8 AddConst(Val value, Chunk *chunk);

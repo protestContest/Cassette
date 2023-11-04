@@ -13,18 +13,52 @@ void InitChunk(Chunk *chunk)
   chunk->num_constants = 0;
   InitSymbolTable(&chunk->symbols);
   InitVec((Vec*)&chunk->source_map, sizeof(u32), 256);
+  InitVec((Vec*)&chunk->file_map, sizeof(u32), 8);
 }
 
 void DestroyChunk(Chunk *chunk)
 {
   DestroyVec((Vec*)&chunk->code);
-  DestroyVec((Vec*)&chunk->source_map);
   DestroySymbolTable(&chunk->symbols);
+  DestroyVec((Vec*)&chunk->source_map);
+  DestroyVec((Vec*)&chunk->file_map);
   chunk->num_constants = 0;
 }
 
-#define LastSourcePos(chunk)    ((chunk)->source_map.items[(chunk)->source_map.count-2])
+void BeginChunkFile(Val filename, Chunk *chunk)
+{
+  IntVecPush(&chunk->file_map, filename);
+  IntVecPush(&chunk->file_map, 0);
+}
 
+void EndChunkFile(Chunk *chunk)
+{
+  u32 prev_size = 0, i;
+  /* count up the size of modules previous */
+  for (i = 0; i < chunk->file_map.count; i += 2) {
+    prev_size += chunk->file_map.items[i+1];
+  }
+
+  /* patch the last module size */
+  chunk->file_map.items[chunk->file_map.count-1] = chunk->code.count - prev_size;
+}
+
+char *ChunkFile(u32 pos, Chunk *chunk)
+{
+  u32 size = 0;
+  u32 i;
+
+  for (i = 0; i < chunk->file_map.count; i += 2) {
+    if (size + chunk->file_map.items[i+1] > pos) {
+      return SymbolName(chunk->file_map.items[i], &chunk->symbols);
+    }
+    size += chunk->file_map.items[i+1];
+  }
+
+  return 0;
+}
+
+#define LastSourcePos(chunk)    ((chunk)->source_map.items[(chunk)->source_map.count-2])
 u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk)
 {
   u32 pos = chunk->code.count;

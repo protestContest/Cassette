@@ -8,15 +8,16 @@
 #include <stdlib.h>
 
 static bool CheckMem(VM *vm, u32 amount);
+static Result RuntimeError(char *message, VM *vm);
 
 #ifdef DEBUG
-static void TraceInstruction(OpCode op, VM *vm, Chunk *chunk);
-static void PrintStack(VM *vm, Chunk *chunk);
+static void TraceInstruction(OpCode op, VM *vm);
 #endif
 
 void InitVM(VM *vm)
 {
   vm->pc = 0;
+  vm->chunk = 0;
   InitMem(&vm->stack, 256);
   InitMem(&vm->mem, 256);
   InitSymbolTable(&vm->symbols);
@@ -26,18 +27,21 @@ void InitVM(VM *vm)
 void DestroyVM(VM *vm)
 {
   vm->pc = 0;
+  vm->chunk = 0;
   DestroyMem(&vm->stack);
   DestroyMem(&vm->mem);
   DestroySymbolTable(&vm->symbols);
 }
 
-char *RunChunk(Chunk *chunk, VM *vm)
+Result RunChunk(Chunk *chunk, VM *vm)
 {
+  vm->chunk = chunk;
+
   while (vm->pc < chunk->code.count) {
     OpCode op = ChunkRef(chunk, vm->pc);
 
 #ifdef DEBUG
-    TraceInstruction(op, vm, chunk);
+    TraceInstruction(op, vm);
     printf("\n");
 #endif
 
@@ -66,7 +70,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else if (IsFloat(StackRef(vm, 0))) {
         StackRef(vm, 0) = FloatVal(-RawFloat(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       vm->pc += OpLength(op);
       break;
@@ -84,7 +88,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
         StackRef(vm, 0) = TupleLength(StackRef(vm, 0), &vm->mem);
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       vm->pc += OpLength(op);
       break;
@@ -94,17 +98,17 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
         StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) * RawNum(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpDiv:
       if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
-        if ((float)RawNum(StackRef(vm, 0)) == 0.0) return "Divide by zero";
+        if ((float)RawNum(StackRef(vm, 0)) == 0.0) return RuntimeError("Divide by zero", vm);
         StackRef(vm, 1) = FloatVal((float)RawNum(StackRef(vm, 1)) / (float)RawNum(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
@@ -113,7 +117,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       if (IsInt(StackRef(vm, 0)) && IsInt(StackRef(vm, 1))) {
         StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 1)) % RawInt(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
@@ -124,7 +128,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
         StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) + RawNum(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
@@ -135,7 +139,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
         StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) - RawNum(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
@@ -146,7 +150,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
         StackRef(vm, 1) = BoolVal(TupleContains(StackRef(vm, 1), StackRef(vm, 0), &vm->mem));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
@@ -155,7 +159,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
         StackRef(vm, 1) = BoolVal(RawNum(StackRef(vm, 1)) < RawNum(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
@@ -164,7 +168,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
         StackRef(vm, 1) = BoolVal(RawNum(StackRef(vm, 1)) > RawNum(StackRef(vm, 0)));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       StackPop(vm);
       vm->pc += OpLength(op);
@@ -177,31 +181,31 @@ char *RunChunk(Chunk *chunk, VM *vm)
     case OpStr: {
       char *str;
       u32 size;
-      if (!IsSym(StackRef(vm, 0))) return "Type error";
+      if (!IsSym(StackRef(vm, 0))) return RuntimeError("Type error", vm);
 
       str = SymbolName(StackRef(vm, 0), &chunk->symbols);
       size = StrLen(str);
 
-      if (!CheckMem(vm, NumBinCells(size))) return "Out of memory";
+      if (!CheckMem(vm, NumBinCells(size))) return RuntimeError("Out of memory", vm);
 
       StackRef(vm, 0) = BinaryFrom(str, StrLen(str), &vm->mem);
       vm->pc += OpLength(op);
       break;
     }
     case OpPair:
-      if (!CheckMem(vm, 2)) return "Out of memory";
+      if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
       StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
       StackPop(vm);
       vm->pc += OpLength(op);
       break;
     case OpTuple:
-      if (!CheckMem(vm, RawInt(StackRef(vm, 0)))) return "Out of memory";
+      if (!CheckMem(vm, RawInt(StackRef(vm, 0)))) return RuntimeError("Out of memory", vm);
       StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
       vm->pc += OpLength(op);
       break;
     case OpSet:
-      if (!IsTuple(StackRef(vm, 0), &vm->mem)) return "Type error";
-      if (TupleLength(StackRef(vm, 0), &vm->mem) <= RawInt(ChunkConst(chunk, vm->pc+1))) return "Out of bounds";
+      if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Type error", vm);
+      if (TupleLength(StackRef(vm, 0), &vm->mem) <= RawInt(ChunkConst(chunk, vm->pc+1))) return RuntimeError("Out of bounds", vm);
 
       TupleSet(StackRef(vm, 0), RawInt(ChunkConst(chunk, vm->pc+1)), StackRef(vm, 1), &vm->mem);
       StackRef(vm, 1) = StackRef(vm, 0);
@@ -214,7 +218,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
         u32 index = RawInt(ChunkConst(chunk, vm->pc+1));
         Val list = StackRef(vm, 1);
         while (index > 0) {
-          if (list == Nil) return "Out of bounds";
+          if (list == Nil) return RuntimeError("Out of bounds", vm);
           list = Tail(list, &vm->mem);
           index--;
         }
@@ -222,16 +226,16 @@ char *RunChunk(Chunk *chunk, VM *vm)
       } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
         u32 index = RawInt(ChunkConst(chunk, vm->pc+1));
         Val tuple = StackRef(vm, 0);
-        if (index >= TupleLength(tuple, &vm->mem)) return "Out of bounds";
+        if (index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Out of bounds", vm);
         StackPush(vm, TupleGet(tuple, index, &vm->mem));
       } else {
-        return "Type error";
+        return RuntimeError("Type error", vm);
       }
       vm->pc += OpLength(op);
       break;
     case OpExtend:
-      if (!IsTuple(StackRef(vm, 0), &vm->mem)) return "Type error";
-      if (!CheckMem(vm, 2)) return "Out of memory";
+      if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Type error", vm);
+      if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
 
       Env(vm) = ExtendEnv(Env(vm), StackRef(vm, 0), &vm->mem);
       StackPop(vm);
@@ -248,9 +252,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpLookup:
       StackPush(vm, Lookup(RawInt(ChunkConst(chunk, vm->pc+1)), RawInt(ChunkConst(chunk, vm->pc+2)), Env(vm), &vm->mem));
-      if (StackRef(vm, 0) == Undefined) {
-        return "Undefined variable";
-      }
+      if (StackRef(vm, 0) == Undefined) return RuntimeError("Undefined variable", vm);
       vm->pc += OpLength(op);
       break;
     case OpExport:
@@ -279,7 +281,7 @@ char *RunChunk(Chunk *chunk, VM *vm)
       vm->stack.count -= 2;
       break;
     case OpLambda:
-      if (!CheckMem(vm, 2)) return "Out of memory";
+      if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
       StackPush(vm, Pair(IntVal(vm->pc + OpLength(op)), Env(vm), &vm->mem));
       vm->pc += RawInt(ChunkConst(chunk, vm->pc+1));
       break;
@@ -308,30 +310,39 @@ char *RunChunk(Chunk *chunk, VM *vm)
       }
       break;
     default:
-      return "Undefined op";
+      return RuntimeError("Undefined op", vm);
     }
   }
 
 #ifdef DEBUG
-    TraceInstruction(OpHalt, vm, chunk);
+    TraceInstruction(OpHalt, vm);
     printf("\n");
 #endif
 
-  return 0;
+  return OkResult(Nil);
 }
 
 static bool CheckMem(VM *vm, u32 amount)
 {
   if (!CheckCapacity(&vm->mem, amount)) {
+#ifdef DEBUG
     printf("Collecting Garbage\n");
+#endif
     CollectGarbage(vm->stack.values, vm->stack.count, &vm->mem);
   }
 
   return CheckCapacity(&vm->mem, amount);
 }
 
+static Result RuntimeError(char *message, VM *vm)
+{
+  char *filename = ChunkFile(vm->pc, vm->chunk);
+  u32 pos = GetSourcePosition(vm->pc, vm->chunk);
+  return ErrorResult(message, filename, pos);
+}
+
 #ifdef DEBUG
-static void TraceInstruction(OpCode op, VM *vm, Chunk *chunk)
+static void TraceInstruction(OpCode op, VM *vm)
 {
   i32 i, col_width = 20;
 
@@ -343,24 +354,20 @@ static void TraceInstruction(OpCode op, VM *vm, Chunk *chunk)
   col_width = 20;
   col_width -= printf("%s", OpName(op));
   for (i = 0; i < (i32)OpLength(op) - 1; i++) {
-    Val arg = ChunkConst(chunk, vm->pc + 1 + i);
+    Val arg = ChunkConst(vm->chunk, vm->pc + 1 + i);
     col_width -= printf(" ");
 
-    col_width -= PrintVal(arg, &chunk->symbols);
+    col_width -= PrintVal(arg, &vm->chunk->symbols);
 
     if (col_width < 0) break;
   }
   for (i = 0; i < col_width; i++) printf(" ");
   printf(" │");
-  PrintStack(vm, chunk);
-}
 
-static void PrintStack(VM *vm, Chunk *chunk)
-{
-  i32 i, col_width = 40;
+  col_width = 40;
   for (i = 0; i < (i32)vm->stack.count; i++) {
     col_width -= printf(" ");
-    col_width -= PrintVal(StackRef(vm, i), &chunk->symbols);
+    col_width -= PrintVal(StackRef(vm, i), &vm->chunk->symbols);
     if (col_width < 0) {
       printf(" ...");
       break;
