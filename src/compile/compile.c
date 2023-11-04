@@ -334,11 +334,22 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   Val params = Head(expr, c->mem);
   Val body = Tail(expr, c->mem);
   Result result;
-  u32 patch, i;
+  u32 lambda, arity, i;
   u32 num_params = ListLength(params, c->mem);
 
-  patch = PushByte(OpLambda, c->pos, c->chunk);
+  lambda = PushByte(OpLambda, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
+
+  /* check arity */
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_params), c->pos, c->chunk);
+  PushByte(OpEq, c->pos, c->chunk);
+  arity = PushByte(OpBranch, c->pos, c->chunk);
+  PushByte(0, c->pos, c->chunk);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(Sym("Argument error", &c->chunk->symbols), c->pos, c->chunk);
+  PushByte(OpError, c->pos, c->chunk);
+  PatchJump(c->chunk, arity);
 
   if (num_params > 0) {
     PushByte(OpTuple, c->pos, c->chunk);
@@ -352,12 +363,14 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
       PushConst(IntVal(num_params - i - 1), c->pos, c->chunk);
       params = Tail(params, c->mem);
     }
+  } else {
+    PushByte(OpPop, c->pos, c->chunk);
   }
 
   result = CompileExpr(body, LinkReturn, c);
   if (!result.ok) return result;
 
-  PatchJump(c->chunk, patch);
+  PatchJump(c->chunk, lambda);
 
   if (num_params > 0) c->env = Tail(c->env, c->mem);
 

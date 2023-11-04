@@ -8,7 +8,6 @@
 #include <stdlib.h>
 
 static bool CheckMem(VM *vm, u32 amount);
-static Result RuntimeError(char *message, VM *vm);
 
 #ifdef DEBUG
 static void TraceInstruction(OpCode op, VM *vm);
@@ -51,6 +50,13 @@ Result RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpHalt:
       vm->pc = chunk->code.count;
+      break;
+    case OpError:
+      if (IsSym(StackRef(vm, 0))) {
+        return RuntimeError(SymbolName(StackRef(vm, 0), &chunk->symbols), vm);
+      } else {
+        return RuntimeError("Unknown error", vm);
+      }
       break;
     case OpPop:
       StackPop(vm);
@@ -194,7 +200,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
     }
     case OpPair:
       if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
-      StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
+      StackRef(vm, 1) = Pair(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
       StackPop(vm);
       vm->pc += OpLength(op);
       break;
@@ -291,10 +297,11 @@ Result RunChunk(Chunk *chunk, VM *vm)
         if (Head(StackRef(vm, 0), &vm->mem) == Primitive) {
           /* apply primitive */
           Val prim = StackPop(vm);
-          Val result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
+          Result result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
+          if (!result.ok) return result;
           vm->pc = RawInt(StackPop(vm));
           Env(vm) = StackPop(vm);
-          StackPush(vm, result);
+          StackPush(vm, result.value);
         } else {
           /* normal function */
           vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
@@ -334,7 +341,7 @@ static bool CheckMem(VM *vm, u32 amount)
   return CheckCapacity(&vm->mem, amount);
 }
 
-static Result RuntimeError(char *message, VM *vm)
+Result RuntimeError(char *message, VM *vm)
 {
   char *filename = ChunkFile(vm->pc, vm->chunk);
   u32 pos = GetSourcePosition(vm->pc, vm->chunk);
@@ -364,7 +371,7 @@ static void TraceInstruction(OpCode op, VM *vm)
   for (i = 0; i < col_width; i++) printf(" ");
   printf(" │");
 
-  col_width = 40;
+  col_width = 80;
   for (i = 0; i < (i32)vm->stack.count; i++) {
     col_width -= printf(" ");
     col_width -= PrintVal(StackRef(vm, i), &vm->chunk->symbols);

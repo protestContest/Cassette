@@ -20,3 +20,4 @@ typedef struct {
 void InitVM(VM *vm);
 void DestroyVM(VM *vm);
 Result RunChunk(Chunk *chunk, VM *vm);
+Result RuntimeError(char *message, VM *vm);

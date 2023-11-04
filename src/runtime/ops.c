@@ -8,6 +8,7 @@ typedef struct {
 static OpInfo ops[] = {
   [OpNoop]    = {1, "noop"},
   [OpHalt]    = {1, "halt"},
+  [OpError]   = {1, "error"},
   [OpPop]     = {1, "pop"},
   [OpDup]     = {1, "dup"},
   [OpConst]   = {2, "const"},

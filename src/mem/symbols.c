@@ -49,7 +49,7 @@ static void AddSymbol(char *name, u32 length, SymbolTable *symbols)
 {
   u32 index = GrowVec((Vec*)&symbols->names, sizeof(*symbols->names.items), length+1);
   Copy(name, symbols->names.items + index, length);
-  ByteVecPush(&symbols->names, 0);
+  symbols->names.items[symbols->names.count] = 0;
 }
 
 Val MakeSymbol(char *name, u32 length, SymbolTable *symbols)

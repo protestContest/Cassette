@@ -29,5 +29,5 @@ clean:
 	rm -rf $(TARGET)
 
 .PHONY: test
-test:
+test: $(TARGET)
 	$(TARGET) test/project.txt

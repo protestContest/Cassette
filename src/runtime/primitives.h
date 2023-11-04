@@ -1,7 +1,7 @@
 #pragma once
 #include "vm.h"
 
-typedef Val (*PrimitiveFn)(u32 num_args, VM *vm);
+typedef Result (*PrimitiveFn)(u32 num_args, VM *vm);
 
 typedef struct {
   char *name;
@@ -11,5 +11,5 @@ typedef struct {
 PrimitiveDef *Primitives(void);
 u32 NumPrimitives(void);
 Val DefinePrimitives(Mem *mem, SymbolTable *symbols);
-Val DoPrimitive(Val id, u32 num_args, VM *vm);
+Result DoPrimitive(Val id, u32 num_args, VM *vm);
 Val CompileEnv(Mem *mem, SymbolTable *symbols);
