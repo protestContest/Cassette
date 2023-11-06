@@ -20,7 +20,9 @@ void InitVM(VM *vm)
   InitMem(&vm->stack, 256);
   InitMem(&vm->mem, 256);
   InitSymbolTable(&vm->symbols);
-  Env(vm) = ExtendEnv(Env(vm), DefinePrimitives(&vm->mem, &vm->symbols), &vm->mem);
+
+  vm->stack.count = 1;
+  Env(vm) = ExtendEnv(Nil, DefinePrimitives(&vm->mem, &vm->symbols), &vm->mem);
 }
 
 void DestroyVM(VM *vm)
@@ -247,10 +249,6 @@ Result RunChunk(Chunk *chunk, VM *vm)
       StackPop(vm);
       vm->pc += OpLength(op);
       break;
-    case OpPopEnv:
-      Env(vm) = Tail(Env(vm), &vm->mem);
-      vm->pc += OpLength(op);
-      break;
     case OpDefine:
       Define(StackRef(vm, 0), RawInt(ChunkConst(chunk, vm->pc+1)), Env(vm), &vm->mem);
       StackPop(vm);
@@ -263,6 +261,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpExport:
       StackPush(vm, Head(Env(vm), &vm->mem));
+      Env(vm) = Tail(Env(vm), &vm->mem);
       vm->pc += OpLength(op);
       break;
     case OpJump:

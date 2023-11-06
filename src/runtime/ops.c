@@ -29,7 +29,6 @@ static OpInfo ops[] = {
   [OpSet]     = {2, "set"},
   [OpGet]     = {2, "get"},
   [OpExtend]  = {1, "extend"},
-  [OpPopEnv]  = {1, "popenv"},
   [OpDefine]  = {2, "define"},
   [OpLookup]  = {3, "lookup"},
   [OpExport]  = {1, "export"},

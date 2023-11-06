@@ -56,6 +56,7 @@ typedef struct {
   Lexer lex;
   Mem *mem;
   SymbolTable *symbols;
+  Val imports;
 } Parser;
 
 void InitParser(Parser *p, Mem *mem, SymbolTable *symbols);

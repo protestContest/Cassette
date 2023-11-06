@@ -29,6 +29,7 @@ static Result CompileConst(Val value, Val linkage, Compiler *c);
 static Result CompileGroup(Val expr, Val linkage, Compiler *c);
 
 static void CompileLinkage(Val linkage, Compiler *c);
+static u32 ScanImports(Val stmts, Compiler *c);
 static u32 ScanAssigns(Val stmts, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
 #define CompileOk()  OkResult(Nil)
@@ -46,12 +47,13 @@ Result CompileModule(Val module, char *filename, Val env, u32 mod_num, Compiler 
   Val ast = ModuleBody(module, c->mem);
   Val stmts = TupleGet(ast, 2, c->mem);
   u32 num_assigns = ScanAssigns(stmts, c);
-  u32 assigned = 0;
+  u32 num_imports = ScanImports(stmts, c);
+  u32 assigned = 0, imported = 0;
   u32 patch;
 
   c->filename = filename;
   c->pos = 0;
-  c->env = ExtendEnv(env, MakeTuple(num_assigns, c->mem), c->mem);
+  c->env = env;
 
   /* a module is a lambda */
   patch = PushByte(OpLambda, c->pos, c->chunk);
@@ -59,7 +61,15 @@ Result CompileModule(Val module, char *filename, Val env, u32 mod_num, Compiler 
   /* discard arity from apply */
   PushByte(OpPop, 0, c->chunk);
 
+  /* extend env for imports */
+  c->env = ExtendEnv(c->env, MakeTuple(num_imports, c->mem), c->mem);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_imports), c->pos, c->chunk);
+  PushByte(OpTuple, c->pos, c->chunk);
+  PushByte(OpExtend, c->pos, c->chunk);
+
   /* extend env for local assigns */
+  c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(num_assigns), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
@@ -76,10 +86,10 @@ Result CompileModule(Val module, char *filename, Val env, u32 mod_num, Compiler 
       assigned += ListLength(expr, c->mem);
     } else if (tag == SymImport) {
       Val mod;
-      Result result = CompileImport(expr, assigned, LinkNext, c);
+      Result result = CompileImport(expr, imported, LinkNext, c);
       if (!result.ok) return result;
       mod = HashMapGet(c->modules, Head(expr, c->mem));
-      assigned += ListLength(ModuleExports(mod, c->mem), c->mem);
+      imported += ListLength(ModuleExports(mod, c->mem), c->mem);
     } else {
       Result result = CompileExpr(stmt, LinkNext, c);
       if (!result.ok) return result;
@@ -95,8 +105,9 @@ Result CompileModule(Val module, char *filename, Val env, u32 mod_num, Compiler 
   PushByte(OpExport, c->pos, c->chunk);
   PushByte(OpDup, c->pos, c->chunk);
 
-  /* get back to the module scope */
-  PushByte(OpPopEnv, c->pos, c->chunk);
+  /* pop the import frame */
+  PushByte(OpExport, c->pos, c->chunk);
+  PushByte(OpPop, c->pos, c->chunk);
 
   /* redefine the module to the env result */
   PushByte(OpDefine, c->pos, c->chunk);
@@ -199,7 +210,8 @@ static Result CompileDo(Val stmts, Val linkage, Compiler *c)
   /* cast off our accumulated scopes */
   c->env = Tail(c->env, c->mem);
   if (linkage != LinkReturn) {
-    PushByte(OpPopEnv, c->pos, c->chunk);
+    PushByte(OpExport, c->pos, c->chunk);
+    PushByte(OpPop, c->pos, c->chunk);
   }
 
   return CompileOk();
@@ -233,13 +245,13 @@ static Result CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compil
   return CompileOk();
 }
 
-static Result CompileImport(Val import, u32 prev_assigned, Val linkage, Compiler *c)
+static Result CompileImport(Val import, u32 prev_imported, Val linkage, Compiler *c)
 {
   Val mod_name = Head(import, c->mem);
   Val env = c->env;
   u32 frame_num = 0, pos, patch, i;
   Val frame;
-  Val module, exports;
+  Val module, exports, tmp_env;
 
   if (!HashMapContains(c->modules, mod_name)) {
     return CompileError("Undefined module", c);
@@ -247,7 +259,13 @@ static Result CompileImport(Val import, u32 prev_assigned, Val linkage, Compiler
   module = HashMapGet(c->modules, mod_name);
   exports = ModuleExports(module, c->mem);
 
+  /* set env to import frame */
+  tmp_env = Head(c->env, c->mem);
+  c->env = Tail(c->env, c->mem);
+  PushByte(OpExport, c->pos, c->chunk);
+
   /* look for module in second-to-top frame (just below primitives) */
+  env = c->env;
   while (Nil != Tail(Tail(env, c->mem), c->mem)) {
     env = Tail(env, c->mem);
     frame_num++;
@@ -267,28 +285,38 @@ static Result CompileImport(Val import, u32 prev_assigned, Val linkage, Compiler
   /* call module */
   patch = PushByte(OpLink, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
-
   PushByte(OpLookup, c->pos, c->chunk);
   PushConst(IntVal(frame_num), c->pos, c->chunk);
   PushConst(IntVal(pos), c->pos, c->chunk);
-
   PushByte(OpApply, c->pos, c->chunk);
   PushConst(IntVal(0), c->pos, c->chunk);
-
   PatchJump(c->chunk, patch);
+  /* tuple of exports is now on stack */
 
+  /* define each export in import frame */
   i = 0;
   while (exports != Nil) {
     Val export = Head(exports, c->mem);
-    Define(export, prev_assigned + i, c->env, c->mem);
+    Define(export, prev_imported + i, c->env, c->mem);
     PushByte(OpGet, c->pos, c->chunk);
     PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpDefine, c->pos, c->chunk);
-    PushConst(IntVal(prev_assigned + i), c->pos, c->chunk);
+    PushConst(IntVal(prev_imported + i), c->pos, c->chunk);
 
     i++;
     exports = Tail(exports, c->mem);
   }
+
+  /* discard exports */
+  PushByte(OpPop, c->pos, c->chunk);
+
+  /* restore env */
+  c->env = ExtendEnv(c->env, tmp_env, c->mem);
+  PushByte(OpExtend, c->pos, c->chunk);
+
+  /* return Ok */
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(Ok, c->pos, c->chunk);
 
   return CompileOk();
 }
@@ -578,6 +606,25 @@ static void CompileLinkage(Val linkage, Compiler *c)
   }
 }
 
+static u32 ScanImports(Val stmts, Compiler *c)
+{
+  u32 imports = 0;
+  while (stmts != Nil) {
+    Val stmt = Head(stmts, c->mem);
+    Val type = TupleGet(stmt, 0, c->mem);
+    Val expr = TupleGet(stmt, 2, c->mem);
+
+    if (type == SymImport) {
+      Val mod_name = Head(expr, c->mem);
+      Val mod = HashMapGet(c->modules, mod_name);
+      imports += ListLength(ModuleExports(mod, c->mem), c->mem);
+    }
+
+    stmts = Tail(stmts, c->mem);
+  }
+  return imports;
+}
+
 static u32 ScanAssigns(Val stmts, Compiler *c)
 {
   u32 assigns = 0;
@@ -588,12 +635,6 @@ static u32 ScanAssigns(Val stmts, Compiler *c)
 
     if (type == SymLet) {
       assigns += ListLength(expr, c->mem);
-    } else if (type == SymImport) {
-      Val mod_name = Head(expr, c->mem);
-      if (HashMapContains(c->modules, mod_name)) {
-        Val mod = HashMapGet(c->modules, mod_name);
-        assigns += ListLength(ModuleExports(mod, c->mem), c->mem);
-      }
     }
 
     stmts = Tail(stmts, c->mem);

@@ -1,2 +1,5 @@
 import Std
 
+let y = 2
+
+print x + y

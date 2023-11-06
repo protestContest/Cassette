@@ -68,7 +68,7 @@ u32 ColNum(char *source, u32 pos)
     cur--;
     if (*cur == '\n') break;
   }
-  return source + pos - cur - 1;
+  return source + pos - cur;
 }
 
 char *Basename(char *str, char sep)

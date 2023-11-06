@@ -177,7 +177,7 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
   Compiler c;
   u32 i = 0, patch;
   u32 num_modules = ListLength(build_list, &p->mem);
-  Val module_env = CompileEnv(&p->mem, &p->symbols);
+  Val module_env = ExtendEnv(Nil, CompileEnv(&p->mem, &p->symbols), &p->mem);
 
   InitChunk(chunk);
   InitCompiler(&c, &p->mem, &p->symbols, &p->modules, chunk);

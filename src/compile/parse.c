@@ -115,6 +115,7 @@ void InitParser(Parser *p, Mem *mem, SymbolTable *symbols)
 {
   p->mem = mem;
   p->symbols = symbols;
+  p->imports = Nil;
 }
 
 Result ParseModule(char *filename, Parser *p)
@@ -130,8 +131,8 @@ Result ParseModule(char *filename, Parser *p)
   if (source == 0) return ParseError("Could not read file", p);
   InitLexer(&p->lex, source, 0);
 
+  /* parse optional module name */
   SkipNewlines(&p->lex);
-
   if (MatchToken(TokenModule, &p->lex)) {
     result = ParseID(p);
     if (!result.ok) return result;
@@ -153,6 +154,7 @@ Result ParseModule(char *filename, Parser *p)
     type = NodeType(stmt, p->mem);
     expr = NodeExpr(stmt, p->mem);
 
+    /* count number of imports and exports in stmt */
     if (type == SymImport) {
       imports = Pair(stmt, imports, p->mem);
     } else if (type == SymLet) {

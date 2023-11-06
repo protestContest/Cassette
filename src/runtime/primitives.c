@@ -42,8 +42,19 @@ Val DefinePrimitives(Mem *mem, SymbolTable *symbols)
   Val frame = MakeTuple(NumPrimitives(), mem);
   for (i = 0; i < NumPrimitives(); i++) {
     Val primitive = Pair(Primitive, IntVal(i), mem);
-    TupleSet(frame, i, primitive, mem);
     Sym(primitives[i].name, symbols);
+    TupleSet(frame, i, primitive, mem);
+  }
+  return frame;
+}
+
+Val CompileEnv(Mem *mem, SymbolTable *symbols)
+{
+  u32 i;
+  Val frame = MakeTuple(NumPrimitives(), mem);
+  for (i = 0; i < NumPrimitives(); i++) {
+    Val name = Sym(primitives[i].name, symbols);
+    TupleSet(frame, i, name, mem);
   }
   return frame;
 }
@@ -272,14 +283,4 @@ static Result VMWrite(u32 num_args, VM *vm)
   }
 
   return OkResult(Ok);
-}
-
-Val CompileEnv(Mem *mem, SymbolTable *symbols)
-{
-  Val frame = MakeTuple(NumPrimitives(), mem);
-  u32 i;
-  for (i = 0; i < NumPrimitives(); i++) {
-    TupleSet(frame, i, Sym(primitives[i].name, symbols), mem);
-  }
-  return ExtendEnv(Nil, frame, mem);
 }
