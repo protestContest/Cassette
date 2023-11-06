@@ -303,8 +303,8 @@ Result RunChunk(Chunk *chunk, VM *vm)
           StackPush(vm, result.value);
         } else {
           /* normal function */
-          vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
-          Env(vm) = Tail(StackRef(vm, 0), &vm->mem);
+          vm->pc = RawInt(Tail(StackRef(vm, 0), &vm->mem));
+          Env(vm) = Head(StackRef(vm, 0), &vm->mem);
           StackRef(vm, 0) = num_args;
         }
       } else {
@@ -350,12 +350,9 @@ Result RuntimeError(char *message, VM *vm)
 #ifdef DEBUG
 static void TraceInstruction(OpCode op, VM *vm)
 {
-  i32 i, col_width = 20;
+  i32 i, col_width;
 
-  printf("%3d│", vm->pc);
-  if (Env(vm) == Nil) printf("    ");
-  else printf("%4d", RawVal(Env(vm)));
-  printf("│ ");
+  printf("%4d│ ", vm->pc);
 
   col_width = 20;
   col_width -= printf("%s", OpName(op));

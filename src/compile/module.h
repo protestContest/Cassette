@@ -9,3 +9,4 @@ Val ModuleBody(Val mod, Mem *mem);
 Val ModuleImports(Val mod, Mem *mem);
 Val ModuleExports(Val mod, Mem *mem);
 Val ModuleFile(Val mod, Mem *mem);
+u32 CountExports(Val names, HashMap *modules, Mem *mem);

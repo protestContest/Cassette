@@ -151,7 +151,7 @@ static Result ScanDependencies(Project *project)
     /* add each of the module's imports to the stack */
     while (imports != Nil) {
       Val import = Head(imports, &project->mem);
-      Val import_name = Tail(NodeExpr(import, &project->mem), &project->mem);
+      Val import_name = NodeExpr(import, &project->mem);
 
       /* make sure we know about the imported module */
       if (!HashMapContains(&project->modules, import_name)) {
@@ -175,7 +175,7 @@ static Result ScanDependencies(Project *project)
 static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
 {
   Compiler c;
-  u32 i = 0, patch;
+  u32 i = 0;
   u32 num_modules = ListLength(build_list, &p->mem);
   Val module_env = ExtendEnv(Nil, CompileEnv(&p->mem, &p->symbols), &p->mem);
 
@@ -194,38 +194,28 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
 
   while (build_list != Nil) {
     Result result;
-    char *module_name;
     Val module = Head(build_list, &p->mem);
-
     build_list = Tail(build_list, &p->mem);
-    module_name = SymbolName(ModuleName(module, &p->mem), &p->symbols);
 
-    printf("Compiling %s\n", module_name);
+    printf("Compiling ");
+    PrintVal(ModuleName(module, &p->mem), &p->symbols);
+    printf("\n");
 
-    /* copy filename symbol to chunk */
-    Sym(SymbolName(ModuleFile(module, &p->mem), &p->symbols), &chunk->symbols);
-
-    BeginChunkFile(ModuleFile(module, &p->mem), chunk);
-
-    /* each module will create a lambda and define itself */
-    result = CompileModule(module, module_name, module_env, i, &c);
+    result = CompileModule(module, module_env, i, &c);
     if (!result.ok) return result;
 
-    EndChunkFile(chunk);
-
-    /* modules can't reference themselves, so we define each module after */
     Define(ModuleName(module, &p->mem), i, module_env, &p->mem);
     i++;
   }
 
-  patch = PushByte(OpLink, 0, chunk);
-  PushByte(0, 0, chunk);
+  /* call the last compiled module (the entry point) */
+  PushByte(OpLink, 0, chunk);
+  PushConst(IntVal(7), 0, chunk);
   PushByte(OpLookup, 0, chunk);
   PushConst(IntVal(0), 0, chunk);
   PushConst(IntVal(i-1), 0, chunk);
   PushByte(OpApply, 0, chunk);
   PushConst(IntVal(0), 0, chunk);
-  PatchChunk(chunk, patch+1, IntVal(chunk->code.count - patch));
   PushByte(OpPop, 0, chunk);
 
   return OkResult(Nil);

@@ -1,9 +1,10 @@
-script          → module_def stmts | stmts
+script          → module_def imports stmts | imports stmts
 module_def      → "module" ID
 
+imports         → import_stmt imports | ε
+import_stmt     → "import" ID "\n"
 stmts           → stmts stmt | ε
-stmt            → import_stmt | let_stmt | def_stmt | call_stmt
-import_stmt     → "import" ID "\n" | "import" ID "as" ID "\n"
+stmt            → let_stmt | def_stmt | call_stmt
 let_stmt        → "let" assigns "\n"
 assigns         → assigns "," assign | assign
 assign          → ID "=" call

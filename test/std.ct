@@ -1,3 +1,4 @@
 module Std
+let x = 20
 
-let x = 1
+def (inc n) n + 1

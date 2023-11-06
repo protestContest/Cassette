@@ -1,4 +1,5 @@
 #include "module.h"
+#include "parse.h"
 
 Val MakeModule(Val name, Val stmts, Val imports, Val exports, Val filename, Mem *mem)
 {
@@ -34,4 +35,18 @@ Val ModuleExports(Val mod, Mem *mem)
 Val ModuleFile(Val mod, Mem *mem)
 {
   return TupleGet(mod, 4, mem);
+}
+
+u32 CountExports(Val nodes, HashMap *modules, Mem *mem)
+{
+  u32 count = 0;
+  while (nodes != Nil) {
+    Val mod_name = NodeExpr(Head(nodes, mem), mem);
+    if (HashMapContains(modules, mod_name)) {
+      Val module = HashMapGet(modules, mod_name);
+      count += ListLength(ModuleExports(module, mem), mem);
+    }
+    nodes = Tail(nodes, mem);
+  }
+  return count;
 }

@@ -16,4 +16,4 @@ typedef struct {
 } Compiler;
 
 void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules, Chunk *chunk);
-Result CompileModule(Val module, char *filename, Val env, u32 mod_num, Compiler *c);
+Result CompileModule(Val module, Val env, u32 mod_num, Compiler *c);

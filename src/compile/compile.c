@@ -10,10 +10,10 @@
 #define LinkReturn  0x7FD336A7
 #define LinkNext    0x7FD9CB70
 
+static Result CompileImports(Val imports, Compiler *c);
 static Result CompileExpr(Val node, Val linkage, Compiler *c);
 static Result CompileDo(Val stmts, Val linkage, Compiler *c);
 static Result CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compiler *c);
-static Result CompileImport(Val name, u32 prev_assigned, Val linkage, Compiler *c);
 static Result CompileCall(Val call, Val linkage, Compiler *c);
 static Result CompileLambda(Val expr, Val linkage, Compiler *c);
 static Result CompileIf(Val expr, Val linkage, Compiler *c);
@@ -42,84 +42,173 @@ void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules,
   c->chunk = chunk;
 }
 
-Result CompileModule(Val module, char *filename, Val env, u32 mod_num, Compiler *c)
+Result CompileModule(Val module, Val env, u32 mod_num, Compiler *c)
 {
-  Val ast = ModuleBody(module, c->mem);
-  Val stmts = TupleGet(ast, 2, c->mem);
-  u32 num_assigns = ScanAssigns(stmts, c);
-  u32 num_imports = ScanImports(stmts, c);
-  u32 assigned = 0, imported = 0;
-  u32 patch;
+  Val imports = ModuleImports(module, c->mem);
+  Val stmts = ModuleBody(module, c->mem);
+  u32 num_assigns = ListLength(ModuleExports(module, c->mem), c->mem);
+  u32 num_assigned = 0;
+  u32 jump;
 
-  c->filename = filename;
-  c->pos = 0;
+  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
   c->env = env;
+  c->pos = 0;
 
-  /* a module is a lambda */
-  patch = PushByte(OpLambda, c->pos, c->chunk);
-  PushByte(0, 0, c->chunk);
-  /* discard arity from apply */
-  PushByte(OpPop, 0, c->chunk);
+  /* copy filename symbol to chunk */
+  Sym(c->filename, &c->chunk->symbols);
 
-  /* extend env for imports */
-  c->env = ExtendEnv(c->env, MakeTuple(num_imports, c->mem), c->mem);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(IntVal(num_imports), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
-  PushByte(OpExtend, c->pos, c->chunk);
+  /* record start position of module in chunk */
+  BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
 
-  /* extend env for local assigns */
-  c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(IntVal(num_assigns), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
-  PushByte(OpExtend, c->pos, c->chunk);
+  /* create lambda for module */
+  PushByte(OpLink, c->pos, c->chunk);
+  PushConst(IntVal(5), c->pos, c->chunk);
+  PushByte(OpPair, c->pos, c->chunk);
+  jump = PushByte(OpJump, c->pos, c->chunk);
+  PushByte(0, c->pos, c->chunk);
+
+  PushByte(OpPop, c->pos, c->chunk); /* discard arity from apply */
+
+  /* compile imports */
+  if (imports != Nil) {
+    Result result;
+    u32 num_imports = CountExports(imports, c->modules, c->mem);
+
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(num_imports), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+    PushByte(OpExtend, c->pos, c->chunk);
+    c->env = ExtendEnv(c->env, MakeTuple(num_imports, c->mem), c->mem);
+
+    result = CompileImports(imports, c);
+    if (!result.ok) return result;
+  }
+
+  /* extend env for assigns */
+  if (num_assigns > 0) {
+    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(num_assigns), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+    PushByte(OpExtend, c->pos, c->chunk);
+  }
 
   while (stmts != Nil) {
     Val stmt = Head(stmts, c->mem);
-    Val tag = TupleGet(stmt, 0, c->mem);
-    Val expr = TupleGet(stmt, 2, c->mem);
+    Result result;
 
-    if (tag == SymLet) {
-      Result result = CompileAssigns(expr, assigned, LinkNext, c);
-      if (!result.ok) return result;
-      assigned += ListLength(expr, c->mem);
-    } else if (tag == SymImport) {
-      Val mod;
-      Result result = CompileImport(expr, imported, LinkNext, c);
-      if (!result.ok) return result;
-      mod = HashMapGet(c->modules, Head(expr, c->mem));
-      imported += ListLength(ModuleExports(mod, c->mem), c->mem);
+    if (NodeType(stmt, c->mem) == SymLet) {
+      Val assigns = NodeExpr(stmt, c->mem);
+      u32 i = 0;
+      /* compile each assignment */
+      while (assigns != Nil) {
+        Val assign = Head(assigns, c->mem);
+        Val var = Head(assign, c->mem);
+        Val value = Tail(assign, c->mem);
+        Define(var, num_assigned + i, c->env, c->mem);
+        result = CompileExpr(value, LinkNext, c);
+        if (!result.ok) return result;
+
+        PushByte(OpDefine, c->pos, c->chunk);
+        PushConst(IntVal(num_assigned + i), c->pos, c->chunk);
+
+        i++;
+        assigns = Tail(assigns, c->mem);
+      }
+      num_assigned += i;
     } else {
-      Result result = CompileExpr(stmt, LinkNext, c);
+      result = CompileExpr(stmt, LinkNext, c);
       if (!result.ok) return result;
+      PushByte(OpPop, c->pos, c->chunk); /* discard each statement result */
     }
-
-    /* discard each statment result */
-    PushByte(OpPop, c->pos, c->chunk);
 
     stmts = Tail(stmts, c->mem);
   }
 
-  /* put two copies of the env on the stack */
-  PushByte(OpExport, c->pos, c->chunk);
+  /* export assigned values */
+  if (num_assigns > 0) {
+    PushByte(OpExport, c->pos, c->chunk);
+    c->env = Tail(c->env, c->mem);
+  } else {
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+  }
   PushByte(OpDup, c->pos, c->chunk);
 
-  /* pop the import frame */
-  PushByte(OpExport, c->pos, c->chunk);
-  PushByte(OpPop, c->pos, c->chunk);
+  /* discard import frame */
+  if (imports != Nil) {
+    PushByte(OpExport, c->pos, c->chunk);
+    PushByte(OpPop, c->pos, c->chunk);
+    c->env = Tail(c->env, c->mem);
+  }
 
-  /* redefine the module to the env result */
+  /* redefine module as exported values */
   PushByte(OpDefine, c->pos, c->chunk);
   PushConst(IntVal(mod_num), c->pos, c->chunk);
 
-  /* the other env copy is returned */
   PushByte(OpReturn, c->pos, c->chunk);
-  PatchJump(c->chunk, patch);
 
-  /* define the module in the module scope */
+  PatchJump(c->chunk, jump);
   PushByte(OpDefine, c->pos, c->chunk);
   PushConst(IntVal(mod_num), c->pos, c->chunk);
+
+  EndChunkFile(c->chunk);
+
+  return CompileOk();
+}
+
+static Result CompileImports(Val imports, Compiler *c)
+{
+  u32 num_imported = 0;
+
+  while (imports != Nil) {
+    Val node = Head(imports, c->mem);
+    Val import_name = NodeExpr(node, c->mem);
+    Val import_mod;
+    Val imported_vals;
+    u32 i;
+    i32 import_def;
+
+    c->pos = NodePos(node, c->mem);
+
+    if (!HashMapContains(c->modules, import_name)) return CompileError("Undefined module", c);
+    import_mod = HashMapGet(c->modules, import_name);
+    imported_vals = ModuleExports(import_mod, c->mem);
+
+    import_def = FindDefinition(import_name, c->env, c->mem);
+    if (import_def < 0) return CompileError("Undefined module", c);
+
+    /* call module function */
+    PushByte(OpLink, c->pos, c->chunk);
+    PushConst(IntVal(7), c->pos, c->chunk);
+    PushByte(OpLookup, c->pos, c->chunk);
+    PushConst(IntVal(import_def >> 16), c->pos, c->chunk);
+    PushConst(IntVal(import_def & 0xFFFF), c->pos, c->chunk);
+    PushByte(OpApply, c->pos, c->chunk);
+    PushConst(IntVal(0), c->pos, c->chunk);
+
+    /* define each exported value */
+    i = 0;
+    while (imported_vals != Nil) {
+      Val imported_val = Head(imported_vals, c->mem);
+
+      PushByte(OpGet, c->pos, c->chunk);
+      PushConst(IntVal(i), c->pos, c->chunk);
+      PushByte(OpDefine, c->pos, c->chunk);
+      PushConst(IntVal(num_imported+i), c->pos, c->chunk);
+      Define(imported_val, num_imported + i, c->env, c->mem);
+
+      imported_vals = Tail(imported_vals, c->mem);
+      i++;
+    }
+    num_imported += i;
+
+    /* discard imported frame */
+    PushByte(OpPop, c->pos, c->chunk);
+
+    imports = Tail(imports, c->mem);
+  }
 
   return CompileOk();
 }
@@ -143,7 +232,6 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
     if (ListLength(expr, c->mem) == 1) return CompileOp(OpNeg, expr, linkage, c);
     else return CompileOp(OpSub, expr, linkage, c);
   case SymArrow:        return CompileLambda(expr, linkage, c);
-  /*case SymDot:          return CompileOp(OpGet, expr, linkage, c);*/
   case SymSlash:        return CompileOp(OpDiv, expr, linkage, c);
   case SymNum:          return CompileConst(expr, linkage, c);
   case SymColon:        return CompileConst(expr, linkage, c);
@@ -188,12 +276,6 @@ static Result CompileDo(Val stmts, Val linkage, Compiler *c)
       Result result = CompileAssigns(expr, assigned, stmt_linkage, c);
       if (!result.ok) return result;
       assigned += ListLength(expr, c->mem);
-    } else if (tag == SymImport) {
-      Val mod;
-      Result result = CompileImport(expr, assigned, stmt_linkage, c);
-      if (!result.ok) return result;
-      mod = HashMapGet(c->modules, Head(expr, c->mem));
-      assigned += ListLength(ModuleExports(mod, c->mem), c->mem);
     } else {
       Result result = CompileExpr(stmt, stmt_linkage, c);
       if (!result.ok) return result;
@@ -245,82 +327,6 @@ static Result CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compil
   return CompileOk();
 }
 
-static Result CompileImport(Val import, u32 prev_imported, Val linkage, Compiler *c)
-{
-  Val mod_name = Head(import, c->mem);
-  Val env = c->env;
-  u32 frame_num = 0, pos, patch, i;
-  Val frame;
-  Val module, exports, tmp_env;
-
-  if (!HashMapContains(c->modules, mod_name)) {
-    return CompileError("Undefined module", c);
-  }
-  module = HashMapGet(c->modules, mod_name);
-  exports = ModuleExports(module, c->mem);
-
-  /* set env to import frame */
-  tmp_env = Head(c->env, c->mem);
-  c->env = Tail(c->env, c->mem);
-  PushByte(OpExport, c->pos, c->chunk);
-
-  /* look for module in second-to-top frame (just below primitives) */
-  env = c->env;
-  while (Nil != Tail(Tail(env, c->mem), c->mem)) {
-    env = Tail(env, c->mem);
-    frame_num++;
-  }
-
-  frame = Head(env, c->mem);
-  for (pos = 0; pos < TupleLength(frame, c->mem); pos++) {
-    if (TupleGet(frame, pos, c->mem) == mod_name) {
-      break;
-    }
-  }
-
-  if (pos == TupleLength(frame, c->mem)) {
-    return CompileError("Undefined module", c);
-  }
-
-  /* call module */
-  patch = PushByte(OpLink, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
-  PushByte(OpLookup, c->pos, c->chunk);
-  PushConst(IntVal(frame_num), c->pos, c->chunk);
-  PushConst(IntVal(pos), c->pos, c->chunk);
-  PushByte(OpApply, c->pos, c->chunk);
-  PushConst(IntVal(0), c->pos, c->chunk);
-  PatchJump(c->chunk, patch);
-  /* tuple of exports is now on stack */
-
-  /* define each export in import frame */
-  i = 0;
-  while (exports != Nil) {
-    Val export = Head(exports, c->mem);
-    Define(export, prev_imported + i, c->env, c->mem);
-    PushByte(OpGet, c->pos, c->chunk);
-    PushConst(IntVal(i), c->pos, c->chunk);
-    PushByte(OpDefine, c->pos, c->chunk);
-    PushConst(IntVal(prev_imported + i), c->pos, c->chunk);
-
-    i++;
-    exports = Tail(exports, c->mem);
-  }
-
-  /* discard exports */
-  PushByte(OpPop, c->pos, c->chunk);
-
-  /* restore env */
-  c->env = ExtendEnv(c->env, tmp_env, c->mem);
-  PushByte(OpExtend, c->pos, c->chunk);
-
-  /* return Ok */
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(Ok, c->pos, c->chunk);
-
-  return CompileOk();
-}
-
 static Result CompileCall(Val call, Val linkage, Compiler *c)
 {
   Val op = Head(call, c->mem);
@@ -362,22 +368,15 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   Val params = Head(expr, c->mem);
   Val body = Tail(expr, c->mem);
   Result result;
-  u32 lambda, arity, i;
+  u32 jump, i;
   u32 num_params = ListLength(params, c->mem);
 
-  lambda = PushByte(OpLambda, c->pos, c->chunk);
+  /* create lambda */
+  PushByte(OpLink, c->pos, c->chunk);
+  PushConst(IntVal(5), c->pos, c->chunk);
+  PushByte(OpPair, c->pos, c->chunk);
+  jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
-
-  /* check arity */
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(IntVal(num_params), c->pos, c->chunk);
-  PushByte(OpEq, c->pos, c->chunk);
-  arity = PushByte(OpBranch, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(Sym("Argument error", &c->chunk->symbols), c->pos, c->chunk);
-  PushByte(OpError, c->pos, c->chunk);
-  PatchJump(c->chunk, arity);
 
   if (num_params > 0) {
     PushByte(OpTuple, c->pos, c->chunk);
@@ -398,7 +397,7 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   result = CompileExpr(body, LinkReturn, c);
   if (!result.ok) return result;
 
-  PatchJump(c->chunk, lambda);
+  PatchJump(c->chunk, jump);
 
   if (num_params > 0) c->env = Tail(c->env, c->mem);
 
@@ -566,6 +565,7 @@ static Result CompileTuple(Val items, Val linkage, Compiler *c)
 
 static Result CompileString(Val sym, Val linkage, Compiler *c)
 {
+  Sym(SymbolName(sym, c->symbols), &c->chunk->symbols);
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(sym, c->pos, c->chunk);
   PushByte(OpStr, c->pos, c->chunk);

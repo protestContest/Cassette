@@ -22,7 +22,6 @@ typedef enum {
 } Precedence;
 
 static Result ParseStmt(Parser *p);
-static Result ParseImport(Parser *p);
 static Result ParseLetAssigns(Val assigns, Parser *p);
 static Result ParseDefAssigns(Val assigns, Parser *p);
 static Result ParseCall(Parser *p);
@@ -130,9 +129,9 @@ Result ParseModule(char *filename, Parser *p)
 
   if (source == 0) return ParseError("Could not read file", p);
   InitLexer(&p->lex, source, 0);
+  SkipNewlines(&p->lex);
 
   /* parse optional module name */
-  SkipNewlines(&p->lex);
   if (MatchToken(TokenModule, &p->lex)) {
     result = ParseID(p);
     if (!result.ok) return result;
@@ -142,22 +141,30 @@ Result ParseModule(char *filename, Parser *p)
     name = Sym(filename, p->symbols);
   }
 
-  stmts = Nil;
+  /* parse imports */
   imports = Nil;
+  while (MatchToken(TokenImport, &p->lex)) {
+    Val import;
+    u32 pos = p->lex.token.lexeme - p->lex.source;
+    Result result = ParseID(p);
+    if (!result.ok) return result;
+
+    import = MakeNode(SymImport, pos, result.value, p->mem);
+
+    SkipNewlines(&p->lex);
+    imports = Pair(import, imports, p->mem);
+  }
+  imports = ReverseList(imports, p->mem);
+
+  stmts = Nil;
   exports = Nil;
   while (!MatchToken(TokenEOF, &p->lex)) {
-    Val stmt, type, expr;
     result = ParseStmt(p);
     if (!result.ok) return result;
 
-    stmt = result.value;
-    type = NodeType(stmt, p->mem);
-    expr = NodeExpr(stmt, p->mem);
-
-    /* count number of imports and exports in stmt */
-    if (type == SymImport) {
-      imports = Pair(stmt, imports, p->mem);
-    } else if (type == SymLet) {
+    /* count number of exports in stmt */
+    if (NodeType(result.value, p->mem) == SymLet) {
+      Val expr = NodeExpr(result.value, p->mem);
       while (expr != Nil) {
         Val assign = Head(expr, p->mem);
         Val export = Head(assign, p->mem);
@@ -166,11 +173,11 @@ Result ParseModule(char *filename, Parser *p)
       }
     }
 
-    stmts = Pair(stmt, stmts, p->mem);
+    stmts = Pair(result.value, stmts, p->mem);
     SkipNewlines(&p->lex);
   }
-
-  stmts = MakeNode(SymDo, 0, ReverseList(stmts, p->mem), p->mem);
+  stmts = ReverseList(stmts, p->mem);
+  exports = ReverseList(exports, p->mem);
 
   free(source);
   return ParseOk(MakeModule(name, stmts, imports, exports, Sym(filename, p->symbols), p->mem));
@@ -182,8 +189,6 @@ static Result ParseStmt(Parser *p)
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
   switch (p->lex.token.type) {
-  case TokenImport:
-    return ParseImport(p);
   case TokenLet:
     result = ParseLetAssigns(Nil, p);
     if (!result.ok) return result;
@@ -195,28 +200,6 @@ static Result ParseStmt(Parser *p)
   default:
     return ParseCall(p);
   }
-}
-
-static Result ParseImport(Parser *p)
-{
-  Result result;
-  u32 pos = p->lex.token.lexeme - p->lex.source;
-  Val mod, alias;
-  Assert(MatchToken(TokenImport, &p->lex));
-
-  result = ParseID(p);
-  if (!result.ok) return result;
-  mod = result.value;
-
-  if (MatchToken(TokenAs, &p->lex)) {
-    result = ParseID(p);
-    if (!result.ok) return result;
-    alias = result.value;
-  } else {
-    alias = mod;
-  }
-
-  return ParseOk(MakeNode(SymImport, pos, Pair(alias, mod, p->mem), p->mem));
 }
 
 static Result ParseLetAssigns(Val assigns, Parser *p)
