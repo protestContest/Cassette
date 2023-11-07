@@ -7,5 +7,6 @@ void Copy(void *src, void *dst, u32 size);
 void Exit(void);
 void Alert(char *message);
 int Open(char *path);
+u32 FileSize(int file);
 char *ReadFile(char *path);
 u32 Ticks(void);

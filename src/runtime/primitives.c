@@ -15,6 +15,7 @@ static Result VMPrint(u32 num_args, VM *vm);
 static Result VMInspect(u32 num_args, VM *vm);
 static Result VMOpen(u32 num_args, VM *vm);
 static Result VMRead(u32 num_args, VM *vm);
+static Result VMReadFile(u32 num_args, VM *vm);
 static Result VMWrite(u32 num_args, VM *vm);
 static Result VMTicks(u32 num_args, VM *vm);
 static Result VMSeed(u32 num_args, VM *vm);
@@ -30,6 +31,7 @@ static PrimitiveDef primitives[] = {
   {"inspect", &VMInspect},
   {"open", &VMOpen},
   {"read", &VMRead},
+  {"read_file", &VMReadFile},
   {"write", &VMWrite},
   {"ticks", &VMTicks},
   {"seed", &VMSeed},
@@ -119,8 +121,8 @@ static Result VMGet(u32 num_args, VM *vm)
   Val obj, index;
   if (num_args != 2) return RuntimeError("Argument error", vm);
 
-  obj = StackPop(vm);
   index = StackPop(vm);
+  obj = StackPop(vm);
   if (!IsObj(obj)) return RuntimeError("Type error", vm);
   if (!IsInt(index)) return RuntimeError("Type error", vm);
 
@@ -131,7 +133,7 @@ static Result VMGet(u32 num_args, VM *vm)
     return OkResult(TupleGet(obj, RawInt(index), &vm->mem));
   } else if (IsBinary(obj, &vm->mem)) {
     u8 byte;
-    if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleLength(obj, &vm->mem)) {
+    if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryLength(obj, &vm->mem)) {
       return RuntimeError("Out of bounds", vm);
     }
     byte = ((u8*)BinaryData(obj, &vm->mem))[RawInt(index)];
@@ -321,6 +323,40 @@ static Result VMRead(u32 num_args, VM *vm)
 
   buf = malloc(RawInt(size));
   bytes_read = read(RawInt(Tail(ref, &vm->mem)), buf, size);
+  if (bytes_read < 0) return OkResult(Error);
+  if (bytes_read == 0) return OkResult(Nil);
+
+  result = BinaryFrom(buf, bytes_read, &vm->mem);
+  free(buf);
+  return OkResult(result);
+}
+
+static Result VMReadFile(u32 num_args, VM *vm)
+{
+  Val name, result;
+  u32 name_len, file_size, bytes_read;
+  char filename[256];
+  char *buf;
+  int file;
+
+  if (num_args < 1) return RuntimeError("Argument error", vm);
+
+  name = StackPop(vm);
+  vm->stack.count -= num_args-1;
+
+  if (!IsBinary(name, &vm->mem)) return RuntimeError("Type error", vm);
+
+  name_len = Min(255, BinaryLength(name, &vm->mem));
+  Copy(BinaryData(name, &vm->mem), filename, name_len);
+  filename[name_len] = 0;
+
+  file = Open(filename);
+  if (file < 0) return OkResult(Error);
+
+  file_size = FileSize(file);
+
+  buf = malloc(file_size);
+  bytes_read = read(file, buf, file_size);
   if (bytes_read < 0) return OkResult(Error);
   if (bytes_read == 0) return OkResult(Nil);
 

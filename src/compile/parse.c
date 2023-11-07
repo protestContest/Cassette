@@ -3,6 +3,7 @@
 #include "module.h"
 #include "source.h"
 #include "univ/system.h"
+#include "univ/string.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -525,6 +526,24 @@ static Result ParseNum(Parser *p)
   Token token = NextToken(&p->lex);
   u32 pos = token.lexeme - p->lex.source;
   u32 whole = 0, frac = 0, frac_size = 1, i;
+
+  while (*token.lexeme == '0') {
+    token.lexeme++;
+    token.length--;
+  }
+
+  if (*token.lexeme == 'x') {
+    for (i = 1; i < token.length; i++) {
+      u32 d = IsDigit(token.lexeme[i]) ? token.lexeme[i] - '0' : token.lexeme[i] - 'A';
+      whole = whole * 16 + d;
+    }
+    return ParseOk(MakeNode(SymNum, pos, IntVal(whole), p->mem));
+  }
+
+  if (*token.lexeme == '$') {
+    u8 byte = token.lexeme[1];
+    return ParseOk(MakeNode(SymNum, pos, IntVal(byte), p->mem));
+  }
 
   for (i = 0; i < token.length; i++) {
     if (token.lexeme[i] == '.') {

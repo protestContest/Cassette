@@ -382,7 +382,7 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   Val params = Head(expr, c->mem);
   Val body = Tail(expr, c->mem);
   Result result;
-  u32 jump, i;
+  u32 jump, branch, i;
   u32 num_params = ListLength(params, c->mem);
 
   /* create lambda */
@@ -391,6 +391,20 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   PushByte(OpPair, c->pos, c->chunk);
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
+
+  /* arity check */
+  PushByte(OpDup, c->pos, c->chunk);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_params), c->pos, c->chunk);
+  PushByte(OpEq, c->pos, c->chunk);
+  branch = PushByte(OpBranch, c->pos, c->chunk);
+  PushByte(0, c->pos, c->chunk);
+  PushByte(OpPop, c->pos, c->chunk);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(Error, c->pos, c->chunk);
+  PushByte(OpError, c->pos, c->chunk);
+  PatchJump(c->chunk, branch);
+  PushByte(OpPop, c->pos, c->chunk);
 
   if (num_params > 0) {
     PushByte(OpTuple, c->pos, c->chunk);

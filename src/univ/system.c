@@ -60,18 +60,24 @@ int Open(char *path)
   return open(path, O_RDWR, mode);
 }
 
+u32 FileSize(int file)
+{
+  u32 pos = lseek(file, 0, 1);
+  u32 size = lseek(file, 0, 2);
+  lseek(file, pos, 0);
+  return size;
+}
+
 char *ReadFile(char *path)
 {
   int file;
-  u32 size, pos;
+  u32 size;
   char *data;
 
   file = Open(path);
   if (file < 0) return 0;
 
-  pos = lseek(file, 0, 1);
-  size = lseek(file, 0, 2);
-  lseek(file, pos, 0);
+  size = FileSize(file);
 
   data = malloc(size + 1);
   read(file, data, size);

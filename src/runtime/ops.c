@@ -14,6 +14,7 @@ static OpInfo ops[] = {
   [OpConst]   = {2, "const"},
   [OpNeg]     = {1, "neg"},
   [OpNot]     = {1, "not"},
+  [OpLen]     = {1, "len"},
   [OpMul]     = {1, "mul"},
   [OpDiv]     = {1, "div"},
   [OpRem]     = {1, "rem"},

@@ -52,7 +52,7 @@ static Token AdvanceToken(Lexer *lex)
   start = lex->source + lex->pos;
 
   if (Peek(lex) == '\0') return MakeToken(TokenEOF, start, 0);
-  if (IsDigit(Peek(lex))) return NumberToken(lex);
+  if (IsDigit(Peek(lex)) || Peek(lex) == '$') return NumberToken(lex);
   if (Peek(lex) == '"') return StringToken(lex);
 
   if (Match("!=", lex)) return MakeToken(TokenBangEqual, start, 2);
@@ -173,6 +173,9 @@ static Token NumberToken(Lexer *lex)
   u32 start = lex->pos;
   if (Match("0x", lex) && IsHexDigit(Peek(lex))) {
     while (IsHexDigit(Peek(lex))) lex->pos++;
+    return MakeToken(TokenNum, lex->source + start, lex->pos - start);
+  } else if (Match("$", lex)) {
+    lex->pos++;
     return MakeToken(TokenNum, lex->source + start, lex->pos - start);
   } else {
     lex->pos = start;

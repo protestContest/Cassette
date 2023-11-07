@@ -3,11 +3,15 @@
 #define IsSpace(c)      ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)    ((c) == '\n' || (c) == '\r')
 #define IsDigit(c)      ((c) >= '0' && (c) <= '9')
+#define IsUppercase(c)  ((c) >= 'A' && (c) <= 'Z')
+#define IsLowercase(c)  ((c) >= 'a' && (c) <= 'z')
+#define IsAlpha(c)      (IsUppercase(c) || IsLowercase(c))
 #define IsHexDigit(c)   (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
 #define IsPrintable(c)  ((c) >= 0x20 && (c) < 0x7F)
 
-#define ANSIRed     "\033[31m"
-#define ANSINormal  "\033[0m"
+#define ANSIRed         "\033[31m"
+#define ANSIUnderline   "\033[4m"
+#define ANSINormal      "\033[0m"
 
 u32 StrLen(char *str);
 bool StrEq(char *str1, char *str2);

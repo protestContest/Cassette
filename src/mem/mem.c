@@ -339,7 +339,8 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
     u32 k;
 
     for (k = 0; k < bytes; k++) {
-      if (!IsPrintable(value >> (k*8))) {
+      u8 byte = (value >> (k*8)) & 0xFF;
+      if (!IsPrintable(byte)) {
         printable = false;
         break;
       }
@@ -350,11 +351,11 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
     if (printable) {
       for (k = 0; k < width-bytes-2; k++) printf(" ");
       printf("\"");
-      for (k = 0; k < bytes; k++) printf("%c", value >> (k*8));
+      for (k = 0; k < bytes; k++) printf("%c", (value >> (k*8)) & 0xFF);
       printf("\"");
     } else {
       for (k = 0; k < width-(bytes*2); k++) printf(".");
-      for (k = 0; k < bytes; k++) printf("%02X", value >> (k*8));
+      for (k = 0; k < bytes; k++) printf("%02X", (value >> (k*8)) & 0xFF);
     }
     if ((index+j+2) % cols == 0) printf("║\n");
   }

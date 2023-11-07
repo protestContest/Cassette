@@ -19,7 +19,7 @@ void InitVM(VM *vm)
   vm->pc = 0;
   vm->chunk = 0;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
-  InitMem(&vm->mem, 256);
+  InitMem(&vm->mem, 1024*1024);
 
   vm->stack.count = 1;
   Env(vm) = ExtendEnv(Nil, DefinePrimitives(&vm->mem, 0), &vm->mem);
@@ -48,8 +48,6 @@ Result RunChunk(Chunk *chunk, VM *vm)
     TraceInstruction(op, vm);
     printf("\n");
 #endif
-
-    CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
 
     switch (op) {
     case OpNoop:
@@ -97,9 +95,11 @@ Result RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpLen:
       if (IsPair(StackRef(vm, 0))) {
-        StackRef(vm, 0) = ListLength(StackRef(vm, 0), &vm->mem);
+        StackRef(vm, 0) = IntVal(ListLength(StackRef(vm, 0), &vm->mem));
       } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
-        StackRef(vm, 0) = TupleLength(StackRef(vm, 0), &vm->mem);
+        StackRef(vm, 0) = IntVal(TupleLength(StackRef(vm, 0), &vm->mem));
+      } else if (IsBinary(StackRef(vm, 0), &vm->mem)) {
+        StackRef(vm, 0) = IntVal(BinaryLength(StackRef(vm, 0), &vm->mem));
       } else {
         return RuntimeError("Type error", vm);
       }
@@ -333,11 +333,8 @@ static bool CheckMem(VM *vm, u32 amount)
   if (!CheckCapacity(&vm->mem, amount)) {
 #ifdef DEBUG
     printf("Collecting Garbage\n");
-    DumpMem(&vm->mem, &vm->chunk->symbols);
 #endif
     CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
-    DumpMem(&vm->mem, &vm->chunk->symbols);
-
   }
 
   if (!CheckCapacity(&vm->mem, amount)) {
