@@ -51,6 +51,7 @@ typedef u32 Val;
 #define Error             0x7FDC3AAA
 #define Primitive         0x7FD0D974
 #define Undefined         0x7FD19F74
+#define Moved             0x7FD162D1
 #define File              0x7FD934AA
 
 Val FloatVal(float num);

@@ -64,10 +64,8 @@ u32 ColNum(char *source, u32 pos)
 {
   char *cur = source + pos;
 
-  while (cur > source) {
-    cur--;
-    if (*cur == '\n') break;
-  }
+  while (cur > source && *(cur-1) != '\n') cur--;
+
   return source + pos - cur;
 }
 

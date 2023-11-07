@@ -1,3 +1,3 @@
 import Std
 
-inspect (reverse (range 0 9))
+inspect (filter (range 0 10) (n) -> n % 2 == 0)

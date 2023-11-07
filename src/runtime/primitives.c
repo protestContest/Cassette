@@ -193,7 +193,7 @@ static Result VMInspect(u32 num_args, VM *vm)
   InspectPrint(value, 10, &vm->mem, &vm->chunk->symbols);
   printf("\n");
 
-  return OkResult(Ok);
+  return OkResult(value);
 }
 
 static Result VMOpen(u32 num_args, VM *vm)

@@ -6,15 +6,15 @@
 
 typedef struct {
   u32 pc;
-  Mem stack;
+  IntVec stack;
   Mem mem;
   Chunk *chunk;
 } VM;
 
-#define StackPush(vm, v)    PushMem(&(vm)->stack, v)
-#define StackPop(vm)        PopMem(&(vm)->stack)
-#define StackRef(vm, i)     (vm)->stack.values[(vm)->stack.count - 1 - i]
-#define Env(vm)             (vm)->stack.values[0]
+#define StackPush(vm, v)    IntVecPush(&(vm)->stack, v)
+#define StackPop(vm)        ((vm)->stack.items[--(vm)->stack.count])
+#define StackRef(vm, i)     (vm)->stack.items[(vm)->stack.count - 1 - i]
+#define Env(vm)             (vm)->stack.items[0]
 
 void InitVM(VM *vm);
 void DestroyVM(VM *vm);

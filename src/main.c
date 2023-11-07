@@ -6,7 +6,6 @@
 int main(int argc, char *argv[])
 {
   Chunk chunk;
-  Manifest manifest;
   Result result;
   VM vm;
 
@@ -15,20 +14,12 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  InitManifest(&manifest);
-  if (!ReadManifest(argv[1], &manifest)) {
-    printf("Could not read manifest \"%s\"\n", argv[1]);
-    DestroyManifest(&manifest);
-    return 1;
-  }
-
   InitChunk(&chunk);
-  result = BuildProject(&manifest, &chunk);
+  result = BuildProject(argv[1], &chunk);
 
   if (!result.ok) {
     PrintError(result);
     DestroyChunk(&chunk);
-    DestroyManifest(&manifest);
     return 1;
   }
 
@@ -44,7 +35,6 @@ int main(int argc, char *argv[])
 
   DestroyVM(&vm);
   DestroyChunk(&chunk);
-  DestroyManifest(&manifest);
 
   return 0;
 }

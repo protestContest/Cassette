@@ -3,6 +3,8 @@
 #include "univ/string.h"
 #include "univ/system.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 Result OkResult(Val value)
 {
@@ -18,11 +20,13 @@ Result OkResult(Val value)
 Result ErrorResult(char *error, char *filename, u32 pos)
 {
   Result result;
+  u32 filename_len = strlen(filename);
   result.ok = false;
   result.value = Error;
   result.error = error;
-  result.filename = filename;
+  result.filename = malloc(filename_len+1);
   result.pos = pos;
+  Copy(filename, result.filename, filename_len+1);
   return result;
 }
 

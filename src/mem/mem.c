@@ -2,6 +2,7 @@
 #include "symbols.h"
 #include "univ/system.h"
 #include "univ/string.h"
+#include "univ/math.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -49,6 +50,7 @@ Val PopMem(Mem *mem)
 Val Pair(Val head, Val tail, Mem *mem)
 {
   Val pair = PairVal(mem->count);
+  if (!CheckCapacity(mem, 2)) ResizeMem(mem, 2*mem->capacity);
   Assert(CheckCapacity(mem, 2));
   PushMem(mem, head);
   PushMem(mem, tail);
@@ -111,6 +113,7 @@ Val MakeTuple(u32 length, Mem *mem)
 {
   u32 i;
   Val tuple = ObjVal(mem->count);
+  if (!CheckCapacity(mem, length+1)) ResizeMem(mem, Max(2*mem->capacity, mem->count + length + 1));
   Assert(CheckCapacity(mem, length + 1));
   PushMem(mem, TupleHeader(length));
   for (i = 0; i < length; i++) {
@@ -161,6 +164,7 @@ Val MakeBinary(u32 size, Mem *mem)
   u32 cells = (size == 0) ? 1 : NumBinCells(size);
   u32 i;
 
+  if (!CheckCapacity(mem, cells+1)) ResizeMem(mem, Max(2*mem->capacity, mem->count+cells+1));
   Assert(CheckCapacity(mem, cells + 1));
   PushMem(mem, BinaryHeader(size));
 
@@ -210,9 +214,10 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
 {
   Val new_val = Nil;
 
+  if (value == Nil) return Nil;
   if (!IsObj(value) && !IsPair(value)) return value;
 
-  if (from->values[RawVal(value)] == Undefined) {
+  if (from->values[RawVal(value)] == Moved) {
     return from->values[RawVal(value)+1];
   }
 
@@ -229,8 +234,8 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
     Copy(BinaryData(value, from), BinaryData(new_val, to), BinaryLength(value, from));
   }
 
-  SetHead(value, Undefined, from);
-  SetTail(value, new_val, from);
+  from->values[RawVal(value)] = Moved;
+  from->values[RawVal(value)+1] = new_val;
   return new_val;
 }
 

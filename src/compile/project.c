@@ -10,73 +10,36 @@
 #include <stdlib.h>
 
 typedef struct {
+  char *name;
+  ObjVec files;
+} Manifest;
+
+typedef struct {
   Val entry;
   HashMap modules;
   Mem mem;
   SymbolTable symbols;
-  Manifest *manifest;
+  Manifest manifest;
 } Project;
 
-static void InitProject(Project *p, Manifest *manifest);
+static void InitProject(Project *p);
 static void DestroyProject(Project *p);
+static void InitManifest(Manifest *manifest);
+static void DestroyManifest(Manifest *manifest);
+static Result ReadManifest(char *filename, Project *project);
 static Result ParseModules(Project *project);
 static Result ScanDependencies(Project *project);
 static Result CompileProject(Val build_list, Chunk *chunk, Project *p);
 
-void InitManifest(Manifest *manifest)
-{
-  manifest->name = 0;
-  InitVec((Vec*)&manifest->files, sizeof(char*), 8);
-}
-
-void DestroyManifest(Manifest *manifest)
-{
-  u32 i;
-  for (i = 0; i < manifest->files.count; i++) {
-    free(manifest->files.items[i]);
-  }
-  DestroyVec((Vec*)&manifest->files);
-}
-
-bool ReadManifest(char *filename, Manifest *manifest)
-{
-  char *source;
-  char *cur;
-  char *basename = Basename(filename, '/');
-
-  source = ReadFile(filename);
-  if (source == 0) return false;
-
-  cur = SkipBlankLines(source);
-  while (*cur != 0) {
-    char *end = LineEnd(cur);
-    if (*end == '\n') {
-      /* replace newline with string terminator */
-      *end = 0;
-      end++;
-    }
-    /* add full path filename */
-    ObjVecPush(&manifest->files, JoinStr(basename, cur, '/'));
-    cur = end;
-
-    /* skip to next non-space character */
-    cur = SkipBlankLines(cur);
-  }
-
-  free(source);
-  free(basename);
-
-  return true;
-}
-
-Result BuildProject(Manifest *manifest, Chunk *chunk)
+Result BuildProject(char *manifest, Chunk *chunk)
 {
   Result result;
   Project project;
 
-  InitProject(&project, manifest);
+  InitProject(&project);
 
-  result = ParseModules(&project);
+  result = ReadManifest(manifest, &project);
+  if (result.ok) result = ParseModules(&project);
   if (result.ok) result = ScanDependencies(&project);
   if (result.ok) result = CompileProject(result.value, chunk, &project);
 
@@ -84,10 +47,10 @@ Result BuildProject(Manifest *manifest, Chunk *chunk)
   return result;
 }
 
-static void InitProject(Project *p, Manifest *manifest)
+static void InitProject(Project *p)
 {
   p->entry = Nil;
-  p->manifest = manifest;
+  InitManifest(&p->manifest);
   InitHashMap(&p->modules);
   InitMem(&p->mem, 1024);
   InitSymbolTable(&p->symbols);
@@ -98,8 +61,55 @@ static void DestroyProject(Project *p)
   DestroyHashMap(&p->modules);
   DestroyMem(&p->mem);
   DestroySymbolTable(&p->symbols);
+  DestroyManifest(&p->manifest);
   p->entry = Nil;
-  p->manifest = 0;
+}
+
+static void InitManifest(Manifest *manifest)
+{
+  manifest->name = 0;
+  InitVec((Vec*)&manifest->files, sizeof(char*), 8);
+}
+
+static void DestroyManifest(Manifest *manifest)
+{
+  u32 i;
+  for (i = 0; i < manifest->files.count; i++) {
+    free(manifest->files.items[i]);
+  }
+  DestroyVec((Vec*)&manifest->files);
+}
+
+
+Result ReadManifest(char *filename, Project *project)
+{
+  char *source;
+  char *cur;
+  char *basename = Basename(filename, '/');
+
+  source = ReadFile(filename);
+  if (source == 0) return ErrorResult("Could not read manifest", filename, 0);
+
+  cur = SkipBlankLines(source);
+  while (*cur != 0) {
+    char *end = LineEnd(cur);
+    if (*end == '\n') {
+      /* replace newline with string terminator */
+      *end = 0;
+      end++;
+    }
+    /* add full path filename */
+    ObjVecPush(&project->manifest.files, JoinStr(basename, cur, '/'));
+    cur = end;
+
+    /* skip to next non-space character */
+    cur = SkipBlankLines(cur);
+  }
+
+  free(source);
+  free(basename);
+
+  return OkResult(Nil);
 }
 
 /* parses each file and puts the result in a hashmap, keyed by module name (or
@@ -112,9 +122,9 @@ static Result ParseModules(Project *project)
 
   InitParser(&parser, &project->mem, &project->symbols);
 
-  for (i = 0; i < project->manifest->files.count; i++) {
+  for (i = 0; i < project->manifest.files.count; i++) {
     Val name;
-    char *filename = project->manifest->files.items[i];
+    char *filename = project->manifest.files.items[i];
     char *source = ReadFile(filename);
 
     if (source == 0) return ErrorResult("Could not read file", filename, 0);

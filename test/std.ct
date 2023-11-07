@@ -23,3 +23,17 @@ end
 def (reverse list) do
   reduce list nil (item reversed) -> item | reversed
 end
+
+def (map list fn) do
+  reverse (reduce list nil (item acc) -> (fn item) | acc)
+end
+
+def (filter list fn) do
+  reverse (reduce list nil (item acc) -> do
+      if (fn item) do
+        item | acc
+      else
+        acc
+      end
+    end)
+end

@@ -71,7 +71,8 @@ Result CompileScript(Val module, Compiler *c)
     if (!result.ok) return result;
   }
 
-  CompileDo(Pair(ModuleExports(module, c->mem), ModuleBody(module, c->mem), c->mem), LinkNext, c);
+  result = CompileDo(Pair(ModuleExports(module, c->mem), ModuleBody(module, c->mem), c->mem), LinkNext, c);
+  if (!result.ok) return result;
 
   /* discard import frame */
   if (imports != Nil) {
@@ -185,8 +186,6 @@ static Result CompileImports(Val imports, Compiler *c)
     i32 import_def;
 
     c->pos = NodePos(node, c->mem);
-
-    PrintEnv(c->env, c->mem, c->symbols);
 
     if (!HashMapContains(c->modules, import_name)) return CompileError("Undefined module", c);
     import_mod = HashMapGet(c->modules, import_name);

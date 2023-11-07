@@ -17,7 +17,7 @@ void InitVM(VM *vm)
 {
   vm->pc = 0;
   vm->chunk = 0;
-  InitMem(&vm->stack, 256);
+  InitVec((Vec*)&vm->stack, sizeof(Val), 256);
   InitMem(&vm->mem, 256);
 
   vm->stack.count = 1;
@@ -28,7 +28,7 @@ void DestroyVM(VM *vm)
 {
   vm->pc = 0;
   vm->chunk = 0;
-  DestroyMem(&vm->stack);
+  DestroyVec((Vec*)&vm->stack);
   DestroyMem(&vm->mem);
 }
 
@@ -43,6 +43,8 @@ Result RunChunk(Chunk *chunk, VM *vm)
     TraceInstruction(op, vm);
     printf("\n");
 #endif
+
+    CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
 
     switch (op) {
     case OpNoop:
@@ -205,7 +207,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
       vm->pc += OpLength(op);
       break;
     case OpTuple:
-      if (!CheckMem(vm, RawInt(StackRef(vm, 0)))) return RuntimeError("Out of memory", vm);
+      if (!CheckMem(vm, RawInt(StackRef(vm, 0)) + 1)) return RuntimeError("Out of memory", vm);
       StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
       vm->pc += OpLength(op);
       break;
@@ -326,8 +328,11 @@ static bool CheckMem(VM *vm, u32 amount)
   if (!CheckCapacity(&vm->mem, amount)) {
 #ifdef DEBUG
     printf("Collecting Garbage\n");
+    DumpMem(&vm->mem, &vm->chunk->symbols);
 #endif
-    CollectGarbage(vm->stack.values, vm->stack.count, &vm->mem);
+    CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
+    DumpMem(&vm->mem, &vm->chunk->symbols);
+
   }
 
   if (!CheckCapacity(&vm->mem, amount)) {
