@@ -4,6 +4,7 @@
 #include "univ/hash.h"
 #include "univ/string.h"
 #include "univ/system.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -49,7 +50,7 @@ static void AddSymbol(char *name, u32 length, SymbolTable *symbols)
 {
   u32 index = GrowVec((Vec*)&symbols->names, sizeof(*symbols->names.items), length+1);
   Copy(name, symbols->names.items + index, length);
-  symbols->names.items[symbols->names.count] = 0;
+  symbols->names.items[symbols->names.count-1] = 0;
 }
 
 Val MakeSymbol(char *name, u32 length, SymbolTable *symbols)

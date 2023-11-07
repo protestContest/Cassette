@@ -77,11 +77,11 @@ Result BuildProject(Manifest *manifest, Chunk *chunk)
   InitProject(&project, manifest);
 
   result = ParseModules(&project);
-  result = ScanDependencies(&project);
-  result = CompileProject(result.value, chunk, &project);
+  if (result.ok) result = ScanDependencies(&project);
+  if (result.ok) result = CompileProject(result.value, chunk, &project);
 
   DestroyProject(&project);
-  return OkResult(Nil);
+  return result;
 }
 
 static void InitProject(Project *p, Manifest *manifest)
@@ -107,15 +107,24 @@ static void DestroyProject(Project *p)
 static Result ParseModules(Project *project)
 {
   Result result;
-  Parser p;
+  Parser parser;
   u32 i;
 
-  InitParser(&p, &project->mem, &project->symbols);
+  InitParser(&parser, &project->mem, &project->symbols);
 
   for (i = 0; i < project->manifest->files.count; i++) {
     Val name;
-    result = ParseModule(project->manifest->files.items[i], &p);
+    char *filename = project->manifest->files.items[i];
+    char *source = ReadFile(filename);
+
+    if (source == 0) return ErrorResult("Could not read file", filename, 0);
+    parser.filename = filename;
+    InitLexer(&parser.lex, source, 0);
+
+    result = ParseModule(&parser);
     if (!result.ok) return result;
+
+    free(source);
 
     name = ModuleName(result.value, &project->mem);
 
@@ -175,7 +184,7 @@ static Result ScanDependencies(Project *project)
 static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
 {
   Compiler c;
-  u32 i = 0;
+  u32 i;
   u32 num_modules = ListLength(build_list, &p->mem);
   Val module_env = ExtendEnv(Nil, CompileEnv(&p->mem, &p->symbols), &p->mem);
 
@@ -186,13 +195,15 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
      although modules are technically reachable at runtime in the environment,
      the compiler wouldn't be able to resolve them, so it would never compile
      access to them */
-  module_env = ExtendEnv(module_env, MakeTuple(num_modules, &p->mem), &p->mem);
-  PushByte(OpConst, 0, chunk);
-  PushConst(IntVal(num_modules), 0, chunk);
-  PushByte(OpTuple, 0, chunk);
-  PushByte(OpExtend, 0, chunk);
+  if (num_modules > 1) {
+    module_env = ExtendEnv(module_env, MakeTuple(num_modules - 1, &p->mem), &p->mem);
+    PushByte(OpConst, 0, chunk);
+    PushConst(IntVal(num_modules - 1), 0, chunk);
+    PushByte(OpTuple, 0, chunk);
+    PushByte(OpExtend, 0, chunk);
+  }
 
-  while (build_list != Nil) {
+  for (i = 0; i < num_modules; i++) {
     Result result;
     Val module = Head(build_list, &p->mem);
     build_list = Tail(build_list, &p->mem);
@@ -201,22 +212,21 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
     PrintVal(ModuleName(module, &p->mem), &p->symbols);
     printf("\n");
 
-    result = CompileModule(module, module_env, i, &c);
+    c.env = module_env;
+    if (i == num_modules - 1) {
+      result = CompileScript(module, &c);
+    } else {
+      result = CompileModule(module, i, &c);
+      Define(ModuleName(module, &p->mem), i, module_env, &p->mem);
+    }
     if (!result.ok) return result;
-
-    Define(ModuleName(module, &p->mem), i, module_env, &p->mem);
-    i++;
   }
 
-  /* call the last compiled module (the entry point) */
-  PushByte(OpLink, 0, chunk);
-  PushConst(IntVal(7), 0, chunk);
-  PushByte(OpLookup, 0, chunk);
-  PushConst(IntVal(0), 0, chunk);
-  PushConst(IntVal(i-1), 0, chunk);
-  PushByte(OpApply, 0, chunk);
-  PushConst(IntVal(0), 0, chunk);
-  PushByte(OpPop, 0, chunk);
+  /* clean up module env */
+  if (num_modules > 1) {
+    PushByte(OpExport, 0, chunk);
+    PushByte(OpPop, 0, chunk);
+  }
 
   return OkResult(Nil);
 }

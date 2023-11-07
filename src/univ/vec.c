@@ -23,7 +23,7 @@ void DestroyVec(Vec *vec)
 u32 GrowVec(Vec *vec, u32 item_size, u32 amount)
 {
   u32 old_count = vec->count;
-  if (vec->count + amount < vec->capacity) {
+  if (vec->count + amount >= vec->capacity) {
     ResizeVec(vec, item_size, Max(2*vec->capacity, vec->count + amount));
   }
   vec->count += amount;

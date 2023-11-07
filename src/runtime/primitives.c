@@ -42,7 +42,7 @@ Val DefinePrimitives(Mem *mem, SymbolTable *symbols)
   Val frame = MakeTuple(NumPrimitives(), mem);
   for (i = 0; i < NumPrimitives(); i++) {
     Val primitive = Pair(Primitive, IntVal(i), mem);
-    Sym(primitives[i].name, symbols);
+    if (symbols) Sym(primitives[i].name, symbols);
     TupleSet(frame, i, primitive, mem);
   }
   return frame;
@@ -72,15 +72,15 @@ static Result VMType(u32 num_args, VM *vm)
   vm->stack.count -= num_args-1;
 
   if (IsFloat(arg) || IsInt(arg)) {
-    return OkResult(Sym("number", &vm->symbols));
+    return OkResult(Sym("number", &vm->chunk->symbols));
   } else if (IsSym(arg)) {
-    return OkResult(Sym("symbol", &vm->symbols));
+    return OkResult(Sym("symbol", &vm->chunk->symbols));
   } else if (IsPair(arg)) {
-    return OkResult(Sym("pair", &vm->symbols));
+    return OkResult(Sym("pair", &vm->chunk->symbols));
   } else if (IsTuple(arg, &vm->mem)) {
-    return OkResult(Sym("tuple", &vm->symbols));
+    return OkResult(Sym("tuple", &vm->chunk->symbols));
   } else if (IsBinary(arg, &vm->mem)) {
-    return OkResult(Sym("binary", &vm->symbols));
+    return OkResult(Sym("binary", &vm->chunk->symbols));
   } else {
     return RuntimeError("Unknown value", vm);
   }
@@ -113,7 +113,7 @@ static Result VMPrint(u32 num_args, VM *vm)
     if (IsNum(value)) {
       PrintVal(value, 0);
     } else if (IsSym(value)) {
-      PrintVal(value, &vm->symbols);
+      PrintVal(value, &vm->chunk->symbols);
     } else if (IsBinary(value, &vm->mem)) {
       u32 len = BinaryLength(value, &vm->mem);
       printf("%*.*s", len, len, (char*)BinaryData(value, &vm->mem));
@@ -190,7 +190,7 @@ static Result VMInspect(u32 num_args, VM *vm)
 
   value = StackPop(vm);
 
-  InspectPrint(value, 10, &vm->mem, &vm->symbols);
+  InspectPrint(value, 10, &vm->mem, &vm->chunk->symbols);
   printf("\n");
 
   return OkResult(Ok);

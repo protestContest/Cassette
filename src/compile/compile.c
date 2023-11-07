@@ -12,8 +12,8 @@
 
 static Result CompileImports(Val imports, Compiler *c);
 static Result CompileExpr(Val node, Val linkage, Compiler *c);
-static Result CompileDo(Val stmts, Val linkage, Compiler *c);
-static Result CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compiler *c);
+static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c);
+static Result CompileDo(Val expr, Val linkage, Compiler *c);
 static Result CompileCall(Val call, Val linkage, Compiler *c);
 static Result CompileLambda(Val expr, Val linkage, Compiler *c);
 static Result CompileIf(Val expr, Val linkage, Compiler *c);
@@ -29,29 +29,70 @@ static Result CompileConst(Val value, Val linkage, Compiler *c);
 static Result CompileGroup(Val expr, Val linkage, Compiler *c);
 
 static void CompileLinkage(Val linkage, Compiler *c);
-static u32 ScanImports(Val stmts, Compiler *c);
-static u32 ScanAssigns(Val stmts, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
 #define CompileOk()  OkResult(Nil)
 
 void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules, Chunk *chunk)
 {
+  c->pos = 0;
+  c->env = Nil;
+  c->filename = 0;
   c->mem = mem;
   c->symbols = symbols;
   c->modules = modules;
   c->chunk = chunk;
 }
 
-Result CompileModule(Val module, Val env, u32 mod_num, Compiler *c)
+Result CompileScript(Val module, Compiler *c)
 {
+  Result result;
   Val imports = ModuleImports(module, c->mem);
-  Val stmts = ModuleBody(module, c->mem);
+
+  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
+  c->pos = 0;
+
+  /* copy filename symbol to chunk */
+  Sym(c->filename, &c->chunk->symbols);
+
+  /* record start position of module in chunk */
+  BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
+
+  /* compile imports */
+  if (imports != Nil) {
+    u32 num_imports = CountExports(imports, c->modules, c->mem);
+
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(num_imports), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+    PushByte(OpExtend, c->pos, c->chunk);
+    c->env = ExtendEnv(c->env, MakeTuple(num_imports, c->mem), c->mem);
+
+    result = CompileImports(imports, c);
+    if (!result.ok) return result;
+  }
+
+  CompileDo(Pair(ModuleExports(module, c->mem), ModuleBody(module, c->mem), c->mem), LinkNext, c);
+
+  /* discard import frame */
+  if (imports != Nil) {
+    PushByte(OpExport, c->pos, c->chunk);
+    PushByte(OpPop, c->pos, c->chunk);
+    c->env = Tail(c->env, c->mem);
+  }
+
+  EndChunkFile(c->chunk);
+
+  return CompileOk();
+}
+
+Result CompileModule(Val module, u32 mod_num, Compiler *c)
+{
+  Result result;
+  Val imports = ModuleImports(module, c->mem);
   u32 num_assigns = ListLength(ModuleExports(module, c->mem), c->mem);
-  u32 num_assigned = 0;
   u32 jump;
 
   c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
-  c->env = env;
   c->pos = 0;
 
   /* copy filename symbol to chunk */
@@ -71,7 +112,6 @@ Result CompileModule(Val module, Val env, u32 mod_num, Compiler *c)
 
   /* compile imports */
   if (imports != Nil) {
-    Result result;
     u32 num_imports = CountExports(imports, c->modules, c->mem);
 
     PushByte(OpConst, c->pos, c->chunk);
@@ -93,37 +133,11 @@ Result CompileModule(Val module, Val env, u32 mod_num, Compiler *c)
     PushByte(OpExtend, c->pos, c->chunk);
   }
 
-  while (stmts != Nil) {
-    Val stmt = Head(stmts, c->mem);
-    Result result;
+  result = CompileBlock(ModuleBody(module, c->mem), ModuleExports(module, c->mem), LinkNext, c);
+  if (!result.ok) return result;
 
-    if (NodeType(stmt, c->mem) == SymLet) {
-      Val assigns = NodeExpr(stmt, c->mem);
-      u32 i = 0;
-      /* compile each assignment */
-      while (assigns != Nil) {
-        Val assign = Head(assigns, c->mem);
-        Val var = Head(assign, c->mem);
-        Val value = Tail(assign, c->mem);
-        Define(var, num_assigned + i, c->env, c->mem);
-        result = CompileExpr(value, LinkNext, c);
-        if (!result.ok) return result;
-
-        PushByte(OpDefine, c->pos, c->chunk);
-        PushConst(IntVal(num_assigned + i), c->pos, c->chunk);
-
-        i++;
-        assigns = Tail(assigns, c->mem);
-      }
-      num_assigned += i;
-    } else {
-      result = CompileExpr(stmt, LinkNext, c);
-      if (!result.ok) return result;
-      PushByte(OpPop, c->pos, c->chunk); /* discard each statement result */
-    }
-
-    stmts = Tail(stmts, c->mem);
-  }
+  /* discard last statement result */
+  PushByte(OpPop, c->pos, c->chunk);
 
   /* export assigned values */
   if (num_assigns > 0) {
@@ -171,6 +185,8 @@ static Result CompileImports(Val imports, Compiler *c)
     i32 import_def;
 
     c->pos = NodePos(node, c->mem);
+
+    PrintEnv(c->env, c->mem, c->symbols);
 
     if (!HashMapContains(c->modules, import_name)) return CompileError("Undefined module", c);
     import_mod = HashMapGet(c->modules, import_name);
@@ -254,75 +270,74 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
   }
 }
 
-static Result CompileDo(Val stmts, Val linkage, Compiler *c)
+static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
 {
-  u32 num_assigns = ScanAssigns(stmts, c);
   u32 assigned = 0;
 
-  c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(IntVal(num_assigns), 0, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
-  PushByte(OpExtend, c->pos, c->chunk);
-
   while (stmts != Nil) {
+    Result result;
     Val stmt = Head(stmts, c->mem);
     bool is_last = Tail(stmts, c->mem) == Nil;
     Val stmt_linkage = is_last ? linkage : LinkNext;
-    Val tag = TupleGet(stmt, 0, c->mem);
-    Val expr = TupleGet(stmt, 2, c->mem);
 
-    if (tag == SymLet) {
-      Result result = CompileAssigns(expr, assigned, stmt_linkage, c);
+    if (NodeType(stmt, c->mem) == SymLet) {
+      Val var = Head(NodeExpr(stmt, c->mem), c->mem);
+      Val value = Tail(NodeExpr(stmt, c->mem), c->mem);
+
+      Define(var, assigned, c->env, c->mem);
+
+      result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
-      assigned += ListLength(expr, c->mem);
+
+      PushByte(OpDefine, c->pos, c->chunk);
+      PushConst(IntVal(assigned), c->pos, c->chunk);
+
+      assigned++;
+
+      if (is_last) {
+        PushByte(OpConst, c->pos, c->chunk);
+        PushConst(Ok, c->pos, c->chunk);
+      }
     } else {
-      Result result = CompileExpr(stmt, stmt_linkage, c);
+      result = CompileExpr(stmt, stmt_linkage, c);
       if (!result.ok) return result;
-    }
-
-    if (!is_last) {
-      /* discard each statement result except the last */
-      PushByte(OpPop, c->pos, c->chunk);
+      if (!is_last) {
+        /* discard each statement result except the last */
+        PushByte(OpPop, c->pos, c->chunk);
+      }
     }
 
     stmts = Tail(stmts, c->mem);
   }
 
-  /* cast off our accumulated scopes */
-  c->env = Tail(c->env, c->mem);
-  if (linkage != LinkReturn) {
-    PushByte(OpExport, c->pos, c->chunk);
-    PushByte(OpPop, c->pos, c->chunk);
-  }
-
   return CompileOk();
 }
 
-static Result CompileAssigns(Val assigns, u32 prev_assigned, Val linkage, Compiler *c)
+static Result CompileDo(Val expr, Val linkage, Compiler *c)
 {
-  u32 i = 0;
+  Result result;
+  Val assigns = Head(expr, c->mem);
+  Val stmts = Tail(expr, c->mem);
 
-  while (assigns != Nil) {
-    Val assign = Head(assigns, c->mem);
-    Val var = Head(assign, c->mem);
-    Val value = Tail(assign, c->mem);
-    Val val_linkage = (Tail(assigns, c->mem) == Nil) ? linkage : LinkNext;
-    Result result;
-    Define(var, prev_assigned + i, c->env, c->mem);
+  u32 num_assigns = ListLength(assigns, c->mem);
 
-    result = CompileExpr(value, val_linkage, c);
-    if (!result.ok) return result;
-
-    PushByte(OpDefine, c->pos, c->chunk);
-    PushConst(IntVal(prev_assigned + i), c->pos, c->chunk);
-
-    i++;
-    assigns = Tail(assigns, c->mem);
+  if (num_assigns > 0) {
+    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(num_assigns), 0, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+    PushByte(OpExtend, c->pos, c->chunk);
   }
 
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(Ok, c->pos, c->chunk);
+  result = CompileBlock(stmts, assigns, linkage, c);
+  if (!result.ok) return result;
+
+  /* discard frame for assigns */
+  if (num_assigns > 0) {
+    PushByte(OpExport, c->pos, c->chunk);
+    PushByte(OpPop, c->pos, c->chunk);
+    c->env = Tail(c->env, c->mem);
+  }
 
   return CompileOk();
 }
@@ -336,7 +351,7 @@ static Result CompileCall(Val call, Val linkage, Compiler *c)
 
   if (linkage != LinkReturn) {
     patch = PushByte(OpLink, c->pos, c->chunk);
-    PushByte(OpNoop, c->pos, c->chunk);
+    PushByte(0, c->pos, c->chunk);
   }
 
   while (args != Nil) {
@@ -430,6 +445,7 @@ static Result CompileIf(Val expr, Val linkage, Compiler *c)
 
   PushByte(OpPop, c->pos, c->chunk);
   result = CompileExpr(cons, linkage, c);
+  if (!result.ok) return result;
 
   if (linkage == LinkNext) {
     PatchJump(c->chunk, jump);
@@ -604,42 +620,6 @@ static void CompileLinkage(Val linkage, Compiler *c)
     PushConst(linkage, c->pos, c->chunk);
     PushByte(OpJump, c->pos, c->chunk);
   }
-}
-
-static u32 ScanImports(Val stmts, Compiler *c)
-{
-  u32 imports = 0;
-  while (stmts != Nil) {
-    Val stmt = Head(stmts, c->mem);
-    Val type = TupleGet(stmt, 0, c->mem);
-    Val expr = TupleGet(stmt, 2, c->mem);
-
-    if (type == SymImport) {
-      Val mod_name = Head(expr, c->mem);
-      Val mod = HashMapGet(c->modules, mod_name);
-      imports += ListLength(ModuleExports(mod, c->mem), c->mem);
-    }
-
-    stmts = Tail(stmts, c->mem);
-  }
-  return imports;
-}
-
-static u32 ScanAssigns(Val stmts, Compiler *c)
-{
-  u32 assigns = 0;
-  while (stmts != Nil) {
-    Val stmt = Head(stmts, c->mem);
-    Val type = TupleGet(stmt, 0, c->mem);
-    Val expr = TupleGet(stmt, 2, c->mem);
-
-    if (type == SymLet) {
-      assigns += ListLength(expr, c->mem);
-    }
-
-    stmts = Tail(stmts, c->mem);
-  }
-  return assigns;
 }
 
 static Result CompileError(char *message, Compiler *c)

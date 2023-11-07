@@ -200,6 +200,12 @@ bool CheckCapacity(Mem *mem, u32 amount)
   return mem->count + amount <= mem->capacity;
 }
 
+void ResizeMem(Mem *mem, u32 capacity)
+{
+  mem->capacity = capacity;
+  mem->values = realloc(mem->values, sizeof(Val)*capacity);
+}
+
 static Val CopyValue(Val value, Mem *from, Mem *to)
 {
   Val new_val = Nil;

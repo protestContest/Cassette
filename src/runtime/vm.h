@@ -8,7 +8,6 @@ typedef struct {
   u32 pc;
   Mem stack;
   Mem mem;
-  SymbolTable symbols;
   Chunk *chunk;
 } VM;
 

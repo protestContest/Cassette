@@ -19,10 +19,9 @@ void InitVM(VM *vm)
   vm->chunk = 0;
   InitMem(&vm->stack, 256);
   InitMem(&vm->mem, 256);
-  InitSymbolTable(&vm->symbols);
 
   vm->stack.count = 1;
-  Env(vm) = ExtendEnv(Nil, DefinePrimitives(&vm->mem, &vm->symbols), &vm->mem);
+  Env(vm) = ExtendEnv(Nil, DefinePrimitives(&vm->mem, 0), &vm->mem);
 }
 
 void DestroyVM(VM *vm)
@@ -31,7 +30,6 @@ void DestroyVM(VM *vm)
   vm->chunk = 0;
   DestroyMem(&vm->stack);
   DestroyMem(&vm->mem);
-  DestroySymbolTable(&vm->symbols);
 }
 
 Result RunChunk(Chunk *chunk, VM *vm)
@@ -202,7 +200,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
     }
     case OpPair:
       if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
-      StackRef(vm, 1) = Pair(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+      StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
       StackPop(vm);
       vm->pc += OpLength(op);
       break;
@@ -213,7 +211,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpSet:
       if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Type error", vm);
-      if (TupleLength(StackRef(vm, 0), &vm->mem) <= RawInt(ChunkConst(chunk, vm->pc+1))) return RuntimeError("Out of bounds", vm);
+      if (TupleLength(StackRef(vm, 0), &vm->mem) <= (u32)RawInt(ChunkConst(chunk, vm->pc+1))) return RuntimeError("Out of bounds", vm);
 
       TupleSet(StackRef(vm, 0), RawInt(ChunkConst(chunk, vm->pc+1)), StackRef(vm, 1), &vm->mem);
       StackRef(vm, 1) = StackRef(vm, 0);
@@ -285,11 +283,6 @@ Result RunChunk(Chunk *chunk, VM *vm)
       StackRef(vm, 2) = StackRef(vm, 0);
       vm->stack.count -= 2;
       break;
-    case OpLambda:
-      if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
-      StackPush(vm, Pair(IntVal(vm->pc + OpLength(op)), Env(vm), &vm->mem));
-      vm->pc += RawInt(ChunkConst(chunk, vm->pc+1));
-      break;
     case OpApply:
       if (IsPair(StackRef(vm, 0))) {
         Val num_args = ChunkConst(chunk, vm->pc+1);
@@ -303,8 +296,8 @@ Result RunChunk(Chunk *chunk, VM *vm)
           StackPush(vm, result.value);
         } else {
           /* normal function */
-          vm->pc = RawInt(Tail(StackRef(vm, 0), &vm->mem));
-          Env(vm) = Head(StackRef(vm, 0), &vm->mem);
+          vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
+          Env(vm) = Tail(StackRef(vm, 0), &vm->mem);
           StackRef(vm, 0) = num_args;
         }
       } else {
@@ -335,6 +328,10 @@ static bool CheckMem(VM *vm, u32 amount)
     printf("Collecting Garbage\n");
 #endif
     CollectGarbage(vm->stack.values, vm->stack.count, &vm->mem);
+  }
+
+  if (!CheckCapacity(&vm->mem, amount)) {
+    ResizeMem(&vm->mem, 2*vm->mem.capacity);
   }
 
   return CheckCapacity(&vm->mem, amount);

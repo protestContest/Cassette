@@ -1,4 +1,25 @@
 module Std
-let x = 20
 
-def (inc n) n + 1
+def (range min max) do
+  def (loop n list) do
+    if n < min do
+      list
+    else
+      loop n - 1 n | list
+    end
+  end
+
+  loop max - 1 nil
+end
+
+def (reduce list acc fn) do
+  if list == nil do
+    acc
+  else
+    reduce (tail list) (fn (head list) acc) fn
+  end
+end
+
+def (reverse list) do
+  reduce list nil (item reversed) -> item | reversed
+end

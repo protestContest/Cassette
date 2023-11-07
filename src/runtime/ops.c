@@ -36,7 +36,6 @@ static OpInfo ops[] = {
   [OpBranch]  = {2, "branch"},
   [OpLink]    = {2, "link"},
   [OpReturn]  = {1, "return"},
-  [OpLambda]  = {2, "lambda"},
   [OpApply]   = {2, "apply"}
 };
 

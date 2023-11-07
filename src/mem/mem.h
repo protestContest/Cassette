@@ -33,7 +33,7 @@ typedef u32 Val;
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
 
-#define RawInt(v)         SignExt(v)
+#define RawInt(v)         ((i32)SignExt(v))
 #define RawVal(v)         ((v) & ~typeMask)
 
 #define IsNil(v)          (Nil == (v))
@@ -57,8 +57,8 @@ Val FloatVal(float num);
 float RawFloat(Val value);
 
 typedef struct {
-  u32 count;
   u32 capacity;
+  u32 count;
   Val *values;
 } Mem;
 
@@ -67,6 +67,7 @@ typedef struct {
 void InitMem(Mem *mem, u32 capacity);
 void DestroyMem(Mem *mem);
 bool CheckCapacity(Mem *mem, u32 amount);
+void ResizeMem(Mem *mem, u32 capacity);
 
 void PushMem(Mem *mem, Val value);
 Val PopMem(Mem *mem);

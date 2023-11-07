@@ -8,3 +8,4 @@
 -include
 base.h
 -std=c89
+-DDEBUG=1
