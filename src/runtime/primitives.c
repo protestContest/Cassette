@@ -9,21 +9,31 @@
 static Result VMType(u32 num_args, VM *vm);
 static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
+static Result VMGet(u32 num_args, VM *vm);
+static Result VMInto(u32 num_args, VM *vm);
 static Result VMPrint(u32 num_args, VM *vm);
 static Result VMInspect(u32 num_args, VM *vm);
 static Result VMOpen(u32 num_args, VM *vm);
 static Result VMRead(u32 num_args, VM *vm);
 static Result VMWrite(u32 num_args, VM *vm);
+static Result VMTicks(u32 num_args, VM *vm);
+static Result VMSeed(u32 num_args, VM *vm);
+static Result VMRandom(u32 num_args, VM *vm);
 
 static PrimitiveDef primitives[] = {
   {"typeof", &VMType},
   {"head", &VMHead},
   {"tail", &VMTail},
+  {"get", &VMGet},
+  {"into", &VMInto},
   {"print", &VMPrint},
   {"inspect", &VMInspect},
   {"open", &VMOpen},
   {"read", &VMRead},
-  {"write", &VMWrite}
+  {"write", &VMWrite},
+  {"ticks", &VMTicks},
+  {"seed", &VMSeed},
+  {"random", &VMRandom}
 };
 
 PrimitiveDef *Primitives(void)
@@ -102,6 +112,74 @@ static Result VMTail(u32 num_args, VM *vm)
   arg = StackPop(vm);
   if (!IsPair(arg)) return RuntimeError("Type error", vm);
   return OkResult(Tail(arg, &vm->mem));
+}
+
+static Result VMGet(u32 num_args, VM *vm)
+{
+  Val obj, index;
+  if (num_args != 2) return RuntimeError("Argument error", vm);
+
+  obj = StackPop(vm);
+  index = StackPop(vm);
+  if (!IsObj(obj)) return RuntimeError("Type error", vm);
+  if (!IsInt(index)) return RuntimeError("Type error", vm);
+
+  if (IsTuple(obj, &vm->mem)) {
+    if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleLength(obj, &vm->mem)) {
+      return RuntimeError("Out of bounds", vm);
+    }
+    return OkResult(TupleGet(obj, RawInt(index), &vm->mem));
+  } else if (IsBinary(obj, &vm->mem)) {
+    u8 byte;
+    if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleLength(obj, &vm->mem)) {
+      return RuntimeError("Out of bounds", vm);
+    }
+    byte = ((u8*)BinaryData(obj, &vm->mem))[RawInt(index)];
+    return OkResult(IntVal(byte));
+  } else {
+    return OkResult(Nil);
+  }
+}
+
+static Result VMInto(u32 num_args, VM *vm)
+{
+  Val obj, container;
+  if (num_args != 2) return RuntimeError("Argument error", vm);
+
+  obj = StackPop(vm);
+  container = StackPop(vm);
+
+  if (IsPair(obj)) {
+    if (IsPair(container)) {
+      return OkResult(obj);
+    } else if (IsTuple(container, &vm->mem)) {
+      u32 i = 0;
+      container = MakeTuple(ListLength(obj, &vm->mem), &vm->mem);
+      while (obj != Nil) {
+        TupleSet(container, i, Head(obj, &vm->mem), &vm->mem);
+        i++;
+      }
+      return OkResult(container);
+    } else {
+      return RuntimeError("Type error", vm);
+    }
+  } else if (IsTuple(obj, &vm->mem)) {
+    if (IsPair(container)) {
+      u32 i;
+      Val list = Nil;
+      for (i = 0; i < TupleLength(obj, &vm->mem); i++) {
+        Val item = TupleGet(obj, TupleLength(obj, &vm->mem) - i - 1, &vm->mem);
+        list = Pair(item, list, &vm->mem);
+      }
+      return OkResult(list);
+    } else if (IsTuple(container, &vm->mem)) {
+      return OkResult(obj);
+    } else {
+      return RuntimeError("Type error", vm);
+    }
+  } else {
+    return RuntimeError("Type error", vm);
+  }
 }
 
 static Result VMPrint(u32 num_args, VM *vm)
@@ -283,4 +361,42 @@ static Result VMWrite(u32 num_args, VM *vm)
   }
 
   return OkResult(Ok);
+}
+
+static Result VMTicks(u32 num_args, VM *vm)
+{
+  if (num_args != 0) return RuntimeError("Argument error", vm);
+
+  return OkResult(IntVal(Ticks()));
+}
+
+static Result VMSeed(u32 num_args, VM *vm)
+{
+  Val seed;
+  if (num_args != 1) return RuntimeError("Argument error", vm);
+  seed = StackPop(vm);
+  Seed(RawInt(seed));
+  return OkResult(Nil);
+}
+
+static Result VMRandom(u32 num_args, VM *vm)
+{
+  float r = (float)Random() / (float)MaxUInt;
+  if (num_args == 0) {
+    return OkResult(FloatVal(r));
+  } else if (num_args == 1) {
+    Val max = StackPop(vm);
+    if (!IsInt(max)) return RuntimeError("Type error", vm);
+    return OkResult(IntVal(Floor(r * RawInt(max))));
+  } else if (num_args == 2) {
+    Val max = StackPop(vm);
+    Val min = StackPop(vm);
+    u32 range;
+    if (!IsInt(max)) return RuntimeError("Type error", vm);
+    if (!IsInt(min)) return RuntimeError("Type error", vm);
+    range = RawInt(max) - RawInt(min);
+    return OkResult(IntVal(Floor(r * range) + RawInt(min)));
+  } else {
+    return RuntimeError("Argument error", vm);
+  }
 }

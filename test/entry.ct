@@ -1,3 +1,4 @@
 import Std
 
-inspect (filter (range 0 10) (n) -> n % 2 == 0)
+seed (ticks)
+inspect (random 10 100)

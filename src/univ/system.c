@@ -78,3 +78,8 @@ char *ReadFile(char *path)
   data[size] = 0;
   return data;
 }
+
+u32 Ticks(void)
+{
+  return clock();
+}

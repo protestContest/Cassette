@@ -8,3 +8,4 @@ void Exit(void);
 void Alert(char *message);
 int Open(char *path);
 char *ReadFile(char *path);
+u32 Ticks(void);
