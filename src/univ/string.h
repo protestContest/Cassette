@@ -19,3 +19,4 @@ u32 LineNum(char *str, u32 index);
 u32 ColNum(char *str, u32 index);
 char *Basename(char *str, char sep);
 char *JoinStr(char *str1, char *str2, char joiner);
+char *CopyStr(char *str);

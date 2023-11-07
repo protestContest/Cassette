@@ -93,3 +93,12 @@ char *JoinStr(char *str1, char *str2, char joiner)
   str[len1+1+len2] = 0;
   return str;
 }
+
+char *CopyStr(char *str)
+{
+  u32 len = StrLen(str);
+  char *str2 = malloc(len+1);
+  Copy(str, str2, len);
+  str2[len] = 0;
+  return str2;
+}

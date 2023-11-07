@@ -10,22 +10,15 @@
 #include <stdlib.h>
 
 typedef struct {
-  char *name;
-  ObjVec files;
-} Manifest;
-
-typedef struct {
   Val entry;
   HashMap modules;
   Mem mem;
   SymbolTable symbols;
-  Manifest manifest;
+  ObjVec manifest;
 } Project;
 
 static void InitProject(Project *p);
 static void DestroyProject(Project *p);
-static void InitManifest(Manifest *manifest);
-static void DestroyManifest(Manifest *manifest);
 static Result ReadManifest(char *filename, Project *project);
 static Result ParseModules(Project *project);
 static Result ScanDependencies(Project *project);
@@ -47,10 +40,30 @@ Result BuildProject(char *manifest, Chunk *chunk)
   return result;
 }
 
+Result BuildScripts(u32 num_files, char **filenames, Chunk *chunk)
+{
+  u32 i;
+  Result result;
+  Project project;
+
+  InitProject(&project);
+  for (i = 0; i < num_files; i++) {
+    ObjVecPush(&project.manifest, CopyStr(filenames[i]));
+  }
+
+  result = ParseModules(&project);
+  if (result.ok) result = ScanDependencies(&project);
+  if (result.ok) result = CompileProject(result.value, chunk, &project);
+
+  DestroyProject(&project);
+
+  return result;
+}
+
 static void InitProject(Project *p)
 {
   p->entry = Nil;
-  InitManifest(&p->manifest);
+  InitVec((Vec*)&p->manifest, sizeof(char*), 8);
   InitHashMap(&p->modules);
   InitMem(&p->mem, 1024);
   InitSymbolTable(&p->symbols);
@@ -58,28 +71,16 @@ static void InitProject(Project *p)
 
 static void DestroyProject(Project *p)
 {
+  u32 i;
   DestroyHashMap(&p->modules);
   DestroyMem(&p->mem);
   DestroySymbolTable(&p->symbols);
-  DestroyManifest(&p->manifest);
+  for (i = 0; i < p->manifest.count; i++) {
+    free(p->manifest.items[i]);
+  }
+  DestroyVec((Vec*)&p->manifest);
   p->entry = Nil;
 }
-
-static void InitManifest(Manifest *manifest)
-{
-  manifest->name = 0;
-  InitVec((Vec*)&manifest->files, sizeof(char*), 8);
-}
-
-static void DestroyManifest(Manifest *manifest)
-{
-  u32 i;
-  for (i = 0; i < manifest->files.count; i++) {
-    free(manifest->files.items[i]);
-  }
-  DestroyVec((Vec*)&manifest->files);
-}
-
 
 Result ReadManifest(char *filename, Project *project)
 {
@@ -99,7 +100,7 @@ Result ReadManifest(char *filename, Project *project)
       end++;
     }
     /* add full path filename */
-    ObjVecPush(&project->manifest.files, JoinStr(basename, cur, '/'));
+    ObjVecPush(&project->manifest, JoinStr(basename, cur, '/'));
     cur = end;
 
     /* skip to next non-space character */
@@ -122,9 +123,9 @@ static Result ParseModules(Project *project)
 
   InitParser(&parser, &project->mem, &project->symbols);
 
-  for (i = 0; i < project->manifest.files.count; i++) {
+  for (i = 0; i < project->manifest.count; i++) {
     Val name;
-    char *filename = project->manifest.files.items[i];
+    char *filename = project->manifest.items[i];
     char *source = ReadFile(filename);
 
     if (source == 0) return ErrorResult("Could not read file", filename, 0);

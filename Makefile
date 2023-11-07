@@ -4,6 +4,7 @@ TARGET = ./$(NAME)
 
 SRC_DIR = src
 BUILD_DIR = build
+INSTALL_DIR = $(HOME)/.local/bin
 
 SRCS := $(shell find $(SRC_DIR) -name '*.c' -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
@@ -30,4 +31,8 @@ clean:
 
 .PHONY: test
 test: $(TARGET)
-	$(TARGET) test/project.txt
+	$(TARGET) -p test/project.txt
+
+.PHONY: install
+install: $(TARGET)
+	install $(TARGET) $(INSTALL_DIR)

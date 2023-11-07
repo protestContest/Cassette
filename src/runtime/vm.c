@@ -10,6 +10,7 @@
 static bool CheckMem(VM *vm, u32 amount);
 
 #ifdef DEBUG
+static void PrintTraceHeader(void);
 static void TraceInstruction(OpCode op, VM *vm);
 #endif
 
@@ -35,6 +36,10 @@ void DestroyVM(VM *vm)
 Result RunChunk(Chunk *chunk, VM *vm)
 {
   vm->chunk = chunk;
+
+#ifdef DEBUG
+  PrintTraceHeader();
+#endif
 
   while (vm->pc < chunk->code.count) {
     OpCode op = ChunkRef(chunk, vm->pc);
@@ -350,6 +355,12 @@ Result RuntimeError(char *message, VM *vm)
 }
 
 #ifdef DEBUG
+static void PrintTraceHeader(void)
+{
+  printf(" PC   Instruction            Stack\n");
+  printf("────┬──────────────────────┬───────────────────────\n");
+}
+
 static void TraceInstruction(OpCode op, VM *vm)
 {
   i32 i, col_width;

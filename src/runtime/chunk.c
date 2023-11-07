@@ -134,8 +134,8 @@ void Disassemble(Chunk *chunk)
   col2 = col1 + 6 + longest_sym;
   width = col2 + longest_sym + 2;
 
-  printf("╔");
-  for (i = 0; i < width-2; i++) printf("═");
+  printf("╔ Disassembled ");
+  for (i = 0; i < width-16; i++) printf("═");
   printf("╗\n");
 
   printf("║  src  idx  Instruction");

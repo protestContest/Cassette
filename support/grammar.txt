@@ -1,8 +1,8 @@
 script          → module_def imports stmts | imports stmts
 module_def      → "module" ID
-
 imports         → import_stmt imports | ε
 import_stmt     → "import" ID "\n"
+
 stmts           → stmts stmt | ε
 stmt            → let_stmt | def_stmt | call_stmt
 let_stmt        → "let" assigns "\n"
@@ -26,16 +26,15 @@ member          → pair | member "in" pair
 pair            → sum | sum "|" pair
 sum             → product | sum "+" product | sum "-" product
 product         → unary | product "*" unary | product "/" unary | product "%" unary
-unary           → access | "-" access | "not" access | "#" access
-access          → primary | access "." ID
+unary           → primary | "-" primary | "not" primary | "#" primary
 
 primary         → group | block | obj | value | ID
-group           → "(" call ")"
 
+group           → "(" call ")"
 block           → do_block | if_block | cond_block
 do_block        → "do" stmts "end"
-if_block        → "if" stmts "else" stmts "end"
-cond_block      → "cond" clauses "else" call "end"
+if_block        → "if" stmts "else" stmts "end" | "if" stmts "end"
+cond_block      → "cond" clauses "end"
 clauses         → clauses clause | ε
 clause          → logic "->" call
 
@@ -44,8 +43,5 @@ list            → "[" list_tail
 list_tail       → "]" | call "]" | call "," list_tail
 tuple           → "{" tuple_tail
 tuple_tail      → "}" | call "}" | call "," tuple_tail
-map             → "{" entry map_tail "}"
-map_tail        → "}" | entry "}" | entry "," entry_tail
-entry           → ID ":" call
 
 value           → "true" | "false" | "nil" | SYM | NUM | STR
