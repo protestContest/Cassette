@@ -11,12 +11,14 @@ static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
 static Result VMGet(u32 num_args, VM *vm);
 static Result VMInto(u32 num_args, VM *vm);
+static Result VMCat(u32 num_args, VM *vm);
 static Result VMPrint(u32 num_args, VM *vm);
 static Result VMInspect(u32 num_args, VM *vm);
 static Result VMOpen(u32 num_args, VM *vm);
 static Result VMRead(u32 num_args, VM *vm);
 static Result VMReadFile(u32 num_args, VM *vm);
 static Result VMWrite(u32 num_args, VM *vm);
+static Result VMNewline(u32 num_args, VM *vm);
 static Result VMTicks(u32 num_args, VM *vm);
 static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
@@ -27,12 +29,14 @@ static PrimitiveDef primitives[] = {
   {"tail", &VMTail},
   {"get", &VMGet},
   {"into", &VMInto},
+  {"cat", &VMCat},
   {"print", &VMPrint},
   {"inspect", &VMInspect},
   {"open", &VMOpen},
   {"read", &VMRead},
   {"read_file", &VMReadFile},
   {"write", &VMWrite},
+  {"newline", &VMNewline},
   {"ticks", &VMTicks},
   {"seed", &VMSeed},
   {"random", &VMRandom}
@@ -83,8 +87,10 @@ static Result VMType(u32 num_args, VM *vm)
   arg = StackPop(vm);
   vm->stack.count -= num_args-1;
 
-  if (IsFloat(arg) || IsInt(arg)) {
-    return OkResult(Sym("number", &vm->chunk->symbols));
+  if (IsFloat(arg)) {
+    return OkResult(Sym("float", &vm->chunk->symbols));
+  } else if (IsInt(arg)) {
+    return OkResult(Sym("integer", &vm->chunk->symbols));
   } else if (IsSym(arg)) {
     return OkResult(Sym("symbol", &vm->chunk->symbols));
   } else if (IsPair(arg)) {
@@ -123,10 +129,19 @@ static Result VMGet(u32 num_args, VM *vm)
 
   index = StackPop(vm);
   obj = StackPop(vm);
-  if (!IsObj(obj)) return RuntimeError("Type error", vm);
-  if (!IsInt(index)) return RuntimeError("Type error", vm);
+  if (!IsInt(index) || RawInt(index) < 0) return RuntimeError("Type error", vm);
 
-  if (IsTuple(obj, &vm->mem)) {
+  if (IsPair(obj)) {
+    u32 i = RawInt(index);
+    while (obj != Nil) {
+      if (i == 0) {
+        return OkResult(Head(obj, &vm->mem));
+      }
+      i--;
+      obj = Tail(obj, &vm->mem);
+    }
+    return RuntimeError("Out of bounds", vm);
+  } else if (IsTuple(obj, &vm->mem)) {
     if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleLength(obj, &vm->mem)) {
       return RuntimeError("Out of bounds", vm);
     }
@@ -139,7 +154,7 @@ static Result VMGet(u32 num_args, VM *vm)
     byte = ((u8*)BinaryData(obj, &vm->mem))[RawInt(index)];
     return OkResult(IntVal(byte));
   } else {
-    return OkResult(Nil);
+    return RuntimeError("Type error", vm);
   }
 }
 
@@ -148,8 +163,8 @@ static Result VMInto(u32 num_args, VM *vm)
   Val obj, container;
   if (num_args != 2) return RuntimeError("Argument error", vm);
 
-  obj = StackPop(vm);
   container = StackPop(vm);
+  obj = StackPop(vm);
 
   if (IsPair(obj)) {
     if (IsPair(container)) {
@@ -179,9 +194,76 @@ static Result VMInto(u32 num_args, VM *vm)
     } else {
       return RuntimeError("Type error", vm);
     }
+  } else if (IsBinary(obj, &vm->mem)) {
+    if (IsPair(container)) {
+      u32 i;
+      u32 length = BinaryLength(obj, &vm->mem);
+      Val list = Nil;
+      u8 *data = BinaryData(obj, &vm->mem);
+      for (i = 0; i < BinaryLength(obj, &vm->mem); i++) {
+        list = Pair(IntVal(data[length-i-1]), list, &vm->mem);
+      }
+      return OkResult(list);
+    } else if (IsTuple(container, &vm->mem)) {
+      u32 i;
+      u32 length = BinaryLength(obj, &vm->mem);
+      Val tuple = MakeTuple(length, &vm->mem);
+      u8 *data = BinaryData(obj, &vm->mem);
+      for (i = 0; i < BinaryLength(obj, &vm->mem); i++) {
+        TupleSet(tuple, i, IntVal(data[i]), &vm->mem);
+      }
+      return OkResult(tuple);
+    } else {
+      return RuntimeError("Type error", vm);
+    }
   } else {
     return RuntimeError("Type error", vm);
   }
+}
+
+static Result VMCat(u32 num_args, VM *vm)
+{
+  Val str1, str2, result;
+  u32 len1, len2;
+  u8 *data;
+  if (num_args != 2) return RuntimeError("Argument error", vm);
+
+  str2 = StackPop(vm);
+  str1 = StackPop(vm);
+
+  if (IsInt(str1)) {
+    if (RawInt(str1) < 0 || RawInt(str1) > 255) return RuntimeError("Type error", vm);
+  } else if (!IsBinary(str1, &vm->mem)) {
+    return RuntimeError("Type error", vm);
+  }
+
+  if (IsInt(str2)) {
+    if (RawInt(str2) < 0 || RawInt(str2) > 255) return RuntimeError("Type error", vm);
+  } else if (!IsBinary(str2, &vm->mem)) {
+    return RuntimeError("Type error", vm);
+  }
+
+  len1 = IsInt(str1) ? 1 : BinaryLength(str1, &vm->mem);
+  len2 = IsInt(str2) ? 1 : BinaryLength(str2, &vm->mem);
+
+  result = MakeBinary(len1 + len2, &vm->mem);
+  data = BinaryData(result, &vm->mem);
+
+  if (IsInt(str1)) {
+    data[0] = RawInt(str1) & 0xFF;
+    data++;
+  } else {
+    Copy(BinaryData(str1, &vm->mem), data, len1);
+    data += len1;
+  }
+
+  if (IsInt(str2)) {
+    data[0] = RawInt(str2) & 0xFF;
+  } else {
+    Copy(BinaryData(str2, &vm->mem), data, len2);
+  }
+
+  return OkResult(result);
 }
 
 static Result VMPrint(u32 num_args, VM *vm)
@@ -232,7 +314,7 @@ static void PrintTail(Val value, u32 depth, Mem *mem, SymbolTable *symbols)
 
 static void InspectPrint(Val value, u32 depth, Mem *mem, SymbolTable *symbols)
 {
-  if (IsNil(value)) {
+  if (value == Nil) {
     printf("nil");
   } else if (IsNum(value)) {
     PrintVal(value, 0);
@@ -399,10 +481,15 @@ static Result VMWrite(u32 num_args, VM *vm)
   return OkResult(Ok);
 }
 
+static Result VMNewline(u32 num_args, VM *vm)
+{
+  if (num_args != 0) return RuntimeError("Argument error", vm);
+  return OkResult(IntVal('\n'));
+}
+
 static Result VMTicks(u32 num_args, VM *vm)
 {
   if (num_args != 0) return RuntimeError("Argument error", vm);
-
   return OkResult(IntVal(Ticks()));
 }
 

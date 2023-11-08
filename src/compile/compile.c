@@ -104,7 +104,10 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
 
   /* create lambda for module */
   PushByte(OpLink, c->pos, c->chunk);
-  PushConst(IntVal(5), c->pos, c->chunk);
+  PushConst(IntVal(8), c->pos, c->chunk);
+  PushByte(OpPair, c->pos, c->chunk);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(Function, c->pos, c->chunk);
   PushByte(OpPair, c->pos, c->chunk);
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
@@ -387,7 +390,10 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
 
   /* create lambda */
   PushByte(OpLink, c->pos, c->chunk);
-  PushConst(IntVal(5), c->pos, c->chunk);
+  PushConst(IntVal(8), c->pos, c->chunk);
+  PushByte(OpPair, c->pos, c->chunk);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(Function, c->pos, c->chunk);
   PushByte(OpPair, c->pos, c->chunk);
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);

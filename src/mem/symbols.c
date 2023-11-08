@@ -20,6 +20,7 @@ void InitSymbolTable(SymbolTable *symbols)
 
 #ifdef DEBUG
   Assert(Primitive == Sym("*prim*", symbols));
+  Assert(Function == Sym("*fn*", symbols));
   Assert(Undefined == Sym("*undefined*", symbols));
   Assert(File == Sym("*file*", symbols));
 #endif

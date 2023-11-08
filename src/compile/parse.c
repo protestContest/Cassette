@@ -232,6 +232,10 @@ static Result ParseBlock(Parser *p)
     SkipNewlines(&p->lex);
   }
 
+  if (stmts == Nil) {
+    return ParseError("Expected expression", p);
+  }
+
   stmts = ReverseList(stmts, p->mem);
   assigns = ReverseList(assigns, p->mem);
 
@@ -276,9 +280,7 @@ static Result ParseCall(Parser *p)
   if (!result.ok) return result;
   op = result.value;
 
-  while (p->lex.token.type != TokenNewline
-      && p->lex.token.type != TokenComma
-      && p->lex.token.type != TokenEOF) {
+  while (ExprNext(&p->lex)) {
     result = ParseExpr(PrecExpr, p);
     if (!result.ok) return result;
     args = Pair(result.value, args, p->mem);
@@ -527,14 +529,16 @@ static Result ParseNum(Parser *p)
   u32 pos = token.lexeme - p->lex.source;
   u32 whole = 0, frac = 0, frac_size = 1, i;
 
-  while (*token.lexeme == '0') {
+  while (*token.lexeme == '0' || *token.lexeme == '_') {
     token.lexeme++;
     token.length--;
   }
 
   if (*token.lexeme == 'x') {
+    u32 d;
     for (i = 1; i < token.length; i++) {
-      u32 d = IsDigit(token.lexeme[i]) ? token.lexeme[i] - '0' : token.lexeme[i] - 'A';
+      if (token.lexeme[i] == '_') continue;
+      d = IsDigit(token.lexeme[i]) ? token.lexeme[i] - '0' : token.lexeme[i] - 'A';
       whole = whole * 16 + d;
     }
     return ParseOk(MakeNode(SymNum, pos, IntVal(whole), p->mem));
@@ -546,6 +550,7 @@ static Result ParseNum(Parser *p)
   }
 
   for (i = 0; i < token.length; i++) {
+    if (token.lexeme[i] == '_') continue;
     if (token.lexeme[i] == '.') {
       i++;
       break;
@@ -553,6 +558,7 @@ static Result ParseNum(Parser *p)
     whole = whole * 10 + token.lexeme[i] - '0';
   }
   for (; i < token.length; i++) {
+    if (token.lexeme[i] == '_') continue;
     frac_size *= 10;
     frac  = frac * 10 + token.lexeme[i] - '0';
   }

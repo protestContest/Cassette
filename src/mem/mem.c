@@ -266,7 +266,7 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
 
 u32 PrintVal(Val value, SymbolTable *symbols)
 {
-  if (IsNil(value)) {
+  if (value == Nil) {
     return printf("nil");
   } else if (IsInt(value)) {
     return printf("%d", RawInt(value));
@@ -302,34 +302,36 @@ u32 PrintValLen(Val value, SymbolTable *symbols)
   }
 }
 
-static void PrintCell(u32 index, Val value, SymbolTable *symbols)
+static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols)
 {
-  u32 width = 8;
-
   if (IsInt(value)) {
-    printf("%*d", width, RawInt(value));
+    printf("%*d", cell_width, RawInt(value));
   } else if (IsFloat(value)) {
-    printf("%*.1f", width, RawFloat(value));
+    printf("%*.1f", cell_width, RawFloat(value));
   } else if (IsSym(value) && symbols) {
-    printf("%*.*s", width, width, SymbolName(value, symbols));
-  } else if (IsNil(value)) {
-    printf("     nil");
+    printf("%*.*s", cell_width, cell_width, SymbolName(value, symbols));
+  } else if (value == Nil) {
+    u32 i;
+    for (i = 0; i < cell_width-3; i++) printf(" ");
+    printf("nil");
   } else if (IsPair(value)) {
-    printf("p%*d", width-1, RawVal(value));
+    printf("p%*d", cell_width-1, RawVal(value));
   } else if (IsObj(value)) {
-    printf("o%*d", width-1, RawVal(value));
+    printf("o%*d", cell_width-1, RawVal(value));
   } else if (IsTupleHeader(value)) {
-    printf("t%*d", width-1, RawVal(value));
+    printf("t%*d", cell_width-1, RawVal(value));
   } else if (IsBinaryHeader(value)) {
-    printf("b%*d", width-1, RawVal(value));
+    printf("b%*d", cell_width-1, RawVal(value));
+  } else if (IsBignumHeader(value)) {
+    printf("#%*d", cell_width-1, RawInt(value));
   } else {
-    printf("%04.4X", value);
+    printf("%0*.*X", (cell_width+1)/2, cell_width/2, value);
   }
 }
 
-static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
+static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem)
 {
-  u32 j, size = RawVal(mem->values[index]), width = 8;
+  u32 j, size = RawVal(mem->values[index]);
   u32 cells = NumBinCells(size);
 
   for (j = 0; j < cells; j++) {
@@ -349,12 +351,12 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
     if ((index+j+1) % cols == 0) printf("║%04d║", index+j+1);
     else printf("│");
     if (printable) {
-      for (k = 0; k < width-bytes-2; k++) printf(" ");
+      for (k = 0; k < cell_width-bytes-2; k++) printf(" ");
       printf("\"");
       for (k = 0; k < bytes; k++) printf("%c", (value >> (k*8)) & 0xFF);
       printf("\"");
     } else {
-      for (k = 0; k < width-(bytes*2); k++) printf(".");
+      for (k = 0; k < cell_width-(bytes*2); k++) printf(".");
       for (k = 0; k < bytes; k++) printf("%02X", (value >> (k*8)) & 0xFF);
     }
     if ((index+j+2) % cols == 0) printf("║\n");
@@ -364,31 +366,50 @@ static u32 PrintBinData(u32 index, u32 cols, Mem *mem)
 
 void DumpMem(Mem *mem, SymbolTable *symbols)
 {
-  u32 i;
+  u32 i, j;
   u32 cols = 8;
+  u32 cell_width = 10;
 
   printf("╔════╦");
-  for (i = 0; i < cols-1; i++) printf("════════╤");
-  printf("════════╗\n");
+  for (i = 0; i < cols-1; i++) {
+    for (j = 0; j < cell_width; j++) printf("═");
+    printf("╤");
+  }
+  for (j = 0; j < cell_width; j++) printf("═");
+  printf("╗\n");
 
   for (i = 0; i < mem->count; i++) {
     if (i % cols == 0) printf("║%04d║", i);
     else printf("│");
-    PrintCell(i, mem->values[i], symbols);
+    PrintCell(i, mem->values[i], cell_width, symbols);
     if ((i+1) % cols == 0) printf("║\n");
     if (IsBinaryHeader(mem->values[i])) {
-      i += PrintBinData(i, cols, mem);
+      i += PrintBinData(i, cell_width, cols, mem);
+    } else if (IsBignumHeader(mem->values[i])) {
+      u32 j;
+      for (j = 0; j < (u32)Abs(RawInt(mem->values[i])); j++) {
+        if ((i+j+1) % cols == 0) printf("║%04d║", i+j+1);
+        else printf("│");
+        printf("%*X", cell_width, mem->values[i+j+1]);
+        if ((i+j+2) % cols == 0) printf("║\n");
+      }
+      i += Abs(RawInt(mem->values[i]));
     }
   }
   if (i % cols != 0) {
     while (i % cols != 0) {
-      printf("│        ");
+      printf("│");
+      for (j = 0; j < cell_width; j++) printf(" ");
       i++;
     }
     printf("║\n");
   }
 
   printf("╚════╩");
-  for (i = 0; i < cols-1; i++) printf("════════╧");
-  printf("════════╝\n");
+  for (i = 0; i < cols-1; i++) {
+    for (j = 0; j < cell_width; j++) printf("═");
+    printf("╧");
+  }
+  for (j = 0; j < cell_width; j++) printf("═");
+  printf("╝\n");
 }

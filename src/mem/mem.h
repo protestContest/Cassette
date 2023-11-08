@@ -12,6 +12,7 @@ typedef u32 Val;
 #define objMask           0x7FF00000
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
+#define bignumMask        0xFFE00000
 
 #define MakeVal(n, mask)  (((n) & ~typeMask) | (mask))
 #define IntVal(n)         MakeVal((i32)(n), intMask)
@@ -20,6 +21,7 @@ typedef u32 Val;
 #define ObjVal(n)         MakeVal(n, objMask)
 #define TupleHeader(n)    MakeVal(n, tupleMask)
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
+#define BignumHeader(n)   MakeVal(n, bignumMask)
 
 #define IsType(v, mask)   (((v) & typeMask) == (mask))
 #define IsFloat(v)        (((v) & nanMask) != nanMask)
@@ -29,6 +31,7 @@ typedef u32 Val;
 #define IsObj(v)          IsType(v, objMask)
 #define IsTupleHeader(v)  IsType(v, tupleMask)
 #define IsBinaryHeader(v) IsType(v, binaryMask)
+#define IsBignumHeader(v) IsType(v, bignumMask)
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
@@ -36,13 +39,14 @@ typedef u32 Val;
 #define RawInt(v)         ((i32)SignExt(v))
 #define RawVal(v)         ((v) & ~typeMask)
 
-#define IsNil(v)          (Nil == (v))
 #define BoolVal(v)        ((v) ? True : False)
 #define IsNum(v)          (IsFloat(v) || IsInt(v))
 #define RawNum(v)         (IsFloat(v) ? RawFloat(v) : RawInt(v))
 #define IsZero(v)         ((IsFloat(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
 
 #define Nil               0x7FE00000
+#define MaxIntVal         0x7FC7FFFF
+#define MinIntVal         0x7FC80000
 
 /* pre-computed symbols */
 #define True              0x7FD9395C
@@ -50,6 +54,7 @@ typedef u32 Val;
 #define Ok                0x7FD72346
 #define Error             0x7FDC3AAA
 #define Primitive         0x7FD0D974
+#define Function          0x7FD341E4
 #define Undefined         0x7FD19F74
 #define Moved             0x7FD162D1
 #define File              0x7FD934AA

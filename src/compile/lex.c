@@ -172,7 +172,7 @@ static Token NumberToken(Lexer *lex)
 {
   u32 start = lex->pos;
   if (Match("0x", lex) && IsHexDigit(Peek(lex))) {
-    while (IsHexDigit(Peek(lex))) lex->pos++;
+    while (Peek(lex) == '_' || IsHexDigit(Peek(lex))) lex->pos++;
     return MakeToken(TokenNum, lex->source + start, lex->pos - start);
   } else if (Match("$", lex)) {
     lex->pos++;
@@ -181,7 +181,7 @@ static Token NumberToken(Lexer *lex)
     lex->pos = start;
   }
 
-  while (IsDigit(Peek(lex))) lex->pos++;
+  while (Peek(lex) == '_' || IsDigit(Peek(lex))) lex->pos++;
   if (Peek(lex) == '.' && IsDigit(lex->source[lex->pos+1])) {
     lex->pos++;
     while (IsDigit(Peek(lex))) lex->pos++;

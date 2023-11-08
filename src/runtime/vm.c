@@ -107,7 +107,11 @@ Result RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpMul:
       if (IsInt(StackRef(vm, 0)) && IsInt(StackRef(vm, 1))) {
-        StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 1)) * RawInt(StackRef(vm, 0)));
+        i32 a = RawInt(StackRef(vm, 0));
+        i32 b = RawInt(StackRef(vm, 1));
+        if (b != 0 && a > RawInt(MaxIntVal) / b) return RuntimeError("Arithmetic overflow", vm);
+        if (b != 0 && a < RawInt(MinIntVal) / b) return RuntimeError("Arithmetic underflow", vm);
+        StackRef(vm, 1) = IntVal(a*b);
       } else if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
         StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) * RawNum(StackRef(vm, 0)));
       } else {
@@ -137,7 +141,11 @@ Result RunChunk(Chunk *chunk, VM *vm)
       break;
     case OpAdd:
       if (IsInt(StackRef(vm, 0)) && IsInt(StackRef(vm, 1))) {
-        StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 1)) + RawInt(StackRef(vm, 0)));
+        i32 a = RawInt(StackRef(vm, 0));
+        i32 b = RawInt(StackRef(vm, 1));
+        if (b > 0 && a > RawInt(MaxIntVal) - b) return RuntimeError("Arithmetic overflow", vm);
+        if (b < 0 && a < RawInt(MinIntVal) - b) return RuntimeError("Arithmetic underflow", vm);
+        StackRef(vm, 1) = IntVal(a + b);
       } else if (IsNum(StackRef(vm, 0)) && IsNum(StackRef(vm, 1))) {
         StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) + RawNum(StackRef(vm, 0)));
       } else {
@@ -291,22 +299,21 @@ Result RunChunk(Chunk *chunk, VM *vm)
       vm->stack.count -= 2;
       break;
     case OpApply:
-      if (IsPair(StackRef(vm, 0))) {
+      if (IsPair(StackRef(vm, 0)) && Head(StackRef(vm, 0), &vm->mem) == Function) {
+        /* normal function */
         Val num_args = ChunkConst(chunk, vm->pc+1);
-        if (Head(StackRef(vm, 0), &vm->mem) == Primitive) {
+        vm->pc = RawInt(Head(Tail(StackRef(vm, 0), &vm->mem), &vm->mem));
+        Env(vm) = Tail(Tail(StackRef(vm, 0), &vm->mem), &vm->mem);
+        StackRef(vm, 0) = num_args;
+      } else if (IsPair(StackRef(vm, 0)) && Head(StackRef(vm, 0), &vm->mem) == Primitive) {
           /* apply primitive */
-          Val prim = StackPop(vm);
-          Result result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
-          if (!result.ok) return result;
-          vm->pc = RawInt(StackPop(vm));
-          Env(vm) = StackPop(vm);
-          StackPush(vm, result.value);
-        } else {
-          /* normal function */
-          vm->pc = RawInt(Head(StackRef(vm, 0), &vm->mem));
-          Env(vm) = Tail(StackRef(vm, 0), &vm->mem);
-          StackRef(vm, 0) = num_args;
-        }
+        Val num_args = ChunkConst(chunk, vm->pc+1);
+        Val prim = StackPop(vm);
+        Result result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
+        if (!result.ok) return result;
+        vm->pc = RawInt(StackPop(vm));
+        Env(vm) = StackPop(vm);
+        StackPush(vm, result.value);
       } else {
         /* not a function, just return */
         vm->pc = RawInt(StackRef(vm, 1));
