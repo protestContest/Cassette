@@ -58,9 +58,8 @@ u32 Hash(void *data, u32 size)
   return hash;
 }
 
-u32 HashBits(void *data, u32 size, u32 num_bits)
+u32 FoldHash(u32 hash, u32 bits)
 {
-  u32 hash = Hash(data, size);
-  u32 mask = 0xFFFFFFFF >> (sizeof(hash) - size);
-  return (hash >> size) ^ (hash & mask);
+  u32 mask = 0xFFFFFFFF >> (sizeof(hash) - bits);
+  return (hash >> bits) ^ (hash & mask);
 }

@@ -3,6 +3,7 @@
 #include "univ/math.h"
 #include "univ/system.h"
 #include "univ/str.h"
+#include <stdio.h>
 
 void InitSymbolTable(SymbolTable *symbols)
 {
@@ -30,12 +31,12 @@ void DestroySymbolTable(SymbolTable *symbols)
 
 Val SymbolFor(char *name)
 {
-  return SymVal(Hash(name, StrLen(name)));
+  return SymbolFrom(name, StrLen(name));
 }
 
 Val SymbolFrom(char *name, u32 length)
 {
-  return SymVal(Hash(name, length));
+  return SymVal(FoldHash(Hash(name, length), valBits));
 }
 
 Val Sym(char *name, SymbolTable *symbols)
@@ -52,7 +53,7 @@ static void AddSymbol(char *name, u32 length, SymbolTable *symbols)
 
 Val MakeSymbol(char *name, u32 length, SymbolTable *symbols)
 {
-  Val symbol = SymVal(Hash(name, length));
+  Val symbol = SymbolFrom(name, length);
   if (!HashMapContains(&symbols->map, symbol)) {
     HashMapSet(&symbols->map, symbol, symbols->names.count);
     AddSymbol(name, length, symbols);

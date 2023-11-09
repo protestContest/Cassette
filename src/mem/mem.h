@@ -52,22 +52,22 @@ typedef u32 Val;
 #define MinIntVal         0x7FC80000
 
 /* pre-computed symbols */
-#define True              0x7FD7E0EC
-#define False             0x7FDAF256
-#define Ok                0x7FDDD1DE
-#define Error             0x7FD04F60
-#define Primitive         0x7FD15AFA
-#define Function          0x7FD4D1AA
-#define Undefined         0x7FDBC693
-#define Moved             0x7FDE7A3D
-#define File              0x7FDA057E
-#define FloatType         0x7FDF23F5
-#define IntType           0x7FD50D9D
-#define SymType           0x7FD9A156
-#define PairType          0x7FD2249D
-#define TupleType         0x7FDB6C7E
-#define BinaryType        0x7FD5609F
-#define FuncType          0x7FD41D59
+#define True              0x7FD0E33F /* true */
+#define False             0x7FD0F4C4 /* false */
+#define Ok                0x7FD0DE52 /* ok */
+#define Error             0x7FD04FC6 /* error */
+#define Primitive         0x7FD05938 /* *prim* */
+#define Function          0x7FD0D0E4 /* *func* */
+#define Undefined         0x7FD0C789 /* *undefined* */
+#define Moved             0x7FD07580 /* *moved* */
+#define File              0x7FD00003 /* *file* */
+#define FloatType         0x7FD02D07 /* float */
+#define IntType           0x7FD00789 /* integer */
+#define SymType           0x7FD06184 /* symbol */
+#define PairType          0x7FD0281F /* pair */
+#define TupleType         0x7FD066C6 /* tuple */
+#define BinaryType        0x7FD06D87 /* binary */
+#define FuncType          0x7FD045D6 /* function */
 
 Val FloatVal(float num);
 float RawFloat(Val value);

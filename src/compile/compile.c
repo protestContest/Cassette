@@ -4,8 +4,8 @@
 #include "runtime/ops.h"
 #include "module.h"
 
-#define LinkReturn        0x7FD62373
-#define LinkNext          0x7FD002C0
+#define LinkReturn        0x7FD02CF0 /* return */
+#define LinkNext          0x7FD00394 /* next */
 
 static Result CompileImports(Val imports, Compiler *c);
 static Result CompileExpr(Val node, Val linkage, Compiler *c);

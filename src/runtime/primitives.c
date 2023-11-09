@@ -17,17 +17,17 @@ static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
 
 static PrimitiveDef primitives[] = {
-  {/*"typeof"*/     0x7FDA1EFC, &VMType},
-  {/*"head"*/       0x7FD4F911, &VMHead},
-  {/*"tail"*/       0x7FD16764, &VMTail},
-  {/*"print"*/      0x7FD39F07, &VMPrint},
-  {/*"inspect"*/    0x7FD068BD, &VMInspect},
-  {/*"open"*/       0x7FD6E1B6, &VMOpen},
-  {/*"read"*/       0x7FDEC06F, &VMRead},
-  {/*"write"*/      0x7FDA9850, &VMWrite},
-  {/*"ticks"*/      0x7FD145EA, &VMTicks},
-  {/*"seed"*/       0x7FDCAC5E, &VMSeed},
-  {/*"random"*/     0x7FD3FB29, &VMRandom}
+  {/* typeof */   0x7FD014D4, &VMType},
+  {/* head */     0x7FD0FAFD, &VMHead},
+  {/* tail */     0x7FD0655A, &VMTail},
+  {/* print */    0x7FD0984B, &VMPrint},
+  {/* inspect */  0x7FD06371, &VMInspect},
+  {/* open */     0x7FD0E11B, &VMOpen},
+  {/* read */     0x7FD0C474, &VMRead},
+  {/* write */    0x7FD090A8, &VMWrite},
+  {/* ticks */    0x7FD04415, &VMTicks},
+  {/* seed */     0x7FD0ADD1, &VMSeed},
+  {/* random */   0x7FD0FCF1, &VMRandom}
 };
 
 Val PrimitiveEnv(Mem *mem)
@@ -196,7 +196,7 @@ static Result VMInspect(u32 num_args, VM *vm)
   Val value;
   if (num_args != 1) {
     vm->stack.count -= num_args;
-    return RuntimeError("Argument error", vm);
+    return RuntimeError("Arity error", vm);
   }
 
   value = StackPop(vm);
@@ -236,7 +236,7 @@ static Result VMRead(u32 num_args, VM *vm)
   char *buf;
   i32 bytes_read;
 
-  if (num_args < 1) return RuntimeError("Argument error", vm);
+  if (num_args < 1) return RuntimeError("Arity error", vm);
 
   ref = StackPop(vm);
   if (num_args > 1) {
@@ -309,7 +309,7 @@ static Result VMWrite(u32 num_args, VM *vm)
 
 static Result VMTicks(u32 num_args, VM *vm)
 {
-  if (num_args != 0) return RuntimeError("Argument error", vm);
+  if (num_args != 0) return RuntimeError("Arity error", vm);
   return OkResult(IntVal(Ticks()));
 }
 
@@ -343,6 +343,6 @@ static Result VMRandom(u32 num_args, VM *vm)
     range = RawInt(max) - RawInt(min);
     return OkResult(IntVal(Floor(r * range) + RawInt(min)));
   } else {
-    return RuntimeError("Argument error", vm);
+    return RuntimeError("Arity error", vm);
   }
 }
