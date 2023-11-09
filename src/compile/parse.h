@@ -2,55 +2,55 @@
 #include "mem/mem.h"
 #include "lex.h"
 #include "mem/symbols.h"
-#include "compile.h"
+#include "result.h"
 
-#define SymEOF          0x7FD76FC6
-#define SymID           0x7FD5263F
-#define SymBangEqual    0x7FD1154E
-#define SymString       0x7FD89F9A
-#define SymNewline      0x7FD6FAEC
-#define SymHash         0x7FD8A12D
-#define SymPercent      0x7FD897BB
-#define SymLParen       0x7FD88FDC
-#define SymRParen       0x7FD8916F
-#define SymStar         0x7FD89302
-#define SymPlus         0x7FD89495
-#define SymComma        0x7FD88990
-#define SymMinus        0x7FD88B23
-#define SymArrow        0x7FD2FEA7
-#define SymDot          0x7FD88CB6
-#define SymSlash        0x7FD88E49
-#define SymNum          0x7FD132E0
-#define SymColon        0x7FD879D2
-#define SymLess         0x7FD87060
-#define SymLessEqual    0x7FD8E267
-#define SymEqual        0x7FD871F3
-#define SymEqualEqual   0x7FDB274A
-#define SymGreater      0x7FD87386
-#define SymGreaterEqual 0x7FDE2F61
-#define SymLBracket     0x7FD8ADC5
-#define SymRBracket     0x7FD8A453
-#define SymAnd          0x7FD93EBD
-#define SymAs           0x7FDF415C
-#define SymCond         0x7FDE98F4
-#define SymDef          0x7FDF5543
-#define SymDo           0x7FD26285
-#define SymElse         0x7FDA4AF5
-#define SymEnd          0x7FDBF771
-#define SymFalse        0x7FDE2C6F
-#define SymIf           0x7FDBB4EB
-#define SymImport       0x7FDD73F1
-#define SymIn           0x7FDBA853
-#define SymLet          0x7FD87181
-#define SymModule       0x7FDA9814
-#define SymNil          0x7FD16673
-#define SymNot          0x7FD287FD
-#define SymOr           0x7FD74AA1
-#define SymTrue         0x7FD9395C
-#define SymLBrace       0x7FD8E025
-#define SymBar          0x7FD8D520
-#define SymRBrace       0x7FD8D6B3
-#define SymExport       0x7FD4B07E
+#define SymEOF            0x7FDDD97B
+#define SymID             0x7FD7F416
+#define SymBangEqual      0x7FDD5EA0
+#define SymString         0x7FD9C2F9
+#define SymNewline        0x7FD0A901
+#define SymHash           0x7FDF8CB8
+#define SymPercent        0x7FD3EC31
+#define SymLParen         0x7FD2CFBD
+#define SymRParen         0x7FDA86A6
+#define SymStar           0x7FD9AA08
+#define SymPlus           0x7FD26F51
+#define SymComma          0x7FD868CB
+#define SymMinus          0x7FD9FF2D
+#define SymArrow          0x7FDA0014
+#define SymDot            0x7FD21FF7
+#define SymSlash          0x7FDDA557
+#define SymNum            0x7FD6FFA6
+#define SymColon          0x7FD7E2FE
+#define SymLess           0x7FDD1E23
+#define SymLessEqual      0x7FDE0FA1
+#define SymLessGreater    0x7FD3C208
+#define SymEqual          0x7FD433E7
+#define SymEqualEqual     0x7FDC5428
+#define SymGreater        0x7FD9FE4E
+#define SymGreaterEqual   0x7FD7CF7B
+#define SymLBracket       0x7FDCA2BF
+#define SymRBracket       0x7FD4F959
+#define SymAnd            0x7FDF9232
+#define SymAs             0x7FD680A2
+#define SymCond           0x7FD1863D
+#define SymDef            0x7FD9082B
+#define SymDo             0x7FDEFFDA
+#define SymElse           0x7FD0BE10
+#define SymEnd            0x7FD026BE
+#define SymFalse          0x7FDAF256
+#define SymIf             0x7FDE9E90
+#define SymImport         0x7FD8B461
+#define SymIn             0x7FD98FB0
+#define SymLet            0x7FDAEAD0
+#define SymModule         0x7FD258A9
+#define SymNil            0x7FD5A26C
+#define SymNot            0x7FDBCF3C
+#define SymOr             0x7FD149E0
+#define SymTrue           0x7FD7E0EC
+#define SymLBrace         0x7FD991EE
+#define SymBar            0x7FDA1FBF
+#define SymRBrace         0x7FD3C948
 
 typedef struct {
   char *filename;
@@ -68,8 +68,3 @@ Val NodeType(Val node, Mem *mem);
 u32 NodePos(Val node, Mem *mem);
 Val NodeExpr(Val node, Mem *mem);
 Val TokenSym(TokenType type);
-
-#ifdef DEBUG
-void MakeParseSyms(SymbolTable *symbols);
-void PrintAST(Val ast, u32 level, Mem *mem, SymbolTable *symbols);
-#endif

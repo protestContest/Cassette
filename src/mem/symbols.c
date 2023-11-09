@@ -1,12 +1,8 @@
 #include "symbols.h"
-#include "mem.h"
-#include "univ/math.h"
 #include "univ/hash.h"
-#include "univ/string.h"
+#include "univ/math.h"
 #include "univ/system.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "univ/str.h"
 
 void InitSymbolTable(SymbolTable *symbols)
 {
@@ -20,7 +16,7 @@ void InitSymbolTable(SymbolTable *symbols)
 
 #ifdef DEBUG
   Assert(Primitive == Sym("*prim*", symbols));
-  Assert(Function == Sym("*fn*", symbols));
+  Assert(Function == Sym("*func*", symbols));
   Assert(Undefined == Sym("*undefined*", symbols));
   Assert(File == Sym("*file*", symbols));
 #endif
@@ -34,7 +30,7 @@ void DestroySymbolTable(SymbolTable *symbols)
 
 Val SymbolFor(char *name)
 {
-  return SymVal(Hash(name, strlen(name)));
+  return SymVal(Hash(name, StrLen(name)));
 }
 
 Val SymbolFrom(char *name, u32 length)
@@ -44,7 +40,7 @@ Val SymbolFrom(char *name, u32 length)
 
 Val Sym(char *name, SymbolTable *symbols)
 {
-  return MakeSymbol(name, strlen(name), symbols);
+  return MakeSymbol(name, StrLen(name), symbols);
 }
 
 static void AddSymbol(char *name, u32 length, SymbolTable *symbols)

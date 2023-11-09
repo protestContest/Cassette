@@ -1,13 +1,12 @@
 #include "project.h"
+#include "compile.h"
+#include "univ/str.h"
 #include "parse.h"
-#include "runtime/env.h"
+#include "runtime/primitives.h"
 #include "module.h"
-#include "source.h"
-#include "univ/string.h"
-#include "univ/system.h"
+#include "runtime/env.h"
 #include "runtime/ops.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "univ/system.h"
 
 typedef struct {
   Val entry;
@@ -76,7 +75,7 @@ static void DestroyProject(Project *p)
   DestroyMem(&p->mem);
   DestroySymbolTable(&p->symbols);
   for (i = 0; i < p->manifest.count; i++) {
-    free(p->manifest.items[i]);
+    Free(p->manifest.items[i]);
   }
   DestroyVec((Vec*)&p->manifest);
   p->entry = Nil;
@@ -107,8 +106,8 @@ Result ReadManifest(char *filename, Project *project)
     cur = SkipBlankLines(cur);
   }
 
-  free(source);
-  free(basename);
+  Free(source);
+  Free(basename);
 
   return OkResult(Nil);
 }
@@ -135,7 +134,7 @@ static Result ParseModules(Project *project)
     result = ParseModule(&parser);
     if (!result.ok) return result;
 
-    free(source);
+    Free(source);
 
     name = ModuleName(result.value, &project->mem);
 
@@ -176,7 +175,7 @@ static Result ScanDependencies(Project *project)
       /* make sure we know about the imported module */
       if (!HashMapContains(&project->modules, import_name)) {
         char *filename = SymbolName(ModuleFile(module, &project->mem), &project->symbols);
-        return ErrorResult("Missing module", filename, NodePos(import, &project->mem));
+        return ErrorResult("Module not found", filename, NodePos(import, &project->mem));
       }
 
       /* add import to the stack if it's not already in the build list */
@@ -197,7 +196,7 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
   Compiler c;
   u32 i;
   u32 num_modules = ListLength(build_list, &p->mem);
-  Val module_env = ExtendEnv(Nil, CompileEnv(&p->mem, &p->symbols), &p->mem);
+  Val module_env = ExtendEnv(Nil, CompileEnv(&p->mem), &p->mem);
 
   InitChunk(chunk);
   InitCompiler(&c, &p->mem, &p->symbols, &p->modules, chunk);
@@ -218,10 +217,6 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
     Result result;
     Val module = Head(build_list, &p->mem);
     build_list = Tail(build_list, &p->mem);
-
-    printf("Compiling ");
-    PrintVal(ModuleName(module, &p->mem), &p->symbols);
-    printf("\n");
 
     c.env = module_env;
     if (i == num_modules - 1) {

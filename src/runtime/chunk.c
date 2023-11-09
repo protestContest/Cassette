@@ -1,11 +1,7 @@
 #include "chunk.h"
-#include "ops.h"
-#include "vm.h"
-#include "univ/math.h"
-#include "univ/string.h"
 #include "univ/system.h"
-#include <stdio.h>
-#include <stdlib.h>
+
+static u8 AddConst(Val value, Chunk *chunk);
 
 void InitChunk(Chunk *chunk)
 {
@@ -77,7 +73,7 @@ u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk)
   return pos;
 }
 
-u8 AddConst(Val value, Chunk *chunk)
+static u8 AddConst(Val value, Chunk *chunk)
 {
   u32 i;
 
@@ -121,88 +117,3 @@ u32 GetSourcePosition(u32 byte_pos, Chunk *chunk)
 
   return -1;
 }
-
-#ifdef DEBUG
-void Disassemble(Chunk *chunk)
-{
-  u32 longest_sym, width, col1, col2;
-  u32 i, line;
-  char *sym;
-
-  longest_sym = Min(17, LongestSymbol(&chunk->symbols));
-  col1 = 20 + longest_sym;
-  col2 = col1 + 6 + longest_sym;
-  width = col2 + longest_sym + 2;
-
-  printf("╔ Disassembled ");
-  for (i = 0; i < width-16; i++) printf("═");
-  printf("╗\n");
-
-  printf("║  src  idx  Instruction");
-  for (i = 24; i < col1; i++) printf(" ");
-  i += printf("Constants");
-  while (i < col2) i += printf(" ");
-  i += printf("Symbols");
-  while (i < width - 1) i += printf(" ");
-  printf("║\n");
-
-  printf("╟─────┬────┬");
-  for (i = 12; i < width-1; i++) printf("─");
-  printf("╢\n");
-
-  line = 0;
-  sym = (char*)chunk->symbols.names.items;
-  for (i = 0; i < chunk->code.count; i += OpLength(ChunkRef(chunk, i))) {
-    u8 op = ChunkRef(chunk, i);
-    u32 j, k;
-    u32 source = GetSourcePosition(i, chunk);
-
-    printf("║");
-    printf(" %4d│%4d│", source, i);
-    k = 12;
-    k += printf(" %s", OpName(op));
-    for (j = 0; j < OpLength(op) - 1; j++) {
-      k += printf(" ");
-      k += PrintVal(ChunkConst(chunk, i+j+1), &chunk->symbols);
-    }
-
-    while (k < col1) k += printf(" ");
-    if (line < chunk->num_constants) {
-      Val value = chunk->constants[line];
-      k += printf("%3d: ", line);
-      if (IsSym(value)) {
-        k += printf("%.*s", longest_sym, SymbolName(value, &chunk->symbols));
-      } else {
-        k += PrintVal(chunk->constants[line], &chunk->symbols);
-      }
-    }
-
-    while (k < col2) k += printf(" ");
-    if ((u8*)sym < chunk->symbols.names.items + chunk->symbols.names.count) {
-      u32 length = StrLen(sym);
-      k += printf("%.*s", longest_sym, sym);
-      sym += length + 1;
-    }
-
-    while (k < width - 1) k += printf(" ");
-    printf("║\n");
-    line++;
-  }
-
-  while ((u8*)sym < chunk->symbols.names.items + chunk->symbols.names.count) {
-    u32 length = StrLen(sym);
-    printf("║");
-    i = 1;
-    while (i < col2) i += printf(" ");
-    i += printf("%.*s", longest_sym, sym);
-    sym += length + 1;
-
-    while (i < width - 1) i += printf(" ");
-    printf("║\n");
-  }
-
-  printf("╚");
-  for (i = 0; i < width-2; i++) printf("═");
-  printf("╝\n");
-}
-#endif

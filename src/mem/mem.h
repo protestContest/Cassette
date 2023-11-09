@@ -1,6 +1,5 @@
 #pragma once
 
-
 typedef u32 Val;
 
 #define nanMask           0x7FC00000
@@ -49,15 +48,22 @@ typedef u32 Val;
 #define MinIntVal         0x7FC80000
 
 /* pre-computed symbols */
-#define True              0x7FD9395C
-#define False             0x7FDE2C6F
-#define Ok                0x7FD72346
-#define Error             0x7FDC3AAA
-#define Primitive         0x7FD0D974
-#define Function          0x7FD341E4
-#define Undefined         0x7FD19F74
-#define Moved             0x7FD162D1
-#define File              0x7FD934AA
+#define True              0x7FD7E0EC
+#define False             0x7FDAF256
+#define Ok                0x7FDDD1DE
+#define Error             0x7FD04F60
+#define Primitive         0x7FD15AFA
+#define Function          0x7FD4D1AA
+#define Undefined         0x7FDBC693
+#define Moved             0x7FDE7A3D
+#define File              0x7FDA057E
+#define FloatType         0x7FDF23F5
+#define IntType           0x7FD50D9D
+#define SymType           0x7FD9A156
+#define PairType          0x7FD2249D
+#define TupleType         0x7FDB6C7E
+#define BinaryType        0x7FD5609F
+#define FuncType          0x7FD41D59
 
 Val FloatVal(float num);
 float RawFloat(Val value);
@@ -78,6 +84,8 @@ void ResizeMem(Mem *mem, u32 capacity);
 void PushMem(Mem *mem, Val value);
 Val PopMem(Mem *mem);
 
+Val TypeOf(Val value, Mem *mem);
+
 Val Pair(Val head, Val tail, Mem *mem);
 Val Head(Val pair, Mem *mem);
 Val Tail(Val pair, Mem *mem);
@@ -85,21 +93,24 @@ void SetHead(Val pair, Val value, Mem *mem);
 void SetTail(Val pair, Val value, Mem *mem);
 u32 ListLength(Val list, Mem *mem);
 bool ListContains(Val list, Val item, Mem *mem);
-Val ReverseList(Val list, Mem *mem);
+Val ReverseList(Val list, Val tail, Mem *mem);
+Val ListGet(Val list, u32 index, Mem *mem);
+Val ListCat(Val list1, Val list2, Mem *mem);
+
 Val MakeTuple(u32 length, Mem *mem);
 bool IsTuple(Val value, Mem *mem);
 u32 TupleLength(Val tuple, Mem *mem);
 bool TupleContains(Val tuple, Val item, Mem *mem);
 void TupleSet(Val tuple, u32 index, Val value, Mem *mem);
 Val TupleGet(Val tuple, u32 index, Mem *mem);
+Val TupleCat(Val tuple1, Val tuple2, Mem *mem);
+
 Val MakeBinary(u32 size, Mem *mem);
 Val BinaryFrom(char *str, u32 size, Mem *mem);
 bool IsBinary(Val value, Mem *mem);
 u32 BinaryLength(Val binary, Mem *mem);
+bool BinaryContains(Val binary, Val item, Mem *mem);
 void *BinaryData(Val binary, Mem *mem);
-void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);
+Val BinaryCat(Val binary1, Val binary2, Mem *mem);
 
-struct SymbolTable;
-u32 PrintVal(Val value, struct SymbolTable *symbols);
-u32 PrintValLen(Val value, struct SymbolTable *symbols);
-void DumpMem(Mem *mem, struct SymbolTable *symbols);
+void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);

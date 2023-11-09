@@ -1,11 +1,5 @@
 #include "env.h"
 #include "univ/system.h"
-#include <stdio.h>
-
-Val ExtendEnv(Val env, Val frame, Mem *mem)
-{
-  return Pair(frame, env, mem);
-}
 
 void Define(Val value, u32 index, Val env, Mem *mem)
 {
@@ -30,36 +24,20 @@ Val Lookup(u32 frames, u32 index, Val env, Mem *mem)
 
 i32 FindDefinition(Val var, Val env, Mem *mem)
 {
-  u32 frame = 0;
+  u32 f = 0;
   u32 i;
 
   while (env != Nil) {
-    for (i = 0; i < TupleLength(Head(env, mem), mem); i++) {
-      if (TupleGet(Head(env, mem), i, mem) == var) {
-        return (frame << 16) | i;
+    Val frame = Head(env, mem);
+    for (i = 0; i < TupleLength(frame, mem); i++) {
+      u32 pos = TupleLength(frame, mem) - i - 1;
+      if (TupleGet(frame, pos, mem) == var) {
+        return (f << 16) | pos;
       }
     }
-    frame++;
+    f++;
     env = Tail(env, mem);
   }
 
   return -1;
-}
-
-void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
-{
-  printf("Env:\n");
-  while (env != Nil) {
-    Val frame = Head(env, mem);
-    u32 i;
-    printf("- ");
-    for (i = 0; i < TupleLength(frame, mem); i++) {
-      Val item = TupleGet(frame, i, mem);
-      PrintVal(item, symbols);
-      printf(" ");
-    }
-
-    printf("\n");
-    env = Tail(env, mem);
-  }
 }

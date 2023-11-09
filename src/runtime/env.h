@@ -1,10 +1,8 @@
 #pragma once
 
 #include "mem/mem.h"
-#include "mem/symbols.h"
 
-Val ExtendEnv(Val env, Val frame, Mem *mem);
+#define ExtendEnv(env, frame, mem)  Pair(frame, env, mem)
 void Define(Val value, u32 index, Val env, Mem *mem);
 Val Lookup(u32 frames, u32 index, Val env, Mem *mem);
 i32 FindDefinition(Val value, Val env, Mem *mem);
-void PrintEnv(Val env, Mem *mem, SymbolTable *symbols);

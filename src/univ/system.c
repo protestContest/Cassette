@@ -1,38 +1,33 @@
 #include "system.h"
-#include <stdlib.h>
-#include <stdio.h>
-
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
-#include <termios.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-
-static void *handles[8] = {NULL};
-
-Handle NewHandle(u32 size)
+void *Alloc(u32 size)
 {
-  u32 i;
-  for (i = 0; i < ArrayCount(handles); i++) {
-    if (handles[i] == NULL) {
-      handles[i] = malloc(size);
-      return &handles[i];
-    }
-  }
-
-  return NULL;
+  return malloc(size);
 }
 
-void SetHandleSize(Handle handle, u32 size)
+void *Realloc(void *ptr, u32 size)
 {
-  *handle = realloc(*handle, size);
-  printf("%p\n", *handle);
+  return realloc(ptr, size);
 }
 
-void DisposeHandle(Handle handle)
+void Free(void *ptr)
 {
-  if (handle && *handle) free(*handle);
-  *handle = NULL;
+  free(ptr);
+}
+
+i32 Read(i32 file, void *buf, u32 size)
+{
+  return read(file, buf, size);
+}
+
+i32 Write(i32 file, void *buf, u32 size)
+{
+  return write(file, buf, size);
 }
 
 void Copy(void *src, void *dst, u32 size)
@@ -42,16 +37,6 @@ void Copy(void *src, void *dst, u32 size)
   u32 rem = size % sizeof(u32);
   for (i = 0; i < words; i++) ((u32*)dst)[i] = ((u32*)src)[i];
   for (i = 0; i < rem; i++) ((u8*)((u32*)dst + words))[i] = ((u8*)((u32*)src + words))[i];
-}
-
-void Exit(void)
-{
-  exit(0);
-}
-
-void Alert(char *message)
-{
-  printf("%s\n", message);
 }
 
 int Open(char *path)
@@ -79,7 +64,7 @@ char *ReadFile(char *path)
 
   size = FileSize(file);
 
-  data = malloc(size + 1);
+  data = Alloc(size + 1);
   read(file, data, size);
   data[size] = 0;
   return data;

@@ -12,31 +12,6 @@ Val MakeModule(Val name, Val body, Val imports, Val exports, Val filename, Mem *
   return module;
 }
 
-Val ModuleName(Val mod, Mem *mem)
-{
-  return TupleGet(mod, 0, mem);
-}
-
-Val ModuleBody(Val mod, Mem *mem)
-{
-  return TupleGet(mod, 1, mem);
-}
-
-Val ModuleImports(Val mod, Mem *mem)
-{
-  return TupleGet(mod, 2, mem);
-}
-
-Val ModuleExports(Val mod, Mem *mem)
-{
-  return TupleGet(mod, 3, mem);
-}
-
-Val ModuleFile(Val mod, Mem *mem)
-{
-  return TupleGet(mod, 4, mem);
-}
-
 u32 CountExports(Val nodes, HashMap *modules, Mem *mem)
 {
   u32 count = 0;

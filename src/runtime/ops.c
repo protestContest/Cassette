@@ -1,51 +1,42 @@
 #include "ops.h"
 
-typedef struct {
-  u32 length;
-  char *name;
-} OpInfo;
-
-static OpInfo ops[] = {
-  [OpNoop]    = {1, "noop"},
-  [OpHalt]    = {1, "halt"},
-  [OpError]   = {1, "error"},
-  [OpPop]     = {1, "pop"},
-  [OpDup]     = {1, "dup"},
-  [OpConst]   = {2, "const"},
-  [OpNeg]     = {1, "neg"},
-  [OpNot]     = {1, "not"},
-  [OpLen]     = {1, "len"},
-  [OpMul]     = {1, "mul"},
-  [OpDiv]     = {1, "div"},
-  [OpRem]     = {1, "rem"},
-  [OpAdd]     = {1, "add"},
-  [OpSub]     = {1, "sub"},
-  [OpIn]      = {1, "in"},
-  [OpLt]      = {1, "lt"},
-  [OpGt]      = {1, "gt"},
-  [OpEq]      = {1, "eq"},
-  [OpStr]     = {1, "str"},
-  [OpPair]    = {1, "pair"},
-  [OpTuple]   = {1, "tuple"},
-  [OpSet]     = {2, "set"},
-  [OpGet]     = {2, "get"},
-  [OpExtend]  = {1, "extend"},
-  [OpDefine]  = {2, "define"},
-  [OpLookup]  = {3, "lookup"},
-  [OpExport]  = {1, "export"},
-  [OpJump]    = {2, "jump"},
-  [OpBranch]  = {2, "branch"},
-  [OpLink]    = {2, "link"},
-  [OpReturn]  = {1, "return"},
-  [OpApply]   = {2, "apply"}
+static u8 op_lengths[] = {
+  [OpNoop]    = 1,
+  [OpHalt]    = 1,
+  [OpError]   = 1,
+  [OpPop]     = 1,
+  [OpDup]     = 1,
+  [OpConst]   = 2,
+  [OpNeg]     = 1,
+  [OpNot]     = 1,
+  [OpLen]     = 1,
+  [OpMul]     = 1,
+  [OpDiv]     = 1,
+  [OpRem]     = 1,
+  [OpAdd]     = 1,
+  [OpSub]     = 1,
+  [OpIn]      = 1,
+  [OpLt]      = 1,
+  [OpGt]      = 1,
+  [OpEq]      = 1,
+  [OpStr]     = 1,
+  [OpPair]    = 1,
+  [OpTuple]   = 1,
+  [OpSet]     = 2,
+  [OpGet]     = 1,
+  [OpCat]     = 1,
+  [OpExtend]  = 1,
+  [OpDefine]  = 2,
+  [OpLookup]  = 3,
+  [OpExport]  = 1,
+  [OpJump]    = 2,
+  [OpBranch]  = 2,
+  [OpLink]    = 2,
+  [OpReturn]  = 1,
+  [OpApply]   = 2,
 };
-
-char *OpName(OpCode op)
-{
-  return ops[op].name;
-}
 
 u32 OpLength(OpCode op)
 {
-  return ops[op].length;
+  return op_lengths[op];
 }

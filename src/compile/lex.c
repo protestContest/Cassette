@@ -1,7 +1,6 @@
 #include "lex.h"
 #include "mem/mem.h"
-#include "univ/string.h"
-#include <stdio.h>
+#include "univ/str.h"
 
 #define Peek(lex)     (lex)->source[(lex)->pos]
 
@@ -41,12 +40,14 @@ bool MatchToken(TokenType type, Lexer *lex)
   }
 }
 
+void SkipNewlines(Lexer *lex)
+{
+  while (lex->token.type == TokenNewline) NextToken(lex);
+}
+
 static Token AdvanceToken(Lexer *lex)
 {
   char *start;
-
-  start = lex->source + lex->pos;
-  if (Match(".", lex))  return MakeToken(TokenDot, start, 1);
 
   SkipWhitespace(lex);
   start = lex->source + lex->pos;
@@ -58,6 +59,7 @@ static Token AdvanceToken(Lexer *lex)
   if (Match("!=", lex)) return MakeToken(TokenBangEqual, start, 2);
   if (Match("->", lex)) return MakeToken(TokenArrow, start, 2);
   if (Match("<=", lex)) return MakeToken(TokenLessEqual, start, 2);
+  if (Match("<>", lex)) return MakeToken(TokenLessGreater, start, 2);
   if (Match("==", lex)) return MakeToken(TokenEqualEqual, start, 2);
   if (Match(">=", lex)) return MakeToken(TokenGreaterEqual, start, 2);
   if (Match("\n", lex)) return MakeToken(TokenNewline, start, 1);
@@ -69,6 +71,7 @@ static Token AdvanceToken(Lexer *lex)
   if (Match("+", lex))  return MakeToken(TokenPlus, start, 1);
   if (Match(",", lex))  return MakeToken(TokenComma, start, 1);
   if (Match("-", lex))  return MakeToken(TokenMinus, start, 1);
+  if (Match(".", lex))  return MakeToken(TokenDot, start, 1);
   if (Match("/", lex))  return MakeToken(TokenSlash, start, 1);
   if (Match(":", lex))  return MakeToken(TokenColon, start, 1);
   if (Match("<", lex))  return MakeToken(TokenLess, start, 1);
@@ -127,11 +130,6 @@ static void SkipWhitespace(Lexer *lex)
   }
 
   lex->pos = cur - lex->source;
-}
-
-void SkipNewlines(Lexer *lex)
-{
-  while (lex->token.type == TokenNewline) NextToken(lex);
 }
 
 static bool Match(char *test, Lexer *lex)
@@ -207,23 +205,47 @@ static Token KeywordToken(Lexer *lex)
 {
   u32 start = lex->pos;
 
-  if (MatchKeyword("and", lex))     return MakeToken(TokenAnd, lex->source + start, lex->pos - start);
-  if (MatchKeyword("as", lex))      return MakeToken(TokenAs, lex->source + start, lex->pos - start);
-  if (MatchKeyword("cond", lex))    return MakeToken(TokenCond, lex->source + start, lex->pos - start);
-  if (MatchKeyword("def", lex))     return MakeToken(TokenDef, lex->source + start, lex->pos - start);
-  if (MatchKeyword("do", lex))      return MakeToken(TokenDo, lex->source + start, lex->pos - start);
-  if (MatchKeyword("else", lex))    return MakeToken(TokenElse, lex->source + start, lex->pos - start);
-  if (MatchKeyword("end", lex))     return MakeToken(TokenEnd, lex->source + start, lex->pos - start);
-  if (MatchKeyword("false", lex))   return MakeToken(TokenFalse, lex->source + start, lex->pos - start);
-  if (MatchKeyword("if", lex))      return MakeToken(TokenIf, lex->source + start, lex->pos - start);
-  if (MatchKeyword("import", lex))  return MakeToken(TokenImport, lex->source + start, lex->pos - start);
-  if (MatchKeyword("in", lex))      return MakeToken(TokenIn, lex->source + start, lex->pos - start);
-  if (MatchKeyword("let", lex))     return MakeToken(TokenLet, lex->source + start, lex->pos - start);
-  if (MatchKeyword("module", lex))  return MakeToken(TokenModule, lex->source + start, lex->pos - start);
-  if (MatchKeyword("nil", lex))     return MakeToken(TokenNil, lex->source + start, lex->pos - start);
-  if (MatchKeyword("not", lex))     return MakeToken(TokenNot, lex->source + start, lex->pos - start);
-  if (MatchKeyword("or", lex))      return MakeToken(TokenOr, lex->source + start, lex->pos - start);
-  if (MatchKeyword("true", lex))    return MakeToken(TokenTrue, lex->source + start, lex->pos - start);
+  switch (Peek(lex)) {
+  case 'a':
+    if (MatchKeyword("and", lex))     return MakeToken(TokenAnd, lex->source + start, lex->pos - start);
+    if (MatchKeyword("as", lex))      return MakeToken(TokenAs, lex->source + start, lex->pos - start);
+    break;
+  case 'c':
+    if (MatchKeyword("cond", lex))    return MakeToken(TokenCond, lex->source + start, lex->pos - start);
+    break;
+  case 'd':
+    if (MatchKeyword("def", lex))     return MakeToken(TokenDef, lex->source + start, lex->pos - start);
+    if (MatchKeyword("do", lex))      return MakeToken(TokenDo, lex->source + start, lex->pos - start);
+    break;
+  case 'e':
+    if (MatchKeyword("else", lex))    return MakeToken(TokenElse, lex->source + start, lex->pos - start);
+    if (MatchKeyword("end", lex))     return MakeToken(TokenEnd, lex->source + start, lex->pos - start);
+    break;
+  case 'f':
+    if (MatchKeyword("false", lex))   return MakeToken(TokenFalse, lex->source + start, lex->pos - start);
+    break;
+  case 'i':
+    if (MatchKeyword("if", lex))      return MakeToken(TokenIf, lex->source + start, lex->pos - start);
+    if (MatchKeyword("import", lex))  return MakeToken(TokenImport, lex->source + start, lex->pos - start);
+    if (MatchKeyword("in", lex))      return MakeToken(TokenIn, lex->source + start, lex->pos - start);
+    break;
+  case 'l':
+    if (MatchKeyword("let", lex))     return MakeToken(TokenLet, lex->source + start, lex->pos - start);
+    break;
+  case 'm':
+    if (MatchKeyword("module", lex))  return MakeToken(TokenModule, lex->source + start, lex->pos - start);
+    break;
+  case 'n':
+    if (MatchKeyword("nil", lex))     return MakeToken(TokenNil, lex->source + start, lex->pos - start);
+    if (MatchKeyword("not", lex))     return MakeToken(TokenNot, lex->source + start, lex->pos - start);
+    break;
+  case 'o':
+    if (MatchKeyword("or", lex))      return MakeToken(TokenOr, lex->source + start, lex->pos - start);
+    break;
+  case 't':
+    if (MatchKeyword("true", lex))    return MakeToken(TokenTrue, lex->source + start, lex->pos - start);
+    break;
+  }
 
   while (IsSymChar(Peek(lex))) lex->pos++;
   return MakeToken(TokenID, lex->source + start, lex->pos - start);

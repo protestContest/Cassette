@@ -1,9 +1,9 @@
 #pragma once
-#include "runtime/chunk.h"
-#include "mem/symbols.h"
-#include "lex.h"
+#include "univ/hashmap.h"
+#include "mem/mem.h"
 #include "result.h"
-#include "runtime/primitives.h"
+#include "mem/symbols.h"
+#include "runtime/chunk.h"
 
 typedef struct {
   u32 pos;

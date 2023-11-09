@@ -1,8 +1,8 @@
 #pragma once
 #include "mem/mem.h"
-#include "mem/symbols.h"
 #include "chunk.h"
 #include "result.h"
+#include "univ/vec.h"
 
 typedef struct {
   u32 pc;

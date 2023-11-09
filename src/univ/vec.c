@@ -1,6 +1,6 @@
 #include "vec.h"
 #include "math.h"
-#include <stdlib.h>
+#include "univ/system.h"
 
 static void ResizeVec(Vec *vec, u32 item_size, u32 capacity);
 static void MaybeGrowVec(Vec *vec, u32 item_size);
@@ -15,7 +15,7 @@ void InitVec(Vec *vec, u32 item_size, u32 capacity)
 
 void DestroyVec(Vec *vec)
 {
-  if (vec->items) free(vec->items);
+  if (vec->items) Free(vec->items);
   vec->capacity = 0;
   vec->count = 0;
 }
@@ -51,7 +51,7 @@ void ObjVecPush(ObjVec *vec, void *value)
 static void ResizeVec(Vec *vec, u32 item_size, u32 capacity)
 {
   vec->capacity = capacity;
-  vec->items = realloc(vec->items, item_size*capacity);
+  vec->items = Realloc(vec->items, item_size*capacity);
 }
 
 static void MaybeGrowVec(Vec *vec, u32 item_size)

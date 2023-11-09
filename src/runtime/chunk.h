@@ -25,13 +25,8 @@ void EndChunkFile(Chunk *chunk);
 char *ChunkFile(u32 pos, Chunk *chunk);
 
 u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk);
-u8 AddConst(Val value, Chunk *chunk);
 void PushConst(Val value, u32 source_pos, Chunk *chunk);
 void PatchChunk(Chunk *chunk, u32 index, Val value);
 void PatchJump(Chunk *chunk, u32 index);
 
 u32 GetSourcePosition(u32 byte_pos, Chunk *chunk);
-
-#ifdef DEBUG
-void Disassemble(Chunk *chunk);
-#endif

@@ -1,12 +1,14 @@
-#include "string.h"
+#include "str.h"
 #include "system.h"
-#include <stdlib.h>
 
 u32 StrLen(char *str)
 {
-  u32 length = 0;
-  while (*str++ != '\0') length++;
-  return length;
+  u32 len = 0;
+  while (*str != 0) {
+    str++;
+    len++;
+  }
+  return len;
 }
 
 bool StrEq(char *str1, char *str2)
@@ -77,7 +79,7 @@ char *Basename(char *str, char sep)
     cur++;
   }
 
-  cur = malloc(end - str + 1);
+  cur = Alloc(end - str + 1);
   cur[end-str] = 0;
   Copy(str, cur, end-str);
   return cur;
@@ -86,7 +88,7 @@ char *Basename(char *str, char sep)
 char *JoinStr(char *str1, char *str2, char joiner)
 {
   u32 len1 = StrLen(str1), len2 = StrLen(str2);
-  char *str = malloc(len1 + 1 + len2 + 1);
+  char *str = Alloc(len1 + 1 + len2 + 1);
   Copy(str1, str, len1);
   str[len1] = joiner;
   Copy(str2, str+len1+1, len2);
@@ -97,7 +99,7 @@ char *JoinStr(char *str1, char *str2, char joiner)
 char *CopyStr(char *str)
 {
   u32 len = StrLen(str);
-  char *str2 = malloc(len+1);
+  char *str2 = Alloc(len+1);
   Copy(str, str2, len);
   str2[len] = 0;
   return str2;

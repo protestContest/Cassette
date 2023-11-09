@@ -22,11 +22,13 @@ compare         → member
                   | compare ">" member
                   | compare "<=" member
                   | compare ">=" member
-member          → pair | member "in" pair
+member          → concat | member "in" concat
+concat          → pair | conat "<>" pair
 pair            → sum | sum "|" pair
 sum             → product | sum "+" product | sum "-" product
 product         → unary | product "*" unary | product "/" unary | product "%" unary
-unary           → primary | "-" primary | "not" primary | "#" primary
+unary           → access | "-" access | "not" access | "#" access
+access          → primary | access "." primary
 
 primary         → group | block | obj | value | ID
 

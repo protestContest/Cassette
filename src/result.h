@@ -12,4 +12,3 @@ typedef struct {
 
 Result OkResult(Val value);
 Result ErrorResult(char *error, char *filename, u32 pos);
-void PrintError(Result error);

@@ -1,5 +1,4 @@
 #include "math.h"
-#include <math.h>
 
 /* Based on this PCG algorithm: https://github.com/imneme/pcg-c-basic */
 

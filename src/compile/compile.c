@@ -3,12 +3,9 @@
 #include "runtime/env.h"
 #include "runtime/ops.h"
 #include "module.h"
-#include "source.h"
-#include <stdio.h>
-#include <stdlib.h>
 
-#define LinkReturn  0x7FD336A7
-#define LinkNext    0x7FD9CB70
+#define LinkReturn        0x7FD62373
+#define LinkNext          0x7FD002C0
 
 static Result CompileImports(Val imports, Compiler *c);
 static Result CompileExpr(Val node, Val linkage, Compiler *c);
@@ -211,8 +208,13 @@ static Result CompileImports(Val imports, Compiler *c)
     while (imported_vals != Nil) {
       Val imported_val = Head(imported_vals, c->mem);
 
-      PushByte(OpGet, c->pos, c->chunk);
+      if (Tail(imported_vals, c->mem) != Nil) {
+        /* keep tuple for future iterations */
+        PushByte(OpDup, c->pos, c->chunk);
+      }
+      PushByte(OpConst, c->pos, c->chunk);
       PushConst(IntVal(i), c->pos, c->chunk);
+      PushByte(OpGet, c->pos, c->chunk);
       PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_imported+i), c->pos, c->chunk);
       Define(imported_val, num_imported + i, c->env, c->mem);
@@ -221,9 +223,6 @@ static Result CompileImports(Val imports, Compiler *c)
       i++;
     }
     num_imported += i;
-
-    /* discard imported frame */
-    PushByte(OpPop, c->pos, c->chunk);
 
     imports = Tail(imports, c->mem);
   }
@@ -250,11 +249,13 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
     if (ListLength(expr, c->mem) == 1) return CompileOp(OpNeg, expr, linkage, c);
     else return CompileOp(OpSub, expr, linkage, c);
   case SymArrow:        return CompileLambda(expr, linkage, c);
+  case SymDot:          return CompileOp(OpGet, expr, linkage, c);
   case SymSlash:        return CompileOp(OpDiv, expr, linkage, c);
   case SymNum:          return CompileConst(expr, linkage, c);
   case SymColon:        return CompileConst(expr, linkage, c);
   case SymLess:         return CompileOp(OpLt, expr, linkage, c);
   case SymLessEqual:    return CompileNotOp(OpGt, expr, linkage, c);
+  case SymLessGreater:  return CompileOp(OpCat, expr, linkage, c);
   case SymEqualEqual:   return CompileOp(OpEq, expr, linkage, c);
   case SymGreater:      return CompileOp(OpGt, expr, linkage, c);
   case SymGreaterEqual: return CompileNotOp(OpLt, expr, linkage, c);

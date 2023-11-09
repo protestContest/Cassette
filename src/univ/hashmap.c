@@ -2,7 +2,6 @@
 #include "hash.h"
 #include "math.h"
 #include "system.h"
-#include <stdlib.h>
 
 #define IndexFor(hash, cap)   ((hash) & ((cap) - 1))
 #define IsEmpty(bucket)       ((bucket).probe < 0)
@@ -20,7 +19,7 @@ static void ResizeMap(HashMap *map, u32 capacity)
 
   map2.capacity = Max(capacity, 32);
   map2.count = map->count;
-  map2.buckets = malloc(sizeof(MapBucket)*map2.capacity);
+  map2.buckets = Alloc(sizeof(MapBucket)*map2.capacity);
 
   for (i = 0; i < map2.capacity; i++) map2.buckets[i].probe = -1;
   for (i = 0; i < map->capacity; i++) {
@@ -31,7 +30,7 @@ static void ResizeMap(HashMap *map, u32 capacity)
     }
   }
 
-  if (map->buckets) free(map->buckets);
+  if (map->buckets) Free(map->buckets);
   map->capacity = map2.capacity;
   map->buckets = map2.buckets;
 }
@@ -45,7 +44,7 @@ void InitHashMap(HashMap *map)
 
 void DestroyHashMap(HashMap *map)
 {
-  if (map->buckets) free(map->buckets);
+  if (map->buckets) Free(map->buckets);
   map->buckets = 0;
   map->count = 0;
   map->capacity = 0;
@@ -152,5 +151,5 @@ u32 HashMapKey(HashMap *map, u32 key_num)
       count++;
     }
   }
-  return EmptyHash;
+  return 0;
 }

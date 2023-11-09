@@ -1,14 +1,13 @@
+#include "result.h"
+#include "univ/str.h"
+#include "runtime/chunk.h"
 #include "compile/project.h"
 #include "runtime/vm.h"
-#include "univ/string.h"
-#include <stdio.h>
+#include "cli.h"
 
-int Usage(void)
-{
-  printf("Usage: cassette [<filename>]+\n");
-  printf("       cassette -p <manifest file>\n");
-  return 1;
-}
+#ifdef DEBUG
+#include "debug.h"
+#endif
 
 int main(int argc, char *argv[])
 {

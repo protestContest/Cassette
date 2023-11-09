@@ -1,11 +1,7 @@
 #include "mem.h"
-#include "symbols.h"
 #include "univ/system.h"
-#include "univ/string.h"
 #include "univ/math.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include "univ/hash.h"
 
 Val FloatVal(float num)
 {
@@ -23,7 +19,7 @@ float RawFloat(Val value)
 
 void InitMem(Mem *mem, u32 capacity)
 {
-  mem->values = malloc(sizeof(Val) * capacity);
+  mem->values = Alloc(sizeof(Val) * capacity);
   mem->count = 0;
   mem->capacity = capacity;
   Pair(Nil, Nil, mem);
@@ -31,7 +27,7 @@ void InitMem(Mem *mem, u32 capacity)
 
 void DestroyMem(Mem *mem)
 {
-  if (mem->values) free(mem->values);
+  if (mem->values) Free(mem->values);
   mem->count = 0;
   mem->capacity = 0;
   mem->values = 0;
@@ -45,6 +41,17 @@ void PushMem(Mem *mem, Val value)
 Val PopMem(Mem *mem)
 {
   return mem->values[--mem->count];
+}
+
+Val TypeOf(Val value, Mem *mem)
+{
+  if (IsFloat(value)) return FloatType;
+  if (IsInt(value)) return IntType;
+  if (IsSym(value)) return SymType;
+  if (IsPair(value)) return PairType;
+  if (IsTuple(value, mem)) return TupleType;
+  if (IsBinary(value, mem)) return BinaryType;
+  return Nil;
 }
 
 Val Pair(Val head, Val tail, Mem *mem)
@@ -98,15 +105,32 @@ bool ListContains(Val list, Val item, Mem *mem)
   return false;
 }
 
-Val ReverseList(Val list, Mem *mem)
+Val ReverseList(Val list, Val tail, Mem *mem)
 {
-  Val reversed = Nil;
-  Assert(IsPair(list));
+  Assert(IsPair(list) && IsPair(tail));
   while (list != Nil) {
-    reversed = Pair(Head(list, mem), reversed, mem);
+    tail = Pair(Head(list, mem), tail, mem);
     list = Tail(list, mem);
   }
-  return reversed;
+  return tail;
+}
+
+Val ListGet(Val list, u32 index, Mem *mem)
+{
+  Assert(IsPair(list));
+  while (index > 0) {
+    list = Tail(list, mem);
+    if (list == Nil || !IsPair(list)) return Nil;
+    index--;
+  }
+  return Head(list, mem);
+}
+
+Val ListCat(Val list1, Val list2, Mem *mem)
+{
+  Assert(IsPair(list1) && IsPair(list2));
+  list1 = ReverseList(list1, Nil, mem);
+  return ReverseList(list1, list2, mem);
 }
 
 Val MakeTuple(u32 length, Mem *mem)
@@ -158,6 +182,23 @@ Val TupleGet(Val tuple, u32 i, Mem *mem)
   return mem->values[RawVal(tuple) + i + 1];
 }
 
+Val TupleCat(Val tuple1, Val tuple2, Mem *mem)
+{
+  Val result;
+  u32 len1, len2, i;
+  Assert(IsTuple(tuple1, mem) && IsTuple(tuple2, mem));
+  len1 = TupleLength(tuple1, mem);
+  len2 = TupleLength(tuple2, mem);
+  result = MakeTuple(len1+len2, mem);
+  for (i = 0; i < len1; i++) {
+    TupleSet(result, i, TupleGet(tuple1, i, mem), mem);
+  }
+  for (i = 0; i < len2; i++) {
+    TupleSet(result, len1+i, TupleGet(tuple1, i, mem), mem);
+  }
+  return result;
+}
+
 Val MakeBinary(u32 size, Mem *mem)
 {
   Val binary = ObjVal(mem->count);
@@ -193,10 +234,67 @@ u32 BinaryLength(Val binary, Mem *mem)
   return RawVal(mem->values[RawVal(binary)]);
 }
 
+bool BinaryContains(Val binary, Val item, Mem *mem)
+{
+  u8 *bin_data, *item_data;
+  Assert(IsBinary(binary, mem));
+  bin_data = BinaryData(binary, mem);
+  item_data = BinaryData(item, mem);
+
+  if (IsInt(item)) {
+    u32 i;
+    u8 byte;
+    if (RawInt(item) < 0 || RawInt(item) > 255) return false;
+    byte = RawInt(item);
+    for (i = 0; i < BinaryLength(binary, mem); i++) {
+      if (bin_data[i] == byte) return true;
+    }
+  } else if (IsBinary(item, mem)) {
+    u32 i, j, item_hash, test_hash;
+    u32 item_length = BinaryLength(item, mem);
+    u32 bin_length = BinaryLength(binary, mem);
+    if (item_length > bin_length) return false;
+    if (item_length == 0 || bin_length == 0) return false;
+
+    item_hash = Hash(item_data, item_length);
+    test_hash = Hash(bin_data, item_length);
+
+    for (i = 0; i < bin_length - item_length; i++) {
+      if (test_hash == item_hash) break;
+      test_hash = SkipHash(test_hash, bin_data[i], item_length);
+      test_hash = AppendHash(test_hash, bin_data[i+item_length]);
+    }
+
+    if (test_hash == item_hash) {
+      for (j = 0; j < item_length; j++) {
+        if (bin_data[i+j] != item_data[j]) return false;
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void *BinaryData(Val binary, Mem *mem)
 {
   Assert(IsBinary(binary, mem));
   return &mem->values[RawVal(binary)+1];
+}
+
+Val BinaryCat(Val binary1, Val binary2, Mem *mem)
+{
+  Val result;
+  u32 len1, len2;
+  u8 *data;
+  Assert(IsBinary(binary1, mem) && IsBinary(binary2, mem));
+  len1 = BinaryLength(binary1, mem);
+  len2 = BinaryLength(binary2, mem);
+  result = MakeBinary(len1+len2, mem);
+  data = BinaryData(result, mem);
+  Copy(BinaryData(binary1, mem), data, len1);
+  Copy(BinaryData(binary2, mem), data+len1, len2);
+  return result;
 }
 
 bool CheckCapacity(Mem *mem, u32 amount)
@@ -207,7 +305,7 @@ bool CheckCapacity(Mem *mem, u32 amount)
 void ResizeMem(Mem *mem, u32 capacity)
 {
   mem->capacity = capacity;
-  mem->values = realloc(mem->values, sizeof(Val)*capacity);
+  mem->values = Realloc(mem->values, sizeof(Val)*capacity);
 }
 
 static Val CopyValue(Val value, Mem *from, Mem *to)
@@ -260,156 +358,6 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
     }
   }
 
-  free(mem->values);
+  Free(mem->values);
   *mem = new_mem;
-}
-
-u32 PrintVal(Val value, SymbolTable *symbols)
-{
-  if (value == Nil) {
-    return printf("nil");
-  } else if (IsInt(value)) {
-    return printf("%d", RawInt(value));
-  } else if (IsFloat(value)) {
-    return printf("%.2f", RawFloat(value));
-  } else if (IsSym(value) && symbols) {
-    return printf("%s", SymbolName(value, symbols));
-  } else if (IsPair(value)) {
-    return printf("p%d", RawVal(value));
-  } else if (IsObj(value)) {
-    return printf("o%d", RawVal(value));
-  } else {
-    return printf("%08X", value);
-  }
-}
-
-u32 PrintValLen(Val value, SymbolTable *symbols)
-{
-  if (value == Nil) {
-    return 3;
-  } else if (IsInt(value)) {
-    return snprintf(0, 0, "%d", RawInt(value));
-  } else if (IsFloat(value)) {
-    return snprintf(0, 0, "%.2f", RawFloat(value));
-  } else if (IsSym(value) && symbols) {
-    return StrLen(SymbolName(value, symbols));
-  } else if (IsPair(value)) {
-    return snprintf(0, 0, "%d", RawVal(value)) + 1;
-  } else if (IsObj(value)) {
-    return snprintf(0, 0, "%d", RawVal(value)) + 1;
-  } else {
-    return 8;
-  }
-}
-
-static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols)
-{
-  if (IsInt(value)) {
-    printf("%*d", cell_width, RawInt(value));
-  } else if (IsFloat(value)) {
-    printf("%*.1f", cell_width, RawFloat(value));
-  } else if (IsSym(value) && symbols) {
-    printf("%*.*s", cell_width, cell_width, SymbolName(value, symbols));
-  } else if (value == Nil) {
-    u32 i;
-    for (i = 0; i < cell_width-3; i++) printf(" ");
-    printf("nil");
-  } else if (IsPair(value)) {
-    printf("p%*d", cell_width-1, RawVal(value));
-  } else if (IsObj(value)) {
-    printf("o%*d", cell_width-1, RawVal(value));
-  } else if (IsTupleHeader(value)) {
-    printf("t%*d", cell_width-1, RawVal(value));
-  } else if (IsBinaryHeader(value)) {
-    printf("b%*d", cell_width-1, RawVal(value));
-  } else if (IsBignumHeader(value)) {
-    printf("#%*d", cell_width-1, RawInt(value));
-  } else {
-    printf("%0*.*X", (cell_width+1)/2, cell_width/2, value);
-  }
-}
-
-static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem)
-{
-  u32 j, size = RawVal(mem->values[index]);
-  u32 cells = NumBinCells(size);
-
-  for (j = 0; j < cells; j++) {
-    Val value = mem->values[index+j+1];
-    u32 bytes = (j == cells-1) ? (size-1) % 4 + 1 : 4;
-    bool printable  = true;
-    u32 k;
-
-    for (k = 0; k < bytes; k++) {
-      u8 byte = (value >> (k*8)) & 0xFF;
-      if (!IsPrintable(byte)) {
-        printable = false;
-        break;
-      }
-    }
-
-    if ((index+j+1) % cols == 0) printf("║%04d║", index+j+1);
-    else printf("│");
-    if (printable) {
-      for (k = 0; k < cell_width-bytes-2; k++) printf(" ");
-      printf("\"");
-      for (k = 0; k < bytes; k++) printf("%c", (value >> (k*8)) & 0xFF);
-      printf("\"");
-    } else {
-      for (k = 0; k < cell_width-(bytes*2); k++) printf(".");
-      for (k = 0; k < bytes; k++) printf("%02X", (value >> (k*8)) & 0xFF);
-    }
-    if ((index+j+2) % cols == 0) printf("║\n");
-  }
-  return cells;
-}
-
-void DumpMem(Mem *mem, SymbolTable *symbols)
-{
-  u32 i, j;
-  u32 cols = 8;
-  u32 cell_width = 10;
-
-  printf("╔════╦");
-  for (i = 0; i < cols-1; i++) {
-    for (j = 0; j < cell_width; j++) printf("═");
-    printf("╤");
-  }
-  for (j = 0; j < cell_width; j++) printf("═");
-  printf("╗\n");
-
-  for (i = 0; i < mem->count; i++) {
-    if (i % cols == 0) printf("║%04d║", i);
-    else printf("│");
-    PrintCell(i, mem->values[i], cell_width, symbols);
-    if ((i+1) % cols == 0) printf("║\n");
-    if (IsBinaryHeader(mem->values[i])) {
-      i += PrintBinData(i, cell_width, cols, mem);
-    } else if (IsBignumHeader(mem->values[i])) {
-      u32 j;
-      for (j = 0; j < (u32)Abs(RawInt(mem->values[i])); j++) {
-        if ((i+j+1) % cols == 0) printf("║%04d║", i+j+1);
-        else printf("│");
-        printf("%*X", cell_width, mem->values[i+j+1]);
-        if ((i+j+2) % cols == 0) printf("║\n");
-      }
-      i += Abs(RawInt(mem->values[i]));
-    }
-  }
-  if (i % cols != 0) {
-    while (i % cols != 0) {
-      printf("│");
-      for (j = 0; j < cell_width; j++) printf(" ");
-      i++;
-    }
-    printf("║\n");
-  }
-
-  printf("╚════╩");
-  for (i = 0; i < cols-1; i++) {
-    for (j = 0; j < cell_width; j++) printf("═");
-    printf("╧");
-  }
-  for (j = 0; j < cell_width; j++) printf("═");
-  printf("╝\n");
 }
