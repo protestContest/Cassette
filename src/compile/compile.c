@@ -18,6 +18,7 @@ static Result CompileAnd(Val expr, Val linkage, Compiler *c);
 static Result CompileOr(Val expr, Val linkage, Compiler *c);
 static Result CompileOp(OpCode op, Val expr, Val linkage, Compiler *c);
 static Result CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
+static Result CompileNegOp(OpCode op, Val args, Val linkage, Compiler *c);
 static Result CompileList(Val items, Val linkage, Compiler *c);
 static Result CompileTuple(Val items, Val linkage, Compiler *c);
 static Result CompileString(Val sym, Val linkage, Compiler *c);
@@ -237,39 +238,44 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
   c->pos = RawInt(TupleGet(node, 1, c->mem));
 
   switch (tag) {
-  case SymID:           return CompileVar(expr, linkage, c);
-  case SymBangEqual:    return CompileNotOp(OpEq, expr, linkage, c);
-  case SymString:       return CompileString(expr, linkage, c);
-  case SymHash:         return CompileOp(OpLen, expr, linkage, c);
-  case SymPercent:      return CompileOp(OpRem, expr, linkage, c);
-  case SymLParen:       return CompileCall(expr, linkage, c);
-  case SymStar:         return CompileOp(OpMul, expr, linkage, c);
-  case SymPlus:         return CompileOp(OpAdd, expr, linkage, c);
+  case SymID:             return CompileVar(expr, linkage, c);
+  case SymBangEqual:      return CompileNotOp(OpEq, expr, linkage, c);
+  case SymString:         return CompileString(expr, linkage, c);
+  case SymHash:           return CompileOp(OpLen, expr, linkage, c);
+  case SymPercent:        return CompileOp(OpRem, expr, linkage, c);
+  case SymAmpersand:      return CompileOp(OpBitAnd, expr, linkage, c);
+  case SymLParen:         return CompileCall(expr, linkage, c);
+  case SymStar:           return CompileOp(OpMul, expr, linkage, c);
+  case SymPlus:           return CompileOp(OpAdd, expr, linkage, c);
   case SymMinus:
     if (ListLength(expr, c->mem) == 1) return CompileOp(OpNeg, expr, linkage, c);
     else return CompileOp(OpSub, expr, linkage, c);
-  case SymArrow:        return CompileLambda(expr, linkage, c);
-  case SymDot:          return CompileOp(OpGet, expr, linkage, c);
-  case SymSlash:        return CompileOp(OpDiv, expr, linkage, c);
-  case SymNum:          return CompileConst(expr, linkage, c);
-  case SymColon:        return CompileConst(expr, linkage, c);
-  case SymLess:         return CompileOp(OpLt, expr, linkage, c);
-  case SymLessEqual:    return CompileNotOp(OpGt, expr, linkage, c);
-  case SymLessGreater:  return CompileOp(OpCat, expr, linkage, c);
-  case SymEqualEqual:   return CompileOp(OpEq, expr, linkage, c);
-  case SymGreater:      return CompileOp(OpGt, expr, linkage, c);
-  case SymGreaterEqual: return CompileNotOp(OpLt, expr, linkage, c);
-  case SymLBracket:     return CompileList(expr, linkage, c);
-  case SymAnd:          return CompileAnd(expr, linkage, c);
-  case SymDo:           return CompileDo(expr, linkage, c);
-  case SymIf:           return CompileIf(expr, linkage, c);
-  case SymIn:           return CompileOp(OpIn, expr, linkage, c);
-  case SymNil:          return CompileConst(Nil, linkage, c);
-  case SymNot:          return CompileOp(OpNot, expr, linkage, c);
-  case SymOr:           return CompileOr(expr, linkage, c);
-  case SymLBrace:       return CompileTuple(expr, linkage, c);
-  case SymBar:          return CompileOp(OpPair, expr, linkage, c);
-  default:              return CompileError("Unknown expression", c);
+  case SymArrow:          return CompileLambda(expr, linkage, c);
+  case SymDot:            return CompileOp(OpGet, expr, linkage, c);
+  case SymSlash:          return CompileOp(OpDiv, expr, linkage, c);
+  case SymNum:            return CompileConst(expr, linkage, c);
+  case SymColon:          return CompileConst(expr, linkage, c);
+  case SymLess:           return CompileOp(OpLt, expr, linkage, c);
+  case SymLessLess:       return CompileOp(OpShift, expr, linkage, c);
+  case SymLessEqual:      return CompileNotOp(OpGt, expr, linkage, c);
+  case SymLessGreater:    return CompileOp(OpCat, expr, linkage, c);
+  case SymEqualEqual:     return CompileOp(OpEq, expr, linkage, c);
+  case SymGreater:        return CompileOp(OpGt, expr, linkage, c);
+  case SymGreaterEqual:   return CompileNotOp(OpLt, expr, linkage, c);
+  case SymGreaterGreater: return CompileNegOp(OpShift, expr, linkage, c);
+  case SymLBracket:       return CompileList(expr, linkage, c);
+  case SymCaret:          return CompileOp(OpBitOr, expr, linkage, c);
+  case SymAnd:            return CompileAnd(expr, linkage, c);
+  case SymDo:             return CompileDo(expr, linkage, c);
+  case SymIf:             return CompileIf(expr, linkage, c);
+  case SymIn:             return CompileOp(OpIn, expr, linkage, c);
+  case SymNil:            return CompileConst(Nil, linkage, c);
+  case SymNot:            return CompileOp(OpNot, expr, linkage, c);
+  case SymOr:             return CompileOr(expr, linkage, c);
+  case SymLBrace:         return CompileTuple(expr, linkage, c);
+  case SymBar:            return CompileOp(OpPair, expr, linkage, c);
+  case SymTilde:          return CompileOp(OpBitNot, expr, linkage, c);
+  default:                return CompileError("Unknown expression", c);
   }
 }
 
@@ -554,6 +560,19 @@ static Result CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
   }
   PushByte(op, c->pos, c->chunk);
   PushByte(OpNot, c->pos, c->chunk);
+  CompileLinkage(linkage, c);
+  return CompileOk();
+}
+
+static Result CompileNegOp(OpCode op, Val args, Val linkage, Compiler *c)
+{
+  while (args != Nil) {
+    Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
+    if (!result.ok) return result;
+    args = Tail(args, c->mem);
+  }
+  PushByte(OpNeg, c->pos, c->chunk);
+  PushByte(op, c->pos, c->chunk);
   CompileLinkage(linkage, c);
   return CompileOk();
 }

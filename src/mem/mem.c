@@ -3,6 +3,10 @@
 #include "univ/math.h"
 #include "univ/hash.h"
 
+#ifdef DEBUG
+#include <stdio.h>
+#endif
+
 Val FloatVal(float num)
 {
   union {Val as_v; float as_f;} convert;
@@ -46,7 +50,7 @@ Val PopMem(Mem *mem)
 Val TypeOf(Val value, Mem *mem)
 {
   if (IsFloat(value)) return FloatType;
-  if (IsInt(value)) return IntType;
+  if (IsInt(value) || IsBignum(value, mem)) return IntType;
   if (IsSym(value)) return SymType;
   if (IsPair(value)) return PairType;
   if (IsTuple(value, mem)) return TupleType;
@@ -297,6 +301,259 @@ Val BinaryCat(Val binary1, Val binary2, Mem *mem)
   return result;
 }
 
+Val MakeBignum(i64 num, Mem *mem)
+{
+  Val value = ObjVal(mem->count);
+  PushMem(mem, BignumHeader(2));
+  PushMem(mem, 0);
+  PushMem(mem, 0);
+
+  ((i64*)(mem->values + RawVal(value) + 1))[0] = num;
+
+  return value;
+}
+
+bool IsBignum(Val value, Mem *mem)
+{
+  return IsObj(value) && IsBignumHeader(mem->values[RawVal(value)]);
+}
+
+bool BignumGreater(Val a, Val b, Mem *mem)
+{
+  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
+  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
+  return a_val > b_val;
+}
+
+bool BignumEq(Val a, Val b, Mem *mem)
+{
+  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
+  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
+  return a_val == b_val;
+}
+
+Val BignumAdd(Val a, Val b, Mem *mem)
+{
+  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
+  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
+  return MakeBignum(a_val + b_val, mem);
+}
+
+Val BignumSub(Val a, Val b, Mem *mem)
+{
+  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
+  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
+  return MakeBignum(a_val - b_val, mem);
+}
+
+Val BignumMul(Val a, Val b, Mem *mem)
+{
+  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
+  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
+  return MakeBignum(a_val * b_val, mem);
+}
+
+Val BignumDiv(Val a, Val b, Mem *mem)
+{
+  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
+  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
+  return MakeBignum(a_val / b_val, mem);
+}
+
+Val BignumRem(Val a, Val b, Mem *mem)
+{
+  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
+  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
+  return MakeBignum(a_val % b_val, mem);
+}
+
+float NumToFloat(Val num, Mem *mem)
+{
+  if (IsFloat(num)) return RawFloat(num);
+  if (IsInt(num)) return (float)RawInt(num);
+  if (IsBignum(num, mem)) {
+    i64 n = ((i64*)(mem->values + RawVal(num) + 1))[0];
+    return (float)n;
+  }
+  return 0;
+}
+
+Val AddVal(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  if (IsFloat(a) || IsFloat(b)) {
+    float fa = NumToFloat(a, mem);
+    float fb = NumToFloat(b, mem);
+    return FloatVal(fa+fb);
+  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return BignumAdd(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    if (AddOverflows(ia, ib) || AddUnderflows(ia, ib)) {
+       Val a = MakeBignum(ia, mem);
+       Val b = MakeBignum(ib, mem);
+      return BignumAdd(a, b, mem);
+    } else {
+      return IntVal(ia+ib);
+    }
+  }
+}
+
+Val SubVal(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  if (IsFloat(a) || IsFloat(b)) {
+    float fa = NumToFloat(a, mem);
+    float fb = NumToFloat(b, mem);
+    return FloatVal(fa-fb);
+  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return BignumSub(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    if (AddOverflows(ia, -ib) || AddUnderflows(ia, -ib)) {
+       Val a = MakeBignum(ia, mem);
+       Val b = MakeBignum(ib, mem);
+      return BignumSub(a, b, mem);
+    } else {
+      return IntVal(ia-ib);
+    }
+  }
+}
+
+Val MultiplyVal(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  if (IsFloat(a) || IsFloat(b)) {
+    float fa = NumToFloat(a, mem);
+    float fb = NumToFloat(b, mem);
+    return FloatVal(fa*fb);
+  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return BignumMul(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    if (MulOverflows(ia, ib) || MulUnderflows(ia, ib)) {
+       Val a = MakeBignum(ia, mem);
+       Val b = MakeBignum(ib, mem);
+      return BignumMul(a, b, mem);
+    } else {
+      return IntVal(ia*ib);
+    }
+  }
+}
+
+Val DivideVal(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  if (IsFloat(a) || IsFloat(b)) {
+    float fa = NumToFloat(a, mem);
+    float fb = NumToFloat(b, mem);
+    return FloatVal(fa/fb);
+  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return BignumDiv(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    return IntVal(ia/ib);
+  }
+}
+
+Val RemainderVal(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  Assert(!IsFloat(a) && !IsFloat(b));
+
+  if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return BignumRem(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    return IntVal(ia%ib);
+  }
+}
+
+bool ValLessThan(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  if (IsFloat(a) || IsFloat(b)) {
+    float fa = NumToFloat(a, mem);
+    float fb = NumToFloat(b, mem);
+    return fa < fb;
+  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return !BignumGreater(ba, bb, mem) && !BignumEq(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    return ia < ib;
+  }
+}
+
+bool ValGreaterThan(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  if (IsFloat(a) || IsFloat(b)) {
+    float fa = NumToFloat(a, mem);
+    float fb = NumToFloat(b, mem);
+    return fa > fb;
+  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return BignumGreater(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    return ia > ib;
+  }
+}
+
+bool NumValEqual(Val a, Val b, Mem *mem)
+{
+  Assert(IsNum(a, mem) && IsNum(b, mem));
+  if (IsFloat(a) || IsFloat(b)) {
+    float fa = NumToFloat(a, mem);
+    float fb = NumToFloat(b, mem);
+    return fa == fb;
+  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
+    Val ba = a;
+    Val bb = b;
+    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
+    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
+    return BignumEq(ba, bb, mem);
+  } else {
+    i32 ia = RawInt(a);
+    i32 ib = RawInt(b);
+    return ia == ib;
+  }
+}
+
 bool CheckCapacity(Mem *mem, u32 amount)
 {
   return mem->count + amount <= mem->capacity;
@@ -306,6 +563,19 @@ void ResizeMem(Mem *mem, u32 capacity)
 {
   mem->capacity = capacity;
   mem->values = Realloc(mem->values, sizeof(Val)*capacity);
+}
+
+static Val ValSize(Val value)
+{
+  if (IsTupleHeader(value)) {
+    return RawVal(value) + 1;
+  } else if (IsBinaryHeader(value)) {
+    return NumBinCells(RawVal(value)) + 1;
+  } else if (IsBignumHeader(value)) {
+    return RawVal(value) + 1;
+  } else {
+    return 1;
+  }
 }
 
 static Val CopyValue(Val value, Mem *from, Mem *to)
@@ -321,15 +591,12 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
 
   if (IsPair(value)) {
     new_val = Pair(Head(value, from), Tail(value, from), to);
-  } else if (IsTuple(value, from)) {
+  } else if (IsObj(value)) {
     u32 i;
-    new_val = MakeTuple(TupleLength(value, from), to);
-    for (i = 0; i < TupleLength(value, from); i++) {
-      TupleSet(new_val, i, TupleGet(value, i, from), to);
+    new_val = ObjVal(to->count);
+    for (i = 0; i < ValSize(from->values[RawVal(value)]); i++) {
+      PushMem(to, from->values[RawVal(value)+i]);
     }
-  } else if (IsBinary(value, from)) {
-    new_val = MakeBinary(BinaryLength(value, from), to);
-    Copy(BinaryData(value, from), BinaryData(new_val, to), BinaryLength(value, from));
   }
 
   from->values[RawVal(value)] = Moved;
@@ -341,6 +608,11 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
 {
   u32 i;
   Mem new_mem;
+
+#ifdef DEBUG
+  printf("GARBAGE DAY!!!\n");
+#endif
+
   InitMem(&new_mem, mem->capacity);
 
   for (i = 0; i < num_roots; i++) {
@@ -350,8 +622,8 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
   i = 2;
   while (i < new_mem.count) {
     Val value = new_mem.values[i];
-    if (IsBinaryHeader(value)) {
-      i += NumBinCells(RawVal(value));
+    if (IsBinaryHeader(value) || IsBignumHeader(value)) {
+      i += ValSize(value);
     } else {
       new_mem.values[i] = CopyValue(new_mem.values[i], mem, &new_mem);
       i++;

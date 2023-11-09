@@ -11,6 +11,7 @@
 #define SymNewline        0x7FD0A901
 #define SymHash           0x7FDF8CB8
 #define SymPercent        0x7FD3EC31
+#define SymAmpersand      0x7FDB22AB
 #define SymLParen         0x7FD2CFBD
 #define SymRParen         0x7FDA86A6
 #define SymStar           0x7FD9AA08
@@ -23,14 +24,17 @@
 #define SymNum            0x7FD6FFA6
 #define SymColon          0x7FD7E2FE
 #define SymLess           0x7FDD1E23
+#define SymLessLess       0x7FD72265
 #define SymLessEqual      0x7FDE0FA1
 #define SymLessGreater    0x7FD3C208
 #define SymEqual          0x7FD433E7
 #define SymEqualEqual     0x7FDC5428
 #define SymGreater        0x7FD9FE4E
 #define SymGreaterEqual   0x7FD7CF7B
+#define SymGreaterGreater 0x7FDA02D2
 #define SymLBracket       0x7FDCA2BF
 #define SymRBracket       0x7FD4F959
+#define SymCaret          0x7FDC1A43
 #define SymAnd            0x7FDF9232
 #define SymAs             0x7FD680A2
 #define SymCond           0x7FD1863D
@@ -51,6 +55,7 @@
 #define SymLBrace         0x7FD991EE
 #define SymBar            0x7FDA1FBF
 #define SymRBrace         0x7FD3C948
+#define SymTilde        0x7FD37984
 
 typedef struct {
   char *filename;

@@ -1,6 +1,6 @@
 #include "hash.h"
 
-static u32 perm[256] = {
+static u32 byte_hash[256] = {
   0xEEAE7FDA, 0xD3395927, 0x4DD35D53, 0x30D67301, 0xBD397767, 0x16ADF05B, 0x436E841E, 0x4D4CEFEC,
   0x49BCFBB3, 0xFB7E1816, 0x5D60A901, 0xF22DDC89, 0x25CCADBE, 0x6FE4EE81, 0xEF42FD31, 0x57E385FF,
   0x3ED39511, 0xCF4CD8D4, 0x67D62B49, 0x39E8A08D, 0xCFCAF7C2, 0x2CED1929, 0x1CCCC1FB, 0x8B80EEF9,
@@ -38,13 +38,13 @@ static u32 perm[256] = {
 u32 AppendHash(u32 hash, u8 byte)
 {
   hash = (hash << 1) | (hash >> 31);
-  return hash ^ perm[byte];
+  return hash ^ byte_hash[byte];
 }
 
 u32 SkipHash(u32 hash, u8 byte, u32 size)
 {
   u32 rotate = (size-1) % 32;
-  u32 unhash = (perm[byte] << rotate) | (perm[byte] >> (32-rotate));
+  u32 unhash = (byte_hash[byte] << rotate) | (byte_hash[byte] >> (32-rotate));
   return hash ^ unhash;
 }
 

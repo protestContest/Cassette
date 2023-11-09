@@ -39,9 +39,13 @@ typedef u32 Val;
 #define RawVal(v)         ((v) & ~typeMask)
 
 #define BoolVal(v)        ((v) ? True : False)
-#define IsNum(v)          (IsFloat(v) || IsInt(v))
+#define IsNum(v,m)        (IsFloat(v) || IsInt(v) || IsBignum(v, m))
 #define RawNum(v)         (IsFloat(v) ? RawFloat(v) : RawInt(v))
 #define IsZero(v)         ((IsFloat(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
+#define MulOverflows(a, b)  ((b) != 0 && (a) > RawInt(MaxIntVal) / (b))
+#define MulUnderflows(a, b) ((b) != 0 && (a) < RawInt(MinIntVal) / (b))
+#define AddOverflows(a, b)  ((b) > 0 && (a) > RawInt(MaxIntVal) - (b))
+#define AddUnderflows(a, b) ((b) < 0 && (a) < RawInt(MinIntVal) - (b))
 
 #define Nil               0x7FE00000
 #define MaxIntVal         0x7FC7FFFF
@@ -112,5 +116,26 @@ u32 BinaryLength(Val binary, Mem *mem);
 bool BinaryContains(Val binary, Val item, Mem *mem);
 void *BinaryData(Val binary, Mem *mem);
 Val BinaryCat(Val binary1, Val binary2, Mem *mem);
+
+Val MakeBignum(i64 num, Mem *mem);
+bool IsBignum(Val value, Mem *mem);
+bool BignumGreater(Val a, Val b, Mem *mem);
+bool BignumEq(Val a, Val b, Mem *mem);
+Val BignumAdd(Val a, Val b, Mem *mem);
+Val BignumSub(Val a, Val b, Mem *mem);
+Val BignumMul(Val a, Val b, Mem *mem);
+Val BignumDiv(Val a, Val b, Mem *mem);
+Val BignumRem(Val a, Val b, Mem *mem);
+
+float NumToFloat(Val num, Mem *mem);
+float NumToBignum(Val num, Mem *mem);
+Val AddVal(Val a, Val b, Mem *mem);
+Val SubVal(Val a, Val b, Mem *mem);
+Val MultiplyVal(Val a, Val b, Mem *mem);
+Val DivideVal(Val a, Val b, Mem *mem);
+Val RemainderVal(Val a, Val b, Mem *mem);
+bool ValLessThan(Val a, Val b, Mem *mem);
+bool ValGreaterThan(Val a, Val b, Mem *mem);
+bool NumValEqual(Val a, Val b, Mem *mem);
 
 void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);

@@ -4,6 +4,7 @@
 #include "compile/project.h"
 #include "runtime/vm.h"
 #include "cli.h"
+#include <stdio.h>
 
 #ifdef DEBUG
 #include "debug.h"

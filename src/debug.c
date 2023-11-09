@@ -31,6 +31,9 @@ static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
       return printf("t%d", RawVal(value));
     } else if (mem && IsBinary(value, mem)) {
       return printf("b%d", RawVal(value));
+    } else if (IsBignum(value, mem)) {
+      i64 num = ((u64*)(mem->values + RawVal(value) + 1))[0];
+      return printf("%lld", num);
     } else {
       return printf("o%d", RawVal(value));
     }

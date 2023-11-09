@@ -2,13 +2,14 @@
 
 typedef enum {
   TokenEOF, TokenID, TokenBangEqual, TokenString, TokenNewline, TokenHash,
-  TokenPercent, TokenLParen, TokenRParen, TokenStar, TokenPlus, TokenComma,
-  TokenMinus, TokenArrow, TokenDot, TokenSlash, TokenNum, TokenColon, TokenLess,
-  TokenLessEqual, TokenLessGreater, TokenEqual, TokenEqualEqual, TokenGreater,
-  TokenGreaterEqual, TokenLBracket, TokenRBracket, TokenAnd, TokenAs, TokenCond,
-  TokenDef, TokenDo, TokenElse, TokenEnd, TokenFalse, TokenIf, TokenImport,
-  TokenIn, TokenLet, TokenModule, TokenNil, TokenNot, TokenOr, TokenTrue,
-  TokenLBrace, TokenBar, TokenRBrace
+  TokenPercent, TokenAmpersand, TokenLParen, TokenRParen, TokenStar, TokenPlus,
+  TokenComma, TokenMinus, TokenArrow, TokenDot, TokenSlash, TokenNum,
+  TokenColon, TokenLess, TokenLessLess, TokenLessEqual, TokenLessGreater,
+  TokenEqual, TokenEqualEqual, TokenGreater, TokenGreaterEqual,
+  TokenGreaterGreater, TokenLBracket, TokenRBracket, TokenCaret, TokenAnd,
+  TokenAs, TokenCond, TokenDef, TokenDo, TokenElse, TokenEnd, TokenFalse,
+  TokenIf, TokenImport, TokenIn, TokenLet, TokenModule, TokenNil, TokenNot,
+  TokenOr, TokenTrue, TokenLBrace, TokenBar, TokenRBrace, TokenTilde
 } TokenType;
 
 typedef struct {

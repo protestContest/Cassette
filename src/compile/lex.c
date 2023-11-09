@@ -58,13 +58,16 @@ static Token AdvanceToken(Lexer *lex)
 
   if (Match("!=", lex)) return MakeToken(TokenBangEqual, start, 2);
   if (Match("->", lex)) return MakeToken(TokenArrow, start, 2);
+  if (Match("<<", lex)) return MakeToken(TokenLessLess, start, 2);
   if (Match("<=", lex)) return MakeToken(TokenLessEqual, start, 2);
   if (Match("<>", lex)) return MakeToken(TokenLessGreater, start, 2);
   if (Match("==", lex)) return MakeToken(TokenEqualEqual, start, 2);
   if (Match(">=", lex)) return MakeToken(TokenGreaterEqual, start, 2);
+  if (Match(">>", lex)) return MakeToken(TokenGreaterGreater, start, 2);
   if (Match("\n", lex)) return MakeToken(TokenNewline, start, 1);
   if (Match("#", lex))  return MakeToken(TokenHash, start, 1);
   if (Match("%", lex))  return MakeToken(TokenPercent, start, 1);
+  if (Match("&", lex))  return MakeToken(TokenAmpersand, start, 1);
   if (Match("(", lex))  return MakeToken(TokenLParen, start, 1);
   if (Match(")", lex))  return MakeToken(TokenRParen, start, 1);
   if (Match("*", lex))  return MakeToken(TokenStar, start, 1);
@@ -79,9 +82,11 @@ static Token AdvanceToken(Lexer *lex)
   if (Match(">", lex))  return MakeToken(TokenGreater, start, 1);
   if (Match("[", lex))  return MakeToken(TokenLBracket, start, 1);
   if (Match("]", lex))  return MakeToken(TokenRBracket, start, 1);
+  if (Match("^", lex))  return MakeToken(TokenCaret, start, 1);
   if (Match("{", lex))  return MakeToken(TokenLBrace, start, 1);
   if (Match("|", lex))  return MakeToken(TokenBar, start, 1);
   if (Match("}", lex))  return MakeToken(TokenRBrace, start, 1);
+  if (Match("~", lex))  return MakeToken(TokenTilde, start, 1);
 
   return KeywordToken(lex);
 }
@@ -96,6 +101,7 @@ static bool IsSymChar(char c)
   case ';':
   case '#':
   case '%':
+  case '&':
   case '(':
   case ')':
   case '*':
@@ -110,9 +116,11 @@ static bool IsSymChar(char c)
   case '>':
   case '[':
   case ']':
+  case '^':
   case '{':
   case '|':
   case '}':
+  case '~':
     return false;
   default:
     return true;

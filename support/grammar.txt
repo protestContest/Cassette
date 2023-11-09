@@ -25,9 +25,11 @@ compare         → member
 member          → concat | member "in" concat
 concat          → pair | conat "<>" pair
 pair            → sum | sum "|" pair
+bitwise         → shift | bitwise "&" shift | bitwise "^" shift
+shift           → sum | shift ">>" sum | shift "<<" sum
 sum             → product | sum "+" product | sum "-" product
 product         → unary | product "*" unary | product "/" unary | product "%" unary
-unary           → access | "-" access | "not" access | "#" access
+unary           → access | "-" access | "not" access | "#" access | "~" access
 access          → primary | access "." primary
 
 primary         → group | block | obj | value | ID

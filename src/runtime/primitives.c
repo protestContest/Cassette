@@ -11,7 +11,6 @@ static Result VMPrint(u32 num_args, VM *vm);
 static Result VMInspect(u32 num_args, VM *vm);
 static Result VMOpen(u32 num_args, VM *vm);
 static Result VMRead(u32 num_args, VM *vm);
-static Result VMReadFile(u32 num_args, VM *vm);
 static Result VMWrite(u32 num_args, VM *vm);
 static Result VMTicks(u32 num_args, VM *vm);
 static Result VMSeed(u32 num_args, VM *vm);
@@ -25,7 +24,6 @@ static PrimitiveDef primitives[] = {
   {/*"inspect"*/    0x7FD068BD, &VMInspect},
   {/*"open"*/       0x7FD6E1B6, &VMOpen},
   {/*"read"*/       0x7FDEC06F, &VMRead},
-  {/*"read_file"*/  0x7FD0A544, &VMReadFile},
   {/*"write"*/      0x7FDA9850, &VMWrite},
   {/*"ticks"*/      0x7FD145EA, &VMTicks},
   {/*"seed"*/       0x7FDCAC5E, &VMSeed},
@@ -119,6 +117,9 @@ static Result VMPrint(u32 num_args, VM *vm)
     } else if (IsBinary(value, &vm->mem)) {
       u32 len = BinaryLength(value, &vm->mem);
       printf("%*.*s", len, len, (char*)BinaryData(value, &vm->mem));
+    } else if (IsBignum(value, &vm->mem)) {
+      i64 num = ((u64*)(vm->mem.values + RawVal(value) + 1))[0];
+      printf("%lld", num);
     } else {
       return RuntimeError("Type error", vm);
     }
@@ -184,6 +185,9 @@ static void InspectPrint(Val value, u32 depth, Mem *mem, SymbolTable *symbols)
     u32 size = BinaryLength(value, mem);
     char *str = BinaryData(value, mem);
     printf("\"%*.*s\"", size, size, str);
+  } else if (IsBignum(value, mem)) {
+    i64 num = ((u64*)(mem->values + RawVal(value) + 1))[0];
+    printf("%lld", num);
   }
 }
 
@@ -210,12 +214,11 @@ static Result VMOpen(u32 num_args, VM *vm)
   u32 name_len;
   int file;
 
-  if (num_args < 1) return RuntimeError("Argument error", vm);
+  Val types[1] = {BinaryType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
 
   name = StackPop(vm);
-  vm->stack.count -= num_args-1;
-
-  if (!IsBinary(name, &vm->mem)) return RuntimeError("Type error", vm);
 
   name_len = Min(255, BinaryLength(name, &vm->mem));
   Copy(BinaryData(name, &vm->mem), filename, name_len);
@@ -238,52 +241,34 @@ static Result VMRead(u32 num_args, VM *vm)
   ref = StackPop(vm);
   if (num_args > 1) {
     size = StackPop(vm);
-    vm->stack.count -= num_args-2;
   } else {
     size = IntVal(1024);
-    vm->stack.count -= num_args-1;
   }
+
+  if (IsBinary(ref, &vm->mem)) {
+    u32 name_len = Min(255, BinaryLength(ref, &vm->mem));
+    char filename[256];
+    int file;
+
+    Copy(BinaryData(ref, &vm->mem), filename, name_len);
+    filename[name_len] = 0;
+
+    file = Open(filename);
+    if (file < 0) return OkResult(Error);
+    ref = Pair(File, IntVal(file), &vm->mem);
+
+    if (num_args == 1) {
+      size = IntVal(FileSize(file));
+    }
+  }
+
+  if (!IsInt(size)) return RuntimeError("Type error", vm);
 
   if (!IsPair(ref)) return RuntimeError("Type error", vm);
   if (Head(ref, &vm->mem) != File) return RuntimeError("Type error", vm);
-  if (!IsInt(size)) return RuntimeError("Type error", vm);
 
   buf = Alloc(RawInt(size));
   bytes_read = Read(RawInt(Tail(ref, &vm->mem)), buf, size);
-  if (bytes_read < 0) return OkResult(Error);
-  if (bytes_read == 0) return OkResult(Nil);
-
-  result = BinaryFrom(buf, bytes_read, &vm->mem);
-  Free(buf);
-  return OkResult(result);
-}
-
-static Result VMReadFile(u32 num_args, VM *vm)
-{
-  Val name, result;
-  u32 name_len, file_size, bytes_read;
-  char filename[256];
-  char *buf;
-  int file;
-
-  if (num_args < 1) return RuntimeError("Argument error", vm);
-
-  name = StackPop(vm);
-  vm->stack.count -= num_args-1;
-
-  if (!IsBinary(name, &vm->mem)) return RuntimeError("Type error", vm);
-
-  name_len = Min(255, BinaryLength(name, &vm->mem));
-  Copy(BinaryData(name, &vm->mem), filename, name_len);
-  filename[name_len] = 0;
-
-  file = Open(filename);
-  if (file < 0) return OkResult(Error);
-
-  file_size = FileSize(file);
-
-  buf = Alloc(file_size);
-  bytes_read = Read(file, buf, file_size);
   if (bytes_read < 0) return OkResult(Error);
   if (bytes_read == 0) return OkResult(Nil);
 
@@ -300,14 +285,14 @@ static Result VMWrite(u32 num_args, VM *vm)
   u32 bytes_left;
   int file;
 
-  if (num_args < 2) return RuntimeError("Argument error", vm);
+  Val types[2] = {BinaryType, PairType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
 
   binary = StackPop(vm);
   ref = StackPop(vm);
-  vm->stack.count -= num_args-2;
 
-  if (!IsPair(ref) || Head(ref, &vm->mem) != File) return RuntimeError("Type error", vm);
-  if (!IsBinary(binary, &vm->mem)) return RuntimeError("Type error", vm);
+  if (Head(ref, &vm->mem) != File) return RuntimeError("Type error", vm);
 
   file = RawInt(Tail(ref, &vm->mem));
   buf = BinaryData(binary, &vm->mem);
@@ -331,7 +316,10 @@ static Result VMTicks(u32 num_args, VM *vm)
 static Result VMSeed(u32 num_args, VM *vm)
 {
   Val seed;
-  if (num_args != 1) return RuntimeError("Argument error", vm);
+  Val types[1] = {IntType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
   seed = StackPop(vm);
   Seed(RawInt(seed));
   return OkResult(Nil);
