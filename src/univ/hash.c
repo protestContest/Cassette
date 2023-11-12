@@ -1,4 +1,5 @@
 #include "hash.h"
+#include "math.h"
 
 static u32 byte_hash[256] = {
   0xEEAE7FDA, 0xD3395927, 0x4DD35D53, 0x30D67301, 0xBD397767, 0x16ADF05B, 0x436E841E, 0x4D4CEFEC,
@@ -60,6 +61,6 @@ u32 Hash(void *data, u32 size)
 
 u32 FoldHash(u32 hash, u32 bits)
 {
-  u32 mask = 0xFFFFFFFF >> (sizeof(hash) - bits);
+  u32 mask = 0xFFFFFFFF >> (32 - bits);
   return (hash >> bits) ^ (hash & mask);
 }

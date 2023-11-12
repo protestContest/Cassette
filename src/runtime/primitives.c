@@ -17,17 +17,17 @@ static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
 
 static PrimitiveDef primitives[] = {
-  {/* typeof */   0x7FD014D4, &VMType},
-  {/* head */     0x7FD0FAFD, &VMHead},
-  {/* tail */     0x7FD0655A, &VMTail},
-  {/* print */    0x7FD0984B, &VMPrint},
+  {/* typeof */   0x7FDA14D4, &VMType},
+  {/* head */     0x7FD4FAFD, &VMHead},
+  {/* tail */     0x7FD1655A, &VMTail},
+  {/* print */    0x7FD3984B, &VMPrint},
   {/* inspect */  0x7FD06371, &VMInspect},
-  {/* open */     0x7FD0E11B, &VMOpen},
-  {/* read */     0x7FD0C474, &VMRead},
-  {/* write */    0x7FD090A8, &VMWrite},
-  {/* ticks */    0x7FD04415, &VMTicks},
-  {/* seed */     0x7FD0ADD1, &VMSeed},
-  {/* random */   0x7FD0FCF1, &VMRandom}
+  {/* open */     0x7FD6E11B, &VMOpen},
+  {/* read */     0x7FDEC474, &VMRead},
+  {/* write */    0x7FDA90A8, &VMWrite},
+  {/* ticks */    0x7FD14415, &VMTicks},
+  {/* seed */     0x7FDCADD1, &VMSeed},
+  {/* random */   0x7FD3FCF1, &VMRandom}
 };
 
 Val PrimitiveEnv(Mem *mem)
