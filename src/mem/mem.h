@@ -63,6 +63,7 @@ typedef u32 Val;
 #define File              0x7FDA0003 /* *file* */
 #define FloatType         0x7FDF2D07 /* float */
 #define IntType           0x7FD90789 /* integer */
+#define NumType           0x7FDFEE5C /* number */
 #define SymType           0x7FD66184 /* symbol */
 #define PairType          0x7FD2281F /* pair */
 #define TupleType         0x7FDB66C6 /* tuple */

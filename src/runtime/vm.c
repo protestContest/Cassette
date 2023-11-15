@@ -380,11 +380,13 @@ Result RunChunk(Chunk *chunk, VM *vm)
         /* apply primitive */
         Val num_args, prim;
         Result result;
-        if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+        u32 stack_size = vm->stack.count;
+        if (stack_size < 3) return RuntimeError("Stack underflow", vm);
         num_args = ChunkConst(chunk, vm->pc+1);
         prim = StackPop(vm);
         result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
         if (!result.ok) return result;
+        /*while (vm->stack.count > stack_size - RawInt(num_args) - 1) StackPop(vm);*/
         vm->pc = RawInt(StackPop(vm));
         Env(vm) = StackPop(vm);
         StackPush(vm, result.value);

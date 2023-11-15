@@ -1,6 +1,7 @@
 #include "primitives.h"
 #include "univ/math.h"
 #include "univ/system.h"
+#include <math.h>
 #include <stdio.h>
 
 
@@ -15,6 +16,7 @@ static Result VMWrite(u32 num_args, VM *vm);
 static Result VMTicks(u32 num_args, VM *vm);
 static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
+static Result VMSqrt(u32 num_args, VM *vm);
 
 static PrimitiveDef primitives[] = {
   {/* typeof */   0x7FDA14D4, &VMType},
@@ -27,7 +29,8 @@ static PrimitiveDef primitives[] = {
   {/* write */    0x7FDA90A8, &VMWrite},
   {/* ticks */    0x7FD14415, &VMTicks},
   {/* seed */     0x7FDCADD1, &VMSeed},
-  {/* random */   0x7FD3FCF1, &VMRandom}
+  {/* random */   0x7FD3FCF1, &VMRandom},
+  {/* sqrt */     0x7FD45F09, &VMSqrt}
 };
 
 Val PrimitiveEnv(Mem *mem)
@@ -62,7 +65,13 @@ static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
   if (num_args != num_params) return RuntimeError("Arity error", vm);
   for (i = 0; i < num_params; i++) {
     if (types[i] == Nil) continue;
-    if (TypeOf(StackRef(vm, i), &vm->mem) != types[i]) return RuntimeError("Type error", vm);
+    if (types[i] == NumType) {
+      if (TypeOf(StackRef(vm, i), &vm->mem) != IntType && TypeOf(StackRef(vm, i), &vm->mem) != FloatType) {
+        return RuntimeError("Type error", vm);
+      }
+    } else if (TypeOf(StackRef(vm, i), &vm->mem) != types[i]) {
+      return RuntimeError("Type error", vm);
+    }
   }
   return OkResult(Nil);
 }
@@ -345,4 +354,15 @@ static Result VMRandom(u32 num_args, VM *vm)
   } else {
     return RuntimeError("Arity error", vm);
   }
+}
+
+static Result VMSqrt(u32 num_args, VM *vm)
+{
+  float num;
+  Val types[1] = {NumType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  num = (float)RawNum(StackPop(vm));
+  return OkResult(FloatVal(sqrtf(num)));
 }
