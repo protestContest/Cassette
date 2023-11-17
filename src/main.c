@@ -15,16 +15,19 @@ int main(int argc, char *argv[])
   Chunk chunk;
   Result result;
   VM vm;
+  Options opts;
 
   if (argc < 2) return Usage();
 
+  opts = ParseOpts(argc, argv);
+
   InitChunk(&chunk);
 
-  if (StrEq(argv[1], "-p")) {
+  if (opts.project) {
     if (argc < 3) return Usage();
-    result = BuildProject(argv[2], &chunk);
+    result = BuildProject(argv[opts.file_args], &chunk);
   } else {
-    result = BuildScripts(argc - 1, argv + 1, &chunk);
+    result = BuildScripts(argc - opts.file_args, argv + opts.file_args, &chunk);
   }
 
   if (!result.ok) {
@@ -37,8 +40,13 @@ int main(int argc, char *argv[])
   Disassemble(&chunk);
 #endif
 
-  InitVM(&vm);
-  result = RunChunk(&chunk, &vm);
+  InitVM(&vm, &chunk);
+  result = OkResult(True);
+  while (result.ok && result.value == True) {
+    result = Run(&vm, 1);
+    if (opts.step && WaitForInput()) return 0;
+  }
+
   if (!result.ok) {
     PrintError(result);
   }

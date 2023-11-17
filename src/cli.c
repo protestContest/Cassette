@@ -4,14 +4,50 @@
 #include "univ/math.h"
 #include "compile/lex.h"
 #include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
 
 static void PrintSourceContext(u32 pos, char *source, u32 context);
 
 int Usage(void)
 {
-  printf("Usage: cassette [<filename>]+\n");
-  printf("       cassette -p <manifest file>\n");
+  printf("Usage: cassette [-s] [<filename>]+\n");
+  printf("       cassette [-s] -p <manifest file>\n");
   return 1;
+}
+
+Options ParseOpts(u32 argc, char *argv[])
+{
+  u32 i;
+  Options opts = {false, false, 1};
+  for (i = 0; i < argc; i++) {
+    if (StrEq(argv[i], "-p")) {
+      opts.project = true;
+      opts.file_args++;
+    }
+    if (StrEq(argv[i], "-s")) {
+      opts.step = true;
+      opts.file_args++;
+    }
+  }
+  return opts;
+}
+
+bool WaitForInput(void)
+{
+  struct termios old, new1;
+  char c;
+
+  tcgetattr(0, &old); /* grab old terminal i/o settings */
+  new1 = old; /* make new settings same as old settings */
+  new1.c_lflag &= ~ICANON; /* disable buffered i/o */
+  new1.c_lflag &= ~ECHO; /* disable echo mode */
+  tcsetattr(0, TCSANOW, &new1); /* use these new terminal i/o settings now */
+
+  read(0, &c, 1); /* get a char */
+
+  tcsetattr(0, TCSANOW, &old); /* Restore old terminal i/o settings */
+  return c == 3; /* return whether Ctrl+C was pressed */
 }
 
 void PrintError(Result error)

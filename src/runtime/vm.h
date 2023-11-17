@@ -16,7 +16,8 @@ typedef struct {
 #define StackRef(vm, i)     (vm)->stack.items[(vm)->stack.count - 1 - i]
 #define Env(vm)             (vm)->stack.items[0]
 
-void InitVM(VM *vm);
+void InitVM(VM *vm, Chunk *chunk);
 void DestroyVM(VM *vm);
+Result Run(VM *vm, u32 num_instructions);
 Result RunChunk(Chunk *chunk, VM *vm);
 Result RuntimeError(char *message, VM *vm);
