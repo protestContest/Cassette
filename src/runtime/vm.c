@@ -20,6 +20,7 @@ void InitVM(VM *vm, Chunk *chunk)
   vm->chunk = chunk;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
   InitMem(&vm->mem, 1024);
+  InitVec((Vec*)&vm->canvases, sizeof(void*), 8);
 
   vm->stack.count = 1;
   Env(vm) = ExtendEnv(Nil, PrimitiveEnv(&vm->mem), &vm->mem);
@@ -36,12 +37,12 @@ void DestroyVM(VM *vm)
 Result Run(VM *vm, u32 num_instructions)
 {
   u32 i;
-  Result result = OkResult(Nil);
-  if (!vm->chunk) return result;
+  Result result = OkResult(BoolVal(vm->pc < vm->chunk->code.count));
+  if (!vm->chunk) return RuntimeError("VM not initialized", vm);
 
-  for (i = 0; i < num_instructions; i++) {
-    if (!result.ok) return result;
+  for (i = 0; i < num_instructions && result.value == True; i++) {
     result = RunInstruction(vm);
+    if (!result.ok) return result;
   }
 
   return result;

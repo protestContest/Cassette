@@ -1,9 +1,10 @@
 #include "primitives.h"
 #include "univ/math.h"
 #include "univ/system.h"
+#include "canvas/canvas.h"
+#include "univ/str.h"
 #include <math.h>
 #include <stdio.h>
-
 
 static Result VMType(u32 num_args, VM *vm);
 static Result VMHead(u32 num_args, VM *vm);
@@ -17,20 +18,28 @@ static Result VMTicks(u32 num_args, VM *vm);
 static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
 static Result VMSqrt(u32 num_args, VM *vm);
+static Result VMCanvas(u32 num_args, VM *vm);
+static Result VMSetFont(u32 num_args, VM *vm);
+static Result VMLine(u32 num_args, VM *vm);
+static Result VMText(u32 num_args, VM *vm);
 
 static PrimitiveDef primitives[] = {
-  {/* typeof */   0x7FDA14D4, &VMType},
-  {/* head */     0x7FD4FAFD, &VMHead},
-  {/* tail */     0x7FD1655A, &VMTail},
-  {/* print */    0x7FD3984B, &VMPrint},
-  {/* inspect */  0x7FD06371, &VMInspect},
-  {/* open */     0x7FD6E11B, &VMOpen},
-  {/* read */     0x7FDEC474, &VMRead},
-  {/* write */    0x7FDA90A8, &VMWrite},
-  {/* ticks */    0x7FD14415, &VMTicks},
-  {/* seed */     0x7FDCADD1, &VMSeed},
-  {/* random */   0x7FD3FCF1, &VMRandom},
-  {/* sqrt */     0x7FD45F09, &VMSqrt}
+  {/* typeof */     0x7FDA14D4, &VMType},
+  {/* head */       0x7FD4FAFD, &VMHead},
+  {/* tail */       0x7FD1655A, &VMTail},
+  {/* print */      0x7FD3984B, &VMPrint},
+  {/* inspect */    0x7FD06371, &VMInspect},
+  {/* open */       0x7FD6E11B, &VMOpen},
+  {/* read */       0x7FDEC474, &VMRead},
+  {/* write */      0x7FDA90A8, &VMWrite},
+  {/* ticks */      0x7FD14415, &VMTicks},
+  {/* seed */       0x7FDCADD1, &VMSeed},
+  {/* random */     0x7FD3FCF1, &VMRandom},
+  {/* sqrt */       0x7FD45F09, &VMSqrt},
+  {/* new_canvas */ 0x7FDCB252, &VMCanvas},
+  {/* set_font */   0x7FD103BF, &VMSetFont},
+  {/* draw_line */  0x7FDB2760, &VMLine},
+  {/* draw_text */  0x7FD91141, &VMText},
 };
 
 Val PrimitiveEnv(Mem *mem)
@@ -233,7 +242,7 @@ static Result VMOpen(u32 num_args, VM *vm)
   Copy(BinaryData(name, &vm->mem), filename, name_len);
   filename[name_len] = 0;
 
-  file = Open(filename);
+  file = CreateOrOpen(filename);
   if (file < 0) return OkResult(Error);
 
   return OkResult(Pair(File, IntVal(file), &vm->mem));
@@ -365,4 +374,124 @@ static Result VMSqrt(u32 num_args, VM *vm)
 
   num = (float)RawNum(StackPop(vm));
   return OkResult(FloatVal(sqrtf(num)));
+}
+
+static Result VMCanvas(u32 num_args, VM *vm)
+{
+#ifdef CANVAS
+  u32 width, height, id;
+  Canvas *canvas;
+  Val types[2] = {IntType, IntType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  height = RawInt(StackPop(vm));
+  width = RawInt(StackPop(vm));
+  canvas = MakeCanvas(width, height, "Canvas");
+  id = vm->canvases.count;
+  ObjVecPush(&vm->canvases, canvas);
+
+  return OkResult(IntVal(id));
+#else
+  StackPop(vm);
+  StackPop(vm);
+  return OkResult(Error);
+#endif
+}
+
+static Result VMSetFont(u32 num_args, VM *vm)
+{
+#ifdef CANVAS
+  u32 size, id;
+  char *filename;
+  Val binary;
+  Canvas *canvas;
+  bool ok;
+  Val types[3] = {IntType, IntType, BinaryType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  id = RawInt(StackPop(vm));
+  size = RawInt(StackPop(vm));
+  binary = StackPop(vm);
+  if (id >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
+  canvas = vm->canvases.items[id];
+
+  filename = CopyStr(BinaryData(binary, &vm->mem), BinaryLength(binary, &vm->mem));
+  ok = SetFont(canvas, filename, size);
+  Free(filename);
+
+  if (ok) {
+    return OkResult(Ok);
+  } else {
+    return OkResult(Error);
+  }
+#else
+  StackPop(vm);
+  StackPop(vm);
+  StackPop(vm);
+  return OkResult(Error);
+#endif
+}
+
+static Result VMLine(u32 num_args, VM *vm)
+{
+#ifdef CANVAS
+  u32 x0, y0, x1, y1, id;
+  Canvas *canvas;
+  Val types[5] = {IntType, IntType, IntType, IntType, IntType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  id = RawInt(StackPop(vm));
+  y1 = RawInt(StackPop(vm));
+  x1 = RawInt(StackPop(vm));
+  y0 = RawInt(StackPop(vm));
+  x0 = RawInt(StackPop(vm));
+  if (id >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
+  canvas = vm->canvases.items[id];
+
+  DrawLine(x0, y0, x1, y1, canvas);
+
+  return OkResult(Ok);
+#else
+  StackPop(vm);
+  StackPop(vm);
+  StackPop(vm);
+  StackPop(vm);
+  StackPop(vm);
+  return OkResult(Error);
+#endif
+}
+
+static Result VMText(u32 num_args, VM *vm)
+{
+#ifdef CANVAS
+  u32 x, y, id;
+  char *text;
+  Val binary;
+  Canvas *canvas;
+  Val types[4] = {IntType, IntType, IntType, BinaryType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  id = RawInt(StackPop(vm));
+  y = RawInt(StackPop(vm));
+  x = RawInt(StackPop(vm));
+  binary = StackPop(vm);
+  if (id >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
+  canvas = vm->canvases.items[id];
+
+  text = CopyStr(BinaryData(binary, &vm->mem), BinaryLength(binary, &vm->mem));
+  DrawText(text, x, y, canvas);
+  Free(text);
+
+  return OkResult(Ok);
+#else
+  StackPop(vm);
+  StackPop(vm);
+  StackPop(vm);
+  StackPop(vm);
+  return OkResult(Error);
+#endif
 }

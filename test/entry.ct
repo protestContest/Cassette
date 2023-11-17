@@ -1,20 +1,17 @@
 import Lib
 
-def (fizzbuzz n) do
-  def (loop m) do
-    cond do
-      m % 3 == 0 and m % 5 == 0   -> print "FizzBuzz"
-      m % 3 == 0                  -> print "Fizz"
-      m % 5 == 0                  -> print "Buzz"
-      true                        -> print m
-    end
+let width = 800,
+    height = 480,
+    canvas = new_canvas width height
 
-    if m < n do
-      loop m + 1
-    end
-  end
+draw_text "Lines!" 200 0 canvas
 
-  loop 1
+seed (ticks)
+
+map (range 0 100) (i) -> do
+  let x0 = random width,
+      y0 = random height,
+      x1 = random width,
+      y1 = random height
+  draw_line x0 y0 x1 y1 canvas
 end
-
-fizzbuzz 100

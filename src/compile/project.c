@@ -47,7 +47,7 @@ Result BuildScripts(u32 num_files, char **filenames, Chunk *chunk)
 
   InitProject(&project);
   for (i = 0; i < num_files; i++) {
-    ObjVecPush(&project.manifest, CopyStr(filenames[i]));
+    ObjVecPush(&project.manifest, CopyStr(filenames[i], StrLen(filenames[i])));
   }
 
   result = ParseModules(&project);

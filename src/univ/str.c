@@ -96,11 +96,10 @@ char *JoinStr(char *str1, char *str2, char joiner)
   return str;
 }
 
-char *CopyStr(char *str)
+char *CopyStr(char *str, u32 length)
 {
-  u32 len = StrLen(str);
-  char *str2 = Alloc(len+1);
-  Copy(str, str2, len);
-  str2[len] = 0;
+  char *str2 = Alloc(length+1);
+  Copy(str, str2, length);
+  str2[length] = 0;
   return str2;
 }

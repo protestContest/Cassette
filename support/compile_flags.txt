@@ -8,4 +8,6 @@
 -include
 base.h
 -std=c89
+-I/opt/homebrew/include/SDL2
 -DDEBUG=1
+-DCANVAS=1

@@ -420,18 +420,21 @@ void GenerateSymbols(void)
   printf("#define TupleType         0x%08X /* tuple */\n", SymbolFor("tuple"));
   printf("#define BinaryType        0x%08X /* binary */\n", SymbolFor("binary"));
   printf("#define FuncType          0x%08X /* function */\n", SymbolFor("function"));
-  printf("  {/* typeof */   0x%08X, &VMType},\n", SymbolFor("typeof"));
-  printf("  {/* head */     0x%08X, &VMHead},\n", SymbolFor("head"));
-  printf("  {/* tail */     0x%08X, &VMTail},\n", SymbolFor("tail"));
-  printf("  {/* print */    0x%08X, &VMPrint},\n", SymbolFor("print"));
-  printf("  {/* inspect */  0x%08X, &VMInspect},\n", SymbolFor("inspect"));
-  printf("  {/* open */     0x%08X, &VMOpen},\n", SymbolFor("open"));
-  printf("  {/* read */     0x%08X, &VMRead},\n", SymbolFor("read"));
-  printf("  {/* write */    0x%08X, &VMWrite},\n", SymbolFor("write"));
-  printf("  {/* ticks */    0x%08X, &VMTicks},\n", SymbolFor("ticks"));
-  printf("  {/* seed */     0x%08X, &VMSeed},\n", SymbolFor("seed"));
-  printf("  {/* random */   0x%08X, &VMRandom},\n", SymbolFor("random"));
-  printf("  {/* sqrt */     0x%08X, &VMSqrt}\n", SymbolFor("sqrt"));
+  printf("  {/* typeof */           0x%08X, &VMType},\n", SymbolFor("typeof"));
+  printf("  {/* head */             0x%08X, &VMHead},\n", SymbolFor("head"));
+  printf("  {/* tail */             0x%08X, &VMTail},\n", SymbolFor("tail"));
+  printf("  {/* print */            0x%08X, &VMPrint},\n", SymbolFor("print"));
+  printf("  {/* inspect */          0x%08X, &VMInspect},\n", SymbolFor("inspect"));
+  printf("  {/* open */             0x%08X, &VMOpen},\n", SymbolFor("open"));
+  printf("  {/* read */             0x%08X, &VMRead},\n", SymbolFor("read"));
+  printf("  {/* write */            0x%08X, &VMWrite},\n", SymbolFor("write"));
+  printf("  {/* ticks */            0x%08X, &VMTicks},\n", SymbolFor("ticks"));
+  printf("  {/* seed */             0x%08X, &VMSeed},\n", SymbolFor("seed"));
+  printf("  {/* random */           0x%08X, &VMRandom},\n", SymbolFor("random"));
+  printf("  {/* sqrt */             0x%08X, &VMSqrt},\n", SymbolFor("sqrt"));
+  printf("  {/* new_canvas */       0x%08X, &VMCanvas},\n", SymbolFor("new_canvas"));
+  printf("  {/* draw_line */        0x%08X, &VMLine},\n", SymbolFor("draw_line"));
+  printf("  {/* draw_text */        0x%08X, &VMText},\n", SymbolFor("draw_text"));
 }
 
 #endif
