@@ -1,4 +1,4 @@
-module Std
+module Lib
 
 def (range min max) do
   def (loop n list) do

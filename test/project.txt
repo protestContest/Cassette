@@ -1,2 +1,2 @@
 entry.ct
-std.ct
+lib.ct
