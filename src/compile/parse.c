@@ -4,6 +4,11 @@
 #include "univ/str.h"
 #include "univ/system.h"
 
+#define ExprNext(lex)   (rules[(lex)->token.type].prefix)
+#define PrecNext(lex)   (rules[(lex)->token.type].prec)
+#define TokenSym(type)  (rules[type].symbol)
+#define ParseOk(val)    OkResult(val)
+
 typedef enum {
   PrecNone,
   PrecExpr,
@@ -21,6 +26,9 @@ typedef enum {
   PrecAccess
 } Precedence;
 
+static Val MakeNode(Val sym, u32 position, Val value, Mem *mem);
+static Result ParseError(char *message, Parser *p);
+
 static Result ParseBlock(Parser *p);
 static Result ParseImports(Parser *p);
 static Result ParseDef(Parser *p);
@@ -29,12 +37,15 @@ static Result ParseExpr(Precedence prec, Parser *p);
 static Result ParseLambda(Val prefix, Parser *p);
 static Result ParseLeftAssoc(Val prefix, Parser *p);
 static Result ParseRightAssoc(Val prefix, Parser *p);
+static Result ParseAccess(Val prefix, Parser *p);
 static Result ParseUnary(Parser *p);
 static Result ParseGroup(Parser *p);
 static Result ParseDo(Parser *p);
 static Result ParseIf(Parser *p);
 static Result ParseCond(Parser *p);
 static Result ParseList(Parser *p);
+static Result ParseBraces(Parser *p);
+static Result ParseMap(Parser *p);
 static Result ParseTuple(Parser *p);
 static Result ParseID(Parser *p);
 static Result ParseVar(Parser *p);
@@ -69,14 +80,14 @@ static Rule rules[] = {
   [TokenComma]          = {SymComma,          0,            0,                  PrecNone},
   [TokenMinus]          = {SymMinus,          ParseUnary,   ParseLeftAssoc,     PrecSum},
   [TokenArrow]          = {SymArrow,          0,            ParseLambda,        PrecLambda},
-  [TokenDot]            = {SymDot,            0,            ParseLeftAssoc,     PrecAccess},
+  [TokenDot]            = {SymDot,            0,            ParseAccess,        PrecAccess},
   [TokenSlash]          = {SymSlash,          0,            ParseLeftAssoc,     PrecProduct},
   [TokenNum]            = {SymNum,            ParseNum,     0,                  PrecNone},
   [TokenColon]          = {SymColon,          ParseSymbol,  0,                  PrecNone},
   [TokenLess]           = {SymLess,           0,            ParseLeftAssoc,     PrecCompare},
   [TokenLessLess]       = {SymLessLess,       0,            ParseLeftAssoc,     PrecShift},
   [TokenLessEqual]      = {SymLessEqual,      0,            ParseLeftAssoc,     PrecCompare},
-  [TokenLessGreater]    = {SymLessGreater,    0,            ParseLeftAssoc,     PrecCompare},
+  [TokenLessGreater]    = {SymLessGreater,    0,            ParseLeftAssoc,     PrecPair},
   [TokenEqual]          = {SymEqual,          0,            0,                  PrecNone},
   [TokenEqualEqual]     = {SymEqualEqual,     0,            ParseLeftAssoc,     PrecEqual},
   [TokenGreater]        = {SymGreater,        0,            ParseLeftAssoc,     PrecCompare},
@@ -102,19 +113,11 @@ static Rule rules[] = {
   [TokenNot]            = {SymNot,            ParseUnary,   0,                  PrecNone},
   [TokenOr]             = {SymOr,             0,            ParseLeftAssoc,     PrecLogic},
   [TokenTrue]           = {SymTrue,           ParseLiteral, 0,                  PrecNone},
-  [TokenLBrace]         = {SymLBrace,         ParseTuple,   0,                  PrecNone},
+  [TokenLBrace]         = {SymLBrace,         ParseBraces,  0,                  PrecNone},
   [TokenBar]            = {SymBar,            0,            ParseRightAssoc,    PrecPair},
   [TokenRBrace]         = {SymRBrace,         0,            0,                  PrecNone},
   [TokenTilde]          = {SymTilde,          ParseUnary,   0,                  PrecNone}
 };
-
-#define ExprNext(lex)   (rules[(lex)->token.type].prefix)
-#define PrecNext(lex)   (rules[(lex)->token.type].prec)
-#define TokenSym(type)  (rules[type].symbol)
-
-static Val MakeNode(Val sym, u32 position, Val value, Mem *mem);
-static Result ParseError(char *message, Parser *p);
-#define ParseOk(val)  OkResult(val)
 
 void InitParser(Parser *p, Mem *mem, SymbolTable *symbols)
 {
@@ -123,10 +126,12 @@ void InitParser(Parser *p, Mem *mem, SymbolTable *symbols)
   p->imports = Nil;
 }
 
-Result ParseModule(Parser *p)
+Result ParseModule(Parser *p, char *source)
 {
   Result result;
   Val name, body, imports, exports;
+
+  InitLexer(&p->lex, source, 0);
 
   SkipNewlines(&p->lex);
 
@@ -364,6 +369,22 @@ static Result ParseRightAssoc(Val prefix, Parser *p)
   return ParseOk(MakeNode(op, pos, Pair(result.value, Pair(prefix, Nil, p->mem), p->mem), p->mem));
 }
 
+static Result ParseAccess(Val prefix, Parser *p)
+{
+  Result result;
+  Token token = NextToken(&p->lex);
+  u32 pos = token.lexeme - p->lex.source;
+  Val op = TokenSym(token.type);
+  Val id;
+
+  result = ParseID(p);
+  if (!result.ok) return result;
+
+  id = MakeNode(SymColon, pos, result.value, p->mem);
+
+  return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(id, Nil, p->mem), p->mem), p->mem));
+}
+
 static Result ParseUnary(Parser *p)
 {
   Result result;
@@ -487,6 +508,7 @@ static Result ParseList(Parser *p)
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
   Assert(MatchToken(TokenLBracket, &p->lex));
+  SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBracket, &p->lex)) {
     result = ParseExpr(PrecExpr, p);
     if (!result.ok) return result;
@@ -496,6 +518,52 @@ static Result ParseList(Parser *p)
   return ParseOk(MakeNode(SymLBracket, pos, items, p->mem));
 }
 
+static Result ParseBraces(Parser *p)
+{
+  Lexer saved = p->lex;
+  Assert(MatchToken(TokenLBrace, &p->lex));
+  SkipNewlines(&p->lex);
+  if (MatchToken(TokenID, &p->lex)) {
+    SkipNewlines(&p->lex);
+    if (MatchToken(TokenColon, &p->lex)) {
+      p->lex = saved;
+      return ParseMap(p);
+    }
+  }
+
+  p->lex = saved;
+  return ParseTuple(p);
+}
+
+static Result ParseMap(Parser *p)
+{
+  Val items = Nil;
+  Result result;
+  u32 pos = p->lex.token.lexeme - p->lex.source;
+  Assert(MatchToken(TokenLBrace, &p->lex));
+  SkipNewlines(&p->lex);
+  while (!MatchToken(TokenRBrace, &p->lex)) {
+    Val key, value;
+    u32 item_pos = p->lex.token.lexeme - p->lex.source;
+
+    result = ParseID(p);
+    if (!result.ok) return result;
+    key = MakeNode(SymColon, item_pos, result.value, p->mem);
+
+    if (!MatchToken(TokenColon, &p->lex)) return ParseError("Expected \":\"", p);
+
+    result = ParseExpr(PrecExpr, p);
+    if (!result.ok) return result;
+    value = result.value;
+
+    value = Pair(key, value, p->mem);
+    items = Pair(value, items, p->mem);
+    SkipNewlines(&p->lex);
+  }
+
+  return ParseOk(MakeNode(SymRBrace, pos, items, p->mem));
+}
+
 static Result ParseTuple(Parser *p)
 {
   Result result;
@@ -503,12 +571,15 @@ static Result ParseTuple(Parser *p)
   u32 pos = p->lex.token.lexeme - p->lex.source;
 
   Assert(MatchToken(TokenLBrace, &p->lex));
+  SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
     result = ParseExpr(PrecExpr, p);
     if (!result.ok) return result;
 
+    SkipNewlines(&p->lex);
     items = Pair(result.value, items, p->mem);
   }
+  items = ReverseList(items, Nil, p->mem);
 
   return ParseOk(MakeNode(SymLBrace, pos, items, p->mem));
 }

@@ -1,2 +1,2 @@
-entry.ct
-lib.ct
+test.ct
+list.ct

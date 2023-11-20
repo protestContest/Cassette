@@ -50,7 +50,7 @@ Val PopMem(Mem *mem)
 Val TypeOf(Val value, Mem *mem)
 {
   if (IsFloat(value)) return FloatType;
-  if (IsInt(value) || IsBignum(value, mem)) return IntType;
+  if (IsInt(value)) return IntType;
   if (IsSym(value)) return SymType;
   if (IsPair(value)) return PairType;
   if (IsTuple(value, mem)) return TupleType;
@@ -181,8 +181,6 @@ void TupleSet(Val tuple, u32 i, Val value, Mem *mem)
 
 Val TupleGet(Val tuple, u32 i, Mem *mem)
 {
-  Assert(IsTuple(tuple, mem));
-  Assert(i < TupleLength(tuple, mem));
   return mem->values[RawVal(tuple) + i + 1];
 }
 
@@ -301,257 +299,187 @@ Val BinaryCat(Val binary1, Val binary2, Mem *mem)
   return result;
 }
 
-Val MakeBignum(i64 num, Mem *mem)
+#define NodeCount(header)     PopCount((header) & 0xFFFF)
+#define SlotNum(hash, n)      (((hash) >> (4*n)) & 0x0F)
+#define IndexNum(header, n)   PopCount((header) & (Bit(n) - 1))
+#define GetNode(node, i, mem) ((mem)->values[RawVal(node)+1+(i)])
+
+static Val MakeMapNode(u32 header, Mem *mem)
 {
-  Val value = ObjVal(mem->count);
-  PushMem(mem, BignumHeader(2));
-  PushMem(mem, 0);
-  PushMem(mem, 0);
-
-  ((i64*)(mem->values + RawVal(value) + 1))[0] = num;
-
-  return value;
-}
-
-bool IsBignum(Val value, Mem *mem)
-{
-  return IsObj(value) && IsBignumHeader(mem->values[RawVal(value)]);
-}
-
-bool BignumGreater(Val a, Val b, Mem *mem)
-{
-  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
-  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
-  return a_val > b_val;
-}
-
-bool BignumEq(Val a, Val b, Mem *mem)
-{
-  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
-  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
-  return a_val == b_val;
-}
-
-Val BignumAdd(Val a, Val b, Mem *mem)
-{
-  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
-  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
-  return MakeBignum(a_val + b_val, mem);
-}
-
-Val BignumSub(Val a, Val b, Mem *mem)
-{
-  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
-  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
-  return MakeBignum(a_val - b_val, mem);
-}
-
-Val BignumMul(Val a, Val b, Mem *mem)
-{
-  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
-  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
-  return MakeBignum(a_val * b_val, mem);
-}
-
-Val BignumDiv(Val a, Val b, Mem *mem)
-{
-  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
-  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
-  return MakeBignum(a_val / b_val, mem);
-}
-
-Val BignumRem(Val a, Val b, Mem *mem)
-{
-  i64 a_val = ((i64*)(mem->values + RawVal(a) + 1))[0];
-  i64 b_val = ((i64*)(mem->values + RawVal(b) + 1))[0];
-  return MakeBignum(a_val % b_val, mem);
-}
-
-float NumToFloat(Val num, Mem *mem)
-{
-  if (IsFloat(num)) return RawFloat(num);
-  if (IsInt(num)) return (float)RawInt(num);
-  if (IsBignum(num, mem)) {
-    i64 n = ((i64*)(mem->values + RawVal(num) + 1))[0];
-    return (float)n;
-  }
-  return 0;
-}
-
-Val AddVal(Val a, Val b, Mem *mem)
-{
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  if (IsFloat(a) || IsFloat(b)) {
-    float fa = NumToFloat(a, mem);
-    float fb = NumToFloat(b, mem);
-    return FloatVal(fa+fb);
-  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return BignumAdd(ba, bb, mem);
+  Val map = ObjVal(mem->count);
+  u32 num_children = NodeCount(header);
+  PushMem(mem, header);
+  if (num_children == 0) {
+    PushMem(mem, Nil);
   } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    if (AddOverflows(ia, ib) || AddUnderflows(ia, ib)) {
-       Val a = MakeBignum(ia, mem);
-       Val b = MakeBignum(ib, mem);
-      return BignumAdd(a, b, mem);
+    u32 i;
+    for (i = 0; i < num_children; i++) PushMem(mem, Nil);
+  }
+  return map;
+}
+
+Val MakeMap(Mem *mem)
+{
+  return MakeMapNode(MapHeader(0), mem);
+}
+
+bool IsMap(Val value, Mem *mem)
+{
+  return IsObj(value) && IsMapHeader(mem->values[RawVal(value)]);
+}
+
+u32 MapCount(Val map, Mem *mem)
+{
+  Val header = mem->values[RawVal(map)];
+  u32 count = 0;
+  u32 num_children = NodeCount(header);
+  u32 i;
+  for (i = 0; i < num_children; i++) {
+    Val child = GetNode(map, i, mem);
+    if (IsPair(child)) {
+      count++;
     } else {
-      return IntVal(ia+ib);
+      count += MapCount(child, mem);
+    }
+  }
+  return count;
+}
+
+static bool NodeContains(Val node, Val key, u32 level, Mem *mem)
+{
+  Val header = mem->values[RawVal(node)];
+  u32 hash = Hash(&key, sizeof(Val));
+  u32 slot = SlotNum(hash, level);
+  u32 index = IndexNum(header, slot);
+
+  if ((header & Bit(slot)) == 0) return false;
+
+  node = GetNode(node, index, mem);
+  if (IsPair(node)) {
+    return key == Head(node, mem);
+  } else {
+    return NodeContains(node, key, level+1, mem);
+  }
+}
+
+bool MapContains(Val map, Val key, Mem *mem)
+{
+  return NodeContains(map, key, 0, mem);
+}
+
+static Val MakeInternalNode(Val child1, Val child2, u32 level, Mem *mem)
+{
+  Val key1 = Head(child1, mem);
+  u32 hash1 = Hash(&key1, sizeof(Val));
+  u32 slot1 = SlotNum(hash1, level);
+  Val key2 = Head(child2, mem);
+  u32 hash2 = Hash(&key2, sizeof(Val));
+  u32 slot2 = SlotNum(hash2, level);
+  Val node = MakeMapNode(MapHeader(Bit(slot1) | Bit(slot2)), mem);
+
+  if (slot1 == slot2) {
+    GetNode(node, 0, mem) = MakeInternalNode(child1, child2, level+1, mem);
+  } else if (slot1 < slot2) {
+    GetNode(node, 0, mem) = child1;
+    GetNode(node, 1, mem) = child2;
+  } else {
+    GetNode(node, 0, mem) = child2;
+    GetNode(node, 1, mem) = child1;
+  }
+  return node;
+}
+
+static Val NodeInsert(Val node, u32 slot, Val child, Mem *mem)
+{
+  Val header = mem->values[RawVal(node)];
+  u32 num_children = NodeCount(header);
+  u32 index = IndexNum(header, slot);
+  bool replace = (header & Bit(slot)) == 1;
+  u32 i;
+  Val new_node = MakeMapNode(MapHeader(header | Bit(slot)), mem);
+  for (i = 0; i < index; i++) {
+    GetNode(new_node, i, mem) = GetNode(node, i, mem);
+  }
+  GetNode(new_node, index, mem) = child;
+  for (i = index + replace; i < num_children; i++) {
+    GetNode(new_node, index+i+1, mem) = GetNode(node, i, mem);
+  }
+  return new_node;
+}
+
+static Val NodeSet(Val node, Val key, Val value, u32 level, Mem *mem)
+{
+  Val header = mem->values[RawVal(node)];
+  u32 hash = Hash(&key, sizeof(Val));
+  u32 slot = SlotNum(hash, level);
+  u32 index = IndexNum(header, slot);
+
+  if ((header & Bit(slot)) == 0) {
+    Val pair = Pair(key, value, mem);
+    return NodeInsert(node, slot, pair, mem);
+  } else {
+    Val child = GetNode(node, index, mem);
+    if (!IsPair(child)) {
+      Val new_child = NodeSet(child, key, value, level + 1, mem);
+      return NodeInsert(node, slot, new_child, mem);
+    } else if (key == Head(child, mem)) {
+      Val pair = Pair(key, value, mem);
+      return NodeInsert(node, slot, pair, mem);
+    } else {
+      Val pair = Pair(key, value, mem);
+      Val new_child = MakeInternalNode(child, pair, level + 1, mem);
+      return NodeInsert(node, slot, new_child, mem);
     }
   }
 }
 
-Val SubVal(Val a, Val b, Mem *mem)
+Val MapSet(Val map, Val key, Val value, Mem *mem)
 {
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  if (IsFloat(a) || IsFloat(b)) {
-    float fa = NumToFloat(a, mem);
-    float fb = NumToFloat(b, mem);
-    return FloatVal(fa-fb);
-  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return BignumSub(ba, bb, mem);
-  } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    if (AddOverflows(ia, -ib) || AddUnderflows(ia, -ib)) {
-       Val a = MakeBignum(ia, mem);
-       Val b = MakeBignum(ib, mem);
-      return BignumSub(a, b, mem);
+  return NodeSet(map, key, value, 0, mem);
+}
+
+static bool NodeGet(Val node, Val key, u32 level, Mem *mem)
+{
+  Val header = mem->values[RawVal(node)];
+  u32 hash = Hash(&key, sizeof(Val));
+  u32 slot = SlotNum(hash, level);
+  u32 index = IndexNum(header, slot);
+
+  if ((header & Bit(slot)) == 0) return Nil;
+
+  node = GetNode(node, index, mem);
+  if (IsPair(node)) {
+    if (key == Head(node, mem)) {
+      return Tail(node, mem);
     } else {
-      return IntVal(ia-ib);
+      return Nil;
+    }
+  } else {
+    return NodeGet(node, key, level+1, mem);
+  }
+}
+
+Val MapGet(Val map, Val key, Mem *mem)
+{
+  return NodeGet(map, key, 0, mem);
+}
+
+Val MapMerge(Val map1, Val map2, Mem *mem)
+{
+  u32 i;
+  if (MapCount(map2, mem) == 0) return map1;
+  if (MapCount(map1, mem) == 0) return map2;
+
+  for (i = 0; i < MapCount(map2, mem); i++) {
+    Val child = GetNode(map2, i, mem);
+    if (IsPair(child)) {
+      map1 = MapSet(map1, Head(child, mem), Tail(child, mem), mem);
+    } else {
+      map1 = MapMerge(map1, child, mem);
     }
   }
-}
 
-Val MultiplyVal(Val a, Val b, Mem *mem)
-{
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  if (IsFloat(a) || IsFloat(b)) {
-    float fa = NumToFloat(a, mem);
-    float fb = NumToFloat(b, mem);
-    return FloatVal(fa*fb);
-  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return BignumMul(ba, bb, mem);
-  } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    if (MulOverflows(ia, ib) || MulUnderflows(ia, ib)) {
-       Val a = MakeBignum(ia, mem);
-       Val b = MakeBignum(ib, mem);
-      return BignumMul(a, b, mem);
-    } else {
-      return IntVal(ia*ib);
-    }
-  }
-}
-
-Val DivideVal(Val a, Val b, Mem *mem)
-{
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  if (IsFloat(a) || IsFloat(b)) {
-    float fa = NumToFloat(a, mem);
-    float fb = NumToFloat(b, mem);
-    return FloatVal(fa/fb);
-  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return BignumDiv(ba, bb, mem);
-  } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    return IntVal(ia/ib);
-  }
-}
-
-Val RemainderVal(Val a, Val b, Mem *mem)
-{
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  Assert(!IsFloat(a) && !IsFloat(b));
-
-  if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return BignumRem(ba, bb, mem);
-  } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    return IntVal(ia%ib);
-  }
-}
-
-bool ValLessThan(Val a, Val b, Mem *mem)
-{
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  if (IsFloat(a) || IsFloat(b)) {
-    float fa = NumToFloat(a, mem);
-    float fb = NumToFloat(b, mem);
-    return fa < fb;
-  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return !BignumGreater(ba, bb, mem) && !BignumEq(ba, bb, mem);
-  } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    return ia < ib;
-  }
-}
-
-bool ValGreaterThan(Val a, Val b, Mem *mem)
-{
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  if (IsFloat(a) || IsFloat(b)) {
-    float fa = NumToFloat(a, mem);
-    float fb = NumToFloat(b, mem);
-    return fa > fb;
-  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return BignumGreater(ba, bb, mem);
-  } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    return ia > ib;
-  }
-}
-
-bool NumValEqual(Val a, Val b, Mem *mem)
-{
-  Assert(IsNum(a, mem) && IsNum(b, mem));
-  if (IsFloat(a) || IsFloat(b)) {
-    float fa = NumToFloat(a, mem);
-    float fb = NumToFloat(b, mem);
-    return fa == fb;
-  } else if (IsBignum(a, mem) || IsBignum(b, mem)) {
-    Val ba = a;
-    Val bb = b;
-    if (IsInt(ba)) ba = MakeBignum(RawInt(a), mem);
-    if (IsInt(bb)) bb = MakeBignum(RawInt(b), mem);
-    return BignumEq(ba, bb, mem);
-  } else {
-    i32 ia = RawInt(a);
-    i32 ib = RawInt(b);
-    return ia == ib;
-  }
+  return map1;
 }
 
 bool CheckCapacity(Mem *mem, u32 amount)
@@ -568,11 +496,11 @@ void ResizeMem(Mem *mem, u32 capacity)
 static Val ValSize(Val value)
 {
   if (IsTupleHeader(value)) {
-    return RawVal(value) + 1;
+    return Max(2, RawVal(value) + 1);
   } else if (IsBinaryHeader(value)) {
-    return NumBinCells(RawVal(value)) + 1;
-  } else if (IsBignumHeader(value)) {
-    return RawVal(value) + 1;
+    return Max(2, NumBinCells(RawVal(value)) + 1);
+  } else if (IsMapHeader(value)) {
+    return Max(2, PopCount(RawVal(value)) + 1);
   } else {
     return 1;
   }
@@ -622,7 +550,7 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
   i = 2;
   while (i < new_mem.count) {
     Val value = new_mem.values[i];
-    if (IsBinaryHeader(value) || IsBignumHeader(value)) {
+    if (IsBinaryHeader(value)) {
       i += ValSize(value);
     } else {
       new_mem.values[i] = CopyValue(new_mem.values[i], mem, &new_mem);

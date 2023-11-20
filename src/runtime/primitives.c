@@ -135,9 +135,6 @@ static Result VMPrint(u32 num_args, VM *vm)
     } else if (IsBinary(value, &vm->mem)) {
       u32 len = BinaryLength(value, &vm->mem);
       printf("%*.*s", len, len, (char*)BinaryData(value, &vm->mem));
-    } else if (IsBignum(value, &vm->mem)) {
-      i64 num = ((u64*)(vm->mem.values + RawVal(value) + 1))[0];
-      printf("%lld", num);
     } else {
       return RuntimeError("Type error", vm);
     }
@@ -203,9 +200,19 @@ static void InspectPrint(Val value, u32 depth, Mem *mem, SymbolTable *symbols)
     u32 size = BinaryLength(value, mem);
     char *str = BinaryData(value, mem);
     printf("\"%*.*s\"", size, size, str);
-  } else if (IsBignum(value, mem)) {
-    i64 num = ((u64*)(mem->values + RawVal(value) + 1))[0];
-    printf("%lld", num);
+  } else if (IsMap(value, mem)) {
+    u32 i;
+    if (depth > 0) {
+      printf("{: ");
+      for (i = 0; i < MapCount(value, mem); i++) {
+        InspectPrint(TupleGet(value, i, mem), depth-1, mem, symbols);
+      }
+      printf("}");
+    } else {
+      printf("{: ...}");
+    }
+  } else {
+    printf("???");
   }
 }
 

@@ -112,9 +112,6 @@ static Result RunInstruction(VM *vm)
       StackRef(vm, 0) = IntVal(-RawInt(StackRef(vm, 0)));
     } else if (IsFloat(StackRef(vm, 0))) {
       StackRef(vm, 0) = FloatVal(-RawFloat(StackRef(vm, 0)));
-    } else if (IsBignum(StackRef(vm, 0), &vm->mem)) {
-      i64 num = ((u64*)(vm->mem.values + RawVal(StackRef(vm, 0)) + 1))[0];
-      StackRef(vm, 0) = MakeBignum(-num, &vm->mem);
     } else {
       return RuntimeError("Negative is only defined for numbers", vm);
     }
@@ -143,6 +140,8 @@ static Result RunInstruction(VM *vm)
       StackRef(vm, 0) = IntVal(TupleLength(StackRef(vm, 0), &vm->mem));
     } else if (IsBinary(StackRef(vm, 0), &vm->mem)) {
       StackRef(vm, 0) = IntVal(BinaryLength(StackRef(vm, 0), &vm->mem));
+    } else if (IsMap(StackRef(vm, 0), &vm->mem)) {
+      StackRef(vm, 0) = IntVal(MapCount(StackRef(vm, 0), &vm->mem));
     } else {
       return RuntimeError("Length is only defined for collections", vm);
     }
@@ -152,8 +151,10 @@ static Result RunInstruction(VM *vm)
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (!IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
       return RuntimeError("Multiplication is only defined for numbers", vm);
+    } else if (IsInt(StackRef(vm, 1)) && IsInt(StackRef(vm, 0))) {
+      StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 1)) * RawInt(StackRef(vm, 0)));
     } else {
-      StackRef(vm, 1) = MultiplyVal(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+      StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) * RawNum(StackRef(vm, 0)));
     }
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -163,18 +164,17 @@ static Result RunInstruction(VM *vm)
     if (!IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
       return RuntimeError("Division is only defined for numbers", vm);
     } else {
-      StackRef(vm, 1) = DivideVal(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+      StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) / RawNum(StackRef(vm, 0)));
     }
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpRem:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (IsFloat(StackRef(vm, 1)) || IsFloat(StackRef(vm, 0)) ||
-        !IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
+    if (!IsInt(StackRef(vm, 1)) || !IsInt(StackRef(vm, 0))) {
       return RuntimeError("Division is only defined for integers", vm);
-    } else {
-      StackRef(vm, 1) = RemainderVal(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+    } else  {
+      StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 1)) % RawInt(StackRef(vm, 0)));
     }
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -183,11 +183,10 @@ static Result RunInstruction(VM *vm)
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (!IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
       return RuntimeError("Addition is only defined for numbers", vm);
+    } else if (IsInt(StackRef(vm, 1)) && IsInt(StackRef(vm, 0))) {
+      StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 1)) + RawInt(StackRef(vm, 0)));
     } else {
-      StackRef(vm, 1) = AddVal(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
-      if (StackRef(vm, 1) == Nil) {
-        return RuntimeError("Oops", vm);
-      }
+      StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) + RawNum(StackRef(vm, 0)));
     }
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -196,8 +195,10 @@ static Result RunInstruction(VM *vm)
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (!IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
       return RuntimeError("Subtraction is only defined for numbers", vm);
+    } else if (IsInt(StackRef(vm, 1)) && IsInt(StackRef(vm, 0))) {
+      StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 1)) - RawInt(StackRef(vm, 0)));
     } else {
-      StackRef(vm, 1) = SubVal(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+      StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) - RawNum(StackRef(vm, 0)));
     }
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -215,14 +216,14 @@ static Result RunInstruction(VM *vm)
     break;
   case OpBitAnd:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (!IsInt(StackRef(vm, 0)) || !IsInt(StackRef(vm, 1))) return RuntimeError("Bitwise ops are only defined for integers", vm);
+    if (!IsInt(StackRef(vm, 0)) || !IsInt(StackRef(vm, 1))) return RuntimeError("Bitwise and is only defined for integers", vm);
     StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 0)) & RawInt(StackRef(vm, 1)));
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpBitOr:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (!IsInt(StackRef(vm, 0)) || !IsInt(StackRef(vm, 1))) return RuntimeError("Bitwise ops are only defined for integers", vm);
+    if (!IsInt(StackRef(vm, 0)) || !IsInt(StackRef(vm, 1))) return RuntimeError("Bitwise or is only defined for integers", vm);
     StackRef(vm, 1) = IntVal(RawInt(StackRef(vm, 0)) | RawInt(StackRef(vm, 1)));
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -235,6 +236,8 @@ static Result RunInstruction(VM *vm)
       StackRef(vm, 1) = BoolVal(TupleContains(StackRef(vm, 0), StackRef(vm, 1), &vm->mem));
     } else if (IsBinary(StackRef(vm, 0), &vm->mem)) {
       StackRef(vm, 1) = BoolVal(BinaryContains(StackRef(vm, 0), StackRef(vm, 1), &vm->mem));
+    } else if (IsMap(StackRef(vm, 0), &vm->mem)) {
+      StackRef(vm, 1) = BoolVal(MapContains(StackRef(vm, 0), StackRef(vm, 1), &vm->mem));
     } else {
       StackRef(vm, 1) = False;
     }
@@ -246,7 +249,7 @@ static Result RunInstruction(VM *vm)
     if (!IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
       return RuntimeError("Less than is only defined for numbers", vm);
     } else {
-      StackRef(vm, 1) = BoolVal(ValLessThan(StackRef(vm, 1), StackRef(vm, 0), &vm->mem));
+      StackRef(vm, 1) = BoolVal(RawNum(StackRef(vm, 1)) < RawNum(StackRef(vm, 0)));
     }
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -256,7 +259,7 @@ static Result RunInstruction(VM *vm)
     if (!IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
       return RuntimeError("Greater than is only defined for numbers", vm);
     } else {
-      StackRef(vm, 1) = BoolVal(ValGreaterThan(StackRef(vm, 1), StackRef(vm, 0), &vm->mem));
+      StackRef(vm, 1) = BoolVal(RawNum(StackRef(vm, 1)) > RawNum(StackRef(vm, 0)));
     }
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -264,7 +267,7 @@ static Result RunInstruction(VM *vm)
   case OpEq:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (IsNum(StackRef(vm, 1), &vm->mem) && IsNum(StackRef(vm, 0), &vm->mem)) {
-      StackRef(vm, 1) = BoolVal(NumValEqual(StackRef(vm, 1), StackRef(vm, 0), &vm->mem));
+      StackRef(vm, 1) = BoolVal(RawNum(StackRef(vm, 1)) == RawNum(StackRef(vm, 0)));
     } else {
       StackRef(vm, 1) = BoolVal(StackRef(vm, 1) == StackRef(vm, 0));
     }
@@ -299,13 +302,24 @@ static Result RunInstruction(VM *vm)
     StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
     vm->pc += OpLength(op);
     break;
+  case OpMap:
+    StackPush(vm, MakeMap(&vm->mem));
+    vm->pc += OpLength(op);
+    break;
   case OpSet:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Set is only defined for tuples", vm);
-    if (TupleLength(StackRef(vm, 0), &vm->mem) <= (u32)RawInt(ChunkConst(vm->chunk, vm->pc+1))) return RuntimeError("Out of bounds", vm);
+    if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+    if (IsTuple(StackRef(vm, 0), &vm->mem)) {
+      if (!IsInt(StackRef(vm, 1))) return RuntimeError("Tuple indexes must be integers", vm);
+      if (TupleLength(StackRef(vm, 0), &vm->mem) <= (u32)RawInt(StackRef(vm, 1))) return RuntimeError("Out of bounds", vm);
+      TupleSet(StackRef(vm, 0), RawInt(StackRef(vm, 1)), StackRef(vm, 2), &vm->mem);
+      StackRef(vm, 2) = StackRef(vm, 0);
+    } else if (IsMap(StackRef(vm, 0), &vm->mem)) {
+      StackRef(vm, 2) = MapSet(StackRef(vm, 0), StackRef(vm, 1), StackRef(vm, 2), &vm->mem);
+    } else {
+      return RuntimeError("Set is only defined for tuples", vm);
+    }
 
-    TupleSet(StackRef(vm, 0), RawInt(ChunkConst(vm->chunk, vm->pc+1)), StackRef(vm, 1), &vm->mem);
-    StackRef(vm, 1) = StackRef(vm, 0);
+    StackPop(vm);
     StackPop(vm);
 
     vm->pc += OpLength(op);
@@ -327,10 +341,13 @@ static Result RunInstruction(VM *vm)
       Val binary = StackRef(vm, 1);
       if (index >= BinaryLength(binary, &vm->mem)) return RuntimeError("Out of bounds", vm);
       StackRef(vm, 1) = IntVal(((u8*)BinaryData(binary, &vm->mem))[index]);
+    } else if (IsMap(StackRef(vm, 1), &vm->mem)) {
+      Val key = StackRef(vm, 0);
+      StackRef(vm, 1) = MapGet(StackRef(vm, 1), key, &vm->mem);
     } else {
       return RuntimeError("Access is only defined for collections", vm);
     }
-    vm->stack.count--;
+    StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpCat:
@@ -341,6 +358,8 @@ static Result RunInstruction(VM *vm)
       StackRef(vm, 1) = TupleCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else if (IsBinary(StackRef(vm, 0), &vm->mem) && IsBinary(StackRef(vm, 1), &vm->mem)) {
       StackRef(vm, 1) = BinaryCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+    } else if (IsMap(StackRef(vm, 0), &vm->mem) && IsMap(StackRef(vm, 1), &vm->mem)) {
+      StackRef(vm, 1) = MapMerge(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else {
       return RuntimeError("Concatenation is only defined for collections of the same type", vm);
     }
@@ -419,6 +438,17 @@ static Result RunInstruction(VM *vm)
       vm->pc = RawInt(StackPop(vm));
       Env(vm) = StackPop(vm);
       StackPush(vm, result.value);
+    } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
+      Val num_args = ChunkConst(vm->chunk, vm->pc+1);
+      Val tuple = StackPop(vm);
+      u32 index;
+      if (num_args != 1) return RuntimeError("Invalid access", vm);
+      if (!IsInt(StackRef(vm, 1))) return RuntimeError("Index must be an integer", vm);
+      index = RawInt(StackPop(vm));
+      if (index < 0 || index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Out of bounds", vm);
+      vm->pc = RawInt(StackPop(vm));
+      Env(vm) = StackPop(vm);
+      StackPush(vm, TupleGet(tuple, index, &vm->mem));
     } else {
       /* not a function, just return */
       if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);

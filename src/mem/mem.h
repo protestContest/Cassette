@@ -11,7 +11,7 @@ typedef u32 Val;
 #define objMask           0x7FF00000
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
-#define bignumMask        0xFFE00000
+#define mapMask           0xFFE00000
 
 #define MakeVal(n, mask)  (((n) & ~typeMask) | (mask))
 #define IntVal(n)         MakeVal((i32)(n), intMask)
@@ -20,7 +20,7 @@ typedef u32 Val;
 #define ObjVal(n)         MakeVal(n, objMask)
 #define TupleHeader(n)    MakeVal(n, tupleMask)
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
-#define BignumHeader(n)   MakeVal(n, bignumMask)
+#define MapHeader(n)      MakeVal(n, mapMask)
 
 #define IsType(v, mask)   (((v) & typeMask) == (mask))
 #define IsFloat(v)        (((v) & nanMask) != nanMask)
@@ -30,7 +30,7 @@ typedef u32 Val;
 #define IsObj(v)          IsType(v, objMask)
 #define IsTupleHeader(v)  IsType(v, tupleMask)
 #define IsBinaryHeader(v) IsType(v, binaryMask)
-#define IsBignumHeader(v) IsType(v, bignumMask)
+#define IsMapHeader(v)    IsType(v, mapMask)
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
@@ -39,7 +39,7 @@ typedef u32 Val;
 #define RawVal(v)         ((v) & ~typeMask)
 
 #define BoolVal(v)        ((v) ? True : False)
-#define IsNum(v,m)        (IsFloat(v) || IsInt(v) || IsBignum(v, m))
+#define IsNum(v,m)        (IsFloat(v) || IsInt(v))
 #define RawNum(v)         (IsFloat(v) ? RawFloat(v) : RawInt(v))
 #define IsZero(v)         ((IsFloat(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
 #define MulOverflows(a, b)  ((b) != 0 && (a) > RawInt(MaxIntVal) / (b))
@@ -68,7 +68,7 @@ typedef u32 Val;
 #define PairType          0x7FD2281F /* pair */
 #define TupleType         0x7FDB66C6 /* tuple */
 #define BinaryType        0x7FD56D87 /* binary */
-#define FuncType          0x7FDC45D6 /* function */
+#define MapType           0x7FDB7942 /* map */
 
 Val FloatVal(float num);
 float RawFloat(Val value);
@@ -118,25 +118,12 @@ bool BinaryContains(Val binary, Val item, Mem *mem);
 void *BinaryData(Val binary, Mem *mem);
 Val BinaryCat(Val binary1, Val binary2, Mem *mem);
 
-Val MakeBignum(i64 num, Mem *mem);
-bool IsBignum(Val value, Mem *mem);
-bool BignumGreater(Val a, Val b, Mem *mem);
-bool BignumEq(Val a, Val b, Mem *mem);
-Val BignumAdd(Val a, Val b, Mem *mem);
-Val BignumSub(Val a, Val b, Mem *mem);
-Val BignumMul(Val a, Val b, Mem *mem);
-Val BignumDiv(Val a, Val b, Mem *mem);
-Val BignumRem(Val a, Val b, Mem *mem);
-
-float NumToFloat(Val num, Mem *mem);
-float NumToBignum(Val num, Mem *mem);
-Val AddVal(Val a, Val b, Mem *mem);
-Val SubVal(Val a, Val b, Mem *mem);
-Val MultiplyVal(Val a, Val b, Mem *mem);
-Val DivideVal(Val a, Val b, Mem *mem);
-Val RemainderVal(Val a, Val b, Mem *mem);
-bool ValLessThan(Val a, Val b, Mem *mem);
-bool ValGreaterThan(Val a, Val b, Mem *mem);
-bool NumValEqual(Val a, Val b, Mem *mem);
+Val MakeMap(Mem *mem);
+bool IsMap(Val value, Mem *mem);
+u32 MapCount(Val map, Mem *mem);
+bool MapContains(Val map, Val key, Mem *mem);
+Val MapSet(Val map, Val key, Val value, Mem *mem);
+Val MapGet(Val map, Val key, Mem *mem);
+Val MapMerge(Val map1, Val map2, Mem *mem);
 
 void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);

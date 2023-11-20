@@ -21,6 +21,7 @@ static Result CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
 static Result CompileNegOp(OpCode op, Val args, Val linkage, Compiler *c);
 static Result CompileList(Val items, Val linkage, Compiler *c);
 static Result CompileTuple(Val items, Val linkage, Compiler *c);
+static Result CompileMap(Val items, Val linkage, Compiler *c);
 static Result CompileString(Val sym, Val linkage, Compiler *c);
 static Result CompileVar(Val id, Val linkage, Compiler *c);
 static Result CompileConst(Val value, Val linkage, Compiler *c);
@@ -274,6 +275,7 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
   case SymOr:             return CompileOr(expr, linkage, c);
   case SymLBrace:         return CompileTuple(expr, linkage, c);
   case SymBar:            return CompileOp(OpPair, expr, linkage, c);
+  case SymRBrace:         return CompileMap(expr, linkage, c);
   case SymTilde:          return CompileOp(OpBitNot, expr, linkage, c);
   default:                return CompileError("Unknown expression", c);
   }
@@ -602,8 +604,10 @@ static Result CompileTuple(Val items, Val linkage, Compiler *c)
     Val item = Head(items, c->mem);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
-    items = Tail(items, c->mem);
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(num_items), c->pos, c->chunk);
     num_items++;
+    items = Tail(items, c->mem);
   }
 
   PushByte(OpConst, c->pos, c->chunk);
@@ -611,7 +615,33 @@ static Result CompileTuple(Val items, Val linkage, Compiler *c)
   PushByte(OpTuple, c->pos, c->chunk);
   for (i = 0; i < num_items; i++) {
     PushByte(OpSet, c->pos, c->chunk);
-    PushConst(IntVal(i), c->pos, c->chunk);
+  }
+
+  CompileLinkage(linkage, c);
+  return CompileOk();
+}
+
+static Result CompileMap(Val items, Val linkage, Compiler *c)
+{
+  u32 num_items = 0, i;
+
+  while (items != Nil) {
+    Val item = Head(items, c->mem);
+    Val key = Head(item, c->mem);
+    Val value = Tail(item, c->mem);
+
+    Result result = CompileExpr(value, LinkNext, c);
+    if (!result.ok) return result;
+    result = CompileExpr(key, LinkNext, c);
+    if (!result.ok) return result;
+
+    num_items++;
+    items = Tail(items, c->mem);
+  }
+
+  PushByte(OpMap, c->pos, c->chunk);
+  for (i = 0; i < num_items; i++) {
+    PushByte(OpSet, c->pos, c->chunk);
   }
 
   CompileLinkage(linkage, c);

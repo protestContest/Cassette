@@ -129,9 +129,8 @@ static Result ParseModules(Project *project)
 
     if (source == 0) return ErrorResult("Could not read file", filename, 0);
     parser.filename = filename;
-    InitLexer(&parser.lex, source, 0);
 
-    result = ParseModule(&parser);
+    result = ParseModule(&parser, source);
     if (!result.ok) return result;
 
     Free(source);

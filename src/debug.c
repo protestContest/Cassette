@@ -31,9 +31,8 @@ static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
       return printf("t%d", RawVal(value));
     } else if (mem && IsBinary(value, mem)) {
       return printf("b%d", RawVal(value));
-    } else if (IsBignum(value, mem)) {
-      i64 num = ((u64*)(mem->values + RawVal(value) + 1))[0];
-      return printf("%lld", num);
+    } else if (IsMap(value, mem)) {
+      return printf("m%d", RawVal(value));
     } else {
       return printf("o%d", RawVal(value));
     }
@@ -59,11 +58,11 @@ static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols
   } else if (IsObj(value)) {
     printf("o%*d", cell_width-1, RawVal(value));
   } else if (IsTupleHeader(value)) {
-    printf("@%*d", cell_width-1, RawVal(value));
+    printf("t%*d", cell_width-1, RawVal(value));
   } else if (IsBinaryHeader(value)) {
-    printf("*%*d", cell_width-1, RawVal(value));
-  } else if (IsBignumHeader(value)) {
-    printf("#%*d", cell_width-1, RawInt(value));
+    printf("b%*d", cell_width-1, RawVal(value));
+  } else if (IsMapHeader(value)) {
+    printf("m%*d", cell_width-1, RawInt(value));
   } else {
     printf("%0*.*X", (cell_width+1)/2, cell_width/2, value);
   }
@@ -125,15 +124,6 @@ void DumpMem(Mem *mem, SymbolTable *symbols)
     if ((i+1) % cols == 0) printf("║\n");
     if (IsBinaryHeader(mem->values[i])) {
       i += PrintBinData(i, cell_width, cols, mem);
-    } else if (IsBignumHeader(mem->values[i])) {
-      u32 j;
-      for (j = 0; j < (u32)Abs(RawInt(mem->values[i])); j++) {
-        if ((i+j+1) % cols == 0) printf("║%04d║", i+j+1);
-        else printf("│");
-        printf("%*X", cell_width, mem->values[i+j+1]);
-        if ((i+j+2) % cols == 0) printf("║\n");
-      }
-      i += Abs(RawInt(mem->values[i]));
     }
   }
   if (i % cols != 0) {
@@ -181,6 +171,7 @@ static char *op_names[] = {
   [OpStr]     = "str",
   [OpPair]    = "pair",
   [OpTuple]   = "tuple",
+  [OpMap]     = "map",
   [OpSet]     = "set",
   [OpGet]     = "get",
   [OpCat]     = "cat",
@@ -419,7 +410,7 @@ void GenerateSymbols(void)
   printf("#define PairType          0x%08X /* pair */\n", SymbolFor("pair"));
   printf("#define TupleType         0x%08X /* tuple */\n", SymbolFor("tuple"));
   printf("#define BinaryType        0x%08X /* binary */\n", SymbolFor("binary"));
-  printf("#define FuncType          0x%08X /* function */\n", SymbolFor("function"));
+  printf("#define MapType           0x%08X /* map */\n", SymbolFor("map"));
   printf("  {/* typeof */           0x%08X, &VMType},\n", SymbolFor("typeof"));
   printf("  {/* head */             0x%08X, &VMHead},\n", SymbolFor("head"));
   printf("  {/* tail */             0x%08X, &VMTail},\n", SymbolFor("tail"));
