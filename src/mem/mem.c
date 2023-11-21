@@ -53,6 +53,8 @@ pointer type, the "pair".
 Val Pair(Val head, Val tail, Mem *mem)
 {
   Val pair = PairVal(mem->count);
+  if (CapacityLeft(mem) < 2) ResizeMem(mem, 2*mem->capacity);
+  Assert(CapacityLeft(mem) >= 2);
   PushMem(mem, head);
   PushMem(mem, tail);
   return pair;
@@ -111,6 +113,8 @@ Val MakeTuple(u32 length, Mem *mem)
 {
   u32 i;
   Val tuple = ObjVal(mem->count);
+  if (CapacityLeft(mem) < length+1) ResizeMem(mem, Max(2*mem->capacity, mem->count + length + 1));
+  Assert(CapacityLeft(mem) >= length + 1);
   PushMem(mem, TupleHeader(length));
   for (i = 0; i < length; i++) {
     PushMem(mem, Nil);
@@ -130,6 +134,7 @@ bool TupleContains(Val tuple, Val item, Mem *mem)
 
 void TupleSet(Val tuple, u32 i, Val value, Mem *mem)
 {
+  Assert(i < TupleLength(tuple, mem));
   VecRef(mem, RawVal(tuple) + i + 1) = value;
 }
 
@@ -160,7 +165,8 @@ Val MakeBinary(u32 size, Mem *mem)
   Val binary = ObjVal(mem->count);
   u32 cells = (size == 0) ? 1 : NumBinCells(size);
   u32 i;
-
+  if (CapacityLeft(mem) < cells+1) ResizeMem(mem, Max(2*mem->capacity, mem->count+cells+1));
+  Assert(CapacityLeft(mem) >= cells + 1);
   PushMem(mem, BinaryHeader(size));
   for (i = 0; i < cells; i++) PushMem(mem, 0);
   return binary;
