@@ -1,13 +1,12 @@
 #include "str.h"
+#include "hash.h"
+#include "math.h"
 #include "system.h"
 
 u32 StrLen(char *str)
 {
   u32 len = 0;
-  while (*str != 0) {
-    str++;
-    len++;
-  }
+  while (*str++ != 0) len++;
   return len;
 }
 
@@ -21,10 +20,61 @@ bool StrEq(char *str1, char *str2)
   return *str1 == *str2;
 }
 
-char HexDigit(u8 n)
+void StrCat(char *str1, char *str2, char *dst)
 {
-  if (n < 10) return n + '0';
-  else return n - 10 + 'A';
+  if (str1 != dst) {
+    while (*str1 != 0) *dst++ = *str1++;
+  } else {
+    while (*str1 != 0) dst++;
+  }
+  while (*str2 != 0) *dst++ = *str2++;
+  *dst = 0;
+}
+
+u32 NumDigits(u32 num, u32 base)
+{
+  u32 len = 0;
+  if (num == 0) return 1;
+
+  while (num > 0) {
+    len++;
+    num /= base;
+  }
+  return len;
+}
+
+/* Prints a number into a string, right-aligned. Returns the number of
+characters printed. */
+u32 NumToStr(u32 num, char *str, u32 base, u32 width)
+{
+  u32 i;
+  if (width == 0) width = NumDigits(num, base);
+  str[width] = 0;
+  for (i = 0; i < width; i++) {
+    u32 d = num % base;
+    str[width-1-i] = HexDigit(d);
+    num /= base;
+    if (num == 0) return i+1;
+  }
+  return width;
+}
+
+u32 FloatToStr(float num, char *str, u32 width, u32 precision)
+{
+  u32 i, exp = 1;
+  u32 whole = Floor(Abs(num));
+  u32 frac, written;
+  for (i = 0; i < precision; i++) exp *= 10;
+  frac = (num - (float)whole) * exp;
+  if (width == 0) width = NumDigits(whole, 10) + NumDigits(frac, 10) + 1 + (num < 0);
+  written = NumToStr(frac, str, 10, 0);
+  str[width-written-1] = '.';
+  written += 1 + NumToStr(whole, str, 10, width - written - 1);
+  if (num < 0 && written < width) {
+    str[width-written-1] = '-';
+    written++;
+  }
+  return written;
 }
 
 char *SkipSpaces(char *str)
@@ -69,6 +119,31 @@ u32 ColNum(char *source, u32 pos)
   while (cur > source && *(cur-1) != '\n') cur--;
 
   return source + pos - cur;
+}
+
+i32 FindString(char *needle, u32 nlen, char *haystack, u32 hlen)
+{
+  /* Rabin-Karp algorithm */
+  u32 i, j, item_hash, test_hash;
+  if (nlen > hlen) return -1;
+  if (nlen == 0 || hlen == 0) return false;
+
+  item_hash = Hash(needle, nlen);
+  test_hash = Hash(haystack, nlen);
+
+  for (i = 0; i < hlen - nlen; i++) {
+    if (test_hash == item_hash) break;
+    test_hash = SkipHash(test_hash, haystack[i], nlen);
+    test_hash = AppendHash(test_hash, haystack[i+nlen]);
+  }
+
+  if (test_hash == item_hash) {
+    for (j = 0; j < nlen; j++) {
+      if (haystack[i+j] != needle[j]) return -1;
+    }
+    return i;
+  }
+  return -1;
 }
 
 char *Basename(char *str, char sep)

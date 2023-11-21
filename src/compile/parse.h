@@ -57,6 +57,10 @@
 #define SymRBrace         0x7FD3CE87 /* } */
 #define SymTilde          0x7FD373CF /* ~ */
 
+#define NodeType(node, mem) TupleGet(node, 0, mem)
+#define NodePos(node, mem)  RawInt(TupleGet(node, 1, mem))
+#define NodeExpr(node, mem) TupleGet(node, 2, mem)
+
 typedef struct {
   char *filename;
   Lexer lex;
@@ -66,10 +70,4 @@ typedef struct {
 } Parser;
 
 void InitParser(Parser *p, Mem *mem, SymbolTable *symbols);
-
 Result ParseModule(Parser *p, char *source);
-
-Val NodeType(Val node, Mem *mem);
-u32 NodePos(Val node, Mem *mem);
-Val NodeExpr(Val node, Mem *mem);
-Val TokenSym(TokenType type);

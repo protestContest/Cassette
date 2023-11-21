@@ -1,6 +1,17 @@
-let m1 = {x: 1 y: 2},
-    m2 = {y: 3 z: 4}
+import List
 
-inspect m1
-inspect m2
-inspect m1 <> m2
+let width = 800,
+    height = 480,
+    canvas = new_canvas width height
+
+draw_text "Lines!" 200 0 canvas
+
+seed (ticks)
+
+map (range 0 100) (i) -> do
+  let x0 = random width,
+      y0 = random height,
+      x1 = random width,
+      y1 = random height
+  draw_line x0 y0 x1 y1 canvas
+end

@@ -1,13 +1,14 @@
 #include "parse.h"
-#include "module.h"
+#include "project.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
 
-#define ExprNext(lex)   (rules[(lex)->token.type].prefix)
-#define PrecNext(lex)   (rules[(lex)->token.type].prec)
-#define TokenSym(type)  (rules[type].symbol)
-#define ParseOk(val)    OkResult(val)
+#define ExprNext(lex)       (rules[(lex)->token.type].prefix)
+#define PrecNext(lex)       (rules[(lex)->token.type].prec)
+#define TokenSym(type)      (rules[type].symbol)
+#define ParseOk(val)        OkResult(val)
+#define ParseError(msg, p)  ErrorResult(msg, (p)->filename, (p)->lex.token.lexeme - (p)->lex.source)
 
 typedef enum {
   PrecNone,
@@ -27,7 +28,6 @@ typedef enum {
 } Precedence;
 
 static Val MakeNode(Val sym, u32 position, Val value, Mem *mem);
-static Result ParseError(char *message, Parser *p);
 
 static Result ParseBlock(Parser *p);
 static Result ParseImports(Parser *p);
@@ -696,24 +696,4 @@ static Val MakeNode(Val sym, u32 position, Val value, Mem *mem)
   TupleSet(node, 2, value, mem);
 
   return node;
-}
-
-Val NodeType(Val node, Mem *mem)
-{
-  return TupleGet(node, 0, mem);
-}
-
-u32 NodePos(Val node, Mem *mem)
-{
-  return RawInt(TupleGet(node, 1, mem));
-}
-
-Val NodeExpr(Val node, Mem *mem)
-{
-  return TupleGet(node, 2, mem);
-}
-
-static Result ParseError(char *message, Parser *p)
-{
-  return ErrorResult(message, p->filename, p->lex.token.lexeme - p->lex.source);
 }

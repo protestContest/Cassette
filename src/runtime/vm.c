@@ -6,6 +6,7 @@
 #include "univ/str.h"
 #include "univ/math.h"
 #include "univ/system.h"
+#include <stdio.h>
 
 #ifdef DEBUG
 #include "debug.h"
@@ -283,7 +284,7 @@ static Result RunInstruction(VM *vm)
     str = SymbolName(StackRef(vm, 0), &vm->chunk->symbols);
     size = StrLen(str);
 
-    if (!CheckMem(vm, NumBinCells(size))) return RuntimeError("Out of memory", vm);
+    if (CheckMem(vm, NumBinCells(size))) return RuntimeError("Out of memory", vm);
 
     StackRef(vm, 0) = BinaryFrom(str, StrLen(str), &vm->mem);
     vm->pc += OpLength(op);
@@ -291,14 +292,14 @@ static Result RunInstruction(VM *vm)
   }
   case OpPair:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
+    if (CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
     StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpTuple:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    if (!CheckMem(vm, RawInt(StackRef(vm, 0)) + 1)) return RuntimeError("Out of memory", vm);
+    if (CheckMem(vm, RawInt(StackRef(vm, 0)) + 1)) return RuntimeError("Out of memory", vm);
     StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
     vm->pc += OpLength(op);
     break;
@@ -369,7 +370,7 @@ static Result RunInstruction(VM *vm)
   case OpExtend:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Frame must be a tuple", vm);
-    if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
+    if (CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
     Env(vm) = ExtendEnv(Env(vm), StackRef(vm, 0), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -471,15 +472,15 @@ static Result RunInstruction(VM *vm)
 
 static bool CheckMem(VM *vm, u32 amount)
 {
-  if (!CheckCapacity(&vm->mem, amount)) {
+  if (CapacityLeft(&vm->mem) < amount) {
     CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
   }
 
-  if (!CheckCapacity(&vm->mem, amount)) {
+  if (CapacityLeft(&vm->mem) < amount) {
     ResizeMem(&vm->mem, 2*vm->mem.capacity);
   }
 
-  return CheckCapacity(&vm->mem, amount);
+  return CapacityLeft(&vm->mem) < amount;
 }
 
 Result RuntimeError(char *message, VM *vm)

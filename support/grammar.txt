@@ -9,12 +9,12 @@ let_stmt        → "let" assigns "\n"
 assigns         → assigns "," assign | assign
 assign          → ID "=" call
 def_stmt        → "def" "(" ID args ")" call "\n"
-args            → args arg | ε
+args            → args expr | ε
 call_stmt       → call "\n"
-call            → args arg
+call            → args expr
 
-arg             → lambda
-lambda          → group "->" arg | ID "->" arg
+expr            → lambda
+lambda          → group "->" expr | ID "->" expr
 logic           → equality | logic "and" equality | logic "or" equality
 equality        → compare | equality "==" compare | equality "!=" compare
 compare         → member
@@ -44,8 +44,11 @@ clause          → logic "->" call
 
 obj             → list | tuple | map
 list            → "[" list_tail
-list_tail       → "]" | call "]" | call "," list_tail
+list_tail       → "]" | expr "]" | expr list_tail
 tuple           → "{" tuple_tail
-tuple_tail      → "}" | call "}" | call "," tuple_tail
+tuple_tail      → "}" | expr "}" | expr tuple_tail
+map             → "{" entries "}"
+entries         → entry | entry entries
+entry           → ID ":" expr
 
 value           → "true" | "false" | "nil" | SYM | NUM | STR

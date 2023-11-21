@@ -2,6 +2,8 @@
 #include "univ/system.h"
 #include "univ/math.h"
 #include "univ/hash.h"
+#include "univ/str.h"
+#include "symbols.h"
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -9,6 +11,7 @@
 
 Val FloatVal(float num)
 {
+  /* C is weird and I hate it */
   union {Val as_v; float as_f;} convert;
   convert.as_f = num;
   return convert.as_v;
@@ -23,29 +26,13 @@ float RawFloat(Val value)
 
 void InitMem(Mem *mem, u32 capacity)
 {
-  mem->values = Alloc(sizeof(Val) * capacity);
-  mem->count = 0;
-  mem->capacity = capacity;
+  InitVec((Vec*)mem, sizeof(Val), capacity);
+  /* Nil is defined as the first pair in memory, which references itself */
   Pair(Nil, Nil, mem);
 }
 
-void DestroyMem(Mem *mem)
-{
-  if (mem->values) Free(mem->values);
-  mem->count = 0;
-  mem->capacity = 0;
-  mem->values = 0;
-}
-
-void PushMem(Mem *mem, Val value)
-{
-  mem->values[mem->count++] = value;
-}
-
-Val PopMem(Mem *mem)
-{
-  return mem->values[--mem->count];
-}
+#define PushMem(mem, val) (VecRef(mem, (mem)->count++) = (val))
+#define PopMem(mem)       VecRef(mem, --(mem)->count)
 
 Val TypeOf(Val value, Mem *mem)
 {
@@ -58,36 +45,17 @@ Val TypeOf(Val value, Mem *mem)
   return Nil;
 }
 
+/*
+A pair is just two values, without a header. Instead, pairs have their own
+pointer type, the "pair".
+*/
+
 Val Pair(Val head, Val tail, Mem *mem)
 {
   Val pair = PairVal(mem->count);
-  if (!CheckCapacity(mem, 2)) ResizeMem(mem, 2*mem->capacity);
-  Assert(CheckCapacity(mem, 2));
   PushMem(mem, head);
   PushMem(mem, tail);
   return pair;
-}
-
-Val Head(Val pair, Mem *mem)
-{
-  Assert(IsPair(pair));
-  return mem->values[RawVal(pair)];
-}
-
-Val Tail(Val pair, Mem *mem)
-{
-  Assert(IsPair(pair));
-  return mem->values[RawVal(pair)+1];
-}
-
-void SetHead(Val pair, Val value, Mem *mem)
-{
-  mem->values[RawVal(pair)] = value;
-}
-
-void SetTail(Val pair, Val value, Mem *mem)
-{
-  mem->values[RawVal(pair)+1] = value;
 }
 
 u32 ListLength(Val list, Mem *mem)
@@ -111,7 +79,6 @@ bool ListContains(Val list, Val item, Mem *mem)
 
 Val ReverseList(Val list, Val tail, Mem *mem)
 {
-  Assert(IsPair(list) && IsPair(tail));
   while (list != Nil) {
     tail = Pair(Head(list, mem), tail, mem);
     list = Tail(list, mem);
@@ -121,7 +88,6 @@ Val ReverseList(Val list, Val tail, Mem *mem)
 
 Val ListGet(Val list, u32 index, Mem *mem)
 {
-  Assert(IsPair(list));
   while (index > 0) {
     list = Tail(list, mem);
     if (list == Nil || !IsPair(list)) return Nil;
@@ -132,17 +98,19 @@ Val ListGet(Val list, u32 index, Mem *mem)
 
 Val ListCat(Val list1, Val list2, Mem *mem)
 {
-  Assert(IsPair(list1) && IsPair(list2));
   list1 = ReverseList(list1, Nil, mem);
   return ReverseList(list1, list2, mem);
 }
+
+/*
+A tuple is a header followed by a fixed number of values. The header value is
+the number of values in the tuple.
+*/
 
 Val MakeTuple(u32 length, Mem *mem)
 {
   u32 i;
   Val tuple = ObjVal(mem->count);
-  if (!CheckCapacity(mem, length+1)) ResizeMem(mem, Max(2*mem->capacity, mem->count + length + 1));
-  Assert(CheckCapacity(mem, length + 1));
   PushMem(mem, TupleHeader(length));
   for (i = 0; i < length; i++) {
     PushMem(mem, Nil);
@@ -150,21 +118,9 @@ Val MakeTuple(u32 length, Mem *mem)
   return tuple;
 }
 
-bool IsTuple(Val value, Mem *mem)
-{
-  return IsObj(value) && IsTupleHeader(mem->values[RawVal(value)]);
-}
-
-u32 TupleLength(Val tuple, Mem *mem)
-{
-  Assert(IsTuple(tuple, mem));
-  return RawVal(mem->values[RawVal(tuple)]);
-}
-
 bool TupleContains(Val tuple, Val item, Mem *mem)
 {
   u32 i;
-  Assert(IsTuple(tuple, mem));
   for (i = 0; i < TupleLength(tuple, mem); i++) {
     if (TupleGet(tuple, i, mem) == item) return true;
   }
@@ -174,21 +130,13 @@ bool TupleContains(Val tuple, Val item, Mem *mem)
 
 void TupleSet(Val tuple, u32 i, Val value, Mem *mem)
 {
-  Assert(IsTuple(tuple, mem));
-  Assert(i < TupleLength(tuple, mem));
-  mem->values[RawVal(tuple) + i + 1] = value;
-}
-
-Val TupleGet(Val tuple, u32 i, Mem *mem)
-{
-  return mem->values[RawVal(tuple) + i + 1];
+  VecRef(mem, RawVal(tuple) + i + 1) = value;
 }
 
 Val TupleCat(Val tuple1, Val tuple2, Mem *mem)
 {
   Val result;
   u32 len1, len2, i;
-  Assert(IsTuple(tuple1, mem) && IsTuple(tuple2, mem));
   len1 = TupleLength(tuple1, mem);
   len2 = TupleLength(tuple2, mem);
   result = MakeTuple(len1+len2, mem);
@@ -201,19 +149,20 @@ Val TupleCat(Val tuple1, Val tuple2, Mem *mem)
   return result;
 }
 
+/*
+A binary is a header followed by raw binary data. The header value is the size
+of the binary in bytes. Since memory is allocated in 4-byte cells, the last cell
+is padded with zeroes.
+*/
+
 Val MakeBinary(u32 size, Mem *mem)
 {
   Val binary = ObjVal(mem->count);
   u32 cells = (size == 0) ? 1 : NumBinCells(size);
   u32 i;
 
-  if (!CheckCapacity(mem, cells+1)) ResizeMem(mem, Max(2*mem->capacity, mem->count+cells+1));
-  Assert(CheckCapacity(mem, cells + 1));
   PushMem(mem, BinaryHeader(size));
-
-  for (i = 0; i < cells; i++) {
-    PushMem(mem, 0);
-  }
+  for (i = 0; i < cells; i++) PushMem(mem, 0);
   return binary;
 }
 
@@ -225,71 +174,34 @@ Val BinaryFrom(char *str, u32 size, Mem *mem)
   return bin;
 }
 
-bool IsBinary(Val value, Mem *mem)
-{
-  return IsObj(value) && IsBinaryHeader(mem->values[RawVal(value)]);
-}
-
-u32 BinaryLength(Val binary, Mem *mem)
-{
-  Assert(IsBinary(binary, mem));
-  return RawVal(mem->values[RawVal(binary)]);
-}
-
 bool BinaryContains(Val binary, Val item, Mem *mem)
 {
-  u8 *bin_data, *item_data;
-  Assert(IsBinary(binary, mem));
-  bin_data = BinaryData(binary, mem);
-  item_data = BinaryData(item, mem);
+  char *bin_data = BinaryData(binary, mem);
+  u32 bin_len = BinaryLength(binary, mem);
 
   if (IsInt(item)) {
     u32 i;
     u8 byte;
     if (RawInt(item) < 0 || RawInt(item) > 255) return false;
     byte = RawInt(item);
-    for (i = 0; i < BinaryLength(binary, mem); i++) {
+    for (i = 0; i < bin_len; i++) {
       if (bin_data[i] == byte) return true;
     }
   } else if (IsBinary(item, mem)) {
-    u32 i, j, item_hash, test_hash;
-    u32 item_length = BinaryLength(item, mem);
-    u32 bin_length = BinaryLength(binary, mem);
-    if (item_length > bin_length) return false;
-    if (item_length == 0 || bin_length == 0) return false;
-
-    item_hash = Hash(item_data, item_length);
-    test_hash = Hash(bin_data, item_length);
-
-    for (i = 0; i < bin_length - item_length; i++) {
-      if (test_hash == item_hash) break;
-      test_hash = SkipHash(test_hash, bin_data[i], item_length);
-      test_hash = AppendHash(test_hash, bin_data[i+item_length]);
-    }
-
-    if (test_hash == item_hash) {
-      for (j = 0; j < item_length; j++) {
-        if (bin_data[i+j] != item_data[j]) return false;
-      }
-      return true;
-    }
+    char *item_data = BinaryData(item, mem);
+    u32 item_len = BinaryLength(item, mem);
+    i32 index = FindString(item_data, item_len, bin_data, bin_len);
+    return index >= 0;
   }
 
   return false;
-}
-
-void *BinaryData(Val binary, Mem *mem)
-{
-  Assert(IsBinary(binary, mem));
-  return &mem->values[RawVal(binary)+1];
 }
 
 Val BinaryCat(Val binary1, Val binary2, Mem *mem)
 {
   Val result;
   u32 len1, len2;
-  u8 *data;
-  Assert(IsBinary(binary1, mem) && IsBinary(binary2, mem));
+  char *data;
   len1 = BinaryLength(binary1, mem);
   len2 = BinaryLength(binary2, mem);
   result = MakeBinary(len1+len2, mem);
@@ -299,11 +211,21 @@ Val BinaryCat(Val binary1, Val binary2, Mem *mem)
   return result;
 }
 
-#define NodeCount(header)     PopCount((header) & 0xFFFF)
-#define SlotNum(hash, n)      (((hash) >> (4*n)) & 0x0F)
-#define IndexNum(header, n)   PopCount((header) & (Bit(n) - 1))
-#define GetNode(node, i, mem) ((mem)->values[RawVal(node)+1+(i)])
+/*
+Maps are hash array mapped tries (HAMTs). A map node is a map header followed by
+up to 16 slots. The header value is a bitmap of which slots are present. A slot
+can contain a key/value pair, or a map pointer to a child node. Shoutout to Phil
+Bagwell.
+*/
 
+#define NodeCount(header)       PopCount((header) & 0xFFFF)
+#define SlotNum(hash, depth)    (((hash) >> (4 * (depth))) & 0x0F)
+#define IndexNum(header, slot)  PopCount((header) & (Bit(slot) - 1))
+#define NodeRef(node, i, mem)   VecRef(mem, RawVal(node) + 1 + (i))
+
+/* This just creates a node with the given header, filling it with the
+appropriate amount of slots. Between this and NodeRef, we isolate the memory
+format of nodes */
 static Val MakeMapNode(u32 header, Mem *mem)
 {
   Val map = ObjVal(mem->count);
@@ -323,19 +245,14 @@ Val MakeMap(Mem *mem)
   return MakeMapNode(MapHeader(0), mem);
 }
 
-bool IsMap(Val value, Mem *mem)
-{
-  return IsObj(value) && IsMapHeader(mem->values[RawVal(value)]);
-}
-
 u32 MapCount(Val map, Mem *mem)
 {
-  Val header = mem->values[RawVal(map)];
+  Val header = VecRef(mem, RawVal(map));
   u32 count = 0;
   u32 num_children = NodeCount(header);
   u32 i;
   for (i = 0; i < num_children; i++) {
-    Val child = GetNode(map, i, mem);
+    Val child = NodeRef(map, i, mem);
     if (IsPair(child)) {
       count++;
     } else {
@@ -347,14 +264,14 @@ u32 MapCount(Val map, Mem *mem)
 
 static bool NodeContains(Val node, Val key, u32 level, Mem *mem)
 {
-  Val header = mem->values[RawVal(node)];
+  Val header = VecRef(mem, RawVal(node));
   u32 hash = Hash(&key, sizeof(Val));
   u32 slot = SlotNum(hash, level);
   u32 index = IndexNum(header, slot);
 
   if ((header & Bit(slot)) == 0) return false;
 
-  node = GetNode(node, index, mem);
+  node = NodeRef(node, index, mem);
   if (IsPair(node)) {
     return key == Head(node, mem);
   } else {
@@ -367,6 +284,8 @@ bool MapContains(Val map, Val key, Mem *mem)
   return NodeContains(map, key, 0, mem);
 }
 
+/* Creates an internal map node with two children. If they map to the same slot,
+another internal node is created one level deeper. */
 static Val MakeInternalNode(Val child1, Val child2, u32 level, Mem *mem)
 {
   Val key1 = Head(child1, mem);
@@ -378,54 +297,60 @@ static Val MakeInternalNode(Val child1, Val child2, u32 level, Mem *mem)
   Val node = MakeMapNode(MapHeader(Bit(slot1) | Bit(slot2)), mem);
 
   if (slot1 == slot2) {
-    GetNode(node, 0, mem) = MakeInternalNode(child1, child2, level+1, mem);
+    NodeRef(node, 0, mem) = MakeInternalNode(child1, child2, level+1, mem);
   } else if (slot1 < slot2) {
-    GetNode(node, 0, mem) = child1;
-    GetNode(node, 1, mem) = child2;
+    NodeRef(node, 0, mem) = child1;
+    NodeRef(node, 1, mem) = child2;
   } else {
-    GetNode(node, 0, mem) = child2;
-    GetNode(node, 1, mem) = child1;
+    NodeRef(node, 0, mem) = child2;
+    NodeRef(node, 1, mem) = child1;
   }
   return node;
 }
 
+/* Copies a node with the child inserted in the given slot. If the slot is
+occupied, the old child is replaced. */
 static Val NodeInsert(Val node, u32 slot, Val child, Mem *mem)
 {
-  Val header = mem->values[RawVal(node)];
+  Val header = VecRef(mem, RawVal(node));
   u32 num_children = NodeCount(header);
   u32 index = IndexNum(header, slot);
   bool replace = (header & Bit(slot)) == 1;
   u32 i;
   Val new_node = MakeMapNode(MapHeader(header | Bit(slot)), mem);
   for (i = 0; i < index; i++) {
-    GetNode(new_node, i, mem) = GetNode(node, i, mem);
+    NodeRef(new_node, i, mem) = NodeRef(node, i, mem);
   }
-  GetNode(new_node, index, mem) = child;
+  NodeRef(new_node, index, mem) = child;
   for (i = index + replace; i < num_children; i++) {
-    GetNode(new_node, index+i+1, mem) = GetNode(node, i, mem);
+    NodeRef(new_node, index+i+1, mem) = NodeRef(node, i, mem);
   }
   return new_node;
 }
 
 static Val NodeSet(Val node, Val key, Val value, u32 level, Mem *mem)
 {
-  Val header = mem->values[RawVal(node)];
+  Val header = VecRef(mem, RawVal(node));
   u32 hash = Hash(&key, sizeof(Val));
   u32 slot = SlotNum(hash, level);
   u32 index = IndexNum(header, slot);
 
   if ((header & Bit(slot)) == 0) {
+    /* empty slot, easy insert */
     Val pair = Pair(key, value, mem);
     return NodeInsert(node, slot, pair, mem);
   } else {
-    Val child = GetNode(node, index, mem);
+    Val child = NodeRef(node, index, mem);
     if (!IsPair(child)) {
+      /* slot is a sub-map - recurse down a level */
       Val new_child = NodeSet(child, key, value, level + 1, mem);
       return NodeInsert(node, slot, new_child, mem);
     } else if (key == Head(child, mem)) {
+      /* key match, easy insert */
       Val pair = Pair(key, value, mem);
       return NodeInsert(node, slot, pair, mem);
     } else {
+      /* collision with another leaf - create a new internal node */
       Val pair = Pair(key, value, mem);
       Val new_child = MakeInternalNode(child, pair, level + 1, mem);
       return NodeInsert(node, slot, new_child, mem);
@@ -440,14 +365,14 @@ Val MapSet(Val map, Val key, Val value, Mem *mem)
 
 static bool NodeGet(Val node, Val key, u32 level, Mem *mem)
 {
-  Val header = mem->values[RawVal(node)];
+  Val header = VecRef(mem, RawVal(node));
   u32 hash = Hash(&key, sizeof(Val));
   u32 slot = SlotNum(hash, level);
   u32 index = IndexNum(header, slot);
 
   if ((header & Bit(slot)) == 0) return Nil;
 
-  node = GetNode(node, index, mem);
+  node = NodeRef(node, index, mem);
   if (IsPair(node)) {
     if (key == Head(node, mem)) {
       return Tail(node, mem);
@@ -464,6 +389,7 @@ Val MapGet(Val map, Val key, Mem *mem)
   return NodeGet(map, key, 0, mem);
 }
 
+/* inserts all entries from map2 into map1, overwriting existing keys in map1 */
 Val MapMerge(Val map1, Val map2, Mem *mem)
 {
   u32 i;
@@ -471,7 +397,7 @@ Val MapMerge(Val map1, Val map2, Mem *mem)
   if (MapCount(map1, mem) == 0) return map2;
 
   for (i = 0; i < MapCount(map2, mem); i++) {
-    Val child = GetNode(map2, i, mem);
+    Val child = NodeRef(map2, i, mem);
     if (IsPair(child)) {
       map1 = MapSet(map1, Head(child, mem), Tail(child, mem), mem);
     } else {
@@ -482,56 +408,9 @@ Val MapMerge(Val map1, Val map2, Mem *mem)
   return map1;
 }
 
-bool CheckCapacity(Mem *mem, u32 amount)
-{
-  return mem->count + amount <= mem->capacity;
-}
-
-void ResizeMem(Mem *mem, u32 capacity)
-{
-  mem->capacity = capacity;
-  mem->values = Realloc(mem->values, sizeof(Val)*capacity);
-}
-
-static Val ValSize(Val value)
-{
-  if (IsTupleHeader(value)) {
-    return Max(2, RawVal(value) + 1);
-  } else if (IsBinaryHeader(value)) {
-    return Max(2, NumBinCells(RawVal(value)) + 1);
-  } else if (IsMapHeader(value)) {
-    return Max(2, PopCount(RawVal(value)) + 1);
-  } else {
-    return 1;
-  }
-}
-
-static Val CopyValue(Val value, Mem *from, Mem *to)
-{
-  Val new_val = Nil;
-
-  if (value == Nil) return Nil;
-  if (!IsObj(value) && !IsPair(value)) return value;
-
-  if (from->values[RawVal(value)] == Moved) {
-    return from->values[RawVal(value)+1];
-  }
-
-  if (IsPair(value)) {
-    new_val = Pair(Head(value, from), Tail(value, from), to);
-  } else if (IsObj(value)) {
-    u32 i;
-    new_val = ObjVal(to->count);
-    for (i = 0; i < ValSize(from->values[RawVal(value)]); i++) {
-      PushMem(to, from->values[RawVal(value)+i]);
-    }
-  }
-
-  from->values[RawVal(value)] = Moved;
-  from->values[RawVal(value)+1] = new_val;
-  return new_val;
-}
-
+/* Cheney's algorithm */
+static Val CopyValue(Val value, Mem *from, Mem *to);
+static Val ValSize(Val value);
 void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
 {
   u32 i;
@@ -547,17 +426,56 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
     roots[i] = CopyValue(roots[i], mem, &new_mem);
   }
 
-  i = 2;
+  i = 2; /* Skip nil */
   while (i < new_mem.count) {
-    Val value = new_mem.values[i];
+    Val value = VecRef(&new_mem, i);
     if (IsBinaryHeader(value)) {
-      i += ValSize(value);
+      i += ValSize(value); /* skip over binary data, since they aren't values */
     } else {
-      new_mem.values[i] = CopyValue(new_mem.values[i], mem, &new_mem);
+      VecRef(&new_mem, i) = CopyValue(VecRef(&new_mem, i), mem, &new_mem);
       i++;
     }
   }
 
-  Free(mem->values);
+  Free(mem->items);
   *mem = new_mem;
+}
+
+static Val CopyValue(Val value, Mem *from, Mem *to)
+{
+  Val new_val = Nil;
+
+  if (value == Nil) return Nil;
+  if (!IsObj(value) && !IsPair(value)) return value;
+
+  if (VecRef(from, RawVal(value)) == Moved) {
+    return VecRef(from, RawVal(value)+1);
+  }
+
+  if (IsPair(value)) {
+    new_val = Pair(Head(value, from), Tail(value, from), to);
+  } else if (IsObj(value)) {
+    u32 i;
+    new_val = ObjVal(to->count);
+    for (i = 0; i < ValSize(VecRef(from, RawVal(value))); i++) {
+      PushMem(to, VecRef(from, RawVal(value)+i));
+    }
+  }
+
+  VecRef(from, RawVal(value)) = Moved;
+  VecRef(from, RawVal(value)+1) = new_val;
+  return new_val;
+}
+
+static Val ValSize(Val value)
+{
+  if (IsTupleHeader(value)) {
+    return Max(2, RawVal(value) + 1);
+  } else if (IsBinaryHeader(value)) {
+    return Max(2, NumBinCells(RawVal(value)) + 1);
+  } else if (IsMapHeader(value)) {
+    return Max(2, PopCount(RawVal(value)) + 1);
+  } else {
+    return 1;
+  }
 }

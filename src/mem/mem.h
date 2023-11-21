@@ -1,4 +1,13 @@
 #pragma once
+#include "univ/vec.h"
+
+/*
+Values are nan-boxed 32-bit floats. The highest 3 non-nan bits determine a
+value's type, and the low 20 bits store the value. Floats, ints, and symbols are
+immediate; pairs and objects are pointers; and tuple, binary, and map headers
+only exist in the heap. (Generally, an object pointer is refered to as a
+"tuple", "binary", or "map" based on what it points to.)
+*/
 
 typedef u32 Val;
 
@@ -51,51 +60,35 @@ typedef u32 Val;
 #define MaxIntVal         0x7FC7FFFF
 #define MinIntVal         0x7FC80000
 
-/* pre-computed symbols */
-#define True              0x7FD7E33F /* true */
-#define False             0x7FDAF4C4 /* false */
-#define Ok                0x7FDDDE52 /* ok */
-#define Error             0x7FD04FC6 /* error */
-#define Primitive         0x7FD15938 /* *prim* */
-#define Function          0x7FD4D0E4 /* *func* */
-#define Undefined         0x7FDBC789 /* *undefined* */
-#define Moved             0x7FDE7580 /* *moved* */
-#define File              0x7FDA0003 /* *file* */
-#define FloatType         0x7FDF2D07 /* float */
-#define IntType           0x7FD90789 /* integer */
-#define NumType           0x7FDFEE5C /* number */
-#define SymType           0x7FD66184 /* symbol */
-#define PairType          0x7FD2281F /* pair */
-#define TupleType         0x7FDB66C6 /* tuple */
-#define BinaryType        0x7FD56D87 /* binary */
-#define MapType           0x7FDB7942 /* map */
-
 Val FloatVal(float num);
 float RawFloat(Val value);
 
-typedef struct {
-  u32 capacity;
-  u32 count;
-  Val *values;
-} Mem;
+typedef IntVec Mem;
 
 #define NumBinCells(size)   ((size - 1) / 4 + 1)
 
 void InitMem(Mem *mem, u32 capacity);
-void DestroyMem(Mem *mem);
-bool CheckCapacity(Mem *mem, u32 amount);
-void ResizeMem(Mem *mem, u32 capacity);
+#define DestroyMem(mem)  DestroyVec((Vec*)mem)
+#define ResizeMem(mem, capacity)  ResizeVec((Vec*)mem, sizeof(Val), capacity)
 
 void PushMem(Mem *mem, Val value);
 Val PopMem(Mem *mem);
 
 Val TypeOf(Val value, Mem *mem);
 
+#define IsTuple(val, mem)       (IsObj(val) && IsTupleHeader(VecRef(mem, RawVal(val))))
+#define IsBinary(val, mem)      (IsObj(val) && IsBinaryHeader(VecRef(mem, RawVal(val))))
+#define IsMap(val, mem)         IsObj(val) && IsMapHeader(VecRef(mem, RawVal(val)))
+
+#define TupleLength(val, mem)   RawVal(VecRef(mem, RawVal(val)))
+#define BinaryLength(val, mem)  RawVal(VecRef(mem, RawVal(val)))
+
+#define Head(val, mem)          VecRef(mem, RawVal(val))
+#define Tail(val, mem)          VecRef(mem, RawVal(val)+1)
+#define TupleGet(val, i, mem)   VecRef(mem, RawVal(val) + (i) + 1)
+#define BinaryData(val, mem)    ((char*)&VecRef(mem, RawVal(val)+1))
+
 Val Pair(Val head, Val tail, Mem *mem);
-Val Head(Val pair, Mem *mem);
-Val Tail(Val pair, Mem *mem);
-void SetHead(Val pair, Val value, Mem *mem);
-void SetTail(Val pair, Val value, Mem *mem);
 u32 ListLength(Val list, Mem *mem);
 bool ListContains(Val list, Val item, Mem *mem);
 Val ReverseList(Val list, Val tail, Mem *mem);
@@ -103,23 +96,16 @@ Val ListGet(Val list, u32 index, Mem *mem);
 Val ListCat(Val list1, Val list2, Mem *mem);
 
 Val MakeTuple(u32 length, Mem *mem);
-bool IsTuple(Val value, Mem *mem);
-u32 TupleLength(Val tuple, Mem *mem);
 bool TupleContains(Val tuple, Val item, Mem *mem);
 void TupleSet(Val tuple, u32 index, Val value, Mem *mem);
-Val TupleGet(Val tuple, u32 index, Mem *mem);
 Val TupleCat(Val tuple1, Val tuple2, Mem *mem);
 
 Val MakeBinary(u32 size, Mem *mem);
 Val BinaryFrom(char *str, u32 size, Mem *mem);
-bool IsBinary(Val value, Mem *mem);
-u32 BinaryLength(Val binary, Mem *mem);
 bool BinaryContains(Val binary, Val item, Mem *mem);
-void *BinaryData(Val binary, Mem *mem);
 Val BinaryCat(Val binary1, Val binary2, Mem *mem);
 
 Val MakeMap(Mem *mem);
-bool IsMap(Val value, Mem *mem);
 u32 MapCount(Val map, Mem *mem);
 bool MapContains(Val map, Val key, Mem *mem);
 Val MapSet(Val map, Val key, Val value, Mem *mem);

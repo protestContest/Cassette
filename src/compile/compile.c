@@ -2,7 +2,7 @@
 #include "parse.h"
 #include "runtime/env.h"
 #include "runtime/ops.h"
-#include "module.h"
+#include "project.h"
 
 #define LinkReturn        0x7FD62CF0 /* return */
 #define LinkNext          0x7FD00394 /* next */

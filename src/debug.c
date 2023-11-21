@@ -70,11 +70,11 @@ static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols
 
 static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem)
 {
-  u32 j, size = RawVal(mem->values[index]);
+  u32 j, size = RawVal(VecRef(mem, index));
   u32 cells = NumBinCells(size);
 
   for (j = 0; j < cells; j++) {
-    Val value = mem->values[index+j+1];
+    Val value = VecRef(mem, index+j+1);
     u32 bytes = (j == cells-1) ? (size-1) % 4 + 1 : 4;
     bool printable  = true;
     u32 k;
@@ -120,9 +120,9 @@ void DumpMem(Mem *mem, SymbolTable *symbols)
   for (i = 0; i < mem->count; i++) {
     if (i % cols == 0) printf("║%04d║", i);
     else printf("│");
-    PrintCell(i, mem->values[i], cell_width, symbols);
+    PrintCell(i, VecRef(mem, i), cell_width, symbols);
     if ((i+1) % cols == 0) printf("║\n");
-    if (IsBinaryHeader(mem->values[i])) {
+    if (IsBinaryHeader(VecRef(mem, i))) {
       i += PrintBinData(i, cell_width, cols, mem);
     }
   }
@@ -143,11 +143,6 @@ void DumpMem(Mem *mem, SymbolTable *symbols)
   for (j = 0; j < cell_width; j++) printf("═");
   printf("╝\n");
 }
-
-typedef struct {
-  u32 length;
-  char *name;
-} OpInfo;
 
 static char *op_names[] = {
   [OpNoop]    = "noop",
@@ -338,6 +333,11 @@ void TraceInstruction(OpCode op, VM *vm)
   printf("\n");
 }
 
+/*
+Since generating symbols takes some time, all of the symbols used by the
+compiler and VM are precomputed and defined in source files. This function is
+used to regenerate them.
+*/
 void GenerateSymbols(void)
 {
   printf("#define LinkReturn        0x%08X /* return */\n", SymbolFor("return"));

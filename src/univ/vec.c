@@ -2,7 +2,6 @@
 #include "math.h"
 #include "univ/system.h"
 
-static void ResizeVec(Vec *vec, u32 item_size, u32 capacity);
 static void MaybeGrowVec(Vec *vec, u32 item_size);
 
 void InitVec(Vec *vec, u32 item_size, u32 capacity)
@@ -48,7 +47,7 @@ void ObjVecPush(ObjVec *vec, void *value)
   vec->items[vec->count++] = value;
 }
 
-static void ResizeVec(Vec *vec, u32 item_size, u32 capacity)
+void ResizeVec(Vec *vec, u32 item_size, u32 capacity)
 {
   vec->capacity = capacity;
   vec->items = Realloc(vec->items, item_size*capacity);

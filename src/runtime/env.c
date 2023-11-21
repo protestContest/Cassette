@@ -1,5 +1,6 @@
 #include "env.h"
 #include "univ/system.h"
+#include "mem/symbols.h"
 
 void Define(Val value, u32 index, Val env, Mem *mem)
 {

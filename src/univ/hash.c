@@ -1,6 +1,7 @@
 #include "hash.h"
 #include "math.h"
 
+/* Random values to hash a byte */
 static u32 byte_hash[256] = {
   0xEEAE7FDA, 0xD3395927, 0x4DD35D53, 0x30D67301, 0xBD397767, 0x16ADF05B, 0x436E841E, 0x4D4CEFEC,
   0x49BCFBB3, 0xFB7E1816, 0x5D60A901, 0xF22DDC89, 0x25CCADBE, 0x6FE4EE81, 0xEF42FD31, 0x57E385FF,
@@ -35,6 +36,9 @@ static u32 byte_hash[256] = {
   0x5FECF8A2, 0xE7D9AF03, 0xB9296456, 0xD1439B1F, 0xBE43F197, 0xEFA69921, 0xD7EF180C, 0xBDB00401,
   0xB0FB7717, 0x26EB2FB1, 0xD3F7A737, 0xCC20DB21, 0xCE98D95A, 0xBB4FE919, 0xDBBDEE1B, 0x331E35FA,
 };
+
+/* Hashes are rotate and xor hashes of bytes, which allow them to be used as a
+rolling hash */
 
 u32 AppendHash(u32 hash, u8 byte)
 {
