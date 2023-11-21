@@ -96,6 +96,14 @@ static Result RunInstruction(VM *vm)
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
+  case OpSwap:
+    if (vm->stack.count >= 2) {
+      Val tmp = StackRef(vm, 0);
+      StackRef(vm, 0) = StackRef(vm, 1);
+      StackRef(vm, 1) = tmp;
+    }
+    vm->pc += OpLength(op);
+    break;
   case OpDup:
     if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
     StackPush(vm, StackRef(vm, 0));
@@ -326,20 +334,22 @@ static Result RunInstruction(VM *vm)
     break;
   case OpGet:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index must be an integer", vm);
-    if (RawInt(StackRef(vm, 0)) < 0) return RuntimeError("Out of bounds", vm);
 
     if (IsPair(StackRef(vm, 1))) {
+      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a list must be an integer", vm);
+      if (RawInt(StackRef(vm, 0)) < 0) return RuntimeError("Out of bounds", vm);
       StackRef(vm, 1) = ListGet(StackRef(vm, 1), RawInt(StackRef(vm, 0)), &vm->mem);
     } else if (IsTuple(StackRef(vm, 1), &vm->mem)) {
       u32 index = RawInt(StackRef(vm, 0));
       Val tuple = StackRef(vm, 1);
-      if (index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Out of bounds", vm);
+      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a tuple must be an integer", vm);
+      if (index < 0 || index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Out of bounds", vm);
       StackRef(vm, 1) = TupleGet(tuple, index, &vm->mem);
     } else if (IsBinary(StackRef(vm, 1), &vm->mem)) {
       u32 index = RawInt(StackRef(vm, 0));
       Val binary = StackRef(vm, 1);
-      if (index >= BinaryLength(binary, &vm->mem)) return RuntimeError("Out of bounds", vm);
+      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a binary must be an integer", vm);
+      if (index < 0 || index >= BinaryLength(binary, &vm->mem)) return RuntimeError("Out of bounds", vm);
       StackRef(vm, 1) = IntVal(((u8*)BinaryData(binary, &vm->mem))[index]);
     } else if (IsMap(StackRef(vm, 1), &vm->mem)) {
       Val key = StackRef(vm, 0);

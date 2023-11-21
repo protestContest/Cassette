@@ -1,4 +1,4 @@
-import List
+import List as List
 
 let width = 800,
     height = 480,
@@ -8,7 +8,7 @@ draw_text "Lines!" 200 0 canvas
 
 seed (ticks)
 
-map (range 0 100) (i) -> do
+List.map (List.range 0 100) (i) -> do
   let x0 = random width,
       y0 = random height,
       x1 = random width,

@@ -31,7 +31,7 @@ i32 FindDefinition(Val var, Val env, Mem *mem)
   while (env != Nil) {
     Val frame = Head(env, mem);
     for (i = 0; i < TupleLength(frame, mem); i++) {
-      u32 pos = TupleLength(frame, mem) - i - 1;
+      u32 pos = (TupleLength(frame, mem) - i) - 1;
       if (TupleGet(frame, pos, mem) == var) {
         return (f << 16) | pos;
       }

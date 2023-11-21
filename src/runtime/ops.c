@@ -5,6 +5,7 @@ static u8 op_lengths[] = {
   [OpHalt]    = 1,
   [OpError]   = 1,
   [OpPop]     = 1,
+  [OpSwap]    = 1,
   [OpDup]     = 1,
   [OpConst]   = 2,
   [OpNeg]     = 1,

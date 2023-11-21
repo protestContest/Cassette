@@ -169,12 +169,21 @@ static Result ParseImports(Parser *p)
   /* parse imports */
   Val imports = Nil;
   while (MatchToken(TokenImport, &p->lex)) {
-    Val import;
+    Val import, mod, alias;
     u32 pos = p->lex.token.lexeme - p->lex.source;
     Result result = ParseID(p);
     if (!result.ok) return result;
+    mod = result.value;
 
-    import = MakeNode(SymImport, pos, result.value, p->mem);
+    if (MatchToken(TokenAs, &p->lex)) {
+      result = ParseID(p);
+      if (!result.ok) return result;
+      alias = result.value;
+    } else {
+      alias = Nil;
+    }
+
+    import = MakeNode(SymImport, pos, Pair(mod, alias, p->mem), p->mem);
 
     SkipNewlines(&p->lex);
     imports = Pair(import, imports, p->mem);

@@ -167,13 +167,14 @@ static Result ScanDependencies(Project *project)
 
     /* add each of the module's imports to the stack */
     while (imports != Nil) {
-      Val import = Head(imports, &project->mem);
-      Val import_name = NodeExpr(import, &project->mem);
+      Val node = Head(imports, &project->mem);
+      Val import = NodeExpr(node, &project->mem);
+      Val import_name = Head(import, &project->mem);
 
       /* make sure we know about the imported module */
       if (!HashMapContains(&project->modules, import_name)) {
         char *filename = SymbolName(ModuleFile(module, &project->mem), &project->symbols);
-        return ErrorResult("Module not found", filename, NodePos(import, &project->mem));
+        return ErrorResult("Module not found", filename, NodePos(node, &project->mem));
       }
 
       /* add import to the stack if it's not already in the build list */
@@ -250,8 +251,13 @@ u32 CountExports(Val nodes, HashMap *modules, Mem *mem)
 {
   u32 count = 0;
   while (nodes != Nil) {
-    Val mod_name = NodeExpr(Head(nodes, mem), mem);
-    if (HashMapContains(modules, mod_name)) {
+    Val import = NodeExpr(Head(nodes, mem), mem);
+    Val mod_name = Head(import, mem);
+    Val alias = Tail(import, mem);
+
+    if (alias != Nil) {
+      count++;
+    } else if (HashMapContains(modules, mod_name)) {
       Val module = HashMapGet(modules, mod_name);
       count += ListLength(ModuleExports(module, mem), mem);
     }

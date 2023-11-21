@@ -181,10 +181,11 @@ static Result CompileImports(Val imports, Compiler *c)
 
   while (imports != Nil) {
     Val node = Head(imports, c->mem);
-    Val import_name = NodeExpr(node, c->mem);
+    Val import = NodeExpr(node, c->mem);
+    Val import_name = Head(import, c->mem);
+    Val alias = Tail(import, c->mem);
     Val import_mod;
     Val imported_vals;
-    u32 i;
     i32 import_def;
 
     c->pos = NodePos(node, c->mem);
@@ -205,26 +206,61 @@ static Result CompileImports(Val imports, Compiler *c)
     PushByte(OpApply, c->pos, c->chunk);
     PushConst(IntVal(0), c->pos, c->chunk);
 
-    /* define each exported value */
-    i = 0;
-    while (imported_vals != Nil) {
-      Val imported_val = Head(imported_vals, c->mem);
+    if (alias == Nil) {
+      /* import directly into module namespace */
+      /* define each exported value */
+      u32 i = 0;
+      while (imported_vals != Nil) {
+        Val imported_val = Head(imported_vals, c->mem);
 
-      if (Tail(imported_vals, c->mem) != Nil) {
-        /* keep tuple for future iterations */
-        PushByte(OpDup, c->pos, c->chunk);
+        if (Tail(imported_vals, c->mem) != Nil) {
+          /* keep tuple for future iterations */
+          PushByte(OpDup, c->pos, c->chunk);
+        }
+        PushByte(OpConst, c->pos, c->chunk);
+        PushConst(IntVal(i), c->pos, c->chunk);
+        PushByte(OpGet, c->pos, c->chunk);
+        PushByte(OpDefine, c->pos, c->chunk);
+        PushConst(IntVal(num_imported+i), c->pos, c->chunk);
+        Define(imported_val, num_imported + i, c->env, c->mem);
+
+        imported_vals = Tail(imported_vals, c->mem);
+        i++;
       }
-      PushByte(OpConst, c->pos, c->chunk);
-      PushConst(IntVal(i), c->pos, c->chunk);
-      PushByte(OpGet, c->pos, c->chunk);
-      PushByte(OpDefine, c->pos, c->chunk);
-      PushConst(IntVal(num_imported+i), c->pos, c->chunk);
-      Define(imported_val, num_imported + i, c->env, c->mem);
+      num_imported += i;
+    } else {
+      /* import into a map */
+      u32 i = 0, j;
+      while (imported_vals != Nil) {
+        Val imported_val = Head(imported_vals, c->mem);
+        bool is_last = Tail(imported_vals, c->mem) == Nil;
 
-      imported_vals = Tail(imported_vals, c->mem);
-      i++;
+        /* copy tuple */
+        if (!is_last) PushByte(OpDup, c->pos, c->chunk);
+        /* fetch imported value */
+        PushByte(OpConst, c->pos, c->chunk);
+        PushConst(IntVal(i), c->pos, c->chunk);
+        PushByte(OpGet, c->pos, c->chunk);
+        /* pull tuple to top */
+        if (!is_last) PushByte(OpSwap, c->pos, c->chunk);
+        /* push import name as key */
+        PushByte(OpConst, c->pos, c->chunk);
+        PushConst(imported_val, c->pos, c->chunk);
+        /* pull tuple to top */
+        if (!is_last) PushByte(OpSwap, c->pos, c->chunk);
+
+        imported_vals = Tail(imported_vals, c->mem);
+        i++;
+      }
+      /* push a map and set each pair */
+      PushByte(OpMap, c->pos, c->chunk);
+      for (j = 0; j < i; j++) {
+        PushByte(OpSet, c->pos, c->chunk);
+      }
+      PushByte(OpDefine, c->pos, c->chunk);
+      PushConst(IntVal(num_imported), c->pos, c->chunk);
+      Define(alias, num_imported, c->env, c->mem);
     }
-    num_imported += i;
 
     imports = Tail(imports, c->mem);
   }
@@ -662,6 +698,8 @@ static Result CompileVar(Val id, Val linkage, Compiler *c)
 {
   i32 def = FindDefinition(id, c->env, c->mem);
   if (def == -1) return CompileError("Undefined variable", c);
+  /* don't allow references to module names outside of import statements */
+  if (((u32)def >> 16) == ListLength(c->env, c->mem) - 2) return CompileError("Undefined variable", c);
 
   PushByte(OpLookup, c->pos, c->chunk);
   PushConst(IntVal(def >> 16), c->pos, c->chunk);
