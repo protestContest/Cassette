@@ -6,7 +6,6 @@
 #include "univ/str.h"
 #include "univ/math.h"
 #include "univ/system.h"
-#include <stdio.h>
 
 #ifdef DEBUG
 #include "debug.h"

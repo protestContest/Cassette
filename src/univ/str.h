@@ -25,6 +25,7 @@ u32 FloatToStr(float num, char *str, u32 width, u32 precision);
 i32 FindString(char *needle, u32 nlen, char *haystack, u32 hlen);
 char *SkipSpaces(char *str);
 char *SkipBlankLines(char *str);
+char *JoinPath(char *str1, char *str2);
 char *JoinStr(char *str1, char *str2, char joiner);
 
 char *LineEnd(char *str);

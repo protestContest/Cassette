@@ -160,6 +160,29 @@ char *Basename(char *str, char sep)
   return cur;
 }
 
+char *JoinPath(char *str1, char *str2)
+{
+  u32 len1 = StrLen(str1), len2 = StrLen(str2);
+  char *str = Alloc(len1 + 1 + len2 + 1);
+  while (len1 > 0 && str1[len1-1] == '/') len1--;
+  while (len2 > 0 && *str2 == '/') {
+    str2++;
+    len2--;
+  }
+
+  if (len1 > 0) {
+    Copy(str1, str, len1);
+    str[len1] = '/';
+    Copy(str2, str+len1+1, len2);
+    str[len1+1+len2] = 0;
+  } else {
+    Copy(str2, str, len2);
+    str[len2] = 0;
+  }
+
+  return str;
+}
+
 char *JoinStr(char *str1, char *str2, char joiner)
 {
   u32 len1 = StrLen(str1), len2 = StrLen(str2);

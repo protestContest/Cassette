@@ -38,7 +38,7 @@ bool SetFont(Canvas *canvas, char *font_file, u32 size)
   char *new_filename;
 
   if (font_file[0] != '/' && FONT_PATH) {
-    new_filename = JoinStr(FONT_PATH, font_file, '/');
+    new_filename = JoinPath(FONT_PATH, font_file);
   } else {
     new_filename = CopyStr(font_file, StrLen(font_file));
   }
