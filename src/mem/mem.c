@@ -321,15 +321,15 @@ static Val NodeInsert(Val node, u32 slot, Val child, Mem *mem)
   Val header = VecRef(mem, RawVal(node));
   u32 num_children = NodeCount(header);
   u32 index = IndexNum(header, slot);
-  bool replace = (header & Bit(slot)) == 1;
+  bool replace = (header & Bit(slot)) != 0;
   u32 i;
   Val new_node = MakeMapNode(MapHeader(header | Bit(slot)), mem);
   for (i = 0; i < index; i++) {
     NodeRef(new_node, i, mem) = NodeRef(node, i, mem);
   }
   NodeRef(new_node, index, mem) = child;
-  for (i = index + replace; i < num_children; i++) {
-    NodeRef(new_node, index+i+1, mem) = NodeRef(node, i, mem);
+  for (i = index+replace; i < num_children; i++) {
+    NodeRef(new_node, i+1-replace, mem) = NodeRef(node, i, mem);
   }
   return new_node;
 }

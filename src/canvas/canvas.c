@@ -78,7 +78,7 @@ void UpdateCanvas(Canvas *canvas)
   SDL_UpdateWindowSurface(canvas->window);
 }
 
-void DrawText(char *text, u32 x, u32 y, Canvas *canvas)
+void DrawText(char *text, i32 x, i32 y, Canvas *canvas)
 {
   SDL_Surface *screen = ((SDL_Surface*)canvas->surface);
   SDL_Color color = {0, 0, 0, 255};
@@ -92,16 +92,16 @@ void DrawText(char *text, u32 x, u32 y, Canvas *canvas)
   UpdateCanvas(canvas);
 }
 
-void DrawLine(u32 x0, u32 y0, u32 x1, u32 y1, Canvas *canvas)
+void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas)
 {
-  i32 dx = abs((i32)x1 - (i32)x0);
+  i32 dx = abs(x1 - x0);
   i32 sx = x0 < x1 ? 1 : -1;
-  i32 dy = abs((i32)y1 - (i32)y0);
+  i32 dy = abs(y1 - y0);
   i32 sy = y0 < y1 ? 1 : -1;
   i32 error = dx - dy;
   i32 e2;
-  u32 x = x0;
-  u32 y = y0;
+  i32 x = x0;
+  i32 y = y0;
 
   SDL_LockSurface(canvas->surface);
 
@@ -126,12 +126,13 @@ void DrawLine(u32 x0, u32 y0, u32 x1, u32 y1, Canvas *canvas)
   UpdateCanvas(canvas);
 }
 
-void WritePixel(u32 x, u32 y, u32 value, Canvas *canvas)
+void WritePixel(i32 x, i32 y, u32 value, Canvas *canvas)
 {
   SDL_Surface *surface = canvas->surface;
   u32 *pixels = surface->pixels;
-  u32 pitch = surface->pitch/4;
-  u32 height = surface->h;
+  i32 pitch = surface->pitch/4;
+  i32 height = surface->h;
+  if (x < 0 || x > pitch || y < 0 || y > height) return;
   pixels[(height - y - 1) * pitch + x] = value;
 }
 

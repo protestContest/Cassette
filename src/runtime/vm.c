@@ -324,7 +324,7 @@ static Result RunInstruction(VM *vm)
     } else if (IsMap(StackRef(vm, 0), &vm->mem)) {
       StackRef(vm, 2) = MapSet(StackRef(vm, 0), StackRef(vm, 1), StackRef(vm, 2), &vm->mem);
     } else {
-      return RuntimeError("Set is only defined for tuples", vm);
+      return RuntimeError("Set is only defined for tuples and maps", vm);
     }
 
     StackPop(vm);

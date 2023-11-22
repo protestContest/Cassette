@@ -4,14 +4,17 @@ let width = 800,
     height = 480,
     canvas = new_canvas width height
 
-draw_text "Lines!" 200 0 canvas
+inspect draw_line
 
-seed (ticks)
+def (frame view) do
+  let right = view.x + view.width,
+      top = view.y + view.height
 
-List.map (List.range 0 100) (i) -> do
-  let x0 = random width,
-      y0 = random height,
-      x1 = random width,
-      y1 = random height
-  draw_line x0 y0 x1 y1 canvas
+  draw_line view.x view.y view.x top canvas
+  draw_line view.x view.y right view.y canvas
+  draw_line view.x top right top canvas
+  draw_line right view.y right top canvas
 end
+
+let view = {x: 100 y: 100 width: 500 height: 300}
+frame view

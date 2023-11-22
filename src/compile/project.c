@@ -206,11 +206,13 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
      access to them */
   if (num_modules > 1) {
     module_env = ExtendEnv(module_env, MakeTuple(num_modules - 1, &p->mem), &p->mem);
-    PushByte(OpConst, 0, chunk);
-    PushConst(IntVal(num_modules - 1), 0, chunk);
-    PushByte(OpTuple, 0, chunk);
-    PushByte(OpExtend, 0, chunk);
+  } else {
+    module_env = ExtendEnv(module_env, MakeTuple(0, &p->mem), &p->mem);
   }
+  PushByte(OpConst, 0, chunk);
+  PushConst(IntVal(num_modules - 1), 0, chunk);
+  PushByte(OpTuple, 0, chunk);
+  PushByte(OpExtend, 0, chunk);
 
   for (i = 0; i < num_modules; i++) {
     Result result;
