@@ -3,6 +3,7 @@
 #include "univ/str.h"
 
 #define Peek(lex)     (lex)->source[(lex)->pos]
+#define Peek2(lex)    (lex)->source[(lex)->pos+1]
 
 static bool IsSymChar(char c);
 static void SkipWhitespace(Lexer *lex);
@@ -53,6 +54,7 @@ static Token AdvanceToken(Lexer *lex)
   start = lex->source + lex->pos;
 
   if (Peek(lex) == '\0') return MakeToken(TokenEOF, start, 0);
+  if (Peek(lex) == '-' && IsDigit(Peek2(lex))) return NumberToken(lex);
   if (IsDigit(Peek(lex)) || Peek(lex) == '$') return NumberToken(lex);
   if (Peek(lex) == '"') return StringToken(lex);
 
@@ -187,6 +189,7 @@ static Token NumberToken(Lexer *lex)
     lex->pos = start;
   }
 
+  if (Peek(lex) == '-') lex->pos++;
   while (Peek(lex) == '_' || IsDigit(Peek(lex))) lex->pos++;
   if (Peek(lex) == '.' && IsDigit(lex->source[lex->pos+1])) {
     lex->pos++;

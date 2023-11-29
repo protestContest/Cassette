@@ -1,0 +1,3 @@
+module Math
+
+def (rand_int max) (trunc (Sys.random) * max)

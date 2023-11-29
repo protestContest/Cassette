@@ -1,4 +1,5 @@
 import List
+import Math
 
 let width = 800,
     height = 480,
@@ -8,9 +9,9 @@ Canvas.text "Lines!" 200 0 canvas
 
 def (rand_line i) do
   let x0 = i * 70 + 100,
-      y0 = Math.random height,
-      x1 = Math.random width,
-      y1 = Math.random height
+      y0 = Math.rand_int height,
+      x1 = Math.rand_int width,
+      y1 = Math.rand_int height
   Canvas.line x0 y0 x1 y1 canvas
 end
 

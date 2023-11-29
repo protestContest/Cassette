@@ -42,7 +42,22 @@ Val TypeSym(Val value, Mem *mem)
   if (IsPair(value)) return PairType;
   if (IsTuple(value, mem)) return TupleType;
   if (IsBinary(value, mem)) return BinaryType;
+  if (IsMap(value, mem)) return MapType;
   return Nil;
+}
+
+char *TypeName(Val type)
+{
+  switch (type) {
+  case FloatType:   return "float";
+  case IntType:     return "integer";
+  case SymType:     return "symbol";
+  case PairType:    return "pair";
+  case TupleType:   return "tuple";
+  case BinaryType:  return "binary";
+  case MapType:     return "map";
+  default:          return "?";
+  }
 }
 
 /*

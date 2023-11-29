@@ -646,6 +646,13 @@ static Result ParseNum(Parser *p)
   Token token = NextToken(&p->lex);
   u32 pos = token.lexeme - p->lex.source;
   u32 whole = 0, frac = 0, frac_size = 1, i;
+  i32 sign = 1;
+
+  if (*token.lexeme == '-') {
+    sign = -1;
+    token.lexeme++;
+    token.length--;
+  }
 
   while (*token.lexeme == '0' || *token.lexeme == '_') {
     token.lexeme++;
@@ -660,7 +667,7 @@ static Result ParseNum(Parser *p)
       whole = whole * 16 + d;
     }
     if (whole > RawInt(MaxIntVal)) return ParseError("Number overflows", p);
-    return ParseOk(MakeNode(SymNum, pos, IntVal(whole), p->mem));
+    return ParseOk(MakeNode(SymNum, pos, IntVal(sign*whole), p->mem));
   }
 
   if (*token.lexeme == '$') {
@@ -691,10 +698,10 @@ static Result ParseNum(Parser *p)
 
   if (frac != 0) {
     float num = (float)whole + (float)frac / (float)frac_size;
-    return ParseOk(MakeNode(SymNum, pos, FloatVal(num), p->mem));
+    return ParseOk(MakeNode(SymNum, pos, FloatVal(sign*num), p->mem));
   } else {
     if (whole > RawInt(MaxIntVal)) return ParseError("Number overflows", p);
-    return ParseOk(MakeNode(SymNum, pos, IntVal(whole), p->mem));
+    return ParseOk(MakeNode(SymNum, pos, IntVal(sign*whole), p->mem));
   }
 }
 

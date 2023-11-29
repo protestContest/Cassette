@@ -12,6 +12,9 @@
 static Result VMType(u32 num_args, VM *vm);
 static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
+static Result VMMapGet(u32 num_args, VM *vm);
+static Result VMMapSet(u32 num_args, VM *vm);
+static Result VMTrunc(u32 num_args, VM *vm);
 static Result VMPrint(u32 num_args, VM *vm);
 static Result VMInspect(u32 num_args, VM *vm);
 static Result VMOpen(u32 num_args, VM *vm);
@@ -20,16 +23,17 @@ static Result VMWrite(u32 num_args, VM *vm);
 static Result VMTicks(u32 num_args, VM *vm);
 static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
-static Result VMSqrt(u32 num_args, VM *vm);
 static Result VMCanvas(u32 num_args, VM *vm);
-static Result VMSetFont(u32 num_args, VM *vm);
 static Result VMLine(u32 num_args, VM *vm);
 static Result VMText(u32 num_args, VM *vm);
 
 static PrimitiveDef kernel[] = {
   {/* typeof */   0x7FDA14D4, &VMType},
   {/* head */     0x7FD4FAFD, &VMHead},
-  {/* tail */     0x7FD1655A, &VMTail}
+  {/* tail */     0x7FD1655A, &VMTail},
+  {/* mget */     0x7FDD69EF, &VMMapGet},
+  {/* mset */     0x7FD53047, &VMMapSet},
+  {/* trunc */    0x7FD36865, &VMTrunc},
 };
 
 static PrimitiveDef io[] = {
@@ -42,12 +46,8 @@ static PrimitiveDef io[] = {
 
 static PrimitiveDef sys[] = {
   {/* ticks */    0x7FD14415, &VMTicks},
-};
-
-static PrimitiveDef math[] = {
   {/* seed */     0x7FDCADD1, &VMSeed},
   {/* random */   0x7FD3FCF1, &VMRandom},
-  {/* sqrt */     0x7FD45F09, &VMSqrt},
 };
 
 static PrimitiveDef canvas[] = {
@@ -60,7 +60,6 @@ static PrimitiveModuleDef primitives[] = {
   {/* Kernel */   KernelMod, ArrayCount(kernel), kernel},
   {/* IO */       0x7FDDDA86, ArrayCount(io), io},
   {/* Sys */      0x7FD9DBF5, ArrayCount(sys), sys},
-  {/* Math */     0x7FDAEE55, ArrayCount(math), math},
   {/* Canvas */   0x7FD291D0, ArrayCount(canvas), canvas}
 };
 
@@ -87,10 +86,11 @@ static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
     if (types[i] == Nil) continue;
     if (types[i] == NumType) {
       if (TypeSym(StackRef(vm, i), &vm->mem) != IntType && TypeSym(StackRef(vm, i), &vm->mem) != FloatType) {
-        return RuntimeError("Type error", vm);
+        return RuntimeError("Type error: Expected number", vm);
       }
     } else if (TypeSym(StackRef(vm, i), &vm->mem) != types[i]) {
-      return RuntimeError("Type error", vm);
+      char *error = JoinStr("Type error: Expected", TypeName(types[i]), ' ');
+      return RuntimeError(error, vm);
     }
   }
   return OkResult(Nil);
@@ -131,6 +131,42 @@ static Result VMTail(u32 num_args, VM *vm)
   return OkResult(Tail(arg, &vm->mem));
 }
 
+static Result VMMapGet(u32 num_args, VM *vm)
+{
+  Val key, map;
+  Val types[2] = {MapType, Nil};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  key = StackPop(vm);
+  map = StackPop(vm);
+  return OkResult(MapGet(map, key, &vm->mem));
+}
+
+static Result VMMapSet(u32 num_args, VM *vm)
+{
+  Val key, value, map;
+  Val types[3] = {MapType, Nil, Nil};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  key = StackPop(vm);
+  map = StackPop(vm);
+  return OkResult(MapSet(map, key, value, &vm->mem));
+}
+
+static Result VMTrunc(u32 num_args, VM *vm)
+{
+  Val num;
+  Val types[1] = {NumType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  num = StackPop(vm);
+  return OkResult(IntVal((i32)RawNum(num)));
+}
+
 static Result VMPrint(u32 num_args, VM *vm)
 {
   u32 i;
@@ -147,7 +183,7 @@ static Result VMPrint(u32 num_args, VM *vm)
       u32 len = BinaryLength(value, &vm->mem);
       printf("%*.*s", len, len, (char*)BinaryData(value, &vm->mem));
     } else {
-      return RuntimeError("Type error", vm);
+      return RuntimeError("Unprintable value", vm);
     }
     if (i < num_args-1) printf(" ");
   }
@@ -298,10 +334,10 @@ static Result VMRead(u32 num_args, VM *vm)
     }
   }
 
-  if (!IsInt(size)) return RuntimeError("Type error", vm);
+  if (!IsInt(size)) return RuntimeError("Type error: Expected integer", vm);
 
-  if (!IsPair(ref)) return RuntimeError("Type error", vm);
-  if (Head(ref, &vm->mem) != File) return RuntimeError("Type error", vm);
+  if (!IsPair(ref)) return RuntimeError("Type error: Expected file reference", vm);
+  if (Head(ref, &vm->mem) != File) return RuntimeError("Type error: Expected file reference", vm);
 
   buf = Alloc(RawInt(size));
   bytes_read = Read(RawInt(Tail(ref, &vm->mem)), buf, size);
@@ -328,7 +364,7 @@ static Result VMWrite(u32 num_args, VM *vm)
   binary = StackPop(vm);
   ref = StackPop(vm);
 
-  if (Head(ref, &vm->mem) != File) return RuntimeError("Type error", vm);
+  if (Head(ref, &vm->mem) != File) return RuntimeError("Type error: Expected file reference", vm);
 
   file = RawInt(Tail(ref, &vm->mem));
   buf = BinaryData(binary, &vm->mem);
@@ -364,39 +400,15 @@ static Result VMSeed(u32 num_args, VM *vm)
 static Result VMRandom(u32 num_args, VM *vm)
 {
   float r = (float)Random() / (float)MaxUInt;
-  if (num_args == 0) {
-    return OkResult(FloatVal(r));
-  } else if (num_args == 1) {
-    Val max = StackPop(vm);
-    if (!IsInt(max)) return RuntimeError("Type error", vm);
-    return OkResult(IntVal(Floor(r * RawInt(max))));
-  } else if (num_args == 2) {
-    Val max = StackPop(vm);
-    Val min = StackPop(vm);
-    u32 range;
-    if (!IsInt(max)) return RuntimeError("Type error", vm);
-    if (!IsInt(min)) return RuntimeError("Type error", vm);
-    range = RawInt(max) - RawInt(min);
-    return OkResult(IntVal(Floor(r * range) + RawInt(min)));
-  } else {
-    return RuntimeError("Arity error", vm);
-  }
-}
-
-static Result VMSqrt(u32 num_args, VM *vm)
-{
-  float num;
-  Val types[1] = {NumType};
-  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  Result result = CheckTypes(num_args, 0, 0, vm);
   if (!result.ok) return result;
 
-  num = (float)RawNum(StackPop(vm));
-  return OkResult(FloatVal(sqrtf(num)));
+  return OkResult(FloatVal(r));
 }
 
+#ifdef CANVAS
 static Result VMCanvas(u32 num_args, VM *vm)
 {
-#ifdef CANVAS
   u32 width, height, id;
   Canvas *canvas;
   Val types[2] = {IntType, IntType};
@@ -410,51 +422,10 @@ static Result VMCanvas(u32 num_args, VM *vm)
   ObjVecPush(&vm->canvases, canvas);
 
   return OkResult(IntVal(id));
-#else
-  StackPop(vm);
-  StackPop(vm);
-  return OkResult(Error);
-#endif
-}
-
-static Result VMSetFont(u32 num_args, VM *vm)
-{
-#ifdef CANVAS
-  u32 size, id;
-  char *filename;
-  Val binary;
-  Canvas *canvas;
-  bool ok;
-  Val types[3] = {IntType, IntType, BinaryType};
-  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
-  if (!result.ok) return result;
-
-  id = RawInt(StackPop(vm));
-  size = RawInt(StackPop(vm));
-  binary = StackPop(vm);
-  if (id >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
-  canvas = vm->canvases.items[id];
-
-  filename = CopyStr(BinaryData(binary, &vm->mem), BinaryLength(binary, &vm->mem));
-  ok = SetFont(canvas, filename, size);
-  Free(filename);
-
-  if (ok) {
-    return OkResult(Ok);
-  } else {
-    return OkResult(Error);
-  }
-#else
-  StackPop(vm);
-  StackPop(vm);
-  StackPop(vm);
-  return OkResult(Error);
-#endif
 }
 
 static Result VMLine(u32 num_args, VM *vm)
 {
-#ifdef CANVAS
   u32 x0, y0, x1, y1, id;
   Canvas *canvas;
   Val types[5] = {IntType, IntType, IntType, IntType, IntType};
@@ -472,19 +443,10 @@ static Result VMLine(u32 num_args, VM *vm)
   DrawLine(x0, y0, x1, y1, canvas);
 
   return OkResult(Ok);
-#else
-  StackPop(vm);
-  StackPop(vm);
-  StackPop(vm);
-  StackPop(vm);
-  StackPop(vm);
-  return OkResult(Error);
-#endif
 }
 
 static Result VMText(u32 num_args, VM *vm)
 {
-#ifdef CANVAS
   u32 x, y, id;
   char *text;
   Val binary;
@@ -505,11 +467,26 @@ static Result VMText(u32 num_args, VM *vm)
   Free(text);
 
   return OkResult(Ok);
-#else
-  StackPop(vm);
-  StackPop(vm);
-  StackPop(vm);
-  StackPop(vm);
-  return OkResult(Error);
-#endif
 }
+#else
+static Result VMCanvas(u32 num_args, VM *vm)
+{
+  u32 i;
+  for (i = 0; i < num_args; i++) StackPop(vm);
+  return OkResult(Error);
+}
+
+static Result VMLine(u32 num_args, VM *vm)
+{
+  u32 i;
+  for (i = 0; i < num_args; i++) StackPop(vm);
+  return OkResult(Error);
+}
+
+static Result VMText(u32 num_args, VM *vm)
+{
+  u32 i;
+  for (i = 0; i < num_args; i++) StackPop(vm);
+  return OkResult(Error);
+}
+#endif

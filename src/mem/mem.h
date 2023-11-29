@@ -76,6 +76,7 @@ void PushMem(Mem *mem, Val value);
 Val PopMem(Mem *mem);
 
 Val TypeSym(Val value, Mem *mem);
+char *TypeName(Val type);
 
 #define IsTuple(val, mem)       (IsObj(val) && IsTupleHeader(VecRef(mem, RawVal(val))))
 #define IsBinary(val, mem)      (IsObj(val) && IsBinaryHeader(VecRef(mem, RawVal(val))))

@@ -506,6 +506,7 @@ void GenerateSymbols(void)
   printf("#define TupleType         0x%08X /* tuple */\n", SymbolFor("tuple"));
   printf("#define BinaryType        0x%08X /* binary */\n", SymbolFor("binary"));
   printf("#define MapType           0x%08X /* map */\n", SymbolFor("map"));
+  printf("#define KernelMod         0x%08X /* Kernel */\n", SymbolFor("Kernel"));
 }
 
 void GeneratePrimitives(void)
@@ -513,7 +514,10 @@ void GeneratePrimitives(void)
   printf("static PrimitiveDef kernel[] = {\n");
   printf("  {/* typeof */   0x%08X, &VMType},\n", SymbolFor("typeof"));
   printf("  {/* head */     0x%08X, &VMHead},\n", SymbolFor("head"));
-  printf("  {/* tail */     0x%08X, &VMTail}\n", SymbolFor("tail"));
+  printf("  {/* tail */     0x%08X, &VMTail},\n", SymbolFor("tail"));
+  printf("  {/* mget */     0x%08X, &VMMapGet},\n", SymbolFor("mget"));
+  printf("  {/* mset */     0x%08X, &VMMapSet},\n", SymbolFor("mset"));
+  printf("  {/* trunc */    0x%08X, &VMTrunc},\n", SymbolFor("trunc"));
   printf("};\n");
   printf("\n");
   printf("static PrimitiveDef io[] = {\n");
@@ -526,12 +530,8 @@ void GeneratePrimitives(void)
   printf("\n");
   printf("static PrimitiveDef sys[] = {\n");
   printf("  {/* ticks */    0x%08X, &VMTicks},\n", SymbolFor("ticks"));
-  printf("};\n");
-  printf("\n");
-  printf("static PrimitiveDef math[] = {\n");
   printf("  {/* seed */     0x%08X, &VMSeed},\n", SymbolFor("seed"));
   printf("  {/* random */   0x%08X, &VMRandom},\n", SymbolFor("random"));
-  printf("  {/* sqrt */     0x%08X, &VMSqrt},\n", SymbolFor("sqrt"));
   printf("};\n");
   printf("\n");
   printf("static PrimitiveDef canvas[] = {\n");
@@ -541,11 +541,10 @@ void GeneratePrimitives(void)
   printf("};\n");
   printf("\n");
   printf("static PrimitiveModuleDef primitives[] = {\n");
-  printf("  {/* Kernel */   0x%08X, kernel},\n", SymbolFor("Kernel"));
-  printf("  {/* IO */       0x%08X, io},\n", SymbolFor("IO"));
-  printf("  {/* Sys */      0x%08X, sys},\n", SymbolFor("Sys"));
-  printf("  {/* Math */     0x%08X, math},\n", SymbolFor("Math"));
-  printf("  {/* Canvas */   0x%08X, canvas}\n", SymbolFor("Canvas"));
+  printf("  {/* Kernel */   KernelMod, ArrayCount(kernel), kernel},\n");
+  printf("  {/* IO */       0x%08X, ArrayCount(io), io},\n", SymbolFor("IO"));
+  printf("  {/* Sys */      0x%08X, ArrayCount(sys), sys},\n", SymbolFor("Sys"));
+  printf("  {/* Canvas */   0x%08X, ArrayCount(canvas), canvas}\n", SymbolFor("Canvas"));
   printf("};\n");
 }
 
