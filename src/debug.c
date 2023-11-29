@@ -31,7 +31,7 @@ static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
       return printf("t%d", RawVal(value));
     } else if (mem && IsBinary(value, mem)) {
       return printf("b%d", RawVal(value));
-    } else if (IsMap(value, mem)) {
+    } else if (mem && IsMap(value, mem)) {
       return printf("m%d", RawVal(value));
     } else {
       return printf("o%d", RawVal(value));

@@ -349,6 +349,7 @@ static Result RunInstruction(VM *vm)
       StackRef(vm, 1) = IntVal(((u8*)BinaryData(binary, &vm->mem))[index]);
     } else if (IsMap(StackRef(vm, 1), &vm->mem)) {
       Val key = StackRef(vm, 0);
+      if (!IsSym(key)) return RuntimeError("Map access syntax must use a symbol key", vm);
       StackRef(vm, 1) = MapGet(StackRef(vm, 1), key, &vm->mem);
     } else {
       return RuntimeError("Access is only defined for collections", vm);

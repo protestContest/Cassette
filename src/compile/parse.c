@@ -407,10 +407,17 @@ static Result ParseAccess(Val prefix, Parser *p)
   Val op = TokenSym(token.type);
   Val id;
 
-  result = ParseID(p);
-  if (!result.ok) return result;
-
-  id = MakeNode(SymColon, pos, result.value, p->mem);
+  if (p->lex.token.type == TokenNum) {
+    result = ParseNum(p);
+    if (!result.ok) return result;
+    id = result.value;
+  } else if (p->lex.token.type == TokenID) {
+    result = ParseID(p);
+    if (!result.ok) return result;
+    id = MakeNode(SymColon, pos, result.value, p->mem);
+  } else {
+    return ParseError("Expected index or key", p);
+  }
 
   return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(id, Nil, p->mem), p->mem), p->mem));
 }
