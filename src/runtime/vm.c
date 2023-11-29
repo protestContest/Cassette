@@ -274,11 +274,7 @@ static Result RunInstruction(VM *vm)
     break;
   case OpEq:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (IsNum(StackRef(vm, 1), &vm->mem) && IsNum(StackRef(vm, 0), &vm->mem)) {
-      StackRef(vm, 1) = BoolVal(RawNum(StackRef(vm, 1)) == RawNum(StackRef(vm, 0)));
-    } else {
-      StackRef(vm, 1) = BoolVal(StackRef(vm, 1) == StackRef(vm, 0));
-    }
+    StackRef(vm, 1) = BoolVal(ValEqual(StackRef(vm, 1), StackRef(vm, 0), &vm->mem));
     StackPop(vm);
     vm->pc += OpLength(op);
     break;

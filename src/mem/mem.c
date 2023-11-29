@@ -34,7 +34,7 @@ void InitMem(Mem *mem, u32 capacity)
 #define PushMem(mem, val) (VecRef(mem, (mem)->count++) = (val))
 #define PopMem(mem)       VecRef(mem, --(mem)->count)
 
-Val TypeOf(Val value, Mem *mem)
+Val TypeSym(Val value, Mem *mem)
 {
   if (IsFloat(value)) return FloatType;
   if (IsInt(value)) return IntType;
@@ -412,6 +412,64 @@ Val MapMerge(Val map1, Val map2, Mem *mem)
   }
 
   return map1;
+}
+
+static bool MapIsSubset(Val v1, Val v2, Mem *mem)
+{
+  Val header = VecRef(mem, RawVal(v1));
+  u32 size = NodeCount(header);
+  u32 i;
+  for (i = 0; i < size; i++) {
+    Val node = NodeRef(v1, i, mem);
+    if (IsPair(node)) {
+      Val key = Head(node, mem);
+      Val value = Tail(node, mem);
+      if (!MapContains(v2, key, mem)) return false;
+      if (!ValEqual(value, MapGet(v2, key, mem), mem)) return false;
+    } else {
+      if (!MapIsSubset(node, v2, mem)) return false;
+    }
+  }
+  return true;
+}
+
+bool ValEqual(Val v1, Val v2, Mem *mem)
+{
+  if (IsNum(v1, mem) && IsNum(v2, mem)) {
+    return RawNum(v1) == RawNum(v2);
+  }
+
+  if (TypeSym(v1, mem) != TypeSym(v2, mem)) return false;
+
+  if (IsSym(v1)) return v1 == v2;
+  if (v1 == Nil && v2 == Nil) return true;
+  if (IsPair(v1)) {
+    return ValEqual(Head(v1, mem), Head(v2, mem), mem)
+        && ValEqual(Tail(v1, mem), Tail(v2, mem), mem);
+  }
+  if (IsTuple(v1, mem)) {
+    u32 i;
+    if (TupleLength(v1, mem) != TupleLength(v2, mem)) return false;
+    for (i = 0; i < TupleLength(v1, mem); i++) {
+      if (!ValEqual(TupleGet(v1, i, mem), TupleGet(v2, i, mem), mem)) return false;
+    }
+    return true;
+  }
+  if (IsBinary(v1, mem)) {
+    u32 i;
+    char *data1 = BinaryData(v1, mem);
+    char *data2 = BinaryData(v2, mem);
+    if (BinaryLength(v1, mem) != BinaryLength(v2, mem)) return false;
+    for (i = 0; i < BinaryLength(v1, mem); i++) {
+      if (data1[i] != data2[i]) return false;
+    }
+    return true;
+  }
+  if (IsMap(v1, mem)) {
+    if (MapCount(v1, mem) != MapCount(v2, mem)) return false;
+    return MapIsSubset(v1, v2, mem);
+  }
+  return false;
 }
 
 /* Cheney's algorithm */

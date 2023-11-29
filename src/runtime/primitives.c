@@ -86,10 +86,10 @@ static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
   for (i = 0; i < num_params; i++) {
     if (types[i] == Nil) continue;
     if (types[i] == NumType) {
-      if (TypeOf(StackRef(vm, i), &vm->mem) != IntType && TypeOf(StackRef(vm, i), &vm->mem) != FloatType) {
+      if (TypeSym(StackRef(vm, i), &vm->mem) != IntType && TypeSym(StackRef(vm, i), &vm->mem) != FloatType) {
         return RuntimeError("Type error", vm);
       }
-    } else if (TypeOf(StackRef(vm, i), &vm->mem) != types[i]) {
+    } else if (TypeSym(StackRef(vm, i), &vm->mem) != types[i]) {
       return RuntimeError("Type error", vm);
     }
   }
@@ -106,7 +106,7 @@ static Result VMType(u32 num_args, VM *vm)
   arg = StackPop(vm);
   vm->stack.count -= num_args-1;
 
-  return OkResult(TypeOf(arg, &vm->mem));
+  return OkResult(TypeSym(arg, &vm->mem));
 }
 
 static Result VMHead(u32 num_args, VM *vm)

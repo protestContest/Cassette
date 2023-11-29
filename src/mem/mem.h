@@ -31,7 +31,8 @@ typedef u32 Val;
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
 #define MapHeader(n)      MakeVal(n, mapMask)
 
-#define IsType(v, mask)   (((v) & typeMask) == (mask))
+#define TypeOf(v)         ((v) & typeMask)
+#define IsType(v, mask)   (TypeOf(v) == (mask))
 #define IsFloat(v)        (((v) & nanMask) != nanMask)
 #define IsInt(v)          IsType(v, intMask)
 #define IsSym(v)          IsType(v, symMask)
@@ -74,7 +75,7 @@ void InitMem(Mem *mem, u32 capacity);
 void PushMem(Mem *mem, Val value);
 Val PopMem(Mem *mem);
 
-Val TypeOf(Val value, Mem *mem);
+Val TypeSym(Val value, Mem *mem);
 
 #define IsTuple(val, mem)       (IsObj(val) && IsTupleHeader(VecRef(mem, RawVal(val))))
 #define IsBinary(val, mem)      (IsObj(val) && IsBinaryHeader(VecRef(mem, RawVal(val))))
@@ -111,5 +112,7 @@ bool MapContains(Val map, Val key, Mem *mem);
 Val MapSet(Val map, Val key, Val value, Mem *mem);
 Val MapGet(Val map, Val key, Mem *mem);
 Val MapMerge(Val map1, Val map2, Mem *mem);
+
+bool ValEqual(Val v1, Val v2, Mem *mem);
 
 void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);
