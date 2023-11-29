@@ -261,10 +261,9 @@ static Result CompileImports(Val imports, Compiler *c)
 
     /* call module function */
     PushByte(OpLink, c->pos, c->chunk);
-    PushConst(IntVal(7), c->pos, c->chunk);
+    PushConst(IntVal(6), c->pos, c->chunk);
     PushByte(OpLookup, c->pos, c->chunk);
-    PushConst(IntVal(import_def >> 16), c->pos, c->chunk);
-    PushConst(IntVal(import_def & 0xFFFF), c->pos, c->chunk);
+    PushConst(IntVal(import_def), c->pos, c->chunk);
     PushByte(OpApply, c->pos, c->chunk);
     PushConst(IntVal(0), c->pos, c->chunk);
 
@@ -770,8 +769,7 @@ static Result CompileVar(Val id, Val linkage, Compiler *c)
   if (def == -1) return CompileError("Undefined variable", c);
 
   PushByte(OpLookup, c->pos, c->chunk);
-  PushConst(IntVal(def >> 16), c->pos, c->chunk);
-  PushConst(IntVal(def & 0xFFFF), c->pos, c->chunk);
+  PushConst(IntVal(def), c->pos, c->chunk);
   CompileLinkage(linkage, c);
   return CompileOk();
 }

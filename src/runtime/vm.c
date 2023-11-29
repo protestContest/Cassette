@@ -393,7 +393,7 @@ static Result RunInstruction(VM *vm)
   case OpLookup:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
-    StackPush(vm, Lookup(RawInt(ChunkConst(vm->chunk, vm->pc+1)), RawInt(ChunkConst(vm->chunk, vm->pc+2)), Env(vm), &vm->mem));
+    StackPush(vm, Lookup(RawInt(ChunkConst(vm->chunk, vm->pc+1)), Env(vm), &vm->mem));
     if (StackRef(vm, 0) == Undefined) return RuntimeError("Undefined variable", vm);
     vm->pc += OpLength(op);
     break;
