@@ -1,4 +1,4 @@
-import List as List
+import List
 
 let width = 800,
     height = 480,

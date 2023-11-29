@@ -192,11 +192,15 @@ static Result ParseImports(Parser *p)
     mod = result.value;
 
     if (MatchToken(TokenAs, &p->lex)) {
-      result = ParseID(p);
-      if (!result.ok) return result;
-      alias = result.value;
+      if (MatchToken(TokenStar, &p->lex)) {
+        alias = Nil;
+      } else {
+        result = ParseID(p);
+        if (!result.ok) return result;
+        alias = result.value;
+      }
     } else {
-      alias = Nil;
+      alias = mod;
     }
 
     import = MakeNode(SymImport, pos, Pair(mod, alias, p->mem), p->mem);
