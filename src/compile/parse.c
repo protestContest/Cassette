@@ -165,11 +165,25 @@ Result ParseModule(Parser *p, char *source)
   return ParseOk(MakeModule(name, body, imports, exports, Sym(p->filename, p->symbols), p->mem));
 }
 
+static Val DefaultImports(Mem *mem)
+{
+  PrimitiveModuleDef *primitives = GetPrimitives();
+  u32 num_primitives = NumPrimitives();
+  u32 i;
+  Val imports = Nil;
+  for (i = 0; i < num_primitives; i++) {
+    Val mod = primitives[i].module;
+    Val alias = (i == 0) ? Nil : mod;
+    Val import = MakeNode(SymImport, 0, Pair(mod, alias, mem), mem);
+    imports = Pair(import, imports, mem);
+  }
+  return imports;
+}
+
 static Result ParseImports(Parser *p)
 {
   /* parse imports */
-  Val kernel_import = MakeNode(SymImport, 0, Pair(KernelMod, Nil, p->mem), p->mem);
-  Val imports = Pair(kernel_import, Nil, p->mem);
+  Val imports = DefaultImports(p->mem);
   while (MatchToken(TokenImport, &p->lex)) {
     Val import, mod, alias;
     u32 pos = p->lex.token.lexeme - p->lex.source;

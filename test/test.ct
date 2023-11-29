@@ -1,6 +1,4 @@
 import List as List
-import Canvas as Canvas
-import Math as Math
 
 let width = 800,
     height = 480,
