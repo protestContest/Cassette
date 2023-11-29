@@ -3,6 +3,7 @@
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
+#include "runtime/primitives.h"
 
 #define ExprNext(lex)       (rules[(lex)->token.type].prefix)
 #define PrecNext(lex)       (rules[(lex)->token.type].prec)
@@ -167,7 +168,8 @@ Result ParseModule(Parser *p, char *source)
 static Result ParseImports(Parser *p)
 {
   /* parse imports */
-  Val imports = Nil;
+  Val kernel_import = MakeNode(SymImport, 0, Pair(KernelMod, Nil, p->mem), p->mem);
+  Val imports = Pair(kernel_import, Nil, p->mem);
   while (MatchToken(TokenImport, &p->lex)) {
     Val import, mod, alias;
     u32 pos = p->lex.token.lexeme - p->lex.source;
@@ -188,6 +190,7 @@ static Result ParseImports(Parser *p)
     SkipNewlines(&p->lex);
     imports = Pair(import, imports, p->mem);
   }
+
   return ParseOk(ReverseList(imports, Nil, p->mem));
 }
 
@@ -519,9 +522,11 @@ static Result ParseList(Parser *p)
   Assert(MatchToken(TokenLBracket, &p->lex));
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBracket, &p->lex)) {
-    result = ParseExpr(PrecExpr, p);
+    result = ParseCall(p);
     if (!result.ok) return result;
     items = Pair(result.value, items, p->mem);
+    MatchToken(TokenComma, &p->lex);
+    SkipNewlines(&p->lex);
   }
 
   return ParseOk(MakeNode(SymLBracket, pos, items, p->mem));
@@ -561,12 +566,14 @@ static Result ParseMap(Parser *p)
 
     if (!MatchToken(TokenColon, &p->lex)) return ParseError("Expected \":\"", p);
 
-    result = ParseExpr(PrecExpr, p);
+    result = ParseCall(p);
     if (!result.ok) return result;
     value = result.value;
 
+
     value = Pair(key, value, p->mem);
     items = Pair(value, items, p->mem);
+    MatchToken(TokenComma, &p->lex);
     SkipNewlines(&p->lex);
   }
 
@@ -582,9 +589,10 @@ static Result ParseTuple(Parser *p)
   Assert(MatchToken(TokenLBrace, &p->lex));
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
-    result = ParseExpr(PrecExpr, p);
+    result = ParseCall(p);
     if (!result.ok) return result;
 
+    MatchToken(TokenComma, &p->lex);
     SkipNewlines(&p->lex);
     items = Pair(result.value, items, p->mem);
   }

@@ -15,6 +15,7 @@ void InitVec(Vec *vec, u32 item_size, u32 capacity)
 void DestroyVec(Vec *vec)
 {
   if (vec->items) Free(vec->items);
+  vec->items = 0;
   vec->capacity = 0;
   vec->count = 0;
 }

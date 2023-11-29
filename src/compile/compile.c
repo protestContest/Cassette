@@ -3,6 +3,7 @@
 #include "runtime/env.h"
 #include "runtime/ops.h"
 #include "project.h"
+#include "runtime/primitives.h"
 
 #define LinkReturn        0x7FD62CF0 /* return */
 #define LinkNext          0x7FD00394 /* next */
@@ -42,24 +43,80 @@ void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules,
   c->chunk = chunk;
 }
 
+Result CompileInitialEnv(u32 num_modules, Compiler *c)
+{
+  PrimitiveModuleDef *primitives = GetPrimitives();
+  u32 num_primitives = NumPrimitives();
+  u32 frame_size = num_primitives + num_modules;
+  Val env;
+  u32 mod;
+
+  c->pos = 0;
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(frame_size), c->pos, c->chunk);
+  PushByte(OpTuple, c->pos, c->chunk);
+  PushByte(OpExtend, c->pos, c->chunk);
+  env = ExtendEnv(Nil, MakeTuple(frame_size, c->mem), c->mem);
+
+  for (mod = 0; mod < num_primitives; mod++) {
+    u32 fn;
+
+    for (fn = 0; fn < primitives[mod].num_fns; fn++) {
+      /*  build primitive reference */
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(Nil, c->pos, c->chunk);
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(IntVal(fn), c->pos, c->chunk);
+      PushByte(OpPair, c->pos, c->chunk);
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(IntVal(mod), c->pos, c->chunk);
+      PushByte(OpPair, c->pos, c->chunk);
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(Primitive, c->pos, c->chunk);
+      PushByte(OpPair, c->pos, c->chunk);
+
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(IntVal(fn), c->pos, c->chunk);
+    }
+
+    /* create tuple for module */
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+
+    for (fn = 0; fn < primitives[mod].num_fns; fn++) {
+      /* add each primitive to module exports */
+      PushByte(OpSet, c->pos, c->chunk);
+    }
+
+    /* define primitive module */
+    PushByte(OpDefine, c->pos, c->chunk);
+    PushConst(IntVal(num_modules + mod), c->pos, c->chunk);
+
+    Define(primitives[mod].module, num_modules + mod, env, c->mem);
+  }
+
+  return OkResult(env);
+}
+
 Result CompileScript(Val module, Compiler *c)
 {
   Result result;
   Val imports = ModuleImports(module, c->mem);
 
-  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
-  c->pos = 0;
-
   /* copy filename symbol to chunk */
+  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
   Sym(c->filename, &c->chunk->symbols);
 
   /* record start position of module in chunk */
+  c->pos = 0;
   BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
 
   /* compile imports */
   if (imports != Nil) {
     u32 num_imports = CountExports(imports, c->modules, c->mem);
 
+    /* extend env for imports */
     PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_imports), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
@@ -92,13 +149,12 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   u32 num_assigns = ListLength(ModuleExports(module, c->mem), c->mem);
   u32 jump;
 
-  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
-  c->pos = 0;
-
   /* copy filename symbol to chunk */
+  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
   Sym(c->filename, &c->chunk->symbols);
 
   /* record start position of module in chunk */
+  c->pos = 0;
   BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
 
   /* create lambda for module */
@@ -111,12 +167,14 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
 
-  PushByte(OpPop, c->pos, c->chunk); /* discard arity from apply */
+  /* discard arity from apply */
+  PushByte(OpPop, c->pos, c->chunk);
 
   /* compile imports */
   if (imports != Nil) {
     u32 num_imports = CountExports(imports, c->modules, c->mem);
 
+    /* extend env for imports */
     PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_imports), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
@@ -129,11 +187,11 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
 
   /* extend env for assigns */
   if (num_assigns > 0) {
-    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
     PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_assigns), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
+    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
   }
 
   result = CompileBlock(ModuleBody(module, c->mem), ModuleExports(module, c->mem), LinkNext, c);
@@ -151,6 +209,7 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
     PushConst(IntVal(0), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
   }
+  /* copy exports to redefine module */
   PushByte(OpDup, c->pos, c->chunk);
 
   /* discard import frame */
@@ -160,13 +219,15 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
     c->env = Tail(c->env, c->mem);
   }
 
-  /* redefine module as exported values */
+  /* redefine module as exported frame */
   PushByte(OpDefine, c->pos, c->chunk);
   PushConst(IntVal(mod_num), c->pos, c->chunk);
 
   PushByte(OpReturn, c->pos, c->chunk);
 
   PatchJump(c->chunk, jump);
+
+  /* define module as the lambda */
   PushByte(OpDefine, c->pos, c->chunk);
   PushConst(IntVal(mod_num), c->pos, c->chunk);
 
@@ -191,10 +252,11 @@ static Result CompileImports(Val imports, Compiler *c)
     c->pos = NodePos(node, c->mem);
 
     if (!HashMapContains(c->modules, import_name)) return CompileError("Undefined module", c);
+
     import_mod = HashMapGet(c->modules, import_name);
     imported_vals = ModuleExports(import_mod, c->mem);
 
-    import_def = FindDefinition(import_name, c->env, c->mem);
+    import_def = FindModule(import_name, c->env, c->mem);
     if (import_def < 0) return CompileError("Undefined module", c);
 
     /* call module function */
@@ -231,6 +293,9 @@ static Result CompileImports(Val imports, Compiler *c)
     } else {
       /* import into a map */
       u32 i = 0, j;
+
+      /* pull out each value onto the stack, with its key next. we have to
+         keep pulling the exported tuple to the top */
       while (imported_vals != Nil) {
         Val imported_val = Head(imported_vals, c->mem);
         bool is_last = Tail(imported_vals, c->mem) == Nil;
@@ -257,9 +322,12 @@ static Result CompileImports(Val imports, Compiler *c)
       for (j = 0; j < i; j++) {
         PushByte(OpSet, c->pos, c->chunk);
       }
+
+      /* define the map */
       PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_imported), c->pos, c->chunk);
       Define(alias, num_imported, c->env, c->mem);
+      num_imported++;
     }
 
     imports = Tail(imports, c->mem);
@@ -319,7 +387,7 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
 
 static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
 {
-  u32 assigned = 0;
+  u32 num_assigned = 0;
 
   while (stmts != Nil) {
     Result result;
@@ -331,17 +399,19 @@ static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
       Val var = Head(NodeExpr(stmt, c->mem), c->mem);
       Val value = Tail(NodeExpr(stmt, c->mem), c->mem);
 
-      Define(var, assigned, c->env, c->mem);
+      /* define var before compiling expression, since it may refer to itself */
+      Define(var, num_assigned, c->env, c->mem);
 
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
 
       PushByte(OpDefine, c->pos, c->chunk);
-      PushConst(IntVal(assigned), c->pos, c->chunk);
+      PushConst(IntVal(num_assigned), c->pos, c->chunk);
 
-      assigned++;
+      num_assigned++;
 
       if (is_last) {
+        /* the last statement must produce a result */
         PushByte(OpConst, c->pos, c->chunk);
         PushConst(Ok, c->pos, c->chunk);
       }
@@ -698,8 +768,6 @@ static Result CompileVar(Val id, Val linkage, Compiler *c)
 {
   i32 def = FindDefinition(id, c->env, c->mem);
   if (def == -1) return CompileError("Undefined variable", c);
-  /* don't allow references to module names outside of import statements */
-  if (((u32)def >> 16) == ListLength(c->env, c->mem) - 2) return CompileError("Undefined variable", c);
 
   PushByte(OpLookup, c->pos, c->chunk);
   PushConst(IntVal(def >> 16), c->pos, c->chunk);

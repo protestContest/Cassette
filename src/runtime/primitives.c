@@ -3,6 +3,9 @@
 #include "univ/system.h"
 #include "canvas/canvas.h"
 #include "univ/str.h"
+#include "compile/parse.h"
+#include "compile/project.h"
+#include "env.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -23,49 +26,57 @@ static Result VMSetFont(u32 num_args, VM *vm);
 static Result VMLine(u32 num_args, VM *vm);
 static Result VMText(u32 num_args, VM *vm);
 
-static PrimitiveDef primitives[] = {
-  {/* typeof */     0x7FDA14D4, &VMType},
-  {/* head */       0x7FD4FAFD, &VMHead},
-  {/* tail */       0x7FD1655A, &VMTail},
-  {/* print */      0x7FD3984B, &VMPrint},
-  {/* inspect */    0x7FD06371, &VMInspect},
-  {/* open */       0x7FD6E11B, &VMOpen},
-  {/* read */       0x7FDEC474, &VMRead},
-  {/* write */      0x7FDA90A8, &VMWrite},
-  {/* ticks */      0x7FD14415, &VMTicks},
-  {/* seed */       0x7FDCADD1, &VMSeed},
-  {/* random */     0x7FD3FCF1, &VMRandom},
-  {/* sqrt */       0x7FD45F09, &VMSqrt},
-  {/* new_canvas */ 0x7FDCB252, &VMCanvas},
-  {/* set_font */   0x7FD103BF, &VMSetFont},
-  {/* draw_line */  0x7FDB2760, &VMLine},
-  {/* draw_text */  0x7FD91141, &VMText},
+static PrimitiveDef kernel[] = {
+  {/* typeof */   0x7FDA14D4, &VMType},
+  {/* head */     0x7FD4FAFD, &VMHead},
+  {/* tail */     0x7FD1655A, &VMTail}
 };
 
-Val PrimitiveEnv(Mem *mem)
+static PrimitiveDef io[] = {
+  {/* print */    0x7FD3984B, &VMPrint},
+  {/* inspect */  0x7FD06371, &VMInspect},
+  {/* open */     0x7FD6E11B, &VMOpen},
+  {/* read */     0x7FDEC474, &VMRead},
+  {/* write */    0x7FDA90A8, &VMWrite},
+};
+
+static PrimitiveDef sys[] = {
+  {/* ticks */    0x7FD14415, &VMTicks},
+};
+
+static PrimitiveDef math[] = {
+  {/* seed */     0x7FDCADD1, &VMSeed},
+  {/* random */   0x7FD3FCF1, &VMRandom},
+  {/* sqrt */     0x7FD45F09, &VMSqrt},
+};
+
+static PrimitiveDef canvas[] = {
+  {/* new */      0x7FDEA6DA, &VMCanvas},
+  {/* line */     0x7FD0B46A, &VMLine},
+  {/* text */     0x7FD2824B, &VMText},
+};
+
+static PrimitiveModuleDef primitives[] = {
+  {/* Kernel */   KernelMod, ArrayCount(kernel), kernel},
+  {/* IO */       0x7FDDDA86, ArrayCount(io), io},
+  {/* Sys */      0x7FD9DBF5, ArrayCount(sys), sys},
+  {/* Math */     0x7FDAEE55, ArrayCount(math), math},
+  {/* Canvas */   0x7FD291D0, ArrayCount(canvas), canvas}
+};
+
+PrimitiveModuleDef *GetPrimitives(void)
 {
-  u32 i;
-  Val frame = MakeTuple(ArrayCount(primitives), mem);
-  for (i = 0; i < ArrayCount(primitives); i++) {
-    Val primitive = Pair(Primitive, IntVal(i), mem);
-    TupleSet(frame, i, primitive, mem);
-  }
-  return frame;
+  return primitives;
 }
 
-Val CompileEnv(Mem *mem)
+u32 NumPrimitives(void)
 {
-  u32 i;
-  Val frame = MakeTuple(ArrayCount(primitives), mem);
-  for (i = 0; i < ArrayCount(primitives); i++) {
-    TupleSet(frame, i, primitives[i].id, mem);
-  }
-  return frame;
+  return ArrayCount(primitives);
 }
 
-Result DoPrimitive(Val id, u32 num_args, VM *vm)
+Result DoPrimitive(Val mod, Val id, u32 num_args, VM *vm)
 {
-  return primitives[RawInt(id)].fn(num_args, vm);
+  return primitives[RawInt(mod)].fns[RawInt(id)].fn(num_args, vm);
 }
 
 static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)

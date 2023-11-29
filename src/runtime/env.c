@@ -28,7 +28,8 @@ i32 FindDefinition(Val var, Val env, Mem *mem)
   u32 f = 0;
   u32 i;
 
-  while (env != Nil) {
+  /* don't look in the top frame, which where modules are defined */
+  while (Tail(env, mem) != Nil) {
     Val frame = Head(env, mem);
     for (i = 0; i < TupleLength(frame, mem); i++) {
       u32 pos = (TupleLength(frame, mem) - i) - 1;
@@ -41,4 +42,25 @@ i32 FindDefinition(Val var, Val env, Mem *mem)
   }
 
   return -1;
+}
+
+i32 FindModule(Val mod, Val env, Mem *mem)
+{
+  u32 f = 0;
+  u32 i;
+  u32 location = -1;
+
+  while (env != Nil) {
+    Val frame = Head(env, mem);
+    for (i = 0; i < TupleLength(frame, mem); i++) {
+      u32 pos = (TupleLength(frame, mem) - i) - 1;
+      if (TupleGet(frame, pos, mem) == mod) {
+        location = (f << 16) | pos;
+      }
+    }
+    f++;
+    env = Tail(env, mem);
+  }
+
+  return location;
 }

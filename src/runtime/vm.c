@@ -23,7 +23,7 @@ void InitVM(VM *vm, Chunk *chunk)
   InitVec((Vec*)&vm->canvases, sizeof(void*), 8);
 
   vm->stack.count = 1;
-  Env(vm) = ExtendEnv(Nil, PrimitiveEnv(&vm->mem), &vm->mem);
+  Env(vm) = Nil;
 }
 
 void DestroyVM(VM *vm)
@@ -442,23 +442,11 @@ static Result RunInstruction(VM *vm)
       if (stack_size < 3) return RuntimeError("Stack underflow", vm);
       num_args = ChunkConst(vm->chunk, vm->pc+1);
       prim = StackPop(vm);
-      result = DoPrimitive(Tail(prim, &vm->mem), RawInt(num_args), vm);
+      result = DoPrimitive(ListGet(prim, 1, &vm->mem), ListGet(prim, 2, &vm->mem), RawInt(num_args), vm);
       if (!result.ok) return result;
-      /*while (vm->stack.count > stack_size - RawInt(num_args) - 1) StackPop(vm);*/
       vm->pc = RawInt(StackPop(vm));
       Env(vm) = StackPop(vm);
       StackPush(vm, result.value);
-    } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
-      Val num_args = ChunkConst(vm->chunk, vm->pc+1);
-      Val tuple = StackPop(vm);
-      u32 index;
-      if (num_args != 1) return RuntimeError("Invalid access", vm);
-      if (!IsInt(StackRef(vm, 1))) return RuntimeError("Index must be an integer", vm);
-      index = RawInt(StackPop(vm));
-      if (index < 0 || index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Out of bounds", vm);
-      vm->pc = RawInt(StackPop(vm));
-      Env(vm) = StackPop(vm);
-      StackPush(vm, TupleGet(tuple, index, &vm->mem));
     } else {
       /* not a function, just return */
       if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
@@ -475,6 +463,9 @@ static Result RunInstruction(VM *vm)
   if (vm->pc < vm->chunk->code.count) {
     return OkResult(True);
   } else {
+#ifdef DEBUG
+    TraceInstruction(OpHalt, vm);
+#endif
     return OkResult(False);
   }
 }

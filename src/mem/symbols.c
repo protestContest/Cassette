@@ -3,7 +3,10 @@
 #include "univ/math.h"
 #include "univ/system.h"
 #include "univ/str.h"
-#include <stdio.h>
+
+#ifdef DEBUG
+#include "debug.h"
+#endif
 
 void InitSymbolTable(SymbolTable *symbols)
 {
@@ -22,6 +25,7 @@ void InitSymbolTable(SymbolTable *symbols)
   Assert(Function == Sym("*func*", symbols));
   Assert(Undefined == Sym("*undefined*", symbols));
   Assert(File == Sym("*file*", symbols));
+  DefineSymbols(symbols);
 #endif
 }
 

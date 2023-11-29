@@ -13,6 +13,7 @@ void PrintEnv(Val env, Mem *mem, SymbolTable *symbols);
 void Disassemble(Chunk *chunk);
 void PrintTraceHeader(void);
 void TraceInstruction(OpCode op, VM *vm);
+void DefineSymbols(SymbolTable *symbols);
 void GenerateSymbols(void);
-
+void GeneratePrimitives(void);
 #endif

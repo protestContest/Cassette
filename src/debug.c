@@ -64,7 +64,7 @@ static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols
   } else if (IsMapHeader(value)) {
     printf("m%*d", cell_width-1, RawInt(value));
   } else {
-    printf("%0*.*X", (cell_width+1)/2, cell_width/2, value);
+    printf("  %08X", value);
   }
 }
 
@@ -333,6 +333,101 @@ void TraceInstruction(OpCode op, VM *vm)
   printf("\n");
 }
 
+void DefineSymbols(SymbolTable *symbols)
+{
+  Sym("return", symbols);
+  Sym("next", symbols);
+  Sym("*eof*", symbols);
+  Sym("*id*", symbols);
+  Sym("!=", symbols);
+  Sym("\"", symbols);
+  Sym("*nl*", symbols);
+  Sym("#", symbols);
+  Sym("%", symbols);
+  Sym("&", symbols);
+  Sym("(", symbols);
+  Sym(")", symbols);
+  Sym("*", symbols);
+  Sym("+", symbols);
+  Sym(",", symbols);
+  Sym("-", symbols);
+  Sym("->", symbols);
+  Sym(".", symbols);
+  Sym("/", symbols);
+  Sym("*num*", symbols);
+  Sym(":", symbols);
+  Sym("<", symbols);
+  Sym("<<", symbols);
+  Sym("<=", symbols);
+  Sym("<>", symbols);
+  Sym("=", symbols);
+  Sym("==", symbols);
+  Sym(">", symbols);
+  Sym(">=", symbols);
+  Sym(">>", symbols);
+  Sym("[", symbols);
+  Sym("]", symbols);
+  Sym("^", symbols);
+  Sym("and", symbols);
+  Sym("as", symbols);
+  Sym("cond", symbols);
+  Sym("def", symbols);
+  Sym("do", symbols);
+  Sym("else", symbols);
+  Sym("end", symbols);
+  Sym("false", symbols);
+  Sym("if", symbols);
+  Sym("import", symbols);
+  Sym("in", symbols);
+  Sym("let", symbols);
+  Sym("module", symbols);
+  Sym("nil", symbols);
+  Sym("not", symbols);
+  Sym("or", symbols);
+  Sym("true", symbols);
+  Sym("{", symbols);
+  Sym("|", symbols);
+  Sym("}", symbols);
+  Sym("~", symbols);
+  Sym("true", symbols);
+  Sym("false", symbols);
+  Sym("ok", symbols);
+  Sym("error", symbols);
+  Sym("*prim*", symbols);
+  Sym("*func*", symbols);
+  Sym("*undefined*", symbols);
+  Sym("*moved*", symbols);
+  Sym("*file*", symbols);
+  Sym("float", symbols);
+  Sym("integer", symbols);
+  Sym("number", symbols);
+  Sym("symbol", symbols);
+  Sym("pair", symbols);
+  Sym("tuple", symbols);
+  Sym("binary", symbols);
+  Sym("map", symbols);
+  Sym("typeof", symbols);
+  Sym("head", symbols);
+  Sym("tail", symbols);
+  Sym("print", symbols);
+  Sym("inspect", symbols);
+  Sym("open", symbols);
+  Sym("read", symbols);
+  Sym("write", symbols);
+  Sym("ticks", symbols);
+  Sym("seed", symbols);
+  Sym("random", symbols);
+  Sym("sqrt", symbols);
+  Sym("new", symbols);
+  Sym("line", symbols);
+  Sym("text", symbols);
+  Sym("Kernel", symbols);
+  Sym("IO", symbols);
+  Sym("Sys", symbols);
+  Sym("Math", symbols);
+  Sym("Canvas", symbols);
+}
+
 /*
 Since generating symbols takes some time, all of the symbols used by the
 compiler and VM are precomputed and defined in source files. This function is
@@ -346,7 +441,7 @@ void GenerateSymbols(void)
   printf("#define SymID             0x%08X /* *id* */\n", SymbolFor("*id*"));
   printf("#define SymBangEqual      0x%08X /* != */\n", SymbolFor("!="));
   printf("#define SymString         0x%08X /* \" */\n", SymbolFor("\""));
-  printf("#define SymNewline        0x%08X /* \\n */\n", SymbolFor("\n"));
+  printf("#define SymNewline        0x%08X /* *nl* */\n", SymbolFor("*nl*"));
   printf("#define SymHash           0x%08X /* # */\n", SymbolFor("#"));
   printf("#define SymPercent        0x%08X /* %% */\n", SymbolFor("%"));
   printf("#define SymAmpersand      0x%08X /* & */\n", SymbolFor("&"));
@@ -411,21 +506,47 @@ void GenerateSymbols(void)
   printf("#define TupleType         0x%08X /* tuple */\n", SymbolFor("tuple"));
   printf("#define BinaryType        0x%08X /* binary */\n", SymbolFor("binary"));
   printf("#define MapType           0x%08X /* map */\n", SymbolFor("map"));
-  printf("  {/* typeof */           0x%08X, &VMType},\n", SymbolFor("typeof"));
-  printf("  {/* head */             0x%08X, &VMHead},\n", SymbolFor("head"));
-  printf("  {/* tail */             0x%08X, &VMTail},\n", SymbolFor("tail"));
-  printf("  {/* print */            0x%08X, &VMPrint},\n", SymbolFor("print"));
-  printf("  {/* inspect */          0x%08X, &VMInspect},\n", SymbolFor("inspect"));
-  printf("  {/* open */             0x%08X, &VMOpen},\n", SymbolFor("open"));
-  printf("  {/* read */             0x%08X, &VMRead},\n", SymbolFor("read"));
-  printf("  {/* write */            0x%08X, &VMWrite},\n", SymbolFor("write"));
-  printf("  {/* ticks */            0x%08X, &VMTicks},\n", SymbolFor("ticks"));
-  printf("  {/* seed */             0x%08X, &VMSeed},\n", SymbolFor("seed"));
-  printf("  {/* random */           0x%08X, &VMRandom},\n", SymbolFor("random"));
-  printf("  {/* sqrt */             0x%08X, &VMSqrt},\n", SymbolFor("sqrt"));
-  printf("  {/* new_canvas */       0x%08X, &VMCanvas},\n", SymbolFor("new_canvas"));
-  printf("  {/* draw_line */        0x%08X, &VMLine},\n", SymbolFor("draw_line"));
-  printf("  {/* draw_text */        0x%08X, &VMText},\n", SymbolFor("draw_text"));
+}
+
+void GeneratePrimitives(void)
+{
+  printf("static PrimitiveDef kernel[] = {\n");
+  printf("  {/* typeof */   0x%08X, &VMType},\n", SymbolFor("typeof"));
+  printf("  {/* head */     0x%08X, &VMHead},\n", SymbolFor("head"));
+  printf("  {/* tail */     0x%08X, &VMTail}\n", SymbolFor("tail"));
+  printf("};\n");
+  printf("\n");
+  printf("static PrimitiveDef io[] = {\n");
+  printf("  {/* print */    0x%08X, &VMPrint},\n", SymbolFor("print"));
+  printf("  {/* inspect */  0x%08X, &VMInspect},\n", SymbolFor("inspect"));
+  printf("  {/* open */     0x%08X, &VMOpen},\n", SymbolFor("open"));
+  printf("  {/* read */     0x%08X, &VMRead},\n", SymbolFor("read"));
+  printf("  {/* write */    0x%08X, &VMWrite},\n", SymbolFor("write"));
+  printf("};\n");
+  printf("\n");
+  printf("static PrimitiveDef sys[] = {\n");
+  printf("  {/* ticks */    0x%08X, &VMTicks},\n", SymbolFor("ticks"));
+  printf("};\n");
+  printf("\n");
+  printf("static PrimitiveDef math[] = {\n");
+  printf("  {/* seed */     0x%08X, &VMSeed},\n", SymbolFor("seed"));
+  printf("  {/* random */   0x%08X, &VMRandom},\n", SymbolFor("random"));
+  printf("  {/* sqrt */     0x%08X, &VMSqrt},\n", SymbolFor("sqrt"));
+  printf("};\n");
+  printf("\n");
+  printf("static PrimitiveDef canvas[] = {\n");
+  printf("  {/* new */      0x%08X, &VMCanvas},\n", SymbolFor("new"));
+  printf("  {/* line */     0x%08X, &VMLine},\n", SymbolFor("line"));
+  printf("  {/* text */     0x%08X, &VMText},\n", SymbolFor("text"));
+  printf("};\n");
+  printf("\n");
+  printf("static PrimitiveModuleDef primitives[] = {\n");
+  printf("  {/* Kernel */   0x%08X, kernel},\n", SymbolFor("Kernel"));
+  printf("  {/* IO */       0x%08X, io},\n", SymbolFor("IO"));
+  printf("  {/* Sys */      0x%08X, sys},\n", SymbolFor("Sys"));
+  printf("  {/* Math */     0x%08X, math},\n", SymbolFor("Math"));
+  printf("  {/* Canvas */   0x%08X, canvas}\n", SymbolFor("Canvas"));
+  printf("};\n");
 }
 
 #endif

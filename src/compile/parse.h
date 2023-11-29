@@ -8,7 +8,7 @@
 #define SymID             0x7FD7FE1D /* *id* */
 #define SymBangEqual      0x7FDD5C4E /* != */
 #define SymString         0x7FD9C953 /* " */
-#define SymNewline        0x7FD0ACD7 /* \n */
+#define SymNewline        0x7FDB31E2 /* *nl* */
 #define SymHash           0x7FDF82DB /* # */
 #define SymPercent        0x7FD3E679 /* % */
 #define SymAmpersand      0x7FDB283C /* & */

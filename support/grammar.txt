@@ -33,8 +33,8 @@ unary           → access | "-" access | "not" access | "#" access | "~" access
 access          → primary | access "." primary
 
 primary         → group | block | obj | value | ID
-
 group           → "(" call ")"
+
 block           → do_block | if_block | cond_block
 do_block        → "do" stmts "end"
 if_block        → "if" stmts "else" stmts "end" | "if" stmts "end"
@@ -44,11 +44,11 @@ clause          → logic "->" call
 
 obj             → list | tuple | map
 list            → "[" list_tail
-list_tail       → "]" | expr "]" | expr list_tail
+list_tail       → "]" | call "]" | call "," list_tail
 tuple           → "{" tuple_tail
-tuple_tail      → "}" | expr "}" | expr tuple_tail
+tuple_tail      → "}" | call "}" | call "," tuple_tail
 map             → "{" entries "}"
-entries         → entry | entry entries
-entry           → ID ":" expr
+entries         → entry | entry "," entries
+entry           → ID ":" call
 
 value           → "true" | "false" | "nil" | SYM | NUM | STR

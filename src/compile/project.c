@@ -21,6 +21,7 @@ static Result ReadManifest(char *filename, Project *project);
 static Result ParseModules(Project *project);
 static Result ScanDependencies(Project *project);
 static Result CompileProject(Val build_list, Chunk *chunk, Project *p);
+static void AddPrimitiveModules(Project *p);
 
 Result BuildProject(char *manifest, Chunk *chunk)
 {
@@ -151,6 +152,8 @@ static Result ScanDependencies(Project *project)
   Val stack = Pair(project->entry, Nil, &project->mem);
   Val build_list = Nil;
 
+  AddPrimitiveModules(project);
+
   while (stack != Nil) {
     Val name, module, imports;
 
@@ -160,6 +163,10 @@ static Result ScanDependencies(Project *project)
 
     Assert(HashMapContains(&project->modules, name));
     module = HashMapGet(&project->modules, name);
+
+    /* skip nil modules (e.g. primitive modules) */
+    if (ModuleBody(module, &project->mem) == Nil) continue;
+
     imports = ModuleImports(module, &project->mem);
 
     /* add current module to build list */
@@ -170,6 +177,7 @@ static Result ScanDependencies(Project *project)
       Val node = Head(imports, &project->mem);
       Val import = NodeExpr(node, &project->mem);
       Val import_name = Head(import, &project->mem);
+      imports = Tail(imports, &project->mem);
 
       /* make sure we know about the imported module */
       if (!HashMapContains(&project->modules, import_name)) {
@@ -178,11 +186,9 @@ static Result ScanDependencies(Project *project)
       }
 
       /* add import to the stack if it's not already in the build list */
-      if (!ListContains(build_list, import_name, &project->mem)) {
+      if (!ListContains(stack, import_name, &project->mem)) {
         stack = Pair(import_name, stack, &project->mem);
       }
-
-      imports = Tail(imports, &project->mem);
     }
   }
 
@@ -194,48 +200,35 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
 {
   Compiler c;
   u32 i;
-  u32 num_modules = ListLength(build_list, &p->mem);
-  Val module_env = ExtendEnv(Nil, CompileEnv(&p->mem), &p->mem);
+  u32 num_modules = ListLength(build_list, &p->mem) - 1; /* exclude entry script */
+  Val compile_env;
+  Result result = OkResult(Nil);
 
-  InitChunk(chunk);
+  if (build_list == Nil) return result;
+
   InitCompiler(&c, &p->mem, &p->symbols, &p->modules, chunk);
 
-  /* env is {modules} -> {primitives} -> nil
-     although modules are technically reachable at runtime in the environment,
-     the compiler wouldn't be able to resolve them, so it would never compile
-     access to them */
-  if (num_modules > 1) {
-    module_env = ExtendEnv(module_env, MakeTuple(num_modules - 1, &p->mem), &p->mem);
-  } else {
-    module_env = ExtendEnv(module_env, MakeTuple(0, &p->mem), &p->mem);
-  }
-  PushByte(OpConst, 0, chunk);
-  PushConst(IntVal(num_modules - 1), 0, chunk);
-  PushByte(OpTuple, 0, chunk);
-  PushByte(OpExtend, 0, chunk);
+  result = CompileInitialEnv(num_modules, &c);
+  if (!result.ok) return result;
+  compile_env = result.value;
 
+  /* compile each module except the entry mod */
   for (i = 0; i < num_modules; i++) {
-    Result result;
     Val module = Head(build_list, &p->mem);
     build_list = Tail(build_list, &p->mem);
 
-    c.env = module_env;
-    if (i == num_modules - 1) {
-      result = CompileScript(module, &c);
-    } else {
-      result = CompileModule(module, i, &c);
-      Define(ModuleName(module, &p->mem), i, module_env, &p->mem);
-    }
+    /* reset env */
+    c.env = compile_env;
+    result = CompileModule(module, i, &c);
+    Define(ModuleName(module, &p->mem), i, compile_env, &p->mem);
     if (!result.ok) return result;
   }
 
-  /* clean up module env */
-  if (num_modules > 1) {
-    PushByte(OpExport, 0, chunk);
-    PushByte(OpPop, 0, chunk);
-  }
+  /* compile the entry module a little differently */
+  c.env = compile_env;
+  result = CompileScript(Head(build_list, &p->mem), &c);
 
-  return OkResult(Nil);
+  return result;
 }
 
 Val MakeModule(Val name, Val body, Val imports, Val exports, Val filename, Mem *mem)
@@ -266,4 +259,22 @@ u32 CountExports(Val nodes, HashMap *modules, Mem *mem)
     nodes = Tail(nodes, mem);
   }
   return count;
+}
+
+static void AddPrimitiveModules(Project *p)
+{
+  /* set primitive modules in the module map */
+  PrimitiveModuleDef *primitives = GetPrimitives();
+  u32 num_primitives = NumPrimitives();
+  u32 i, j;
+
+  for (i = 0; i < num_primitives; i++) {
+    Val mod, exports = Nil;
+    for (j = 0; j < primitives[i].num_fns; j++) {
+      exports = Pair(primitives[i].fns[j].name, exports, &p->mem);
+    }
+    exports = ReverseList(exports, Nil, &p->mem);
+    mod = MakeModule(primitives[i].module, Nil, Nil, exports, Nil, &p->mem);
+    HashMapSet(&p->modules, primitives[i].module, mod);
+  }
 }
