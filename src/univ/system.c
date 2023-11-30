@@ -78,5 +78,5 @@ char *ReadFile(char *path)
 
 u32 Ticks(void)
 {
-  return clock();
+  return clock() / (CLOCKS_PER_SEC / 1000);
 }
