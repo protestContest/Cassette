@@ -100,29 +100,18 @@ static bool IsSymChar(char c)
   case ' ':
   case '\t':
   case '\n':
+  case '\r':
   case ';':
-  case '#':
-  case '%':
-  case '&':
   case '(':
   case ')':
-  case '*':
-  case '+':
   case ',':
-  case '-':
   case '.':
-  case '/':
   case ':':
-  case '<':
-  case '=':
-  case '>':
   case '[':
   case ']':
-  case '^':
   case '{':
   case '|':
   case '}':
-  case '~':
     return false;
   default:
     return true;
