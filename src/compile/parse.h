@@ -33,6 +33,7 @@
 #define SymGreaterEqual   0x7FD7C966 /* >= */
 #define SymGreaterGreater 0x7FDA0DDF /* >> */
 #define SymLBracket       0x7FDCA8DA /* [ */
+#define SymBackslash      0x7FDAE079 /* \ */
 #define SymRBracket       0x7FD4F739 /* ] */
 #define SymCaret          0x7FDC17FE /* ^ */
 #define SymAnd            0x7FDF9F13 /* and */

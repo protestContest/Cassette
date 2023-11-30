@@ -493,6 +493,7 @@ void GenerateSymbols(void)
   printf("#define SymGreaterEqual   0x%08X /* >= */\n", SymbolFor(">="));
   printf("#define SymGreaterGreater 0x%08X /* >> */\n", SymbolFor(">>"));
   printf("#define SymLBracket       0x%08X /* [ */\n", SymbolFor("["));
+  printf("#define SymBackslash      0x%08X /* \\ */\n", SymbolFor("\\"));
   printf("#define SymRBracket       0x%08X /* ] */\n", SymbolFor("]"));
   printf("#define SymCaret          0x%08X /* ^ */\n", SymbolFor("^"));
   printf("#define SymAnd            0x%08X /* and */\n", SymbolFor("and"));

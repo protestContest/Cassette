@@ -83,6 +83,7 @@ static Token AdvanceToken(Lexer *lex)
   if (Match("=", lex))  return MakeToken(TokenEqual, start, 1);
   if (Match(">", lex))  return MakeToken(TokenGreater, start, 1);
   if (Match("[", lex))  return MakeToken(TokenLBracket, start, 1);
+  if (Match("\\", lex)) return MakeToken(TokenBackslash, start, 1);
   if (Match("]", lex))  return MakeToken(TokenRBracket, start, 1);
   if (Match("^", lex))  return MakeToken(TokenCaret, start, 1);
   if (Match("{", lex))  return MakeToken(TokenLBrace, start, 1);
@@ -108,6 +109,7 @@ static bool IsSymChar(char c)
   case '.':
   case ':':
   case '[':
+  case '\\':
   case ']':
   case '{':
   case '|':

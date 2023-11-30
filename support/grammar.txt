@@ -15,8 +15,7 @@ args            → args expr | ε
 call_stmt       → call "\n"
 call            → args expr
 
-expr            → lambda
-lambda          → group "->" expr | ID "->" expr
+expr            → logic
 logic           → equality | logic "and" equality | logic "or" equality
 equality        → compare | equality "==" compare | equality "!=" compare
 compare         → member
@@ -34,8 +33,10 @@ product         → unary | product "*" unary | product "/" unary | product "%" 
 unary           → access | "-" access | "not" access | "#" access | "~" access
 access          → primary | access "." primary
 
-primary         → group | block | obj | value | ID
+primary         → group | lambda | block | obj | value | ID
 group           → "(" call ")"
+lambda          → "\" params "->" expr
+params          → params ID | ε
 
 block           → do_block | if_block | cond_block
 do_block        → "do" stmts "end"

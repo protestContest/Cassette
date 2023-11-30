@@ -14,7 +14,6 @@
 typedef enum {
   PrecNone,
   PrecExpr,
-  PrecLambda,
   PrecLogic,
   PrecEqual,
   PrecCompare,
@@ -35,12 +34,12 @@ static Result ParseImports(Parser *p);
 static Result ParseDef(Parser *p);
 static Result ParseCall(Parser *p);
 static Result ParseExpr(Precedence prec, Parser *p);
-static Result ParseLambda(Val prefix, Parser *p);
 static Result ParseLeftAssoc(Val prefix, Parser *p);
 static Result ParseRightAssoc(Val prefix, Parser *p);
 static Result ParseAccess(Val prefix, Parser *p);
 static Result ParseUnary(Parser *p);
 static Result ParseGroup(Parser *p);
+static Result ParseLambda(Parser *p);
 static Result ParseDo(Parser *p);
 static Result ParseIf(Parser *p);
 static Result ParseCond(Parser *p);
@@ -80,7 +79,7 @@ static Rule rules[] = {
   [TokenPlus]           = {SymPlus,           0,            ParseLeftAssoc,     PrecSum},
   [TokenComma]          = {SymComma,          0,            0,                  PrecNone},
   [TokenMinus]          = {SymMinus,          ParseUnary,   ParseLeftAssoc,     PrecSum},
-  [TokenArrow]          = {SymArrow,          0,            ParseLambda,        PrecLambda},
+  [TokenArrow]          = {SymArrow,          0,            0,                  PrecNone},
   [TokenDot]            = {SymDot,            0,            ParseAccess,        PrecAccess},
   [TokenSlash]          = {SymSlash,          0,            ParseLeftAssoc,     PrecProduct},
   [TokenNum]            = {SymNum,            ParseNum,     0,                  PrecNone},
@@ -95,6 +94,7 @@ static Rule rules[] = {
   [TokenGreaterEqual]   = {SymGreaterEqual,   0,            ParseLeftAssoc,     PrecCompare},
   [TokenGreaterGreater] = {SymGreaterGreater, 0,            ParseLeftAssoc,     PrecShift},
   [TokenLBracket]       = {SymLBracket,       ParseList,    0,                  PrecNone},
+  [TokenBackslash]      = {SymBackslash,      ParseLambda,  0,                  PrecNone},
   [TokenRBracket]       = {SymRBracket,       0,            0,                  PrecNone},
   [TokenCaret]          = {SymCaret,          0,            ParseLeftAssoc,     PrecBitwise},
   [TokenAnd]            = {SymAnd,            0,            ParseLeftAssoc,     PrecLogic},
@@ -346,31 +346,6 @@ static Result ParseExpr(Precedence prec, Parser *p)
   return result;
 }
 
-static Result ParseLambda(Val prefix, Parser *p)
-{
-  Result result;
-  Val params = Nil;
-  u32 pos = NodePos(prefix, p->mem);
-  InitLexer(&p->lex, p->lex.source, pos);
-
-  if (!MatchToken(TokenLParen, &p->lex)) return ParseError("Expected \"(\"", p);
-
-  while (!MatchToken(TokenRParen, &p->lex)) {
-    result = ParseID(p);
-    if (!result.ok) return result;
-    params = Pair(result.value, params, p->mem);
-  }
-  params = ReverseList(params, Nil, p->mem);
-
-  Assert(MatchToken(TokenArrow, &p->lex));
-  SkipNewlines(&p->lex);
-
-  result = ParseExpr(PrecLambda, p);
-  if (!result.ok) return result;
-
-  return ParseOk(MakeNode(SymArrow, pos, Pair(params, result.value, p->mem), p->mem));
-}
-
 static Result ParseLeftAssoc(Val prefix, Parser *p)
 {
   Result result;
@@ -449,6 +424,28 @@ static Result ParseGroup(Parser *p)
   }
 
   return ParseOk(MakeNode(SymLParen, pos, ReverseList(expr, Nil, p->mem), p->mem));
+}
+
+static Result ParseLambda(Parser *p)
+{
+  Result result;
+  Val params = Nil;
+  u32 pos = p->lex.token.lexeme - p->lex.source;
+
+  if (!MatchToken(TokenBackslash, &p->lex)) return ParseError("Expected \"\\\"", p);
+
+  while (!MatchToken(TokenArrow, &p->lex)) {
+    result = ParseID(p);
+    if (!result.ok) return result;
+    params = Pair(result.value, params, p->mem);
+  }
+  params = ReverseList(params, Nil, p->mem);
+  SkipNewlines(&p->lex);
+
+  result = ParseExpr(PrecExpr, p);
+  if (!result.ok) return result;
+
+  return ParseOk(MakeNode(SymArrow, pos, Pair(params, result.value, p->mem), p->mem));
 }
 
 static Result ParseDo(Parser *p)

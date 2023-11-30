@@ -21,15 +21,15 @@ def (reduce list acc fn) do
 end
 
 def (reverse list) do
-  reduce list nil (item reversed) -> item | reversed
+  reduce list nil \item reversed -> item | reversed
 end
 
 def (map list fn) do
-  reverse (reduce list nil (item acc) -> (fn item) | acc)
+  reverse (reduce list nil \item acc -> (fn item) | acc)
 end
 
 def (filter list fn) do
-  reverse (reduce list nil (item acc) -> do
+  reverse (reduce list nil \item acc -> do
       if (fn item) do
         item | acc
       else
