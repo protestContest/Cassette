@@ -398,11 +398,18 @@ static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
       Val var = Head(NodeExpr(stmt, c->mem), c->mem);
       Val value = Tail(NodeExpr(stmt, c->mem), c->mem);
 
-      /* define var before compiling expression, since it may refer to itself */
-      Define(var, num_assigned, c->env, c->mem);
+      /* define lambdas early to allow recursive calls */
+      if (NodeType(value, c->mem) == SymArrow) {
+        Define(var, num_assigned, c->env, c->mem);
+      }
 
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
+
+      /* otherwise, define value after to allow redefining the same variable */
+      if (NodeType(value, c->mem) != SymArrow) {
+        Define(var, num_assigned, c->env, c->mem);
+      }
 
       PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_assigned), c->pos, c->chunk);
