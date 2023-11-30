@@ -5,7 +5,7 @@ let width = 800,
     height = 480,
     canvas = Canvas.new width height
 
-Canvas.text "Lines!" 200 0 canvas
+Canvas.text canvas "Lines!" 200.1 0
 
 Sys.seed (Sys.ticks)
 
@@ -14,7 +14,7 @@ def (rand-line i) do
       y0 = Math.rand-int 20 height / 10,
       x1 = Math.rand-int 0 width,
       y1 = Math.rand-int 20 height
-  Canvas.line x0 y0 x1 y1 canvas
+  Canvas.line canvas x0 y0 x1 y1
 end
 
 List.map (List.range 0 100) (i) -> (rand-line i)

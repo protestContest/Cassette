@@ -426,44 +426,44 @@ static Result VMCanvas(u32 num_args, VM *vm)
 
 static Result VMLine(u32 num_args, VM *vm)
 {
-  u32 x0, y0, x1, y1, id;
+  Val x0, y0, x1, y1, id;
   Canvas *canvas;
-  Val types[5] = {IntType, IntType, IntType, IntType, IntType};
+  Val types[5] = {NumType, NumType, NumType, NumType, IntType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
-  id = RawInt(StackPop(vm));
-  y1 = RawInt(StackPop(vm));
-  x1 = RawInt(StackPop(vm));
-  y0 = RawInt(StackPop(vm));
-  x0 = RawInt(StackPop(vm));
-  if (id >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
-  canvas = vm->canvases.items[id];
+  y1 = StackPop(vm);
+  x1 = StackPop(vm);
+  y0 = StackPop(vm);
+  x0 = StackPop(vm);
+  id = StackPop(vm);
+  if ((u32)RawInt(id) >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
+  canvas = vm->canvases.items[RawInt(id)];
 
-  DrawLine(x0, y0, x1, y1, canvas);
+  DrawLine(RawNum(x0), RawNum(y0), RawNum(x1), RawNum(y1), canvas);
 
   return OkResult(Ok);
 }
 
 static Result VMText(u32 num_args, VM *vm)
 {
-  u32 x, y, id;
+  Val x, y, id;
   char *text;
   Val binary;
   Canvas *canvas;
-  Val types[4] = {IntType, IntType, IntType, BinaryType};
+  Val types[4] = {NumType, NumType, BinaryType, IntType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
-  id = RawInt(StackPop(vm));
-  y = RawInt(StackPop(vm));
-  x = RawInt(StackPop(vm));
+  y = StackPop(vm);
+  x = StackPop(vm);
   binary = StackPop(vm);
-  if (id >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
-  canvas = vm->canvases.items[id];
+  id = StackPop(vm);
+  if ((u32)RawInt(id) >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
+  canvas = vm->canvases.items[RawInt(id)];
 
   text = CopyStr(BinaryData(binary, &vm->mem), BinaryLength(binary, &vm->mem));
-  DrawText(text, x, y, canvas);
+  DrawText(text, RawNum(x), RawNum(y), canvas);
   Free(text);
 
   return OkResult(Ok);

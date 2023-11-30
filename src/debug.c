@@ -188,18 +188,39 @@ static char *OpName(OpCode op)
 
 void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
 {
-  printf("Env:\n");
+  u32 i, j;
+  env = ReverseList(env, Nil, mem);
+
+  printf("┌ Environment ");
+  for (i = 0; i < 65; i++) printf("─");
+  printf("┐\n");
+
   while (env != Nil) {
     Val frame = Head(env, mem);
-    u32 i;
-    printf("- ");
+    u32 written = 1;
+    bool is_last = Tail(env, mem) == Nil;
+
+    printf("│ ");
     for (i = 0; i < TupleLength(frame, mem); i++) {
       Val item = TupleGet(frame, i, mem);
-      PrintVal(item, mem, symbols);
-      printf(" ");
+      u32 len = StrLen(SymbolName(item, symbols));
+      if (written + len + 1 > 78) {
+        for (j = written; j < 78; j++) printf(" ");
+        printf("│\n");
+        printf("│ ");
+        written = 1;
+      }
+      written += PrintVal(TupleGet(frame, i, mem), mem, symbols);
+      written += printf(" ");
     }
+    for (j = written; j < 78; j++) printf(" ");
+    printf("│\n");
+    if (!is_last) printf("├");
+    else printf("└");
+    for (i = 0; i < 78; i++) printf("─");
+    if (!is_last) printf("┤\n");
+    else printf("┘\n");
 
-    printf("\n");
     env = Tail(env, mem);
   }
 }
@@ -406,26 +427,32 @@ void DefineSymbols(SymbolTable *symbols)
   Sym("tuple", symbols);
   Sym("binary", symbols);
   Sym("map", symbols);
+
+  /* primitives */
+  Sym("Kernel", symbols);
   Sym("typeof", symbols);
   Sym("head", symbols);
   Sym("tail", symbols);
+  Sym("mget", symbols);
+  Sym("mset", symbols);
+  Sym("trunc", symbols);
+
+  Sym("IO", symbols);
   Sym("print", symbols);
   Sym("inspect", symbols);
   Sym("open", symbols);
   Sym("read", symbols);
   Sym("write", symbols);
+
+  Sym("Sys", symbols);
   Sym("ticks", symbols);
   Sym("seed", symbols);
   Sym("random", symbols);
-  Sym("sqrt", symbols);
+
+  Sym("Canvas", symbols);
   Sym("new", symbols);
   Sym("line", symbols);
   Sym("text", symbols);
-  Sym("Kernel", symbols);
-  Sym("IO", symbols);
-  Sym("Sys", symbols);
-  Sym("Math", symbols);
-  Sym("Canvas", symbols);
 }
 
 /*
