@@ -7,12 +7,14 @@ let width = 800,
 
 Canvas.text "Lines!" 200 0 canvas
 
-def (rand_line i) do
-  let x0 = i * 70 + 100,
-      y0 = Math.rand_int height,
-      x1 = Math.rand_int width,
-      y1 = Math.rand_int height
+Sys.seed (Sys.ticks)
+
+def (rand-line i) do
+  let x0 = Math.floor i * width / 100,
+      y0 = Math.rand-int 20 height / 10,
+      x1 = Math.rand-int 0 width,
+      y1 = Math.rand-int 20 height
   Canvas.line x0 y0 x1 y1 canvas
 end
 
-List.map (List.range 0 100) (i) -> (rand_line i)
+List.map (List.range 0 100) (i) -> (rand-line i)
