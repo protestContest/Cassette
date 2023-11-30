@@ -61,6 +61,11 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
   for (mod = 0; mod < num_primitives; mod++) {
     u32 fn;
 
+    /* create tuple for module */
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+
     for (fn = 0; fn < primitives[mod].num_fns; fn++) {
       /*  build primitive reference */
       PushByte(OpConst, c->pos, c->chunk);
@@ -75,17 +80,9 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
       PushConst(Primitive, c->pos, c->chunk);
       PushByte(OpPair, c->pos, c->chunk);
 
+      /* add to tuple */
       PushByte(OpConst, c->pos, c->chunk);
       PushConst(IntVal(fn), c->pos, c->chunk);
-    }
-
-    /* create tuple for module */
-    PushByte(OpConst, c->pos, c->chunk);
-    PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-
-    for (fn = 0; fn < primitives[mod].num_fns; fn++) {
-      /* add each primitive to module exports */
       PushByte(OpSet, c->pos, c->chunk);
     }
 
@@ -291,36 +288,29 @@ static Result CompileImports(Val imports, Compiler *c)
       num_imported += i;
     } else {
       /* import into a map */
-      u32 i = 0, j;
+      u32 i = 0;
 
-      /* pull out each value onto the stack, with its key next. we have to
-         keep pulling the exported tuple to the top */
+      /* create tuple for keys */
+      PushByte(OpDup, c->pos, c->chunk);
+      PushByte(OpLen, c->pos, c->chunk);
+      PushByte(OpTuple, c->pos, c->chunk);
+
       while (imported_vals != Nil) {
         Val imported_val = Head(imported_vals, c->mem);
-        bool is_last = Tail(imported_vals, c->mem) == Nil;
 
-        /* copy tuple */
-        if (!is_last) PushByte(OpDup, c->pos, c->chunk);
-        /* fetch imported value */
-        PushByte(OpConst, c->pos, c->chunk);
-        PushConst(IntVal(i), c->pos, c->chunk);
-        PushByte(OpGet, c->pos, c->chunk);
-        /* pull tuple to top */
-        if (!is_last) PushByte(OpSwap, c->pos, c->chunk);
         /* push import name as key */
         PushByte(OpConst, c->pos, c->chunk);
         PushConst(imported_val, c->pos, c->chunk);
-        /* pull tuple to top */
-        if (!is_last) PushByte(OpSwap, c->pos, c->chunk);
+        PushByte(OpConst, c->pos, c->chunk);
+        PushConst(IntVal(i), c->pos, c->chunk);
+        PushByte(OpSet, c->pos, c->chunk);
 
         imported_vals = Tail(imported_vals, c->mem);
         i++;
       }
-      /* push a map and set each pair */
+
+      /* create map from keys/values tuple */
       PushByte(OpMap, c->pos, c->chunk);
-      for (j = 0; j < i; j++) {
-        PushByte(OpSet, c->pos, c->chunk);
-      }
 
       /* define the map */
       PushByte(OpDefine, c->pos, c->chunk);
@@ -710,23 +700,21 @@ static Result CompileList(Val items, Val linkage, Compiler *c)
 
 static Result CompileTuple(Val items, Val linkage, Compiler *c)
 {
-  u32 i, num_items = 0;
+  u32 i = 0, num_items = ListLength(items, c->mem);
+
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_items), c->pos, c->chunk);
+  PushByte(OpTuple, c->pos, c->chunk);
 
   while (items != Nil) {
     Val item = Head(items, c->mem);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
     PushByte(OpConst, c->pos, c->chunk);
-    PushConst(IntVal(num_items), c->pos, c->chunk);
-    num_items++;
-    items = Tail(items, c->mem);
-  }
-
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(IntVal(num_items), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
-  for (i = 0; i < num_items; i++) {
+    PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
+    i++;
+    items = Tail(items, c->mem);
   }
 
   CompileLinkage(linkage, c);
@@ -735,26 +723,50 @@ static Result CompileTuple(Val items, Val linkage, Compiler *c)
 
 static Result CompileMap(Val items, Val linkage, Compiler *c)
 {
-  u32 num_items = 0, i;
+  u32 i = 0, num_items = ListLength(items, c->mem);
+  Val keys = items;
+
+  /* create tuple for values */
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_items), c->pos, c->chunk);
+  PushByte(OpTuple, c->pos, c->chunk);
 
   while (items != Nil) {
     Val item = Head(items, c->mem);
-    Val key = Head(item, c->mem);
     Val value = Tail(item, c->mem);
 
     Result result = CompileExpr(value, LinkNext, c);
     if (!result.ok) return result;
-    result = CompileExpr(key, LinkNext, c);
-    if (!result.ok) return result;
-
-    num_items++;
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(i), c->pos, c->chunk);
+    PushByte(OpSet, c->pos, c->chunk);
+    i++;
     items = Tail(items, c->mem);
   }
 
-  PushByte(OpMap, c->pos, c->chunk);
-  for (i = 0; i < num_items; i++) {
+  /* create tuple for keys */
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_items), c->pos, c->chunk);
+  PushByte(OpTuple, c->pos, c->chunk);
+
+  i = 0;
+  while (keys != Nil) {
+    Val item = Head(keys, c->mem);
+    Val key = Head(item, c->mem);
+
+    Result result = CompileExpr(key, LinkNext, c);
+    if (!result.ok) return result;
+
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
+
+    i++;
+    keys = Tail(keys, c->mem);
   }
+
+  /* create map from tuples */
+  PushByte(OpMap, c->pos, c->chunk);
 
   CompileLinkage(linkage, c);
   return CompileOk();

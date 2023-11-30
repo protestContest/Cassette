@@ -306,19 +306,34 @@ static Result RunInstruction(VM *vm)
     StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
     vm->pc += OpLength(op);
     break;
-  case OpMap:
-    StackPush(vm, MakeMap(&vm->mem));
+  case OpMap: {
+    Val keys, values, map;
+    u32 i;
+    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    keys = StackPop(vm);
+    values = StackPop(vm);
+    if (!IsTuple(keys, &vm->mem) || !IsTuple(values, &vm->mem)) {
+      return RuntimeError("Expected map keys and values to be tuples", vm);
+    }
+    if (TupleLength(keys, &vm->mem) != TupleLength(values, &vm->mem)) {
+      return RuntimeError("Maps must have the same number of keys and values", vm);
+    }
+    map = MakeMap(&vm->mem);
+    for (i = 0; i < TupleLength(keys, &vm->mem); i++) {
+      map = MapSet(map, TupleGet(keys, i, &vm->mem), TupleGet(values, i, &vm->mem), &vm->mem);
+    }
+    StackPush(vm, map);
     vm->pc += OpLength(op);
     break;
+  }
   case OpSet:
     if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-    if (IsTuple(StackRef(vm, 0), &vm->mem)) {
-      if (!IsInt(StackRef(vm, 1))) return RuntimeError("Tuple indexes must be integers", vm);
-      if (TupleLength(StackRef(vm, 0), &vm->mem) <= (u32)RawInt(StackRef(vm, 1))) return RuntimeError("Out of bounds", vm);
-      TupleSet(StackRef(vm, 0), RawInt(StackRef(vm, 1)), StackRef(vm, 2), &vm->mem);
-      StackRef(vm, 2) = StackRef(vm, 0);
-    } else if (IsMap(StackRef(vm, 0), &vm->mem)) {
-      StackRef(vm, 2) = MapSet(StackRef(vm, 0), StackRef(vm, 1), StackRef(vm, 2), &vm->mem);
+    if (IsTuple(StackRef(vm, 2), &vm->mem)) {
+      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Tuple indexes must be integers", vm);
+      if (TupleLength(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Out of bounds", vm);
+      TupleSet(StackRef(vm, 2), RawInt(StackRef(vm, 0)), StackRef(vm, 1), &vm->mem);
+    } else if (IsMap(StackRef(vm, 2), &vm->mem)) {
+      StackRef(vm, 2) = MapSet(StackRef(vm, 2), StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
     } else {
       return RuntimeError("Set is only defined for tuples and maps", vm);
     }
