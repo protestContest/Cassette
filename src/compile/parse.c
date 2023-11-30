@@ -403,23 +403,22 @@ static Result ParseAccess(Val prefix, Parser *p)
 {
   Result result;
   Token token = NextToken(&p->lex);
+  Precedence prec = rules[token.type].prec;
   u32 pos = token.lexeme - p->lex.source;
   Val op = TokenSym(token.type);
-  Val id;
+  Val key;
 
-  if (p->lex.token.type == TokenNum) {
-    result = ParseNum(p);
-    if (!result.ok) return result;
-    id = result.value;
-  } else if (p->lex.token.type == TokenID) {
+  if (p->lex.token.type == TokenID) {
     result = ParseID(p);
     if (!result.ok) return result;
-    id = MakeNode(SymColon, pos, result.value, p->mem);
+    key = MakeNode(SymColon, pos, result.value, p->mem);
   } else {
-    return ParseError("Expected index or key", p);
+    result = ParseExpr(prec+1, p);
+    if (!result.ok) return result;
+    key = result.value;
   }
 
-  return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(id, Nil, p->mem), p->mem), p->mem));
+  return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(key, Nil, p->mem), p->mem), p->mem));
 }
 
 static Result ParseUnary(Parser *p)
