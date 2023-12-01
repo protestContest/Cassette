@@ -51,7 +51,10 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
   Val env;
   u32 mod;
 
+  c->filename = "*startup*";
   c->pos = 0;
+  BeginChunkFile(Sym(c->filename, &c->chunk->symbols), c->chunk);
+
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(frame_size), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
@@ -92,6 +95,8 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
 
     Define(primitives[mod].module, num_modules + mod, env, c->mem);
   }
+
+  EndChunkFile(c->chunk);
 
   return OkResult(env);
 }

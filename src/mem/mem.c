@@ -447,6 +447,24 @@ Val MapKeys(Val map, Val keys, Mem *mem)
   return keys;
 }
 
+Val MapValues(Val map, Val values, Mem *mem)
+{
+  Val header = VecRef(mem, RawVal(map));
+  u32 num_children = NodeCount(header);
+  u32 i;
+
+  for (i = 0; i < num_children; i++) {
+    Val node = NodeRef(map, i, mem);
+    if (IsPair(node)) {
+      values = Pair(Tail(node, mem), values, mem);
+    } else {
+      values = MapValues(node, values, mem);
+    }
+  }
+
+  return values;
+}
+
 static bool MapIsSubset(Val v1, Val v2, Mem *mem)
 {
   Val header = VecRef(mem, RawVal(v1));

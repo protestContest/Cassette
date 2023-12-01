@@ -23,6 +23,7 @@ void DestroyChunk(Chunk *chunk);
 void BeginChunkFile(Val filename, Chunk *chunk);
 void EndChunkFile(Chunk *chunk);
 char *ChunkFile(u32 pos, Chunk *chunk);
+u32 ChunkFileLength(u32 pos, Chunk *chunk);
 
 u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk);
 void PushConst(Val value, u32 source_pos, Chunk *chunk);

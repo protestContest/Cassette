@@ -54,6 +54,21 @@ char *ChunkFile(u32 pos, Chunk *chunk)
   return 0;
 }
 
+u32 ChunkFileLength(u32 pos, Chunk *chunk)
+{
+  u32 size = 0;
+  u32 i;
+
+  for (i = 0; i < chunk->file_map.count; i += 2) {
+    if (size + chunk->file_map.items[i+1] > pos) {
+      return chunk->file_map.items[i+1];
+    }
+    size += chunk->file_map.items[i+1];
+  }
+
+  return 0;
+}
+
 #define LastSourcePos(chunk)    ((chunk)->source_map.items[(chunk)->source_map.count-2])
 u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk)
 {

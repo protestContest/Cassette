@@ -94,6 +94,8 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+  Disassemble(&chunk);
+
   /* Ok, time to run the code */
   InitVM(&vm, &chunk);
   if (opts.trace) vm.trace = true;

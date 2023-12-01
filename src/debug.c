@@ -230,6 +230,8 @@ void Disassemble(Chunk *chunk)
   u32 longest_sym, width, col1, col2;
   u32 i, line;
   char *sym;
+  char *filename = ChunkFile(0, chunk);
+  u32 next_file = ChunkFileLength(0, chunk);
 
   longest_sym = Min(17, LongestSymbol(&chunk->symbols));
   col1 = 20 + longest_sym;
@@ -258,6 +260,16 @@ void Disassemble(Chunk *chunk)
     u8 op = ChunkRef(chunk, i);
     u32 j, k;
     u32 source = GetSourcePosition(i, chunk);
+
+    if (i == next_file) {
+      u32 written;
+      filename = ChunkFile(i, chunk);
+      next_file += ChunkFileLength(i, chunk);
+      printf("╟─");
+      written = printf("%s", filename);
+      for (j = written+2; j < width-1; j++) printf("─");
+      printf("╢\n");
+    }
 
     printf("║");
     printf(" %4d│%4d│", source, i);
