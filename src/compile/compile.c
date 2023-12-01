@@ -302,7 +302,6 @@ static Result CompileImports(Val imports, Compiler *c)
     if (import_def < 0) return CompileError("Undefined module", c);
 
     /* call module function */
-    PushByte(OpNoop, c->pos, c->chunk);
     link = PushByte(OpLink, c->pos, c->chunk);
     PushConst(0, c->pos, c->chunk);
     PushByte(OpLookup, c->pos, c->chunk);

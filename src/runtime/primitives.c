@@ -3,6 +3,7 @@
 #include "univ/system.h"
 #include "canvas/canvas.h"
 #include "univ/str.h"
+#include "univ/hash.h"
 #include "compile/parse.h"
 #include "compile/project.h"
 #include "env.h"
@@ -25,6 +26,7 @@ static Result VMTicks(u32 num_args, VM *vm);
 static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
 static Result VMCanvas(u32 num_args, VM *vm);
+static Result VMCloseCanvas(u32 num_args, VM *vm);
 static Result VMLine(u32 num_args, VM *vm);
 static Result VMText(u32 num_args, VM *vm);
 
@@ -54,6 +56,7 @@ static PrimitiveDef sys[] = {
 
 static PrimitiveDef canvas[] = {
   {/* new */      0x7FDEA6DA, &VMCanvas},
+  {/* close */    0x7FDF88C9, &VMCloseCanvas},
   {/* line */     0x7FD0B46A, &VMLine},
   {/* text */     0x7FD2824B, &VMText},
 };
@@ -424,9 +427,27 @@ static Result VMRandom(u32 num_args, VM *vm)
 }
 
 #ifdef CANVAS
+static Val MakeColor(u32 color, Mem *mem)
+{
+  Val c = MakeTuple(3, mem);
+  TupleSet(c, 0, IntVal(Red(color)), mem);
+  TupleSet(c, 1, IntVal(Green(color)), mem);
+  TupleSet(c, 2, IntVal(Blue(color)), mem);
+  return c;
+}
+
+static u32 ColorFrom(Val c, Mem *mem)
+{
+  u32 red = RawInt(TupleGet(c, 0, mem));
+  u32 green = RawInt(TupleGet(c, 1, mem));
+  u32 blue = RawInt(TupleGet(c, 2, mem));
+  return (red << 24) | (green << 16) | (blue << 8) | 0xFF;
+}
+
 static Result VMCanvas(u32 num_args, VM *vm)
 {
   u32 width, height, id;
+  Val context, font, color;
   Canvas *canvas;
   Val types[2] = {IntType, IntType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
@@ -438,14 +459,48 @@ static Result VMCanvas(u32 num_args, VM *vm)
   id = vm->canvases.count;
   ObjVecPush(&vm->canvases, canvas);
 
-  return OkResult(IntVal(id));
+  font = BinaryFrom(canvas->font_filename, StrLen(canvas->font_filename), &vm->mem);
+  color = MakeColor(canvas->color, &vm->mem);
+  context = MakeMap(&vm->mem);
+  context = MapSet(context, Sym("type", &vm->chunk->symbols), Sym("Canvas", &vm->chunk->symbols), &vm->mem);
+  context = MapSet(context, Sym("id", &vm->chunk->symbols), IntVal(id), &vm->mem);
+  context = MapSet(context, Sym("width", &vm->chunk->symbols), IntVal(width), &vm->mem);
+  context = MapSet(context, Sym("height", &vm->chunk->symbols), IntVal(height), &vm->mem);
+  context = MapSet(context, Sym("font", &vm->chunk->symbols), font, &vm->mem);
+  context = MapSet(context, Sym("font-size", &vm->chunk->symbols), IntVal(canvas->font_size), &vm->mem);
+  context = MapSet(context, Sym("color", &vm->chunk->symbols), color, &vm->mem);
+
+  return OkResult(context);
+}
+
+static Result VMCloseCanvas(u32 num_args, VM *vm)
+{
+  Val context, id;
+  Canvas *canvas;
+  Val types[1] = {MapType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  context = StackPop(vm);
+
+  if (MapGet(context, SymbolFor("type"), &vm->mem) != SymbolFor("Canvas")) {
+    return RuntimeError("Not a canvas", vm);
+  }
+  id = MapGet(context, SymbolFor("id"), &vm->mem);
+
+  if ((u32)RawInt(id) >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
+  canvas = vm->canvases.items[RawInt(id)];
+
+  FreeCanvas(canvas);
+
+  return OkResult(Ok);
 }
 
 static Result VMLine(u32 num_args, VM *vm)
 {
-  Val x0, y0, x1, y1, id;
+  Val x0, y0, x1, y1, context, id;
   Canvas *canvas;
-  Val types[5] = {NumType, NumType, NumType, NumType, IntType};
+  Val types[5] = {NumType, NumType, NumType, NumType, MapType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -453,9 +508,17 @@ static Result VMLine(u32 num_args, VM *vm)
   x1 = StackPop(vm);
   y0 = StackPop(vm);
   x0 = StackPop(vm);
-  id = StackPop(vm);
+  context = StackPop(vm);
+
+  if (MapGet(context, SymbolFor("type"), &vm->mem) != SymbolFor("Canvas")) {
+    return RuntimeError("Not a canvas", vm);
+  }
+  id = MapGet(context, SymbolFor("id"), &vm->mem);
+
   if ((u32)RawInt(id) >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
   canvas = vm->canvases.items[RawInt(id)];
+
+  canvas->color = ColorFrom(MapGet(context, SymbolFor("color"), &vm->mem), &vm->mem);
 
   DrawLine(RawNum(x0), RawNum(y0), RawNum(x1), RawNum(y1), canvas);
 
@@ -464,20 +527,37 @@ static Result VMLine(u32 num_args, VM *vm)
 
 static Result VMText(u32 num_args, VM *vm)
 {
-  Val x, y, id;
+  Val x, y, id, context, font;
   char *text;
+  char *fontname;
+  u32 font_size;
   Val binary;
   Canvas *canvas;
-  Val types[4] = {NumType, NumType, BinaryType, IntType};
+  Val types[4] = {NumType, NumType, BinaryType, MapType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
   y = StackPop(vm);
   x = StackPop(vm);
   binary = StackPop(vm);
-  id = StackPop(vm);
+  context = StackPop(vm);
+
+  if (MapGet(context, SymbolFor("type"), &vm->mem) != SymbolFor("Canvas")) {
+    return RuntimeError("Not a canvas", vm);
+  }
+  id = MapGet(context, SymbolFor("id"), &vm->mem);
+
   if ((u32)RawInt(id) >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
   canvas = vm->canvases.items[RawInt(id)];
+
+  canvas->color = ColorFrom(MapGet(context, SymbolFor("color"), &vm->mem), &vm->mem);
+  font = MapGet(context, SymbolFor("font"), &vm->mem);
+  fontname = CopyStr(BinaryData(font, &vm->mem), BinaryLength(font, &vm->mem));
+  font_size = RawInt(MapGet(context, SymbolFor("font-size"), &vm->mem));
+  if (canvas->font_size != font_size || !StrEq(canvas->font_filename, fontname)) {
+    SetFont(canvas, fontname, font_size);
+  }
+  Free(fontname);
 
   text = CopyStr(BinaryData(binary, &vm->mem), BinaryLength(binary, &vm->mem));
   DrawText(text, RawNum(x), RawNum(y), canvas);

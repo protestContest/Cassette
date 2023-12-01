@@ -1,5 +1,6 @@
 import List
 import Math
+import Map
 
 let width = 800,
     height = 480,

@@ -465,6 +465,7 @@ void DefineSymbols(SymbolTable *symbols)
 
   Sym("Canvas", symbols);
   Sym("new", symbols);
+  Sym("close", symbols);
   Sym("line", symbols);
   Sym("text", symbols);
 }
@@ -579,6 +580,7 @@ void GeneratePrimitives(void)
   printf("\n");
   printf("static PrimitiveDef canvas[] = {\n");
   printf("  {/* new */      0x%08X, &VMCanvas},\n", SymbolFor("new"));
+  printf("  {/* close */    0x%08X, &VMCloseCanvas},\n", SymbolFor("close"));
   printf("  {/* line */     0x%08X, &VMLine},\n", SymbolFor("line"));
   printf("  {/* text */     0x%08X, &VMText},\n", SymbolFor("text"));
   printf("};\n");

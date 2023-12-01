@@ -7,6 +7,9 @@
 #include "univ/math.h"
 #include "univ/system.h"
 
+#ifdef CANVAS
+#include "canvas/canvas.h"
+#endif
 #ifdef DEBUG
 #include "debug.h"
 #endif
@@ -29,10 +32,17 @@ void InitVM(VM *vm, Chunk *chunk)
 
 void DestroyVM(VM *vm)
 {
+  u32 i;
   vm->pc = 0;
   vm->chunk = 0;
   DestroyVec((Vec*)&vm->stack);
   DestroyMem(&vm->mem);
+#ifdef CANVAS
+  for (i = 0; i < vm->canvases.count; i++) {
+    FreeCanvas(vm->canvases.items[i]);
+  }
+#endif
+  DestroyVec((Vec*)&vm->canvases);
 }
 
 Result Run(VM *vm, u32 num_instructions)

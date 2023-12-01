@@ -16,9 +16,9 @@ CC = clang
 INCLUDE_FLAGS = -I$(SRC_DIR) -include base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
 
-# Uncomment these lines to enable Canvas support. Make sure SDL2 is installed
-# and that the paths below point to the correct locations. Also make sure the
-# font path is correct and the default font exists within that folder.
+# Comment these lines to disable Canvas support. Otherwise, make sure SDL2 is
+# installed and that the paths below point to the correct locations. Also make
+# sure the font path is correct and the default font exists within that folder.
 FONT_PATH = \"$(HOME)/Library/Fonts\"
 DEFAULT_FONT = \"BerkeleyMono-Regular.ttf\"
 DEFINES += -DCANVAS=1 -DFONT_PATH=$(FONT_PATH) -DDEFAULT_FONT=$(DEFAULT_FONT)

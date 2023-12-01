@@ -2,3 +2,4 @@ test.ct
 list.ct
 math.ct
 stream.ct
+map.ct

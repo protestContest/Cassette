@@ -20,6 +20,7 @@ typedef struct {
   TTF_Font *font;
   char *font_filename;
   u32 font_size;
+  u32 color;
 } SDLCanvas;
 
 void InitGraphics(void)
@@ -46,6 +47,7 @@ bool SetFont(Canvas *canvas, char *font_file, u32 size)
   font = TTF_OpenFont(new_filename, size);
   if (font) {
     if (canvas->font_filename) Free(canvas->font_filename);
+    if (canvas->font) TTF_CloseFont(canvas->font);
     canvas->font_filename = new_filename;
     canvas->font_size = size;
     canvas->font = font;
@@ -66,9 +68,20 @@ Canvas *MakeCanvas(u32 width, u32 height, char *title)
   if (!canvas->window) return 0;
   canvas->surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA8888);
   canvas->font_filename = 0;
+  canvas->font = 0;
   SetFont((Canvas*)canvas, DEFAULT_FONT, 16);
+  canvas->color = BLACK;
   ClearCanvas((Canvas*)canvas);
   return (Canvas*)canvas;
+}
+
+void FreeCanvas(Canvas *canvas)
+{
+  if (canvas->font_filename) Free(canvas->font_filename);
+  if (canvas->font) TTF_CloseFont(canvas->font);
+  SDL_FreeSurface(canvas->surface);
+  SDL_DestroyWindow(canvas->window);
+  free(canvas);
 }
 
 void UpdateCanvas(Canvas *canvas)
@@ -81,10 +94,14 @@ void UpdateCanvas(Canvas *canvas)
 void DrawText(char *text, i32 x, i32 y, Canvas *canvas)
 {
   SDL_Surface *screen = ((SDL_Surface*)canvas->surface);
-  SDL_Color color = {0, 0, 0, 255};
+  SDL_Color color;
   SDL_Rect position;
   SDL_Surface *surface;
   if (!canvas->font) return;
+  color.r = Red(canvas->color);
+  color.g = Green(canvas->color);
+  color.b = Blue(canvas->color);
+  color.a = 0xFF;
   surface = TTF_RenderUTF8_Blended(canvas->font, text, color);
   position.x = x;
   position.y = screen->h - y - 1 - TTF_FontAscent(canvas->font);
@@ -106,7 +123,7 @@ void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas)
   SDL_LockSurface(canvas->surface);
 
   while (true) {
-    WritePixel(x, y, BLACK, canvas);
+    WritePixel(x, y, canvas->color, canvas);
     if (x == x1 && y == y1) break;
     e2 = 2*error;
     if (e2 >= -dy) {

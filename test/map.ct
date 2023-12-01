@@ -1,0 +1,4 @@
+module Map
+
+def (get map key) (mget map key)
+def (set map key value) (mset map key value)
