@@ -4,22 +4,25 @@ Cassette is a small, Lisp-like programming language. It is a [home-cooked meal](
 
 ```cassette
 import List
+import Math
 
 let width = 800,
     height = 480,
     canvas = Canvas.new width height
 
-Canvas.text "Lines!" 200 0 canvas
+Canvas.text canvas "Lines!" 200.1 0
 
-def (rand_line i) do
-  let x0 = i * 70 + 100,
-      y0 = Math.random height,
-      x1 = Math.random width,
-      y1 = Math.random height
-  Canvas.line x0 y0 x1 y1 canvas
+Sys.seed (Sys.ticks)
+
+def (rand-line i) do
+  let x0 = Math.floor i * width / 100,
+      y0 = Math.rand-int 20 height / 10,
+      x1 = Math.rand-int 0 width,
+      y1 = Math.rand-int 20 height
+  Canvas.line canvas x0 y0 x1 y1
 end
 
-List.map (List.range 0 100) (i) -> (rand_line i)
+List.map (List.range 0 100) \i -> (rand-line i)
 ```
 
 <aside>

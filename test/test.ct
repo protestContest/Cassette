@@ -1,6 +1,5 @@
 import List
 import Math
-import Stream
 
 let width = 800,
     height = 480,
