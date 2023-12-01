@@ -429,6 +429,24 @@ Val MapMerge(Val map1, Val map2, Mem *mem)
   return map1;
 }
 
+Val MapKeys(Val map, Val keys, Mem *mem)
+{
+  Val header = VecRef(mem, RawVal(map));
+  u32 num_children = NodeCount(header);
+  u32 i;
+
+  for (i = 0; i < num_children; i++) {
+    Val node = NodeRef(map, i, mem);
+    if (IsPair(node)) {
+      keys = Pair(Head(node, mem), keys, mem);
+    } else {
+      keys = MapKeys(node, keys, mem);
+    }
+  }
+
+  return keys;
+}
+
 static bool MapIsSubset(Val v1, Val v2, Mem *mem)
 {
   Val header = VecRef(mem, RawVal(v1));
@@ -494,10 +512,6 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
 {
   u32 i;
   Mem new_mem;
-
-#ifdef DEBUG
-  printf("GARBAGE DAY!!!\n");
-#endif
 
   InitMem(&new_mem, mem->capacity);
 

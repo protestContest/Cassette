@@ -301,6 +301,7 @@ static Result ParseDef(Parser *p)
   }
   params = ReverseList(params, Nil, p->mem);
 
+  SkipNewlines(&p->lex);
   result = ParseExpr(PrecExpr, p);
   if (!result.ok) return result;
   body = result.value;
@@ -556,7 +557,13 @@ static Result ParseList(Parser *p)
 static Result ParseBraces(Parser *p)
 {
   Lexer saved = p->lex;
+  u32 pos = p->lex.token.lexeme - p->lex.source;
   Assert(MatchToken(TokenLBrace, &p->lex));
+
+  if (MatchToken(TokenColon, &p->lex) && MatchToken(TokenRBrace, &p->lex)) {
+    return ParseOk(MakeNode(SymRBrace, pos, Nil, p->mem));
+  }
+
   SkipNewlines(&p->lex);
   if (MatchToken(TokenID, &p->lex)) {
     SkipNewlines(&p->lex);

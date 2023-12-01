@@ -14,6 +14,7 @@ static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
 static Result VMMapGet(u32 num_args, VM *vm);
 static Result VMMapSet(u32 num_args, VM *vm);
+static Result VMMapKeys(u32 num_args, VM *vm);
 static Result VMTrunc(u32 num_args, VM *vm);
 static Result VMPrint(u32 num_args, VM *vm);
 static Result VMInspect(u32 num_args, VM *vm);
@@ -33,6 +34,7 @@ static PrimitiveDef kernel[] = {
   {/* tail */     0x7FD1655A, &VMTail},
   {/* mget */     0x7FDD69EF, &VMMapGet},
   {/* mset */     0x7FD53047, &VMMapSet},
+  {/* mkeys */    0x7FD459E9, &VMMapKeys},
   {/* trunc */    0x7FD36865, &VMTrunc},
 };
 
@@ -134,7 +136,7 @@ static Result VMTail(u32 num_args, VM *vm)
 static Result VMMapGet(u32 num_args, VM *vm)
 {
   Val key, map;
-  Val types[2] = {MapType, Nil};
+  Val types[2] = {Nil, MapType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -146,7 +148,7 @@ static Result VMMapGet(u32 num_args, VM *vm)
 static Result VMMapSet(u32 num_args, VM *vm)
 {
   Val key, value, map;
-  Val types[3] = {MapType, Nil, Nil};
+  Val types[3] = {Nil, Nil, MapType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -154,6 +156,17 @@ static Result VMMapSet(u32 num_args, VM *vm)
   key = StackPop(vm);
   map = StackPop(vm);
   return OkResult(MapSet(map, key, value, &vm->mem));
+}
+
+static Result VMMapKeys(u32 num_args, VM *vm)
+{
+  Val map;
+  Val types[1] = {MapType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  map = StackPop(vm);
+  return OkResult(MapKeys(map, Nil, &vm->mem));
 }
 
 static Result VMTrunc(u32 num_args, VM *vm)

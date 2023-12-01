@@ -435,6 +435,7 @@ void DefineSymbols(SymbolTable *symbols)
   Sym("tail", symbols);
   Sym("mget", symbols);
   Sym("mset", symbols);
+  Sym("mkeys", symbols);
   Sym("trunc", symbols);
 
   Sym("IO", symbols);
@@ -545,6 +546,7 @@ void GeneratePrimitives(void)
   printf("  {/* tail */     0x%08X, &VMTail},\n", SymbolFor("tail"));
   printf("  {/* mget */     0x%08X, &VMMapGet},\n", SymbolFor("mget"));
   printf("  {/* mset */     0x%08X, &VMMapSet},\n", SymbolFor("mset"));
+  printf("  {/* mkeys */    0x%08X, &VMMapKeys},\n", SymbolFor("mkeys"));
   printf("  {/* trunc */    0x%08X, &VMTrunc},\n", SymbolFor("trunc"));
   printf("};\n");
   printf("\n");

@@ -113,6 +113,7 @@ bool MapContains(Val map, Val key, Mem *mem);
 Val MapSet(Val map, Val key, Val value, Mem *mem);
 Val MapGet(Val map, Val key, Mem *mem);
 Val MapMerge(Val map1, Val map2, Mem *mem);
+Val MapKeys(Val map, Val keys, Mem *mem);
 
 bool ValEqual(Val v1, Val v2, Mem *mem);
 

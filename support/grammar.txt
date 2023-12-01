@@ -50,7 +50,7 @@ list            → "[" list_tail
 list_tail       → "]" | call "]" | call "," list_tail
 tuple           → "{" tuple_tail
 tuple_tail      → "}" | call "}" | call "," tuple_tail
-map             → "{" entries "}"
+map             → "{" entries "}" | "{" ":" "}"
 entries         → entry | entry "," entries
 entry           → ID ":" call
 
