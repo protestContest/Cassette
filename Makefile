@@ -25,7 +25,7 @@ DEFINES += -DCANVAS=1 -DFONT_PATH=$(FONT_PATH) -DDEFAULT_FONT=$(DEFAULT_FONT)
 INCLUDE_FLAGS += -I/opt/homebrew/include/SDL2
 LDFLAGS += -L/opt/homebrew/lib -lSDL2 -lSDL2_ttf
 
-CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFINES)
+CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFINES) -fsanitize=address
 
 $(TARGET): $(OBJS)
 	@echo $<
