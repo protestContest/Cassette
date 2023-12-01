@@ -581,6 +581,7 @@ void GeneratePrimitives(void)
   printf("static PrimitiveDef canvas[] = {\n");
   printf("  {/* new */      0x%08X, &VMCanvas},\n", SymbolFor("new"));
   printf("  {/* close */    0x%08X, &VMCloseCanvas},\n", SymbolFor("close"));
+  printf("  {/* clear */    0x%08X, &VMClearCanvas},\n", SymbolFor("clear"));
   printf("  {/* line */     0x%08X, &VMLine},\n", SymbolFor("line"));
   printf("  {/* text */     0x%08X, &VMText},\n", SymbolFor("text"));
   printf("};\n");

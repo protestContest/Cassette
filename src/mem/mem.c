@@ -252,8 +252,8 @@ static Val MakeMapNode(u32 header, Mem *mem)
   Val map = ObjVal(mem->count);
   u32 num_children = NodeCount(header);
 
-  if (CapacityLeft(mem) < num_children+1) ResizeMem(mem, Max(2*mem->capacity, mem->count+num_children+1));
-  Assert(CapacityLeft(mem) >= num_children + 1);
+  if (CapacityLeft(mem) < Max(2, num_children+1)) ResizeMem(mem, Max(2*mem->capacity, mem->count+num_children+1));
+  Assert(CapacityLeft(mem) >= Max(2, num_children + 1));
 
   PushMem(mem, header);
   if (num_children == 0) {

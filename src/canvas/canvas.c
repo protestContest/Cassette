@@ -71,7 +71,7 @@ Canvas *MakeCanvas(u32 width, u32 height, char *title)
   canvas->font = 0;
   SetFont((Canvas*)canvas, DEFAULT_FONT, 16);
   canvas->color = BLACK;
-  ClearCanvas((Canvas*)canvas);
+  ClearCanvas((Canvas*)canvas, WHITE);
   return (Canvas*)canvas;
 }
 
@@ -153,13 +153,13 @@ void WritePixel(i32 x, i32 y, u32 value, Canvas *canvas)
   pixels[(height - y - 1) * pitch + x] = value;
 }
 
-void ClearCanvas(Canvas *canvas)
+void ClearCanvas(Canvas *canvas, u32 color)
 {
   SDL_Rect rect = {0};
   rect.w = ((SDL_Surface*)canvas->surface)->w;
   rect.h = ((SDL_Surface*)canvas->surface)->h;
   SDL_LockSurface(canvas->surface);
-  SDL_FillRect(canvas->surface, &rect, WHITE);
+  SDL_FillRect(canvas->surface, &rect, color);
   SDL_UnlockSurface(canvas->surface);
   UpdateCanvas(canvas);
 }

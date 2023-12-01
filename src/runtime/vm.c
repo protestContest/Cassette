@@ -493,6 +493,8 @@ static Result RunInstruction(VM *vm)
       StackPush(vm, result.value);
     } else {
       /* not a function, just return */
+      Val num_args = ChunkConst(vm->chunk, vm->pc+1);
+      if (RawInt(num_args) != 0) return RuntimeError("Tried to call a non-function", vm);
       if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
       vm->pc = RawInt(StackRef(vm, 1));
       Env(vm) = StackRef(vm, 2);

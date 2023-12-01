@@ -27,7 +27,7 @@ void FreeCanvas(Canvas *canvas);
 void UpdateCanvas(Canvas *canvas);
 void DrawText(char *text, i32 x, i32 y, Canvas *canvas);
 void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas);
-void ClearCanvas(Canvas *canvas);
+void ClearCanvas(Canvas *canvas, u32 color);
 void WritePixel(i32 x, i32 y, u32 value, Canvas *canvas);
 void MainLoop(UpdateFn update, void *arg);
 

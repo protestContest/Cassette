@@ -27,6 +27,7 @@ static Result VMSeed(u32 num_args, VM *vm);
 static Result VMRandom(u32 num_args, VM *vm);
 static Result VMCanvas(u32 num_args, VM *vm);
 static Result VMCloseCanvas(u32 num_args, VM *vm);
+static Result VMClearCanvas(u32 num_args, VM *vm);
 static Result VMLine(u32 num_args, VM *vm);
 static Result VMText(u32 num_args, VM *vm);
 
@@ -57,6 +58,7 @@ static PrimitiveDef sys[] = {
 static PrimitiveDef canvas[] = {
   {/* new */      0x7FDEA6DA, &VMCanvas},
   {/* close */    0x7FDF88C9, &VMCloseCanvas},
+  {/* clear */    0x7FD7153E, &VMClearCanvas},
   {/* line */     0x7FD0B46A, &VMLine},
   {/* text */     0x7FD2824B, &VMText},
 };
@@ -492,6 +494,39 @@ static Result VMCloseCanvas(u32 num_args, VM *vm)
   canvas = vm->canvases.items[RawInt(id)];
 
   FreeCanvas(canvas);
+
+  return OkResult(Ok);
+}
+
+static Result VMClearCanvas(u32 num_args, VM *vm)
+{
+  Val context, id;
+  u32 color;
+  Canvas *canvas;
+
+  if (num_args == 2) {
+    Val types[2] = {TupleType, MapType};
+    Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+    if (!result.ok) return result;
+    color = ColorFrom(StackPop(vm), &vm->mem);
+  } else {
+    Val types[1] = {MapType};
+    Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+    if (!result.ok) return result;
+    color = WHITE;
+  }
+
+  context = StackPop(vm);
+
+  if (MapGet(context, SymbolFor("type"), &vm->mem) != SymbolFor("Canvas")) {
+    return RuntimeError("Not a canvas", vm);
+  }
+  id = MapGet(context, SymbolFor("id"), &vm->mem);
+
+  if ((u32)RawInt(id) >= vm->canvases.count) return RuntimeError("Undefined canvas", vm);
+  canvas = vm->canvases.items[RawInt(id)];
+
+  ClearCanvas(canvas, color);
 
   return OkResult(Ok);
 }
