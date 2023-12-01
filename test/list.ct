@@ -1,5 +1,14 @@
 module List
 
+; returns a list length n filled with item
+def (repeat item n)
+  if n > 0 do
+    item | (repeat item n - 1)
+  else
+    nil
+  end
+
+; returns a list of integers from [min, max)
 def (range min max) do
   def (loop n list) do
     if n < min do
@@ -12,28 +21,166 @@ def (range min max) do
   loop max - 1 nil
 end
 
-def (reduce list acc fn) do
+; reduces a list (fold-left) with a function \item acc -> new_acc
+def (reduce list acc fn)
   if list == nil do
     acc
   else
     reduce (tail list) (fn (head list) acc) fn
   end
-end
 
-def (reverse list) do
-  reduce list nil \item reversed -> item | reversed
-end
+; reverses a list
+def (reverse list) (reduce list nil \item reversed -> item | reversed)
 
+; maps each element of a list with a function \item -> new_item
 def (map list fn) do
-  reverse (reduce list nil \item acc -> (fn item) | acc)
+  let result = (reduce list nil \item acc -> (fn item) | acc)
+  reverse result
 end
 
+; filters items out of a list where a function \item -> result returns a falsey value
 def (filter list fn) do
-  reverse (reduce list nil \item acc -> do
-      if (fn item) do
-        item | acc
+  let result = reduce list nil \item acc ->
+        if (fn item) do item | acc else acc end
+  reverse result
+end
+
+; opposite of filter, keeping items that fail a predicate function
+def (reject list fn) do
+  let result = reduce list nil \item acc ->
+        if not (fn item) do item | acc else acc end
+  reverse result
+end
+
+; combines a list of lists into one list
+def (flatten list) (reduce list nil \item acc -> item <> acc)
+
+; given a map function that produces lists, this maps and flattens
+def (flatmap list fn) (flatten (map list fn))
+
+; returns true if any element passes a predicate function
+def (any? list fn)
+  cond do
+    list == nil -> false
+    (fn (head list)) -> true
+    true -> any? (tail list) fn
+  end
+
+; returns true if all elements pass a predicate function
+def (all? list fn)
+  cond do
+    list == nil -> true
+    not (fn (head list)) -> false
+    true -> all? (tail list) fn
+  end
+
+; returns the first n items of a list
+def (take list n) do
+  def (loop list n acc)
+    if list != nil and n > 0 do
+      loop (tail list) n - 1 (head list) | acc
+    else
+      reverse acc
+    end
+
+  loop list n nil
+end
+
+; returns a list without the first n items
+def (drop list n)
+  cond do
+    list == nil -> nil
+    n > 0 -> drop (tail list) n - 1
+    true -> list
+  end
+
+; returns the index of an item in a list, or nil
+def (index-of list item) do
+  def (loop list index)
+    cond do
+      list == nil -> nil
+      (head list) == item -> index
+      true -> loop (tail list) index + 1
+    end
+
+  loop list 0
+end
+
+; returns the first item in a list that passes a predicate function, or nil
+def (find list fn)
+  cond do
+    list == nil -> nil
+    (fn (head list)) -> head list
+    true -> find (tail list) fn
+  end
+
+; converts a list of key/value pairs to a map
+def (to-map list) do
+  reduce list {:} \item map ->
+      if (typeof item) == :pair do
+        mset map (head item) (tail item)
       else
-        acc
+        mset map item nil
       end
-    end)
+end
+
+; converts a list to a stream
+def (stream list)
+  if list == nil do
+    nil
+  else
+    (head list) | \-> (stream (tail list))
+  end
+
+; returns a pair whose head is a list of items that pass a predicate,
+; and whose tail is a list of items that fail
+def (split list fn) do
+  let results =
+    reduce list nil \item results -> do
+      let trues = head results,
+          falses = tail results
+      if (fn item) do
+        (item | trues) | falses
+      else
+        trues | (item | falses)
+      end
+    end
+
+  (reverse (head results)) | (reverse (tail results))
+end
+
+; returns a list of (item | index) pairs
+def (with-index list) do
+  let result = reduce list nil \item acc ->
+      (item | #acc) | acc
+
+  reverse result
+end
+
+; combines two lists into a list of pairs from each list
+def (zip heads tails) do
+  def (loop heads tails acc)
+    cond do
+      heads == nil -> acc
+      tails == nil -> acc
+      true -> loop (tail heads) (tail tails) ((head heads) | (head tails)) | acc
+    end
+
+  reverse (loop heads tails nil)
+end
+
+; given a list of pairs, returns a list of heads from each pair and a list of
+; tails from each pair
+def (unzip list) do
+  let result =
+      reduce list nil \item acc -> do
+        let heads = head acc, tails = tail acc
+        if (typeof item) != :pair do
+          acc
+        else
+          ((head item) | heads) | ((tail item) | tails)
+        end
+      end
+
+  (reverse (head result)) | (reverse (tail result))
 end

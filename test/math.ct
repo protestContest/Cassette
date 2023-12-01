@@ -24,3 +24,21 @@ def (sqrt n) do
 
   loop 1.0
 end
+
+def (expt base power) do
+  def (loop n product) do
+    if n == power do
+      product
+    else
+      loop n + 1 base * product
+    end
+  end
+
+  if power < 0 do
+    1 / (loop -power)
+  else
+    loop 0 1
+  end
+end
+
+def (exp n) (expt E n)

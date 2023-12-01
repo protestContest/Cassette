@@ -1,0 +1,114 @@
+module Stream
+
+def (repeat item) item | \-> (repeat item)
+
+def (range min max)
+  if min > max do
+    nil
+  else
+    min | \-> (range min + 1 max)
+  end
+
+def (cycle list) do
+  def (next rest)
+    if rest == nil do
+      (cycle list)
+    else
+      (head rest) | \-> (next (tail rest))
+    end
+
+  (head list) | \-> (next (tail list))
+end
+
+def (reduce stream acc fn)
+  if stream == nil do
+    acc
+  else
+    reduce ((tail stream)) (fn (head stream)) fn
+  end
+
+def (run stream)
+  if stream == nil do
+    nil
+  else
+    run ((tail stream))
+  end
+
+def (concat s1 s2)
+  if s1 == nil do
+    s2
+  else
+    (head s1) | \-> (concat ((tail s1)) s2)
+  end
+
+def (interleave s1 s2)
+  if s1 == nil do
+    s2
+  else
+    (head s1) | \-> (interleave s2 ((tail s1)))
+  end
+
+def (map stream fn)
+  if stream == nil do
+    nil
+  else
+    (fn (head stream)) | \-> (map ((tail stream)) fn)
+  end
+
+def (filter stream fn)
+  cond do
+    stream == nil -> nil
+    (fn (head stream)) -> (head stream) | \-> (filter ((tail stream)) fn)
+    true -> filter ((tail stream)) fn
+  end
+
+def (reject stream fn)
+  cond do
+    stream == nil -> nil
+    not (fn (head stream)) -> (head stream) | \-> (reject ((tail stream)) fn)
+    true -> reject ((tail stream)) fn
+  end
+
+def (flatten stream) do
+  def (interleave-delayed s1 s2) do
+    if s1 == nil do
+      (s2)
+    else
+      (head s1) | \-> (interleave-delayed (s2) \-> ((tail s1)))
+    end
+  end
+
+  if stream == nil do
+    nil
+  else
+    interleave-delayed (head stream) \-> (flatten ((tail stream)))
+  end
+end
+
+def (flatmap stream fn) (flatten (map stream fn))
+
+def (take stream n)
+  cond do
+    stream == nil -> nil
+    n > 0 -> (head stream) | \-> (take ((tail stream)) n - 1)
+    true -> nil
+  end
+
+def (drop stream n)
+  cond do
+    stream == nil -> nil
+    n > 0 -> drop ((tail stream)) n - 1
+    true -> stream
+  end
+
+def (drop-while stream fn)
+  cond do
+    stream == nil -> nil
+    (fn (head stream)) -> drop-while ((tail stream)) fn
+    true -> stream
+  end
+
+def (with-index list) nil
+
+
+def (zip heads tails) nil

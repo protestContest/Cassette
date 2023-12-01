@@ -1,23 +1,25 @@
+import List
+import Math
+import Stream
 
+; let width = 800,
+;     height = 480,
+;     canvas = Canvas.new width height
 
-def (integers-from n) do
-  n | \ -> (integers-from n + 1)
-end
+; Canvas.text canvas "Lines!" 200.1 0
 
-let ints = (integers-from 10)
+; Sys.seed (Sys.ticks)
 
-def (nth-stream s n) do
-  if n == 0 do
-    head s
-  else
-    nth-stream ((tail s)) n - 1
-  end
-end
+; def (rand-line i) do
+;   let x0 = Math.floor i * width / 100,
+;       y0 = Math.rand-int 20 height / 10,
+;       x1 = Math.rand-int 0 width,
+;       y1 = Math.rand-int 20 height
+;   Canvas.line canvas x0 y0 x1 y1
+; end
 
-IO.inspect (head ints)
-IO.inspect (nth-stream ints 52)
+; List.map (List.range 0 100) \i -> (rand-line i)
 
-cond do
-  ints == nil -> :ok
-  true        -> :also_ok
-end
+let s = Stream.cycle [1, 2, 3, 4]
+
+Stream.run (Stream.map (Stream.drop (Stream.take s 30) 27) \item -> (IO.inspect item))
