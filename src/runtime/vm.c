@@ -444,10 +444,14 @@ static Result RunInstruction(VM *vm)
   case OpApply:
     if (IsPair(StackRef(vm, 0)) && Head(StackRef(vm, 0), &vm->mem) == Function) {
       /* normal function */
+      Val function = StackPop(vm);
       Val num_args = ChunkConst(vm->chunk, vm->pc+1);
-      vm->pc = RawInt(Head(Tail(StackRef(vm, 0), &vm->mem), &vm->mem));
-      Env(vm) = Tail(Tail(StackRef(vm, 0), &vm->mem), &vm->mem);
-      StackRef(vm, 0) = num_args;
+      Val arity = ListGet(function, 1, &vm->mem);
+      if (arity != Nil && RawInt(num_args) != RawInt(arity)) {
+        return RuntimeError("Wrong number of arguments", vm);
+      }
+      vm->pc = RawInt(ListGet(function, 2, &vm->mem));
+      Env(vm) = Tail(Tail(Tail(function, &vm->mem), &vm->mem), &vm->mem);
     } else if (IsPair(StackRef(vm, 0)) && Head(StackRef(vm, 0), &vm->mem) == Primitive) {
       /* apply primitive */
       Val num_args, prim;

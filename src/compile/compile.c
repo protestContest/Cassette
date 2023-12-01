@@ -144,7 +144,7 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   Result result;
   Val imports = ModuleImports(module, c->mem);
   u32 num_assigns = ListLength(ModuleExports(module, c->mem), c->mem);
-  u32 jump;
+  u32 jump, link;
 
   /* copy filename symbol to chunk */
   c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
@@ -155,17 +155,18 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
 
   /* create lambda for module */
-  PushByte(OpLink, c->pos, c->chunk);
-  PushConst(IntVal(8), c->pos, c->chunk);
+  link = PushByte(OpLink, c->pos, c->chunk);
+  PushConst(0, c->pos, c->chunk);
+  PushByte(OpPair, c->pos, c->chunk);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(0), c->pos, c->chunk);
   PushByte(OpPair, c->pos, c->chunk);
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(Function, c->pos, c->chunk);
   PushByte(OpPair, c->pos, c->chunk);
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
-
-  /* discard arity from apply */
-  PushByte(OpPop, c->pos, c->chunk);
+  PatchJump(c->chunk, link);
 
   /* compile imports */
   if (imports != Nil) {
@@ -245,6 +246,7 @@ static Result CompileImports(Val imports, Compiler *c)
     Val import_mod;
     Val imported_vals;
     i32 import_def;
+    u32 link;
 
     c->pos = NodePos(node, c->mem);
 
@@ -257,12 +259,14 @@ static Result CompileImports(Val imports, Compiler *c)
     if (import_def < 0) return CompileError("Undefined module", c);
 
     /* call module function */
-    PushByte(OpLink, c->pos, c->chunk);
-    PushConst(IntVal(6), c->pos, c->chunk);
+    PushByte(OpNoop, c->pos, c->chunk);
+    link = PushByte(OpLink, c->pos, c->chunk);
+    PushConst(0, c->pos, c->chunk);
     PushByte(OpLookup, c->pos, c->chunk);
     PushConst(IntVal(import_def), c->pos, c->chunk);
     PushByte(OpApply, c->pos, c->chunk);
     PushConst(IntVal(0), c->pos, c->chunk);
+    PatchJump(c->chunk, link);
 
     if (alias == Nil) {
       /* import directly into module namespace */
@@ -496,34 +500,26 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   Val params = Head(expr, c->mem);
   Val body = Tail(expr, c->mem);
   Result result;
-  u32 jump, branch, i;
+  u32 jump, link, i;
   u32 num_params = ListLength(params, c->mem);
 
   /* create lambda */
-  PushByte(OpLink, c->pos, c->chunk);
-  PushConst(IntVal(8), c->pos, c->chunk);
+  link = PushByte(OpLink, c->pos, c->chunk);
+  PushConst(0, c->pos, c->chunk);
+  PushByte(OpPair, c->pos, c->chunk);
+  PushByte(OpConst, c->pos, c->chunk);
+  PushConst(IntVal(num_params), c->pos, c->chunk);
   PushByte(OpPair, c->pos, c->chunk);
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(Function, c->pos, c->chunk);
   PushByte(OpPair, c->pos, c->chunk);
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
-
-  /* arity check */
-  PushByte(OpDup, c->pos, c->chunk);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(IntVal(num_params), c->pos, c->chunk);
-  PushByte(OpEq, c->pos, c->chunk);
-  branch = PushByte(OpBranch, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
-  PushByte(OpPop, c->pos, c->chunk);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(Error, c->pos, c->chunk);
-  PushByte(OpError, c->pos, c->chunk);
-  PatchJump(c->chunk, branch);
-  PushByte(OpPop, c->pos, c->chunk);
+  PatchJump(c->chunk, link);
 
   if (num_params > 0) {
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(num_params), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
 
@@ -535,8 +531,6 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
       PushConst(IntVal(num_params - i - 1), c->pos, c->chunk);
       params = Tail(params, c->mem);
     }
-  } else {
-    PushByte(OpPop, c->pos, c->chunk);
   }
 
   result = CompileExpr(body, LinkReturn, c);
