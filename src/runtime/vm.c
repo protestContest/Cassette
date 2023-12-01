@@ -294,6 +294,16 @@ static Result RunInstruction(VM *vm)
     vm->pc += OpLength(op);
     break;
   }
+  case OpUnpair: {
+    Val pair;
+    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
+    if (!IsPair(StackRef(vm, 0))) return RuntimeError("Unpair only works on pairs", vm);
+    pair = StackPop(vm);
+    StackPush(vm, Tail(pair, &vm->mem));
+    StackPush(vm, Head(pair, &vm->mem));
+    vm->pc += OpLength(op);
+    break;
+  }
   case OpPair:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);

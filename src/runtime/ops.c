@@ -26,6 +26,7 @@ static u8 op_lengths[] = {
   [OpEq]      = 1,
   [OpStr]     = 1,
   [OpPair]    = 1,
+  [OpUnpair]  = 1,
   [OpTuple]   = 1,
   [OpMap]     = 1,
   [OpSet]     = 1,

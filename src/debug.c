@@ -165,6 +165,7 @@ static char *op_names[] = {
   [OpEq]      = "eq",
   [OpStr]     = "str",
   [OpPair]    = "pair",
+  [OpUnpair]  = "unpair",
   [OpTuple]   = "tuple",
   [OpMap]     = "map",
   [OpSet]     = "set",

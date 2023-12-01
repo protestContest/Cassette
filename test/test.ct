@@ -2,24 +2,20 @@ import List
 import Math
 import Stream
 
-; let width = 800,
-;     height = 480,
-;     canvas = Canvas.new width height
+let width = 800,
+    height = 480,
+    canvas = Canvas.new width height
 
-; Canvas.text canvas "Lines!" 200.1 0
+Canvas.text canvas "Lines!" 200.1 0
 
-; Sys.seed (Sys.ticks)
+Sys.seed (Sys.ticks)
 
-; def (rand-line i) do
-;   let x0 = Math.floor i * width / 100,
-;       y0 = Math.rand-int 20 height / 10,
-;       x1 = Math.rand-int 0 width,
-;       y1 = Math.rand-int 20 height
-;   Canvas.line canvas x0 y0 x1 y1
-; end
+def (rand-line i) do
+  let x0 = Math.floor i * width / 100,
+      y0 = Math.rand-int 20 height / 10,
+      x1 = Math.rand-int 0 width,
+      y1 = Math.rand-int 20 height
+  Canvas.line canvas x0 y0 x1 y1
+end
 
-; List.map (List.range 0 100) \i -> (rand-line i)
-
-let s = Stream.cycle [1, 2, 3, 4]
-
-Stream.run (Stream.map (Stream.drop (Stream.take s 30) 27) \item -> (IO.inspect item))
+List.map (List.range 0 100) \i -> (rand-line i)

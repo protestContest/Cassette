@@ -64,7 +64,7 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
   for (mod = 0; mod < num_primitives; mod++) {
     u32 fn;
 
-    /* create tuple for module */
+    /* create tuples for module */
     PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
@@ -88,6 +88,20 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
       PushConst(IntVal(fn), c->pos, c->chunk);
       PushByte(OpSet, c->pos, c->chunk);
     }
+
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+
+    for (fn = 0; fn < primitives[mod].num_fns; fn++) {
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(primitives[mod].fns[fn].name, c->pos, c->chunk);
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(IntVal(fn), c->pos, c->chunk);
+      PushByte(OpSet, c->pos, c->chunk);
+    }
+
+    PushByte(OpPair, c->pos, c->chunk);
 
     /* define primitive module */
     PushByte(OpDefine, c->pos, c->chunk);
@@ -148,7 +162,8 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
 {
   Result result;
   Val imports = ModuleImports(module, c->mem);
-  u32 num_assigns = ListLength(ModuleExports(module, c->mem), c->mem);
+  Val exports = ModuleExports(module, c->mem);
+  u32 num_assigns = ListLength(exports, c->mem);
   u32 jump, link;
 
   /* copy filename symbol to chunk */
@@ -205,12 +220,35 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
 
   /* export assigned values */
   if (num_assigns > 0) {
+    u32 i = 0;
     PushByte(OpExport, c->pos, c->chunk);
+
+    /* build tuple of keys */
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(num_assigns), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+
+    while (exports != Nil) {
+      Val export = Head(exports, c->mem);
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(export, c->pos, c->chunk);
+      PushByte(OpConst, c->pos, c->chunk);
+      PushConst(IntVal(i), c->pos, c->chunk);
+      PushByte(OpSet, c->pos, c->chunk);
+      exports = Tail(exports, c->mem);
+      i++;
+    }
+    PushByte(OpPair, c->pos, c->chunk);
     c->env = Tail(c->env, c->mem);
   } else {
+    /* empty map */
     PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(0), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
+    PushByte(OpConst, c->pos, c->chunk);
+    PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpTuple, c->pos, c->chunk);
+    PushByte(OpPair, c->pos, c->chunk);
   }
   /* copy exports to redefine module */
   PushByte(OpDup, c->pos, c->chunk);
@@ -222,7 +260,7 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
     c->env = Tail(c->env, c->mem);
   }
 
-  /* redefine module as exported frame */
+  /* redefine module as exported value */
   PushByte(OpDefine, c->pos, c->chunk);
   PushConst(IntVal(mod_num), c->pos, c->chunk);
 
@@ -277,6 +315,10 @@ static Result CompileImports(Val imports, Compiler *c)
       /* import directly into module namespace */
       /* define each exported value */
       u32 i = 0;
+
+      PushByte(OpUnpair, c->pos, c->chunk);
+      PushByte(OpPop, c->pos, c->chunk);
+
       while (imported_vals != Nil) {
         Val imported_val = Head(imported_vals, c->mem);
 
@@ -297,31 +339,9 @@ static Result CompileImports(Val imports, Compiler *c)
       num_imported += i;
     } else {
       /* import into a map */
-      u32 i = 0;
-
-      /* create tuple for keys */
-      PushByte(OpDup, c->pos, c->chunk);
-      PushByte(OpLen, c->pos, c->chunk);
-      PushByte(OpTuple, c->pos, c->chunk);
-
-      while (imported_vals != Nil) {
-        Val imported_val = Head(imported_vals, c->mem);
-
-        /* push import name as key */
-        PushByte(OpConst, c->pos, c->chunk);
-        PushConst(imported_val, c->pos, c->chunk);
-        PushByte(OpConst, c->pos, c->chunk);
-        PushConst(IntVal(i), c->pos, c->chunk);
-        PushByte(OpSet, c->pos, c->chunk);
-
-        imported_vals = Tail(imported_vals, c->mem);
-        i++;
-      }
-
-      /* create map from keys/values tuple */
+      PushByte(OpUnpair, c->pos, c->chunk);
       PushByte(OpMap, c->pos, c->chunk);
 
-      /* define the map */
       PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_imported), c->pos, c->chunk);
       Define(alias, num_imported, c->env, c->mem);
