@@ -10,6 +10,7 @@ typedef struct {
   Mem mem;
   Chunk *chunk;
   ObjVec canvases;
+  bool trace;
 } VM;
 
 #define StackPush(vm, v)    IntVecPush(&(vm)->stack, v)

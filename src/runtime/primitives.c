@@ -244,7 +244,11 @@ static void InspectPrint(Val value, u32 depth, Mem *mem, SymbolTable *symbols)
     printf(":%s", SymbolName(value, symbols));
   } else if (IsPair(value)) {
     printf("[");
-    PrintTail(value, depth, mem, symbols);
+    if (Head(value, mem) == Function) {
+      PrintTail(value, 1, mem, symbols);
+    } else {
+      PrintTail(value, depth, mem, symbols);
+    }
   } else if (IsTuple(value, mem)) {
     u32 i;
     if (depth > 0) {

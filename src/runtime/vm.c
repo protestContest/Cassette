@@ -18,6 +18,7 @@ void InitVM(VM *vm, Chunk *chunk)
 {
   vm->pc = 0;
   vm->chunk = chunk;
+  vm->trace = false;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
   InitMem(&vm->mem, 1024);
   InitVec((Vec*)&vm->canvases, sizeof(void*), 8);
@@ -55,7 +56,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
   vm->chunk = chunk;
 
 #ifdef DEBUG
-  PrintTraceHeader();
+  if (vm->trace) PrintTraceHeader();
 #endif
 
   while (vm->pc < chunk->code.count && result.ok) {
@@ -63,7 +64,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
   }
 
 #ifdef DEBUG
-    TraceInstruction(OpHalt, vm);
+  if (vm->trace) TraceInstruction(OpHalt, vm);
 #endif
 
   return result;
@@ -74,7 +75,7 @@ static Result RunInstruction(VM *vm)
   OpCode op = ChunkRef(vm->chunk, vm->pc);
 
 #ifdef DEBUG
-  TraceInstruction(op, vm);
+  if (vm->trace) TraceInstruction(op, vm);
 #endif
 
   switch (op) {
@@ -477,7 +478,7 @@ static Result RunInstruction(VM *vm)
     return OkResult(True);
   } else {
 #ifdef DEBUG
-    TraceInstruction(OpHalt, vm);
+    if (vm->trace) TraceInstruction(OpHalt, vm);
 #endif
     return OkResult(False);
   }

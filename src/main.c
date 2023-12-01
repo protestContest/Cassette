@@ -94,12 +94,9 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-#ifdef DEBUG
-  Disassemble(&chunk);
-#endif
-
   /* Ok, time to run the code */
   InitVM(&vm, &chunk);
+  if (opts.trace) vm.trace = true;
 
   /* When the canvas is enabled, we run the main loop and let the VM run in the
   update function above. Otherwise, we can just run the code. */

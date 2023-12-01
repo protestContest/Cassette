@@ -11,21 +11,26 @@ static void PrintSourceContext(u32 pos, char *source, u32 context);
 
 int Usage(void)
 {
-  printf("Usage: cassette [-s] [<filename>]+\n");
-  printf("       cassette [-s] -p <manifest file>\n");
+  printf("Usage: cassette [-t][-s] [<filename>]+\n");
+  printf("       cassette [-t][-s] -p <manifest file>\n");
   return 1;
 }
 
 Options ParseOpts(u32 argc, char *argv[])
 {
   u32 i;
-  Options opts = {false, false, 1};
+  Options opts = {false, false, false, 1};
   for (i = 0; i < argc; i++) {
     if (StrEq(argv[i], "-p")) {
       opts.project = true;
       opts.file_args++;
     }
+    if (StrEq(argv[i], "-t")) {
+      opts.trace = true;
+      opts.file_args++;
+    }
     if (StrEq(argv[i], "-s")) {
+      opts.step = true;
       opts.step = true;
       opts.file_args++;
     }

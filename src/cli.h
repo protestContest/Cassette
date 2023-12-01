@@ -4,6 +4,7 @@
 typedef struct {
   bool project;
   bool step;
+  bool trace;
   u32 file_args;
 } Options;
 

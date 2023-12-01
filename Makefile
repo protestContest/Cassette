@@ -10,7 +10,7 @@ SRCS := $(shell find $(SRC_DIR) -name '*.c' -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 # Uncomment this to enable debugging support
-# DEFINES += -DDEBUG=1
+DEFINES += -DDEBUG=1
 
 CC = clang
 INCLUDE_FLAGS = -I$(SRC_DIR) -include base.h
