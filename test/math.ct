@@ -1,4 +1,6 @@
 module Math
+import System
+import Type
 
 let Pi = 3.141593
 let E = 2.718282
@@ -6,11 +8,11 @@ let E = 2.718282
 def (abs n) if n < 0 do -n else n end
 def (min a b) if a < b do a else b end
 def (max a b) if a > b do a else b end
-def (ceil n) if n >= 0 do (trunc n) + 1 else (trunc n) end
-def (floor n) if n >= 0 do (trunc n) else (trunc n) - 1 end
+def (ceil n) if n >= 0 do (Type.trunc n) + 1 else (Type.trunc n) end
+def (floor n) if n >= 0 do (Type.trunc n) else (Type.trunc n) - 1 end
 def (round n) (floor n + 0.5)
 def (clamp n low high) (min (max n low) high)
-def (rand-int min max) (trunc (Sys.random) * (max - min)) + min
+def (rand-int min max) (Type.trunc (System.random) * (max - min)) + min
 
 def (sqrt n) do
   def (loop guess) do

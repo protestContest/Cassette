@@ -1,4 +1,6 @@
 module List
+import Map
+import Type
 
 ; returns a list length n filled with item
 def (repeat item n)
@@ -70,6 +72,7 @@ def (any? list fn)
 def (all? list fn)
   cond do
     list == nil -> true
+    (Type.typeof list) != :pair -> fn list
     not (fn (head list)) -> false
     true -> all? (tail list) fn
   end
@@ -117,10 +120,10 @@ def (find list fn)
 ; converts a list of key/value pairs to a map
 def (to-map list) do
   reduce list {:} \item map ->
-      if (typeof item) == :pair do
-        mset map (head item) (tail item)
+      if (Type.typeof item) == :pair do
+        Map.set map (head item) (tail item)
       else
-        mset map item nil
+        Map.set map item nil
       end
 end
 
@@ -175,7 +178,7 @@ def (unzip list) do
   let result =
       reduce list nil \item acc -> do
         let heads = head acc, tails = tail acc
-        if (typeof item) != :pair do
+        if (Type.typeof item) != :pair do
           acc
         else
           ((head item) | heads) | ((tail item) | tails)

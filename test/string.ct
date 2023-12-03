@@ -1,0 +1,3 @@
+module String
+
+let newline = 0x0A

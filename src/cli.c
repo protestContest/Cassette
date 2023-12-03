@@ -112,9 +112,10 @@ static void PrintSourceContext(u32 pos, char *source, u32 context)
   while (cur_line <= line) {
     char *end = LineEnd(cur);
     printf("%3d│ %.*s\n", cur_line+1, (u32)(end - cur), cur);
-    cur = end+1;
     cur_line++;
+    cur = end;
     if (*end == 0) break;
+    cur++;
   }
 
   /* underline target token */
@@ -124,7 +125,7 @@ static void PrintSourceContext(u32 pos, char *source, u32 context)
   printf("\n");
 
   /* print remaining context */
-  while (cur_line < end_line) {
+  while (*cur && cur_line < end_line) {
     char *end = LineEnd(cur);
     printf("%3d│ %.*s\n", cur_line+1, (u32)(end - cur), cur);
     if (*end == 0) break;

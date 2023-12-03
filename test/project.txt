@@ -3,3 +3,10 @@ list.ct
 math.ct
 stream.ct
 map.ct
+system.ct
+canvas.ct
+result.ct
+io.ct
+file.ct
+string.ct
+enum.ct

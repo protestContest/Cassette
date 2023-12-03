@@ -21,6 +21,8 @@ typedef struct {
   char *font_filename;
   u32 font_size;
   u32 color;
+  u32 width;
+  u32 height;
 } SDLCanvas;
 
 void InitGraphics(void)
@@ -72,6 +74,8 @@ Canvas *MakeCanvas(u32 width, u32 height, char *title)
   SetFont((Canvas*)canvas, DEFAULT_FONT, 16);
   canvas->color = BLACK;
   ClearCanvas((Canvas*)canvas, WHITE);
+  canvas->width = width;
+  canvas->height = height;
   return (Canvas*)canvas;
 }
 

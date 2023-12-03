@@ -3,14 +3,16 @@
 #include "chunk.h"
 #include "result.h"
 #include "univ/vec.h"
+#include "device/device.h"
 
 typedef struct {
   u32 pc;
+  bool trace;
   IntVec stack;
   Mem mem;
   Chunk *chunk;
-  ObjVec canvases;
-  bool trace;
+  u32 dev_map;
+  Device devices[32];
 } VM;
 
 #define StackPush(vm, v)    IntVecPush(&(vm)->stack, v)
@@ -23,3 +25,4 @@ void DestroyVM(VM *vm);
 Result Run(VM *vm, u32 num_instructions);
 Result RunChunk(Chunk *chunk, VM *vm);
 Result RuntimeError(char *message, VM *vm);
+bool AnyWindowsOpen(VM *vm);

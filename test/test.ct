@@ -1,16 +1,15 @@
 import List
 import Math
-import Map
+import Canvas
+import System
 
 let width = 800,
     height = 480,
     canvas = Canvas.new width height
 
-Canvas.clear canvas {255, 0, 0}
+Canvas.text canvas "Lines!" 200 2
 
-Canvas.text canvas "Lines!" 200.1 0
-
-Sys.seed (Sys.ticks)
+System.seed (System.time)
 
 def (rand-line i) do
   let x0 = Math.floor i * width / 100,

@@ -23,3 +23,4 @@
 void Seed(u32 seed);
 u32 Random(void);
 u32 PopCount(u32 n);
+#define RightZeroBit(x) (~(x) & ((x) + 1))

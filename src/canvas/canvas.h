@@ -18,6 +18,8 @@ typedef struct {
   char *font_filename;
   u32 font_size;
   u32 color;
+  u32 width;
+  u32 height;
 } Canvas;
 
 void InitGraphics(void);

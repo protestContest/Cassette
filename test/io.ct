@@ -1,0 +1,47 @@
+module IO
+import List
+import Result as *
+import String
+import Type
+
+let console = (try! (Device.open :console {}))
+
+def (printable? data) do
+  def (printable-binary? data index) cond do
+    index == #data -> true
+    not (printable? data.(index)) -> false
+    true -> printable-binary? data index + 1
+  end
+
+  cond do
+    (Type.typeof data) == :binary -> printable-binary? data 0
+    (Type.typeof data) == :integer -> data >= 0 and data < 256
+    (Type.typeof data) == :pair -> List.all? data printable?
+    true -> false
+  end
+end
+
+def (print data) do
+  def (loop data length) do
+    if (Type.typeof data) == :pair do
+      List.reduce data length loop
+    else
+      try! (Device.write console data)
+    end
+  end
+
+  if not (printable? data) do
+    print ["Unprintable value", String.newline]
+    :error
+  else
+    let length = loop data 0
+    if length > 0 do
+      Device.write console String.newline
+    end
+    :ok
+  end
+end
+
+def (read-line) do
+  try! (Device.read console 1024)
+end

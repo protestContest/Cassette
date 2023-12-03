@@ -66,7 +66,7 @@ float RawFloat(Val value);
 
 typedef IntVec Mem;
 
-#define NumBinCells(size)   ((size - 1) / 4 + 1)
+#define NumBinCells(size)   ((size) ? (((size) - 1) / 4 + 1) : 1)
 
 void InitMem(Mem *mem, u32 capacity);
 #define DestroyMem(mem)  DestroyVec((Vec*)mem)

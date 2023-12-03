@@ -1,0 +1,7 @@
+module Canvas
+import Result as *
+
+def (new width height) (try! (Device.open :window {width, height}))
+def (clear canvas color)(try! (Device.write canvas {:clear, color}))
+def (text canvas string x y) (try! (Device.write canvas {:text, string, x, y}))
+def (line canvas x1 y1 x2 y2) (try! (Device.write canvas {:line, x1, y1, x2, y2}))

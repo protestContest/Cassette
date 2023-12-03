@@ -48,7 +48,6 @@ int CreateOrOpen(char *path)
 {
   mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
   return open(path, O_RDWR | O_CREAT, mode);
-
 }
 
 u32 FileSize(int file)

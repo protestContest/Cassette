@@ -1,4 +1,5 @@
 module Map
+import Type
 
-def (get map key) (mget map key)
-def (set map key value) (mset map key value)
+def (get map key) (Type.map-get map key)
+def (set map key value) (Type.map-set map key value)

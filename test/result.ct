@@ -1,0 +1,21 @@
+module Result
+
+def (Ok value) :ok | value
+def (Error error) :error | error
+
+def (ok? result) (head result) == :ok
+def (unwrap result default) do
+  if (ok? result) do
+    (tail result)
+  else
+    default
+  end
+end
+
+def (try! result) do
+  if (ok? result) do
+    tail result
+  else
+    panic! (tail result)
+  end
+end

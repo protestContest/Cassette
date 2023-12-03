@@ -23,8 +23,7 @@ void InitVM(VM *vm, Chunk *chunk)
   vm->chunk = chunk;
   vm->trace = false;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
-  InitMem(&vm->mem, 1024);
-  InitVec((Vec*)&vm->canvases, sizeof(void*), 8);
+  InitMem(&vm->mem, 1024*1024);
 
   vm->stack.count = 1;
   Env(vm) = Nil;
@@ -35,14 +34,17 @@ void DestroyVM(VM *vm)
   u32 i;
   vm->pc = 0;
   vm->chunk = 0;
+
+  for (i = 0; i < ArrayCount(vm->devices); i++) {
+    if (vm->dev_map & Bit(i)) {
+      DeviceClose(&vm->devices[i], &vm->mem);
+    }
+  }
+  vm->dev_map = 0;
+
   DestroyVec((Vec*)&vm->stack);
   DestroyMem(&vm->mem);
-#ifdef CANVAS
-  for (i = 0; i < vm->canvases.count; i++) {
-    FreeCanvas(vm->canvases.items[i]);
-  }
-#endif
-  DestroyVec((Vec*)&vm->canvases);
+
 }
 
 Result Run(VM *vm, u32 num_instructions)
@@ -534,4 +536,15 @@ Result RuntimeError(char *message, VM *vm)
   char *filename = ChunkFile(vm->pc, vm->chunk);
   u32 pos = GetSourcePosition(vm->pc, vm->chunk);
   return ErrorResult(message, filename, pos);
+}
+
+bool AnyWindowsOpen(VM *vm)
+{
+  u32 i;
+  for (i = 0; i < ArrayCount(vm->devices); i++) {
+    if ((vm->dev_map & Bit(i)) && vm->devices[i].type == WindowDevice) {
+      return true;
+    }
+  }
+  return false;
 }

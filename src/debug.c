@@ -550,47 +550,44 @@ void GenerateSymbols(void)
   printf("#define BinaryType        0x%08X /* binary */\n", SymbolFor("binary"));
   printf("#define MapType           0x%08X /* map */\n", SymbolFor("map"));
   printf("#define KernelMod         0x%08X /* Kernel */\n", SymbolFor("Kernel"));
+  printf("#define SymConsole        0x%08X /* console */\n", SymbolFor("console"));
+  printf("#define SymFile           0x%08X /* file */\n", SymbolFor("file"));
+  printf("#define SymDirectory      0x%08X /* directory */\n", SymbolFor("directory"));
+  printf("#define SymSystem         0x%08X /* system */\n", SymbolFor("system"));
+  printf("#define SymWindow         0x%08X /* window */\n", SymbolFor("window"));
 }
 
 void GeneratePrimitives(void)
 {
   printf("static PrimitiveDef kernel[] = {\n");
-  printf("  {/* typeof */   0x%08X, &VMType},\n", SymbolFor("typeof"));
-  printf("  {/* head */     0x%08X, &VMHead},\n", SymbolFor("head"));
-  printf("  {/* tail */     0x%08X, &VMTail},\n", SymbolFor("tail"));
-  printf("  {/* mget */     0x%08X, &VMMapGet},\n", SymbolFor("mget"));
-  printf("  {/* mset */     0x%08X, &VMMapSet},\n", SymbolFor("mset"));
-  printf("  {/* mkeys */    0x%08X, &VMMapKeys},\n", SymbolFor("mkeys"));
-  printf("  {/* trunc */    0x%08X, &VMTrunc},\n", SymbolFor("trunc"));
+  printf("  {/* head */         0x%08X, &VMHead},\n", SymbolFor("head"));
+  printf("  {/* tail */         0x%08X, &VMTail},\n", SymbolFor("tail"));
+  printf("  {/* panic! */       0x%08X, &VMPanic},\n", SymbolFor("panic!"));
   printf("};\n");
   printf("\n");
-  printf("static PrimitiveDef io[] = {\n");
-  printf("  {/* print */    0x%08X, &VMPrint},\n", SymbolFor("print"));
-  printf("  {/* inspect */  0x%08X, &VMInspect},\n", SymbolFor("inspect"));
-  printf("  {/* open */     0x%08X, &VMOpen},\n", SymbolFor("open"));
-  printf("  {/* read */     0x%08X, &VMRead},\n", SymbolFor("read"));
-  printf("  {/* write */    0x%08X, &VMWrite},\n", SymbolFor("write"));
+  printf("static PrimitiveDef device[] = {\n");
+  printf("  {/* open */         0x%08X, &VMOpen},\n", SymbolFor("open"));
+  printf("  {/* close */        0x%08X, &VMClose},\n", SymbolFor("close"));
+  printf("  {/* read */         0x%08X, &VMRead},\n", SymbolFor("read"));
+  printf("  {/* write */        0x%08X, &VMWrite},\n", SymbolFor("write"));
+  printf("  {/* get-param */    0x%08X, &VMGetParam},\n", SymbolFor("get-param"));
+  printf("  {/* set-param */    0x%08X, &VMSetParam},\n", SymbolFor("set-param"));
   printf("};\n");
   printf("\n");
-  printf("static PrimitiveDef sys[] = {\n");
-  printf("  {/* ticks */    0x%08X, &VMTicks},\n", SymbolFor("ticks"));
-  printf("  {/* seed */     0x%08X, &VMSeed},\n", SymbolFor("seed"));
-  printf("  {/* random */   0x%08X, &VMRandom},\n", SymbolFor("random"));
-  printf("};\n");
-  printf("\n");
-  printf("static PrimitiveDef canvas[] = {\n");
-  printf("  {/* new */      0x%08X, &VMCanvas},\n", SymbolFor("new"));
-  printf("  {/* close */    0x%08X, &VMCloseCanvas},\n", SymbolFor("close"));
-  printf("  {/* clear */    0x%08X, &VMClearCanvas},\n", SymbolFor("clear"));
-  printf("  {/* line */     0x%08X, &VMLine},\n", SymbolFor("line"));
-  printf("  {/* text */     0x%08X, &VMText},\n", SymbolFor("text"));
+  printf("static PrimitiveDef type[] = {\n");
+  printf("  {/* typeof */       0x%08X, &VMType},\n", SymbolFor("typeof"));
+  printf("  {/* map-get */      0x%08X, &VMMapGet},\n", SymbolFor("map-get"));
+  printf("  {/* map-set */      0x%08X, &VMMapSet},\n", SymbolFor("map-set"));
+  printf("  {/* map-keys */     0x%08X, &VMMapKeys},\n", SymbolFor("map-keys"));
+  printf("  {/* split-bin */    0x%08X, &VMSplit},\n", SymbolFor("split-bin"));
+  printf("  {/* trunc */        0x%08X, &VMTrunc},\n", SymbolFor("trunc"));
+  printf("  {/* symbol-name */  0x%08X, &VMSymName},\n", SymbolFor("symbol-name"));
   printf("};\n");
   printf("\n");
   printf("static PrimitiveModuleDef primitives[] = {\n");
-  printf("  {/* Kernel */   KernelMod, ArrayCount(kernel), kernel},\n");
-  printf("  {/* IO */       0x%08X, ArrayCount(io), io},\n", SymbolFor("IO"));
-  printf("  {/* Sys */      0x%08X, ArrayCount(sys), sys},\n", SymbolFor("Sys"));
-  printf("  {/* Canvas */   0x%08X, ArrayCount(canvas), canvas}\n", SymbolFor("Canvas"));
+  printf("  {/* Kernel */       KernelMod, ArrayCount(kernel), kernel},\n");
+  printf("  {/* Device */       0x%08X, ArrayCount(device), device},\n", SymbolFor("Device"));
+  printf("  {/* Type */         0x%08X, ArrayCount(type), type},\n", SymbolFor("Type"));
   printf("};\n");
 }
 

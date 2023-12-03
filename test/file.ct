@@ -1,0 +1,80 @@
+module File
+import Result as *
+import List
+import IO
+import Enum
+
+def (list-dir path) do
+  let dir = Device.open :directory {path}
+  if not (ok? dir) do
+    nil
+  else
+    let dir = (unwrap dir nil),
+        items = Device.read dir nil
+    Device.close dir
+    unwrap items nil
+  end
+end
+
+def (dirname path) do
+  if path == nil do
+    nil
+  else
+    let index = Enum.trim-end-to $/ path #path,
+        index = Enum.trim-end $/ path index
+    (head (Types.split-bin path index))
+  end
+end
+
+def (basename path) do
+  let index = Enum.trim-end-to $/ path #path
+  (tail (Types.split-bin path index))
+end
+
+def (abs-path path) do
+  if #path == 0 do
+    abs-path "."
+  else
+    let dir = Device.open :directory {path}
+
+    if (ok? dir) do
+      let path = unwrap (Device.get-param (tail dir) :path) nil
+      Device.close (tail dir)
+      path
+    else
+      let dirpath = abs-path (dirname path)
+      if dirpath do
+        dirpath <> "/" <> (basename path)
+      else
+        nil
+      end
+    end
+  end
+end
+
+def (current-dir) (abs-path ".")
+
+def (join-path base ext) do
+  cond do
+    #base == 0 ->
+      ext
+    #ext == 0 ->
+      base
+    base.(#base - 1) == $/ ->
+      join-path (head (Types.split-bin base (#base - 1))) ext
+    ext.0 == $/ ->
+      join-path base (tail (Types.split-bin ext 1))
+    true ->
+      base <> "/" <> ext
+  end
+end
+
+def (exists? path) do
+  let path = abs-path path,
+      dir = dirname path
+
+  List.any? (list-dir dir) \item -> do
+    let item-path = join-path dir item.0
+    item-path == path
+  end
+end
