@@ -4,6 +4,15 @@
 #include "mem/symbols.h"
 #include "univ/system.h"
 
+#define SymClear          0x7FD7153E /* clear */
+#define SymText           0x7FD2824B /* text */
+#define SymLine           0x7FD0B46A /* line */
+#define SymWidth          0x7FDDBDC0 /* width */
+#define SymHeight         0x7FD404E0 /* height */
+#define SymFont           0x7FD9A3DE /* font */
+#define SymFontSize       0x7FD1F2A6 /* font-size */
+#define SymColor          0x7FDA5335 /* color */
+
 static Val MakeColor(u32 color, Mem *mem);
 static u32 ColorFrom(Val c, Mem *mem);
 static bool IsColor(Val color, Mem *mem);
@@ -56,7 +65,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
   type = TupleGet(cmd, 0, mem);
   if (!IsSym(type)) return ErrorResult("Invalid window command", 0, 0);
 
-  if (type == SymbolFor("clear")) {
+  if (type == SymClear) {
     Val color;
     if (TupleLength(cmd, mem) != 2) return ErrorResult("Invalid window command", 0, 0);
     color = TupleGet(cmd, 1, mem);
@@ -64,7 +73,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
 
     ClearCanvas((Canvas*)context, ColorFrom(color, mem));
     return OkResult(Nil);
-  } else if (type == SymbolFor("text")) {
+  } else if (type == SymText) {
     Val string, x, y;
     char *text;
     if (TupleLength(cmd, mem) != 4) return ErrorResult("Invalid window command", 0, 0);
@@ -80,7 +89,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     Free(text);
 
     return OkResult(Nil);
-  } else if (type == SymbolFor("line")) {
+  } else if (type == SymLine) {
     Val x1, y1, x2, y2;
     if (TupleLength(cmd, mem) != 5) return ErrorResult("Invalid window command", 0, 0);
     x1 = TupleGet(cmd, 1, mem);
@@ -103,11 +112,11 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
 Result WindowSet(void *context, Val key, Val value, Mem *mem)
 {
   Canvas *canvas = (Canvas*)context;
-  if (key == SymbolFor("width")) {
+  if (key == SymWidth) {
     return ErrorResult("Read only", 0, 0);
-  } else if (key == SymbolFor("height")) {
+  } else if (key == SymHeight) {
     return ErrorResult("Read only", 0, 0);
-  } else if (key == SymbolFor("font")) {
+  } else if (key == SymFont) {
     char *filename;
     u32 size;
     if (IsTuple(value, mem) && TupleLength(value, mem) == 2) {
@@ -129,7 +138,7 @@ Result WindowSet(void *context, Val key, Val value, Mem *mem)
     Free(filename);
 
     return OkResult(Ok);
-  } else if (key == SymbolFor("font-size")) {
+  } else if (key == SymFontSize) {
     u32 size = RawInt(value);
     if (!IsInt(value)) return ErrorResult("Expected integer", 0, 0);
     if (canvas->font_size != size) {
@@ -137,7 +146,7 @@ Result WindowSet(void *context, Val key, Val value, Mem *mem)
       SetFont(canvas, canvas->font_filename, size);
     }
     return OkResult(Ok);
-  } else if (key == SymbolFor("color")) {
+  } else if (key == SymColor) {
     if (!IsColor(value, mem)) return ErrorResult("Invalid color", 0, 0);
     canvas->color = ColorFrom(value, mem);
     return OkResult(Ok);
@@ -149,16 +158,16 @@ Result WindowSet(void *context, Val key, Val value, Mem *mem)
 Result WindowGet(void *context, Val key, Mem *mem)
 {
   Canvas *canvas = (Canvas*)context;
-  if (key == SymbolFor("width")) {
+  if (key == SymWidth) {
     return OkResult(IntVal(canvas->width));
-  } else if (key == SymbolFor("height")) {
+  } else if (key == SymHeight) {
     return OkResult(IntVal(canvas->height));
-  } else if (key == SymbolFor("font")) {
+  } else if (key == SymFont) {
     Val font = BinaryFrom(canvas->font_filename, StrLen(canvas->font_filename), mem);
     return OkResult(font);
-  } else if (key == SymbolFor("font-size")) {
+  } else if (key == SymFontSize) {
     return OkResult(IntVal(canvas->font_size));
-  } else if (key == SymbolFor("color")) {
+  } else if (key == SymColor) {
     return OkResult(MakeColor(canvas->color, mem));
   } else {
     return OkResult(Nil);

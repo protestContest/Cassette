@@ -12,7 +12,6 @@
 #define SymSystem         0x7FDDFAA0  /* system */
 #define SymWindow         0x7FDDF3AE  /* window */
 
-
 static DeviceDriver drivers[] = {
   [ConsoleDevice] = {ConsoleDevice, 0, 0, ConsoleRead, ConsoleWrite, 0, 0},
   [FileDevice] = {FileDevice, FileOpen, FileClose, FileRead, FileWrite, FileSet, FileGet},

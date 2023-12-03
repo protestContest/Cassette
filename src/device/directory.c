@@ -11,6 +11,15 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#define SymDevice         0x7FD945B8 /* device */
+#define SymDirectory      0x7FD7808F /* directory */
+#define SymPipe           0x7FDB4D2F /* pipe */
+#define SymLink           0x7FD10FD6 /* link */
+#define SymFile           0x7FDB7595 /* file */
+#define SymSocket         0x7FDAE29C /* socket */
+#define SymUnknown        0x7FDD6BDA /* unknown */
+#define SymPath           0x7FDE8EB6 /* path */
+
 typedef struct {
   DIR *dir;
   char *path;
@@ -70,25 +79,25 @@ Result DirectoryRead(void *context, Val length, Mem *mem)
     switch (ent->d_type) {
     case DT_BLK:
     case DT_CHR:
-      TupleSet(item, 1, SymbolFor("device"), mem);
+      TupleSet(item, 1, SymDevice, mem);
       break;
     case DT_DIR:
-      TupleSet(item, 1, SymbolFor("directory"), mem);
+      TupleSet(item, 1, SymDirectory, mem);
       break;
     case DT_FIFO:
-      TupleSet(item, 1, SymbolFor("pipe"), mem);
+      TupleSet(item, 1, SymPipe, mem);
       break;
     case DT_LNK:
-      TupleSet(item, 1, SymbolFor("link"), mem);
+      TupleSet(item, 1, SymLink, mem);
       break;
     case DT_REG:
-      TupleSet(item, 1, SymbolFor("file"), mem);
+      TupleSet(item, 1, SymFile, mem);
       break;
     case DT_SOCK:
-      TupleSet(item, 1, SymbolFor("socket"), mem);
+      TupleSet(item, 1, SymSocket, mem);
       break;
     default:
-      TupleSet(item, 1, SymbolFor("unknown"), mem);
+      TupleSet(item, 1, SymUnknown, mem);
     }
 
     items = Pair(item, items, mem);
@@ -112,14 +121,14 @@ Result DirectoryWrite(void *context, Val data, Mem *mem)
   path = JoinStr(ctx->path, name, '/');
   Free(name);
 
-  if (type == SymbolFor("file")) {
+  if (type == SymFile) {
     mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
     int file = open(path, O_CREAT|O_WRONLY|O_EXCL, mode);
     Free(path);
     if (file == -1) return ErrorResult(strerror(errno), 0, 0);
     close(file);
     return OkResult(Ok);
-  } else if (type == SymbolFor("directory")) {
+  } else if (type == SymDirectory) {
     mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
     int file = mkdir(path, mode);
     Free(path);
@@ -134,7 +143,7 @@ Result DirectoryGet(void *context, Val key, Mem *mem)
 {
   DirContext *ctx = (DirContext*)context;
 
-  if (key == SymbolFor("path")) {
+  if (key == SymPath) {
     Val path = BinaryFrom(ctx->path, StrLen(ctx->path), mem);
     return OkResult(path);
   } else {

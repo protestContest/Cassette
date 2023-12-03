@@ -15,5 +15,4 @@ typedef double f64;
 typedef u32 bool;
 #define true 1
 #define false 0
-#define NULL (void*)0
 #define ArrayCount(a)   (sizeof (a) / sizeof (a)[0])

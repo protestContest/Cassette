@@ -6,6 +6,8 @@
 #include <string.h>
 #include <errno.h>
 
+#define SymPosition       0x7FDEFA47 /* position */
+
 typedef struct {
   FILE *file;
   char *path;
@@ -96,7 +98,7 @@ Result FileWrite(void *context, Val data, Mem *mem)
 Result FileSet(void *context, Val key, Val value, Mem *mem)
 {
   FileContext *ctx = (FileContext*)context;
-  if (key == SymbolFor("position")) {
+  if (key == SymPosition) {
     if (!IsInt(value)) return ErrorResult("Expected integer", 0, 0);
     fseek(ctx->file, RawInt(value), SEEK_SET);
     return OkResult(Ok);
@@ -108,7 +110,7 @@ Result FileSet(void *context, Val key, Val value, Mem *mem)
 Result FileGet(void *context, Val key, Mem *mem)
 {
   FileContext *ctx = (FileContext*)context;
-  if (key == SymbolFor("position")) {
+  if (key == SymPosition) {
     u32 pos = ftell(ctx->file);
     return OkResult(IntVal(pos));
   } else {

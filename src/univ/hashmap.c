@@ -39,7 +39,7 @@ void InitHashMap(HashMap *map)
 {
   map->capacity = 0;
   map->count = 0;
-  map->buckets = NULL;
+  map->buckets = 0;
 }
 
 void DestroyHashMap(HashMap *map)

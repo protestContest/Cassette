@@ -477,8 +477,11 @@ used to regenerate them.
 */
 void GenerateSymbols(void)
 {
+  printf("/* compile.c */\n");
   printf("#define LinkReturn        0x%08X /* return */\n", SymbolFor("return"));
   printf("#define LinkNext          0x%08X /* next */\n", SymbolFor("next"));
+
+  printf("/* parse.h */\n");
   printf("#define SymEOF            0x%08X /* *eof* */\n", SymbolFor("*eof*"));
   printf("#define SymID             0x%08X /* *id* */\n", SymbolFor("*id*"));
   printf("#define SymBangEqual      0x%08X /* != */\n", SymbolFor("!="));
@@ -532,6 +535,8 @@ void GenerateSymbols(void)
   printf("#define SymBar            0x%08X /* | */\n", SymbolFor("|"));
   printf("#define SymRBrace         0x%08X /* } */\n", SymbolFor("}"));
   printf("#define SymTilde          0x%08X /* ~ */\n", SymbolFor("~"));
+
+  printf("/* symbols.h */\n");
   printf("#define True              0x%08X /* true */\n", SymbolFor("true"));
   printf("#define False             0x%08X /* false */\n", SymbolFor("false"));
   printf("#define Ok                0x%08X /* ok */\n", SymbolFor("ok"));
@@ -549,12 +554,44 @@ void GenerateSymbols(void)
   printf("#define TupleType         0x%08X /* tuple */\n", SymbolFor("tuple"));
   printf("#define BinaryType        0x%08X /* binary */\n", SymbolFor("binary"));
   printf("#define MapType           0x%08X /* map */\n", SymbolFor("map"));
+
+  printf("/* primitives.h */\n");
   printf("#define KernelMod         0x%08X /* Kernel */\n", SymbolFor("Kernel"));
+
+  printf("/* device.c */\n");
   printf("#define SymConsole        0x%08X /* console */\n", SymbolFor("console"));
   printf("#define SymFile           0x%08X /* file */\n", SymbolFor("file"));
   printf("#define SymDirectory      0x%08X /* directory */\n", SymbolFor("directory"));
   printf("#define SymSystem         0x%08X /* system */\n", SymbolFor("system"));
   printf("#define SymWindow         0x%08X /* window */\n", SymbolFor("window"));
+
+  printf("/* directory.c */\n");
+  printf("#define SymDevice         0x%08X /* device */\n", SymbolFor("device"));
+  printf("#define SymDirectory      0x%08X /* directory */\n", SymbolFor("directory"));
+  printf("#define SymPipe           0x%08X /* pipe */\n", SymbolFor("pipe"));
+  printf("#define SymLink           0x%08X /* link */\n", SymbolFor("link"));
+  printf("#define SymFile           0x%08X /* file */\n", SymbolFor("file"));
+  printf("#define SymSocket         0x%08X /* socket */\n", SymbolFor("socket"));
+  printf("#define SymUnknown        0x%08X /* unknown */\n", SymbolFor("unknown"));
+  printf("#define SymPath           0x%08X /* path */\n", SymbolFor("path"));
+
+  printf("/* file.c */\n");
+  printf("#define SymPosition       0x%08X /* position */\n", SymbolFor("position"));
+
+  printf("/* system.c */\n");
+  printf("#define SymSeed           0x%08X /* seed */\n", SymbolFor("seed"));
+  printf("#define SymRandom         0x%08X /* random */\n", SymbolFor("random"));
+  printf("#define SymTime           0x%08X /* time */\n", SymbolFor("time"));
+
+  printf("/* window.c */\n");
+  printf("#define SymClear          0x%08X /* clear */\n", SymbolFor("clear"));
+  printf("#define SymText           0x%08X /* text */\n", SymbolFor("text"));
+  printf("#define SymLine           0x%08X /* line */\n", SymbolFor("line"));
+  printf("#define SymWidth          0x%08X /* width */\n", SymbolFor("width"));
+  printf("#define SymHeight         0x%08X /* height */\n", SymbolFor("height"));
+  printf("#define SymFont           0x%08X /* font */\n", SymbolFor("font"));
+  printf("#define SymFontSize       0x%08X /* fontsize */\n", SymbolFor("font-size"));
+  printf("#define SymColor          0x%08X /* color */\n", SymbolFor("color"));
 }
 
 void GeneratePrimitives(void)
