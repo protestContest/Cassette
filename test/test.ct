@@ -1,22 +1,37 @@
 import List
 import Math
-import Canvas
+import Window
 import System
+import IO
+import String
 
 let width = 800,
     height = 480,
-    canvas = Canvas.new width height
+    canvas = Window.new width height
 
-Canvas.text canvas "Lines!" 200 2
+let white = [0xFF, 0xFF, 0xFF, 0xFF],
+    black = [0, 0, 0, 0xFF]
 
-System.seed (System.time)
+def (rect w h) do
+  let border = List.repeat black w,
+      middle = [black, List.repeat white w - 2, black]
 
-def (rand-line i) do
-  let x0 = Math.floor i * width / 100,
-      y0 = Math.rand-int 20 height / 10,
-      x1 = Math.rand-int 0 width,
-      y1 = Math.rand-int 20 height
-  Canvas.line canvas x0 y0 x1 y1
+  IO.format [border, List.repeat middle h - 2, border]
 end
 
-List.map (List.range 0 100) \i -> (rand-line i)
+def (rand-rect) do
+  let w = Math.rand-int 10 100,
+      h = Math.rand-int 10 100,
+      x = Math.rand-int 0 width - w,
+      y = Math.rand-int 0 height - h
+
+  Window.blit canvas (rect w h) x y w h
+end
+
+def (loop) do
+  (rand-rect)
+  System.delay 100
+  (loop)
+end
+
+(loop)

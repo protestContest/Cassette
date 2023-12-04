@@ -4,7 +4,7 @@ math.ct
 stream.ct
 map.ct
 system.ct
-canvas.ct
+window.ct
 result.ct
 io.ct
 file.ct

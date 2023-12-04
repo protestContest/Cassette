@@ -7,6 +7,7 @@
 #define SymClear          0x7FD7153E /* clear */
 #define SymText           0x7FD2824B /* text */
 #define SymLine           0x7FD0B46A /* line */
+#define SymBlit           0x7FDDE7FA /* blit */
 #define SymWidth          0x7FDDBDC0 /* width */
 #define SymHeight         0x7FD404E0 /* height */
 #define SymFont           0x7FD9A3DE /* font */
@@ -72,7 +73,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     if (!IsColor(color, mem)) return ErrorResult("Invalid color", 0, 0);
 
     ClearCanvas((Canvas*)context, ColorFrom(color, mem));
-    return OkResult(Nil);
+    return OkResult(Ok);
   } else if (type == SymText) {
     Val string, x, y;
     char *text;
@@ -88,7 +89,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     DrawText(text, RawNum(x), RawNum(y), (Canvas*)context);
     Free(text);
 
-    return OkResult(Nil);
+    return OkResult(Ok);
   } else if (type == SymLine) {
     Val x1, y1, x2, y2;
     if (TupleLength(cmd, mem) != 5) return ErrorResult("Invalid window command", 0, 0);
@@ -103,7 +104,21 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
 
     DrawLine(RawNum(x1), RawNum(y1), RawNum(x2), RawNum(y2), (Canvas*)context);
 
-    return OkResult(Nil);
+    return OkResult(Ok);
+  } else if (type == SymBlit) {
+    Val img, x, y, width, height;
+    if (TupleLength(cmd, mem) != 6) return ErrorResult("Invalid window command", 0, 0);
+    img = TupleGet(cmd, 1, mem);
+    x = TupleGet(cmd, 2, mem);
+    y = TupleGet(cmd, 3, mem);
+    width = TupleGet(cmd, 4, mem);
+    height = TupleGet(cmd, 5, mem);
+    if (!IsBinary(img, mem)) return ErrorResult("Invalid window command", 0, 0);
+    if (!IsInt(width) || !IsInt(height)) return ErrorResult("Invalid window command", 0, 0);
+    if (!IsInt(x) || !IsInt(y)) return ErrorResult("Invalid window command", 0, 0);
+
+    CanvasBlit(BinaryData(img, mem), RawInt(x), RawInt(y), RawInt(width), RawInt(height), (Canvas*)context);
+    return OkResult(Ok);
   } else {
     return ErrorResult("Invalid window command", 0, 0);
   }

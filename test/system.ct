@@ -6,3 +6,17 @@ let system = try! (Device.open :system {})
 def (seed s) (Device.set-param system :seed s)
 def (time) (try! (Device.get-param system :time))
 def (random) (try! (Device.get-param system :random))
+
+def (delay amount) do
+  let start = (time)
+
+  def (loop) do
+    if (time) - start < amount do
+      (loop)
+    else
+      :ok
+    end
+  end
+
+  (loop)
+end

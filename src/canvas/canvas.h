@@ -27,6 +27,7 @@ bool SetFont(Canvas *canvas, char *font_file, u32 size);
 Canvas *MakeCanvas(u32 width, u32 height, char *title);
 void FreeCanvas(Canvas *canvas);
 void UpdateCanvas(Canvas *canvas);
+void CanvasBlit(void *pixels, i32 x, i32 y, i32 width, i32 height, Canvas *canvas);
 void DrawText(char *text, i32 x, i32 y, Canvas *canvas);
 void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas);
 void ClearCanvas(Canvas *canvas, u32 color);

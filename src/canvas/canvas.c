@@ -95,6 +95,17 @@ void UpdateCanvas(Canvas *canvas)
   SDL_UpdateWindowSurface(canvas->window);
 }
 
+void CanvasBlit(void *pixels, i32 x, i32 y, i32 width, i32 height, Canvas *canvas)
+{
+  SDL_Surface *buf = SDL_CreateRGBSurfaceWithFormatFrom(pixels, width, height, 32, width*4, SDL_PIXELFORMAT_ARGB8888);
+  SDL_Rect dst;
+  dst.x = x;
+  dst.y = y;
+  SDL_BlitSurface(buf, 0, canvas->surface, &dst);
+  UpdateCanvas(canvas);
+  SDL_FreeSurface(buf);
+}
+
 void DrawText(char *text, i32 x, i32 y, Canvas *canvas)
 {
   SDL_Surface *screen = ((SDL_Surface*)canvas->surface);

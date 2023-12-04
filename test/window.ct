@@ -1,0 +1,8 @@
+module Window
+import Result as *
+
+def (new width height) (try! (Device.open :window {width, height}))
+def (clear window color)(try! (Device.write window {:clear, color}))
+def (text window string x y) (try! (Device.write window {:text, string, x, y}))
+def (line window x1 y1 x2 y2) (try! (Device.write window {:line, x1, y1, x2, y2}))
+def (blit window img x y w h) (try! (Device.write window {:blit, img, x, y, w, h}))

@@ -587,6 +587,7 @@ void GenerateSymbols(void)
   printf("#define SymClear          0x%08X /* clear */\n", SymbolFor("clear"));
   printf("#define SymText           0x%08X /* text */\n", SymbolFor("text"));
   printf("#define SymLine           0x%08X /* line */\n", SymbolFor("line"));
+  printf("#define SymBlit           0x%08X /* blit */\n", SymbolFor("blit"));
   printf("#define SymWidth          0x%08X /* width */\n", SymbolFor("width"));
   printf("#define SymHeight         0x%08X /* height */\n", SymbolFor("height"));
   printf("#define SymFont           0x%08X /* font */\n", SymbolFor("font"));
