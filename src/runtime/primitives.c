@@ -27,6 +27,7 @@ static Result VMMapGet(u32 num_args, VM *vm);
 static Result VMMapSet(u32 num_args, VM *vm);
 static Result VMMapKeys(u32 num_args, VM *vm);
 static Result VMSplit(u32 num_args, VM *vm);
+static Result VMJoinBin(u32 num_args, VM *vm);
 static Result VMTrunc(u32 num_args, VM *vm);
 static Result VMSymName(u32 num_args, VM *vm);
 
@@ -51,6 +52,7 @@ static PrimitiveDef type[] = {
   {/* map-set */      0x7FDFD878, &VMMapSet},
   {/* map-keys */     0x7FD18996, &VMMapKeys},
   {/* split-bin */    0x7FD24E81, &VMSplit},
+  {/* join-bin */     0x7FD1C3BB, &VMJoinBin},
   {/* trunc */        0x7FD36865, &VMTrunc},
   {/* symbol-name */  0x7FD0CEDC, &VMSymName},
 };
@@ -335,6 +337,68 @@ static Result VMSplit(u32 num_args, VM *vm)
     Val head = BinaryFrom(BinaryData(bin, &vm->mem), RawInt(index), &vm->mem);
     Val tail = BinaryFrom(BinaryData(bin, &vm->mem) + RawInt(index), tail_len, &vm->mem);
     return OkResult(Pair(head, tail, &vm->mem));
+  }
+}
+
+static Result IODataLength(Val iodata, VM *vm)
+{
+  if (iodata == Nil) {
+    return OkResult(0);
+  } else if (IsBinary(iodata, &vm->mem)) {
+    return OkResult(BinaryLength(iodata, &vm->mem));
+  } else if (IsInt(iodata)) {
+    if (RawInt(iodata) < 0 && RawInt(iodata) > 255) {
+      return RuntimeError("Type error: Expected iodata", vm);
+    }
+    return OkResult(1);
+  } else if (IsPair(iodata)) {
+    Result head, tail;
+    head = IODataLength(Head(iodata, &vm->mem), vm);
+    if (!head.ok) return head;
+    tail = IODataLength(Tail(iodata, &vm->mem), vm);
+    if (!tail.ok) return tail;
+    return OkResult(head.value + tail.value);
+  } else {
+    return RuntimeError("Type error: Expected iodata", vm);
+  }
+}
+
+static u32 CopyIOData(Val iodata, char *buf, u32 index, Mem *mem)
+{
+  if (iodata == Nil) {
+    return 0;
+  } else if (IsBinary(iodata, mem)) {
+    Copy(BinaryData(iodata, mem), buf+index, BinaryLength(iodata, mem));
+    return BinaryLength(iodata, mem);
+  } else if (IsInt(iodata)) {
+    buf[index] = RawInt(iodata);
+    return 1;
+  } else if (IsPair(iodata)) {
+    u32 head = CopyIOData(Head(iodata, mem), buf, index, mem);
+    u32 tail = CopyIOData(Tail(iodata, mem), buf, index + head, mem);
+    return head + tail;
+  } else {
+    return 0;
+  }
+}
+
+static Result VMJoinBin(u32 num_args, VM *vm)
+{
+  Val iodata, bin;
+  Val types[1] = {Nil};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  iodata = StackPop(vm);
+  if (IsBinary(iodata, &vm->mem)) {
+    return OkResult(iodata);
+  } else {
+    result = IODataLength(iodata, vm);
+    if (!result.ok) return result;
+
+    bin = MakeBinary(result.value, &vm->mem);
+    CopyIOData(iodata, BinaryData(bin, &vm->mem), 0, &vm->mem);
+    return OkResult(bin);
   }
 }
 

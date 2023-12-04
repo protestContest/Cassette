@@ -6,6 +6,8 @@ import Type
 
 let console = (try! (Device.open :console {}))
 
+def (format iodata) (Type.join-bin iodata)
+
 def (printable? data) do
   def (printable-binary? data index) cond do
     index == #data -> true
@@ -41,6 +43,8 @@ def (print data) do
     :ok
   end
 end
+
+def (write data) (Device.write console data)
 
 def (read-line) do
   try! (Device.read console 1024)
