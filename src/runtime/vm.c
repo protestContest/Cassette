@@ -12,7 +12,6 @@
 #include <stdio.h>
 
 static Result RunInstruction(VM *vm);
-static bool CheckMem(VM *vm, u32 amount);
 
 void InitVM(VM *vm, Chunk *chunk)
 {
@@ -20,7 +19,7 @@ void InitVM(VM *vm, Chunk *chunk)
   vm->chunk = chunk;
   vm->trace = false;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
-  InitMem(&vm->mem, 1024*1024);
+  InitMem(&vm->mem, 1024, &vm->stack);
 
   vm->stack.count = 1;
   Env(vm) = Nil;
@@ -284,14 +283,10 @@ static Result RunInstruction(VM *vm)
     break;
   case OpStr: {
     char *str;
-    u32 size;
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (!IsSym(StackRef(vm, 0))) return RuntimeError("Strings must be made from symbols", vm);
 
     str = SymbolName(StackRef(vm, 0), &vm->chunk->symbols);
-    size = StrLen(str);
-
-    if (!CheckMem(vm, NumBinCells(size))) return RuntimeError("Out of memory", vm);
 
     StackRef(vm, 0) = BinaryFrom(str, StrLen(str), &vm->mem);
     vm->pc += OpLength(op);
@@ -309,34 +304,31 @@ static Result RunInstruction(VM *vm)
   }
   case OpPair:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
     StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpTuple:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    if (!CheckMem(vm, RawInt(StackRef(vm, 0)) + 1)) return RuntimeError("Out of memory", vm);
     StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
     vm->pc += OpLength(op);
     break;
   case OpMap: {
-    Val keys, values, map;
+    Val map;
     u32 i;
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    keys = StackPop(vm);
-    values = StackPop(vm);
-    if (!IsTuple(keys, &vm->mem) || !IsTuple(values, &vm->mem)) {
+    if (!IsTuple(StackRef(vm, 0), &vm->mem) || !IsTuple(StackRef(vm, 1), &vm->mem)) {
       return RuntimeError("Expected map keys and values to be tuples", vm);
     }
-    if (TupleLength(keys, &vm->mem) != TupleLength(values, &vm->mem)) {
+    if (TupleLength(StackRef(vm, 0), &vm->mem) != TupleLength(StackRef(vm, 1), &vm->mem)) {
       return RuntimeError("Maps must have the same number of keys and values", vm);
     }
     map = MakeMap(&vm->mem);
-    for (i = 0; i < TupleLength(keys, &vm->mem); i++) {
-      map = MapSet(map, TupleGet(keys, i, &vm->mem), TupleGet(values, i, &vm->mem), &vm->mem);
+    for (i = 0; i < TupleLength(StackRef(vm, 0), &vm->mem); i++) {
+      map = MapSet(map, TupleGet(StackRef(vm, 0), i, &vm->mem), TupleGet(StackRef(vm, 1), i, &vm->mem), &vm->mem);
     }
-    StackPush(vm, map);
+    StackRef(vm, 1) =  map;
+    StackPop(vm);
     vm->pc += OpLength(op);
     break;
   }
@@ -390,16 +382,10 @@ static Result RunInstruction(VM *vm)
   case OpCat:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (IsPair(StackRef(vm, 0)) && IsPair(StackRef(vm, 1))) {
-      u32 len = 2*ListLength(StackRef(vm, 1), &vm->mem);
-      if (!CheckMem(vm, len)) return RuntimeError("Out of memory", vm);
       StackRef(vm, 1) = ListCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else if (IsTuple(StackRef(vm, 0), &vm->mem) && IsTuple(StackRef(vm, 1), &vm->mem)) {
-      u32 len = TupleLength(StackRef(vm, 0), &vm->mem) + TupleLength(StackRef(vm, 1), &vm->mem);
-      if (!CheckMem(vm, len)) return RuntimeError("Out of memory", vm);
       StackRef(vm, 1) = TupleCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else if (IsBinary(StackRef(vm, 0), &vm->mem) && IsBinary(StackRef(vm, 1), &vm->mem)) {
-      u32 len = NumBinCells(BinaryLength(StackRef(vm, 0), &vm->mem)) + NumBinCells(BinaryLength(StackRef(vm, 1), &vm->mem));
-      if (!CheckMem(vm, len)) return RuntimeError("Out of memory", vm);
       StackRef(vm, 1) = BinaryCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else if (IsMap(StackRef(vm, 0), &vm->mem) && IsMap(StackRef(vm, 1), &vm->mem)) {
       StackRef(vm, 1) = MapMerge(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
@@ -412,7 +398,6 @@ static Result RunInstruction(VM *vm)
   case OpExtend:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Frame must be a tuple", vm);
-    if (!CheckMem(vm, 2)) return RuntimeError("Out of memory", vm);
     Env(vm) = ExtendEnv(Env(vm), StackRef(vm, 0), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -505,20 +490,6 @@ static Result RunInstruction(VM *vm)
     if (vm->trace) TraceInstruction(OpHalt, vm);
     return OkResult(False);
   }
-}
-
-static bool CheckMem(VM *vm, u32 amount)
-{
-  if (CapacityLeft(&vm->mem) < amount) {
-    if (vm->trace) printf("GARBAGE DAY!!!\n");
-    CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
-  }
-
-  if (CapacityLeft(&vm->mem) < amount) {
-    ResizeMem(&vm->mem, 2*vm->mem.capacity);
-  }
-
-  return CapacityLeft(&vm->mem) >= amount;
 }
 
 Result RuntimeError(char *message, VM *vm)

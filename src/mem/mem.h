@@ -64,31 +64,34 @@ typedef u32 Val;
 Val FloatVal(float num);
 float RawFloat(Val value);
 
-typedef IntVec Mem;
+typedef struct {
+  u32 capacity;
+  u32 count;
+  Val *items;
+  IntVec *roots;
+} Mem;
 
+#define MemRef(mem, v)        ((mem)->items[v])
 #define NumBinCells(size)   ((size) ? (((size) - 1) / 4 + 1) : 1)
 
-void InitMem(Mem *mem, u32 capacity);
+void InitMem(Mem *mem, u32 capacity, IntVec *roots);
 #define DestroyMem(mem)  DestroyVec((Vec*)mem)
 #define ResizeMem(mem, capacity)  ResizeVec((Vec*)mem, sizeof(Val), capacity)
-
-void PushMem(Mem *mem, Val value);
-Val PopMem(Mem *mem);
 
 Val TypeSym(Val value, Mem *mem);
 char *TypeName(Val type);
 
-#define IsTuple(val, mem)       (IsObj(val) && IsTupleHeader(VecRef(mem, RawVal(val))))
-#define IsBinary(val, mem)      (IsObj(val) && IsBinaryHeader(VecRef(mem, RawVal(val))))
-#define IsMap(val, mem)         IsObj(val) && IsMapHeader(VecRef(mem, RawVal(val)))
+#define IsTuple(val, mem)       (IsObj(val) && IsTupleHeader(MemRef(mem, RawVal(val))))
+#define IsBinary(val, mem)      (IsObj(val) && IsBinaryHeader(MemRef(mem, RawVal(val))))
+#define IsMap(val, mem)         IsObj(val) && IsMapHeader(MemRef(mem, RawVal(val)))
 
-#define TupleLength(val, mem)   RawVal(VecRef(mem, RawVal(val)))
-#define BinaryLength(val, mem)  RawVal(VecRef(mem, RawVal(val)))
+#define TupleLength(val, mem)   RawVal(MemRef(mem, RawVal(val)))
+#define BinaryLength(val, mem)  RawVal(MemRef(mem, RawVal(val)))
 
-#define Head(val, mem)          VecRef(mem, RawVal(val))
-#define Tail(val, mem)          VecRef(mem, RawVal(val)+1)
-#define TupleGet(val, i, mem)   VecRef(mem, RawVal(val) + (i) + 1)
-#define BinaryData(val, mem)    ((char*)&VecRef(mem, RawVal(val)+1))
+#define Head(val, mem)          MemRef(mem, RawVal(val))
+#define Tail(val, mem)          MemRef(mem, RawVal(val)+1)
+#define TupleGet(val, i, mem)   MemRef(mem, RawVal(val) + (i) + 1)
+#define BinaryData(val, mem)    ((char*)&MemRef(mem, RawVal(val)+1))
 
 Val Pair(Val head, Val tail, Mem *mem);
 u32 ListLength(Val list, Mem *mem);
@@ -119,4 +122,4 @@ Val MapValues(Val map, Val values, Mem *mem);
 
 bool ValEqual(Val v1, Val v2, Mem *mem);
 
-void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);
+void CollectGarbage(Mem *mem);

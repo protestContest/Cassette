@@ -64,7 +64,7 @@ static void InitProject(Project *p)
   p->entry = Nil;
   InitVec((Vec*)&p->manifest, sizeof(char*), 8);
   InitHashMap(&p->modules);
-  InitMem(&p->mem, 1024);
+  InitMem(&p->mem, 1024*16, 0);
   InitSymbolTable(&p->symbols);
 }
 

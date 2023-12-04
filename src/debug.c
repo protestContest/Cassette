@@ -60,7 +60,7 @@ static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols
   } else if (IsBinaryHeader(value)) {
     printf("b%*d", cell_width-1, RawVal(value));
   } else if (IsMapHeader(value)) {
-    printf("m%*d", cell_width-1, RawInt(value));
+    printf("m%*X", cell_width-1, RawInt(value));
   } else {
     printf("  %08X", value);
   }
