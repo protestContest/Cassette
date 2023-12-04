@@ -1,5 +1,3 @@
-#ifdef DEBUG
-
 #include "debug.h"
 #include "compile/lex.h"
 #include "univ/math.h"
@@ -630,5 +628,3 @@ void GeneratePrimitives(void)
   printf("  {/* Type */         0x%08X, ArrayCount(type), type},\n", SymbolFor("Type"));
   printf("};\n");
 }
-
-#endif

@@ -37,10 +37,7 @@ dependent code, and can be switched off with the CANVAS flag.
 #include "cli.h"
 #include "canvas/canvas.h"
 #include <stdio.h>
-
-#ifdef DEBUG
 #include "debug.h"
-#endif
 
 static Options opts;
 

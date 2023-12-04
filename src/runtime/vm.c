@@ -7,12 +7,9 @@
 #include "univ/math.h"
 #include "univ/system.h"
 
-#ifdef CANVAS
 #include "canvas/canvas.h"
-#endif
-#ifdef DEBUG
 #include "debug.h"
-#endif
+#include <stdio.h>
 
 static Result RunInstruction(VM *vm);
 static bool CheckMem(VM *vm, u32 amount);
@@ -67,17 +64,13 @@ Result RunChunk(Chunk *chunk, VM *vm)
   vm->pc = 0;
   vm->chunk = chunk;
 
-#ifdef DEBUG
   if (vm->trace) PrintTraceHeader();
-#endif
 
   while (vm->pc < chunk->code.count && result.ok) {
     result = RunInstruction(vm);
   }
 
-#ifdef DEBUG
   if (vm->trace) TraceInstruction(OpHalt, vm);
-#endif
 
   return result;
 }
@@ -86,9 +79,7 @@ static Result RunInstruction(VM *vm)
 {
   OpCode op = ChunkRef(vm->chunk, vm->pc);
 
-#ifdef DEBUG
   if (vm->trace) TraceInstruction(op, vm);
-#endif
 
   switch (op) {
   case OpNoop:
@@ -511,9 +502,7 @@ static Result RunInstruction(VM *vm)
   if (vm->pc < vm->chunk->code.count) {
     return OkResult(True);
   } else {
-#ifdef DEBUG
     if (vm->trace) TraceInstruction(OpHalt, vm);
-#endif
     return OkResult(False);
   }
 }
@@ -521,6 +510,7 @@ static Result RunInstruction(VM *vm)
 static bool CheckMem(VM *vm, u32 amount)
 {
   if (CapacityLeft(&vm->mem) < amount) {
+    if (vm->trace) printf("GARBAGE DAY!!!\n");
     CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
   }
 

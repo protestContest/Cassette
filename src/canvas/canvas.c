@@ -1,4 +1,3 @@
-#ifdef CANVAS
 #include "canvas.h"
 #include "univ/str.h"
 #include "univ/system.h"
@@ -202,5 +201,3 @@ void MainLoop(UpdateFn update, void *arg)
 
   SDL_Quit();
 }
-
-#endif

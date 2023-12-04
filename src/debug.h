@@ -1,5 +1,3 @@
-#ifdef DEBUG
-
 #include "mem/mem.h"
 #include "mem/symbols.h"
 #include "result.h"
@@ -16,4 +14,3 @@ void TraceInstruction(OpCode op, VM *vm);
 void DefineSymbols(SymbolTable *symbols);
 void GenerateSymbols(void);
 void GeneratePrimitives(void);
-#endif

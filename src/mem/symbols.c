@@ -4,29 +4,13 @@
 #include "univ/system.h"
 #include "univ/str.h"
 
-#ifdef DEBUG
 #include "debug.h"
-#endif
 
 void InitSymbolTable(SymbolTable *symbols)
 {
   InitVec((Vec*)&symbols->names, sizeof(char), 256);
   InitHashMap(&symbols->map);
-
-  /* these symbols should always exist */
-  Assert(True == Sym("true", symbols));
-  Assert(False == Sym("false", symbols));
-  Assert(Ok == Sym("ok", symbols));
-  Assert(Error == Sym("error", symbols));
-
-#ifdef DEBUG
-  /* these are only visible in memory dumps, VM tracing, etc. */
-  Assert(Primitive == Sym("*prim*", symbols));
-  Assert(Function == Sym("*func*", symbols));
-  Assert(Undefined == Sym("*undefined*", symbols));
-  Assert(File == Sym("*file*", symbols));
   DefineSymbols(symbols);
-#endif
 }
 
 void DestroySymbolTable(SymbolTable *symbols)

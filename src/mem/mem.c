@@ -5,10 +5,6 @@
 #include "univ/str.h"
 #include "symbols.h"
 
-#ifdef DEBUG
-#include <stdio.h>
-#endif
-
 Val FloatVal(float num)
 {
   /* C is weird and I hate it */
