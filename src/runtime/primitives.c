@@ -25,6 +25,7 @@ static Result VMSetParam(u32 num_args, VM *vm);
 static Result VMType(u32 num_args, VM *vm);
 static Result VMMapGet(u32 num_args, VM *vm);
 static Result VMMapSet(u32 num_args, VM *vm);
+static Result VMMapDelete(u32 num_args, VM *vm);
 static Result VMMapKeys(u32 num_args, VM *vm);
 static Result VMSplit(u32 num_args, VM *vm);
 static Result VMJoinBin(u32 num_args, VM *vm);
@@ -50,6 +51,7 @@ static PrimitiveDef type[] = {
   {/* typeof */       0x7FDA14D4, &VMType},
   {/* map-get */      0x7FD781D0, &VMMapGet},
   {/* map-set */      0x7FDFD878, &VMMapSet},
+  {/* map-del */      0x7FD330D3, &VMMapDelete},
   {/* map-keys */     0x7FD18996, &VMMapKeys},
   {/* split-bin */    0x7FD24E81, &VMSplit},
   {/* join-bin */     0x7FD1C3BB, &VMJoinBin},
@@ -306,6 +308,18 @@ static Result VMMapSet(u32 num_args, VM *vm)
   key = StackPop(vm);
   map = StackPop(vm);
   return OkResult(MapSet(map, key, value, &vm->mem));
+}
+
+static Result VMMapDelete(u32 num_args, VM *vm)
+{
+  Val key, map;
+  Val types[2] = {Nil, MapType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  key = StackPop(vm);
+  map = StackPop(vm);
+  return OkResult(MapDelete(map, key, &vm->mem));
 }
 
 static Result VMMapKeys(u32 num_args, VM *vm)

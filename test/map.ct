@@ -3,3 +3,4 @@ import Type
 
 def (get map key) (Type.map-get map key)
 def (set map key value) (Type.map-set map key value)
+def (delete map key) (Type.map-del map key)

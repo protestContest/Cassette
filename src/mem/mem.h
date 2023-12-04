@@ -111,6 +111,7 @@ Val MakeMap(Mem *mem);
 u32 MapCount(Val map, Mem *mem);
 bool MapContains(Val map, Val key, Mem *mem);
 Val MapSet(Val map, Val key, Val value, Mem *mem);
+Val MapDelete(Val map, Val key, Mem *mem);
 Val MapGet(Val map, Val key, Mem *mem);
 Val MapMerge(Val map1, Val map2, Mem *mem);
 Val MapKeys(Val map, Val keys, Mem *mem);

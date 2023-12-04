@@ -333,23 +333,36 @@ static Val MakeInternalNode(Val child1, Val child2, u32 level, Mem *mem)
   return node;
 }
 
-/* Copies a node with the child inserted in the given slot. If the slot is
-occupied, the old child is replaced. */
-static Val NodeInsert(Val node, u32 slot, Val child, Mem *mem)
+/* Copies a node with the child inserted in the given slot. If the child is nil,
+the slot is emptied (and the node is reduced to a pair if possible). If the slot
+is occupied, the old child is replaced. */
+static Val NodeUpdate(Val node, u32 slot, Val child, Mem *mem)
 {
   Val header = VecRef(mem, RawVal(node));
   u32 num_children = NodeCount(header);
   u32 index = IndexNum(header, slot);
   bool replace = (header & Bit(slot)) != 0;
   u32 i;
-  Val new_node = MakeMapNode(MapHeader(header | Bit(slot)), mem);
-  for (i = 0; i < index; i++) {
-    NodeRef(new_node, i, mem) = NodeRef(node, i, mem);
+  Val new_node;
+
+  if (child == Nil) {
+    if (!replace) return node;
+    if (num_children == 2) return NodeRef(node, !index, mem);
+    new_node = MakeMapNode(MapHeader(header & ~Bit(slot)), mem);
+    for (i = 0; i < num_children; i++) {
+      NodeRef(new_node, i, mem) = NodeRef(node, i, mem);
+    }
+  } else {
+    new_node = MakeMapNode(MapHeader(header | Bit(slot)), mem);
+    for (i = 0; i < index; i++) {
+      NodeRef(new_node, i, mem) = NodeRef(node, i, mem);
+    }
+    NodeRef(new_node, index, mem) = child;
+    for (i = index+replace; i < num_children; i++) {
+      NodeRef(new_node, i+1-replace, mem) = NodeRef(node, i, mem);
+    }
   }
-  NodeRef(new_node, index, mem) = child;
-  for (i = index+replace; i < num_children; i++) {
-    NodeRef(new_node, i+1-replace, mem) = NodeRef(node, i, mem);
-  }
+
   return new_node;
 }
 
@@ -363,22 +376,22 @@ static Val NodeSet(Val node, Val key, Val value, u32 level, Mem *mem)
   if ((header & Bit(slot)) == 0) {
     /* empty slot, easy insert */
     Val pair = Pair(key, value, mem);
-    return NodeInsert(node, slot, pair, mem);
+    return NodeUpdate(node, slot, pair, mem);
   } else {
     Val child = NodeRef(node, index, mem);
     if (!IsPair(child)) {
       /* slot is a sub-map - recurse down a level */
       Val new_child = NodeSet(child, key, value, level + 1, mem);
-      return NodeInsert(node, slot, new_child, mem);
+      return NodeUpdate(node, slot, new_child, mem);
     } else if (key == Head(child, mem)) {
       /* key match, easy insert */
       Val pair = Pair(key, value, mem);
-      return NodeInsert(node, slot, pair, mem);
+      return NodeUpdate(node, slot, pair, mem);
     } else {
       /* collision with another leaf - create a new internal node */
       Val pair = Pair(key, value, mem);
       Val new_child = MakeInternalNode(child, pair, level + 1, mem);
-      return NodeInsert(node, slot, new_child, mem);
+      return NodeUpdate(node, slot, new_child, mem);
     }
   }
 }
@@ -386,6 +399,33 @@ static Val NodeSet(Val node, Val key, Val value, u32 level, Mem *mem)
 Val MapSet(Val map, Val key, Val value, Mem *mem)
 {
   return NodeSet(map, key, value, 0, mem);
+}
+
+static Val NodeDelete(Val node, Val key, u32 level, Mem *mem)
+{
+  Val header = VecRef(mem, RawVal(node));
+  u32 hash = Hash(&key, sizeof(Val));
+  u32 slot = SlotNum(hash, level);
+  u32 index = IndexNum(header, slot);
+  Val child;
+
+  if ((header & Bit(slot)) == 0) return node;
+
+  child = NodeRef(node, index, mem);
+  if (!IsPair(child)) {
+    Val new_child = NodeDelete(child, key, level + 1, mem);
+    if (child == new_child) return node;
+    return NodeUpdate(node, slot, new_child, mem);
+  } else if (key == Head(child, mem)) {
+    return Nil;
+  } else {
+    return node;
+  }
+}
+
+Val MapDelete(Val map, Val key, Mem *mem)
+{
+  return NodeDelete(map, key, 0, mem);
 }
 
 static bool NodeGet(Val node, Val key, u32 level, Mem *mem)
