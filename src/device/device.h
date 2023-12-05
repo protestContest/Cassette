@@ -5,6 +5,7 @@ typedef enum {
   ConsoleDevice,
   FileDevice,
   DirectoryDevice,
+  SerialDevice,
   SystemDevice,
   WindowDevice
 } DeviceType;

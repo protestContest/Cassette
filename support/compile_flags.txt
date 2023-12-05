@@ -1,13 +1,12 @@
+-std=c89
+-fsanitize=address
 -Wall
 -Wextra
 -Werror
 -Wno-unused-function
 -Wno-unused-parameter
 -pedantic
+-I/opt/homebrew/include
 -I../src
 -include
 base.h
--std=c89
--I/opt/homebrew/include/SDL2
--DDEBUG=1
--DCANVAS=1

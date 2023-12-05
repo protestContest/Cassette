@@ -1,8 +1,8 @@
 #include "canvas.h"
 #include "univ/str.h"
 #include "univ/system.h"
-#include <SDL.h>
-#include <SDL_ttf.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #ifndef DEFAULT_FONT
 /* override this in Makefile */

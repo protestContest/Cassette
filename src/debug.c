@@ -560,6 +560,7 @@ void GenerateSymbols(void)
   printf("#define SymConsole        0x%08X /* console */\n", SymbolFor("console"));
   printf("#define SymFile           0x%08X /* file */\n", SymbolFor("file"));
   printf("#define SymDirectory      0x%08X /* directory */\n", SymbolFor("directory"));
+  printf("#define SymSerial         0x%08X /* serial */\n", SymbolFor("serial"));
   printf("#define SymSystem         0x%08X /* system */\n", SymbolFor("system"));
   printf("#define SymWindow         0x%08X /* window */\n", SymbolFor("window"));
 
