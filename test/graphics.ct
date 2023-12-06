@@ -1,0 +1,23 @@
+module Graphics
+import Window
+import Math
+
+let white = [0xFF, 0xFF, 0xFF, 0x7F],
+    black = [0, 0, 0, 0xFF]
+
+def (midpoint p1 p2) do
+  {(p1.0 + p2.0) / 2, (p1.1 + p2.1) / 2}
+end
+
+def (bezier c1 c2 c3 canvas) do
+  if (Math.abs c3.0 - c1.0) < 2 or
+     (Math.abs c3.1 - c1.1) < 2 do
+    Window.line canvas c1.0 c1.1 c3.0 c3.1
+  else
+    let m1 = midpoint c1 c2,
+        m2 = midpoint c2 c3,
+        m3 = midpoint m1 m2
+    bezier c1 m1 m3
+    bezier m3 m2 c3
+  end
+end

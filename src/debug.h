@@ -14,3 +14,4 @@ void TraceInstruction(OpCode op, VM *vm);
 void DefineSymbols(SymbolTable *symbols);
 void GenerateSymbols(void);
 void GeneratePrimitives(void);
+void PrintMemory(u32 amount);

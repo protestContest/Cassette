@@ -440,7 +440,11 @@ static u32 NewInternalNodeSize(Val key1, Val key2, u32 level, Mem *mem)
   u32 slot1 = SlotNum(hash1, level);
   u32 hash2 = Hash(&key2, sizeof(Val));
   u32 slot2 = SlotNum(hash2, level);
-  return NewNodeSize(Bit(slot1) | Bit(slot2));
+  if (slot1 == slot2) {
+    return NewNodeSize(1) + NewInternalNodeSize(key1, key2, level + 1, mem);
+  } else {
+    return NewNodeSize(Bit(slot1) | Bit(slot2));
+  }
 }
 
 static u32 NodeSetSize(Val node, Val key, u32 level, Mem *mem)
@@ -455,11 +459,11 @@ static u32 NodeSetSize(Val node, Val key, u32 level, Mem *mem)
   } else {
     Val child = NodeRef(node, index, mem);
     if (!IsPair(child)) {
-      return NodeSetSize(child, key, level + 1, mem) + NewNodeSize(header | Bit(slot));
+      return NodeSetSize(child, key, level + 1, mem) + NewNodeSize(header);
     } else if (key == Head(child, mem)) {
-      return 2 + NewNodeSize(header | Bit(slot));
+      return 2 + NewNodeSize(header);
     } else {
-      return 2 + NewInternalNodeSize(Head(child, mem), key, level + 1, mem) + NewNodeSize(header | Bit(slot));
+      return 2 + NewInternalNodeSize(Head(child, mem), key, level + 1, mem) + NewNodeSize(header);
     }
   }
 }

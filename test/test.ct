@@ -1,37 +1,8 @@
-import List
-import Math
 import Window
-import System
-import IO
-import String
+import Graphics
 
-let width = 800,
-    height = 480,
+let width = 1200,
+    height = 800,
     canvas = Window.new width height
 
-let white = [0xFF, 0xFF, 0xFF, 0xFF],
-    black = [0, 0, 0, 0xFF]
-
-def (rect w h) do
-  let border = List.repeat black w,
-      middle = [black, List.repeat white w - 2, black]
-
-  IO.format [border, List.repeat middle h - 2, border]
-end
-
-def (rand-rect) do
-  let w = Math.rand-int 10 100,
-      h = Math.rand-int 10 100,
-      x = Math.rand-int 0 width - w,
-      y = Math.rand-int 0 height - h
-
-  Window.blit canvas (rect w h) x y w h
-end
-
-def (loop) do
-  (rand-rect)
-  System.delay 100
-  (loop)
-end
-
-(loop)
+Graphics.bezier {100, 100} {200, 300} {300, 100}

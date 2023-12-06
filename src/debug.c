@@ -629,3 +629,20 @@ void GeneratePrimitives(void)
   printf("  {/* Type */         0x%08X, ArrayCount(type), type},\n", SymbolFor("Type"));
   printf("};\n");
 }
+
+void PrintMemory(u32 amount)
+{
+  char *suffixes[] = {"B", "kB", "MB", "GB", "TB"};
+  u32 i;
+  u32 frac = 0;
+  for (i = 0; i < ArrayCount(suffixes); i++) {
+    if (amount <= 1024) break;
+    frac = amount % 1024;
+    amount /= 1024;
+  }
+  if (frac == 0) {
+    printf("%d%s", amount, suffixes[i]);
+  } else {
+    printf("%d.%d%s", amount, frac, suffixes[i]);
+  }
+}
