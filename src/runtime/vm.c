@@ -463,7 +463,7 @@ static Result RunInstruction(VM *vm)
       Val arity = ListGet(operator, 1, &vm->mem);
       if (arity != Nil && num_args != RawInt(arity)) {
         char msg[255];
-        snprintf(msg, 255, "Wrong number of arguments: Expected %d", arity);
+        snprintf(msg, 255, "Wrong number of arguments: Expected %d", RawInt(arity));
         return RuntimeError(msg, vm);
       }
       vm->pc = RawInt(ListGet(operator, 2, &vm->mem));
@@ -490,7 +490,7 @@ static Result RunInstruction(VM *vm)
       u8 byte;
       if (!IsInt(index)) return RuntimeError("Index for a binary must be an integer", vm);
       if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryLength(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
-      byte = BinaryData(operator, &vm->mem)[index];
+      byte = BinaryData(operator, &vm->mem)[RawInt(index)];
       Return(IntVal(byte), vm);
     } else if (IsPair(operator) && num_args == 1) {
       Val index = StackPop(vm);

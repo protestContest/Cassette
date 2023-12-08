@@ -6,6 +6,23 @@ import Type
 
 let console = (try! (Device.open :console {}))
 
+def (num-str n) do
+  def (loop n str) do
+    if n == 0 do
+      Type.join-bin str
+    else
+      let d = n % 10 + $0
+      loop (Type.trunc n / 10) d | str
+    end
+  end
+
+  if n == 0 do
+    "0"
+  else
+    loop n nil
+  end
+end
+
 def (format iodata) (Type.join-bin iodata)
 
 def (printable? data) do
@@ -32,15 +49,19 @@ def (print data) do
     end
   end
 
-  if not (printable? data) do
-    print ["Unprintable value", String.newline]
-    :error
-  else
-    let length = loop data 0
-    if length > 0 do
-      Device.write console String.newline
+  cond do
+    (Type.typeof data) == :integer -> print (num-str data)
+    not (printable? data) -> do
+      print ["Unprintable value", String.newline]
+      :error
     end
-    :ok
+    true -> do
+      let length = loop data 0
+      if length > 0 do
+        Device.write console String.newline
+      end
+      :ok
+    end
   end
 end
 
@@ -48,4 +69,17 @@ def (write data) (Device.write console data)
 
 def (read-line) do
   try! (Device.read console 1024)
+end
+
+def (inspect value) do
+  cond do
+    (Type.typeof value) == :integer -> print value
+    (Type.typeof value) == :float -> print "Float"
+    (Type.typeof value) == :pair -> print "Pair"
+    (Type.typeof value) == :tuple -> print "Tuple"
+    (Type.typeof value) == :binary -> print value
+    (Type.typeof value) == :map -> print "Map"
+    (Type.typeof value) == :symbol -> print [":", Type.symbol-name value]
+    true -> print "Unknown value"
+  end
 end

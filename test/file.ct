@@ -3,6 +3,44 @@ import Result as *
 import List
 import IO
 import Enum
+import String
+import Stream
+
+def (open! path mode) (try! (Device.open :file {path, mode}))
+def (close file) (Device.close file)
+def (read! file n) (try! (Device.read file n))
+
+def (stream path) do
+  let buf_size = 1024
+
+  def (stream-chunk-from n chunk file) do
+    if n == #chunk do
+      (stream-next-chunk file)
+    else
+      \-> do
+        (chunk n) | (stream-chunk-from n + 1 chunk file)
+      end
+    end
+  end
+
+  def (stream-next-chunk file) do
+    let chunk = (read! file buf_size)
+
+    if chunk == nil do
+      nil
+    else
+      stream-chunk-from 0 chunk file
+    end
+  end
+
+  stream-next-chunk (open! path "r")
+end
+
+def (stream-lines path) do
+  (Stream.chunk-while
+    (stream path)
+    \char -> char != String.newline)
+end
 
 def (list-dir path) do
   let dir = Device.open :directory {path}
@@ -22,13 +60,13 @@ def (dirname path) do
   else
     let index = Enum.trim-end-to $/ path #path,
         index = Enum.trim-end $/ path index
-    (head (Types.split-bin path index))
+    (head (Type.split-bin path index))
   end
 end
 
 def (basename path) do
   let index = Enum.trim-end-to $/ path #path
-  (tail (Types.split-bin path index))
+  (tail (Type.split-bin path index))
 end
 
 def (abs-path path) do
@@ -61,9 +99,9 @@ def (join-path base ext) do
     #ext == 0 ->
       base
     base.(#base - 1) == $/ ->
-      join-path (head (Types.split-bin base (#base - 1))) ext
+      join-path (head (Type.split-bin base (#base - 1))) ext
     ext.0 == $/ ->
-      join-path base (tail (Types.split-bin ext 1))
+      join-path base (tail (Type.split-bin ext 1))
     true ->
       base <> "/" <> ext
   end

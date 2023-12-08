@@ -260,7 +260,7 @@ static Result ParseBlock(Parser *p)
       result = ParseDef(p);
       if (!result.ok) return result;
 
-      stmt = MakeNode(SymLet, result.pos, result.value, p->mem);
+      stmt = MakeNode(SymDef, result.pos, result.value, p->mem);
       stmts = Pair(stmt, stmts, p->mem);
       assigns = Pair(Head(result.value, p->mem), assigns, p->mem);
     } else {
@@ -273,7 +273,7 @@ static Result ParseBlock(Parser *p)
   }
 
   if (stmts == Nil) {
-    return ParseError("Expected expression", p);
+    stmts = Pair(MakeNode(SymColon, pos, Nil, p->mem), Nil, p->mem);
   }
 
   stmts = ReverseList(stmts, Nil, p->mem);

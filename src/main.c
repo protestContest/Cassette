@@ -100,8 +100,5 @@ static bool CanvasUpdate(void *arg)
     return false;
   }
 
-  PrintMemory(vm->mem.count*4);
-  printf("                \r");
-
   return result.value == True || AnyWindowsOpen(vm);
 }
