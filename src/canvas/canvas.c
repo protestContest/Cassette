@@ -163,7 +163,7 @@ void WritePixel(i32 x, i32 y, u32 value, Canvas *canvas)
   u32 *pixels = surface->pixels;
   i32 pitch = surface->pitch/4;
   i32 height = surface->h;
-  if (x < 0 || x > pitch || y < 0 || y > height) return;
+  if (x < 0 || x >= pitch || y < 0 || y >= height) return;
   pixels[(height - y - 1) * pitch + x] = value;
 }
 

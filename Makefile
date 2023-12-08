@@ -44,7 +44,7 @@ clean:
 
 .PHONY: test
 test: $(TARGET)
-	$(TARGET) -p test/project.txt
+	$(TARGET) test/test.ct test/*.ct
 
 .PHONY: install
 install: $(TARGET)
