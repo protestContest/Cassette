@@ -11,6 +11,9 @@
 #include "debug.h"
 #include <stdio.h>
 
+#define IsFunction(value, mem)    (IsPair(value) && Head(value, mem) == Function)
+#define IsPrimitive(value, mem)   (IsPair(value) && Head(value, mem) == Primitive)
+
 static Result RunInstruction(VM *vm);
 
 void InitVM(VM *vm, Chunk *chunk)
@@ -72,6 +75,13 @@ Result RunChunk(Chunk *chunk, VM *vm)
   if (vm->trace) TraceInstruction(OpHalt, vm);
 
   return result;
+}
+
+static void Return(Val value, VM *vm)
+{
+  vm->pc = RawInt(StackPop(vm));
+  Env(vm) = StackPop(vm);
+  StackPush(vm, value);
 }
 
 static Result RunInstruction(VM *vm)
@@ -336,7 +346,7 @@ static Result RunInstruction(VM *vm)
     if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
     if (IsTuple(StackRef(vm, 2), &vm->mem)) {
       if (!IsInt(StackRef(vm, 0))) return RuntimeError("Tuple indexes must be integers", vm);
-      if (TupleLength(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Out of bounds", vm);
+      if (TupleLength(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Index out of bounds", vm);
       TupleSet(StackRef(vm, 2), RawInt(StackRef(vm, 0)), StackRef(vm, 1), &vm->mem);
     } else if (IsMap(StackRef(vm, 2), &vm->mem)) {
       StackRef(vm, 2) = MapSet(StackRef(vm, 2), StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
@@ -354,19 +364,19 @@ static Result RunInstruction(VM *vm)
 
     if (IsPair(StackRef(vm, 1))) {
       if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a list must be an integer", vm);
-      if (RawInt(StackRef(vm, 0)) < 0) return RuntimeError("Out of bounds", vm);
+      if (RawInt(StackRef(vm, 0)) < 0) return RuntimeError("Index out of bounds", vm);
       StackRef(vm, 1) = ListGet(StackRef(vm, 1), RawInt(StackRef(vm, 0)), &vm->mem);
     } else if (IsTuple(StackRef(vm, 1), &vm->mem)) {
       u32 index = RawInt(StackRef(vm, 0));
       Val tuple = StackRef(vm, 1);
       if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a tuple must be an integer", vm);
-      if (index < 0 || index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Out of bounds", vm);
+      if (index < 0 || index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Index out of bounds", vm);
       StackRef(vm, 1) = TupleGet(tuple, index, &vm->mem);
     } else if (IsBinary(StackRef(vm, 1), &vm->mem)) {
       u32 index = RawInt(StackRef(vm, 0));
       Val binary = StackRef(vm, 1);
       if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a binary must be an integer", vm);
-      if (index < 0 || index >= BinaryLength(binary, &vm->mem)) return RuntimeError("Out of bounds", vm);
+      if (index < 0 || index >= BinaryLength(binary, &vm->mem)) return RuntimeError("Index out of bounds", vm);
       StackRef(vm, 1) = IntVal(((u8*)BinaryData(binary, &vm->mem))[index]);
     } else if (IsMap(StackRef(vm, 1), &vm->mem)) {
       Val key = StackRef(vm, 0);
@@ -445,41 +455,58 @@ static Result RunInstruction(VM *vm)
     StackRef(vm, 2) = StackRef(vm, 0);
     vm->stack.count -= 2;
     break;
-  case OpApply:
-    if (IsPair(StackRef(vm, 0)) && Head(StackRef(vm, 0), &vm->mem) == Function) {
+  case OpApply: {
+    Val operator = StackPop(vm);
+    i32 num_args = RawInt(ChunkConst(vm->chunk, vm->pc+1));
+    if (IsFunction(operator, &vm->mem)) {
       /* normal function */
-      Val function = StackPop(vm);
-      Val num_args = ChunkConst(vm->chunk, vm->pc+1);
-      Val arity = ListGet(function, 1, &vm->mem);
-      if (arity != Nil && RawInt(num_args) != RawInt(arity)) {
-        return RuntimeError("Wrong number of arguments", vm);
+      Val arity = ListGet(operator, 1, &vm->mem);
+      if (arity != Nil && num_args != RawInt(arity)) {
+        char msg[255];
+        snprintf(msg, 255, "Wrong number of arguments: Expected %d", arity);
+        return RuntimeError(msg, vm);
       }
-      vm->pc = RawInt(ListGet(function, 2, &vm->mem));
-      Env(vm) = Tail(Tail(Tail(function, &vm->mem), &vm->mem), &vm->mem);
-    } else if (IsPair(StackRef(vm, 0)) && Head(StackRef(vm, 0), &vm->mem) == Primitive) {
+      vm->pc = RawInt(ListGet(operator, 2, &vm->mem));
+      Env(vm) = Tail(Tail(Tail(operator, &vm->mem), &vm->mem), &vm->mem);
+    } else if (IsPrimitive(operator, &vm->mem)) {
       /* apply primitive */
-      Val num_args, prim;
       Result result;
       u32 stack_size = vm->stack.count;
       if (stack_size < 3) return RuntimeError("Stack underflow", vm);
-      num_args = ChunkConst(vm->chunk, vm->pc+1);
-      prim = StackPop(vm);
-      result = DoPrimitive(ListGet(prim, 1, &vm->mem), ListGet(prim, 2, &vm->mem), RawInt(num_args), vm);
+      result = DoPrimitive(ListGet(operator, 1, &vm->mem), ListGet(operator, 2, &vm->mem), num_args, vm);
       if (!result.ok) return result;
-      vm->pc = RawInt(StackPop(vm));
-      Env(vm) = StackPop(vm);
-      StackPush(vm, result.value);
+      Return(result.value, vm);
+    } else if (IsTuple(operator, &vm->mem) && num_args == 1) {
+      Val index = StackPop(vm);
+      if (!IsInt(index)) return RuntimeError("Index for a tuple must be an integer", vm);
+      if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleLength(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      Return(TupleGet(operator, RawInt(index), &vm->mem), vm);
+    } else if (IsMap(operator, &vm->mem)) {
+      Val key = StackPop(vm);
+      if (!MapContains(operator, key, &vm->mem)) return RuntimeError("Undefined map key", vm);
+      Return(MapGet(operator, key, &vm->mem), vm);
+    } else if (IsBinary(operator, &vm->mem) && num_args == 1) {
+      Val index = StackPop(vm);
+      u8 byte;
+      if (!IsInt(index)) return RuntimeError("Index for a binary must be an integer", vm);
+      if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryLength(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      byte = BinaryData(operator, &vm->mem)[index];
+      Return(IntVal(byte), vm);
+    } else if (IsPair(operator) && num_args == 1) {
+      Val index = StackPop(vm);
+      if (!IsInt(index)) return RuntimeError("Index for a list must be an integer", vm);
+      if (RawInt(index) < 0) return RuntimeError("Index out of bounds", vm);
+      Return(ListGet(operator, RawInt(index), &vm->mem), vm);
     } else {
       /* not a function, just return */
-      Val num_args = ChunkConst(vm->chunk, vm->pc+1);
-      if (RawInt(num_args) != 0) return RuntimeError("Tried to call a non-function", vm);
-      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-      vm->pc = RawInt(StackRef(vm, 1));
-      Env(vm) = StackRef(vm, 2);
-      StackRef(vm, 2) = StackRef(vm, 0);
-      vm->stack.count -= 2;
+      if (num_args != 0) {
+        return RuntimeError("Tried to call a non-function", vm);
+      }
+      if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+      Return(operator, vm);
     }
     break;
+  }
   default:
     return RuntimeError("Undefined op", vm);
   }

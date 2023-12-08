@@ -29,18 +29,14 @@ Result DataResult(void *data)
 
 Result ErrorResult(char *error, char *filename, u32 pos)
 {
-  /* It's important to copy the filename for the result, since the original
-  owner will probably be freed by the time we want to print it */
   Result result;
   result.ok = false;
   result.value = Error;
-  result.error = error;
+  result.error = CopyStr(error, StrLen(error));
   result.data = 0;
   if (filename) {
-    u32 filename_len = StrLen(filename);
-    result.filename = Alloc(filename_len+1);
+    result.filename = CopyStr(filename, StrLen(filename));
     result.pos = pos;
-    Copy(filename, result.filename, filename_len+1);
   } else {
     result.filename = 0;
     result.pos = 0;

@@ -373,7 +373,6 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
     if (ListLength(expr, c->mem) == 1) return CompileOp(OpNeg, expr, linkage, c);
     else return CompileOp(OpSub, expr, linkage, c);
   case SymArrow:          return CompileLambda(expr, linkage, c);
-  case SymDot:            return CompileOp(OpGet, expr, linkage, c);
   case SymSlash:          return CompileOp(OpDiv, expr, linkage, c);
   case SymNum:            return CompileConst(expr, linkage, c);
   case SymColon:          return CompileConst(expr, linkage, c);

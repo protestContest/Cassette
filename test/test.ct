@@ -1,8 +1,6 @@
 import Window
 import Graphics
 
-let width = 1200,
-    height = 800,
-    canvas = Window.new width height
+let canvas = Graphics.canvas 400 240
 
-Graphics.bezier {100, 100} {200, 300} {300, 100}
+canvas.bezier {100, 100} {200, 300} {300, 100}

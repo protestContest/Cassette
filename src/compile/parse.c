@@ -381,7 +381,6 @@ static Result ParseAccess(Val prefix, Parser *p)
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
   u32 pos = token.lexeme - p->lex.source;
-  Val op = TokenSym(token.type);
   Val key;
 
   if (p->lex.token.type == TokenID) {
@@ -394,7 +393,7 @@ static Result ParseAccess(Val prefix, Parser *p)
     key = result.value;
   }
 
-  return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(key, Nil, p->mem), p->mem), p->mem));
+  return ParseOk(MakeNode(SymLParen, pos, Pair(prefix, Pair(key, Nil, p->mem), p->mem), p->mem));
 }
 
 static Result ParseUnary(Parser *p)
