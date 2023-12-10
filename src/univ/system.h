@@ -1,4 +1,5 @@
 #pragma once
+#include "vec.h"
 #include <assert.h>
 
 #define Assert(expr)    assert(expr)
@@ -13,4 +14,9 @@ int Open(char *path);
 int CreateOrOpen(char *path);
 u32 FileSize(int file);
 char *ReadFile(char *path);
+char *GetEnv(char *name);
+char *FileExt(char *name);
+bool DirExists(char *path);
+void DirContents(char *path, char *ext, ObjVec *contents);
 u32 Ticks(void);
+void Exit(void);

@@ -1,9 +1,11 @@
 #include "system.h"
+#include "str.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <dirent.h>
 
 void *Alloc(u32 size)
 {
@@ -75,7 +77,49 @@ char *ReadFile(char *path)
   return data;
 }
 
+bool DirExists(char *path)
+{
+  DIR* dir = opendir(path);
+  if (dir) {
+      closedir(dir);
+      return true;
+  } else {
+    return false;
+  }
+}
+
+char *GetEnv(char *name)
+{
+  return getenv(name);
+}
+
+char *FileExt(char *name)
+{
+  char *ext = name + StrLen(name);
+  while (ext > name && *(ext-1) != '.') ext--;
+  return ext;
+}
+
+void DirContents(char *path, char *ext, ObjVec *contents)
+{
+  struct dirent *ent;
+  DIR *dir = opendir(path);
+  if (!dir) return;
+
+  while ((ent = readdir(dir)) != NULL) {
+    if (ext == 0 || StrEq(FileExt(ent->d_name), ext)) {
+      char *name = JoinStr(path, ent->d_name, '/');
+      ObjVecPush(contents, name);
+    }
+  }
+}
+
 u32 Ticks(void)
 {
   return clock() / (CLOCKS_PER_SEC / 1000);
+}
+
+void Exit(void)
+{
+  exit(0);
 }

@@ -35,12 +35,13 @@ Result DirectoryOpen(Val opts, Mem *mem)
   if (TupleLength(opts, mem) != 1) return ErrorResult("Expected {path}", 0, 0);
   if (!IsBinary(TupleGet(opts, 0, mem), mem)) return ErrorResult("Expected {path}", 0, 0);
   path = CopyStr(BinaryData(TupleGet(opts, 0, mem), mem), BinaryLength(TupleGet(opts, 0, mem), mem));
-  dir = opendir(path);
 
-  if (!dir) {
+  if (!DirExists(path)) {
     Free(path);
-    return ErrorResult(strerror(errno), 0, 0);
+    return ErrorResult("Directory does not exist", 0, 0);
   }
+
+  dir = opendir(path);
   resolved_path = realpath(path, 0);
   Free(path);
   if (!resolved_path) {

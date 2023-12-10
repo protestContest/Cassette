@@ -1,18 +1,19 @@
 NAME = cassette
 
-# Config section: set appropriate values here
+### Config section: set appropriate values here
 
 PLATFORM=Apple
-FONT_PATH = \"$(HOME)/Library/Fonts\"
-DEFAULT_FONT = \"BerkeleyMono-Regular.ttf\"
+FONT_PATH = \"/Library/Fonts\"
+DEFAULT_FONT = \"SF-Pro.ttf\"
 PREFIX = /opt/homebrew
+INSTALL_PREFIX = $(HOME)/.local
 
-# End Config
+### End Config
 
 TARGET = ./$(NAME)
 SRC_DIR = src
 BUILD_DIR = build
-INSTALL_DIR = $(HOME)/.local/bin
+SHARE_DIR = share
 
 SRCS := $(shell find $(SRC_DIR) -name '*.c' -print)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
@@ -44,8 +45,10 @@ clean:
 
 .PHONY: test
 test: $(TARGET)
-	$(TARGET) test/test.ct test/*.ct
+	CASSETTE_STDLIB=$(SHARE_DIR) $(TARGET) test/test.ct
 
 .PHONY: install
 install: $(TARGET)
-	install $(TARGET) $(INSTALL_DIR)
+	install -d $(INSTALL_PREFIX)/bin $(INSTALL_PREFIX)/share/$(TARGET)
+	install $(TARGET) $(INSTALL_PREFIX)/bin
+	install $(SHARE_DIR)/* $(INSTALL_PREFIX)/share/$(TARGET)

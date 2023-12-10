@@ -4,55 +4,70 @@
 #include "univ/math.h"
 #include "compile/lex.h"
 #include <stdio.h>
-#include <termios.h>
-#include <unistd.h>
 
 static void PrintSourceContext(u32 pos, char *source, u32 context);
 
 int Usage(void)
 {
-  printf("Usage: cassette [-t][-s] [<filename>]+\n");
-  printf("       cassette [-t][-s] -p <manifest file>\n");
+  printf("Usage: cassette [-t] entryScript [module1 ... moduleN]\n");
   return 1;
+}
+
+/*
+Looks for the standard lib in this order:
+- value of CASSETTE_STDLIB env variable
+- $(HOME)/.local/share/cassette
+- /usr/share/cassette
+*/
+static char *GetStdLibPath(void)
+{
+  char *home = GetEnv("HOME");
+  char *path = GetEnv("CASSETTE_STDLIB");
+
+  if (path && DirExists(path)) return path;
+
+  if (home) {
+    path = JoinStr(home, ".local/share/cassette", '/');
+    if (DirExists(path)) return path;
+  }
+
+  if (DirExists("/usr/share/cassette")) {
+    return "/usr/share/cassette";
+  }
+
+  return 0;
+}
+
+void Version(void)
+{
+  printf("Cassette v1.0 2023-12\n");
+  printf("  Standard library: %s\n", GetStdLibPath());
+#ifdef FONT_PATH
+  printf("  Font path: %s\n", FONT_PATH);
+#endif
 }
 
 Options ParseOpts(u32 argc, char *argv[])
 {
   u32 i;
-  Options opts = {false, false, false, 1};
+  Options opts = {false, 1, 0};
   for (i = 0; i < argc; i++) {
-    if (StrEq(argv[i], "-p")) {
-      opts.project = true;
-      opts.file_args++;
+    if (StrEq(argv[i], "-h")) {
+      Usage();
+      Exit();
+    }
+    if (StrEq(argv[i], "-v")) {
+      Version();
+      Exit();
     }
     if (StrEq(argv[i], "-t")) {
       opts.trace = true;
       opts.file_args++;
     }
-    if (StrEq(argv[i], "-s")) {
-      opts.step = true;
-      opts.step = true;
-      opts.file_args++;
-    }
   }
+
+  opts.stdlib_path = GetStdLibPath();
   return opts;
-}
-
-bool WaitForInput(void)
-{
-  struct termios old, new1;
-  char c;
-
-  tcgetattr(0, &old); /* grab old terminal i/o settings */
-  new1 = old; /* make new settings same as old settings */
-  new1.c_lflag &= ~ICANON; /* disable buffered i/o */
-  new1.c_lflag &= ~ECHO; /* disable echo mode */
-  tcsetattr(0, TCSANOW, &new1); /* use these new terminal i/o settings now */
-
-  read(0, &c, 1); /* get a char */
-
-  tcsetattr(0, TCSANOW, &old); /* Restore old terminal i/o settings */
-  return c == 3; /* return whether Ctrl+C was pressed */
 }
 
 void PrintError(Result error)

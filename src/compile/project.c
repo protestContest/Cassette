@@ -6,6 +6,7 @@
 #include "runtime/env.h"
 #include "runtime/ops.h"
 #include "univ/system.h"
+#include <stdio.h>
 
 typedef struct {
   Val entry;
@@ -23,31 +24,20 @@ static Result ScanDependencies(Project *project);
 static Result CompileProject(Val build_list, Chunk *chunk, Project *p);
 static void AddPrimitiveModules(Project *p);
 
-Result BuildProject(char *manifest, Chunk *chunk)
-{
-  Result result;
-  Project project;
-
-  InitProject(&project);
-
-  result = ReadManifest(manifest, &project);
-  if (result.ok) result = ParseModules(&project);
-  if (result.ok) result = ScanDependencies(&project);
-  if (result.ok) result = CompileProject(result.value, chunk, &project);
-
-  DestroyProject(&project);
-  return result;
-}
-
-Result BuildScripts(u32 num_files, char **filenames, Chunk *chunk)
+Result BuildProject(u32 num_files, char **filenames, char *stdlib, Chunk *chunk)
 {
   u32 i;
   Result result;
   Project project;
 
   InitProject(&project);
+
   for (i = 0; i < num_files; i++) {
     ObjVecPush(&project.manifest, CopyStr(filenames[i], StrLen(filenames[i])));
+  }
+
+  if (stdlib) {
+    DirContents(stdlib, "ct", &project.manifest);
   }
 
   result = ParseModules(&project);
@@ -79,37 +69,6 @@ static void DestroyProject(Project *p)
   }
   DestroyVec((Vec*)&p->manifest);
   p->entry = Nil;
-}
-
-Result ReadManifest(char *filename, Project *project)
-{
-  char *source;
-  char *cur;
-  char *basename = Basename(filename, '/');
-
-  source = ReadFile(filename);
-  if (source == 0) return ErrorResult("Could not read manifest", filename, 0);
-
-  cur = SkipBlankLines(source);
-  while (*cur != 0) {
-    char *end = LineEnd(cur);
-    if (*end == '\n') {
-      /* replace newline with string terminator */
-      *end = 0;
-      end++;
-    }
-    /* add full path filename */
-    ObjVecPush(&project->manifest, JoinStr(basename, cur, '/'));
-    cur = end;
-
-    /* skip to next non-space character */
-    cur = SkipBlankLines(cur);
-  }
-
-  Free(source);
-  Free(basename);
-
-  return OkResult(Nil);
 }
 
 /* parses each file and puts the result in a hashmap, keyed by module name (or

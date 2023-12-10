@@ -2,13 +2,11 @@
 #include "result.h"
 
 typedef struct {
-  bool project;
-  bool step;
   bool trace;
   u32 file_args;
+  char *stdlib_path;
 } Options;
 
 int Usage(void);
 Options ParseOpts(u32 argc, char *argv[]);
-bool WaitForInput(void);
 void PrintError(Result error);

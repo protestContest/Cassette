@@ -56,14 +56,7 @@ int main(int argc, char *argv[])
 
   InitChunk(&chunk);
 
-  /* We either build from a manifest of source files, or the source files passed
-  in directly. */
-  if (opts.project) {
-    if (argc < 3) return Usage();
-    result = BuildProject(argv[opts.file_args], &chunk);
-  } else {
-    result = BuildScripts(argc - opts.file_args, argv + opts.file_args, &chunk);
-  }
+  result = BuildProject(argc - opts.file_args, argv + opts.file_args, opts.stdlib_path, &chunk);
 
   if (!result.ok) {
     PrintError(result);
