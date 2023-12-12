@@ -72,6 +72,10 @@ typedef struct {
 } Mem;
 
 #define MemRef(mem, v)        ((mem)->items[v])
+void PushMem(Mem *mem, Val value);
+void PushRoot(Mem *mem, Val value);
+Val PopRoot(Mem *mem, Val value);
+
 #define NumBinCells(size)   ((size) ? (((size) - 1) / 4 + 1) : 1)
 
 void InitMem(Mem *mem, u32 capacity, IntVec *roots);
@@ -119,6 +123,7 @@ Val MapGet(Val map, Val key, Mem *mem);
 Val MapMerge(Val map1, Val map2, Mem *mem);
 Val MapKeys(Val map, Val keys, Mem *mem);
 Val MapValues(Val map, Val values, Mem *mem);
+bool MapIsSubset(Val v1, Val v2, Mem *mem);
 
 bool ValEqual(Val v1, Val v2, Mem *mem);
 
