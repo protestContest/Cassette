@@ -19,6 +19,7 @@ static Result RunInstruction(VM *vm);
 void InitVM(VM *vm, Chunk *chunk)
 {
   vm->pc = 0;
+  vm->link = 0;
   vm->chunk = chunk;
   vm->trace = false;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
@@ -79,6 +80,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
 
 static void Return(Val value, VM *vm)
 {
+  vm->link = RawInt(StackPop(vm));
   vm->pc = RawInt(StackPop(vm));
   Env(vm) = StackPop(vm);
   StackPush(vm, value);
@@ -184,6 +186,8 @@ static Result RunInstruction(VM *vm)
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (!IsNum(StackRef(vm, 1), &vm->mem) || !IsNum(StackRef(vm, 0), &vm->mem)) {
       return RuntimeError("Division is only defined for numbers", vm);
+    } else if (RawNum(StackRef(vm, 0)) == 0) {
+      return RuntimeError("Division by zero", vm);
     } else {
       StackRef(vm, 1) = FloatVal(RawNum(StackRef(vm, 1)) / RawNum(StackRef(vm, 0)));
     }
@@ -442,18 +446,23 @@ static Result RunInstruction(VM *vm)
       vm->pc += RawInt(ChunkConst(vm->chunk, vm->pc+1));
     }
     break;
-  case OpLink:
+  case OpLambda:
     if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
     StackPush(vm, Env(vm));
     StackPush(vm, IntVal(vm->pc + ChunkConst(vm->chunk, vm->pc+1)));
     vm->pc += OpLength(op);
     break;
+  case OpLink:
+    if (vm->stack.count + 3 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    StackPush(vm, Env(vm));
+    StackPush(vm, IntVal(vm->pc + ChunkConst(vm->chunk, vm->pc+1)));
+    StackPush(vm, IntVal(vm->link));
+    vm->link = vm->stack.count;
+    vm->pc += OpLength(op);
+    break;
   case OpReturn:
-    if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-    vm->pc = RawInt(StackRef(vm, 1));
-    Env(vm) = StackRef(vm, 2);
-    StackRef(vm, 2) = StackRef(vm, 0);
-    vm->stack.count -= 2;
+    if (vm->stack.count < 4) return RuntimeError("Stack underflow", vm);
+    Return(StackPop(vm), vm);
     break;
   case OpApply: {
     Val operator = StackPop(vm);
@@ -519,11 +528,40 @@ static Result RunInstruction(VM *vm)
   }
 }
 
+static Val StackTrace(VM *vm)
+{
+  u32 link = vm->link;
+  Val trace = Nil;
+  u32 file_pos;
+  char *filename;
+  Val item;
+
+  /*
+  file_pos = GetSourcePosition(vm->pc, vm->chunk);
+  filename = ChunkFile(vm->pc, vm->chunk);
+  item = Pair(SymbolFrom(filename, StrLen(filename)), IntVal(file_pos), &vm->mem);
+  trace = Pair(item, trace, &vm->mem);
+  */
+
+  while (link > 0) {
+    u32 index = RawInt(VecRef(&vm->stack, link - 2));
+    file_pos = GetSourcePosition(index, vm->chunk);
+    filename = ChunkFile(index, vm->chunk);
+    item = Pair(SymbolFrom(filename, StrLen(filename)), IntVal(file_pos), &vm->mem);
+    trace = Pair(item, trace, &vm->mem);
+    link = RawInt(VecRef(&vm->stack, link - 1));
+  }
+
+  return trace;
+}
+
 Result RuntimeError(char *message, VM *vm)
 {
   char *filename = ChunkFile(vm->pc, vm->chunk);
   u32 pos = GetSourcePosition(vm->pc, vm->chunk);
-  return ErrorResult(message, filename, pos);
+  Result error = ErrorResult(message, filename, pos);
+  error.value = StackTrace(vm);
+  return error;
 }
 
 bool AnyWindowsOpen(VM *vm)

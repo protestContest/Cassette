@@ -7,6 +7,7 @@
 
 typedef struct {
   u32 pc;
+  u32 link;
   bool trace;
   IntVec stack;
   Mem mem;

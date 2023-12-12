@@ -3,6 +3,7 @@
 #include "univ/system.h"
 #include "univ/math.h"
 #include "compile/lex.h"
+#include "runtime/vm.h"
 #include <stdio.h>
 
 static void PrintSourceContext(u32 pos, char *source, u32 context);
@@ -70,6 +71,38 @@ Options ParseOpts(u32 argc, char *argv[])
   return opts;
 }
 
+void PrintRuntimeError(Result error, VM *vm)
+{
+  u32 line, col;
+  char *source = 0;
+
+  printf("%s", ANSIRed);
+  printf("Error: %s\n", error.error);
+
+  PrintStackTrace(error.value, vm);
+
+  if (error.filename) {
+    source = ReadFile(error.filename);
+    if (source) {
+      line = LineNum(source, error.pos);
+      col = ColNum(source, error.pos);
+    }
+  }
+
+  if (error.filename) {
+    printf("    %s", error.filename);
+    if (source) {
+      printf(":%d:%d", line+1, col+1);
+    }
+    printf("\n");
+  }
+
+  if (source) {
+    PrintSourceContext(error.pos, source, 3);
+  }
+  printf("%s", ANSINormal);
+}
+
 void PrintError(Result error)
 {
   u32 line, col;
@@ -97,6 +130,47 @@ void PrintError(Result error)
     PrintSourceContext(error.pos, source, 3);
   }
   printf("%s", ANSINormal);
+}
+
+static void PrintStackTraceLine(char *filename, u32 pos)
+{
+  char *source = ReadFile(filename);
+  u32 line, col;
+
+  line = LineNum(source, pos);
+  col = ColNum(source, pos);
+  printf("    %s:%d:%d", filename, line + 1, col + 1);
+}
+
+void PrintStackTrace(Val stack, VM *vm)
+{
+  u32 iterations = 0;
+  char *prev_filename = 0;
+  u32 prev_pos = 0;
+
+  while (stack != Nil) {
+    Val item = Head(stack, &vm->mem);
+    char *filename = SymbolName(Head(item, &vm->mem), &vm->chunk->symbols);
+    u32 pos = RawInt(Tail(item, &vm->mem));
+    if (filename == prev_filename && pos == prev_pos) {
+      iterations++;
+    } else {
+      if (iterations > 0) {
+        printf(" (%d iterations)", iterations);
+        iterations = 0;
+      }
+      printf("\n");
+      PrintStackTraceLine(filename, pos);
+    }
+    prev_filename = filename;
+    prev_pos = pos;
+    stack = Tail(stack, &vm->mem);
+  }
+  if (iterations > 0) {
+    printf(" (%d iterations)\n", iterations);
+  } else {
+    printf("\n");
+  }
 }
 
 static void PrintSourceContext(u32 pos, char *source, u32 context)

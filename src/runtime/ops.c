@@ -38,6 +38,7 @@ static u8 op_lengths[] = {
   [OpExport]  = 1,
   [OpJump]    = 2,
   [OpBranch]  = 2,
+  [OpLambda]  = 2,
   [OpLink]    = 2,
   [OpReturn]  = 1,
   [OpApply]   = 2,

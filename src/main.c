@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+  /* Disassemble(&chunk); */
+
   /* Ok, time to run the code */
   InitVM(&vm, &chunk);
   if (opts.trace) vm.trace = true;
@@ -89,7 +91,7 @@ static bool CanvasUpdate(void *arg)
   Result result = Run(vm, 1000);
 
   if (!result.ok) {
-    PrintError(result);
+    PrintRuntimeError(result, vm);
     return false;
   }
 

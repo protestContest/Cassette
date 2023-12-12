@@ -175,6 +175,7 @@ static char *op_names[] = {
   [OpExport]  = "export",
   [OpJump]    = "jump",
   [OpBranch]  = "branch",
+  [OpLambda]  = "lambda",
   [OpLink]    = "link",
   [OpReturn]  = "return",
   [OpApply]   = "apply"
