@@ -442,31 +442,27 @@ void DefineSymbols(SymbolTable *symbols)
 
   /* primitives */
   Sym("Kernel", symbols);
-  Sym("typeof", symbols);
+  Sym("Device", symbols);
+  Sym("Type", symbols);
   Sym("head", symbols);
   Sym("tail", symbols);
-  Sym("mget", symbols);
-  Sym("mset", symbols);
-  Sym("mkeys", symbols);
-  Sym("trunc", symbols);
-
-  Sym("IO", symbols);
-  Sym("print", symbols);
-  Sym("inspect", symbols);
+  Sym("panic!", symbols);
   Sym("open", symbols);
+  Sym("close", symbols);
   Sym("read", symbols);
   Sym("write", symbols);
+  Sym("get-param", symbols);
+  Sym("set-param", symbols);
 
-  Sym("Sys", symbols);
-  Sym("ticks", symbols);
-  Sym("seed", symbols);
-  Sym("random", symbols);
-
-  Sym("Canvas", symbols);
-  Sym("new", symbols);
-  Sym("close", symbols);
-  Sym("line", symbols);
-  Sym("text", symbols);
+  Sym("typeof", symbols);
+  Sym("map-get", symbols);
+  Sym("map-set", symbols);
+  Sym("map-del", symbols);
+  Sym("map-keys", symbols);
+  Sym("split-bin", symbols);
+  Sym("join-bin", symbols);
+  Sym("trunc", symbols);
+  Sym("symbol-name", symbols);
 }
 
 /*

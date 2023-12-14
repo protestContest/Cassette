@@ -21,6 +21,7 @@ typedef u32 Val;
 #define tupleMask         0xFFC00000
 #define binaryMask        0xFFD00000
 #define mapMask           0xFFE00000
+#define bignumMask        0xFFF00000
 
 #define MakeVal(n, mask)  (((n) & ~typeMask) | (mask))
 #define IntVal(n)         MakeVal((i32)(n), intMask)
@@ -30,6 +31,7 @@ typedef u32 Val;
 #define TupleHeader(n)    MakeVal(n, tupleMask)
 #define BinaryHeader(n)   MakeVal(n, binaryMask)
 #define MapHeader(n)      MakeVal(n, mapMask)
+#define BignumHeader(n)   MakeVal(n, bignumMask)
 
 #define TypeOf(v)         ((v) & typeMask)
 #define IsType(v, mask)   (TypeOf(v) == (mask))
@@ -41,6 +43,7 @@ typedef u32 Val;
 #define IsTupleHeader(v)  IsType(v, tupleMask)
 #define IsBinaryHeader(v) IsType(v, binaryMask)
 #define IsMapHeader(v)    IsType(v, mapMask)
+#define IsBignumHeader(v) IsType(v, bignumMask)
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
@@ -87,7 +90,8 @@ char *TypeName(Val type);
 
 #define IsTuple(val, mem)       (IsObj(val) && IsTupleHeader(MemRef(mem, RawVal(val))))
 #define IsBinary(val, mem)      (IsObj(val) && IsBinaryHeader(MemRef(mem, RawVal(val))))
-#define IsMap(val, mem)         IsObj(val) && IsMapHeader(MemRef(mem, RawVal(val)))
+#define IsMap(val, mem)         (IsObj(val) && IsMapHeader(MemRef(mem, RawVal(val))))
+#define IsBignum(val, mem)      (IsObj(val) && IsBignumHeader(MemRef(mem, RawVal(val))))
 
 #define TupleLength(val, mem)   RawVal(MemRef(mem, RawVal(val)))
 #define BinaryLength(val, mem)  RawVal(MemRef(mem, RawVal(val)))
