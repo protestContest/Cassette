@@ -447,9 +447,13 @@ static Result RunInstruction(VM *vm)
     }
     break;
   case OpLambda:
+    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
-    StackPush(vm, Env(vm));
-    StackPush(vm, IntVal(vm->pc + ChunkConst(vm->chunk, vm->pc+1)));
+    StackRef(vm, 0) =
+      Pair(Function,
+      Pair(StackRef(vm, 0),
+      Pair(IntVal(vm->pc + ChunkConst(vm->chunk, vm->pc+1)),
+      Pair(Env(vm), Nil, &vm->mem), &vm->mem), &vm->mem), &vm->mem);
     vm->pc += OpLength(op);
     break;
   case OpLink:
@@ -476,7 +480,7 @@ static Result RunInstruction(VM *vm)
         return RuntimeError(msg, vm);
       }
       vm->pc = RawInt(ListGet(operator, 2, &vm->mem));
-      Env(vm) = Tail(Tail(Tail(operator, &vm->mem), &vm->mem), &vm->mem);
+      Env(vm) = ListGet(operator, 3, &vm->mem);
     } else if (IsPrimitive(operator, &vm->mem)) {
       /* apply primitive */
       Result result;

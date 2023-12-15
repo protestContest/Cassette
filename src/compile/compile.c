@@ -175,15 +175,10 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
 
   /* create lambda for module */
-  link = PushByte(OpLambda, c->pos, c->chunk);
-  PushConst(0, c->pos, c->chunk);
-  PushByte(OpPair, c->pos, c->chunk);
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpPair, c->pos, c->chunk);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(Function, c->pos, c->chunk);
-  PushByte(OpPair, c->pos, c->chunk);
+  link = PushByte(OpLambda, c->pos, c->chunk);
+  PushConst(0, c->pos, c->chunk);
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
   PatchJump(c->chunk, link);
@@ -552,15 +547,10 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   u32 num_params = ListLength(params, c->mem);
 
   /* create lambda */
-  link = PushByte(OpLambda, c->pos, c->chunk);
-  PushConst(0, c->pos, c->chunk);
-  PushByte(OpPair, c->pos, c->chunk);
   PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(num_params), c->pos, c->chunk);
-  PushByte(OpPair, c->pos, c->chunk);
-  PushByte(OpConst, c->pos, c->chunk);
-  PushConst(Function, c->pos, c->chunk);
-  PushByte(OpPair, c->pos, c->chunk);
+  link = PushByte(OpLambda, c->pos, c->chunk);
+  PushConst(0, c->pos, c->chunk);
   jump = PushByte(OpJump, c->pos, c->chunk);
   PushByte(0, c->pos, c->chunk);
   PatchJump(c->chunk, link);
