@@ -45,7 +45,7 @@ clean:
 
 .PHONY: test
 test: $(TARGET)
-	CASSETTE_STDLIB=$(SHARE_DIR) $(TARGET) -t test/test.ct
+	CASSETTE_STDLIB=$(SHARE_DIR) $(TARGET) test/test.ct
 
 .PHONY: install
 install: $(TARGET)

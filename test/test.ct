@@ -1,4 +1,9 @@
+import Record
+import IO
 
-let foo = \x -> \y -> x + y
+let Animal = Record.new [:type, :sound],
+    cat = Animal [:cat, "meow"],
+    dog = Animal [:dog, "woof"]
 
-(foo 2) 3
+IO.print cat.sound
+IO.print dog.sound
