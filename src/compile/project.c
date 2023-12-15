@@ -94,6 +94,8 @@ static Result ParseModules(Project *project)
 
     Free(source);
 
+    /* PrintAST(result.value, &parser); */
+
     name = ModuleName(result.value, &project->mem);
 
     /* first file is the entry point */

@@ -4,6 +4,7 @@
 #include "runtime/ops.h"
 #include "runtime/chunk.h"
 #include "runtime/vm.h"
+#include "compile/parse.h"
 
 void DumpMem(Mem *mem, SymbolTable *symbols);
 void PrintError(Result error);
@@ -15,3 +16,4 @@ void DefineSymbols(SymbolTable *symbols);
 void GenerateSymbols(void);
 void GeneratePrimitives(void);
 void PrintMemory(u32 amount);
+void PrintAST(Val ast, Parser *p);
