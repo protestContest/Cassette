@@ -576,6 +576,8 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
 
   PatchJump(c->chunk, jump);
 
+  CompileLinkage(linkage, c);
+
   if (num_params > 0) c->env = Tail(c->env, c->mem);
 
   return CompileOk();

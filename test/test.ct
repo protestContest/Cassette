@@ -1,5 +1,4 @@
-import Graphics
 
-let canvas = Graphics.canvas 400 240
+let foo = \x -> \y -> x + y
 
-canvas.bezier {100, 100} {200, 300} {300, 100}
+(foo 2) 3
