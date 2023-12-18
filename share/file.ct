@@ -1,14 +1,14 @@
 module File
 import Result as *
 import List
-import IO
-import Enum
 import String
 import Stream
 
-def (open! path mode) (try! (Device.open :file {path, mode}))
+def (open path mode) (Device.open :file {path, mode})
+def (open! path mode) (unwrap! (Device.open :file {path, mode}))
 def (close file) (Device.close file)
-def (read! file n) (try! (Device.read file n))
+def (read file n) (Device.read file n)
+def (read! file n) (unwrap! (Device.read file n))
 
 def (stream path) do
   let buf_size = 1024
@@ -65,18 +65,18 @@ def (dirname path) do
 end
 
 def (basename path) do
-  let index = Enum.trim-end-to $/ path #path
+  let index = Enum.last-index-of $/ path
   (tail (Type.split-bin path index))
 end
 
 def (abs-path path) do
   if #path == 0 do
-    abs-path "."
+    nil
   else
     let dir = Device.open :directory {path}
 
     if (ok? dir) do
-      let path = unwrap (Device.get-param (tail dir) :path) nil
+      let path = unwrap (Device.get-param (unwrap! dir) :path) nil
       Device.close (tail dir)
       path
     else
@@ -90,20 +90,18 @@ def (abs-path path) do
   end
 end
 
-def (current-dir) (abs-path ".")
-
-def (join-path base ext) do
+def (join-path left right) do
   cond do
-    #base == 0 ->
-      ext
-    #ext == 0 ->
-      base
-    base.(#base - 1) == $/ ->
-      join-path (head (Type.split-bin base (#base - 1))) ext
-    ext.0 == $/ ->
-      join-path base (tail (Type.split-bin ext 1))
+    #left == 0 ->
+      right
+    #right == 0 ->
+      left
+    left.(#left - 1) == $/ ->
+      join-path (head (Type.split-bin left (#left - 1))) right
+    right.0 == $/ ->
+      join-path left (tail (Type.split-bin right 1))
     true ->
-      base <> "/" <> ext
+      left <> "/" <> right
   end
 end
 
@@ -111,8 +109,5 @@ def (exists? path) do
   let path = abs-path path,
       dir = dirname path
 
-  List.any? (list-dir dir) \item -> do
-    let item-path = join-path dir item.0
-    item-path == path
-  end
+  List.any? \item -> path == (join-path dir item.0) (list-dir dir)
 end

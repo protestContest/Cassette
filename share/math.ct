@@ -6,26 +6,10 @@ let Pi = 3.141593
 let E = 2.718282
 
 def (abs n) if n < 0 do -n else n end
-def (min a b) if a < b do a else b end
-def (max a b) if a > b do a else b end
 def (ceil n) if n >= 0 do (Type.trunc n) + 1 else (Type.trunc n) end
-def (floor n) if n >= 0 do (Type.trunc n) else (Type.trunc n) - 1 end
-def (round n) (floor n + 0.5)
 def (clamp n low high) (min (max n low) high)
-def (rand-int min max) (Type.trunc (System.random) * (max - min)) + min
 
-def (sqrt n) do
-  def (loop guess) do
-    if (abs n - guess * guess) < 0.000001 do
-      guess
-    else
-      let guess = (guess + n / guess) / 2
-      loop guess
-    end
-  end
-
-  loop 1.0
-end
+def (exp n) (expt E n)
 
 def (expt base power) do
   def (loop n product) do
@@ -43,4 +27,26 @@ def (expt base power) do
   end
 end
 
-def (exp n) (expt E n)
+def (floor n) if n >= 0 do (Type.trunc n) else (Type.trunc n) - 1 end
+def (max a b) if a > b do a else b end
+
+def (midpoint p1 p2) do
+  {(p1.0 + p2.0) / 2, (p1.1 + p2.1) / 2}
+end
+
+def (min a b) if a < b do a else b end
+def (rand-int min max) (Type.trunc (System.random) * (max - min)) + min
+def (round n) (floor n + 0.5)
+
+def (sqrt n) do
+  def (loop guess) do
+    if (abs n - guess * guess) < 0.000001 do
+      guess
+    else
+      let guess = (guess + n / guess) / 2
+      loop guess
+    end
+  end
+
+  loop 1.0
+end

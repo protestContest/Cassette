@@ -4,82 +4,75 @@ import Result as *
 import String
 import Type
 
-let console = (try! (Device.open :console {}))
+let console = (unwrap! (Device.open :console {}))
 
-def (num-str n) do
-  def (loop n str) do
-    if n == 0 do
-      Type.join-bin str
-    else
-      let d = n % 10 + $0
-      loop (Type.trunc n / 10) d | str
-    end
-  end
-
-  if n == 0 do
-    "0"
-  else
-    loop n nil
-  end
+def (read-line) do
+  unwrap! (Device.read console 1024)
 end
 
 def (format iodata) (Type.join-bin iodata)
 
-def (printable? data) do
-  def (printable-binary? data index) cond do
-    index == #data -> true
-    not (printable? data.(index)) -> false
-    true -> printable-binary? data index + 1
-  end
-
-  cond do
-    (Type.typeof data) == :binary -> printable-binary? data 0
-    (Type.typeof data) == :integer -> data >= 0 and data < 256
-    (Type.typeof data) == :pair -> List.all? data printable?
-    true -> false
-  end
-end
-
-def (print data) do
-  def (loop data length) do
-    if (Type.typeof data) == :pair do
-      List.reduce data length loop
-    else
-      try! (Device.write console data)
-    end
-  end
-
-  cond do
-    (Type.typeof data) == :integer -> print (num-str data)
-    not (printable? data) -> do
-      print ["Unprintable value", String.newline]
-      :error
-    end
-    true -> do
-      let length = loop data 0
-      if length > 0 do
-        Device.write console String.newline
+def (inspect value depth) do
+  def (inspect-int num acc) do
+    if num == 0 do
+      if acc == nil do
+        "0"
+      else
+        acc
       end
-      :ok
+    else
+      let d = $0 + num % 10
+      d | acc
     end
   end
-end
 
-def (write data) (Device.write console data)
-
-def (read-line) do
-  try! (Device.read console 1024)
-end
-
-def (inspect value) do
-  cond do
-    (Type.typeof value) == :integer -> print value
-    (Type.typeof value) == :float -> print "Float"
-    (Type.typeof value) == :pair -> print "Pair"
-    (Type.typeof value) == :tuple -> print "Tuple"
-    (Type.typeof value) == :binary -> print value
-    (Type.typeof value) == :map -> print "Map"
-    (Type.typeof value) == :symbol -> print [":", Type.symbol-name value]
-    true -> print "Unknown value"
+  def (inspect-num num) do
+    if (Type.typeof num) == :integer do
+      (inspect-int num nil)
+    else
+      let whole = inspect-int (Type.trunc num) nil,
+          part = inspect-int (Type.trunc num * 1000) nil
+      [whole, ".", part]
+    end
   end
+
+  def (inspect-list list) do
+    let items = List.map \item -> (inspect item depth - 1) value
+    ["[", List.intersperse ", " items, "]"]
+  end
+
+  def (inspect-tuple tuple) do
+    let items = List.map \item -> (inspect item depth - 1) (List.from tuple)
+    ["{", List.intersperse ", " items, "}"]
+  end
+
+  def (inspect-entry entry) do
+    let key = head entry, value = tail entry
+    if (Type.typeof key) == :symbol do
+      [Type.symbol-name key, ": ", inspect value depth - 1]
+    else
+      [inspect key depth - 1, " => ", inspect value depth - 1]
+    end
+  end
+
+  def (inspect-map map) do
+    let items = List.map inspect-entry (List.from map)
+    ["{", List.intersperse ", " items, "}"]
+  end
+
+  cond do
+    depth == 0 -> "..."
+    (Type.typeof value) == :integer -> inspect-num value
+    (Type.typeof value) == :float -> inspect-num value
+    (Type.typeof value) == :pair -> inspect-list value
+    (Type.typeof value) == :tuple -> inspect-tuple value
+    (Type.typeof value) == :binary -> value
+    (Type.typeof value) == :map -> inspect-map value
+    (Type.typeof value) == :symbol -> [":", Type.symbol-name value]
+    true -> "<???>"
+  end
+end
+
+def (print value) do
+  Device.write console (format [(inspect value 3), String.newline])
 end

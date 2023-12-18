@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>$title$</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="favicon.svg" />
+  <link rel="mask-icon" href="favicon.svg" color="#2D2F38" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body id="top">
+  <header>
+    <object class="banner" type="image/svg+xml" data="banner.svg" role="img" width="487" height="180" style="pointer-events:none">
+      <center>
+        <img src="banner.gif" width="244" height="90" />
+      </center>
+    </object>
+  </header>
+  $if(toc)$
+  <div id="container" $if(hidetoc)$ class="notoc" $endif$>
+  $else$
+  <div id="container" class="notoc">
+  $endif$
+    <main>
+      <article>
+        $if(showtitle)$
+        <h1>$title$</h1>
+        $endif$
+        $body$
+      </article>
+    </main>
+  $if(toc)$
+    <div id="toc">
+      <nav>
+        $toc$
+        <a href="#top">Top</a>
+        <button class="small link" onclick="document.getElementById('container').classList.add('notoc');">Hide</button>
+      </nav>
+    </div>
+    <div id="showtoc">
+      <button class="link" onclick="document.getElementById('container').classList.remove('notoc');">Contents</button>
+    </div>
+  $endif$
+  </div>
+  <footer>
+    <div class="copyright">© 2023 zjm</div>
+    <div class="footer-icon">
+      <a href="https://zjm.me"><img src="https://zjm.me/content/themes/zjm/images/rose.png" width="30" height="30" /></a>
+    </div>
+  </footer>
+</body>
+</html>

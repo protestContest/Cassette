@@ -1,0 +1,12 @@
+<svg viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" >
+    <defs>
+        <style>
+        .icon { display: none }
+        .icon:target { display: inline }
+        </style>
+    </defs>
+    <g id="link" class="icon">
+        <path d="M3.731,8l-1.388,1.388c-1.178,1.178 -1.178,3.091 0,4.269c1.178,1.178 3.091,1.178 4.269,-0l2.397,-2.397c1.178,-1.178 1.178,-3.091 0,-4.269" style="fill:none;stroke:#2d2f38;stroke-width:2.08px;"/>
+        <path d="M12.269,8l1.545,-1.545c1.091,-1.091 1.021,-2.934 -0.157,-4.112c-1.178,-1.178 -3.021,-1.248 -4.112,-0.157l-2.711,2.711c-1.092,1.092 -1.021,2.934 0.157,4.112" style="fill:none;stroke:#2d2f38;stroke-width:2.08px;"/>
+    </g>
+</svg>

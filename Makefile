@@ -52,3 +52,7 @@ install: $(TARGET)
 	install -d $(INSTALL_PREFIX)/bin $(INSTALL_PREFIX)/share/$(TARGET)
 	install $(TARGET) $(INSTALL_PREFIX)/bin
 	install $(SHARE_DIR)/* $(INSTALL_PREFIX)/share/$(TARGET)
+
+.PHONY: docs
+docs:
+	$(MAKE) -C support/docs

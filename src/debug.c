@@ -615,6 +615,7 @@ void GeneratePrimitives(void)
   printf("  {/* map-set */      0x%08X, &VMMapSet},\n", SymbolFor("map-set"));
   printf("  {/* map-del */      0x%08X, &VMMapDelete},\n", SymbolFor("map-del"));
   printf("  {/* map-keys */     0x%08X, &VMMapKeys},\n", SymbolFor("map-keys"));
+  printf("  {/* map-values */   0x%08X, &VMMapValues},\n", SymbolFor("map-values"));
   printf("  {/* split-bin */    0x%08X, &VMSplit},\n", SymbolFor("split-bin"));
   printf("  {/* join-bin */     0x%08X, &VMJoinBin},\n", SymbolFor("join-bin"));
   printf("  {/* trunc */        0x%08X, &VMTrunc},\n", SymbolFor("trunc"));

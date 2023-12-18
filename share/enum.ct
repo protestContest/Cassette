@@ -1,13 +1,13 @@
 module Enum
 
-def (trim-end-to item enum index) cond do
-  index == 0 -> index
-  enum.(index - 1) == item -> index
-  true -> trim-end-to item enum index - 1
-end
+def (last-index-of item enum) do
+  def (loop index) do
+    cond do
+      index < 0 -> nil
+      enum.(index) == item -> index
+      true -> loop index - 1
+    end
+  end
 
-def (trim-end item enum index) cond do
-  index == 0 -> index
-  enum.(index - 1) != item -> index
-  true -> trim-end item enum index - 1
+  loop #enum - 1
 end

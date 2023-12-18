@@ -1,9 +1,4 @@
-import Record
+import List
 import IO
 
-let Animal = Record.new [:type, :sound],
-    cat = Animal [:cat, "meow"],
-    dog = Animal [:dog, "woof"]
-
-IO.print cat.sound
-IO.print dog.sound
+IO.print (List.repeat "x" 7)

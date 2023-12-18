@@ -10,3 +10,5 @@ libcassette.a
 deps/*
 lib/*
 oldsrc/*
+support/docs/site/*.html
+support/docs/site/fonts/

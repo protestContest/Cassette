@@ -1,8 +1,44 @@
 module Window
 import Result as *
 
+let white = {0xFF, 0xFF, 0xFF, 0xFF},
+    black = {0, 0, 0, 0xFF}
+
 def (new width height) (try! (Device.open :window {width, height}))
 def (clear color window)(try! (Device.write window {:clear, color}))
 def (text string x y window) (try! (Device.write window {:text, string, x, y}))
 def (line x1 y1 x2 y2 window) (try! (Device.write window {:line, x1, y1, x2, y2}))
 def (blit img x y w h window) (try! (Device.write window {:blit, img, x, y, w, h}))
+
+def (draw-bezier c1 c2 c3 canvas) do
+  if (Math.abs c3.0 - c1.0) < 4 and
+     (Math.abs c3.1 - c1.1) < 4 do
+    Window.line c1.0 c1.1 c3.0 c3.1 canvas
+  else
+    let m1 = midpoint c1 c2,
+        m2 = midpoint c2 c3,
+        m3 = midpoint m1 m2
+    draw-bezier c1 m1 m3 canvas
+    draw-bezier m3 m2 c3 canvas
+  end
+end
+
+def (draw-rect rect canvas) do
+  Window.line rect.0 rect.1 rect.0 rect.3 canvas
+  Window.line rect.2 rect.1 rect.2 rect.3 canvas
+  Window.line rect.0 rect.1 rect.2 rect.1 canvas
+  Window.line rect.0 rect.3 rect.2 rect.3 canvas
+end
+
+def (canvas width height) do
+  let win = Window.new width height
+
+  {
+    line: \a b -> (Window.line a.0 a.1 b.0 b.1 win),
+    text: \msg p -> (Window.text msg p.0 p.1 win),
+    clear: \color -> (Window.clear color win),
+    blit: \img p size -> (Window.blit img p.0 p.1 size.0 size.1 win),
+    bezier: \a b c -> (draw-bezier a b c win),
+    rect: \r -> (draw-rect r win)
+  }
+end

@@ -335,9 +335,7 @@ static Result ParseExpr(Precedence prec, Parser *p)
 {
   Result result;
 
-  if (!ExprNext(&p->lex)) {
-    return ParseError("Expected expression", p);
-  }
+  if (!ExprNext(&p->lex)) return ParseError("Expected expression", p);
   result = ExprNext(&p->lex)(p);
 
   while (result.ok && PrecNext(&p->lex) >= prec) {
