@@ -124,11 +124,7 @@ static void SkipWhitespace(Lexer *lex)
 {
   char *cur = SkipSpaces(lex->source + lex->pos);
 
-  while (*cur == ';') {
-    cur = LineEnd(cur);
-    if (*cur != 0) cur++;
-    cur = SkipSpaces(cur);
-  }
+  if (*cur == ';') cur = LineEnd(cur);
 
   lex->pos = cur - lex->source;
 }

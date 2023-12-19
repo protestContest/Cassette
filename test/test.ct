@@ -1,4 +1,13 @@
-import List
+import File
 import IO
 
-IO.print (List.repeat "x" 7)
+; def (stream-chunks file bufsize) do
+;   let data = (File.read! file bufsize)
+;   IO.print data
+;   IO.print "---"
+;   data | \-> (stream-chunks file bufsize)
+; end
+
+; let file = File.open! "/Users/zack/Desktop/seattle.asc" "r"
+
+IO.print ["abc", 0x0A]

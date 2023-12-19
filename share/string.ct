@@ -1,3 +1,48 @@
 module String
+import IO
 
 let newline = 0x0A
+
+def (slice str a b) do
+  head (Type.split-bin (tail (Type.split-bin str a)) b)
+end
+
+def (digit? c) c >= $0 and c <= $9
+
+def (parse-int str) do
+  def (loop index num) do
+    cond do
+      index == #str -> num | index
+      not (digit? str.(index)) -> num | index
+      true -> do
+        let digit = str.(index) - $0
+        loop index + 1 num * 10 + digit
+      end
+    end
+  end
+
+  loop 0 0
+end
+
+def (parse-float str) do
+  def (loop index whole frac exp) do
+    cond do
+      index == #str -> whole + frac / exp | index
+      not (digit? str.(index)) -> whole + frac / exp | index
+      true -> do
+        let digit = str.(index) - $0
+        loop index + 1 whole frac * 10 + digit exp * 10
+      end
+    end
+  end
+
+  let int = parse-int str,
+      index = (tail int),
+      whole = (head int)
+
+  if index < #str and str.(index) == $. do
+    loop index + 1 whole 0 1
+  else
+    int
+  end
+end

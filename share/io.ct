@@ -1,7 +1,5 @@
 module IO
 import List
-import Result as *
-import String
 import Type
 
 let console = (unwrap! (Device.open :console {}))
@@ -22,7 +20,7 @@ def (inspect value depth) do
       end
     else
       let d = $0 + num % 10
-      d | acc
+      inspect-int (Type.trunc num / 10) d | acc
     end
   end
 
@@ -31,14 +29,15 @@ def (inspect value depth) do
       (inspect-int num nil)
     else
       let whole = inspect-int (Type.trunc num) nil,
-          part = inspect-int (Type.trunc num * 1000) nil
+          part = inspect-int (Type.trunc (num - (Type.trunc num)) * 1000) nil
       [whole, ".", part]
     end
   end
 
   def (inspect-list list) do
-    let items = List.map \item -> (inspect item depth - 1) value
-    ["[", List.intersperse ", " items, "]"]
+    ; let items = List.map \item -> (inspect item depth - 1) value
+    ; ["[", List.intersperse ", " items, "]"]
+    inspect (head list) depth - 1
   end
 
   def (inspect-tuple tuple) do
@@ -74,5 +73,5 @@ def (inspect value depth) do
 end
 
 def (print value) do
-  Device.write console (format [(inspect value 3), String.newline])
+  Device.write console (format [(inspect value 3), 0x0A])
 end

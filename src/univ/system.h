@@ -18,5 +18,6 @@ char *GetEnv(char *name);
 char *FileExt(char *name);
 bool DirExists(char *path);
 void DirContents(char *path, char *ext, ObjVec *contents);
+u32 Time(void);
 u32 Ticks(void);
 void Exit(void);

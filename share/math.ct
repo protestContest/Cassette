@@ -36,6 +36,7 @@ end
 
 def (min a b) if a < b do a else b end
 def (rand-int min max) (Type.trunc (System.random) * (max - min)) + min
+def (random) (System.random)
 def (round n) (floor n + 0.5)
 
 def (sqrt n) do

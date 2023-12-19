@@ -14,6 +14,9 @@
 static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
 static Result VMPanic(u32 num_args, VM *vm);
+static Result VMUnwrap(u32 num_args, VM *vm);
+static Result VMForceUnwrap(u32 num_args, VM *vm);
+static Result VMOk(u32 num_args, VM *vm);
 
 static Result VMOpen(u32 num_args, VM *vm);
 static Result VMClose(u32 num_args, VM *vm);
@@ -37,6 +40,9 @@ static PrimitiveDef kernel[] = {
   {/* head */         0x7FD4FAFD, &VMHead},
   {/* tail */         0x7FD1655A, &VMTail},
   {/* panic! */       0x7FDA4AE9, &VMPanic},
+  {/* unwrap */       0x7FDC5932, &VMUnwrap},
+  {/* unwrap! */      0x7FDC1BBA, &VMForceUnwrap},
+  {/* ok? */          0x7FD3025E, &VMOk},
 };
 
 static PrimitiveDef device[] = {
@@ -135,6 +141,53 @@ static Result VMPanic(u32 num_args, VM *vm)
   } else {
     return RuntimeError("Unknown error", vm);
   }
+}
+
+static Result VMUnwrap(u32 num_args, VM *vm)
+{
+  Val value, default_val;
+  Val types[2] = {PairType, Nil};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  default_val = StackPop(vm);
+  value = StackPop(vm);
+  if (Head(value, &vm->mem) == Ok) {
+    return OkResult(Tail(value, &vm->mem));
+  } else {
+    return OkResult(default_val);
+  }
+}
+
+static Result VMForceUnwrap(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {PairType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  if (Head(value, &vm->mem) == Ok) {
+    return OkResult(Tail(value, &vm->mem));
+  } else {
+    Val error = Tail(value, &vm->mem);
+    if (IsBinary(error, &vm->mem)) {
+      return RuntimeError(CopyStr(BinaryData(error, &vm->mem), BinaryLength(error, &vm->mem)), vm);
+    } else {
+      return RuntimeError("Unwrap error", vm);
+    }
+  }
+}
+
+static Result VMOk(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {PairType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(Head(value, &vm->mem) == Ok));
 }
 
 static Result VMOpen(u32 num_args, VM *vm)

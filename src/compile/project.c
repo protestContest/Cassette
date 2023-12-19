@@ -110,8 +110,11 @@ static Result ParseModules(Project *project)
 /* starting with the entry module, assemble a list of modules in order of dependency */
 static Result ScanDependencies(Project *project)
 {
+  HashMap seen;
   Val stack = Pair(project->entry, Nil, &project->mem);
   Val build_list = Nil;
+
+  InitHashMap(&seen);
 
   AddPrimitiveModules(project);
 
@@ -121,6 +124,8 @@ static Result ScanDependencies(Project *project)
     /* get the next module in the stack */
     name = Head(stack, &project->mem);
     stack = Tail(stack, &project->mem);
+
+    if (HashMapContains(&seen, name)) continue;
 
     Assert(HashMapContains(&project->modules, name));
     module = HashMapGet(&project->modules, name);
@@ -132,6 +137,7 @@ static Result ScanDependencies(Project *project)
 
     /* add current module to build list */
     build_list = Pair(module, build_list, &project->mem);
+    HashMapSet(&seen, name, 1);
 
     /* add each of the module's imports to the stack */
     while (imports != Nil) {
@@ -147,11 +153,13 @@ static Result ScanDependencies(Project *project)
       }
 
       /* add import to the stack if it's not already in the build list */
-      if (!ListContains(stack, import_name, &project->mem)) {
+      if (!HashMapContains(&seen, import_name)) {
         stack = Pair(import_name, stack, &project->mem);
       }
     }
   }
+
+  DestroyHashMap(&seen);
 
   return OkResult(build_list);
 }
@@ -173,15 +181,19 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
   if (!result.ok) return result;
   compile_env = result.value;
 
+  /* pre-define all modules */
+  for (i = 0; i < num_modules; i++) {
+    Val module = ListGet(build_list, i, &p->mem);
+    Define(ModuleName(module, &p->mem), i, compile_env, &p->mem);
+  }
+
   /* compile each module except the entry mod */
   for (i = 0; i < num_modules; i++) {
     Val module = Head(build_list, &p->mem);
     build_list = Tail(build_list, &p->mem);
 
-    /* reset env */
     c.env = compile_env;
     result = CompileModule(module, i, &c);
-    Define(ModuleName(module, &p->mem), i, compile_env, &p->mem);
     if (!result.ok) return result;
   }
 

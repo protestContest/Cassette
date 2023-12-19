@@ -114,6 +114,11 @@ void DirContents(char *path, char *ext, ObjVec *contents)
   }
 }
 
+u32 Time(void)
+{
+  return time(0);
+}
+
 u32 Ticks(void)
 {
   return clock() / (CLOCKS_PER_SEC / 1000);

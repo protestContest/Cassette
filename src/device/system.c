@@ -22,7 +22,7 @@ Result SystemSet(void *context, Val key, Val value, Mem *mem)
 Result SystemGet(void *context, Val key, Mem *mem)
 {
   if (key == SymTime) {
-    return OkResult(IntVal(Ticks()));
+    return OkResult(IntVal(Time()));
   } else if (key == SymRandom) {
     float r = (float)Random() / (float)MaxUInt;
     return OkResult(FloatVal(r));

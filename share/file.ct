@@ -1,46 +1,14 @@
 module File
-import Result as *
 import List
 import String
 import Stream
+import Enum
 
 def (open path mode) (Device.open :file {path, mode})
 def (open! path mode) (unwrap! (Device.open :file {path, mode}))
 def (close file) (Device.close file)
 def (read file n) (Device.read file n)
 def (read! file n) (unwrap! (Device.read file n))
-
-def (stream path) do
-  let buf_size = 1024
-
-  def (stream-chunk-from n chunk file) do
-    if n == #chunk do
-      (stream-next-chunk file)
-    else
-      \-> do
-        (chunk n) | (stream-chunk-from n + 1 chunk file)
-      end
-    end
-  end
-
-  def (stream-next-chunk file) do
-    let chunk = (read! file buf_size)
-
-    if chunk == nil do
-      nil
-    else
-      stream-chunk-from 0 chunk file
-    end
-  end
-
-  stream-next-chunk (open! path "r")
-end
-
-def (stream-lines path) do
-  (Stream.chunk-while
-    (stream path)
-    \char -> char != String.newline)
-end
 
 def (list-dir path) do
   let dir = Device.open :directory {path}
@@ -55,12 +23,10 @@ def (list-dir path) do
 end
 
 def (dirname path) do
-  if path == nil do
-    nil
-  else
-    let index = Enum.trim-end-to $/ path #path,
-        index = Enum.trim-end $/ path index
-    (head (Type.split-bin path index))
+  cond do
+    path == nil -> nil
+    path.(#path - 1) == $/ -> String.slice path 0 #path - 1
+    true -> String.slice path 0 (Enum.last-index-of $/ path)
   end
 end
 

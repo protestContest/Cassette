@@ -44,10 +44,10 @@ def (range min max) do
 end
 
 def (reduce fn acc list)
-  if list == nil do
-    acc
-  else
-    reduce fn (fn (head list) acc) (tail list)
+  cond do
+    list == nil -> acc
+    (Type.typeof list) != :pair -> fn list acc
+    true -> reduce fn (fn (head list) acc) (tail list)
   end
 
 def (reverse list) (reduce \item reversed -> (item | reversed) nil list)

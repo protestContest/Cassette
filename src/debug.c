@@ -598,6 +598,9 @@ void GeneratePrimitives(void)
   printf("  {/* head */         0x%08X, &VMHead},\n", SymbolFor("head"));
   printf("  {/* tail */         0x%08X, &VMTail},\n", SymbolFor("tail"));
   printf("  {/* panic! */       0x%08X, &VMPanic},\n", SymbolFor("panic!"));
+  printf("  {/* unwrap */       0x%08X, &VMUnwrap},\n", SymbolFor("unwrap"));
+  printf("  {/* unwrap! */      0x%08X, &VMForceUnwrap},\n", SymbolFor("unwrap!"));
+  printf("  {/* ok? */          0x%08X, &VMOk},\n", SymbolFor("ok?"));
   printf("};\n");
   printf("\n");
   printf("static PrimitiveDef device[] = {\n");

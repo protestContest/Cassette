@@ -3,7 +3,7 @@ module Enum
 def (last-index-of item enum) do
   def (loop index) do
     cond do
-      index < 0 -> nil
+      index < 0 -> #enum
       enum.(index) == item -> index
       true -> loop index - 1
     end

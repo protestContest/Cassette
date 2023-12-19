@@ -39,7 +39,8 @@ dependent code, and can be switched off with the CANVAS flag.
 #include <stdio.h>
 #include <unistd.h>
 #include "debug.h"
-#include "univ/serial.h"
+#include "univ/system.h"
+#include "univ/math.h"
 
 static Options opts;
 
@@ -67,6 +68,7 @@ int main(int argc, char *argv[])
   /* Disassemble(&chunk); */
 
   /* Ok, time to run the code */
+  Seed(Time());
   InitVM(&vm, &chunk);
   if (opts.trace) vm.trace = true;
   InitGraphics();
