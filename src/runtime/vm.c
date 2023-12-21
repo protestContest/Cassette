@@ -11,9 +11,6 @@
 #include "debug.h"
 #include <stdio.h>
 
-#define IsFunction(value, mem)    (IsPair(value) && Head(value, mem) == Function)
-#define IsPrimitive(value, mem)   (IsPair(value) && Head(value, mem) == Primitive)
-
 static Result RunInstruction(VM *vm);
 
 void InitVM(VM *vm, Chunk *chunk)
@@ -127,6 +124,16 @@ static Result RunInstruction(VM *vm)
   case OpConst:
     if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
     StackPush(vm, ChunkConst(vm->chunk, vm->pc+1));
+    vm->pc += OpLength(op);
+    break;
+  case OpInt:
+    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    StackPush(vm, IntVal(ChunkRef(vm->chunk, vm->pc+1)));
+    vm->pc += OpLength(op);
+    break;
+  case OpNil:
+    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    StackPush(vm, Nil);
     vm->pc += OpLength(op);
     break;
   case OpNeg:
@@ -417,15 +424,16 @@ static Result RunInstruction(VM *vm)
     vm->pc += OpLength(op);
     break;
   case OpDefine:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    Define(StackRef(vm, 0), RawInt(ChunkConst(vm->chunk, vm->pc+1)), Env(vm), &vm->mem);
+    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    Define(StackRef(vm, 1), RawInt(StackRef(vm, 0)), Env(vm), &vm->mem);
+    StackPop(vm);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpLookup:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
-    StackPush(vm, Lookup(RawInt(ChunkConst(vm->chunk, vm->pc+1)), Env(vm), &vm->mem));
+    StackPush(vm, Lookup(RawInt(StackPop(vm)), Env(vm), &vm->mem));
     if (StackRef(vm, 0) == Undefined) return RuntimeError("Undefined variable", vm);
     vm->pc += OpLength(op);
     break;
@@ -436,41 +444,46 @@ static Result RunInstruction(VM *vm)
     vm->pc += OpLength(op);
     break;
   case OpJump:
-    vm->pc += RawInt(ChunkConst(vm->chunk, vm->pc+1));
+    vm->pc += RawInt(StackPop(vm));
     break;
   case OpBranch:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    if (StackRef(vm, 0) == Nil || StackRef(vm, 0) == False) {
+    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    if (StackRef(vm, 1) == Nil || StackRef(vm, 1) == False) {
+      StackPop(vm);
       vm->pc += OpLength(op);
     } else {
-      vm->pc += RawInt(ChunkConst(vm->chunk, vm->pc+1));
+      vm->pc += RawInt(StackPop(vm));
     }
     break;
   case OpLambda:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
-    StackRef(vm, 0) =
+    StackRef(vm, 1) =
       Pair(Function,
-      Pair(StackRef(vm, 0),
-      Pair(IntVal(vm->pc + ChunkConst(vm->chunk, vm->pc+1)),
+      Pair(StackRef(vm, 1),
+      Pair(IntVal(vm->pc + RawInt(StackRef(vm, 0))),
       Pair(Env(vm), Nil, &vm->mem), &vm->mem), &vm->mem), &vm->mem);
+    StackPop(vm);
     vm->pc += OpLength(op);
     break;
-  case OpLink:
+  case OpLink: {
+    Val link;
     if (vm->stack.count + 3 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    link = StackPop(vm);
     StackPush(vm, Env(vm));
-    StackPush(vm, IntVal(vm->pc + ChunkConst(vm->chunk, vm->pc+1)));
+    StackPush(vm, IntVal(vm->pc + RawInt(link)));
     StackPush(vm, IntVal(vm->link));
     vm->link = vm->stack.count;
     vm->pc += OpLength(op);
     break;
+  }
   case OpReturn:
     if (vm->stack.count < 4) return RuntimeError("Stack underflow", vm);
     Return(StackPop(vm), vm);
     break;
   case OpApply: {
     Val operator = StackPop(vm);
-    i32 num_args = RawInt(ChunkConst(vm->chunk, vm->pc+1));
+    i32 num_args = ChunkRef(vm->chunk, vm->pc+1);
     if (IsFunction(operator, &vm->mem)) {
       /* normal function */
       Val arity = ListGet(operator, 1, &vm->mem);

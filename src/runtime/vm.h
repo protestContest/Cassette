@@ -21,6 +21,9 @@ typedef struct {
 #define StackRef(vm, i)     (vm)->stack.items[(vm)->stack.count - 1 - i]
 #define Env(vm)             (vm)->stack.items[0]
 
+#define IsFunction(value, mem)    (IsPair(value) && Head(value, mem) == Function)
+#define IsPrimitive(value, mem)   (IsPair(value) && Head(value, mem) == Primitive)
+
 void InitVM(VM *vm, Chunk *chunk);
 void DestroyVM(VM *vm);
 Result Run(VM *vm, u32 num_instructions);

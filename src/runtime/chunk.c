@@ -1,13 +1,16 @@
 #include "chunk.h"
 #include "univ/system.h"
+#include "ops.h"
+#include "debug.h"
 
-static u8 AddConst(Val value, Chunk *chunk);
+static u32 AddConst(Val value, Chunk *chunk);
 
 void InitChunk(Chunk *chunk)
 {
   InitVec((Vec*)&chunk->code, sizeof(u8), 256);
   chunk->num_constants = 0;
   InitSymbolTable(&chunk->symbols);
+  DefinePrimitiveSymbols(&chunk->symbols);
   InitVec((Vec*)&chunk->source_map, sizeof(u32), 256);
   InitVec((Vec*)&chunk->file_map, sizeof(u32), 8);
 }
@@ -88,36 +91,63 @@ u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk)
   return pos;
 }
 
-static u8 AddConst(Val value, Chunk *chunk)
+static i32 FindConst(Val value, Chunk *chunk)
 {
-  u32 i;
-
-  /* check if we already have this constant */
-  for (i = 0; i < chunk->num_constants; i++) {
+  i32 i;
+  for (i = 0; i < (i32)chunk->num_constants; i++) {
     if (value == chunk->constants[i]) {
       return i;
     }
   }
+  return -1;
+}
 
-  /* TODO: support more constants */
-  Assert(chunk->num_constants < MaxConstants);
+static u32 AddConst(Val value, Chunk *chunk)
+{
   chunk->constants[chunk->num_constants++] = value;
   return chunk->num_constants - 1;
 }
 
-void PushConst(Val value, u32 source_pos, Chunk *chunk)
+u32 PushConst(Val value, u32 source_pos, Chunk *chunk)
 {
-  PushByte(AddConst(value, chunk), source_pos, chunk);
+  u32 pos = chunk->code.count;
+  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) <= 255) {
+    u8 byte = RawInt(value);
+    PushByte(OpInt, source_pos, chunk);
+    PushByte(byte, source_pos, chunk);
+  } else if (value == Nil) {
+    PushByte(OpNil, source_pos, chunk);
+  } else {
+    i32 index = FindConst(value, chunk);
+    if (index >= 0) {
+      PushByte(OpConst, source_pos, chunk);
+      PushByte((u8)index, source_pos, chunk);
+    } else if (chunk->num_constants < 256) {
+      PushByte(OpConst, source_pos, chunk);
+      PushByte((u8)AddConst(value, chunk), source_pos, chunk);
+    } else {
+      u32 index = AddConst(value, chunk);
+      PushByte(OpConst2, source_pos, chunk);
+      PushByte((u8)((index >> 8) & 0xFF), source_pos, chunk);
+      PushByte((u8)(index & 0xFF), source_pos, chunk);
+    }
+  }
+  return pos;
 }
 
-void PatchChunk(Chunk *chunk, u32 index, Val value)
+void PatchConst(Chunk *chunk, u32 index)
 {
-  chunk->code.items[index] = AddConst(value, chunk);
-}
-
-void PatchJump(Chunk *chunk, u32 index)
-{
-  PatchChunk(chunk, index+1, IntVal(chunk->code.count - index));
+  u32 dist = chunk->code.count - index - 2;
+  if (dist < 256) {
+    chunk->code.items[index] = OpInt;
+    chunk->code.items[index+1] = (u8)dist;
+  } else if (chunk->num_constants < 256) {
+    chunk->code.items[index] = OpConst;
+    chunk->code.items[index+1] = AddConst(IntVal(dist), chunk);
+  } else {
+    /* to-do: support long jumps when small consts are full */
+    Assert(false);
+  }
 }
 
 u32 GetSourcePosition(u32 byte_pos, Chunk *chunk)

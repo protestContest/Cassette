@@ -3,7 +3,7 @@
 #include "mem/symbols.h"
 #include "univ/vec.h"
 
-#define MaxConstants  256
+#define MaxConstants  1024
 
 typedef struct {
   ByteVec code;
@@ -26,8 +26,7 @@ char *ChunkFile(u32 pos, Chunk *chunk);
 u32 ChunkFileLength(u32 pos, Chunk *chunk);
 
 u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk);
-void PushConst(Val value, u32 source_pos, Chunk *chunk);
-void PatchChunk(Chunk *chunk, u32 index, Val value);
-void PatchJump(Chunk *chunk, u32 index);
+u32 PushConst(Val value, u32 source_pos, Chunk *chunk);
+void PatchConst(Chunk *chunk, u32 index);
 
 u32 GetSourcePosition(u32 byte_pos, Chunk *chunk);

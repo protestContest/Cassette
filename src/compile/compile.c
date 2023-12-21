@@ -5,30 +5,29 @@
 #include "project.h"
 #include "runtime/primitives.h"
 
-#define LinkReturn        0x7FD62CF0 /* return */
-#define LinkNext          0x7FD00394 /* next */
+#define LinkNext false
+#define LinkReturn true
 
 static Result CompileImports(Val imports, Compiler *c);
-static Result CompileExpr(Val node, Val linkage, Compiler *c);
-static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c);
-static Result CompileDo(Val expr, Val linkage, Compiler *c);
-static Result CompileCall(Val call, Val linkage, Compiler *c);
-static Result CompileLambda(Val expr, Val linkage, Compiler *c);
-static Result CompileIf(Val expr, Val linkage, Compiler *c);
-static Result CompileAnd(Val expr, Val linkage, Compiler *c);
-static Result CompileOr(Val expr, Val linkage, Compiler *c);
-static Result CompileOp(OpCode op, Val expr, Val linkage, Compiler *c);
-static Result CompileNotOp(OpCode op, Val expr, Val linkage, Compiler *c);
-static Result CompileNegOp(OpCode op, Val args, Val linkage, Compiler *c);
-static Result CompileList(Val items, Val linkage, Compiler *c);
-static Result CompileTuple(Val items, Val linkage, Compiler *c);
-static Result CompileMap(Val items, Val linkage, Compiler *c);
-static Result CompileString(Val sym, Val linkage, Compiler *c);
-static Result CompileVar(Val id, Val linkage, Compiler *c);
-static Result CompileConst(Val value, Val linkage, Compiler *c);
-static Result CompileGroup(Val expr, Val linkage, Compiler *c);
+static Result CompileExpr(Val node, bool linkage, Compiler *c);
+static Result CompileBlock(Val stmts, Val assigns, bool linkage, Compiler *c);
+static Result CompileDo(Val expr, bool linkage, Compiler *c);
+static Result CompileCall(Val call, bool linkage, Compiler *c);
+static Result CompileLambda(Val expr, bool linkage, Compiler *c);
+static Result CompileIf(Val expr, bool linkage, Compiler *c);
+static Result CompileAnd(Val expr, bool linkage, Compiler *c);
+static Result CompileOr(Val expr, bool linkage, Compiler *c);
+static Result CompileOp(OpCode op, Val expr, bool linkage, Compiler *c);
+static Result CompileNotOp(OpCode op, Val expr, bool linkage, Compiler *c);
+static Result CompileNegOp(OpCode op, Val args, bool linkage, Compiler *c);
+static Result CompileList(Val items, bool linkage, Compiler *c);
+static Result CompileTuple(Val items, bool linkage, Compiler *c);
+static Result CompileMap(Val items, bool linkage, Compiler *c);
+static Result CompileString(Val sym, bool linkage, Compiler *c);
+static Result CompileVar(Val id, bool linkage, Compiler *c);
+static Result CompileConst(Val value, bool linkage, Compiler *c);
 
-static void CompileLinkage(Val linkage, Compiler *c);
+static void CompileLinkage(bool linkage, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
 #define CompileOk()  OkResult(Nil)
 
@@ -55,7 +54,6 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
   c->pos = 0;
   BeginChunkFile(Sym(c->filename, &c->chunk->symbols), c->chunk);
 
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(frame_size), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
   PushByte(OpExtend, c->pos, c->chunk);
@@ -65,38 +63,29 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
     u32 fn;
 
     /* create tuples for module */
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
 
     for (fn = 0; fn < primitives[mod].num_fns; fn++) {
       /*  build primitive reference */
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(Nil, c->pos, c->chunk);
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(IntVal(fn), c->pos, c->chunk);
       PushByte(OpPair, c->pos, c->chunk);
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(IntVal(mod), c->pos, c->chunk);
       PushByte(OpPair, c->pos, c->chunk);
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(Primitive, c->pos, c->chunk);
       PushByte(OpPair, c->pos, c->chunk);
 
       /* add to tuple */
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(IntVal(fn), c->pos, c->chunk);
       PushByte(OpSet, c->pos, c->chunk);
     }
 
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
 
     for (fn = 0; fn < primitives[mod].num_fns; fn++) {
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(primitives[mod].fns[fn].name, c->pos, c->chunk);
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(IntVal(fn), c->pos, c->chunk);
       PushByte(OpSet, c->pos, c->chunk);
     }
@@ -104,8 +93,8 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
     PushByte(OpPair, c->pos, c->chunk);
 
     /* define primitive module */
-    PushByte(OpDefine, c->pos, c->chunk);
     PushConst(IntVal(num_modules + mod), c->pos, c->chunk);
+    PushByte(OpDefine, c->pos, c->chunk);
 
     Define(primitives[mod].module, num_modules + mod, env, c->mem);
   }
@@ -133,7 +122,6 @@ Result CompileScript(Val module, Compiler *c)
     u32 num_imports = CountExports(imports, c->modules, c->mem);
 
     /* extend env for imports */
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_imports), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
@@ -175,20 +163,18 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
 
   /* create lambda for module */
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(0), c->pos, c->chunk);
-  link = PushByte(OpLambda, c->pos, c->chunk);
-  PushConst(0, c->pos, c->chunk);
-  jump = PushByte(OpJump, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
-  PatchJump(c->chunk, link);
+  link = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpLambda, c->pos, c->chunk);
+  jump = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpJump, c->pos, c->chunk);
+  PatchConst(c->chunk, link);
 
   /* compile imports */
   if (imports != Nil) {
     u32 num_imports = CountExports(imports, c->modules, c->mem);
 
     /* extend env for imports */
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_imports), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
@@ -200,7 +186,6 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
 
   /* extend env for assigns */
   if (num_assigns > 0) {
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_assigns), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
@@ -219,15 +204,13 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
     PushByte(OpExport, c->pos, c->chunk);
 
     /* build tuple of keys */
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_assigns), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
 
     while (exports != Nil) {
       Val export = Head(exports, c->mem);
-      PushByte(OpConst, c->pos, c->chunk);
+      Sym(SymbolName(export, c->symbols), &c->chunk->symbols);
       PushConst(export, c->pos, c->chunk);
-      PushByte(OpConst, c->pos, c->chunk);
       PushConst(IntVal(i), c->pos, c->chunk);
       PushByte(OpSet, c->pos, c->chunk);
       exports = Tail(exports, c->mem);
@@ -237,10 +220,8 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
     c->env = Tail(c->env, c->mem);
   } else {
     /* empty map */
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(0), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(0), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpPair, c->pos, c->chunk);
@@ -256,16 +237,16 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   }
 
   /* redefine module as exported value */
-  PushByte(OpDefine, c->pos, c->chunk);
   PushConst(IntVal(mod_num), c->pos, c->chunk);
+  PushByte(OpDefine, c->pos, c->chunk);
 
   PushByte(OpReturn, c->pos, c->chunk);
 
-  PatchJump(c->chunk, jump);
+  PatchConst(c->chunk, jump);
 
   /* define module as the lambda */
-  PushByte(OpDefine, c->pos, c->chunk);
   PushConst(IntVal(mod_num), c->pos, c->chunk);
+  PushByte(OpDefine, c->pos, c->chunk);
 
   EndChunkFile(c->chunk);
 
@@ -297,13 +278,13 @@ static Result CompileImports(Val imports, Compiler *c)
     if (import_def < 0) return CompileError("Undefined module", c);
 
     /* call module function */
-    link = PushByte(OpLink, c->pos, c->chunk);
-    PushConst(0, c->pos, c->chunk);
-    PushByte(OpLookup, c->pos, c->chunk);
+    link = PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpLink, c->pos, c->chunk);
     PushConst(IntVal(import_def), c->pos, c->chunk);
+    PushByte(OpLookup, c->pos, c->chunk);
     PushByte(OpApply, c->pos, c->chunk);
-    PushConst(IntVal(0), c->pos, c->chunk);
-    PatchJump(c->chunk, link);
+    PushByte(0, c->pos, c->chunk);
+    PatchConst(c->chunk, link);
 
     if (alias == Nil) {
       /* import directly into module namespace */
@@ -320,11 +301,10 @@ static Result CompileImports(Val imports, Compiler *c)
           /* keep tuple for future iterations */
           PushByte(OpDup, c->pos, c->chunk);
         }
-        PushByte(OpConst, c->pos, c->chunk);
         PushConst(IntVal(i), c->pos, c->chunk);
         PushByte(OpGet, c->pos, c->chunk);
-        PushByte(OpDefine, c->pos, c->chunk);
         PushConst(IntVal(num_imported+i), c->pos, c->chunk);
+        PushByte(OpDefine, c->pos, c->chunk);
         Define(imported_val, num_imported + i, c->env, c->mem);
 
         imported_vals = Tail(imported_vals, c->mem);
@@ -336,8 +316,8 @@ static Result CompileImports(Val imports, Compiler *c)
       PushByte(OpUnpair, c->pos, c->chunk);
       PushByte(OpMap, c->pos, c->chunk);
 
-      PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_imported), c->pos, c->chunk);
+      PushByte(OpDefine, c->pos, c->chunk);
       Define(alias, num_imported, c->env, c->mem);
       num_imported++;
     }
@@ -348,7 +328,7 @@ static Result CompileImports(Val imports, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileExpr(Val node, Val linkage, Compiler *c)
+static Result CompileExpr(Val node, bool linkage, Compiler *c)
 {
   Val tag = TupleGet(node, 0, c->mem);
   Val expr = TupleGet(node, 2, c->mem);
@@ -396,7 +376,7 @@ static Result CompileExpr(Val node, Val linkage, Compiler *c)
   }
 }
 
-static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
+static Result CompileBlock(Val stmts, Val assigns, bool linkage, Compiler *c)
 {
   u32 num_assigned = 0;
   Val def_stmts = stmts;
@@ -424,7 +404,7 @@ static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
     Result result;
     Val stmt = Head(stmts, c->mem);
     bool is_last = Tail(stmts, c->mem) == Nil;
-    Val stmt_linkage = is_last ? linkage : LinkNext;
+    bool stmt_linkage = is_last ? linkage : LinkNext;
 
     if (NodeType(stmt, c->mem) == SymLet) {
       Val var = Head(NodeExpr(stmt, c->mem), c->mem);
@@ -433,15 +413,14 @@ static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
 
-      PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_assigned), c->pos, c->chunk);
+      PushByte(OpDefine, c->pos, c->chunk);
       Define(var, num_assigned, c->env, c->mem);
       num_assigned++;
 
       if (is_last) {
         /* the last statement must produce a result */
-        PushByte(OpConst, c->pos, c->chunk);
-        PushConst(Ok, c->pos, c->chunk);
+        PushConst(Nil, c->pos, c->chunk);
       }
     } else if (NodeType(stmt, c->mem) == SymDef) {
       Val value = Tail(NodeExpr(stmt, c->mem), c->mem);
@@ -449,14 +428,13 @@ static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
 
-      PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_assigned), c->pos, c->chunk);
+      PushByte(OpDefine, c->pos, c->chunk);
       num_assigned++;
 
       if (is_last) {
         /* the last statement must produce a result */
-        PushByte(OpConst, c->pos, c->chunk);
-        PushConst(Ok, c->pos, c->chunk);
+        PushConst(Nil, c->pos, c->chunk);
       }
     } else {
       result = CompileExpr(stmt, stmt_linkage, c);
@@ -473,7 +451,7 @@ static Result CompileBlock(Val stmts, Val assigns, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileDo(Val expr, Val linkage, Compiler *c)
+static Result CompileDo(Val expr, bool linkage, Compiler *c)
 {
   Result result;
   Val assigns = Head(expr, c->mem);
@@ -483,7 +461,6 @@ static Result CompileDo(Val expr, Val linkage, Compiler *c)
 
   if (num_assigns > 0) {
     c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_assigns), 0, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
@@ -502,7 +479,7 @@ static Result CompileDo(Val expr, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileCall(Val call, Val linkage, Compiler *c)
+static Result CompileCall(Val call, bool linkage, Compiler *c)
 {
   Val op = Head(call, c->mem);
   Val args = Tail(call, c->mem);
@@ -510,8 +487,8 @@ static Result CompileCall(Val call, Val linkage, Compiler *c)
   Result result;
 
   if (linkage != LinkReturn) {
-    patch = PushByte(OpLink, c->pos, c->chunk);
-    PushByte(0, c->pos, c->chunk);
+    patch = PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpLink, c->pos, c->chunk);
   }
 
   while (args != Nil) {
@@ -527,18 +504,16 @@ static Result CompileCall(Val call, Val linkage, Compiler *c)
   if (!result.ok) return result;
 
   PushByte(OpApply, c->pos, c->chunk);
-  PushConst(IntVal(num_args), c->pos, c->chunk);
+  PushByte(num_args, c->pos, c->chunk);
 
   if (linkage == LinkNext) {
-    PatchJump(c->chunk, patch);
-  } else if (linkage != LinkReturn) {
-    PatchChunk(c->chunk, patch+1, linkage);
+    PatchConst(c->chunk, patch);
   }
 
   return CompileOk();
 }
 
-static Result CompileLambda(Val expr, Val linkage, Compiler *c)
+static Result CompileLambda(Val expr, bool linkage, Compiler *c)
 {
   Val params = Head(expr, c->mem);
   Val body = Tail(expr, c->mem);
@@ -547,16 +522,14 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   u32 num_params = ListLength(params, c->mem);
 
   /* create lambda */
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(num_params), c->pos, c->chunk);
-  link = PushByte(OpLambda, c->pos, c->chunk);
-  PushConst(0, c->pos, c->chunk);
-  jump = PushByte(OpJump, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
-  PatchJump(c->chunk, link);
+  link = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpLambda, c->pos, c->chunk);
+  jump = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpJump, c->pos, c->chunk);
+  PatchConst(c->chunk, link);
 
   if (num_params > 0) {
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(num_params), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
@@ -565,8 +538,8 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
     for (i = 0; i < num_params; i++) {
       Val param = Head(params, c->mem);
       Define(param, i, c->env, c->mem);
-      PushByte(OpDefine, c->pos, c->chunk);
       PushConst(IntVal(num_params - i - 1), c->pos, c->chunk);
+      PushByte(OpDefine, c->pos, c->chunk);
       params = Tail(params, c->mem);
     }
   }
@@ -574,7 +547,7 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   result = CompileExpr(body, LinkReturn, c);
   if (!result.ok) return result;
 
-  PatchJump(c->chunk, jump);
+  PatchConst(c->chunk, jump);
 
   CompileLinkage(linkage, c);
 
@@ -583,7 +556,7 @@ static Result CompileLambda(Val expr, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileIf(Val expr, Val linkage, Compiler *c)
+static Result CompileIf(Val expr, bool linkage, Compiler *c)
 {
   Val pred = Head(expr, c->mem);
   Val cons = Head(Tail(expr, c->mem), c->mem);
@@ -594,31 +567,31 @@ static Result CompileIf(Val expr, Val linkage, Compiler *c)
   result = CompileExpr(pred, LinkNext, c);
   if (!result.ok) return result;
 
-  branch = PushByte(OpBranch, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
+  branch = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpBranch, c->pos, c->chunk);
 
   PushByte(OpPop, c->pos, c->chunk);
   result = CompileExpr(alt, linkage, c);
   if (!result.ok) return result;
   if (linkage == LinkNext) {
-    jump = PushByte(OpJump, c->pos, c->chunk);
-    PushByte(0, c->pos, c->chunk);
+    jump = PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpJump, c->pos, c->chunk);
   }
 
-  PatchJump(c->chunk, branch);
+  PatchConst(c->chunk, branch);
 
   PushByte(OpPop, c->pos, c->chunk);
   result = CompileExpr(cons, linkage, c);
   if (!result.ok) return result;
 
   if (linkage == LinkNext) {
-    PatchJump(c->chunk, jump);
+    PatchConst(c->chunk, jump);
   }
 
   return CompileOk();
 }
 
-static Result CompileAnd(Val expr, Val linkage, Compiler *c)
+static Result CompileAnd(Val expr, bool linkage, Compiler *c)
 {
   Val a = Head(expr, c->mem);
   Val b = Head(Tail(expr, c->mem), c->mem);
@@ -627,30 +600,30 @@ static Result CompileAnd(Val expr, Val linkage, Compiler *c)
   Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
-  branch = PushByte(OpBranch, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
+  branch = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpBranch, c->pos, c->chunk);
 
   if (linkage == LinkNext) {
-    jump = PushByte(OpJump, c->pos, c->chunk);
-    PushByte(0, c->pos, c->chunk);
+    jump = PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpJump, c->pos, c->chunk);
   } else {
     CompileLinkage(linkage, c);
   }
 
-  PatchJump(c->chunk, branch);
+  PatchConst(c->chunk, branch);
 
   PushByte(OpPop, c->pos, c->chunk);
   result = CompileExpr(b, linkage, c);
   if (!result.ok) return result;
 
   if (linkage == LinkNext) {
-    PatchJump(c->chunk, jump);
+    PatchConst(c->chunk, jump);
   }
 
   return CompileOk();
 }
 
-static Result CompileOr(Val expr, Val linkage, Compiler *c)
+static Result CompileOr(Val expr, bool linkage, Compiler *c)
 {
   Val a = Head(expr, c->mem);
   Val b = Head(Tail(expr, c->mem), c->mem);
@@ -659,24 +632,20 @@ static Result CompileOr(Val expr, Val linkage, Compiler *c)
   Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
-  branch = PushByte(OpBranch, c->pos, c->chunk);
-  PushByte(0, c->pos, c->chunk);
+  branch = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpBranch, c->pos, c->chunk);
 
   PushByte(OpPop, c->pos, c->chunk);
   result = CompileExpr(b, linkage, c);
   if (!result.ok) return result;
 
-  if (linkage == LinkNext || linkage == LinkReturn) {
-    PatchJump(c->chunk, branch);
-    CompileLinkage(linkage, c);
-  } else {
-    PatchChunk(c->chunk, branch+1, linkage);
-  }
+  PatchConst(c->chunk, branch);
+  CompileLinkage(linkage, c);
 
   return CompileOk();
 }
 
-static Result CompileOp(OpCode op, Val args, Val linkage, Compiler *c)
+static Result CompileOp(OpCode op, Val args, bool linkage, Compiler *c)
 {
   u32 pos = c->pos;
   while (args != Nil) {
@@ -689,7 +658,7 @@ static Result CompileOp(OpCode op, Val args, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
+static Result CompileNotOp(OpCode op, Val args, bool linkage, Compiler *c)
 {
   while (args != Nil) {
     Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
@@ -702,7 +671,7 @@ static Result CompileNotOp(OpCode op, Val args, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileNegOp(OpCode op, Val args, Val linkage, Compiler *c)
+static Result CompileNegOp(OpCode op, Val args, bool linkage, Compiler *c)
 {
   while (args != Nil) {
     Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
@@ -715,9 +684,8 @@ static Result CompileNegOp(OpCode op, Val args, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileList(Val items, Val linkage, Compiler *c)
+static Result CompileList(Val items, bool linkage, Compiler *c)
 {
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(Nil, c->pos, c->chunk);
 
   while (items != Nil) {
@@ -732,11 +700,10 @@ static Result CompileList(Val items, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileTuple(Val items, Val linkage, Compiler *c)
+static Result CompileTuple(Val items, bool linkage, Compiler *c)
 {
   u32 i = 0, num_items = ListLength(items, c->mem);
 
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
@@ -744,7 +711,6 @@ static Result CompileTuple(Val items, Val linkage, Compiler *c)
     Val item = Head(items, c->mem);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
     i++;
@@ -755,13 +721,12 @@ static Result CompileTuple(Val items, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileMap(Val items, Val linkage, Compiler *c)
+static Result CompileMap(Val items, bool linkage, Compiler *c)
 {
   u32 i = 0, num_items = ListLength(items, c->mem);
   Val keys = items;
 
   /* create tuple for values */
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
@@ -771,7 +736,6 @@ static Result CompileMap(Val items, Val linkage, Compiler *c)
 
     Result result = CompileExpr(value, LinkNext, c);
     if (!result.ok) return result;
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
     i++;
@@ -779,7 +743,6 @@ static Result CompileMap(Val items, Val linkage, Compiler *c)
   }
 
   /* create tuple for keys */
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
@@ -791,7 +754,6 @@ static Result CompileMap(Val items, Val linkage, Compiler *c)
     Result result = CompileExpr(key, LinkNext, c);
     if (!result.ok) return result;
 
-    PushByte(OpConst, c->pos, c->chunk);
     PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
 
@@ -806,30 +768,28 @@ static Result CompileMap(Val items, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileString(Val sym, Val linkage, Compiler *c)
+static Result CompileString(Val sym, bool linkage, Compiler *c)
 {
   Sym(SymbolName(sym, c->symbols), &c->chunk->symbols);
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(sym, c->pos, c->chunk);
   PushByte(OpStr, c->pos, c->chunk);
   CompileLinkage(linkage, c);
   return CompileOk();
 }
 
-static Result CompileVar(Val id, Val linkage, Compiler *c)
+static Result CompileVar(Val id, bool linkage, Compiler *c)
 {
   i32 def = FindDefinition(id, c->env, c->mem);
   if (def == -1) return CompileError("Undefined variable", c);
 
-  PushByte(OpLookup, c->pos, c->chunk);
   PushConst(IntVal(def), c->pos, c->chunk);
+  PushByte(OpLookup, c->pos, c->chunk);
   CompileLinkage(linkage, c);
   return CompileOk();
 }
 
-static Result CompileConst(Val value, Val linkage, Compiler *c)
+static Result CompileConst(Val value, bool linkage, Compiler *c)
 {
-  PushByte(OpConst, c->pos, c->chunk);
   PushConst(value, c->pos, c->chunk);
   CompileLinkage(linkage, c);
   if (IsSym(value)) {
@@ -838,7 +798,7 @@ static Result CompileConst(Val value, Val linkage, Compiler *c)
   return CompileOk();
 }
 
-static void CompileLinkage(Val linkage, Compiler *c)
+static void CompileLinkage(bool linkage, Compiler *c)
 {
   if (linkage == LinkReturn) {
     PushByte(OpReturn, c->pos, c->chunk);

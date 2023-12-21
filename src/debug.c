@@ -29,6 +29,10 @@ static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
     if (mem && IsTuple(value, mem)) {
       return printf("t%d", RawVal(value));
     } else if (mem && IsBinary(value, mem)) {
+      if (BinaryLength(value, mem) <= 10) {
+        u32 length = BinaryLength(value, mem);
+        return printf("\"%*.*s\"", length, length, BinaryData(value, mem));
+      }
       return printf("b%d", RawVal(value));
     } else if (mem && IsMap(value, mem)) {
       return printf("m%d", RawVal(value));
@@ -150,6 +154,8 @@ static char *op_names[] = {
   [OpPop]     = "pop",
   [OpDup]     = "dup",
   [OpConst]   = "const",
+  [OpInt]     = "int",
+  [OpNil]     = "nil",
   [OpNeg]     = "neg",
   [OpNot]     = "not",
   [OpLen]     = "len",
@@ -276,9 +282,13 @@ void Disassemble(Chunk *chunk)
     printf(" %4d│%4d│", source, i);
     k = 12;
     k += printf(" %s", OpName(op));
-    for (j = 0; j < OpLength(op) - 1; j++) {
-      k += printf(" ");
-      k += PrintVal(ChunkConst(chunk, i+j+1), 0, &chunk->symbols);
+    if (op == OpInt || op == OpApply) {
+      k += printf(" %d", ChunkRef(chunk, i+1));
+    } else {
+      for (j = 0; j < OpLength(op) - 1; j++) {
+        k += printf(" ");
+        k += PrintVal(ChunkConst(chunk, i+j+1), 0, &chunk->symbols);
+      }
     }
 
     while (k < col1) k += printf(" ");
@@ -335,13 +345,17 @@ void TraceInstruction(OpCode op, VM *vm)
 
   col_width = 20;
   col_width -= printf("%s", OpName(op));
-  for (i = 0; i < (i32)OpLength(op) - 1; i++) {
-    Val arg = ChunkConst(vm->chunk, vm->pc + 1 + i);
-    col_width -= printf(" ");
+  if (op == OpInt || op == OpApply) {
+    col_width -= printf(" %d", ChunkRef(vm->chunk, vm->pc+1));
+  } else {
+    for (i = 0; i < (i32)OpLength(op) - 1; i++) {
+      Val arg = ChunkConst(vm->chunk, vm->pc + 1 + i);
+      col_width -= printf(" ");
 
-    col_width -= PrintVal(arg, &vm->mem, &vm->chunk->symbols);
+      col_width -= PrintVal(arg, &vm->mem, &vm->chunk->symbols);
 
-    if (col_width < 0) break;
+      if (col_width < 0) break;
+    }
   }
   for (i = 0; i < col_width; i++) printf(" ");
   printf("│");
