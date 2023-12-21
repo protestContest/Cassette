@@ -33,6 +33,7 @@ static Result VMMapKeys(u32 num_args, VM *vm);
 static Result VMMapValues(u32 num_args, VM *vm);
 static Result VMSplit(u32 num_args, VM *vm);
 static Result VMJoinBin(u32 num_args, VM *vm);
+static Result VMStuff(u32 num_args, VM *vm);
 static Result VMTrunc(u32 num_args, VM *vm);
 static Result VMSymName(u32 num_args, VM *vm);
 
@@ -63,6 +64,7 @@ static PrimitiveDef type[] = {
   {/* map-values */   0x7FDC7EF0, &VMMapValues},
   {/* split-bin */    0x7FD24E81, &VMSplit},
   {/* join-bin */     0x7FD1C3BB, &VMJoinBin},
+  {/* stuff */        0x7FD2CC7F, &VMStuff},
   {/* trunc */        0x7FD36865, &VMTrunc},
   {/* symbol-name */  0x7FD0CEDC, &VMSymName},
 };
@@ -480,6 +482,27 @@ static Result VMJoinBin(u32 num_args, VM *vm)
     CopyIOData(iodata, BinaryData(bin, &vm->mem), 0, &vm->mem);
     return OkResult(bin);
   }
+}
+
+static Result VMStuff(u32 num_args, VM *vm)
+{
+  Val iodata, bin;
+  char *data;
+  u32 i;
+  Val types[1] = {PairType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  iodata = StackPop(vm);
+  bin = MakeBinary(ListLength(iodata, &vm->mem), &vm->mem);
+  data = BinaryData(bin, &vm->mem);
+  for (i = 0; i < BinaryLength(bin, &vm->mem); i++) {
+    u8 byte = RawInt(Head(iodata, &vm->mem));
+    iodata = Tail(iodata, &vm->mem);
+    data[i] = byte;
+  }
+
+  return OkResult(bin);
 }
 
 static Result VMTrunc(u32 num_args, VM *vm)
