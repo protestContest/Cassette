@@ -56,7 +56,16 @@ Val BinaryCat(Val binary1, Val binary2, Mem *mem)
   char *data;
   len1 = BinaryLength(binary1, mem);
   len2 = BinaryLength(binary2, mem);
+
+  if (len1 == 0) return binary2;
+  if (len2 == 0) return binary1;
+
+  PushRoot(mem, binary1);
+  PushRoot(mem, binary2);
   result = MakeBinary(len1+len2, mem);
+  binary2 = PopRoot(mem, binary2);
+  binary1 = PopRoot(mem, binary1);
+
   data = BinaryData(result, mem);
   Copy(BinaryData(binary1, mem), data, len1);
   Copy(BinaryData(binary2, mem), data+len1, len2);

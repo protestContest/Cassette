@@ -191,7 +191,7 @@ static Token StringToken(Lexer *lex)
   u32 start = lex->pos;
   Match("\"", lex);
   while (Peek(lex) != '"') {
-    if (Peek(lex) == '\'') lex->pos++;
+    if (Peek(lex) == '\\') lex->pos++;
     if (Peek(lex) == '\0') break;
     lex->pos++;
   }
