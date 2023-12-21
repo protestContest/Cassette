@@ -10,7 +10,6 @@ void InitSymbolTable(SymbolTable *symbols)
 {
   InitVec((Vec*)&symbols->names, sizeof(char), 256);
   InitHashMap(&symbols->map);
-  DefineSymbols(symbols);
 }
 
 void DestroySymbolTable(SymbolTable *symbols)

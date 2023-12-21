@@ -90,6 +90,22 @@ Result DoPrimitive(Val mod, Val id, u32 num_args, VM *vm)
   return primitives[RawInt(mod)].fns[RawInt(id)].fn(num_args, vm);
 }
 
+static char *TypeName(Val type)
+{
+  switch (type) {
+  case FloatType: return "float";
+  case IntType: return "integer";
+  case SymType: return "symbol";
+  case PairType: return "pair";
+  case ObjType: return "object";
+  case TupleType: return "tuple";
+  case BinaryType: return "binary";
+  case MapType: return "map";
+  case BignumType: return "bignum";
+  default: return "unknown";
+  }
+}
+
 static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
 {
   u32 i;
@@ -97,10 +113,20 @@ static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
   for (i = 0; i < num_params; i++) {
     if (types[i] == Nil) continue;
     if (types[i] == NumType) {
-      if (TypeSym(StackRef(vm, i), &vm->mem) != IntType && TypeSym(StackRef(vm, i), &vm->mem) != FloatType) {
+      if (!IsInt(StackRef(vm, i)) && !IsFloat(StackRef(vm, i))) {
         return RuntimeError("Type error: Expected number", vm);
       }
-    } else if (TypeSym(StackRef(vm, i), &vm->mem) != types[i]) {
+    } else if (types[i] == FloatType) {
+      if (!IsFloat(StackRef(vm, i))) {
+        return RuntimeError("Type error: Expected float", vm);
+      }
+    } else if (TypeOf(StackRef(vm, i)) == ObjType) {
+      Val header = MemRef(&vm->mem, RawVal(StackRef(vm, i)));
+      if (TypeOf(header) != types[i]) {
+        char *error = JoinStr("Type error: Expected", TypeName(types[i]), ' ');
+        return RuntimeError(error, vm);
+      }
+    } else if (TypeOf(StackRef(vm, i)) != types[i]) {
       char *error = JoinStr("Type error: Expected", TypeName(types[i]), ' ');
       return RuntimeError(error, vm);
     }
@@ -339,7 +365,15 @@ static Result VMType(u32 num_args, VM *vm)
   arg = StackPop(vm);
   vm->stack.count -= num_args-1;
 
-  return OkResult(TypeSym(arg, &vm->mem));
+  if (IsFloat(arg)) {
+    return OkResult(FloatType);
+  } else if (IsFunction(arg, &vm->mem) || IsPrimitive(arg, &vm->mem)) {
+    return OkResult(Sym("function", &vm->chunk->symbols));
+  }
+
+  if (IsObj(arg)) arg = MemRef(&vm->mem, RawVal(arg));
+
+  return OkResult(Sym(TypeName(TypeOf(arg)), &vm->chunk->symbols));
 }
 
 static Result VMMapGet(u32 num_args, VM *vm)

@@ -6,6 +6,7 @@
 #include "runtime/env.h"
 #include "runtime/ops.h"
 #include "univ/system.h"
+#include "debug.h"
 #include <stdio.h>
 
 typedef struct {
@@ -56,6 +57,7 @@ static void InitProject(Project *p)
   InitHashMap(&p->modules);
   InitMem(&p->mem, 1024*16, 0);
   InitSymbolTable(&p->symbols);
+  DefineSymbols(&p->symbols);
 }
 
 static void DestroyProject(Project *p)

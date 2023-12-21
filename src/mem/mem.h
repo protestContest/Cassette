@@ -14,36 +14,36 @@ typedef u32 Val;
 #define nanMask           0x7FC00000
 #define typeMask          0xFFF00000
 
-#define intMask           0x7FC00000
-#define symMask           0x7FD00000
-#define pairMask          0x7FE00000
-#define objMask           0x7FF00000
-#define tupleMask         0xFFC00000
-#define binaryMask        0xFFD00000
-#define mapMask           0xFFE00000
-#define bignumMask        0xFFF00000
+#define IntType           0x7FC00000
+#define SymType           0x7FD00000
+#define PairType          0x7FE00000
+#define ObjType           0x7FF00000
+#define TupleType         0xFFC00000
+#define BinaryType        0xFFD00000
+#define MapType           0xFFE00000
+#define BignumType        0xFFF00000
 
 #define MakeVal(n, mask)  (((n) & ~typeMask) | (mask))
-#define IntVal(n)         MakeVal((i32)(n), intMask)
-#define SymVal(n)         MakeVal(n, symMask)
-#define PairVal(n)        MakeVal(n, pairMask)
-#define ObjVal(n)         MakeVal(n, objMask)
-#define TupleHeader(n)    MakeVal(n, tupleMask)
-#define BinaryHeader(n)   MakeVal(n, binaryMask)
-#define MapHeader(n)      MakeVal(n, mapMask)
-#define BignumHeader(n)   MakeVal(n, bignumMask)
+#define IntVal(n)         MakeVal((i32)(n), IntType)
+#define SymVal(n)         MakeVal(n, SymType)
+#define PairVal(n)        MakeVal(n, PairType)
+#define ObjVal(n)         MakeVal(n, ObjType)
+#define TupleHeader(n)    MakeVal(n, TupleType)
+#define BinaryHeader(n)   MakeVal(n, BinaryType)
+#define MapHeader(n)      MakeVal(n, MapType)
+#define BignumHeader(n)   MakeVal(n, BignumType)
 
 #define TypeOf(v)         ((v) & typeMask)
 #define IsType(v, mask)   (TypeOf(v) == (mask))
 #define IsFloat(v)        (((v) & nanMask) != nanMask)
-#define IsInt(v)          IsType(v, intMask)
-#define IsSym(v)          IsType(v, symMask)
-#define IsPair(v)         IsType(v, pairMask)
-#define IsObj(v)          IsType(v, objMask)
-#define IsTupleHeader(v)  IsType(v, tupleMask)
-#define IsBinaryHeader(v) IsType(v, binaryMask)
-#define IsMapHeader(v)    IsType(v, mapMask)
-#define IsBignumHeader(v) IsType(v, bignumMask)
+#define IsInt(v)          IsType(v, IntType)
+#define IsSym(v)          IsType(v, SymType)
+#define IsPair(v)         IsType(v, PairType)
+#define IsObj(v)          IsType(v, ObjType)
+#define IsTupleHeader(v)  IsType(v, TupleType)
+#define IsBinaryHeader(v) IsType(v, BinaryType)
+#define IsMapHeader(v)    IsType(v, MapType)
+#define IsBignumHeader(v) IsType(v, BignumType)
 
 #define SignExt(n)        ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits           20
@@ -84,9 +84,6 @@ Val PopRoot(Mem *mem, Val value);
 void InitMem(Mem *mem, u32 capacity, IntVec *roots);
 #define DestroyMem(mem)  DestroyVec((Vec*)mem)
 #define ResizeMem(mem, capacity)  ResizeVec((Vec*)mem, sizeof(Val), capacity)
-
-Val TypeSym(Val value, Mem *mem);
-char *TypeName(Val type);
 
 #define IsTuple(val, mem)       (IsObj(val) && IsTupleHeader(MemRef(mem, RawVal(val))))
 #define IsBinary(val, mem)      (IsObj(val) && IsBinaryHeader(MemRef(mem, RawVal(val))))

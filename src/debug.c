@@ -427,8 +427,6 @@ void DefineSymbols(SymbolTable *symbols)
   Sym("false", symbols);
   Sym("ok", symbols);
   Sym("error", symbols);
-  Sym("*prim*", symbols);
-  Sym("*func*", symbols);
   Sym("*undefined*", symbols);
   Sym("*moved*", symbols);
   Sym("*file*", symbols);
@@ -440,6 +438,13 @@ void DefineSymbols(SymbolTable *symbols)
   Sym("tuple", symbols);
   Sym("binary", symbols);
   Sym("map", symbols);
+  DefinePrimitiveSymbols(symbols);
+}
+
+void DefinePrimitiveSymbols(SymbolTable *symbols)
+{
+  Sym("*prim*", symbols);
+  Sym("*func*", symbols);
 
   /* primitives */
   Sym("Kernel", symbols);
@@ -448,20 +453,24 @@ void DefineSymbols(SymbolTable *symbols)
   Sym("head", symbols);
   Sym("tail", symbols);
   Sym("panic!", symbols);
+  Sym("unwrap", symbols);
+  Sym("unwrap!", symbols);
+  Sym("ok?", symbols);
   Sym("open", symbols);
   Sym("close", symbols);
   Sym("read", symbols);
   Sym("write", symbols);
   Sym("get-param", symbols);
   Sym("set-param", symbols);
-
   Sym("typeof", symbols);
   Sym("map-get", symbols);
   Sym("map-set", symbols);
   Sym("map-del", symbols);
   Sym("map-keys", symbols);
+  Sym("map-values", symbols);
   Sym("split-bin", symbols);
   Sym("join-bin", symbols);
+  Sym("stuff", symbols);
   Sym("trunc", symbols);
   Sym("symbol-name", symbols);
 }
@@ -621,6 +630,7 @@ void GeneratePrimitives(void)
   printf("  {/* map-values */   0x%08X, &VMMapValues},\n", SymbolFor("map-values"));
   printf("  {/* split-bin */    0x%08X, &VMSplit},\n", SymbolFor("split-bin"));
   printf("  {/* join-bin */     0x%08X, &VMJoinBin},\n", SymbolFor("join-bin"));
+  printf("  {/* stuff */        0x%08X, &VMStuff},\n", SymbolFor("stuff"));
   printf("  {/* trunc */        0x%08X, &VMTrunc},\n", SymbolFor("trunc"));
   printf("  {/* symbol-name */  0x%08X, &VMSymName},\n", SymbolFor("symbol-name"));
   printf("};\n");

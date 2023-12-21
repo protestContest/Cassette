@@ -4,6 +4,7 @@
 #include "univ/hash.h"
 #include "univ/str.h"
 #include "symbols.h"
+#include <stdio.h>
 
 Val FloatVal(float num)
 {
@@ -44,39 +45,13 @@ Val PopRoot(Mem *mem, Val value)
   return value;
 }
 
-Val TypeSym(Val value, Mem *mem)
-{
-  if (IsFloat(value)) return FloatType;
-  if (IsInt(value)) return IntType;
-  if (IsSym(value)) return SymType;
-  if (IsPair(value)) return PairType;
-  if (IsTuple(value, mem)) return TupleType;
-  if (IsBinary(value, mem)) return BinaryType;
-  if (IsMap(value, mem)) return MapType;
-  return Nil;
-}
-
-char *TypeName(Val type)
-{
-  switch (type) {
-  case FloatType:   return "float";
-  case IntType:     return "integer";
-  case SymType:     return "symbol";
-  case PairType:    return "pair";
-  case TupleType:   return "tuple";
-  case BinaryType:  return "binary";
-  case MapType:     return "map";
-  default:          return "?";
-  }
-}
-
 bool ValEqual(Val v1, Val v2, Mem *mem)
 {
   if (IsNum(v1, mem) && IsNum(v2, mem)) {
     return RawNum(v1) == RawNum(v2);
   }
 
-  if (TypeSym(v1, mem) != TypeSym(v2, mem)) return false;
+  if (TypeOf(v1) != TypeOf(v2)) return false;
 
   if (IsSym(v1)) return v1 == v2;
   if (v1 == Nil && v2 == Nil) return true;
@@ -121,6 +96,8 @@ void CollectGarbage(Mem *mem)
     ResizeMem(mem, 2*mem->capacity);
     return;
   }
+
+  /* printf("GARBAGE DAY!!!\n"); */
 
   InitMem(&new_mem, mem->capacity, mem->roots);
 
