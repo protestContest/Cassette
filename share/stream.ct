@@ -2,3 +2,118 @@ module Stream
 import List
 import IO
 
+def (map fn stream) do
+  \-> do
+    let item = (stream)
+    if item == nil do
+      nil
+    else
+      (fn (head item)) | (map fn (tail item))
+    end
+  end
+end
+
+def (flatten streams) do
+  def (flatten-rest stream rest) do
+    \-> do
+      let item = (stream)
+      if item == nil do
+        ((flatten rest))
+      else
+        (head item) | (flatten-rest (tail item) rest)
+      end
+    end
+  end
+
+  \-> do
+    let item = (streams)
+    if item == nil do
+      nil
+    else
+      let stream = ((head item))
+      if stream == nil do
+        ((flatten (tail item)))
+      else
+        (head stream) | (flatten-rest (tail stream) (tail item))
+      end
+    end
+  end
+end
+
+def (flatmap fn stream) (flatten (map fn stream))
+
+def (run stream) do
+  let item = (stream)
+  if item != nil do
+    run (tail item)
+  end
+end
+
+def (print stream) do
+  let item = (stream)
+  if item != nil do
+    IO.print (head item)
+    print (tail item)
+  end
+end
+
+def (drop n stream) do
+  def (loop n item) do
+    cond do
+      n == 0 -> item
+      item == nil -> nil
+      true -> loop n - 1 ((tail item))
+    end
+  end
+
+  \-> (loop n (stream))
+end
+
+def (drop-while fn stream) do
+  \-> do
+    let item = (stream)
+    cond do
+      item == nil -> nil
+      (fn (head item)) -> ((drop-while fn (tail item)))
+      true -> item
+    end
+  end
+end
+
+
+def (chunk-by fn stream) do
+  def (loop item acc) do
+    cond do
+      item == nil and acc == nil -> nil
+      item == nil -> (List.reverse acc) | \-> nil
+      (fn (head item)) -> (List.reverse acc) | (chunk-by fn (tail item))
+      true -> loop ((tail item)) (head item) | acc
+    end
+  end
+
+  \-> (loop ((drop-while fn stream)) nil)
+end
+
+def (take n stream) do
+  def (loop n item acc) do
+    cond do
+      item == nil -> List.reverse acc
+      n == 1 -> List.reverse (head item) | acc
+      true -> loop n - 1 ((tail item)) (head item) | acc
+    end
+  end
+
+  loop n (stream) []
+end
+
+def (with-index stream) do
+  def (loop index item) do
+    if item == nil do
+      nil
+    else
+      (index | (head item)) | \-> (loop index + 1 ((tail item)))
+    end
+  end
+
+  \-> (loop 0 (stream))
+end

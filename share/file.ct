@@ -4,11 +4,49 @@ import String
 import Stream
 import Enum
 
-def (open path mode) (Device.open :file {path, mode})
-def (open! path mode) (unwrap! (Device.open :file {path, mode}))
+def (open path mode) do
+  cond do
+    mode == :read -> (Device.open :file {path, "r"})
+    mode == :write -> (Device.open :file {path, "w"})
+    mode == :append -> (Device.open :file {path, "a"})
+    true -> panic! "File mode must be :read :write or :append"
+  end
+end
+
+def (open! path mode) (unwrap! (open path mode))
 def (close file) (Device.close file)
 def (read file n) (Device.read file n)
-def (read! file n) (unwrap! (Device.read file n))
+def (read! file n) (unwrap! (read file n))
+
+def (stream path) do
+  let result = open path :read
+  if (ok? result) do
+    stream-contents (unwrap! result)
+  else
+    result
+  end
+end
+
+def (stream! path) do
+  stream-contents (open! path :read)
+end
+
+def (stream-contents file) do
+  def (stream-chunks file bufsize) do
+    \-> do
+      let data = (read! file bufsize)
+
+      if data == nil do
+        nil
+      else
+        data | (stream-chunks file bufsize)
+      end
+    end
+  end
+
+  let chunks = stream-chunks file 1024
+  Stream.flatmap Enum.stream chunks
+end
 
 def (list-dir path) do
   let dir = Device.open :directory {path}
@@ -25,8 +63,8 @@ end
 def (dirname path) do
   cond do
     path == nil -> nil
-    path.(#path - 1) == $/ -> String.slice path 0 #path - 1
-    true -> String.slice path 0 (Enum.last-index-of $/ path)
+    path.(#path - 1) == $/ -> String.split path 0 #path - 1
+    true -> String.split path 0 (Enum.last-index-of $/ path)
   end
 end
 

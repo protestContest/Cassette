@@ -7,7 +7,7 @@ def (from value) do
     if index == #value do
       reverse acc
     else
-      value.(index) | acc
+      from-tuple index + 1 value.(index) | acc
     end
   end
 
@@ -46,7 +46,6 @@ end
 def (reduce fn acc list)
   cond do
     list == nil -> acc
-    (Type.typeof list) != :pair -> fn list acc
     true -> reduce fn (fn (head list) acc) (tail list)
   end
 
@@ -81,7 +80,17 @@ def (reject fn list) do
   reverse (reduce loop nil list)
 end
 
-def (flatten list) (reduce \item acc -> (item <> acc) nil list)
+def (flatten list) do
+  def (loop list acc) do
+    cond do
+      list == nil -> acc
+      (Type.typeof (head list)) == :pair -> loop (tail list) (loop (head list) acc)
+      true -> loop (tail list) (head list) | acc
+    end
+  end
+
+  reverse (loop list [])
+end
 
 def (flatmap fn list) (flatten (map fn list))
 

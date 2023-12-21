@@ -8,13 +8,34 @@ def (read-line) do
   unwrap! (Device.read console 1024)
 end
 
-def (format iodata) (Type.join-bin iodata)
+def (byte? n) (Type.typeof n) == :integer and n >= 0 and n <= 255
+def (binary? val) (Type.typeof val) == :binary
+
+def (format iodata) do
+  def (stuff iolist acc bytes) do
+    cond do
+      iolist == nil -> acc <> (Type.stuff (List.reverse bytes))
+      (byte? (head iolist)) -> stuff (tail iolist) acc ((head iolist) | bytes)
+      (binary? (head iolist)) -> stuff (tail iolist) acc <> (Type.stuff (List.reverse bytes)) <> (head iolist) []
+      true -> panic! "Bad IO list"
+    end
+  end
+
+  let type = Type.typeof iodata
+
+  cond do
+    type == :binary -> iodata
+    (byte? iodata) -> Type.stuff [iodata]
+    type == :pair -> stuff (List.flatten iodata) "" nil
+    true -> panic! "Bad IO list"
+  end
+end
 
 def (inspect value depth) do
   def (inspect-int num acc) do
     if num == 0 do
       if acc == nil do
-        "0"
+        $0
       else
         acc
       end
@@ -25,19 +46,43 @@ def (inspect value depth) do
   end
 
   def (inspect-num num) do
-    if (Type.typeof num) == :integer do
-      (inspect-int num nil)
-    else
-      let whole = inspect-int (Type.trunc num) nil,
-          part = inspect-int (Type.trunc (num - (Type.trunc num)) * 1000) nil
-      [whole, ".", part]
+    cond do
+      num < 0 -> ["-", inspect-num 0 - num]
+      (Type.typeof num) == :integer -> (inspect-int num nil)
+      true -> do
+        let whole = inspect-int (Type.trunc num) nil,
+            part = inspect-int (Type.trunc (num - (Type.trunc num)) * 1000) nil
+        [whole, ".", part]
+      end
     end
   end
 
+  def (inspect-function func) do
+    ["λ", inspect (head (tail (tail func))) 1]
+  end
+
   def (inspect-list list) do
-    ; let items = List.map \item -> (inspect item depth - 1) value
-    ; ["[", List.intersperse ", " items, "]"]
-    inspect (head list) depth - 1
+    def (inspect-items list acc) do
+      let item = inspect (head list) depth - 1
+
+      cond do
+        (Type.typeof (tail list)) != :pair ->
+          [item, " | ", inspect (tail list) depth - 1] | acc
+        (tail list) == nil ->
+          item | acc
+        true ->
+          inspect-items (tail list) item | acc
+      end
+    end
+
+    ; Device.write console "list "
+
+    if list == nil do
+      "nil"
+    else
+      let items = List.reverse (inspect-items list nil)
+      ["[", List.intersperse ", " items, "]"]
+    end
   end
 
   def (inspect-tuple tuple) do
@@ -59,19 +104,29 @@ def (inspect value depth) do
     ["{", List.intersperse ", " items, "}"]
   end
 
+  ; Device.write console (Type.symbol-name (Type.typeof value))
+  ; Device.write console 0x20
+
   cond do
     depth == 0 -> "..."
-    (Type.typeof value) == :integer -> inspect-num value
     (Type.typeof value) == :float -> inspect-num value
+    (Type.typeof value) == :integer -> inspect-num value
+    (Type.typeof value) == :symbol -> [":", Type.symbol-name value]
     (Type.typeof value) == :pair -> inspect-list value
     (Type.typeof value) == :tuple -> inspect-tuple value
-    (Type.typeof value) == :binary -> value
+    (Type.typeof value) == :binary -> [$", value, $"]
     (Type.typeof value) == :map -> inspect-map value
-    (Type.typeof value) == :symbol -> [":", Type.symbol-name value]
+    (Type.typeof value) == :function -> inspect-function value
     true -> "<???>"
   end
 end
 
 def (print value) do
-  Device.write console (format [(inspect value 3), 0x0A])
+  if (Type.typeof value) == :binary do
+    Device.write console value
+    Device.write console 0x0A
+  else
+    Device.write console (format (inspect value 5))
+    Device.write console 0x0A
+  end
 end
