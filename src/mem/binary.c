@@ -5,14 +5,12 @@
 Val MakeBinary(u32 size, Mem *mem)
 {
   Val binary;
-  u32 cells = (size == 0) ? 1 : NumBinCells(size);
+  u32 cells = NumBinCells(size);
   u32 i;
 
-  if (mem->count + cells + 1 > mem->capacity) CollectGarbage(mem);
-  if (mem->count + cells + 1 > mem->capacity) ResizeMem(mem, 2*mem->capacity);
-  Assert(mem->count + cells + 1 <= mem->capacity);
+  Assert(CheckMem(mem, cells + 1));
 
-  binary = ObjVal(mem->count);
+  binary = ObjVal(MemNext(mem));
   PushMem(mem, BinaryHeader(size));
   for (i = 0; i < cells; i++) PushMem(mem, 0);
   return binary;
@@ -29,7 +27,7 @@ Val BinaryFrom(char *str, u32 size, Mem *mem)
 bool BinaryContains(Val binary, Val item, Mem *mem)
 {
   char *bin_data = BinaryData(binary, mem);
-  u32 bin_len = BinaryLength(binary, mem);
+  u32 bin_len = BinaryCount(binary, mem);
 
   if (IsInt(item)) {
     u32 i;
@@ -41,7 +39,7 @@ bool BinaryContains(Val binary, Val item, Mem *mem)
     }
   } else if (IsBinary(item, mem)) {
     char *item_data = BinaryData(item, mem);
-    u32 item_len = BinaryLength(item, mem);
+    u32 item_len = BinaryCount(item, mem);
     i32 index = FindString(item_data, item_len, bin_data, bin_len);
     return index >= 0;
   }
@@ -54,17 +52,13 @@ Val BinaryCat(Val binary1, Val binary2, Mem *mem)
   Val result;
   u32 len1, len2;
   char *data;
-  len1 = BinaryLength(binary1, mem);
-  len2 = BinaryLength(binary2, mem);
+  len1 = BinaryCount(binary1, mem);
+  len2 = BinaryCount(binary2, mem);
 
   if (len1 == 0) return binary2;
   if (len2 == 0) return binary1;
 
-  PushRoot(mem, binary1);
-  PushRoot(mem, binary2);
   result = MakeBinary(len1+len2, mem);
-  binary2 = PopRoot(mem, binary2);
-  binary1 = PopRoot(mem, binary1);
 
   data = BinaryData(result, mem);
   Copy(BinaryData(binary1, mem), data, len1);

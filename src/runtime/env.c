@@ -14,7 +14,7 @@ Val Lookup(u32 index, Val env, Mem *mem)
 
   while (env != Nil) {
     Val frame = Head(env, mem);
-    u32 frame_size = TupleLength(frame, mem);
+    u32 frame_size = TupleCount(frame, mem);
 
     if (cur + frame_size > index) {
       return TupleGet(frame, index - cur, mem);
@@ -34,15 +34,15 @@ i32 FindDefinition(Val var, Val env, Mem *mem)
   while (Tail(env, mem) != Nil) {
     Val frame = Head(env, mem);
     u32 i;
-    for (i = 0; i < TupleLength(frame, mem); i++) {
+    for (i = 0; i < TupleCount(frame, mem); i++) {
       /* search from the back of the frame, since those are defined later and
          may shadow an earlier variable of the same name */
-      u32 pos = (TupleLength(frame, mem) - i) - 1;
+      u32 pos = (TupleCount(frame, mem) - i) - 1;
       if (TupleGet(frame, pos, mem) == var) {
         return index + pos;
       }
     }
-    index += TupleLength(frame, mem);
+    index += TupleCount(frame, mem);
     env = Tail(env, mem);
   }
 
@@ -58,13 +58,13 @@ i32 FindModule(Val mod, Val env, Mem *mem)
   /* skip to the top frame, where modules are defined */
   while (Tail(env, mem) != Nil) {
     Val frame = Head(env, mem);
-    index += TupleLength(frame, mem);
+    index += TupleCount(frame, mem);
     env = Tail(env, mem);
   }
 
   frame = Head(env, mem);
-  for (i = 0; i < TupleLength(frame, mem); i++) {
-    u32 pos = (TupleLength(frame, mem) - i) - 1;
+  for (i = 0; i < TupleCount(frame, mem); i++) {
+    u32 pos = (TupleCount(frame, mem) - i) - 1;
     if (TupleGet(frame, pos, mem) == mod) {
       return index + pos;
     }

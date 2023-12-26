@@ -29,8 +29,8 @@ static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
     if (mem && IsTuple(value, mem)) {
       return printf("t%d", RawVal(value));
     } else if (mem && IsBinary(value, mem)) {
-      if (BinaryLength(value, mem) <= 10) {
-        u32 length = BinaryLength(value, mem);
+      if (BinaryCount(value, mem) <= 10) {
+        u32 length = BinaryCount(value, mem);
         return printf("\"%*.*s\"", length, length, BinaryData(value, mem));
       }
       return printf("b%d", RawVal(value));
@@ -208,7 +208,7 @@ void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
     bool is_last = Tail(env, mem) == Nil;
 
     printf("│ ");
-    for (i = 0; i < TupleLength(frame, mem); i++) {
+    for (i = 0; i < TupleCount(frame, mem); i++) {
       Val item = TupleGet(frame, i, mem);
       u32 len = StrLen(SymbolName(item, symbols));
       if (written + len + 1 > 78) {

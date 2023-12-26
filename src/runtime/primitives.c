@@ -101,7 +101,7 @@ static char *TypeName(Val type)
   case TupleType: return "tuple";
   case BinaryType: return "binary";
   case MapType: return "map";
-  case BignumType: return "bignum";
+  case FuncType: return "function";
   default: return "unknown";
   }
 }
@@ -165,7 +165,7 @@ static Result VMPanic(u32 num_args, VM *vm)
 
   msg = StackPop(vm);
   if (IsBinary(msg, &vm->mem)) {
-    return RuntimeError(CopyStr(BinaryData(msg, &vm->mem), BinaryLength(msg, &vm->mem)), vm);
+    return RuntimeError(CopyStr(BinaryData(msg, &vm->mem), BinaryCount(msg, &vm->mem)), vm);
   } else {
     return RuntimeError("Unknown error", vm);
   }
@@ -200,7 +200,7 @@ static Result VMForceUnwrap(u32 num_args, VM *vm)
   } else {
     Val error = Tail(value, &vm->mem);
     if (IsBinary(error, &vm->mem)) {
-      return RuntimeError(CopyStr(BinaryData(error, &vm->mem), BinaryLength(error, &vm->mem)), vm);
+      return RuntimeError(CopyStr(BinaryData(error, &vm->mem), BinaryCount(error, &vm->mem)), vm);
     } else {
       return RuntimeError("Unwrap error", vm);
     }
@@ -446,10 +446,10 @@ static Result VMSplit(u32 num_args, VM *vm)
   bin = StackPop(vm);
   if (RawInt(index) <= 0) {
     return OkResult(Pair(MakeBinary(0, &vm->mem), bin, &vm->mem));
-  } else if ((u32)RawInt(index) >= BinaryLength(bin, &vm->mem)) {
+  } else if ((u32)RawInt(index) >= BinaryCount(bin, &vm->mem)) {
     return OkResult(Pair(bin, MakeBinary(0, &vm->mem), &vm->mem));
   } else {
-    u32 tail_len = BinaryLength(bin, &vm->mem) - RawInt(index);
+    u32 tail_len = BinaryCount(bin, &vm->mem) - RawInt(index);
     Val head = BinaryFrom(BinaryData(bin, &vm->mem), RawInt(index), &vm->mem);
     Val tail = BinaryFrom(BinaryData(bin, &vm->mem) + RawInt(index), tail_len, &vm->mem);
     return OkResult(Pair(head, tail, &vm->mem));
@@ -461,7 +461,7 @@ static Result IODataLength(Val iodata, VM *vm)
   if (iodata == Nil) {
     return OkResult(0);
   } else if (IsBinary(iodata, &vm->mem)) {
-    return OkResult(BinaryLength(iodata, &vm->mem));
+    return OkResult(BinaryCount(iodata, &vm->mem));
   } else if (IsInt(iodata)) {
     if (RawInt(iodata) < 0 && RawInt(iodata) > 255) {
       return RuntimeError("Type error: Expected iodata", vm);
@@ -484,8 +484,8 @@ static u32 CopyIOData(Val iodata, char *buf, u32 index, Mem *mem)
   if (iodata == Nil) {
     return 0;
   } else if (IsBinary(iodata, mem)) {
-    Copy(BinaryData(iodata, mem), buf+index, BinaryLength(iodata, mem));
-    return BinaryLength(iodata, mem);
+    Copy(BinaryData(iodata, mem), buf+index, BinaryCount(iodata, mem));
+    return BinaryCount(iodata, mem);
   } else if (IsInt(iodata)) {
     buf[index] = RawInt(iodata);
     return 1;
@@ -530,7 +530,7 @@ static Result VMStuff(u32 num_args, VM *vm)
   iodata = StackPop(vm);
   bin = MakeBinary(ListLength(iodata, &vm->mem), &vm->mem);
   data = BinaryData(bin, &vm->mem);
-  for (i = 0; i < BinaryLength(bin, &vm->mem); i++) {
+  for (i = 0; i < BinaryCount(bin, &vm->mem); i++) {
     u8 byte = RawInt(Head(iodata, &vm->mem));
     iodata = Tail(iodata, &vm->mem);
     data[i] = byte;

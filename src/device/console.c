@@ -30,7 +30,7 @@ Result ConsoleWrite(void *context, Val data, Mem *mem)
     printf("%c", RawInt(data));
     return OkResult(1);
   } else if (IsBinary(data, mem)) {
-    u32 length = printf("%*.*s", BinaryLength(data, mem), BinaryLength(data, mem), BinaryData(data, mem));
+    u32 length = printf("%*.*s", BinaryCount(data, mem), BinaryCount(data, mem), BinaryData(data, mem));
     fflush(stdout);
     return OkResult(IntVal(length));
   } else {

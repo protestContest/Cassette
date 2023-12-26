@@ -13,13 +13,13 @@ Result SerialOpen(Val opts, Mem *mem)
   Val path;
   SerialPort *port;
 
-  if (TupleLength(opts, mem) != 2) return ErrorResult("Expected {path, speed}", 0, 0);
+  if (TupleCount(opts, mem) != 2) return ErrorResult("Expected {path, speed}", 0, 0);
   path = TupleGet(opts, 0, mem);
   if (!IsBinary(path, mem)) return ErrorResult("Expected path to be a string", 0, 0);
   if (!IsInt(TupleGet(opts, 1, mem))) return ErrorResult("Expected speed to be an integer", 0, 0);
 
   port = Alloc(sizeof(SerialPort));
-  port->path = CopyStr(BinaryData(path, mem), BinaryLength(path, mem));
+  port->path = CopyStr(BinaryData(path, mem), BinaryCount(path, mem));
 
   port->file = OpenSerial(port->path, RawInt(TupleGet(opts, 1, mem)));
 
@@ -73,11 +73,11 @@ Result SerialWrite(void *context, Val data, Mem *mem)
   SerialPort *port = (SerialPort*)context;
   if (!IsBinary(data, mem)) return ErrorResult("Expected binary", 0, 0);
 
-  if (BinaryLength(data, mem) == 0) {
+  if (BinaryCount(data, mem) == 0) {
     return OkResult(IntVal(0));
   } else {
 
-    u32 size = BinaryLength(data, mem);
+    u32 size = BinaryCount(data, mem);
     char *buf = BinaryData(data, mem);
     char *cur = buf;
     i32 bytes_written = write(port->file, buf, size);

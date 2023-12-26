@@ -6,11 +6,9 @@ Val MakeTuple(u32 length, Mem *mem)
   u32 i;
   Val tuple;
 
-  if (mem->count + length + 1 > mem->capacity) CollectGarbage(mem);
-  if (mem->count + length + 1 > mem->capacity) ResizeMem(mem, 2*mem->capacity);
-  Assert(mem->count + length + 1 <= mem->capacity);
+  Assert(CheckMem(mem, length + 1));
 
-  tuple = ObjVal(mem->count);
+  tuple = ObjVal(MemNext(mem));
   PushMem(mem, TupleHeader(length));
   for (i = 0; i < length; i++) {
     PushMem(mem, Nil);
@@ -18,28 +16,28 @@ Val MakeTuple(u32 length, Mem *mem)
   return tuple;
 }
 
+void TupleSet(Val tuple, u32 i, Val value, Mem *mem)
+{
+  Assert(i < TupleCount(tuple, mem));
+  VecRef(mem, RawVal(tuple) + i + 1) = value;
+}
+
 bool TupleContains(Val tuple, Val item, Mem *mem)
 {
   u32 i;
-  for (i = 0; i < TupleLength(tuple, mem); i++) {
+  for (i = 0; i < TupleCount(tuple, mem); i++) {
     if (TupleGet(tuple, i, mem) == item) return true;
   }
 
   return false;
 }
 
-void TupleSet(Val tuple, u32 i, Val value, Mem *mem)
-{
-  Assert(i < TupleLength(tuple, mem));
-  VecRef(mem, RawVal(tuple) + i + 1) = value;
-}
-
 Val TupleCat(Val tuple1, Val tuple2, Mem *mem)
 {
   Val result;
   u32 len1, len2, i;
-  len1 = TupleLength(tuple1, mem);
-  len2 = TupleLength(tuple2, mem);
+  len1 = TupleCount(tuple1, mem);
+  len2 = TupleCount(tuple2, mem);
   result = MakeTuple(len1+len2, mem);
   for (i = 0; i < len1; i++) {
     TupleSet(result, i, TupleGet(tuple1, i, mem), mem);

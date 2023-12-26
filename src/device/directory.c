@@ -32,9 +32,9 @@ Result DirectoryOpen(Val opts, Mem *mem)
   DIR *dir;
   DirContext *ctx;
 
-  if (TupleLength(opts, mem) != 1) return ErrorResult("Expected {path}", 0, 0);
+  if (TupleCount(opts, mem) != 1) return ErrorResult("Expected {path}", 0, 0);
   if (!IsBinary(TupleGet(opts, 0, mem), mem)) return ErrorResult("Expected {path}", 0, 0);
-  path = CopyStr(BinaryData(TupleGet(opts, 0, mem), mem), BinaryLength(TupleGet(opts, 0, mem), mem));
+  path = CopyStr(BinaryData(TupleGet(opts, 0, mem), mem), BinaryCount(TupleGet(opts, 0, mem), mem));
 
   if (!DirExists(path)) {
     Free(path);
@@ -114,11 +114,11 @@ Result DirectoryWrite(void *context, Val data, Mem *mem)
   char *name;
   char *path;
   if (!IsTuple(data, mem)) return ErrorResult("Expected {type, name}", 0, 0);
-  if (TupleLength(data, mem) != 2) return ErrorResult("Expected {type, name}", 0, 0);
+  if (TupleCount(data, mem) != 2) return ErrorResult("Expected {type, name}", 0, 0);
   type = TupleGet(data, 0, mem);
   if (!IsSym(type)) return ErrorResult("Expected {type, name}", 0, 0);
   if (!IsBinary(TupleGet(data, 1, mem), mem)) return ErrorResult("Expected {type, name}", 0, 0);
-  name = CopyStr(BinaryData(TupleGet(data, 1, mem), mem), BinaryLength(TupleGet(data, 1, mem), mem));
+  name = CopyStr(BinaryData(TupleGet(data, 1, mem), mem), BinaryCount(TupleGet(data, 1, mem), mem));
   path = JoinStr(ctx->path, name, '/');
   Free(name);
 

@@ -21,12 +21,11 @@ float RawFloat(Val value)
   return convert.as_f;
 }
 
-void InitMem(Mem *mem, u32 capacity, IntVec *roots)
+void InitMem(Mem *mem, u32 capacity)
 {
   InitVec((Vec*)mem, sizeof(Val), capacity);
   /* Nil is defined as the first pair in memory, which references itself */
   Pair(Nil, Nil, mem);
-  mem->roots = roots;
 }
 
 void PushMem(Mem *mem, Val value)
@@ -34,73 +33,58 @@ void PushMem(Mem *mem, Val value)
   mem->items[mem->count++] = value;
 }
 
-void PushRoot(Mem *mem, Val value)
-{
-  if (mem->roots) IntVecPush(mem->roots, value);
-}
-
-Val PopRoot(Mem *mem, Val value)
-{
-  if (mem->roots) return mem->roots->items[--mem->roots->count];
-  return value;
-}
-
 bool ValEqual(Val v1, Val v2, Mem *mem)
 {
-  if (IsNum(v1, mem) && IsNum(v2, mem)) {
-    return RawNum(v1) == RawNum(v2);
-  }
-
+  if (IsNum(v1, mem) && IsNum(v2, mem)) return RawNum(v1) == RawNum(v2);
   if (TypeOf(v1) != TypeOf(v2)) return false;
-
   if (IsSym(v1)) return v1 == v2;
   if (v1 == Nil && v2 == Nil) return true;
+
   if (IsPair(v1)) {
     return ValEqual(Head(v1, mem), Head(v2, mem), mem)
         && ValEqual(Tail(v1, mem), Tail(v2, mem), mem);
   }
+
   if (IsTuple(v1, mem)) {
     u32 i;
-    if (TupleLength(v1, mem) != TupleLength(v2, mem)) return false;
-    for (i = 0; i < TupleLength(v1, mem); i++) {
+    if (TupleCount(v1, mem) != TupleCount(v2, mem)) return false;
+    for (i = 0; i < TupleCount(v1, mem); i++) {
       if (!ValEqual(TupleGet(v1, i, mem), TupleGet(v2, i, mem), mem)) return false;
     }
     return true;
   }
+
   if (IsBinary(v1, mem)) {
     u32 i;
     char *data1 = BinaryData(v1, mem);
     char *data2 = BinaryData(v2, mem);
-    if (BinaryLength(v1, mem) != BinaryLength(v2, mem)) return false;
-    for (i = 0; i < BinaryLength(v1, mem); i++) {
+    if (BinaryCount(v1, mem) != BinaryCount(v2, mem)) return false;
+    for (i = 0; i < BinaryCount(v1, mem); i++) {
       if (data1[i] != data2[i]) return false;
     }
     return true;
   }
+
   if (IsMap(v1, mem)) {
     if (MapCount(v1, mem) != MapCount(v2, mem)) return false;
     return MapIsSubset(v1, v2, mem);
   }
+
   return false;
 }
 
 /* Cheney's algorithm */
 static Val CopyValue(Val value, Mem *from, Mem *to);
 static Val ObjSize(Val value);
-void CollectGarbage(Mem *mem)
+void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
 {
   u32 i;
   Mem new_mem;
 
-  if (!mem->roots) {
-    ResizeMem(mem, 2*mem->capacity);
-    return;
-  }
+  InitMem(&new_mem, mem->capacity);
 
-  InitMem(&new_mem, 2*mem->capacity, mem->roots);
-
-  for (i = 0; i < mem->roots->count; i++) {
-    VecRef(mem->roots, i) = CopyValue(VecRef(mem->roots, i), mem, &new_mem);
+  for (i = 0; i < num_roots; i++) {
+    roots[i] = CopyValue(roots[i], mem, &new_mem);
   }
 
   i = 2; /* Skip nil */
@@ -154,6 +138,8 @@ static Val ObjSize(Val value)
     return Max(2, NumBinCells(RawVal(value)) + 1);
   } else if (IsMapHeader(value)) {
     return Max(2, PopCount(RawVal(value)) + 1);
+  } else if (IsFuncHeader(value)) {
+    return 3;
   } else {
     Assert(false);
   }

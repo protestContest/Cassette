@@ -21,12 +21,12 @@ Result FileOpen(Val opts, Mem *mem)
   FILE *file;
   FileContext *context;
 
-  if (TupleLength(opts, mem) != 2) return ErrorResult("Expected {filename, mode}", 0, 0);
+  if (TupleCount(opts, mem) != 2) return ErrorResult("Expected {filename, mode}", 0, 0);
   if (!IsBinary(TupleGet(opts, 0, mem), mem)) return ErrorResult("Expected {filename, mode}", 0, 0);
   if (!IsBinary(TupleGet(opts, 1, mem), mem)) return ErrorResult("Expected {filename, mode}", 0, 0);
 
-  path = CopyStr(BinaryData(TupleGet(opts, 0, mem), mem), BinaryLength(TupleGet(opts, 0, mem), mem));
-  mode = CopyStr(BinaryData(TupleGet(opts, 1, mem), mem), BinaryLength(TupleGet(opts, 1, mem), mem));
+  path = CopyStr(BinaryData(TupleGet(opts, 0, mem), mem), BinaryCount(TupleGet(opts, 0, mem), mem));
+  mode = CopyStr(BinaryData(TupleGet(opts, 1, mem), mem), BinaryCount(TupleGet(opts, 1, mem), mem));
   file = fopen(path, mode);
   if (!file) return ErrorResult(strerror(errno), 0, 0);
 
@@ -79,10 +79,10 @@ Result FileWrite(void *context, Val data, Mem *mem)
   FileContext *ctx = (FileContext*)context;
   if (!IsBinary(data, mem)) return ErrorResult("Expected binary", 0, 0);
 
-  if (BinaryLength(data, mem) == 0) {
+  if (BinaryCount(data, mem) == 0) {
     return OkResult(IntVal(0));
   } else {
-    u32 length = BinaryLength(data, mem);
+    u32 length = BinaryCount(data, mem);
     char *bytes = BinaryData(data, mem);
     u32 bytes_written = fwrite(bytes, 1, length, ctx->file);
     if (bytes_written == length) {

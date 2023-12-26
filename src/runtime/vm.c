@@ -20,7 +20,7 @@ void InitVM(VM *vm, Chunk *chunk)
   vm->chunk = chunk;
   vm->trace = false;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
-  InitMem(&vm->mem, 1024, &vm->stack);
+  InitMem(&vm->mem, 1024);
 
   vm->stack.count = 1;
   Env(vm) = Nil;
@@ -167,9 +167,9 @@ static Result RunInstruction(VM *vm)
     if (IsPair(StackRef(vm, 0))) {
       StackRef(vm, 0) = IntVal(ListLength(StackRef(vm, 0), &vm->mem));
     } else if (IsTuple(StackRef(vm, 0), &vm->mem)) {
-      StackRef(vm, 0) = IntVal(TupleLength(StackRef(vm, 0), &vm->mem));
+      StackRef(vm, 0) = IntVal(TupleCount(StackRef(vm, 0), &vm->mem));
     } else if (IsBinary(StackRef(vm, 0), &vm->mem)) {
-      StackRef(vm, 0) = IntVal(BinaryLength(StackRef(vm, 0), &vm->mem));
+      StackRef(vm, 0) = IntVal(BinaryCount(StackRef(vm, 0), &vm->mem));
     } else if (IsMap(StackRef(vm, 0), &vm->mem)) {
       StackRef(vm, 0) = IntVal(MapCount(StackRef(vm, 0), &vm->mem));
     } else {
@@ -341,11 +341,11 @@ static Result RunInstruction(VM *vm)
     if (!IsTuple(StackRef(vm, 0), &vm->mem) || !IsTuple(StackRef(vm, 1), &vm->mem)) {
       return RuntimeError("Expected map keys and values to be tuples", vm);
     }
-    if (TupleLength(StackRef(vm, 0), &vm->mem) != TupleLength(StackRef(vm, 1), &vm->mem)) {
+    if (TupleCount(StackRef(vm, 0), &vm->mem) != TupleCount(StackRef(vm, 1), &vm->mem)) {
       return RuntimeError("Maps must have the same number of keys and values", vm);
     }
     map = MakeMap(&vm->mem);
-    for (i = 0; i < TupleLength(StackRef(vm, 0), &vm->mem); i++) {
+    for (i = 0; i < TupleCount(StackRef(vm, 0), &vm->mem); i++) {
       map = MapSet(map, TupleGet(StackRef(vm, 0), i, &vm->mem), TupleGet(StackRef(vm, 1), i, &vm->mem), &vm->mem);
     }
     StackRef(vm, 1) =  map;
@@ -357,7 +357,7 @@ static Result RunInstruction(VM *vm)
     if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
     if (IsTuple(StackRef(vm, 2), &vm->mem)) {
       if (!IsInt(StackRef(vm, 0))) return RuntimeError("Tuple indexes must be integers", vm);
-      if (TupleLength(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Index out of bounds", vm);
+      if (TupleCount(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Index out of bounds", vm);
       TupleSet(StackRef(vm, 2), RawInt(StackRef(vm, 0)), StackRef(vm, 1), &vm->mem);
     } else if (IsMap(StackRef(vm, 2), &vm->mem)) {
       StackRef(vm, 2) = MapSet(StackRef(vm, 2), StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
@@ -381,13 +381,13 @@ static Result RunInstruction(VM *vm)
       u32 index = RawInt(StackRef(vm, 0));
       Val tuple = StackRef(vm, 1);
       if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a tuple must be an integer", vm);
-      if (index < 0 || index >= TupleLength(tuple, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      if (index < 0 || index >= TupleCount(tuple, &vm->mem)) return RuntimeError("Index out of bounds", vm);
       StackRef(vm, 1) = TupleGet(tuple, index, &vm->mem);
     } else if (IsBinary(StackRef(vm, 1), &vm->mem)) {
       u32 index = RawInt(StackRef(vm, 0));
       Val binary = StackRef(vm, 1);
       if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a binary must be an integer", vm);
-      if (index < 0 || index >= BinaryLength(binary, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      if (index < 0 || index >= BinaryCount(binary, &vm->mem)) return RuntimeError("Index out of bounds", vm);
       StackRef(vm, 1) = IntVal(((u8*)BinaryData(binary, &vm->mem))[index]);
     } else if (IsMap(StackRef(vm, 1), &vm->mem)) {
       Val key = StackRef(vm, 0);
@@ -505,7 +505,7 @@ static Result RunInstruction(VM *vm)
     } else if (IsTuple(operator, &vm->mem) && num_args == 1) {
       Val index = StackPop(vm);
       if (!IsInt(index)) return RuntimeError("Index for a tuple must be an integer", vm);
-      if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleLength(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
       Return(TupleGet(operator, RawInt(index), &vm->mem), vm);
     } else if (IsMap(operator, &vm->mem)) {
       Val key = StackPop(vm);
@@ -515,7 +515,7 @@ static Result RunInstruction(VM *vm)
       Val index = StackPop(vm);
       u8 byte;
       if (!IsInt(index)) return RuntimeError("Index for a binary must be an integer", vm);
-      if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryLength(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
       byte = BinaryData(operator, &vm->mem)[RawInt(index)];
       Return(IntVal(byte), vm);
     } else if (IsPair(operator) && num_args == 1) {
