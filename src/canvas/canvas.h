@@ -29,5 +29,6 @@ void CanvasBlit(void *pixels, i32 x, i32 y, i32 width, i32 height, Canvas *canva
 void DrawText(char *text, i32 x, i32 y, Canvas *canvas);
 void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas);
 void ClearCanvas(Canvas *canvas, u32 color);
+void Pixel(i32 x, i32 y, u32 value, Canvas *canvas);
 void WritePixel(i32 x, i32 y, u32 value, Canvas *canvas);
 void MainLoop(UpdateFn update, void *arg);

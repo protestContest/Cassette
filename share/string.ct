@@ -1,5 +1,6 @@
 module String
 import IO
+import Enum
 
 let newline = 0x0A
 let space = 0x20
@@ -43,54 +44,54 @@ end
 
 def (digit? c) c >= $0 and c <= $9
 
-def (parse-int str) do
-  def (loop index num str) do
+def (parse-int-from index str) do
+  def (done num negative?)
+    if negative? do
+      -num
+    else
+      num
+    end
+
+  def (loop index num str negative?) do
     cond do
-      index == #str -> num | index
+      index == #str -> done num negative?
       str.(index) == $_ -> loop index + 1 num str
-      not (digit? str.(index)) -> num | index
+      not (digit? str.(index)) -> done num negative?
       true -> do
         let digit = str.(index) - $0
-        loop index + 1 num * 10 + digit str
+        loop index + 1 num * 10 + digit str negative?
       end
     end
   end
 
-  def (parse index str) do
-    if str.(index) == $- do
-      let parsed = loop index + 1 0 str
-      -(head parsed) | (tail parsed)
-    else
-      loop index 0 str
-    end
-  end
-
-  cond do
-    (Type.typeof str) == :binary -> parse 0 str
-    (slice? str) -> parse str.1 str.0
-    true -> panic! "Expected a string or string slice"
+  if str.(index) == $- do
+    loop index + 1 0 str true
+  else
+    loop index 0 str false
   end
 end
 
+def (parse-int str) (parse-int-from 0 str)
+
 def (parse-float str) do
-  def (loop index whole frac exp) do
+  def (loop index num exp) do
     cond do
-      index == #str -> whole + frac / exp | index
-      not (digit? str.(index)) -> whole + frac / exp | index
+      index == #str -> num / exp
+      index > 4 -> num / exp
+      not (digit? str.(index)) -> num / exp
       true -> do
         let digit = str.(index) - $0
-        loop index + 1 whole frac * 10 + digit exp * 10
+        loop index + 1 num * 10 + digit exp * 10
       end
     end
   end
 
-  let int = parse-int str,
-      index = (tail int),
-      whole = (head int)
+  let whole = parse-int str,
+      frac_index = Enum.index-of $. str
 
-  if index < #str and str.(index) == $. do
-    loop index + 1 whole 0 1
+  if frac_index == nil do
+    whole
   else
-    int
+    whole + (loop frac_index + 1 0 10)
   end
 end

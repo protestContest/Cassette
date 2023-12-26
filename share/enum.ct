@@ -1,5 +1,9 @@
 module Enum
 
+def (index-of item enum) do
+  find \test -> test == item enum
+end
+
 def (last-index-of item enum) do
   def (loop index) do
     cond do

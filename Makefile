@@ -56,3 +56,8 @@ install: $(TARGET)
 .PHONY: docs
 docs:
 	$(MAKE) -C support/docs
+
+.PHONY: entitlements
+entitlements: $(TARGET)
+	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(TARGET)
+

@@ -97,9 +97,7 @@ void CollectGarbage(Mem *mem)
     return;
   }
 
-  /* printf("GARBAGE DAY!!!\n"); */
-
-  InitMem(&new_mem, mem->capacity, mem->roots);
+  InitMem(&new_mem, 2*mem->capacity, mem->roots);
 
   for (i = 0; i < mem->roots->count; i++) {
     VecRef(mem->roots, i) = CopyValue(VecRef(mem->roots, i), mem, &new_mem);

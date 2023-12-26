@@ -66,7 +66,18 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
   type = TupleGet(cmd, 0, mem);
   if (!IsSym(type)) return ErrorResult("Invalid window command", 0, 0);
 
-  if (type == SymClear) {
+  if (type == SymbolFor("pixel")) {
+    Val color, x, y;
+    if (TupleLength(cmd, mem) != 4) return ErrorResult("Invalid window command", 0, 0);
+    x = TupleGet(cmd, 1, mem);
+    y = TupleGet(cmd, 2, mem);
+    color = TupleGet(cmd, 3, mem);
+    if (!IsInt(x) || !IsInt(y)) return ErrorResult("Invalid pixel", 0, 0);
+    if (!IsColor(color, mem)) return ErrorResult("Invalid color", 0, 0);
+
+    Pixel(RawInt(x), RawInt(y), ColorFrom(color, mem), (Canvas*)context);
+    return OkResult(Ok);
+  } else if (type == SymClear) {
     Val color;
     if (TupleLength(cmd, mem) != 2) return ErrorResult("Invalid window command", 0, 0);
     color = TupleGet(cmd, 1, mem);

@@ -1,52 +1,18 @@
-import File
-import IO
-import Stream
-import Enum
-import String
+import Noise
+import Canvas
 import List
-import Map
+import IO
 
-; def (match test stream) do
-;   def (loop index rest) do
-;     cond do
-;       index == #test -> stream
-;       test.(index) != (head rest) -> false
-;       true -> loop index + 1 ((tail rest))
-;     end
-;   end
+let canvas = Canvas.new 100 100
 
-;   loop 0 stream
-; end
+let data =
+  List.flatmap \y -> do
+    List.flatmap \x -> do
+      let n = Type.trunc 256 * (Noise.perlin x y 0.1 3)
+      [n, n, n, 255]
+    end (List.range 0 canvas.width)
+  end (List.range 0 canvas.height)
 
-; def (tokenize stream) do
-;   Stream.map \chunk -> (IO.format chunk) (Stream.chunk-by String.whitespace? stream)
-; end
+let img = Type.stuff data
 
-; let data = File.stream! "test.asc"
-
-; let s = Stream.take 5 (Stream.chunk-by String.newline? data)
-
-; IO.print ""
-
-; IO.print (IO.format (List.intersperse String.newline s))
-
-let lines = (Stream.chunk-by String.newline? (File.stream! "test.asc")),
-    header = Stream.take 6 (Stream.map IO.format lines),
-    data = Stream.drop 6 lines
-
-let metadata = List.reduce \line data -> do
-  def (parse-line line) do
-    let index = Enum.find String.digit? line
-    head (String.parse-int [line, index, 0])
-  end
-
-  cond do
-    (String.match "ncols" line) ->
-      Map.put data :ncols (parse-line line)
-    (String.match "nrows" line) ->
-      Map.put data :nrows (parse-line line)
-    true -> data
-  end
-end {:} header
-
-IO.print metadata
+canvas.blit img {0, 0} {canvas.width, canvas.height}

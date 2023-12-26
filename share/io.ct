@@ -57,6 +57,14 @@ def (inspect value depth) do
     end
   end
 
+  def (inspect-symbol value) do
+    cond do
+      value == true -> "true"
+      value == false -> "false"
+      true -> [":", Type.symbol-name value]
+    end
+  end
+
   def (inspect-function func) do
     ["λ", inspect (head (tail (tail func))) 1]
   end
@@ -111,7 +119,7 @@ def (inspect value depth) do
     depth == 0 -> "..."
     (Type.typeof value) == :float -> inspect-num value
     (Type.typeof value) == :integer -> inspect-num value
-    (Type.typeof value) == :symbol -> [":", Type.symbol-name value]
+    (Type.typeof value) == :symbol -> inspect-symbol value
     (Type.typeof value) == :pair -> inspect-list value
     (Type.typeof value) == :tuple -> inspect-tuple value
     (Type.typeof value) == :binary -> [$", value, $"]

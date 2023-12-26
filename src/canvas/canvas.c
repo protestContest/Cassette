@@ -60,12 +60,13 @@ bool SetFont(Canvas *canvas, char *font_file, u32 size)
 
 Canvas *MakeCanvas(u32 width, u32 height, char *title)
 {
+  u32 scale = 1;
   SDLCanvas *canvas = malloc(sizeof(SDLCanvas));
   if (!canvas) return 0;
 
   canvas->window = SDL_CreateWindow(title,
       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-      width, height, 0);
+      scale*width, scale*height, 0);
   if (!canvas->window) return 0;
   canvas->surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA8888);
   canvas->font_filename = 0;
@@ -154,6 +155,14 @@ void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas)
 
   SDL_UnlockSurface(canvas->surface);
 
+  UpdateCanvas(canvas);
+}
+
+void Pixel(i32 x, i32 y, u32 value, Canvas *canvas)
+{
+  SDL_LockSurface(canvas->surface);
+  WritePixel(x, y, value, canvas);
+  SDL_UnlockSurface(canvas->surface);
   UpdateCanvas(canvas);
 }
 
