@@ -3,7 +3,6 @@ build/*
 dist/*
 *.DS_Store
 .elixir_ls
-grammar.y
 bison*
 cassette
 libcassette.a
