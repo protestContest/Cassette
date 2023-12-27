@@ -91,14 +91,15 @@ static Result ParseModules(Project *project)
     if (source == 0) return ErrorResult("Could not read file", filename, 0);
     parser.filename = filename;
 
-    result = ParseModule(&parser, source);
+    result = Parse(source, &parser);
     if (!result.ok) return result;
 
     Free(source);
 
-    /* PrintAST(result.value, &parser); */
-
     name = ModuleName(result.value, &project->mem);
+    if (name == Nil) name = Sym(filename, &project->symbols);
+
+    /*PrintAST(result.value, &parser);*/
 
     /* first file is the entry point */
     if (i == 0) project->entry = name;

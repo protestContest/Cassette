@@ -54,19 +54,19 @@ static Token AdvanceToken(Lexer *lex)
   start = lex->source + lex->pos;
 
   if (Peek(lex) == '\0') return MakeToken(TokenEOF, start, 0);
-  if (Peek(lex) == '-' && IsDigit(Peek2(lex))) return NumberToken(lex);
   if (IsDigit(Peek(lex)) || Peek(lex) == '$') return NumberToken(lex);
   if (Peek(lex) == '"') return StringToken(lex);
 
-  if (Match("!=", lex)) return MakeToken(TokenBangEqual, start, 2);
-  if (Match("->", lex)) return MakeToken(TokenArrow, start, 2);
-  if (Match("<<", lex)) return MakeToken(TokenLessLess, start, 2);
-  if (Match("<=", lex)) return MakeToken(TokenLessEqual, start, 2);
-  if (Match("<>", lex)) return MakeToken(TokenLessGreater, start, 2);
-  if (Match("==", lex)) return MakeToken(TokenEqualEqual, start, 2);
-  if (Match(">=", lex)) return MakeToken(TokenGreaterEqual, start, 2);
-  if (Match(">>", lex)) return MakeToken(TokenGreaterGreater, start, 2);
   if (Match("\n", lex)) return MakeToken(TokenNewline, start, 1);
+  if (Match("!=", lex)) return MakeToken(TokenBangEq, start, 2);
+  if (Match("->", lex)) return MakeToken(TokenArrow, start, 2);
+  if (Match("<<", lex)) return MakeToken(TokenLtLt, start, 2);
+  if (Match("<=", lex)) return MakeToken(TokenLtEq, start, 2);
+  if (Match("<>", lex)) return MakeToken(TokenLtGt, start, 2);
+  if (Match("==", lex)) return MakeToken(TokenEqEq, start, 2);
+  if (Match(">=", lex)) return MakeToken(TokenGtEq, start, 2);
+  if (Match(">>", lex)) return MakeToken(TokenGtGt, start, 2);
+
   if (Match("#", lex))  return MakeToken(TokenHash, start, 1);
   if (Match("%", lex))  return MakeToken(TokenPercent, start, 1);
   if (Match("&", lex))  return MakeToken(TokenAmpersand, start, 1);
@@ -79,9 +79,9 @@ static Token AdvanceToken(Lexer *lex)
   if (Match(".", lex))  return MakeToken(TokenDot, start, 1);
   if (Match("/", lex))  return MakeToken(TokenSlash, start, 1);
   if (Match(":", lex))  return MakeToken(TokenColon, start, 1);
-  if (Match("<", lex))  return MakeToken(TokenLess, start, 1);
-  if (Match("=", lex))  return MakeToken(TokenEqual, start, 1);
-  if (Match(">", lex))  return MakeToken(TokenGreater, start, 1);
+  if (Match("<", lex))  return MakeToken(TokenLt, start, 1);
+  if (Match("=", lex))  return MakeToken(TokenEq, start, 1);
+  if (Match(">", lex))  return MakeToken(TokenGt, start, 1);
   if (Match("[", lex))  return MakeToken(TokenLBracket, start, 1);
   if (Match("\\", lex)) return MakeToken(TokenBackslash, start, 1);
   if (Match("]", lex))  return MakeToken(TokenRBracket, start, 1);
@@ -196,7 +196,7 @@ static Token StringToken(Lexer *lex)
     lex->pos++;
   }
   Match("\"", lex);
-  return MakeToken(TokenString, lex->source + start, lex->pos - start);
+  return MakeToken(TokenStr, lex->source + start, lex->pos - start);
 }
 
 static Token KeywordToken(Lexer *lex)

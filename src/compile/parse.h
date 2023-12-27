@@ -71,4 +71,4 @@ typedef struct {
 } Parser;
 
 void InitParser(Parser *p, Mem *mem, SymbolTable *symbols);
-Result ParseModule(Parser *p, char *source);
+Result Parse(char *source, Parser *p);
