@@ -1,6 +1,6 @@
 module Noise
 
-def (perlin x y freq depth) do
+def perlin(x, y, freq, depth) do
   let hash = {
     208, 34, 231, 213, 32, 248, 233, 56, 161, 78, 24, 140, 71, 48, 140, 254, 245,
     255, 247, 247, 40, 185, 248, 251, 245, 28, 124, 204, 204, 76, 36, 1, 107, 28,
@@ -19,49 +19,49 @@ def (perlin x y freq depth) do
     139, 255, 114, 20, 218, 113, 154, 27, 127, 246, 250, 1, 8, 198, 250, 209, 92,
     222, 173, 21, 88, 102, 219}
 
-  def (n x y) do
-    let tmp = hash.(y % 256)
-    hash.((x + tmp) % 256)
+  def n(x, y) do
+    let tmp = hash(y % 256)
+    hash((x + tmp) % 256)
   end
 
-  def (interpolate x y s) do
+  def interpolate(x, y, s) do
     x + s * (y - x)
   end
 
-  def (smooth x y s) do
-   interpolate x y s * s * (3 - 2 * s)
+  def smooth(x, y, s) do
+   interpolate(x, y, s * s * (3 - 2 * s))
   end
 
-  def (noise2d x y) do
-    let x0 = Type.trunc x,
+  def noise2d(x, y) do
+    let x0 = Type.trunc(x),
         xfrac = x - x0,
-        y0 = Type.trunc y,
+        y0 = Type.trunc(y),
         yfrac = y - y0,
         x1 = x0 + 1,
         y1 = y0 + 1,
-        a = n x0 y0,
-        b = n x1 y0,
-        c = n x0 y1,
-        d = n x1 y1,
-        low = smooth a b xfrac,
-        high = smooth c d xfrac
-    smooth low high yfrac
+        a = n(x0, y0),
+        b = n(x1, y0),
+        c = n(x0, y1),
+        d = n(x1, y1),
+        low = smooth(a, b, xfrac),
+        high = smooth(c, d, xfrac)
+    smooth(low, high, yfrac)
   end
 
-  def (loop index xn yn final amp div) do
+  def loop(index, xn, yn, final, amp, div) do
     if index == depth do
       final / div
     else
-      let val = noise2d xn yn
-      (loop
-        index + 1
-        2 * xn
-        2 * yn
-        final + amp * val
-        amp / 2
+      let val = noise2d(xn, yn)
+      loop(
+        index + 1,
+        2 * xn,
+        2 * yn,
+        final + amp * val,
+        amp / 2,
         div + 256 * amp)
     end
   end
 
-  loop 0 x * freq y * freq 0 1 0
+  loop(0, x * freq, y * freq, 0, 1, 0)
 end

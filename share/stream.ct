@@ -2,142 +2,141 @@ module Stream
 import List
 import IO
 
-def (integers-from n) do
-  \-> n | (integers-from n + 1)
+def integers-from(n) do
+  \-> n | integers-from(n + 1)
 end
 
-def (map fn stream) do
+def map(fn, stream) do
   \-> do
-    let item = (stream)
+    let item = stream()
     if item == nil do
       nil
     else
-      (fn (head item)) | (map fn (tail item))
+      fn(head(item)) | map(fn, tail(item))
     end
   end
 end
 
-def (flatten streams) do
-  def (flatten-rest stream rest) do
+def flatten(streams) do
+  def flatten-rest(stream, rest) do
     \-> do
-      let item = (stream)
+      let item = stream()
       if item == nil do
-        ((flatten rest))
+        flatten(rest)()
       else
-        (head item) | (flatten-rest (tail item) rest)
+        head(item) | flatten-rest(tail(item), rest)
       end
     end
   end
 
   \-> do
-    let item = (streams)
+    let item = streams()
     if item == nil do
       nil
     else
-      let stream = ((head item))
+      let stream = head(item)()
       if stream == nil do
-        ((flatten (tail item)))
+        flatten(tail(item))()
       else
-        (head stream) | (flatten-rest (tail stream) (tail item))
+        head(stream) | flatten-rest(tail(stream), tail(item))
       end
     end
   end
 end
 
-def (flatmap fn stream) (flatten (map fn stream))
+def flatmap(fn, stream) flatten(map(fn, stream))
 
-def (list stream) do
-  def (loop stream acc) do
-    let item = (stream)
+def list(stream) do
+  def loop(stream, acc) do
+    let item = stream()
     if item == nil do
-      List.reverse acc
+      List.reverse(acc)
     else
-      loop (tail item) (head item) | acc
+      loop(tail(item), head(item) | acc)
     end
   end
 
-  loop stream nil
+  loop(stream, nil)
 end
 
-def (print stream) do
-  let item = (stream)
+def print(stream) do
+  let item = stream()
   if item != nil do
-    IO.print (head item)
-    print (tail item)
+    IO.print(head(item))
+    print(tail(item))
   end
 end
 
-def (drop n stream) do
-  def (loop n item) do
+def drop(n, stream) do
+  def loop(n, item) do
     cond do
       n == 0 -> item
       item == nil -> nil
-      true -> loop n - 1 ((tail item))
+      true -> loop(n - 1, tail(item)())
     end
   end
 
-  \-> (loop n (stream))
+  \-> loop(n, stream())
 end
 
-def (drop-while fn stream) do
+def drop-while(fn, stream) do
   \-> do
-    let item = (stream)
+    let item = stream()
     cond do
       item == nil -> nil
-      (fn (head item)) -> ((drop-while fn (tail item)))
+      fn(head(item)) -> drop-while(fn, tail(item))()
       true -> item
     end
   end
 end
 
-def (drop-every n stream) do
-  def (loop index stream) do
+def drop-every(n, stream) do
+  def loop(index, stream) do
     \-> do
-      let item = (stream)
+      let item = stream()
       cond do
         item == nil -> nil
-        index == n -> ((loop 1 (tail item)))
-        true -> (head item) | (loop index + 1 (tail item))
+        index == n -> loop(1, tail(item))()
+        true -> head(item) | loop(index + 1, tail(item))
       end
     end
   end
 
-  loop 1 stream
+  loop(1, stream)
 end
 
-def (chunk-by fn stream) do
-  def (loop item acc) do
+def chunk-by(fn, stream) do
+  def loop(item, acc) do
     cond do
       item == nil and acc == nil -> nil
-      item == nil -> (List.reverse acc) | \-> nil
-      (fn (head item)) -> (List.reverse acc) | (chunk-by fn (tail item))
-      true -> loop ((tail item)) (head item) | acc
+      item == nil -> List.reverse(acc) | \-> nil
+      fn(head(item)) -> List.reverse(acc) | chunk-by(fn, tail(item))
+      true -> loop(tail(item)(), head(item) | acc)
     end
   end
 
-  \-> (loop ((drop-while fn stream)) nil)
+  \-> loop(drop-while(fn, stream)(), nil)
 end
 
-def (chunk-every n stream) do
-  def (loop item acc index) do
+def chunk-every(n, stream) do
+  def loop(item, acc, index) do
     cond do
       item == nil and acc == nil -> nil
-      item == nil -> (List.reverse acc) | \-> nil
-      index == n -> (List.reverse  (head item) | acc) | (chunk-every n (tail item))
-      true -> loop ((tail item)) (head item) | acc index + 1
-
+      item == nil -> List.reverse(acc) | \-> nil
+      index == n -> List.reverse(head(item) | acc) | chunk-every(n, tail(item))
+      true -> loop(tail(item)(), head(item) | acc, index + 1)
     end
   end
 
-  \-> (loop ((stream)) nil 1)
+  \-> loop(stream(), nil, 1)
 end
 
-def (take n stream) do
-  def (loop n item acc) do
+def take(n, stream) do
+  def loop(n, item, acc) do
     cond do
-      item == nil -> List.reverse acc
-      n == 1 -> List.reverse (head item) | acc
-      true -> loop n - 1 ((tail item)) (head item) | acc
+      item == nil -> List.reverse(acc)
+      n == 1 -> List.reverse(head(item) | acc)
+      true -> loop(n - 1, tail(item)(), head(item) | acc)
     end
   end
 
@@ -145,39 +144,39 @@ def (take n stream) do
     if n == 0 do
       nil
     else
-      let item = (stream)
+      let item = stream()
       if item == nil do
         nil
       else
-        (head item) | (take n - 1 (tail item))
+        head(item) | take(n - 1, tail(item))
       end
     end
   end
 end
 
-def (take-every n stream) do
-  def (loop index stream) do
+def take-every(n, stream) do
+  def loop(index, stream) do
     \-> do
-      let item = (stream)
+      let item = stream()
       cond do
         item == nil -> nil
-        index == n -> (head item) | (loop 1 (tail item))
-        true -> ((loop index + 1 (tail item)))
+        index == n -> head(item) | loop(1, tail(item))
+        true -> loop(index + 1, tail(item))()
       end
     end
   end
 
-  loop 1 stream
+  loop(1, stream)
 end
 
-def (with-index stream) do
-  def (loop index item) do
+def with-index(stream) do
+  def loop(index, item) do
     if item == nil do
       nil
     else
-      (index | (head item)) | \-> (loop index + 1 ((tail item)))
+      (index | head(item)) | \-> loop(index + 1, tail(item)())
     end
   end
 
-  \-> (loop 0 (stream))
+  \-> loop(0, stream())
 end

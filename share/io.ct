@@ -2,37 +2,41 @@ module IO
 import List
 import Type
 
-let console = (unwrap! (Device.open :console {}))
+let console = unwrap!(Device.open(:console, {}))
 
-def (read-line) do
-  unwrap! (Device.read console 1024)
+def read-line do
+  unwrap!(Device.read(console, 1024))
 end
 
-def (byte? n) (Type.typeof n) == :integer and n >= 0 and n <= 255
-def (binary? val) (Type.typeof val) == :binary
+def byte?(n) Type.typeof(n) == :integer and n >= 0 and n <= 255
+def binary?(val) Type.typeof(val) == :binary
 
-def (format iodata) do
-  def (stuff iolist acc bytes) do
+def format(iodata) do
+  def stuff(iolist, acc, bytes) do
     cond do
-      iolist == nil -> acc <> (Type.stuff (List.reverse bytes))
-      (byte? (head iolist)) -> stuff (tail iolist) acc ((head iolist) | bytes)
-      (binary? (head iolist)) -> stuff (tail iolist) acc <> (Type.stuff (List.reverse bytes)) <> (head iolist) []
-      true -> panic! "Bad IO list"
+      iolist == nil ->
+        acc <> Type.stuff(List.reverse(bytes))
+      byte?(head(iolist)) ->
+        stuff(tail(iolist), acc, head(iolist) | bytes)
+      binary?(head(iolist)) ->
+        stuff(tail(iolist), acc <> Type.stuff(List.reverse(bytes)) <> head(iolist), [])
+      true ->
+        panic!("Bad IO list")
     end
   end
 
-  let type = Type.typeof iodata
+  let type = Type.typeof(iodata)
 
   cond do
     type == :binary -> iodata
-    (byte? iodata) -> Type.stuff [iodata]
-    type == :pair -> stuff (List.flatten iodata) "" nil
-    true -> panic! "Bad IO list"
+    byte?(iodata) -> Type.stuff([iodata])
+    type == :pair -> stuff(List.flatten(iodata), "", nil)
+    true -> panic!("Bad IO list")
   end
 end
 
-def (inspect value depth) do
-  def (inspect-int num acc) do
+def inspect(value, depth) do
+  def inspect-int(num, acc) do
     if num == 0 do
       if acc == nil do
         $0
@@ -41,100 +45,95 @@ def (inspect value depth) do
       end
     else
       let d = $0 + num % 10
-      inspect-int (Type.trunc num / 10) d | acc
+      inspect-int(Type.trunc(num / 10), d | acc)
     end
   end
 
-  def (inspect-num num) do
+  def inspect-num(num) do
     cond do
-      num < 0 -> ["-", inspect-num 0 - num]
-      (Type.typeof num) == :integer -> (inspect-int num nil)
+      num < 0 -> ["-", inspect-num(0 - num)]
+      Type.typeof(num) == :integer -> inspect-int(num, nil)
       true -> do
-        let whole = inspect-int (Type.trunc num) nil,
-            part = inspect-int (Type.trunc (num - (Type.trunc num)) * 1000) nil
+        let whole = inspect-int(Type.trunc(num), nil),
+            part = inspect-int(Type.trunc(num - whole) * 1000, nil)
         [whole, ".", part]
       end
     end
   end
 
-  def (inspect-symbol value) do
+  def inspect-symbol(value) do
     cond do
       value == true -> "true"
       value == false -> "false"
-      true -> [":", Type.symbol-name value]
+      true -> [":", Type.symbol-name(value)]
     end
   end
 
-  def (inspect-function func) do
-    ["λ", inspect (head (tail (tail func))) 1]
+  def inspect-function(func) do
+    ["λ", inspect(head(tail(tail(func))), 1)]
   end
 
-  def (inspect-list list) do
-    def (inspect-items list acc) do
-      let item = inspect (head list) depth - 1
+  def inspect-list(list) do
+    def inspect-items(list, acc) do
+      let item = inspect(head(list), depth - 1)
 
       cond do
-        (Type.typeof (tail list)) != :pair ->
-          [item, " | ", inspect (tail list) depth - 1] | acc
-        (tail list) == nil ->
+        Type.typeof(tail(list)) != :pair ->
+          [item, " | ", inspect(tail(list), depth - 1)] | acc
+        tail(list) == nil ->
           item | acc
         true ->
-          inspect-items (tail list) item | acc
+          inspect-items(tail(list), item | acc)
       end
     end
-
-    ; Device.write console "list "
 
     if list == nil do
       "nil"
     else
-      let items = List.reverse (inspect-items list nil)
-      ["[", List.intersperse ", " items, "]"]
+      let items = List.reverse(inspect-items(list, nil))
+      ["[", List.intersperse(", ", items), "]"]
     end
   end
 
-  def (inspect-tuple tuple) do
-    let items = List.map \item -> (inspect item depth - 1) (List.from tuple)
-    ["{", List.intersperse ", " items, "}"]
+  def inspect-tuple(tuple) do
+    let items = List.map(\item -> inspect(item, depth - 1), List.from(tuple))
+    ["{", List.intersperse(", ", items), "}"]
   end
 
-  def (inspect-entry entry) do
-    let key = head entry, value = tail entry
-    if (Type.typeof key) == :symbol do
-      [Type.symbol-name key, ": ", inspect value depth - 1]
+  def inspect-entry(entry) do
+    let key = head(entry), value = tail(entry)
+    if Type.typeof(key) == :symbol do
+      [Type.symbol-name(key), ": ", inspect(value, depth - 1)]
     else
-      [inspect key depth - 1, " => ", inspect value depth - 1]
+      [inspect(key, depth - 1), " => ", inspect(value, depth - 1)]
     end
   end
 
-  def (inspect-map map) do
-    let items = List.map inspect-entry (List.from map)
-    ["{", List.intersperse ", " items, "}"]
+  def inspect-map(map) do
+    let items = List.map(inspect-entry, List.from(map))
+    ["{", List.intersperse(", ", items), "}"]
   end
-
-  ; Device.write console (Type.symbol-name (Type.typeof value))
-  ; Device.write console 0x20
 
   cond do
     depth == 0 -> "..."
-    (Type.typeof value) == :float -> inspect-num value
-    (Type.typeof value) == :integer -> inspect-num value
-    (Type.typeof value) == :symbol -> inspect-symbol value
-    (Type.typeof value) == :pair -> inspect-list value
-    (Type.typeof value) == :tuple -> inspect-tuple value
-    (Type.typeof value) == :binary -> [$", value, $"]
-    (Type.typeof value) == :map -> inspect-map value
-    (Type.typeof value) == :function -> inspect-function value
+    Type.typeof(value) == :float -> inspect-num(value)
+    Type.typeof(value) == :integer -> inspect-num(value)
+    Type.typeof(value) == :symbol -> inspect-symbol(value)
+    Type.typeof(value) == :pair -> inspect-list(value)
+    Type.typeof(value) == :tuple -> inspect-tuple(value)
+    Type.typeof(value) == :binary -> [$", value, $"]
+    Type.typeof(value) == :map -> inspect-map(value)
+    Type.typeof(value) == :function -> inspect-function(value)
     true -> "<???>"
   end
 end
 
-def (print value) do
-  if (Type.typeof value) == :binary do
-    Device.write console value
-    Device.write console 0x0A
+def print(value) do
+  if Type.typeof(value) == :binary do
+    Device.write(console, value)
+    Device.write(console, 0x0A)
   else
-    Device.write console (format (inspect value 5))
-    Device.write console 0x0A
+    Device.write(console, format(inspect(value, 5)))
+    Device.write(console, 0x0A)
   end
 end

@@ -1,22 +1,22 @@
 module System
 
-let system = unwrap! (Device.open :system {})
+let system = unwrap!(Device.open(:system, {}))
 
-def (seed s) (Device.set-param system :seed s)
-def (time) (unwrap! (Device.get-param system :time))
-def (random) (unwrap! (Device.get-param system :random))
-def (list-ports) (unwrap! (Device.get-param system :serial-ports))
+def seed(s) Device.set-param(system, :seed, s)
+def time unwrap!(Device.get-param(system, :time))
+def random unwrap!(Device.get-param(system, :random))
+def list-ports unwrap!(Device.get-param(system, :serial-ports))
 
-def (delay amount) do
-  let start = (time)
+def delay(amount) do
+  let start = time()
 
-  def (loop) do
-    if (time) - start < amount do
-      (loop)
+  def loop do
+    if time() - start < amount do
+      loop()
     else
       :ok
     end
   end
 
-  (loop)
+  loop()
 end

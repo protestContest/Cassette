@@ -4,89 +4,89 @@ import String
 import Stream
 import Enum
 
-def (open path mode) do
+def open(path, mode) do
   cond do
-    mode == :read -> (Device.open :file {path, "r"})
-    mode == :write -> (Device.open :file {path, "w"})
-    mode == :append -> (Device.open :file {path, "a"})
-    true -> panic! "File mode must be :read :write or :append"
+    mode == :read -> Device.open(:file, {path, "r"})
+    mode == :write -> Device.open(:file, {path, "w"})
+    mode == :append -> Device.open(:file, {path, "a"})
+    true -> panic!("File mode must be :read :write or :append")
   end
 end
 
-def (open! path mode) (unwrap! (open path mode))
-def (close file) (Device.close file)
-def (read file n) (Device.read file n)
-def (read! file n) (unwrap! (read file n))
+def open!(path, mode) unwrap!(open(path, mode))
+def close(file) Device.close(file)
+def read(file, n) Device.read(file, n)
+def read!(file, n) unwrap!(read(file, n))
 
-def (stream path) do
-  let result = open path :read
-  if (ok? result) do
-    stream-contents (unwrap! result)
+def stream(path) do
+  let result = open(path, :read)
+  if ok?(result) do
+    stream-contents(unwrap!(result))
   else
     result
   end
 end
 
-def (stream! path) do
-  stream-contents (open! path :read)
+def stream!(path) do
+  stream-contents(open!(path, :read))
 end
 
-def (stream-contents file) do
-  def (stream-chunks file bufsize) do
+def stream-contents(file) do
+  def stream-chunks(file, bufsize) do
     \-> do
-      let data = (read! file bufsize)
+      let data = read!(file, bufsize)
 
       if data == nil do
         nil
       else
-        data | (stream-chunks file bufsize)
+        data | stream-chunks(file, bufsize)
       end
     end
   end
 
-  let chunks = stream-chunks file 1024
-  Stream.flatmap Enum.stream chunks
+  let chunks = stream-chunks(file, 1024)
+  Stream.flatmap(Enum.stream, chunks)
 end
 
-def (list-dir path) do
-  let dir = Device.open :directory {path}
-  if not (ok? dir) do
+def list-dir(path) do
+  let dir = Device.open(:directory, {path})
+  if not ok?(dir) do
     nil
   else
-    let dir = (unwrap dir nil),
-        items = Device.read dir nil
-    Device.close dir
-    unwrap items nil
+    let dir = unwrap(dir, nil),
+        items = Device.read(dir, nil)
+    Device.close(dir)
+    unwrap(items, nil)
   end
 end
 
-def (dirname path) do
+def dirname(path) do
   cond do
     path == nil -> nil
-    path.(#path - 1) == $/ -> String.split path 0 #path - 1
-    true -> String.split path 0 (Enum.last-index-of $/ path)
+    path(#path - 1) == $/ -> String.split(path, 0, #path - 1)
+    true -> String.split(path, 0, Enum.last-index-of($/, path))
   end
 end
 
-def (basename path) do
-  let index = Enum.last-index-of $/ path
-  (tail (Type.split-bin path index))
+def basename(path) do
+  let index = Enum.last-index-of($/, path)
+  tail(Type.split-bin(path, index))
 end
 
-def (abs-path path) do
+def abs-path(path) do
   if #path == 0 do
     nil
   else
-    let dir = Device.open :directory {path}
+    let dir = Device.open(:directory, {path})
 
-    if (ok? dir) do
-      let path = unwrap (Device.get-param (unwrap! dir) :path) nil
-      Device.close (tail dir)
+    if ok?(dir) do
+      let path = unwrap(Device.get-param(unwrap!(dir), :path), nil)
+      Device.close(tail(dir))
       path
     else
-      let dirpath = abs-path (dirname path)
+      let dirpath = abs-path(dirname(path))
       if dirpath do
-        dirpath <> "/" <> (basename path)
+        dirpath <> "/" <> basename(path)
       else
         nil
       end
@@ -94,24 +94,24 @@ def (abs-path path) do
   end
 end
 
-def (join-path left right) do
+def join-path(left, right) do
   cond do
     #left == 0 ->
       right
     #right == 0 ->
       left
-    left.(#left - 1) == $/ ->
-      join-path (head (Type.split-bin left (#left - 1))) right
-    right.0 == $/ ->
-      join-path left (tail (Type.split-bin right 1))
+    left(#left - 1) == $/ ->
+      join-path(head(Type.split-bin(left, #left - 1)), right)
+    right(0) == $/ ->
+      join-path(left, tail(Type.split-bin(right, 1)))
     true ->
       left <> "/" <> right
   end
 end
 
-def (exists? path) do
-  let path = abs-path path,
-      dir = dirname path
+def exists?(path) do
+  let path = abs-path(path),
+      dir = dirname(path)
 
-  List.any? \item -> path == (join-path dir item.0) (list-dir dir)
+  List.any?(\item -> path == join-path(dir, item(0)), list-dir(dir))
 end

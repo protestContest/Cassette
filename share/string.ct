@@ -6,23 +6,23 @@ let newline = 0x0A
 let space = 0x20
 let tab = 0x09
 
-def (space? char) char == space
-def (newline? char) char == newline
-def (tab? char) char == tab
-def (whitespace? char) (space? char) or (newline? char) or (tab? char)
+def space?(char) char == space
+def newline?(char) char == newline
+def tab?(char) char == tab
+def whitespace?(char) space?(char) or newline?(char) or tab?(char)
 
-def (split str a b) do
-  head (Type.split-bin (tail (Type.split-bin str a)) b)
+def split(str, a, b) do
+  head(Type.split-bin(tail(Type.split-bin(str, a)), b))
 end
 
-def (slice str start length) [str, start, length]
-def (slice? value) do
+def slice(str, start, length) [str, start, length]
+def slice?(value) do
   cond do
-    (Type.typeof value) != :pair -> false
+    Type.typeof(value) != :pair -> false
     #value != 3 -> false
-    (Type.typeof value.0) != :binary -> false
-    (Type.typeof value.1) != :integer -> false
-    (Type.typeof value.2) != :integer -> false
+    Type.typeof(value.0) != :binary -> false
+    Type.typeof(value.1) != :integer -> false
+    Type.typeof(value.2) != :integer -> false
     value.1 < 0 -> false
     value.2 < 0 -> false
     value.1 + value.2 > #value.0 -> false
@@ -30,68 +30,68 @@ def (slice? value) do
   end
 end
 
-def (match test str) do
-  def (loop index) do
+def match(test, str) do
+  def loop(index) do
     cond do
       index == #test -> true
-      test.(index) != str.(index) -> false
-      true -> loop index + 1
+      test(index) != str(index) -> false
+      true -> loop(index + 1)
     end
   end
 
   loop 0
 end
 
-def (digit? c) c >= $0 and c <= $9
+def digit?(c) c >= $0 and c <= $9
 
-def (parse-int-from index str) do
-  def (done num negative?)
+def parse-int-from(index, str) do
+  def done(num, negative?)
     if negative? do
       -num
     else
       num
     end
 
-  def (loop index num str negative?) do
+  def loop(index, num, str, negative?) do
     cond do
-      index == #str -> done num negative?
-      str.(index) == $_ -> loop index + 1 num str
-      not (digit? str.(index)) -> done num negative?
+      index == #str -> done(num, negative?)
+      str(index) == $_ -> loop(index + 1, num, str, negative?)
+      not digit?(str(index)) -> done(num, negative?)
       true -> do
-        let digit = str.(index) - $0
-        loop index + 1 num * 10 + digit str negative?
+        let digit = str(index) - $0
+        loop(index + 1, num * 10 + digit, str, negative?)
       end
     end
   end
 
-  if str.(index) == $- do
-    loop index + 1 0 str true
+  if str(index) == $- do
+    loop(index + 1, 0, str, true)
   else
-    loop index 0 str false
+    loop(index, 0, str, false)
   end
 end
 
-def (parse-int str) (parse-int-from 0 str)
+def parse-int(str) parse-int-from(0, str)
 
-def (parse-float str) do
-  def (loop index num exp) do
+def parse-float(str) do
+  def loop(index, num, exp) do
     cond do
       index == #str -> num / exp
       index > 4 -> num / exp
-      not (digit? str.(index)) -> num / exp
+      not digit?(str(index)) -> num / exp
       true -> do
-        let digit = str.(index) - $0
-        loop index + 1 num * 10 + digit exp * 10
+        let digit = str(index) - $0
+        loop(index + 1, num * 10 + digit, exp * 10)
       end
     end
   end
 
-  let whole = parse-int str,
-      frac_index = Enum.index-of $. str
+  let whole = parse-int(str),
+      frac_index = Enum.index-of($., str)
 
   if frac_index == nil do
     whole
   else
-    whole + (loop frac_index + 1 0 10)
+    whole + loop(frac_index + 1, 0, 10)
   end
 end

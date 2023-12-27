@@ -5,47 +5,47 @@ import Type
 let Pi = 3.141593
 let E = 2.718282
 
-def (abs n) if n < 0 do -n else n end
-def (ceil n) if n >= 0 do (Type.trunc n) + 1 else (Type.trunc n) end
-def (clamp n low high) (min (max n low) high)
+def abs(n) if n < 0 do -n else n end
+def ceil(n) if n >= 0 do Type.trunc(n) + 1 else Type.trunc(n) end
+def clamp(n, low, high) min(max(n, low), high)
 
-def (exp n) (expt E n)
+def exp(n) expt(E, n)
 
-def (expt base power) do
-  def (loop n product) do
+def expt(base, power) do
+  def loop(n, product) do
     if n == power do
       product
     else
-      loop n + 1 base * product
+      loop(n + 1, base * product)
     end
   end
 
   if power < 0 do
-    1 / (loop -power)
+    1 / expt(base, -power)
   else
     loop 0 1
   end
 end
 
-def (floor n) if n >= 0 do (Type.trunc n) else (Type.trunc n) - 1 end
-def (max a b) if a > b do a else b end
+def floor(n) if n >= 0 do Type.trunc(n) else Type.trunc(n) - 1 end
+def max(a, b) if a > b do a else b end
 
-def (midpoint p1 p2) do
+def midpoint(p1, p2) do
   {(p1.0 + p2.0) / 2, (p1.1 + p2.1) / 2}
 end
 
-def (min a b) if a < b do a else b end
-def (rand-int min max) (Type.trunc (System.random) * (max - min)) + min
-def (random) (System.random)
-def (round n) (floor n + 0.5)
+def min(a, b) if a < b do a else b end
+def rand-int(min, max) Type.trunc(System.random()) * (max - min) + min
+def random System.random()
+def round(n) floor(n + 0.5)
 
-def (sqrt n) do
-  def (loop guess) do
-    if (abs n - guess * guess) < 0.000001 do
+def sqrt(n) do
+  def loop(guess) do
+    if abs(n - guess * guess) < 0.000001 do
       guess
     else
       let guess = (guess + n / guess) / 2
-      loop guess
+      loop(guess)
     end
   end
 
