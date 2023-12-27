@@ -156,7 +156,7 @@ void PrintStackTrace(Val stack, VM *vm)
       iterations++;
     } else {
       if (iterations > 0) {
-        printf(" (%d iterations)", iterations);
+        printf(" (%d iterations)", iterations + 1);
         iterations = 0;
       }
       printf("\n");
@@ -167,7 +167,7 @@ void PrintStackTrace(Val stack, VM *vm)
     stack = Tail(stack, &vm->mem);
   }
   if (iterations > 0) {
-    printf(" (%d iterations)\n", iterations);
+    printf(" (%d iterations)\n", iterations + 1);
   } else {
     printf("\n");
   }

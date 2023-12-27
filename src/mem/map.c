@@ -3,11 +3,12 @@
 #include "univ/hash.h"
 #include "univ/math.h"
 
-#define NodeCount(header)       PopCount((header) & 0xFFFF)
+#define HeaderCount(header)     PopCount((header) & 0xFFFF)
+#define NodeCount(node, mem)    HeaderCount(VecRef(mem, RawVal(node)))
 #define SlotNum(hash, depth)    (((hash) >> (4 * (depth))) & 0x0F)
 #define IndexNum(header, slot)  PopCount((header) & (Bit(slot) - 1))
 #define NodeRef(node, i, mem)   VecRef(mem, RawVal(node) + 1 + (i))
-#define NewNodeSize(header)     Max(2, (1 + NodeCount(header)))
+#define NewNodeSize(header)     Max(2, (1 + HeaderCount(header)))
 
 static bool NodeGet(Val node, Val key, u32 level, Mem *mem);
 static u32 NodeSetSize(Val node, Val key, u32 level, Mem *mem);
@@ -33,8 +34,7 @@ Val MakeMap(Mem *mem)
 
 Val MapKeys(Val map, Val keys, Mem *mem)
 {
-  Val header = VecRef(mem, RawVal(map));
-  u32 num_children = NodeCount(header);
+  u32 num_children = NodeCount(map, mem);
   u32 i;
 
   for (i = 0; i < num_children; i++) {
@@ -51,8 +51,7 @@ Val MapKeys(Val map, Val keys, Mem *mem)
 
 Val MapValues(Val map, Val values, Mem *mem)
 {
-  Val header = VecRef(mem, RawVal(map));
-  u32 num_children = NodeCount(header);
+  u32 num_children = NodeCount(map, mem);
   u32 i;
 
   for (i = 0; i < num_children; i++) {
@@ -70,6 +69,28 @@ Val MapValues(Val map, Val values, Mem *mem)
 Val MapGet(Val map, Val key, Mem *mem)
 {
   return NodeGet(map, key, 0, mem);
+}
+
+Val MapGetKey(Val map, u32 index, Mem *mem)
+{
+  u32 num_children = NodeCount(map, mem);
+  u32 i, count;
+
+  count = 0;
+  for (i = 0; i < num_children; i++) {
+    Val node = NodeRef(map, i, mem);
+    if (IsPair(node)) {
+      if (count == index) return Head(node, mem);
+      count++;
+    } else {
+      if (count + NodeCount(node, mem) > index) {
+        return MapGetKey(node, index - count, mem);
+      }
+      count += NodeCount(node, mem);
+    }
+  }
+
+  return Nil;
 }
 
 Val MapSetSize(Val map, Val key, Mem *mem)
@@ -91,9 +112,8 @@ Val MapDelete(Val map, Val key, Mem *mem)
 
 u32 MapCount(Val map, Mem *mem)
 {
-  Val header = VecRef(mem, RawVal(map));
   u32 count = 0;
-  u32 num_children = NodeCount(header);
+  u32 num_children = NodeCount(map, mem);
   u32 i;
   for (i = 0; i < num_children; i++) {
     Val child = NodeRef(map, i, mem);
@@ -111,28 +131,9 @@ bool MapContains(Val map, Val key, Mem *mem)
   return NodeContains(map, key, 0, mem);
 }
 
-Val MapMerge(Val map1, Val map2, Mem *mem)
-{
-  u32 i;
-  if (MapCount(map2, mem) == 0) return map1;
-  if (MapCount(map1, mem) == 0) return map2;
-
-  for (i = 0; i < MapCount(map2, mem); i++) {
-    Val child = NodeRef(map2, i, mem);
-    if (IsPair(child)) {
-      map1 = MapSet(map1, Head(child, mem), Tail(child, mem), mem);
-    } else {
-      map1 = MapMerge(map1, child, mem);
-    }
-  }
-
-  return map1;
-}
-
 bool MapIsSubset(Val v1, Val v2, Mem *mem)
 {
-  Val header = VecRef(mem, RawVal(v1));
-  u32 size = NodeCount(header);
+  u32 size = NodeCount(v1, mem);
   u32 i;
   for (i = 0; i < size; i++) {
     Val node = NodeRef(v1, i, mem);
@@ -279,7 +280,7 @@ is occupied, the old child is replaced. */
 static Val NodeUpdate(Val node, u32 slot, Val child, Mem *mem)
 {
   Val header = VecRef(mem, RawVal(node));
-  u32 num_children = NodeCount(header);
+  u32 num_children = NodeCount(node, mem);
   u32 index = IndexNum(header, slot);
   bool replace = (header & Bit(slot)) != 0;
   u32 i;
@@ -333,7 +334,7 @@ static Val MakeInternalNode(Val child1, Val child2, u32 level, Mem *mem)
 static Val MakeMapNode(u32 header, Mem *mem)
 {
   Val node;
-  u32 num_children = Max(1, NodeCount(header));
+  u32 num_children = Max(1, HeaderCount(header));
   u32 i;
 
   Assert(CheckMem(mem, num_children+1));

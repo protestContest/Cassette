@@ -79,6 +79,7 @@ void InitMem(Mem *mem, u32 capacity);
 #define ResizeMem(mem, capacity)  ResizeVec((Vec*)(mem), sizeof(Val), capacity)
 #define MemRef(mem, v)            ((mem)->items[v])
 #define CheckMem(mem, size)       ((mem)->count + (size) <= (mem)->capacity)
+#define MemCapacity(mem)          ((mem)->capacity)
 #define MemNext(mem)              ((mem)->count)
 void PushMem(Mem *mem, Val value);
 bool ValEqual(Val v1, Val v2, Mem *mem);
@@ -120,10 +121,10 @@ Val MakeMap(Mem *mem);
 Val MapKeys(Val map, Val keys, Mem *mem);
 Val MapValues(Val map, Val values, Mem *mem);
 Val MapGet(Val map, Val key, Mem *mem);
+Val MapGetKey(Val map, u32 index, Mem *mem);
 Val MapSetSize(Val map, Val key, Mem *mem);
 Val MapSet(Val map, Val key, Val value, Mem *mem);
 Val MapDelete(Val map, Val key, Mem *mem);
 u32 MapCount(Val map, Mem *mem);
 bool MapContains(Val map, Val key, Mem *mem);
-Val MapMerge(Val map1, Val map2, Mem *mem);
 bool MapIsSubset(Val v1, Val v2, Mem *mem);

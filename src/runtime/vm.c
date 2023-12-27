@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 static Result RunInstruction(VM *vm);
+static void MaybeGC(VM *vm, u32 num);
 
 void InitVM(VM *vm, Chunk *chunk)
 {
@@ -304,12 +305,16 @@ static Result RunInstruction(VM *vm)
     break;
   case OpStr: {
     char *str;
+    u32 len;
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (!IsSym(StackRef(vm, 0))) return RuntimeError("Strings must be made from symbols", vm);
 
     str = SymbolName(StackRef(vm, 0), &vm->chunk->symbols);
+    len = StrLen(str);
 
-    StackRef(vm, 0) = BinaryFrom(str, StrLen(str), &vm->mem);
+    MaybeGC(vm, NumBinCells(len) + 1);
+
+    StackRef(vm, 0) = BinaryFrom(str, len, &vm->mem);
     vm->pc += OpLength(op);
     break;
   }
@@ -325,17 +330,18 @@ static Result RunInstruction(VM *vm)
   }
   case OpPair:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    MaybeGC(vm, 2);
     StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpTuple:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
+    MaybeGC(vm, RawInt(StackRef(vm, 0)) + 1);
     StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
     vm->pc += OpLength(op);
     break;
   case OpMap: {
-    Val map;
     u32 i;
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (!IsTuple(StackRef(vm, 0), &vm->mem) || !IsTuple(StackRef(vm, 1), &vm->mem)) {
@@ -344,11 +350,16 @@ static Result RunInstruction(VM *vm)
     if (TupleCount(StackRef(vm, 0), &vm->mem) != TupleCount(StackRef(vm, 1), &vm->mem)) {
       return RuntimeError("Maps must have the same number of keys and values", vm);
     }
-    map = MakeMap(&vm->mem);
-    for (i = 0; i < TupleCount(StackRef(vm, 0), &vm->mem); i++) {
-      map = MapSet(map, TupleGet(StackRef(vm, 0), i, &vm->mem), TupleGet(StackRef(vm, 1), i, &vm->mem), &vm->mem);
+    MaybeGC(vm, 2);
+    StackPush(vm, MakeMap(&vm->mem));
+    for (i = 0; i < TupleCount(StackRef(vm, 1), &vm->mem); i++) {
+      Val key = TupleGet(StackRef(vm, 1), i, &vm->mem);
+      Val value = TupleGet(StackRef(vm, 2), i, &vm->mem);
+      MaybeGC(vm, MapSetSize(StackRef(vm, 0), key, &vm->mem));
+      StackRef(vm, 0) = MapSet(StackRef(vm, 0), key, value, &vm->mem);
     }
-    StackRef(vm, 1) =  map;
+    StackRef(vm, 2) =  StackRef(vm, 0);
+    StackPop(vm);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
@@ -360,6 +371,7 @@ static Result RunInstruction(VM *vm)
       if (TupleCount(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Index out of bounds", vm);
       TupleSet(StackRef(vm, 2), RawInt(StackRef(vm, 0)), StackRef(vm, 1), &vm->mem);
     } else if (IsMap(StackRef(vm, 2), &vm->mem)) {
+      MaybeGC(vm, MapSetSize(StackRef(vm, 2), StackRef(vm, 0), &vm->mem));
       StackRef(vm, 2) = MapSet(StackRef(vm, 2), StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
     } else {
       return RuntimeError("Set is only defined for tuples and maps", vm);
@@ -403,13 +415,27 @@ static Result RunInstruction(VM *vm)
   case OpCat:
     if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
     if (IsPair(StackRef(vm, 0)) && IsPair(StackRef(vm, 1))) {
+      MaybeGC(vm, 4*ListLength(StackRef(vm, 1), &vm->mem));
       StackRef(vm, 1) = ListCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else if (IsTuple(StackRef(vm, 0), &vm->mem) && IsTuple(StackRef(vm, 1), &vm->mem)) {
+      MaybeGC(vm, TupleCount(StackRef(vm, 0), &vm->mem) + TupleCount(StackRef(vm, 1), &vm->mem) + 1);
       StackRef(vm, 1) = TupleCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else if (IsBinary(StackRef(vm, 0), &vm->mem) && IsBinary(StackRef(vm, 1), &vm->mem)) {
+      MaybeGC(vm, NumBinCells(BinaryCount(StackRef(vm, 0), &vm->mem)) + NumBinCells(BinaryCount(StackRef(vm, 1), &vm->mem)) + 1);
       StackRef(vm, 1) = BinaryCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
     } else if (IsMap(StackRef(vm, 0), &vm->mem) && IsMap(StackRef(vm, 1), &vm->mem)) {
-      StackRef(vm, 1) = MapMerge(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
+      if (MapCount(StackRef(vm, 1), &vm->mem) == 0) {
+        StackRef(vm, 1) = StackRef(vm, 0);
+      } else if (MapCount(StackRef(vm, 0), &vm->mem) != 0) {
+        u32 i;
+        u32 count = MapCount(StackRef(vm, 0), &vm->mem);
+        for (i = 0; i < count; i++) {
+          Val key = MapGetKey(StackRef(vm, 0), i, &vm->mem);
+          Val value = MapGet(StackRef(vm, 0), key, &vm->mem);
+          MaybeGC(vm, MapSetSize(StackRef(vm, 1), key, &vm->mem));
+          MapSet(StackRef(vm, 1), key, value, &vm->mem);
+        }
+      }
     } else {
       return RuntimeError("Concatenation is only defined for collections of the same type", vm);
     }
@@ -419,6 +445,7 @@ static Result RunInstruction(VM *vm)
   case OpExtend:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Frame must be a tuple", vm);
+    MaybeGC(vm, 2);
     Env(vm) = ExtendEnv(Env(vm), StackRef(vm, 0), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
@@ -458,6 +485,7 @@ static Result RunInstruction(VM *vm)
   case OpLambda:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    MaybeGC(vm, 8);
     StackRef(vm, 1) =
       Pair(Function,
       Pair(StackRef(vm, 1),
@@ -590,4 +618,11 @@ bool AnyWindowsOpen(VM *vm)
     }
   }
   return false;
+}
+
+static void MaybeGC(VM *vm, u32 num)
+{
+  if (!CheckMem(&vm->mem, num)) {
+    CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
+  }
 }

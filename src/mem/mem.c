@@ -81,6 +81,8 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
   u32 i;
   Mem new_mem;
 
+  /* printf("GARBAGE DAY!!!\n"); */
+
   InitMem(&new_mem, mem->capacity);
 
   for (i = 0; i < num_roots; i++) {
@@ -89,11 +91,11 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
 
   i = 2; /* Skip nil */
   while (i < new_mem.count) {
-    Val value = VecRef(&new_mem, i);
+    Val value = MemRef(&new_mem, i);
     if (IsBinaryHeader(value)) {
       i += ObjSize(value); /* skip over binary data, since they aren't values */
     } else {
-      VecRef(&new_mem, i) = CopyValue(VecRef(&new_mem, i), mem, &new_mem);
+      MemRef(&new_mem, i) = CopyValue(MemRef(&new_mem, i), mem, &new_mem);
       i++;
     }
   }
@@ -109,8 +111,8 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
   if (value == Nil) return Nil;
   if (!IsObj(value) && !IsPair(value)) return value;
 
-  if (VecRef(from, RawVal(value)) == Moved) {
-    return VecRef(from, RawVal(value)+1);
+  if (MemRef(from, RawVal(value)) == Moved) {
+    return MemRef(from, RawVal(value)+1);
   }
 
   if (IsPair(value)) {
@@ -120,13 +122,13 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
   } else if (IsObj(value)) {
     u32 i;
     new_val = ObjVal(to->count);
-    for (i = 0; i < ObjSize(VecRef(from, RawVal(value))); i++) {
-      PushMem(to, VecRef(from, RawVal(value)+i));
+    for (i = 0; i < ObjSize(MemRef(from, RawVal(value))); i++) {
+      PushMem(to, MemRef(from, RawVal(value)+i));
     }
   }
 
-  VecRef(from, RawVal(value)) = Moved;
-  VecRef(from, RawVal(value)+1) = new_val;
+  MemRef(from, RawVal(value)) = Moved;
+  MemRef(from, RawVal(value)+1) = new_val;
   return new_val;
 }
 

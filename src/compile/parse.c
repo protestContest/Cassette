@@ -168,26 +168,27 @@ static Result ParseModuleName(Parser *p)
   return ParseID(p);
 }
 
-/*
+
 static Val DefaultImports(Mem *mem)
 {
   PrimitiveModuleDef *primitives = GetPrimitives();
   u32 num_primitives = NumPrimitives();
   u32 i;
   Val imports = Nil;
+
   for (i = 0; i < num_primitives; i++) {
     Val mod = primitives[i].module;
     Val alias = (i == 0) ? Nil : mod;
     Val import = MakeNode(SymImport, 0, Pair(mod, alias, mem), mem);
     imports = Pair(import, imports, mem);
   }
+
   return imports;
 }
-*/
 
 static Result ParseImports(Parser *p)
 {
-  Val imports = Nil;
+  Val imports = DefaultImports(p->mem);
   while (MatchToken(TokenImport, &p->lex)) {
     Val import, mod, alias;
     u32 pos = TokenPos(&p->lex);
@@ -381,7 +382,7 @@ static Result ParseCall(Val prefix, Parser *p)
     args = ReverseList(args, Nil, p->mem);
   }
 
-  return ParseOk(MakeNode(SymLParen, pos, Pair(prefix, ReverseList(args, Nil, p->mem), p->mem), p->mem));
+  return ParseOk(MakeNode(SymLParen, pos, Pair(prefix, args, p->mem), p->mem));
 }
 
 static Result ParseAccess(Val prefix, Parser *p)
@@ -766,7 +767,11 @@ static Result ParseLiteral(Parser *p)
 
 Val MakeNode(Val sym, u32 position, Val value, Mem *mem)
 {
-  Val node = MakeTuple(3, mem);
+  Val node;
+
+  if (!CheckMem(mem, 4)) ResizeMem(mem, 2*MemCapacity(mem));
+
+  node = MakeTuple(3, mem);
   TupleSet(node, 0, sym, mem);
   TupleSet(node, 1, IntVal(position), mem);
   TupleSet(node, 2, value, mem);
