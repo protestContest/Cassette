@@ -72,3 +72,4 @@ typedef struct {
 
 void InitParser(Parser *p, Mem *mem, SymbolTable *symbols);
 Result Parse(char *source, Parser *p);
+Val MakeNode(Val sym, u32 position, Val value, Mem *mem);

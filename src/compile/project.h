@@ -2,11 +2,11 @@
 #include "result.h"
 #include "runtime/chunk.h"
 
-#define ModuleName(mod, mem)    TupleGet(mod, 0, mem)
-#define ModuleBody(mod, mem)    TupleGet(mod, 1, mem)
-#define ModuleImports(mod, mem) TupleGet(mod, 2, mem)
-#define ModuleExports(mod, mem) TupleGet(mod, 3, mem)
-#define ModuleFile(mod, mem)    TupleGet(mod, 4, mem)
+#define ModuleName(mod, mem)    ListGet(NodeExpr(mod, mem), 0, mem)
+#define ModuleBody(mod, mem)    ListGet(NodeExpr(mod, mem), 1, mem)
+#define ModuleImports(mod, mem) ListGet(NodeExpr(mod, mem), 2, mem)
+#define ModuleExports(mod, mem) ListGet(NodeExpr(mod, mem), 3, mem)
+#define ModuleFile(mod, mem)    ListGet(NodeExpr(mod, mem), 4, mem)
 
 Result BuildProject(u32 num_files, char **filenames, char *stdlib, Chunk *chunk);
 

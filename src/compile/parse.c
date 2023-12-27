@@ -29,8 +29,6 @@ typedef enum {
   PrecAccess
 } Precedence;
 
-static Val MakeNode(Val sym, u32 position, Val value, Mem *mem);
-
 static Result ParseModuleName(Parser *p);
 static Result ParseImports(Parser *p);
 static Result ParseStmts(Parser *p);
@@ -136,7 +134,7 @@ void InitParser(Parser *p, Mem *mem, SymbolTable *symbols)
 Result Parse(char *source, Parser *p)
 {
   Result result;
-  Val name, body, imports;
+  Val name, body, imports, exports;
 
   InitLexer(&p->lex, source, 0);
   SkipNewlines(&p->lex);
@@ -153,9 +151,15 @@ Result Parse(char *source, Parser *p)
   result = ParseStmts(p);
   if (!result.ok) return result;
   if (!MatchToken(TokenEOF, &p->lex)) return ParseError("Unexpected token", p);
-  body = result.value;
 
-  return ParseOk(MakeModule(name, body, imports, Nil, Sym(p->filename, p->symbols), p->mem));
+  exports = Head(NodeExpr(result.value, p->mem), p->mem);
+  body = Tail(NodeExpr(result.value, p->mem), p->mem);
+
+  if (exports == Nil && Tail(body, p->mem) == Nil) {
+    body = Head(body, p->mem);
+  }
+
+  return ParseOk(MakeModule(name, body, imports, exports, Sym(p->filename, p->symbols), p->mem));
 }
 
 static Result ParseModuleName(Parser *p)
@@ -370,6 +374,7 @@ static Result ParseCall(Val prefix, Parser *p)
       SkipNewlines(&p->lex);
       result = ParseExpr(p);
       if (!result.ok) return result;
+      args = Pair(result.value, args, p->mem);
       SkipNewlines(&p->lex);
     } while (MatchToken(TokenComma, &p->lex));
     if (!MatchToken(TokenRParen, &p->lex)) return ParseError("Expected \",\" or \")\"", p);
@@ -417,7 +422,7 @@ static Result ParseLambda(Parser *p)
       params = Pair(result.value, params, p->mem);
       SkipNewlines(&p->lex);
     } while (MatchToken(TokenComma, &p->lex));
-    if (!MatchToken(TokenArrow, &p->lex)) return ParseError("Expected \"->\"", p);
+    if (!MatchToken(TokenArrow, &p->lex)) return ParseError("Expected \",\" or \"->\"", p);
     params = ReverseList(params, Nil, p->mem);
   }
 
@@ -573,15 +578,18 @@ static Result ParseList(Parser *p)
 
 static Result ParseBraces(Parser *p)
 {
-  Lexer saved = p->lex;
+  Lexer saved;
   u32 pos = TokenPos(&p->lex);
   Assert(MatchToken(TokenLBrace, &p->lex));
+  saved = p->lex;
 
   if (MatchToken(TokenColon, &p->lex)) {
     SkipNewlines(&p->lex);
-    if (!MatchToken(TokenLBrace, &p->lex)) return ParseError("Expected \"}\"", p);
-    return ParseOk(MakeNode(SymRBrace, pos, Nil, p->mem));
+    if (MatchToken(TokenRBrace, &p->lex)) {
+      return ParseOk(MakeNode(SymRBrace, pos, Nil, p->mem));
+    }
   }
+  p->lex = saved;
 
   SkipNewlines(&p->lex);
   if (MatchToken(TokenID, &p->lex)) {
@@ -601,7 +609,6 @@ static Result ParseMap(Parser *p)
   Val items = Nil;
   Result result;
   u32 pos = TokenPos(&p->lex);
-  Assert(MatchToken(TokenLBrace, &p->lex));
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
     Val key, value;
@@ -632,7 +639,6 @@ static Result ParseTuple(Parser *p)
   Val items = Nil;
   u32 pos = TokenPos(&p->lex);
 
-  Assert(MatchToken(TokenLBrace, &p->lex));
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
     result = ParseExpr(p);
@@ -758,7 +764,7 @@ static Result ParseLiteral(Parser *p)
   }
 }
 
-static Val MakeNode(Val sym, u32 position, Val value, Mem *mem)
+Val MakeNode(Val sym, u32 position, Val value, Mem *mem)
 {
   Val node = MakeTuple(3, mem);
   TupleSet(node, 0, sym, mem);

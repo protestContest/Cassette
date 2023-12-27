@@ -678,30 +678,30 @@ static char *NodeTypeName(Val type)
 {
   switch (type) {
   case SymID: return "ID";
-  case SymBangEqual: return "BangEqual";
+  case SymBangEqual: return "!=";
   case SymString: return "String";
-  case SymHash: return "Hash";
-  case SymPercent: return "Percent";
-  case SymAmpersand: return "Ampersand";
+  case SymHash: return "#";
+  case SymPercent: return "&";
+  case SymAmpersand: return "&";
   case SymLParen: return "Call";
-  case SymStar: return "Star";
-  case SymPlus: return "Plus";
-  case SymMinus: return "Minus";
+  case SymStar: return "*";
+  case SymPlus: return "+";
+  case SymMinus: return "-";
   case SymArrow: return "Lambda";
-  case SymSlash: return "Slash";
+  case SymSlash: return "/";
   case SymNum: return "Num";
-  case SymColon: return "Colon";
-  case SymLess: return "Less";
-  case SymLessLess: return "LessLess";
-  case SymLessEqual: return "LessEqual";
-  case SymLessGreater: return "LessGreater";
-  case SymEqual: return "Equal";
-  case SymEqualEqual: return "EqualEqual";
-  case SymGreater: return "Greater";
-  case SymGreaterEqual: return "GreaterEqual";
-  case SymGreaterGreater: return "GreaterGreater";
+  case SymColon: return "Symbol";
+  case SymLess: return "<";
+  case SymLessLess: return "<<";
+  case SymLessEqual: return "<=";
+  case SymLessGreater: return "<>";
+  case SymEqual: return "=";
+  case SymEqualEqual: return "==";
+  case SymGreater: return ">";
+  case SymGreaterEqual: return ">=";
+  case SymGreaterGreater: return ">>";
   case SymLBracket: return "List";
-  case SymCaret: return "Caret";
+  case SymCaret: return "^";
   case SymAnd: return "And";
   case SymDef: return "Def";
   case SymDo: return "Do";
@@ -713,9 +713,9 @@ static char *NodeTypeName(Val type)
   case SymNot: return "Not";
   case SymOr: return "Or";
   case SymLBrace: return "Tuple";
-  case SymBar: return "Bar";
+  case SymBar: return "|";
   case SymRBrace: return "Map";
-  case SymTilde: return "Tilde";
+  case SymTilde: return "~";
   case SymModule: return "Module";
   default: return "<Unknown>";
   }
@@ -738,7 +738,24 @@ static void PrintASTNode(Val node, u32 level, u32 lines, Parser *p)
   char *name = NodeTypeName(type);
   printf("%s:%d", name, RawInt(pos));
 
-  if (type == SymDo) {
+  if (type == SymModule) {
+    Val name = ModuleName(node, p->mem);
+    Val stmts = ModuleBody(node, p->mem);
+    lines |= Bit(level);
+
+    printf(" %s\n", SymbolName(name, p->symbols));
+    while (stmts != Nil) {
+      if (Tail(stmts, p->mem) == Nil) {
+        lines = 0;
+        printf("└╴");
+      } else {
+        printf("├╴");
+      }
+
+      PrintASTNode(Head(stmts, p->mem), level+1, lines, p);
+      stmts = Tail(stmts, p->mem);
+    }
+  } else if (type == SymDo) {
     Val assigns = Head(expr, p->mem);
     Val stmts = Tail(expr, p->mem);
     printf(" Assigns: [");
@@ -840,20 +857,5 @@ static void PrintASTNode(Val node, u32 level, u32 lines, Parser *p)
 
 void PrintAST(Val module, Parser *p)
 {
-  Val name = ModuleName(module, p->mem);
-  Val stmts = ModuleBody(module, p->mem);
-  u32 lines = 1;
-
-  printf("Module %s\n", SymbolName(name, p->symbols));
-  while (stmts != Nil) {
-    if (Tail(stmts, p->mem) == Nil) {
-      lines = 0;
-      printf("└╴");
-    } else {
-      printf("├╴");
-    }
-
-    PrintASTNode(Head(stmts, p->mem), 1, lines, p);
-    stmts = Tail(stmts, p->mem);
-  }
+  PrintASTNode(module, 0, 0, p);
 }

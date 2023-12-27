@@ -209,13 +209,14 @@ static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
 
 Val MakeModule(Val name, Val body, Val imports, Val exports, Val filename, Mem *mem)
 {
-  Val module = MakeTuple(5, mem);
-  TupleSet(module, 0, name, mem);
-  TupleSet(module, 1, body, mem);
-  TupleSet(module, 2, imports, mem);
-  TupleSet(module, 3, exports, mem);
-  TupleSet(module, 4, filename, mem);
-  return module;
+  Val module =
+    Pair(name,
+    Pair(body,
+    Pair(imports,
+    Pair(exports,
+    Pair(filename, Nil, mem), mem), mem), mem), mem);
+
+  return MakeNode(SymModule, 0, module, mem);
 }
 
 u32 CountExports(Val nodes, HashMap *modules, Mem *mem)

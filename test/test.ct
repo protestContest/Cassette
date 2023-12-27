@@ -1,17 +1,3 @@
-def print(n) :pass
+def add(a, b) a + b
 
-def fizzbuzz(n) do
-  def loop(i) do
-    cond do
-      i > n -> :done
-      i % 3 == 0 and i % 5 == 0 -> print("FizzBuzz")
-      i % 3 == 0 -> print("Fizz")
-      i % 5 == 0 -> print("Buzz")
-      true -> print(i)
-    end
-  end
-
-  loop 1
-end
-
-fizzbuzz(100)
+add(1, 2)
