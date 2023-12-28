@@ -1,6 +1,5 @@
 module IO
 import List
-import Type
 
 let console = unwrap!(Device.open(:console, {}))
 

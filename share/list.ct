@@ -1,6 +1,5 @@
 module List
 import Map
-import Type
 
 def from(value) do
   def from-tuple(index, acc) do

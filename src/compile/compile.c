@@ -1,44 +1,43 @@
 #include "compile.h"
 #include "parse.h"
-#include "runtime/env.h"
-#include "runtime/ops.h"
 #include "project.h"
+#include "runtime/ops.h"
 #include "runtime/primitives.h"
 
 #define LinkNext false
 #define LinkReturn true
 
-static Result CompileImports(Val imports, Compiler *c);
-static Result CompileExpr(Val node, bool linkage, Compiler *c);
-static Result CompileBlock(Val stmts, Val assigns, bool linkage, Compiler *c);
-static Result CompileDo(Val expr, bool linkage, Compiler *c);
-static Result CompileCall(Val call, bool linkage, Compiler *c);
-static Result CompileLambda(Val expr, bool linkage, Compiler *c);
-static Result CompileIf(Val expr, bool linkage, Compiler *c);
-static Result CompileAnd(Val expr, bool linkage, Compiler *c);
-static Result CompileOr(Val expr, bool linkage, Compiler *c);
-static Result CompileOp(OpCode op, Val expr, bool linkage, Compiler *c);
-static Result CompileNotOp(OpCode op, Val expr, bool linkage, Compiler *c);
-static Result CompileNegOp(OpCode op, Val args, bool linkage, Compiler *c);
-static Result CompileList(Val items, bool linkage, Compiler *c);
-static Result CompileTuple(Val items, bool linkage, Compiler *c);
-static Result CompileMap(Val items, bool linkage, Compiler *c);
-static Result CompileString(Val sym, bool linkage, Compiler *c);
-static Result CompileVar(Val id, bool linkage, Compiler *c);
-static Result CompileConst(Val value, bool linkage, Compiler *c);
+static Result CompileImports(Node *imports, Compiler *c);
+static Result CompileExpr(Node *node, bool linkage, Compiler *c);
+static Result CompileStmts(Node *node, bool linkage, Compiler *c);
+static Result CompileDo(Node *expr, bool linkage, Compiler *c);
+static Result CompileCall(Node *call, bool linkage, Compiler *c);
+static Result CompileLambda(Node *expr, bool linkage, Compiler *c);
+static Result CompileIf(Node *expr, bool linkage, Compiler *c);
+static Result CompileAnd(Node *expr, bool linkage, Compiler *c);
+static Result CompileOr(Node *expr, bool linkage, Compiler *c);
+static Result CompileOp(OpCode op, Node *expr, bool linkage, Compiler *c);
+static Result CompileNotOp(OpCode op, Node *expr, bool linkage, Compiler *c);
+static Result CompileNegOp(OpCode op, Node *args, bool linkage, Compiler *c);
+static Result CompileList(Node *items, bool linkage, Compiler *c);
+static Result CompileTuple(Node *items, bool linkage, Compiler *c);
+static Result CompileMap(Node *items, bool linkage, Compiler *c);
+static Result CompileString(Node *sym, bool linkage, Compiler *c);
+static Result CompileVar(Node *id, bool linkage, Compiler *c);
+static Result CompileConst(Node *value, bool linkage, Compiler *c);
 
 static void CompileLinkage(bool linkage, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
 #define CompileOk()  OkResult(Nil)
 
-void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules, Chunk *chunk)
+void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *mod_map, Chunk *chunk)
 {
   c->pos = 0;
-  c->env = Nil;
+  c->env = 0;
   c->filename = 0;
-  c->mem = mem;
   c->symbols = symbols;
   c->modules = modules;
+  c->mod_map = mod_map;
   c->chunk = chunk;
 }
 
@@ -47,7 +46,7 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
   PrimitiveModuleDef *primitives = GetPrimitives();
   u32 num_primitives = NumPrimitives();
   u32 frame_size = num_primitives + num_modules;
-  Val env;
+  Frame *env;
   u32 mod;
 
   c->filename = "*startup*";
@@ -57,7 +56,7 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
   PushConst(IntVal(frame_size), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
   PushByte(OpExtend, c->pos, c->chunk);
-  env = ExtendEnv(Nil, MakeTuple(frame_size, c->mem), c->mem);
+  env = ExtendFrame(0, frame_size);
 
   for (mod = 0; mod < num_primitives; mod++) {
     u32 fn;
@@ -96,49 +95,42 @@ Result CompileInitialEnv(u32 num_modules, Compiler *c)
     PushConst(IntVal(num_modules + mod), c->pos, c->chunk);
     PushByte(OpDefine, c->pos, c->chunk);
 
-    Define(primitives[mod].module, num_modules + mod, env, c->mem);
+    FrameSet(env, num_modules + mod, primitives[mod].module);
   }
 
   EndChunkFile(c->chunk);
 
-  return OkResult(env);
+  return DataResult(env);
 }
 
-Result CompileScript(Val module, Compiler *c)
+Result CompileScript(Node *module, Compiler *c)
 {
   Result result;
-  Val imports = ModuleImports(module, c->mem);
+  Node *imports = ModuleImports(module);
+  u32 num_imports = NumNodeChildren(imports);
 
   /* copy filename symbol to chunk */
-  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
+  c->filename = SymbolName(ModuleFile(module), c->symbols);
   Sym(c->filename, &c->chunk->symbols);
 
   /* record start position of module in chunk */
   c->pos = 0;
-  BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
+  BeginChunkFile(ModuleFile(module), c->chunk);
 
   /* compile imports */
-  if (imports != Nil) {
-    u32 num_imports = CountExports(imports, c->modules, c->mem);
-
-    /* extend env for imports */
-    PushConst(IntVal(num_imports), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-    PushByte(OpExtend, c->pos, c->chunk);
-    c->env = ExtendEnv(c->env, MakeTuple(num_imports, c->mem), c->mem);
-
+  if (num_imports > 0) {
     result = CompileImports(imports, c);
     if (!result.ok) return result;
   }
 
-  result = CompileDo(Pair(ModuleExports(module, c->mem), ModuleBody(module, c->mem), c->mem), LinkNext, c);
+  result = CompileDo(ModuleBody(module), LinkNext, c);
   if (!result.ok) return result;
 
   /* discard import frame */
-  if (imports != Nil) {
+  if (num_imports > 0) {
     PushByte(OpExport, c->pos, c->chunk);
     PushByte(OpPop, c->pos, c->chunk);
-    c->env = Tail(c->env, c->mem);
+    c->env = PopFrame(c->env);
   }
 
   EndChunkFile(c->chunk);
@@ -146,21 +138,22 @@ Result CompileScript(Val module, Compiler *c)
   return CompileOk();
 }
 
-Result CompileModule(Val module, u32 mod_num, Compiler *c)
+Result CompileModule(Node *module, u32 mod_num, Compiler *c)
 {
   Result result;
-  Val imports = ModuleImports(module, c->mem);
-  Val exports = ModuleExports(module, c->mem);
-  u32 num_assigns = ListLength(exports, c->mem);
+  Node *imports = ModuleImports(module);
+  Node *exports = ModuleExports(module);
+  u32 num_imports = NumNodeChildren(imports);
+  u32 num_exports = NumNodeChildren(exports);
   u32 jump, link;
 
   /* copy filename symbol to chunk */
-  c->filename = SymbolName(ModuleFile(module, c->mem), c->symbols);
+  c->filename = SymbolName(ModuleFile(module), c->symbols);
   Sym(c->filename, &c->chunk->symbols);
 
   /* record start position of module in chunk */
   c->pos = 0;
-  BeginChunkFile(ModuleFile(module, c->mem), c->chunk);
+  BeginChunkFile(ModuleFile(module), c->chunk);
 
   /* create lambda for module */
   PushConst(IntVal(0), c->pos, c->chunk);
@@ -171,53 +164,43 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   PatchConst(c->chunk, link);
 
   /* compile imports */
-  if (imports != Nil) {
-    u32 num_imports = CountExports(imports, c->modules, c->mem);
-
-    /* extend env for imports */
-    PushConst(IntVal(num_imports), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-    PushByte(OpExtend, c->pos, c->chunk);
-    c->env = ExtendEnv(c->env, MakeTuple(num_imports, c->mem), c->mem);
-
+  if (num_imports > 0) {
     result = CompileImports(imports, c);
     if (!result.ok) return result;
   }
 
   /* extend env for assigns */
-  if (num_assigns > 0) {
-    PushConst(IntVal(num_assigns), c->pos, c->chunk);
+  if (num_exports > 0) {
+    PushConst(IntVal(num_exports), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
-    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
+    c->env = ExtendFrame(c->env, num_exports);
   }
 
-  result = CompileBlock(ModuleBody(module, c->mem), ModuleExports(module, c->mem), LinkNext, c);
+  result = CompileStmts(ModuleBody(module), LinkNext, c);
   if (!result.ok) return result;
 
   /* discard last statement result */
   PushByte(OpPop, c->pos, c->chunk);
 
   /* export assigned values */
-  if (num_assigns > 0) {
-    u32 i = 0;
+  if (num_exports > 0) {
+    u32 i;
     PushByte(OpExport, c->pos, c->chunk);
 
     /* build tuple of keys */
-    PushConst(IntVal(num_assigns), c->pos, c->chunk);
+    PushConst(IntVal(num_exports), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
 
-    while (exports != Nil) {
-      Val export = Head(exports, c->mem);
+    for (i = 0; i < num_exports; i++) {
+      Val export = NodeValue(NodeChild(exports, i));
       Sym(SymbolName(export, c->symbols), &c->chunk->symbols);
       PushConst(export, c->pos, c->chunk);
       PushConst(IntVal(i), c->pos, c->chunk);
       PushByte(OpSet, c->pos, c->chunk);
-      exports = Tail(exports, c->mem);
-      i++;
     }
     PushByte(OpPair, c->pos, c->chunk);
-    c->env = Tail(c->env, c->mem);
+    c->env = PopFrame(c->env);
   } else {
     /* empty map */
     PushConst(IntVal(0), c->pos, c->chunk);
@@ -230,10 +213,10 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   PushByte(OpDup, c->pos, c->chunk);
 
   /* discard import frame */
-  if (imports != Nil) {
+  if (num_imports > 0) {
     PushByte(OpExport, c->pos, c->chunk);
     PushByte(OpPop, c->pos, c->chunk);
-    c->env = Tail(c->env, c->mem);
+    c->env = PopFrame(c->env);
   }
 
   /* redefine module as exported value */
@@ -253,28 +236,78 @@ Result CompileModule(Val module, u32 mod_num, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileImports(Val imports, Compiler *c)
+static u32 DefineImports(Node *imports, u32 num_imported, Compiler *c)
+{
+  u32 i;
+
+  PushByte(OpUnpair, c->pos, c->chunk);
+  PushByte(OpPop, c->pos, c->chunk);
+
+  for (i = 0; i < NumNodeChildren(imports); i++) {
+    Val import = NodeValue(NodeChild(imports, i));
+
+    if (i < NumNodeChildren(imports) - 1) {
+      /* keep tuple for future iterations */
+      PushByte(OpDup, c->pos, c->chunk);
+    }
+    PushConst(IntVal(i), c->pos, c->chunk);
+    PushByte(OpGet, c->pos, c->chunk);
+    PushConst(IntVal(num_imported+i), c->pos, c->chunk);
+    PushByte(OpDefine, c->pos, c->chunk);
+    FrameSet(c->env, num_imported + i, import);
+  }
+  return i;
+}
+
+static u32 CountExports(Node *imports, Compiler *c)
+{
+  u32 count = 0;
+  u32 i;
+  for (i = 0; i < NumNodeChildren(imports); i++) {
+    Node *import = NodeChild(imports, i);
+    Val mod_name = NodeValue(NodeChild(import, 0));
+    Val alias = NodeValue(NodeChild(import, 1));
+
+    if (alias != Nil) {
+      count++;
+    } else if (HashMapContains(c->mod_map, mod_name)) {
+      Node *module = VecRef(c->modules, HashMapGet(c->mod_map, mod_name));
+      Node *exports = ModuleExports(module);
+      count += NumNodeChildren(exports);
+    }
+  }
+  return count;
+}
+
+static Result CompileImports(Node *imports, Compiler *c)
 {
   u32 num_imported = 0;
+  u32 num_imports = CountExports(imports, c);
+  u32 i;
 
-  while (imports != Nil) {
-    Val node = Head(imports, c->mem);
-    Val import = NodeExpr(node, c->mem);
-    Val import_name = Head(import, c->mem);
-    Val alias = Tail(import, c->mem);
-    Val import_mod;
-    Val imported_vals;
+  /* extend env for imports */
+  PushConst(IntVal(num_imports), c->pos, c->chunk);
+  PushByte(OpTuple, c->pos, c->chunk);
+  PushByte(OpExtend, c->pos, c->chunk);
+  c->env = ExtendFrame(c->env, num_imports);
+
+  for (i = 0; i < NumNodeChildren(imports); i++) {
+    Node *node = NodeChild(imports, i);
+    Val import_name = NodeValue(NodeChild(node, 0));
+    Val alias = NodeValue(NodeChild(node, 1));
+    Node *import_mod;
+    Node *imported_vals;
     i32 import_def;
     u32 link;
 
-    c->pos = NodePos(node, c->mem);
+    c->pos = node->pos;
 
-    if (!HashMapContains(c->modules, import_name)) return CompileError("Undefined module", c);
+    if (!HashMapContains(c->mod_map, import_name)) return CompileError("Undefined module", c);
 
-    import_mod = HashMapGet(c->modules, import_name);
-    imported_vals = ModuleExports(import_mod, c->mem);
+    import_mod = VecRef(c->modules, HashMapGet(c->mod_map, import_name));
+    imported_vals = ModuleExports(import_mod);
 
-    import_def = FindModule(import_name, c->env, c->mem);
+    import_def = FrameFind(c->env, import_name);
     if (import_def < 0) return CompileError("Undefined module", c);
 
     /* call module function */
@@ -288,29 +321,7 @@ static Result CompileImports(Val imports, Compiler *c)
 
     if (alias == Nil) {
       /* import directly into module namespace */
-      /* define each exported value */
-      u32 i = 0;
-
-      PushByte(OpUnpair, c->pos, c->chunk);
-      PushByte(OpPop, c->pos, c->chunk);
-
-      while (imported_vals != Nil) {
-        Val imported_val = Head(imported_vals, c->mem);
-
-        if (Tail(imported_vals, c->mem) != Nil) {
-          /* keep tuple for future iterations */
-          PushByte(OpDup, c->pos, c->chunk);
-        }
-        PushConst(IntVal(i), c->pos, c->chunk);
-        PushByte(OpGet, c->pos, c->chunk);
-        PushConst(IntVal(num_imported+i), c->pos, c->chunk);
-        PushByte(OpDefine, c->pos, c->chunk);
-        Define(imported_val, num_imported + i, c->env, c->mem);
-
-        imported_vals = Tail(imported_vals, c->mem);
-        i++;
-      }
-      num_imported += i;
+      num_imported += DefineImports(imported_vals, num_imported, c);
     } else {
       /* import into a map */
       PushByte(OpUnpair, c->pos, c->chunk);
@@ -318,112 +329,107 @@ static Result CompileImports(Val imports, Compiler *c)
 
       PushConst(IntVal(num_imported), c->pos, c->chunk);
       PushByte(OpDefine, c->pos, c->chunk);
-      Define(alias, num_imported, c->env, c->mem);
+      FrameSet(c->env, num_imported, alias);
       num_imported++;
     }
-
-    imports = Tail(imports, c->mem);
   }
 
   return CompileOk();
 }
 
-static Result CompileExpr(Val node, bool linkage, Compiler *c)
+static Result CompileExpr(Node *node, bool linkage, Compiler *c)
 {
-  Val tag = TupleGet(node, 0, c->mem);
-  Val expr = TupleGet(node, 2, c->mem);
-  c->pos = RawInt(TupleGet(node, 1, c->mem));
+  c->pos = node->pos;
 
-  switch (tag) {
-  case SymID:             return CompileVar(expr, linkage, c);
-  case SymBangEqual:      return CompileNotOp(OpEq, expr, linkage, c);
-  case SymString:         return CompileString(expr, linkage, c);
-  case SymHash:           return CompileOp(OpLen, expr, linkage, c);
-  case SymPercent:        return CompileOp(OpRem, expr, linkage, c);
-  case SymAmpersand:      return CompileOp(OpBitAnd, expr, linkage, c);
-  case SymLParen:         return CompileCall(expr, linkage, c);
-  case SymStar:           return CompileOp(OpMul, expr, linkage, c);
-  case SymPlus:           return CompileOp(OpAdd, expr, linkage, c);
-  case SymMinus:
-    if (ListLength(expr, c->mem) == 1) return CompileOp(OpNeg, expr, linkage, c);
-    else return CompileOp(OpSub, expr, linkage, c);
-  case SymArrow:          return CompileLambda(expr, linkage, c);
-  case SymSlash:          return CompileOp(OpDiv, expr, linkage, c);
-  case SymNum:            return CompileConst(expr, linkage, c);
-  case SymColon:          return CompileConst(expr, linkage, c);
-  case SymLess:           return CompileOp(OpLt, expr, linkage, c);
-  case SymLessLess:       return CompileOp(OpShift, expr, linkage, c);
-  case SymLessEqual:      return CompileNotOp(OpGt, expr, linkage, c);
-  case SymLessGreater:    return CompileOp(OpCat, expr, linkage, c);
-  case SymEqualEqual:     return CompileOp(OpEq, expr, linkage, c);
-  case SymGreater:        return CompileOp(OpGt, expr, linkage, c);
-  case SymGreaterEqual:   return CompileNotOp(OpLt, expr, linkage, c);
-  case SymGreaterGreater: return CompileNegOp(OpShift, expr, linkage, c);
-  case SymLBracket:       return CompileList(expr, linkage, c);
-  case SymCaret:          return CompileOp(OpBitOr, expr, linkage, c);
-  case SymAnd:            return CompileAnd(expr, linkage, c);
-  case SymDo:             return CompileDo(expr, linkage, c);
-  case SymIf:             return CompileIf(expr, linkage, c);
-  case SymIn:             return CompileOp(OpIn, expr, linkage, c);
-  case SymNil:            return CompileConst(Nil, linkage, c);
-  case SymNot:            return CompileOp(OpNot, expr, linkage, c);
-  case SymOr:             return CompileOr(expr, linkage, c);
-  case SymLBrace:         return CompileTuple(expr, linkage, c);
-  case SymBar:            return CompileOp(OpPair, expr, linkage, c);
-  case SymRBrace:         return CompileMap(expr, linkage, c);
-  case SymTilde:          return CompileOp(OpBitNot, expr, linkage, c);
+  switch (node->type) {
+  case SymbolNode:        return CompileConst(node, linkage, c);
+  case DoNode:            return CompileDo(node, linkage, c);
+  case LambdaNode:        return CompileLambda(node, linkage, c);
+  case CallNode:          return CompileCall(node, linkage, c);
+  case NilNode:           return CompileConst(node, linkage, c);
+  case IfNode:            return CompileIf(node, linkage, c);
+  case ListNode:          return CompileList(node, linkage, c);
+  case MapNode:           return CompileMap(node, linkage, c);
+  case TupleNode:         return CompileTuple(node, linkage, c);
+  case IDNode:            return CompileVar(node, linkage, c);
+  case NumNode:           return CompileConst(node, linkage, c);
+  case StringNode:        return CompileString(node, linkage, c);
+  case NotEqNode:         return CompileNotOp(OpEq, node, linkage, c);
+  case RemNode:           return CompileOp(OpRem, node, linkage, c);
+  case BitAndNode:        return CompileOp(OpBitAnd, node, linkage, c);
+  case MultiplyNode:      return CompileOp(OpMul, node, linkage, c);
+  case AddNode:           return CompileOp(OpAdd, node, linkage, c);
+  case SubtractNode:      return CompileOp(OpSub, node, linkage, c);
+  case DivideNode:        return CompileOp(OpDiv, node, linkage, c);
+  case LtNode:            return CompileOp(OpLt, node, linkage, c);
+  case LShiftNode:        return CompileOp(OpShift, node, linkage, c);
+  case LtEqNode:          return CompileNotOp(OpGt, node, linkage, c);
+  case CatNode:           return CompileOp(OpCat, node, linkage, c);
+  case EqNode:            return CompileOp(OpEq, node, linkage, c);
+  case GtNode:            return CompileOp(OpGt, node, linkage, c);
+  case GtEqNode:          return CompileNotOp(OpLt, node, linkage, c);
+  case RShiftNode:        return CompileNegOp(OpShift, node, linkage, c);
+  case BitOrNode:         return CompileOp(OpBitOr, node, linkage, c);
+  case AndNode:           return CompileAnd(node, linkage, c);
+  case InNode:            return CompileOp(OpIn, node, linkage, c);
+  case OrNode:            return CompileOr(node, linkage, c);
+  case PairNode:          return CompileOp(OpPair, node, linkage, c);
+  case LengthNode:        return CompileOp(OpLen, node, linkage, c);
+  case NegativeNode:      return CompileOp(OpNeg, node, linkage, c);
+  case NotNode:           return CompileOp(OpNot, node, linkage, c);
+  case BitNotNode:        return CompileOp(OpBitNot, node, linkage, c);
   default:                return CompileError("Unknown expression", c);
   }
 }
 
-static Result CompileBlock(Val stmts, Val assigns, bool linkage, Compiler *c)
+static Result CompileStmts(Node *node, bool linkage, Compiler *c)
 {
+  Node *stmts = NodeChild(node, 1);
   u32 num_assigned = 0;
-  Val def_stmts = stmts;
+  u32 i;
 
   /* pre-define all def statements */
-  while (def_stmts != Nil) {
-    Val stmt = Head(def_stmts, c->mem);
+  for (i = 0; i < NumNodeChildren(stmts); i++) {
+    Node *stmt = NodeChild(stmts, i);
     Val var;
-    def_stmts = Tail(def_stmts, c->mem);
 
     /* keep the assignment slots aligned */
-    if (NodeType(stmt, c->mem) == SymLet) {
+    if (stmt->type == LetNode) {
       num_assigned++;
       continue;
     }
-    if (NodeType(stmt, c->mem) != SymDef) continue;
+    if (stmt->type != DefNode) continue;
 
-    var = Head(NodeExpr(stmt, c->mem), c->mem);
-    Define(var, num_assigned, c->env, c->mem);
+    var = NodeValue(NodeChild(stmt, 0));
+    FrameSet(c->env, num_assigned, var);
     num_assigned++;
   }
 
   num_assigned = 0;
-  while (stmts != Nil) {
+  for (i = 0; i < NumNodeChildren(stmts); i++) {
+    Node *stmt = NodeChild(stmts, i);
     Result result;
-    Val stmt = Head(stmts, c->mem);
-    bool is_last = Tail(stmts, c->mem) == Nil;
+    bool is_last = i == NumNodeChildren(stmts) - 1;
     bool stmt_linkage = is_last ? linkage : LinkNext;
 
-    if (NodeType(stmt, c->mem) == SymLet) {
-      Val var = Head(NodeExpr(stmt, c->mem), c->mem);
-      Val value = Tail(NodeExpr(stmt, c->mem), c->mem);
+    if (stmt->type == LetNode) {
+      Val var = NodeValue(NodeChild(stmt, 0));
+      Node *value = NodeChild(stmt, 1);
 
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
 
       PushConst(IntVal(num_assigned), c->pos, c->chunk);
       PushByte(OpDefine, c->pos, c->chunk);
-      Define(var, num_assigned, c->env, c->mem);
+      FrameSet(c->env, num_assigned, var);
       num_assigned++;
 
       if (is_last) {
         /* the last statement must produce a result */
         PushConst(Nil, c->pos, c->chunk);
       }
-    } else if (NodeType(stmt, c->mem) == SymDef) {
-      Val value = Tail(NodeExpr(stmt, c->mem), c->mem);
+    } else if (stmt->type == DefNode) {
+      Node *value = NodeChild(stmt, 1);
 
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
@@ -444,46 +450,42 @@ static Result CompileBlock(Val stmts, Val assigns, bool linkage, Compiler *c)
         PushByte(OpPop, c->pos, c->chunk);
       }
     }
-
-    stmts = Tail(stmts, c->mem);
   }
 
   return CompileOk();
 }
 
-static Result CompileDo(Val expr, bool linkage, Compiler *c)
+static Result CompileDo(Node *node, bool linkage, Compiler *c)
 {
   Result result;
-  Val assigns = Head(expr, c->mem);
-  Val stmts = Tail(expr, c->mem);
-
-  u32 num_assigns = ListLength(assigns, c->mem);
+  Node *assigns = NodeChild(node, 0);
+  u32 num_assigns = NumNodeChildren(assigns);
 
   if (num_assigns > 0) {
-    c->env = ExtendEnv(c->env, MakeTuple(num_assigns, c->mem), c->mem);
-    PushConst(IntVal(num_assigns), 0, c->chunk);
+    PushConst(IntVal(num_assigns), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
+    c->env = ExtendFrame(c->env, num_assigns);
   }
 
-  result = CompileBlock(stmts, assigns, linkage, c);
+  result = CompileStmts(node, linkage, c);
   if (!result.ok) return result;
 
   /* discard frame for assigns */
   if (num_assigns > 0) {
     PushByte(OpExport, c->pos, c->chunk);
     PushByte(OpPop, c->pos, c->chunk);
-    c->env = Tail(c->env, c->mem);
+    c->env = PopFrame(c->env);
   }
 
   return CompileOk();
 }
 
-static Result CompileCall(Val call, bool linkage, Compiler *c)
+static Result CompileCall(Node *node, bool linkage, Compiler *c)
 {
-  Val op = Head(call, c->mem);
-  Val args = Tail(call, c->mem);
-  u32 num_args = 0, patch;
+  Node *op = NodeChild(node, 0);
+  u32 num_args = NumNodeChildren(node) - 1;
+  u32 i, patch;
   Result result;
 
   if (linkage != LinkReturn) {
@@ -491,13 +493,11 @@ static Result CompileCall(Val call, bool linkage, Compiler *c)
     PushByte(OpLink, c->pos, c->chunk);
   }
 
-  while (args != Nil) {
-    Val arg = Head(args, c->mem);
+  for (i = 0; i < num_args; i++) {
+    Node *arg = NodeChild(node, i + 1);
 
     result = CompileExpr(arg, LinkNext, c);
     if (!result.ok) return result;
-    args = Tail(args, c->mem);
-    num_args++;
   }
 
   result = CompileExpr(op, LinkNext, c);
@@ -513,13 +513,13 @@ static Result CompileCall(Val call, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileLambda(Val expr, bool linkage, Compiler *c)
+static Result CompileLambda(Node *node, bool linkage, Compiler *c)
 {
-  Val params = Head(expr, c->mem);
-  Val body = Tail(expr, c->mem);
+  Node *params = NodeChild(node, 0);
+  Node *body = NodeChild(node, 1);
   Result result;
   u32 jump, link, i;
-  u32 num_params = ListLength(params, c->mem);
+  u32 num_params = NumNodeChildren(params);
 
   /* create lambda */
   PushConst(IntVal(num_params), c->pos, c->chunk);
@@ -533,14 +533,13 @@ static Result CompileLambda(Val expr, bool linkage, Compiler *c)
     PushConst(IntVal(num_params), c->pos, c->chunk);
     PushByte(OpTuple, c->pos, c->chunk);
     PushByte(OpExtend, c->pos, c->chunk);
+    c->env = ExtendFrame(c->env, num_params);
 
-    c->env = ExtendEnv(c->env, MakeTuple(num_params, c->mem), c->mem);
     for (i = 0; i < num_params; i++) {
-      Val param = Head(params, c->mem);
-      Define(param, i, c->env, c->mem);
+      Val param = NodeValue(NodeChild(params, i));
+      FrameSet(c->env, i, param);
       PushConst(IntVal(num_params - i - 1), c->pos, c->chunk);
       PushByte(OpDefine, c->pos, c->chunk);
-      params = Tail(params, c->mem);
     }
   }
 
@@ -551,27 +550,27 @@ static Result CompileLambda(Val expr, bool linkage, Compiler *c)
 
   CompileLinkage(linkage, c);
 
-  if (num_params > 0) c->env = Tail(c->env, c->mem);
+  if (num_params > 0) c->env = PopFrame(c->env);
 
   return CompileOk();
 }
 
-static Result CompileIf(Val expr, bool linkage, Compiler *c)
+static Result CompileIf(Node *node, bool linkage, Compiler *c)
 {
-  Val pred = Head(expr, c->mem);
-  Val cons = Head(Tail(expr, c->mem), c->mem);
-  Val alt = Head(Tail(Tail(expr, c->mem), c->mem), c->mem);
+  Node *predicate = NodeChild(node, 0);
+  Node *consequent = NodeChild(node, 1);
+  Node *alternative = NodeChild(node, 2);
   Result result;
   u32 branch, jump;
 
-  result = CompileExpr(pred, LinkNext, c);
+  result = CompileExpr(predicate, LinkNext, c);
   if (!result.ok) return result;
 
   branch = PushConst(IntVal(0), c->pos, c->chunk);
   PushByte(OpBranch, c->pos, c->chunk);
 
   PushByte(OpPop, c->pos, c->chunk);
-  result = CompileExpr(alt, linkage, c);
+  result = CompileExpr(alternative, linkage, c);
   if (!result.ok) return result;
   if (linkage == LinkNext) {
     jump = PushConst(IntVal(0), c->pos, c->chunk);
@@ -581,7 +580,7 @@ static Result CompileIf(Val expr, bool linkage, Compiler *c)
   PatchConst(c->chunk, branch);
 
   PushByte(OpPop, c->pos, c->chunk);
-  result = CompileExpr(cons, linkage, c);
+  result = CompileExpr(consequent, linkage, c);
   if (!result.ok) return result;
 
   if (linkage == LinkNext) {
@@ -591,10 +590,10 @@ static Result CompileIf(Val expr, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileAnd(Val expr, bool linkage, Compiler *c)
+static Result CompileAnd(Node *node, bool linkage, Compiler *c)
 {
-  Val a = Head(expr, c->mem);
-  Val b = Head(Tail(expr, c->mem), c->mem);
+  Node *a = NodeChild(node, 0);
+  Node *b = NodeChild(node, 1);
   u32 branch, jump;
 
   Result result = CompileExpr(a, LinkNext, c);
@@ -623,10 +622,10 @@ static Result CompileAnd(Val expr, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileOr(Val expr, bool linkage, Compiler *c)
+static Result CompileOr(Node *node, bool linkage, Compiler *c)
 {
-  Val a = Head(expr, c->mem);
-  Val b = Head(Tail(expr, c->mem), c->mem);
+  Node *a = NodeChild(node, 0);
+  Node *b = NodeChild(node, 1);
   u32 branch;
 
   Result result = CompileExpr(a, LinkNext, c);
@@ -645,25 +644,25 @@ static Result CompileOr(Val expr, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileOp(OpCode op, Val args, bool linkage, Compiler *c)
+static Result CompileOp(OpCode op, Node *node, bool linkage, Compiler *c)
 {
   u32 pos = c->pos;
-  while (args != Nil) {
-    Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
+  u32 i;
+  for (i = 0; i < NumNodeChildren(node); i++) {
+    Result result = CompileExpr(NodeChild(node, i), LinkNext, c);
     if (!result.ok) return result;
-    args = Tail(args, c->mem);
   }
   PushByte(op, pos, c->chunk);
   CompileLinkage(linkage, c);
   return CompileOk();
 }
 
-static Result CompileNotOp(OpCode op, Val args, bool linkage, Compiler *c)
+static Result CompileNotOp(OpCode op, Node *node, bool linkage, Compiler *c)
 {
-  while (args != Nil) {
-    Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
+  u32 i;
+  for (i = 0; i < NumNodeChildren(node); i++) {
+    Result result = CompileExpr(NodeChild(node, i), LinkNext, c);
     if (!result.ok) return result;
-    args = Tail(args, c->mem);
   }
   PushByte(op, c->pos, c->chunk);
   PushByte(OpNot, c->pos, c->chunk);
@@ -671,12 +670,12 @@ static Result CompileNotOp(OpCode op, Val args, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileNegOp(OpCode op, Val args, bool linkage, Compiler *c)
+static Result CompileNegOp(OpCode op, Node *node, bool linkage, Compiler *c)
 {
-  while (args != Nil) {
-    Result result = CompileExpr(Head(args, c->mem), LinkNext, c);
+  u32 i;
+  for (i = 0; i < NumNodeChildren(node); i++) {
+    Result result = CompileExpr(NodeChild(node, i), LinkNext, c);
     if (!result.ok) return result;
-    args = Tail(args, c->mem);
   }
   PushByte(OpNeg, c->pos, c->chunk);
   PushByte(op, c->pos, c->chunk);
@@ -684,81 +683,69 @@ static Result CompileNegOp(OpCode op, Val args, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileList(Val items, bool linkage, Compiler *c)
+static Result CompileList(Node *node, bool linkage, Compiler *c)
 {
+  u32 i;
   PushConst(Nil, c->pos, c->chunk);
 
-  while (items != Nil) {
-    Val item = Head(items, c->mem);
+  for (i = 0; i < NumNodeChildren(node); i++) {
+    Node *item = NodeChild(node, i);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
     PushByte(OpPair, c->pos, c->chunk);
-    items = Tail(items, c->mem);
   }
 
   CompileLinkage(linkage, c);
   return CompileOk();
 }
 
-static Result CompileTuple(Val items, bool linkage, Compiler *c)
+static Result CompileTuple(Node *node, bool linkage, Compiler *c)
 {
-  u32 i = 0, num_items = ListLength(items, c->mem);
+  u32 i, num_items = NumNodeChildren(node);
 
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
-  while (items != Nil) {
-    Val item = Head(items, c->mem);
+  for (i = 0; i < num_items; i++) {
+    Node *item = NodeChild(node, i);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
     PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
-    i++;
-    items = Tail(items, c->mem);
   }
 
   CompileLinkage(linkage, c);
   return CompileOk();
 }
 
-static Result CompileMap(Val items, bool linkage, Compiler *c)
+static Result CompileMap(Node *node, bool linkage, Compiler *c)
 {
-  u32 i = 0, num_items = ListLength(items, c->mem);
-  Val keys = items;
+  u32 i, num_items = NumNodeChildren(node) / 2;
 
   /* create tuple for values */
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
-  while (items != Nil) {
-    Val item = Head(items, c->mem);
-    Val value = Tail(item, c->mem);
+  for (i = 0; i < num_items*2; i += 2) {
+    Node *value = NodeChild(node, i+1);
 
     Result result = CompileExpr(value, LinkNext, c);
     if (!result.ok) return result;
     PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
-    i++;
-    items = Tail(items, c->mem);
   }
 
   /* create tuple for keys */
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
-  i = 0;
-  while (keys != Nil) {
-    Val item = Head(keys, c->mem);
-    Val key = Head(item, c->mem);
+  for (i = 0; i < num_items*2; i += 2) {
+    Node *key = NodeChild(node, i);
 
     Result result = CompileExpr(key, LinkNext, c);
     if (!result.ok) return result;
-
     PushConst(IntVal(i), c->pos, c->chunk);
     PushByte(OpSet, c->pos, c->chunk);
-
-    i++;
-    keys = Tail(keys, c->mem);
   }
 
   /* create map from tuples */
@@ -768,8 +755,9 @@ static Result CompileMap(Val items, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileString(Val sym, bool linkage, Compiler *c)
+static Result CompileString(Node *node, bool linkage, Compiler *c)
 {
+  Val sym = NodeValue(node);
   Sym(SymbolName(sym, c->symbols), &c->chunk->symbols);
   PushConst(sym, c->pos, c->chunk);
   PushByte(OpStr, c->pos, c->chunk);
@@ -777,9 +765,10 @@ static Result CompileString(Val sym, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileVar(Val id, bool linkage, Compiler *c)
+static Result CompileVar(Node *node, bool linkage, Compiler *c)
 {
-  i32 def = FindDefinition(id, c->env, c->mem);
+  Val id = NodeValue(node);
+  i32 def = FrameFind(c->env, id);
   if (def == -1) return CompileError("Undefined variable", c);
 
   PushConst(IntVal(def), c->pos, c->chunk);
@@ -788,8 +777,9 @@ static Result CompileVar(Val id, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileConst(Val value, bool linkage, Compiler *c)
+static Result CompileConst(Node *node, bool linkage, Compiler *c)
 {
+  Val value = NodeValue(node);
   PushConst(value, c->pos, c->chunk);
   CompileLinkage(linkage, c);
   if (IsSym(value)) {

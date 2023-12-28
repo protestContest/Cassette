@@ -17,4 +17,4 @@ void DefinePrimitiveSymbols(SymbolTable *symbols);
 void GenerateSymbols(void);
 void GeneratePrimitives(void);
 void PrintMemory(u32 amount);
-void PrintAST(Val ast, Parser *p);
+void PrintAST(Node *ast, Parser *p);

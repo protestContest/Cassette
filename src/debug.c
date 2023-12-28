@@ -674,50 +674,49 @@ void PrintMemory(u32 amount)
 }
 
 
-static char *NodeTypeName(Val type)
+static char *NodeTypeName(NodeType type)
 {
   switch (type) {
-  case SymID: return "ID";
-  case SymBangEqual: return "!=";
-  case SymString: return "String";
-  case SymHash: return "#";
-  case SymPercent: return "&";
-  case SymAmpersand: return "&";
-  case SymLParen: return "Call";
-  case SymStar: return "*";
-  case SymPlus: return "+";
-  case SymMinus: return "-";
-  case SymArrow: return "Lambda";
-  case SymSlash: return "/";
-  case SymNum: return "Num";
-  case SymColon: return "Symbol";
-  case SymLess: return "<";
-  case SymLessLess: return "<<";
-  case SymLessEqual: return "<=";
-  case SymLessGreater: return "<>";
-  case SymEqual: return "=";
-  case SymEqualEqual: return "==";
-  case SymGreater: return ">";
-  case SymGreaterEqual: return ">=";
-  case SymGreaterGreater: return ">>";
-  case SymLBracket: return "List";
-  case SymCaret: return "^";
-  case SymAnd: return "And";
-  case SymDef: return "Def";
-  case SymDo: return "Do";
-  case SymIf: return "If";
-  case SymImport: return "Import";
-  case SymIn: return "In";
-  case SymLet: return "Let";
-  case SymNil: return "Nil";
-  case SymNot: return "Not";
-  case SymOr: return "Or";
-  case SymLBrace: return "Tuple";
-  case SymBar: return "|";
-  case SymRBrace: return "Map";
-  case SymTilde: return "~";
-  case SymModule: return "Module";
-  default: return "<Unknown>";
+  case ModuleNode: return "Module";
+  case ImportNode: return "Import";
+  case LetNode: return "Let";
+  case DefNode: return "Def";
+  case SymbolNode: return "Symbol";
+  case DoNode: return "Do";
+  case LambdaNode: return "Lambda";
+  case CallNode: return "Call";
+  case NilNode: return "Nil";
+  case IfNode: return "If";
+  case ListNode: return "List";
+  case MapNode: return "Map";
+  case TupleNode: return "Tuple";
+  case IDNode: return "ID";
+  case NumNode: return "Num";
+  case StringNode: return "String";
+  case NotEqNode: return "!=";
+  case RemNode: return "%";
+  case BitAndNode: return "&";
+  case MultiplyNode: return "*";
+  case AddNode: return "+";
+  case SubtractNode: return "-";
+  case DivideNode: return "/";
+  case LtNode: return "<";
+  case LShiftNode: return "<<";
+  case LtEqNode: return "<=";
+  case CatNode: return "<>";
+  case EqNode: return "==";
+  case GtNode: return ">";
+  case GtEqNode: return ">=";
+  case RShiftNode: return ">>";
+  case BitOrNode: return "^";
+  case AndNode: return "And";
+  case InNode: return "In";
+  case OrNode: return "Or";
+  case PairNode: return "|";
+  case LengthNode: return "#";
+  case NegativeNode: return "-";
+  case NotNode: return "Not";
+  case BitNotNode: return "~";
   }
 }
 
@@ -730,46 +729,36 @@ static void Indent(u32 level, u32 lines)
   }
 }
 
-static void PrintASTNode(Val node, u32 level, u32 lines, Parser *p)
+static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
 {
-  Val type = NodeType(node, p->mem);
-  Val pos = NodePos(node, p->mem);
-  Val expr = NodeExpr(node, p->mem);
+  NodeType type = node->type;
   char *name = NodeTypeName(type);
-  printf("%s:%d", name, RawInt(pos));
+  u32 i;
 
-  if (type == SymModule) {
-    Val name = ModuleName(node, p->mem);
-    Val stmts = ModuleBody(node, p->mem);
-    lines |= Bit(level);
+  printf("%s:%d", name, node->pos);
+
+  if (type == ModuleNode) {
+    Val name = NodeValue(NodeChild(node, 3));
+    Node *body = NodeChild(node, 2);
 
     printf(" %s\n", SymbolName(name, p->symbols));
-    while (stmts != Nil) {
-      if (Tail(stmts, p->mem) == Nil) {
-        lines = 0;
-        printf("└╴");
-      } else {
-        printf("├╴");
-      }
+    printf("└╴");
+    PrintASTNode(body, level+1, lines, p);
+  } else if (type == DoNode) {
+    Node *assigns = NodeChild(node, 0);
+    Node *stmts = NodeChild(node, 1);
 
-      PrintASTNode(Head(stmts, p->mem), level+1, lines, p);
-      stmts = Tail(stmts, p->mem);
-    }
-  } else if (type == SymDo) {
-    Val assigns = Head(expr, p->mem);
-    Val stmts = Tail(expr, p->mem);
     printf(" Assigns: [");
-    while (assigns != Nil) {
-      Val assign = Head(assigns, p->mem);
+    for (i = 0; i < NumNodeChildren(assigns); i++) {
+      Val assign = NodeValue(NodeChild(assigns, i));
       printf("%s", SymbolName(assign, p->symbols));
-      assigns = Tail(assigns, p->mem);
-      if (assigns != Nil) printf(", ");
+      if (i < NumNodeChildren(assigns) - 1) printf(", ");
     }
     printf("]\n");
 
     lines |= Bit(level);
-    while (stmts != Nil) {
-      if (Tail(stmts, p->mem) == Nil) {
+    for (i = 0; i < NumNodeChildren(stmts); i++) {
+      if (i == NumNodeChildren(stmts) - 1) {
         lines &= ~Bit(level);
         Indent(level, lines);
         printf("└╴");
@@ -778,29 +767,37 @@ static void PrintASTNode(Val node, u32 level, u32 lines, Parser *p)
         printf("├╴");
       }
 
-      PrintASTNode(Head(stmts, p->mem), level+1, lines, p);
-      stmts = Tail(stmts, p->mem);
+      PrintASTNode(NodeChild(stmts, i), level+1, lines, p);
     }
-  } else if (type == SymLet || type == SymDef || type == SymModule) {
-    printf(" %s\n", SymbolName(Head(expr, p->mem), p->symbols));
+  } else if (type == LetNode || type == DefNode) {
+    Val var = NodeValue(NodeChild(node, 0));
+    printf(" %s\n", SymbolName(var, p->symbols));
     Indent(level, lines);
     printf("└╴");
-    PrintASTNode(Tail(expr, p->mem), level+1, lines, p);
-  } else if (type == SymImport) {
-    printf(" %s as %s\n", SymbolName(Tail(expr, p->mem), p->symbols), SymbolName(Head(expr, p->mem), p->symbols));
-  } else if (type == SymArrow) {
-    Val params = Head(expr, p->mem);
+    PrintASTNode(NodeChild(node, 1), level+1, lines, p);
+  } else if (type == ImportNode) {
+    Val mod = NodeValue(NodeChild(node, 0));
+    Node *alias = NodeChild(node, 1);
+    printf(" %s as ", SymbolName(mod, p->symbols));
+    if (alias->type == NilNode) {
+      printf("*\n");
+    } else {
+      printf("%s\n", SymbolName(NodeValue(alias), p->symbols));
+    }
+  } else if (type == LambdaNode) {
+    Node *params = NodeChild(node, 0);
     printf(" (");
-    while (params != Nil) {
-      printf("%s", SymbolName(Head(params, p->mem), p->symbols));
-      params = Tail(params, p->mem);
-      if (params != Nil) printf(", ");
+    for (i = 0; i < NumNodeChildren(params); i++) {
+      Val param = NodeValue(NodeChild(params, i));
+      printf("%s", SymbolName(param, p->symbols));
+      if (i < NumNodeChildren(params) - 1) printf(", ");
     }
     printf(")\n");
     Indent(level, lines);
     printf("└╴");
-    PrintASTNode(Tail(expr, p->mem), level+1, lines, p);
-  } else if (type == SymNum) {
+    PrintASTNode(NodeChild(node, 1), level+1, lines, p);
+  } else if (type == NumNode) {
+    Val expr = NodeValue(node);
     if (IsInt(expr)) {
       printf(" %d\n", RawInt(expr));
     } else if (IsFloat(expr)) {
@@ -808,20 +805,20 @@ static void PrintASTNode(Val node, u32 level, u32 lines, Parser *p)
     } else {
       printf("\n");
     }
-  } else if (type == SymID) {
-    printf(" %s\n", SymbolName(expr, p->symbols));
-  } else if (type == SymColon) {
-    if (expr == Nil) {
-      printf(" :nil\n");
-    } else {
-      printf(" :%s\n", SymbolName(expr, p->symbols));
-    }
-  } else if (type == SymRBrace) {
+  } else if (type == IDNode) {
+    printf(" %s\n", SymbolName(NodeValue(node), p->symbols));
+  } else if (type == SymbolNode) {
+    printf(" :%s\n", SymbolName(NodeValue(node), p->symbols));
+  } else if (type == StringNode) {
+    printf(" \"%s\"\n", SymbolName(NodeValue(node), p->symbols));
+  } else if (type == MapNode) {
     printf("\n");
     lines |= Bit(level);
-    while (expr != Nil) {
-      Val item = Head(expr, p->mem);
-      if (Tail(expr, p->mem) == Nil) {
+    for (i = 0; i < NumNodeChildren(node); i += 2) {
+      Val key = NodeValue(NodeChild(node, i));
+      Node *value = NodeChild(node, i+1);
+
+      if (i == NumNodeChildren(node) - 2) {
         lines &= ~Bit(level);
         Indent(level, lines);
         printf("└╴");
@@ -830,17 +827,16 @@ static void PrintASTNode(Val node, u32 level, u32 lines, Parser *p)
         printf("├╴");
       }
 
-      printf("%s: ", SymbolName(Head(item, p->mem), p->symbols));
-      PrintASTNode(Tail(item, p->mem), level+1, lines, p);
-      expr = Tail(expr, p->mem);
+      printf("%s: ", SymbolName(key, p->symbols));
+      PrintASTNode(value, level+1, lines, p);
     }
-  } else if (expr == Nil) {
-    printf(" ()\n");
+  } else if (type == NilNode) {
+    printf("\n");
   } else {
     printf("\n");
     lines |= Bit(level);
-    while (IsPair(expr) && expr != Nil) {
-      if (Tail(expr, p->mem) == Nil) {
+    for (i = 0; i < NumNodeChildren(node); i++) {
+      if (i == NumNodeChildren(node) - 1) {
         lines &= ~Bit(level);
         Indent(level, lines);
         printf("└╴");
@@ -849,13 +845,12 @@ static void PrintASTNode(Val node, u32 level, u32 lines, Parser *p)
         printf("├╴");
       }
 
-      PrintASTNode(Head(expr, p->mem), level+1, lines, p);
-      expr = Tail(expr, p->mem);
+      PrintASTNode(NodeChild(node, i), level+1, lines, p);
     }
   }
 }
 
-void PrintAST(Val module, Parser *p)
+void PrintAST(Node *ast, Parser *p)
 {
-  PrintASTNode(module, 0, 0, p);
+  PrintASTNode(ast, 0, 0, p);
 }

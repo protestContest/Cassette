@@ -7,8 +7,7 @@
 
 #define ExprNext(lex)       (rules[(lex)->token.type].prefix)
 #define PrecNext(lex)       (rules[(lex)->token.type].prec)
-#define TokenSym(type)      (rules[type].symbol)
-#define ParseOk(val)        OkResult(val)
+#define ParseOk(val)        DataResult(val)
 #define ParseError(msg, p)  ErrorResult(msg, (p)->filename, (p)->lex.token.lexeme - (p)->lex.source)
 
 typedef enum {
@@ -36,10 +35,10 @@ static Result ParseAssign(Parser *p);
 static Result ParseDef(Parser *p);
 #define ParseExpr(p) ParsePrec(PrecExpr, p)
 static Result ParsePrec(Precedence prec, Parser *p);
-static Result ParseLeftAssoc(Val prefix, Parser *p);
-static Result ParseRightAssoc(Val prefix, Parser *p);
-static Result ParseCall(Val prefix, Parser *p);
-static Result ParseAccess(Val prefix, Parser *p);
+static Result ParseLeftAssoc(Node *prefix, Parser *p);
+static Result ParseRightAssoc(Node *prefix, Parser *p);
+static Result ParseCall(Node *prefix, Parser *p);
+static Result ParseAccess(Node *prefix, Parser *p);
 static Result ParseLambda(Parser *p);
 static Result ParseUnary(Parser *p);
 static Result ParseGroup(Parser *p);
@@ -53,228 +52,228 @@ static Result ParseTuple(Parser *p);
 static Result ParseMap(Parser *p);
 static Result ParseLiteral(Parser *p);
 static Result ParseSymbol(Parser *p);
-static Result ParseVar(Parser *p);
 static Result ParseID(Parser *p);
 static Result ParseNum(Parser *p);
 static Result ParseString(Parser *p);
 
+static NodeType InfixNodeType(TokenType token_type);
+static NodeType PrefixNodeType(TokenType token_type);
+
 typedef Result (*ParseFn)(Parser *p);
-typedef Result (*InfixFn)(Val prefix, Parser *p);
+typedef Result (*InfixFn)(Node *prefix, Parser *p);
 
 typedef struct {
-  Val symbol;
   ParseFn prefix;
   InfixFn infix;
   Precedence prec;
 } Rule;
 
 static Rule rules[] = {
-  [TokenEOF]            = {SymEOF,            0,            0,                  PrecNone},
-  [TokenID]             = {SymID,             ParseVar,     0,                  PrecNone},
-  [TokenBangEq]         = {SymBangEqual,      0,            ParseLeftAssoc,     PrecEqual},
-  [TokenStr]            = {SymString,         ParseString,  0,                  PrecNone},
-  [TokenNewline]        = {SymNewline,        0,            0,                  PrecNone},
-  [TokenHash]           = {SymHash,           ParseUnary,   0,                  PrecNone},
-  [TokenPercent]        = {SymPercent,        0,            ParseLeftAssoc,     PrecProduct},
-  [TokenAmpersand]      = {SymAmpersand,      0,            ParseLeftAssoc,     PrecBitwise},
-  [TokenLParen]         = {SymLParen,         ParseGroup,   ParseCall,          PrecCall},
-  [TokenRParen]         = {SymRParen,         0,            0,                  PrecNone},
-  [TokenStar]           = {SymStar,           0,            ParseLeftAssoc,     PrecProduct},
-  [TokenPlus]           = {SymPlus,           0,            ParseLeftAssoc,     PrecSum},
-  [TokenComma]          = {SymComma,          0,            0,                  PrecNone},
-  [TokenMinus]          = {SymMinus,          ParseUnary,   ParseLeftAssoc,     PrecSum},
-  [TokenArrow]          = {SymArrow,          0,            0,                  PrecNone},
-  [TokenDot]            = {SymDot,            0,            ParseAccess,        PrecAccess},
-  [TokenSlash]          = {SymSlash,          0,            ParseLeftAssoc,     PrecProduct},
-  [TokenNum]            = {SymNum,            ParseNum,     0,                  PrecNone},
-  [TokenColon]          = {SymColon,          ParseSymbol,  0,                  PrecNone},
-  [TokenLt]             = {SymLess,           0,            ParseLeftAssoc,     PrecCompare},
-  [TokenLtLt]           = {SymLessLess,       0,            ParseLeftAssoc,     PrecShift},
-  [TokenLtEq]           = {SymLessEqual,      0,            ParseLeftAssoc,     PrecCompare},
-  [TokenLtGt]           = {SymLessGreater,    0,            ParseLeftAssoc,     PrecPair},
-  [TokenEq]             = {SymEqual,          0,            0,                  PrecNone},
-  [TokenEqEq]           = {SymEqualEqual,     0,            ParseLeftAssoc,     PrecEqual},
-  [TokenGt]             = {SymGreater,        0,            ParseLeftAssoc,     PrecCompare},
-  [TokenGtEq]           = {SymGreaterEqual,   0,            ParseLeftAssoc,     PrecCompare},
-  [TokenGtGt]           = {SymGreaterGreater, 0,            ParseLeftAssoc,     PrecShift},
-  [TokenLBracket]       = {SymLBracket,       ParseList,    0,                  PrecNone},
-  [TokenBackslash]      = {SymBackslash,      ParseLambda,  0,                  PrecNone},
-  [TokenRBracket]       = {SymRBracket,       0,            0,                  PrecNone},
-  [TokenCaret]          = {SymCaret,          0,            ParseLeftAssoc,     PrecBitwise},
-  [TokenAnd]            = {SymAnd,            0,            ParseLeftAssoc,     PrecLogic},
-  [TokenAs]             = {SymAs,             0,            0,                  PrecNone},
-  [TokenCond]           = {SymCond,           ParseCond,    0,                  PrecNone},
-  [TokenDef]            = {SymDef,            0,            0,                  PrecNone},
-  [TokenDo]             = {SymDo,             ParseDo,      0,                  PrecNone},
-  [TokenElse]           = {SymElse,           0,            0,                  PrecNone},
-  [TokenEnd]            = {SymEnd,            0,            0,                  PrecNone},
-  [TokenFalse]          = {SymFalse,          ParseLiteral, 0,                  PrecNone},
-  [TokenIf]             = {SymIf,             ParseIf,      0,                  PrecNone},
-  [TokenImport]         = {SymImport,         0,            0,                  PrecNone},
-  [TokenIn]             = {SymIn,             0,            ParseLeftAssoc,     PrecMember},
-  [TokenLet]            = {SymLet,            0,            0,                  PrecNone},
-  [TokenModule]         = {SymModule,         0,            0,                  PrecNone},
-  [TokenNil]            = {SymNil,            ParseLiteral, 0,                  PrecNone},
-  [TokenNot]            = {SymNot,            ParseUnary,   0,                  PrecNone},
-  [TokenOr]             = {SymOr,             0,            ParseLeftAssoc,     PrecLogic},
-  [TokenTrue]           = {SymTrue,           ParseLiteral, 0,                  PrecNone},
-  [TokenLBrace]         = {SymLBrace,         ParseBraces,  0,                  PrecNone},
-  [TokenBar]            = {SymBar,            0,            ParseRightAssoc,    PrecPair},
-  [TokenRBrace]         = {SymRBrace,         0,            0,                  PrecNone},
-  [TokenTilde]          = {SymTilde,          ParseUnary,   0,                  PrecNone}
+  [TokenEOF]            = {0,            0,                  PrecNone},
+  [TokenID]             = {ParseID,      0,                  PrecNone},
+  [TokenBangEq]         = {0,            ParseLeftAssoc,     PrecEqual},
+  [TokenStr]            = {ParseString,  0,                  PrecNone},
+  [TokenNewline]        = {0,            0,                  PrecNone},
+  [TokenHash]           = {ParseUnary,   0,                  PrecNone},
+  [TokenPercent]        = {0,            ParseLeftAssoc,     PrecProduct},
+  [TokenAmpersand]      = {0,            ParseLeftAssoc,     PrecBitwise},
+  [TokenLParen]         = {ParseGroup,   ParseCall,          PrecCall},
+  [TokenRParen]         = {0,            0,                  PrecNone},
+  [TokenStar]           = {0,            ParseLeftAssoc,     PrecProduct},
+  [TokenPlus]           = {0,            ParseLeftAssoc,     PrecSum},
+  [TokenComma]          = {0,            0,                  PrecNone},
+  [TokenMinus]          = {ParseUnary,   ParseLeftAssoc,     PrecSum},
+  [TokenArrow]          = {0,            0,                  PrecNone},
+  [TokenDot]            = {0,            ParseAccess,        PrecAccess},
+  [TokenSlash]          = {0,            ParseLeftAssoc,     PrecProduct},
+  [TokenNum]            = {ParseNum,     0,                  PrecNone},
+  [TokenColon]          = {ParseSymbol,  0,                  PrecNone},
+  [TokenLt]             = {0,            ParseLeftAssoc,     PrecCompare},
+  [TokenLtLt]           = {0,            ParseLeftAssoc,     PrecShift},
+  [TokenLtEq]           = {0,            ParseLeftAssoc,     PrecCompare},
+  [TokenLtGt]           = {0,            ParseLeftAssoc,     PrecPair},
+  [TokenEq]             = {0,            0,                  PrecNone},
+  [TokenEqEq]           = {0,            ParseLeftAssoc,     PrecEqual},
+  [TokenGt]             = {0,            ParseLeftAssoc,     PrecCompare},
+  [TokenGtEq]           = {0,            ParseLeftAssoc,     PrecCompare},
+  [TokenGtGt]           = {0,            ParseLeftAssoc,     PrecShift},
+  [TokenLBracket]       = {ParseList,    0,                  PrecNone},
+  [TokenBackslash]      = {ParseLambda,  0,                  PrecNone},
+  [TokenRBracket]       = {0,            0,                  PrecNone},
+  [TokenCaret]          = {0,            ParseLeftAssoc,     PrecBitwise},
+  [TokenAnd]            = {0,            ParseLeftAssoc,     PrecLogic},
+  [TokenAs]             = {0,            0,                  PrecNone},
+  [TokenCond]           = {ParseCond,    0,                  PrecNone},
+  [TokenDef]            = {0,            0,                  PrecNone},
+  [TokenDo]             = {ParseDo,      0,                  PrecNone},
+  [TokenElse]           = {0,            0,                  PrecNone},
+  [TokenEnd]            = {0,            0,                  PrecNone},
+  [TokenFalse]          = {ParseLiteral, 0,                  PrecNone},
+  [TokenIf]             = {ParseIf,      0,                  PrecNone},
+  [TokenImport]         = {0,            0,                  PrecNone},
+  [TokenIn]             = {0,            ParseLeftAssoc,     PrecMember},
+  [TokenLet]            = {0,            0,                  PrecNone},
+  [TokenModule]         = {0,            0,                  PrecNone},
+  [TokenNil]            = {ParseLiteral, 0,                  PrecNone},
+  [TokenNot]            = {ParseUnary,   0,                  PrecNone},
+  [TokenOr]             = {0,            ParseLeftAssoc,     PrecLogic},
+  [TokenTrue]           = {ParseLiteral, 0,                  PrecNone},
+  [TokenLBrace]         = {ParseBraces,  0,                  PrecNone},
+  [TokenBar]            = {0,            ParseRightAssoc,    PrecPair},
+  [TokenRBrace]         = {0,            0,                  PrecNone},
+  [TokenTilde]          = {ParseUnary,   0,                  PrecNone}
 };
 
-void InitParser(Parser *p, Mem *mem, SymbolTable *symbols)
+void InitParser(Parser *p, SymbolTable *symbols)
 {
-  p->mem = mem;
   p->symbols = symbols;
-  p->imports = Nil;
 }
 
 Result Parse(char *source, Parser *p)
 {
   Result result;
-  Val name, body, imports, exports;
+  Node *module = MakeNode(ModuleNode, 0);
 
   InitLexer(&p->lex, source, 0);
   SkipNewlines(&p->lex);
 
   result = ParseModuleName(p);
   if (!result.ok) return result;
-  name = result.value;
+  NodePush(module, result.data);
 
   SkipNewlines(&p->lex);
   result = ParseImports(p);
   if (!result.ok) return result;
-  imports = result.value;
+  NodePush(module, result.data);
 
   result = ParseStmts(p);
   if (!result.ok) return result;
   if (!MatchToken(TokenEOF, &p->lex)) return ParseError("Unexpected token", p);
+  NodePush(module, result.data);
 
-  exports = Head(NodeExpr(result.value, p->mem), p->mem);
-  body = Tail(NodeExpr(result.value, p->mem), p->mem);
-
-  if (exports == Nil && Tail(body, p->mem) == Nil) {
-    body = Head(body, p->mem);
-  }
-
-  return ParseOk(MakeModule(name, body, imports, exports, Sym(p->filename, p->symbols), p->mem));
+  NodePush(module, MakeTerminal(StringNode, 0, Sym(p->filename, p->symbols)));
+  return ParseOk(module);
 }
 
 static Result ParseModuleName(Parser *p)
 {
-  if (!MatchToken(TokenModule, &p->lex)) return OkResult(Nil);
-  return ParseID(p);
+  if (!MatchToken(TokenModule, &p->lex)) {
+    return ParseOk(MakeTerminal(IDNode, 0, Sym(p->filename, p->symbols)));
+  } else {
+    return ParseID(p);
+  }
 }
 
 
-static Val DefaultImports(Mem *mem)
+static void AddDefaultImports(Node *node)
 {
   PrimitiveModuleDef *primitives = GetPrimitives();
   u32 num_primitives = NumPrimitives();
   u32 i;
-  Val imports = Nil;
 
   for (i = 0; i < num_primitives; i++) {
-    Val mod = primitives[i].module;
-    Val alias = (i == 0) ? Nil : mod;
-    Val import = MakeNode(SymImport, 0, Pair(mod, alias, mem), mem);
-    imports = Pair(import, imports, mem);
+    Node *import_node = MakeNode(ImportNode, 0);
+    Node *mod_name = MakeTerminal(IDNode, 0, primitives[i].module);
+    NodePush(import_node, mod_name);
+    if (i == 0) {
+      NodePush(import_node, MakeTerminal(NilNode, 0, Nil));
+    } else {
+      NodePush(import_node, mod_name);
+    }
+    NodePush(node, import_node);
   }
-
-  return imports;
 }
 
 static Result ParseImports(Parser *p)
 {
-  Val imports = DefaultImports(p->mem);
+  Node *node = MakeNode(ListNode, TokenPos(&p->lex));
+  AddDefaultImports(node);
+
   while (MatchToken(TokenImport, &p->lex)) {
-    Val import, mod, alias;
-    u32 pos = TokenPos(&p->lex);
+    Node *import_node = MakeNode(ImportNode, TokenPos(&p->lex));
     Result result = ParseID(p);
     if (!result.ok) return result;
-    mod = result.value;
-    alias = mod;
-
+    NodePush(import_node, result.data);
     if (MatchToken(TokenAs, &p->lex)) {
+      u32 pos = TokenPos(&p->lex);
       if (MatchToken(TokenStar, &p->lex)) {
-        alias = Nil;
+        NodePush(import_node, MakeTerminal(NilNode, pos, Nil));
       } else {
         result = ParseID(p);
         if (!result.ok) return result;
-        alias = result.value;
+        NodePush(import_node, result.data);
       }
+    } else {
+      NodePush(import_node, result.data);
     }
 
-    import = MakeNode(SymImport, pos, Pair(mod, alias, p->mem), p->mem);
-    imports = Pair(import, imports, p->mem);
+    NodePush(node, import_node);
     SkipNewlines(&p->lex);
   }
 
-  return ParseOk(ReverseList(imports, Nil, p->mem));
+  return ParseOk(node);
 }
 
 #define EndOfBlock(type)    ((type) == TokenEOF || (type) == TokenEnd || (type) == TokenElse)
 static Result ParseStmts(Parser *p)
 {
-  Val stmts = Nil;
-  Val assigns = Nil;
-  u32 pos = TokenPos(&p->lex);
+  Node *node = MakeNode(DoNode, TokenPos(&p->lex));
+  Node *assigns = MakeNode(ListNode, TokenPos(&p->lex));
+  Node *stmts = MakeNode(ListNode, TokenPos(&p->lex));
 
   SkipNewlines(&p->lex);
   while (!EndOfBlock(LexPeek(&p->lex))) {
     Result result;
-    Val stmt;
 
     if (MatchToken(TokenLet, &p->lex)) {
       SkipNewlines(&p->lex);
       while (!MatchToken(TokenNewline, &p->lex)) {
+        Node *var;
         if (MatchToken(TokenEOF, &p->lex)) break;
 
         result = ParseAssign(p);
         if (!result.ok) return result;
+        NodePush(stmts, result.data);
 
-        stmt = MakeNode(SymLet, result.pos, result.value, p->mem);
-        stmts = Pair(stmt, stmts, p->mem);
-        assigns = Pair(Head(result.value, p->mem), assigns, p->mem);
+        var = NodeChild(result.data, 0);
+        NodePush(assigns, var);
 
         if (MatchToken(TokenComma, &p->lex)) SkipNewlines(&p->lex);
       }
     } else if (MatchToken(TokenDef, &p->lex)) {
+      Node *var;
       result = ParseDef(p);
       if (!result.ok) return result;
+      NodePush(stmts, result.data);
 
-      stmt = MakeNode(SymDef, result.pos, result.value, p->mem);
-      stmts = Pair(stmt, stmts, p->mem);
-      assigns = Pair(Head(result.value, p->mem), assigns, p->mem);
+      var = NodeChild(result.data, 0);
+      NodePush(assigns, var);
     } else {
       result = ParseExpr(p);
       if (!result.ok) return result;
-      stmts = Pair(result.value, stmts, p->mem);
+      NodePush(stmts, result.data);
     }
 
     SkipNewlines(&p->lex);
   }
 
-  if (stmts == Nil) {
-    stmts = Pair(MakeNode(SymColon, pos, Nil, p->mem), Nil, p->mem);
+  if (NumNodeChildren(stmts) == 0) {
+    NodePush(stmts, MakeTerminal(NilNode, TokenPos(&p->lex), Nil));
   }
 
-  stmts = ReverseList(stmts, Nil, p->mem);
-  assigns = ReverseList(assigns, Nil, p->mem);
-
-  return ParseOk(MakeNode(SymDo, pos, Pair(assigns, stmts, p->mem), p->mem));
+  NodePush(node, assigns);
+  NodePush(node, stmts);
+  return ParseOk(node);
 }
 
 static Result ParseAssign(Parser *p)
 {
-  Val var;
+  Node *node = MakeNode(LetNode, TokenPos(&p->lex));
   Result result;
 
   result = ParseID(p);
   if (!result.ok) return result;
-  var = result.value;
+  NodePush(node, result.data);
 
   SkipNewlines(&p->lex);
   if (!MatchToken(TokenEq, &p->lex)) return ParseError("Expected \"=\"", p);
@@ -282,20 +281,24 @@ static Result ParseAssign(Parser *p)
 
   result = ParseExpr(p);
   if (!result.ok) return result;
+  NodePush(node, result.data);
 
-  return ParseOk(Pair(var, result.value, p->mem));
+  return ParseOk(node);
 }
 
 static Result ParseDef(Parser *p)
 {
+  Node *node = MakeNode(DefNode, TokenPos(&p->lex));
+  Node *lambda, *params;
   Result result;
-  u32 pos = TokenPos(&p->lex);
-  Val var, params = Nil, body, lambda;
 
   result = ParseID(p);
   if (!result.ok) return result;
-  var = result.value;
+  NodePush(node, result.data);
 
+  lambda = MakeNode(LambdaNode, TokenPos(&p->lex));
+
+  params = MakeNode(ListNode, TokenPos(&p->lex));
   if (MatchToken(TokenLParen, &p->lex)) {
     SkipNewlines(&p->lex);
     if (!MatchToken(TokenRParen, &p->lex)) {
@@ -303,21 +306,21 @@ static Result ParseDef(Parser *p)
         SkipNewlines(&p->lex);
         result = ParseID(p);
         if (!result.ok) return result;
-        params = Pair(result.value, params, p->mem);
+        NodePush(params, result.data);
       } while (MatchToken(TokenComma, &p->lex));
       SkipNewlines(&p->lex);
       if (!MatchToken(TokenRParen, &p->lex)) return ParseError("Expected \",\" or \")\"", p);
-      params = ReverseList(params, Nil, p->mem);
     }
     SkipNewlines(&p->lex);
   }
+  NodePush(lambda, params);
 
   result = ParseExpr(p);
   if (!result.ok) return result;
-  body = result.value;
+  NodePush(lambda, result.data);
 
-  lambda = MakeNode(SymArrow, pos, Pair(params, body, p->mem), p->mem);
-  return ParseOk(Pair(var, lambda, p->mem));
+  NodePush(node, lambda);
+  return ParseOk(node);
 }
 
 static Result ParsePrec(Precedence prec, Parser *p)
@@ -328,45 +331,52 @@ static Result ParsePrec(Precedence prec, Parser *p)
   result = ExprNext(&p->lex)(p);
 
   while (result.ok && PrecNext(&p->lex) >= prec) {
-    result = rules[p->lex.token.type].infix(result.value, p);
+    result = rules[p->lex.token.type].infix(result.data, p);
   }
 
   return result;
 }
 
-static Result ParseLeftAssoc(Val prefix, Parser *p)
+static Result ParseLeftAssoc(Node *prefix, Parser *p)
 {
-  Result result;
-  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
+  Node *node = MakeNode(InfixNodeType(token.type), TokenPos(&p->lex));
   Precedence prec = rules[token.type].prec;
-  Val op = TokenSym(token.type);
+  Result result;
+
+  NodePush(node, prefix);
+
   SkipNewlines(&p->lex);
   result = ParsePrec(prec+1, p);
   if (!result.ok) return result;
+  NodePush(node, result.data);
 
-  return ParseOk(MakeNode(op, pos, Pair(prefix, Pair(result.value, Nil, p->mem), p->mem), p->mem));
+  return ParseOk(node);
 }
 
-static Result ParseRightAssoc(Val prefix, Parser *p)
+static Result ParseRightAssoc(Node *prefix, Parser *p)
 {
-  Result result;
-  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
+  Node *node = MakeNode(InfixNodeType(token.type), TokenPos(&p->lex));
   Precedence prec = rules[token.type].prec;
-  Val op = TokenSym(token.type);
+  Result result;
+
+  NodePush(node, prefix);
+
   SkipNewlines(&p->lex);
   result = ParsePrec(prec, p);
   if (!result.ok) return result;
+  NodePush(node, result.data);
 
-  return ParseOk(MakeNode(op, pos, Pair(result.value, Pair(prefix, Nil, p->mem), p->mem), p->mem));
+  return ParseOk(node);
 }
 
-static Result ParseCall(Val prefix, Parser *p)
+static Result ParseCall(Node *prefix, Parser *p)
 {
+  Node *node = MakeNode(CallNode, TokenPos(&p->lex));
   Result result;
-  u32 pos = TokenPos(&p->lex);
-  Val args = Nil;
+
+  NodePush(node, prefix);
 
   MatchToken(TokenLParen, &p->lex);
   SkipNewlines(&p->lex);
@@ -375,75 +385,77 @@ static Result ParseCall(Val prefix, Parser *p)
       SkipNewlines(&p->lex);
       result = ParseExpr(p);
       if (!result.ok) return result;
-      args = Pair(result.value, args, p->mem);
+      NodePush(node, result.data);
       SkipNewlines(&p->lex);
     } while (MatchToken(TokenComma, &p->lex));
     if (!MatchToken(TokenRParen, &p->lex)) return ParseError("Expected \",\" or \")\"", p);
-    args = ReverseList(args, Nil, p->mem);
   }
-
-  return ParseOk(MakeNode(SymLParen, pos, Pair(prefix, args, p->mem), p->mem));
+  return ParseOk(node);
 }
 
-static Result ParseAccess(Val prefix, Parser *p)
+static Result ParseAccess(Node *prefix, Parser *p)
 {
+  Node *node = MakeNode(CallNode, TokenPos(&p->lex));
   Result result;
-  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
-  Val key;
+
+  NodePush(node, prefix);
 
   if (LexPeek(&p->lex) == TokenID) {
     result = ParseID(p);
     if (!result.ok) return result;
-    key = MakeNode(SymColon, pos, result.value, p->mem);
+    SetNodeType(result.data, SymbolNode);
+    NodePush(node, result.data);
   } else {
     result = ParsePrec(prec+1, p);
     if (!result.ok) return result;
-    key = result.value;
+    NodePush(node, result.data);
   }
 
-  return ParseOk(MakeNode(SymLParen, pos, Pair(prefix, Pair(key, Nil, p->mem), p->mem), p->mem));
+  return ParseOk(node);
 }
 
 static Result ParseLambda(Parser *p)
 {
+  Node *node = MakeNode(LambdaNode, TokenPos(&p->lex));
+  Node *params;
   Result result;
-  Val params = Nil;
-  u32 pos = TokenPos(&p->lex);
 
   if (!MatchToken(TokenBackslash, &p->lex)) return ParseError("Expected \"\\\"", p);
 
   SkipNewlines(&p->lex);
+  params = MakeNode(ListNode, TokenPos(&p->lex));
   if (!MatchToken(TokenArrow, &p->lex)) {
     do {
       SkipNewlines(&p->lex);
       result = ParseID(p);
       if (!result.ok) return result;
-      params = Pair(result.value, params, p->mem);
+      NodePush(params, result.data);
       SkipNewlines(&p->lex);
     } while (MatchToken(TokenComma, &p->lex));
     if (!MatchToken(TokenArrow, &p->lex)) return ParseError("Expected \",\" or \"->\"", p);
-    params = ReverseList(params, Nil, p->mem);
   }
+  NodePush(node, params);
 
   SkipNewlines(&p->lex);
   result = ParseExpr(p);
   if (!result.ok) return result;
+  NodePush(node, result.data);
 
-  return ParseOk(MakeNode(SymArrow, pos, Pair(params, result.value, p->mem), p->mem));
+  return ParseOk(node);
 }
 
 static Result ParseUnary(Parser *p)
 {
-  Result result;
-  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  Val op = TokenSym(token.type);
+  Node *node = MakeNode(PrefixNodeType(token.type), TokenPos(&p->lex));
+  Result result;
+
   result = ParsePrec(PrecUnary, p);
   if (!result.ok) return result;
-
-  return ParseOk(MakeNode(op, pos, Pair(result.value, Nil, p->mem), p->mem));
+  NodePush(node, result.data);
+  return ParseOk(node);
 }
 
 static Result ParseGroup(Parser *p)
@@ -462,18 +474,23 @@ static Result ParseGroup(Parser *p)
 static Result ParseDo(Parser *p)
 {
   Result result;
-  Val assigns, stmts;
+  Node *node, *assigns, *stmts;
   Assert(MatchToken(TokenDo, &p->lex));
 
   result = ParseStmts(p);
   if (!result.ok) return result;
   if (!MatchToken(TokenEnd, &p->lex)) return ParseError("Expected \"end\"", p);
 
-  assigns = Head(result.value, p->mem);
-  stmts = Tail(result.value, p->mem);
+  node = result.data;
+  assigns = NodeChild(node, 0);
+  stmts = NodeChild(node, 1);
 
-  if (assigns == Nil && Tail(stmts, p->mem) == Nil) {
-    return OkResult(Head(stmts, p->mem));
+  if (NumNodeChildren(assigns) == 0 && NumNodeChildren(stmts) == 1) {
+    Node *stmt = NodeChild(stmts, 0);
+    FreeNode(assigns);
+    FreeNode(stmts);
+    FreeNode(node);
+    return ParseOk(stmt);
   }
 
   return result;
@@ -481,52 +498,45 @@ static Result ParseDo(Parser *p)
 
 static Result ParseIf(Parser *p)
 {
+  Node *node = MakeNode(IfNode, TokenPos(&p->lex));
   Result result;
-  Val pred, cons = Nil, alt = Nil;
-  u32 pos = TokenPos(&p->lex);
-  u32 else_pos;
 
   Assert(MatchToken(TokenIf, &p->lex));
 
   result = ParseExpr(p);
   if (!result.ok) return result;
-  pred = result.value;
+  NodePush(node, result.data);
 
   if (!MatchToken(TokenDo, &p->lex)) return ParseError("Expected \"do\"", p);
   result = ParseStmts(p);
   if (!result.ok) return result;
-  cons = result.value;
+  NodePush(node, result.data);
 
-  else_pos = TokenPos(&p->lex);
   if (MatchToken(TokenElse, &p->lex)) {
     result = ParseStmts(p);
     if (!result.ok) return result;
-    alt = result.value;
+    NodePush(node, result.data);
   } else {
-    alt = MakeNode(SymNil, else_pos, Nil, p->mem);
+    NodePush(node, MakeTerminal(NilNode, TokenPos(&p->lex), Nil));
   }
 
   if (!MatchToken(TokenEnd, &p->lex)) return ParseError("Expected \"end\"", p);
 
-  return ParseOk(MakeNode(SymIf, pos,
-    Pair(pred,
-    Pair(cons,
-    Pair(alt, Nil, p->mem), p->mem), p->mem), p->mem));
+  return ParseOk(node);
 }
 
 static Result ParseClauses(Parser *p)
 {
-  Result result;
-  u32 pos = TokenPos(&p->lex);
 
   if (MatchToken(TokenEnd, &p->lex)) {
-    return ParseOk(MakeNode(SymColon, pos, Nil, p->mem));
+    return ParseOk(MakeTerminal(NilNode, TokenPos(&p->lex), Nil));
   } else {
-    Val predicate, consequent;
+    Node *node = MakeNode(IfNode, TokenPos(&p->lex));
+    Result result;
 
     result = ParseExpr(p);
     if (!result.ok) return result;
-    predicate = result.value;
+    NodePush(node, result.data);
 
     SkipNewlines(&p->lex);
     if (!MatchToken(TokenArrow, &p->lex)) return ParseError("Expected \"->\"", p);
@@ -534,15 +544,14 @@ static Result ParseClauses(Parser *p)
 
     result = ParseExpr(p);
     if (!result.ok) return result;
-    consequent = result.value;
+    NodePush(node, result.data);
 
     SkipNewlines(&p->lex);
     result = ParseClauses(p);
     if (!result.ok) return result;
-    return ParseOk(MakeNode(SymIf, pos,
-      Pair(predicate,
-      Pair(consequent,
-      Pair(result.value, Nil, p->mem), p->mem), p->mem), p->mem));
+    NodePush(node, result.data);
+
+    return ParseOk(node);
   }
 }
 
@@ -556,9 +565,8 @@ static Result ParseCond(Parser *p)
 
 static Result ParseList(Parser *p)
 {
+  Node *node = MakeNode(ListNode, TokenPos(&p->lex));
   Result result;
-  Val items = Nil;
-  u32 pos = TokenPos(&p->lex);
 
   Assert(MatchToken(TokenLBracket, &p->lex));
   SkipNewlines(&p->lex);
@@ -568,13 +576,13 @@ static Result ParseList(Parser *p)
       SkipNewlines(&p->lex);
       result = ParseExpr(p);
       if (!result.ok) return result;
-      items = Pair(result.value, items, p->mem);
+      NodePush(node, result.data);
       SkipNewlines(&p->lex);
     } while(MatchToken(TokenComma, &p->lex));
     if (!MatchToken(TokenRBracket, &p->lex)) return ParseError("Expected \")\"", p);
   }
 
-  return ParseOk(MakeNode(SymLBracket, pos, items, p->mem));
+  return ParseOk(node);
 }
 
 static Result ParseBraces(Parser *p)
@@ -587,7 +595,7 @@ static Result ParseBraces(Parser *p)
   if (MatchToken(TokenColon, &p->lex)) {
     SkipNewlines(&p->lex);
     if (MatchToken(TokenRBrace, &p->lex)) {
-      return ParseOk(MakeNode(SymRBrace, pos, Nil, p->mem));
+      return ParseOk(MakeNode(MapNode, pos));
     }
   }
   p->lex = saved;
@@ -607,66 +615,51 @@ static Result ParseBraces(Parser *p)
 
 static Result ParseMap(Parser *p)
 {
-  Val items = Nil;
-  Result result;
-  u32 pos = TokenPos(&p->lex);
+  Node *node = MakeNode(MapNode, TokenPos(&p->lex));
+
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
-    Val key, value;
-    u32 item_pos = TokenPos(&p->lex);
-
-    result = ParseID(p);
+    Result result = ParseID(p);
     if (!result.ok) return result;
-    key = MakeNode(SymColon, item_pos, result.value, p->mem);
+    SetNodeType(result.data, SymbolNode);
+    NodePush(node, result.data);
 
     if (!MatchToken(TokenColon, &p->lex)) return ParseError("Expected \":\"", p);
 
     result = ParseExpr(p);
     if (!result.ok) return result;
-    value = result.value;
+    NodePush(node, result.data);
 
-    value = Pair(key, value, p->mem);
-    items = Pair(value, items, p->mem);
     MatchToken(TokenComma, &p->lex);
     SkipNewlines(&p->lex);
   }
 
-  return ParseOk(MakeNode(SymRBrace, pos, items, p->mem));
+  return ParseOk(node);
 }
 
 static Result ParseTuple(Parser *p)
 {
-  Result result;
-  Val items = Nil;
-  u32 pos = TokenPos(&p->lex);
+  Node *node = MakeNode(TupleNode, TokenPos(&p->lex));
 
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
-    result = ParseExpr(p);
+    Result result = ParseExpr(p);
     if (!result.ok) return result;
+    NodePush(node, result.data);
 
     MatchToken(TokenComma, &p->lex);
     SkipNewlines(&p->lex);
-    items = Pair(result.value, items, p->mem);
   }
-  items = ReverseList(items, Nil, p->mem);
 
-  return ParseOk(MakeNode(SymLBrace, pos, items, p->mem));
+  return ParseOk(node);
 }
 
 static Result ParseID(Parser *p)
 {
+  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   if (token.type != TokenID) return ParseError("Expected identifier", p);
-  return ParseOk(MakeSymbol(token.lexeme, token.length, p->symbols));
-}
-
-static Result ParseVar(Parser *p)
-{
-  u32 pos = TokenPos(&p->lex);
-  Result result = ParseID(p);
-  if (!result.ok) return result;
-  return ParseOk(MakeNode(SymID, pos, result.value, p->mem));
+  return ParseOk(MakeTerminal(IDNode, pos, MakeSymbol(token.lexeme, token.length, p->symbols)));
 }
 
 static Result ParseNum(Parser *p)
@@ -695,12 +688,12 @@ static Result ParseNum(Parser *p)
       whole = whole * 16 + d;
     }
     if (whole > RawInt(MaxIntVal)) return ParseError("Number overflows", p);
-    return ParseOk(MakeNode(SymNum, pos, IntVal(sign*whole), p->mem));
+    return ParseOk(MakeTerminal(NumNode, pos, IntVal(sign*whole)));
   }
 
   if (*token.lexeme == '$') {
     u8 byte = token.lexeme[1];
-    return ParseOk(MakeNode(SymNum, pos, IntVal(byte), p->mem));
+    return ParseOk(MakeTerminal(NumNode, pos, IntVal(byte)));
   }
 
   for (i = 0; i < token.length; i++) {
@@ -726,10 +719,10 @@ static Result ParseNum(Parser *p)
 
   if (frac != 0) {
     float num = (float)whole + (float)frac / (float)frac_size;
-    return ParseOk(MakeNode(SymNum, pos, FloatVal(sign*num), p->mem));
+    return ParseOk(MakeTerminal(NumNode, pos, FloatVal(sign*num)));
   } else {
     if (whole > RawInt(MaxIntVal)) return ParseError("Number overflows", p);
-    return ParseOk(MakeNode(SymNum, pos, IntVal(sign*whole), p->mem));
+    return ParseOk(MakeTerminal(NumNode, pos, IntVal(sign*whole)));
   }
 }
 
@@ -738,18 +731,18 @@ static Result ParseString(Parser *p)
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   Val symbol = MakeSymbol(token.lexeme + 1, token.length - 2, p->symbols);
-  return ParseOk(MakeNode(SymString, pos, symbol, p->mem));
+  return ParseOk(MakeTerminal(StringNode, pos, symbol));
 }
 
 static Result ParseSymbol(Parser *p)
 {
   Result result;
-  u32 pos = TokenPos(&p->lex);
   Assert(MatchToken(TokenColon, &p->lex));
   result = ParseID(p);
   if (!result.ok) return result;
+  SetNodeType(result.data, SymbolNode);
 
-  return ParseOk(MakeNode(SymColon, pos, result.value, p->mem));
+  return ParseOk(result.data);
 }
 
 static Result ParseLiteral(Parser *p)
@@ -758,23 +751,105 @@ static Result ParseLiteral(Parser *p)
   Token token = NextToken(&p->lex);
 
   switch (token.type) {
-  case TokenTrue:   return ParseOk(MakeNode(SymColon, pos, True, p->mem));
-  case TokenFalse:  return ParseOk(MakeNode(SymColon, pos, False, p->mem));
-  case TokenNil:    return ParseOk(MakeNode(SymColon, pos, Nil, p->mem));
+  case TokenTrue:   return ParseOk(MakeTerminal(SymbolNode, pos, True));
+  case TokenFalse:  return ParseOk(MakeTerminal(SymbolNode, pos, False));
+  case TokenNil:    return ParseOk(MakeTerminal(NilNode, pos, Nil));
   default:          return ParseError("Unknown literal", p);
   }
 }
 
-Val MakeNode(Val sym, u32 position, Val value, Mem *mem)
+Node *MakeTerminal(NodeType type, u32 position, Val value)
 {
-  Val node;
-
-  if (!CheckMem(mem, 4)) ResizeMem(mem, 2*MemCapacity(mem));
-
-  node = MakeTuple(3, mem);
-  TupleSet(node, 0, sym, mem);
-  TupleSet(node, 1, IntVal(position), mem);
-  TupleSet(node, 2, value, mem);
-
+  Node *node = Alloc(sizeof(Node));
+  node->type = type;
+  node->pos = position;
+  node->expr.value = value;
   return node;
+}
+
+Node *MakeNode(NodeType type, u32 position)
+{
+  Node *node = Alloc(sizeof(Node));
+  node->type = type;
+  node->pos = position;
+  InitVec((Vec*)&node->expr.children, sizeof(Node*), 2);
+  return node;
+}
+
+bool IsTerminal(Node *node)
+{
+  switch (node->type) {
+  case NilNode:
+  case IDNode:
+  case NumNode:
+  case StringNode:
+  case SymbolNode:
+    return true;
+  default:
+    return false;
+  }
+}
+
+void SetNodeType(Node *node, NodeType type)
+{
+  node->type = type;
+}
+
+void FreeNode(Node *node)
+{
+  if (!IsTerminal(node)) {
+    DestroyVec((Vec*)&node->expr.children);
+  }
+
+  Free(node);
+}
+
+void FreeAST(Node *node)
+{
+  if (!IsTerminal(node)) {
+    u32 i;
+    for (i = 0; i < NumNodeChildren(node); i++) {
+      FreeNode(NodeChild(node, i));
+    }
+  }
+
+  FreeNode(node);
+}
+
+static NodeType InfixNodeType(TokenType token_type)
+{
+  switch (token_type) {
+  case TokenBangEq: return NotEqNode;
+  case TokenPercent: return RemNode;
+  case TokenAmpersand: return BitAndNode;
+  case TokenStar: return MultiplyNode;
+  case TokenPlus: return AddNode;
+  case TokenMinus: return SubtractNode;
+  case TokenSlash: return DivideNode;
+  case TokenLt: return LtNode;
+  case TokenLtLt: return LShiftNode;
+  case TokenLtEq: return LtEqNode;
+  case TokenLtGt: return CatNode;
+  case TokenEqEq: return EqNode;
+  case TokenGt: return GtNode;
+  case TokenGtEq: return GtEqNode;
+  case TokenGtGt: return RShiftNode;
+  case TokenCaret: return BitOrNode;
+  case TokenAnd: return AndNode;
+  case TokenIn: return InNode;
+  case TokenOr: return OrNode;
+  case TokenBar: return PairNode;
+  default: return NilNode;
+  }
+}
+
+static NodeType PrefixNodeType(TokenType token_type)
+{
+  switch (token_type) {
+  case TokenHash: return LengthNode;
+  case TokenMinus: return NegativeNode;
+  case TokenNot: return NotNode;
+  case TokenTilde: return BitNotNode;
+  default: return NilNode;
+  }
 }

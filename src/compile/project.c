@@ -3,7 +3,7 @@
 #include "univ/str.h"
 #include "parse.h"
 #include "runtime/primitives.h"
-#include "runtime/env.h"
+#include "env.h"
 #include "runtime/ops.h"
 #include "univ/system.h"
 #include "debug.h"
@@ -11,19 +11,20 @@
 
 typedef struct {
   Val entry;
-  HashMap modules;
-  Mem mem;
+  ObjVec modules;
+  HashMap mod_map;
   SymbolTable symbols;
   ObjVec manifest;
+  ObjVec build_list;
 } Project;
 
-static void InitProject(Project *p);
-static void DestroyProject(Project *p);
+static void InitProject(Project *project);
+static void DestroyProject(Project *project);
 static Result ReadManifest(char *filename, Project *project);
 static Result ParseModules(Project *project);
 static Result ScanDependencies(Project *project);
-static Result CompileProject(Val build_list, Chunk *chunk, Project *p);
-static void AddPrimitiveModules(Project *p);
+static Result CompileProject(Chunk *chunk, Project *project);
+static void AddPrimitiveModules(Project *project);
 
 Result BuildProject(u32 num_files, char **filenames, char *stdlib, Chunk *chunk)
 {
@@ -43,34 +44,39 @@ Result BuildProject(u32 num_files, char **filenames, char *stdlib, Chunk *chunk)
 
   result = ParseModules(&project);
   if (result.ok) result = ScanDependencies(&project);
-  if (result.ok) result = CompileProject(result.value, chunk, &project);
+  if (result.ok) result = CompileProject(chunk, &project);
 
   DestroyProject(&project);
 
   return result;
 }
 
-static void InitProject(Project *p)
+static void InitProject(Project *project)
 {
-  p->entry = Nil;
-  InitVec((Vec*)&p->manifest, sizeof(char*), 8);
-  InitHashMap(&p->modules);
-  InitMem(&p->mem, 1024*16);
-  InitSymbolTable(&p->symbols);
-  DefineSymbols(&p->symbols);
+  project->entry = Nil;
+  InitVec((Vec*)&project->manifest, sizeof(char*), 8);
+  InitHashMap(&project->mod_map);
+  InitVec((Vec*)&project->modules, sizeof(Node*), 8);
+  InitSymbolTable(&project->symbols);
+  InitVec((Vec*)&project->build_list, sizeof(Node*), 8);
+  DefineSymbols(&project->symbols);
 }
 
-static void DestroyProject(Project *p)
+static void DestroyProject(Project *project)
 {
   u32 i;
-  DestroyHashMap(&p->modules);
-  DestroyMem(&p->mem);
-  DestroySymbolTable(&p->symbols);
-  for (i = 0; i < p->manifest.count; i++) {
-    Free(p->manifest.items[i]);
+  for (i = 0; i < project->modules.count; i++) {
+    FreeAST(VecRef(&project->modules, i));
   }
-  DestroyVec((Vec*)&p->manifest);
-  p->entry = Nil;
+  DestroyHashMap(&project->mod_map);
+  DestroyVec((Vec*)&project->modules);
+  DestroySymbolTable(&project->symbols);
+  for (i = 0; i < project->manifest.count; i++) {
+    Free(project->manifest.items[i]);
+  }
+  DestroyVec((Vec*)&project->manifest);
+  DestroyVec((Vec*)&project->build_list);
+  project->entry = Nil;
 }
 
 /* parses each file and puts the result in a hashmap, keyed by module name (or
@@ -81,10 +87,9 @@ static Result ParseModules(Project *project)
   Parser parser;
   u32 i;
 
-  InitParser(&parser, &project->mem, &project->symbols);
+  InitParser(&parser, &project->symbols);
 
   for (i = 0; i < project->manifest.count; i++) {
-    Val name;
     char *filename = project->manifest.items[i];
     char *source = ReadFile(filename);
 
@@ -93,18 +98,12 @@ static Result ParseModules(Project *project)
 
     result = Parse(source, &parser);
     if (!result.ok) return result;
-
     Free(source);
 
-    name = ModuleName(result.value, &project->mem);
-    if (name == Nil) name = Sym(filename, &project->symbols);
+    /*PrintAST(result.data, &parser);*/
 
-    /*PrintAST(result.value, &parser);*/
-
-    /* first file is the entry point */
-    if (i == 0) project->entry = name;
-
-    HashMapSet(&project->modules, name, result.value);
+    HashMapSet(&project->mod_map, ModuleName(result.data), project->modules.count);
+    ObjVecPush(&project->modules, result.data);
   }
 
   return result;
@@ -113,132 +112,94 @@ static Result ParseModules(Project *project)
 /* starting with the entry module, assemble a list of modules in order of dependency */
 static Result ScanDependencies(Project *project)
 {
+  IntVec stack;
   HashMap seen;
-  Val stack = Pair(project->entry, Nil, &project->mem);
-  Val build_list = Nil;
+  u32 i;
 
+  InitVec((Vec*)&stack, sizeof(u32), 8);
+  IntVecPush(&stack, ModuleName(VecRef(&project->modules, 0)));
   InitHashMap(&seen);
 
   AddPrimitiveModules(project);
 
-  while (stack != Nil) {
-    Val name, module, imports;
-
-    /* get the next module in the stack */
-    name = Head(stack, &project->mem);
-    stack = Tail(stack, &project->mem);
-
+  while (stack.count > 0) {
+    Val name = VecPop(&stack);
+    Node *module, *imports;
     if (HashMapContains(&seen, name)) continue;
 
-    Assert(HashMapContains(&project->modules, name));
-    module = HashMapGet(&project->modules, name);
+    Assert(HashMapContains(&project->mod_map, name));
+    module = VecRef(&project->modules, HashMapGet(&project->mod_map, name));
 
     /* skip nil modules (e.g. primitive modules) */
-    if (ModuleBody(module, &project->mem) == Nil) continue;
-
-    imports = ModuleImports(module, &project->mem);
+    if (ModuleFile(module) == Nil) continue;
 
     /* add current module to build list */
-    build_list = Pair(module, build_list, &project->mem);
+    ObjVecPush(&project->build_list, module);
     HashMapSet(&seen, name, 1);
 
     /* add each of the module's imports to the stack */
-    while (imports != Nil) {
-      Val node = Head(imports, &project->mem);
-      Val import = NodeExpr(node, &project->mem);
-      Val import_name = Head(import, &project->mem);
-      imports = Tail(imports, &project->mem);
+    imports = ModuleImports(module);
+    for (i = 0; i < NumNodeChildren(imports); i++) {
+      Node *import = NodeChild(imports, i);
+      Val import_name = NodeValue(NodeChild(import, 0));
 
       /* make sure we know about the imported module */
-      if (!HashMapContains(&project->modules, import_name)) {
-        char *filename = SymbolName(ModuleFile(module, &project->mem), &project->symbols);
-        return ErrorResult("Module not found", filename, NodePos(node, &project->mem));
+      if (!HashMapContains(&project->mod_map, import_name)) {
+        char *filename = SymbolName(ModuleFile(module), &project->symbols);
+        return ErrorResult("Module not found", filename, import->pos);
       }
 
       /* add import to the stack if it's not already in the build list */
       if (!HashMapContains(&seen, import_name)) {
-        stack = Pair(import_name, stack, &project->mem);
+        IntVecPush(&stack, import_name);
       }
     }
   }
 
   DestroyHashMap(&seen);
+  DestroyVec((Vec*)&stack);
 
-  return OkResult(build_list);
+  return OkResult(Nil);
 }
 
 /* compiles a list of modules into a chunk that can be run */
-static Result CompileProject(Val build_list, Chunk *chunk, Project *p)
+static Result CompileProject(Chunk *chunk, Project *project)
 {
   Compiler c;
   u32 i;
-  u32 num_modules = ListLength(build_list, &p->mem) - 1; /* exclude entry script */
-  Val compile_env;
+  u32 num_modules = project->build_list.count - 1; /* exclude entry script */
+  Frame *compile_env;
   Result result = OkResult(Nil);
 
-  if (build_list == Nil) return result;
-
-  InitCompiler(&c, &p->mem, &p->symbols, &p->modules, chunk);
+  InitCompiler(&c, &project->symbols, &project->modules, &project->mod_map, chunk);
 
   result = CompileInitialEnv(num_modules, &c);
   if (!result.ok) return result;
-  compile_env = result.value;
+  compile_env = result.data;
 
   /* pre-define all modules */
   for (i = 0; i < num_modules; i++) {
-    Val module = ListGet(build_list, i, &p->mem);
-    Define(ModuleName(module, &p->mem), i, compile_env, &p->mem);
+    Node *module = VecRef(&project->build_list, num_modules - i);
+    FrameSet(compile_env, i, ModuleName(module));
   }
 
   /* compile each module except the entry mod */
+  c.env = compile_env;
   for (i = 0; i < num_modules; i++) {
-    Val module = Head(build_list, &p->mem);
-    build_list = Tail(build_list, &p->mem);
-
-    c.env = compile_env;
+    Node *module = VecRef(&project->build_list, num_modules - i);
+    Assert(c.env == compile_env);
     result = CompileModule(module, i, &c);
     if (!result.ok) return result;
   }
 
   /* compile the entry module a little differently */
   c.env = compile_env;
-  result = CompileScript(Head(build_list, &p->mem), &c);
+  result = CompileScript(VecRef(&project->build_list, 0), &c);
 
   return result;
 }
 
-Val MakeModule(Val name, Val body, Val imports, Val exports, Val filename, Mem *mem)
-{
-  Val module =
-    Pair(name,
-    Pair(body,
-    Pair(imports,
-    Pair(exports,
-    Pair(filename, Nil, mem), mem), mem), mem), mem);
-
-  return MakeNode(SymModule, 0, module, mem);
-}
-
-u32 CountExports(Val nodes, HashMap *modules, Mem *mem)
-{
-  u32 count = 0;
-  while (nodes != Nil) {
-    Val import = NodeExpr(Head(nodes, mem), mem);
-    Val mod_name = Head(import, mem);
-    Val alias = Tail(import, mem);
-
-    if (alias != Nil) {
-      count++;
-    } else if (HashMapContains(modules, mod_name)) {
-      Val module = HashMapGet(modules, mod_name);
-      count += ListLength(ModuleExports(module, mem), mem);
-    }
-    nodes = Tail(nodes, mem);
-  }
-  return count;
-}
-
-static void AddPrimitiveModules(Project *p)
+static void AddPrimitiveModules(Project *project)
 {
   /* set primitive modules in the module map */
   PrimitiveModuleDef *primitives = GetPrimitives();
@@ -246,12 +207,26 @@ static void AddPrimitiveModules(Project *p)
   u32 i, j;
 
   for (i = 0; i < num_primitives; i++) {
-    Val mod, exports = Nil;
+    Node *module = MakeNode(ModuleNode, 0);
+    Node *body = MakeNode(DoNode, 0);
+    Node *exports = MakeNode(ListNode, 0);
+
+    Node *name = MakeTerminal(IDNode, 0, primitives[i].module);
+    NodePush(module, name);
+    NodePush(module, MakeNode(ListNode, 0));
+
     for (j = 0; j < primitives[i].num_fns; j++) {
-      exports = Pair(primitives[i].fns[j].name, exports, &p->mem);
+      Node *export = MakeTerminal(IDNode, 0, primitives[i].fns[j].name);
+      NodePush(exports, export);
     }
-    exports = ReverseList(exports, Nil, &p->mem);
-    mod = MakeModule(primitives[i].module, Nil, Nil, exports, Nil, &p->mem);
-    HashMapSet(&p->modules, primitives[i].module, mod);
+
+    NodePush(body, exports);
+    NodePush(body, 0);
+    NodePush(module, body);
+
+    NodePush(module, MakeTerminal(NilNode, 0, Nil));
+
+    HashMapSet(&project->mod_map, primitives[i].module, project->modules.count);
+    ObjVecPush(&project->modules, module);
   }
 }

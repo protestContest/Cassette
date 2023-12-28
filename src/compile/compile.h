@@ -1,21 +1,22 @@
 #pragma once
-#include "univ/hashmap.h"
-#include "mem/mem.h"
+#include "env.h"
 #include "result.h"
+#include "parse.h"
 #include "mem/symbols.h"
 #include "runtime/chunk.h"
+#include "univ/hashmap.h"
 
 typedef struct {
   u32 pos;
-  Val env;
+  Frame *env;
   char *filename;
-  Mem *mem;
   SymbolTable *symbols;
-  HashMap *modules;
+  HashMap *mod_map;
+  ObjVec *modules;
   Chunk *chunk;
 } Compiler;
 
-void InitCompiler(Compiler *c, Mem *mem, SymbolTable *symbols, HashMap *modules, Chunk *chunk);
+void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *mod_map, Chunk *chunk);
 Result CompileInitialEnv(u32 num_modules, Compiler *c);
-Result CompileScript(Val module, Compiler *c);
-Result CompileModule(Val module, u32 mod_num, Compiler *c);
+Result CompileScript(Node *module, Compiler *c);
+Result CompileModule(Node *module, u32 mod_num, Compiler *c);
