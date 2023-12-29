@@ -7,8 +7,7 @@ def read-line do
   unwrap!(Device.read(console, 1024))
 end
 
-def byte?(n) Type.typeof(n) == :integer and n >= 0 and n <= 255
-def binary?(val) Type.typeof(val) == :binary
+def byte?(n) integer?(n) and n >= 0 and n <= 255
 
 def format(iodata) do
   def stuff(iolist, acc, bytes) do
@@ -17,19 +16,17 @@ def format(iodata) do
         acc <> Type.stuff(List.reverse(bytes))
       byte?(head(iolist)) ->
         stuff(tail(iolist), acc, head(iolist) | bytes)
-      Type.typeof(head(iolist)) == :binary ->
+      binary?(head(iolist)) ->
         stuff(tail(iolist), acc <> Type.stuff(List.reverse(bytes)) <> head(iolist), [])
       true ->
         panic!("Bad IO list")
     end
   end
 
-  let type = Type.typeof(iodata)
-
   cond do
-    type == :binary -> iodata
+    binary?(iodata) -> iodata
     byte?(iodata) -> Type.stuff([iodata])
-    type == :pair -> stuff(List.flatten(iodata), "", nil)
+    pair?(iodata) -> stuff(List.flatten(iodata), "", nil)
     true -> panic!("Bad IO list")
   end
 end
@@ -49,7 +46,7 @@ def inspect(value, depth) do
   def inspect-num(num) do
     cond do
       num < 0 -> ["-", inspect-num(-num)]
-      Type.typeof(num) == :integer -> inspect-int(num, nil)
+      integer?(num) -> inspect-int(num, nil)
       true -> do
         let whole = inspect-int(Type.trunc(num), nil),
             part = inspect-int(Type.trunc(num - whole) * 1000, nil)
@@ -75,7 +72,7 @@ def inspect(value, depth) do
       let item = inspect(head(list), depth - 1)
 
       cond do
-        Type.typeof(tail(list)) != :pair ->
+        not pair?(tail(list)) ->
           [item, " | ", inspect(tail(list), depth - 1)] | acc
         tail(list) == nil ->
           item | acc
@@ -99,7 +96,7 @@ def inspect(value, depth) do
 
   def inspect-entry(entry) do
     let key = head(entry), value = tail(entry)
-    if Type.typeof(key) == :symbol do
+    if symbol?(key) do
       [Type.symbol-name(key), ": ", inspect(value, depth - 1)]
     else
       [inspect(key, depth - 1), " => ", inspect(value, depth - 1)]
@@ -113,20 +110,20 @@ def inspect(value, depth) do
 
   cond do
     depth == 0 -> "..."
-    Type.typeof(value) == :float -> inspect-num(value)
-    Type.typeof(value) == :integer -> inspect-num(value)
-    Type.typeof(value) == :symbol -> inspect-symbol(value)
-    Type.typeof(value) == :pair -> inspect-list(value)
-    Type.typeof(value) == :tuple -> inspect-tuple(value)
-    Type.typeof(value) == :binary -> [$", value, $"]
-    Type.typeof(value) == :map -> inspect-map(value)
-    Type.typeof(value) == :function -> inspect-function(value)
+    float?(value) -> inspect-num(value)
+    integer?(value) -> inspect-num(value)
+    symbol?(value) -> inspect-symbol(value)
+    pair?(value) -> inspect-list(value)
+    tuple?(value) -> inspect-tuple(value)
+    binary?(value) -> [$", value, $"]
+    map?(value) -> inspect-map(value)
+    function?(value) -> inspect-function(value)
     true -> "<???>"
   end
 end
 
 def print(value) do
-  if Type.typeof(value) == :binary do
+  if binary?(value) do
     Device.write(console, value)
     Device.write(console, 0x0A)
   else

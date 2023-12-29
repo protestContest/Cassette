@@ -19,6 +19,14 @@ static Result VMPanic(u32 num_args, VM *vm);
 static Result VMUnwrap(u32 num_args, VM *vm);
 static Result VMForceUnwrap(u32 num_args, VM *vm);
 static Result VMOk(u32 num_args, VM *vm);
+static Result VMIsFloat(u32 num_args, VM *vm);
+static Result VMIsInt(u32 num_args, VM *vm);
+static Result VMIsSym(u32 num_args, VM *vm);
+static Result VMIsPair(u32 num_args, VM *vm);
+static Result VMIsTuple(u32 num_args, VM *vm);
+static Result VMIsBin(u32 num_args, VM *vm);
+static Result VMIsMap(u32 num_args, VM *vm);
+static Result VMIsFunc(u32 num_args, VM *vm);
 
 static Result VMOpen(u32 num_args, VM *vm);
 static Result VMClose(u32 num_args, VM *vm);
@@ -27,7 +35,6 @@ static Result VMWrite(u32 num_args, VM *vm);
 static Result VMGetParam(u32 num_args, VM *vm);
 static Result VMSetParam(u32 num_args, VM *vm);
 
-static Result VMType(u32 num_args, VM *vm);
 static Result VMMapGet(u32 num_args, VM *vm);
 static Result VMMapSet(u32 num_args, VM *vm);
 static Result VMMapDelete(u32 num_args, VM *vm);
@@ -46,6 +53,14 @@ static PrimitiveDef kernel[] = {
   {/* unwrap */       0x7FDC5932, &VMUnwrap},
   {/* unwrap! */      0x7FDC1BBA, &VMForceUnwrap},
   {/* ok? */          0x7FD3025E, &VMOk},
+  {/* float? */       0x7FD6E4F4, &VMIsFloat},
+  {/* integer? */     0x7FDAB1E8, &VMIsInt},
+  {/* symbol? */      0x7FD46DF2, &VMIsSym},
+  {/* pair? */        0x7FDCEEC5, &VMIsPair},
+  {/* tuple? */       0x7FDE7376, &VMIsTuple},
+  {/* binary? */      0x7FD265F5, &VMIsBin},
+  {/* map? */         0x7FDE5C7F, &VMIsMap},
+  {/* function? */    0x7FD03556, &VMIsFunc},
 };
 
 static PrimitiveDef device[] = {
@@ -58,7 +73,6 @@ static PrimitiveDef device[] = {
 };
 
 static PrimitiveDef type[] = {
-  {/* typeof */       0x7FDA14D4, &VMType},
   {/* map-get */      0x7FD781D0, &VMMapGet},
   {/* map-set */      0x7FDFD878, &VMMapSet},
   {/* map-del */      0x7FD330D3, &VMMapDelete},
@@ -220,6 +234,94 @@ static Result VMOk(u32 num_args, VM *vm)
   return OkResult(BoolVal(Head(value, &vm->mem) == Ok));
 }
 
+static Result VMIsFloat(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsFloat(value)));
+}
+
+static Result VMIsInt(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsInt(value)));
+}
+
+static Result VMIsSym(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsSym(value)));
+}
+
+static Result VMIsPair(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsPair(value)));
+}
+
+static Result VMIsTuple(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsTuple(value, &vm->mem)));
+}
+
+static Result VMIsBin(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsBinary(value, &vm->mem)));
+}
+
+static Result VMIsMap(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsMap(value, &vm->mem)));
+}
+
+static Result VMIsFunc(u32 num_args, VM *vm)
+{
+  Val value;
+  Val types[1] = {AnyType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  value = StackPop(vm);
+  return OkResult(BoolVal(IsFunc(value, &vm->mem)));
+}
+
 static Result VMOpen(u32 num_args, VM *vm)
 {
   Val opts;
@@ -355,27 +457,6 @@ static Result VMSetParam(u32 num_args, VM *vm)
   if (!result.ok) return OkError(result, &vm->mem);
 
   return OkResult(Pair(Ok, result.value, &vm->mem));
-}
-
-static Result VMType(u32 num_args, VM *vm)
-{
-  Val arg;
-  Val types[1] = {AnyType};
-  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
-  if (!result.ok) return result;
-
-  arg = StackPop(vm);
-  vm->stack.count -= num_args-1;
-
-  if (IsFloat(arg)) {
-    return OkResult(FloatType);
-  } else if (IsFunction(arg, &vm->mem) || IsPrimitive(arg, &vm->mem)) {
-    return OkResult(Sym("function", &vm->chunk->symbols));
-  }
-
-  if (IsObj(arg)) arg = MemRef(&vm->mem, RawVal(arg));
-
-  return OkResult(Sym(TypeName(TypeOf(arg)), &vm->chunk->symbols));
 }
 
 static Result VMMapGet(u32 num_args, VM *vm)

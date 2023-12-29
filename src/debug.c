@@ -627,6 +627,14 @@ void GeneratePrimitives(void)
   printf("  {/* unwrap */       0x%08X, &VMUnwrap},\n", SymbolFor("unwrap"));
   printf("  {/* unwrap! */      0x%08X, &VMForceUnwrap},\n", SymbolFor("unwrap!"));
   printf("  {/* ok? */          0x%08X, &VMOk},\n", SymbolFor("ok?"));
+  printf("  {/* float? */       0x%08X, &VMIsFloat},\n", SymbolFor("float?"));
+  printf("  {/* integer? */     0x%08X, &VMIsInt},\n", SymbolFor("integer?"));
+  printf("  {/* symbol? */      0x%08X, &VMIsSym},\n", SymbolFor("symbol?"));
+  printf("  {/* pair? */        0x%08X, &VMIsPair},\n", SymbolFor("pair?"));
+  printf("  {/* tuple? */       0x%08X, &VMIsTuple},\n", SymbolFor("tuple?"));
+  printf("  {/* binary? */      0x%08X, &VMIsBin},\n", SymbolFor("binary?"));
+  printf("  {/* map? */         0x%08X, &VMIsMap},\n", SymbolFor("map?"));
+  printf("  {/* function? */    0x%08X, &VMIsFunc},\n", SymbolFor("function?"));
   printf("};\n");
   printf("\n");
   printf("static PrimitiveDef device[] = {\n");
@@ -639,7 +647,6 @@ void GeneratePrimitives(void)
   printf("};\n");
   printf("\n");
   printf("static PrimitiveDef type[] = {\n");
-  printf("  {/* typeof */       0x%08X, &VMType},\n", SymbolFor("typeof"));
   printf("  {/* map-get */      0x%08X, &VMMapGet},\n", SymbolFor("map-get"));
   printf("  {/* map-set */      0x%08X, &VMMapSet},\n", SymbolFor("map-set"));
   printf("  {/* map-del */      0x%08X, &VMMapDelete},\n", SymbolFor("map-del"));

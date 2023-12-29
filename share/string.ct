@@ -18,11 +18,11 @@ end
 def slice(str, start, length) [str, start, length]
 def slice?(value) do
   cond do
-    Type.typeof(value) != :pair -> false
+    not pair?(value) -> false
     #value != 3 -> false
-    Type.typeof(value.0) != :binary -> false
-    Type.typeof(value.1) != :integer -> false
-    Type.typeof(value.2) != :integer -> false
+    not binary?(value.0) -> false
+    not integer?(value.1) -> false
+    not integer?(value.2) -> false
     value.1 < 0 -> false
     value.2 < 0 -> false
     value.1 + value.2 > #value.0 -> false
