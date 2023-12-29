@@ -36,6 +36,8 @@ static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
       return printf("b%d", RawVal(value));
     } else if (mem && IsMap(value, mem)) {
       return printf("m%d", RawVal(value));
+    } else if (mem && IsFunc(value, mem)) {
+      return printf("f%d", RawVal(value));
     } else {
       return printf("o%d", RawVal(value));
     }
@@ -573,6 +575,7 @@ void GenerateSymbols(void)
   printf("#define TupleType         0x%08X /* tuple */\n", SymbolFor("tuple"));
   printf("#define BinaryType        0x%08X /* binary */\n", SymbolFor("binary"));
   printf("#define MapType           0x%08X /* map */\n", SymbolFor("map"));
+  printf("#define AnyType           0x%08X /* any */\n", SymbolFor("any"));
 
   printf("/* primitives.h */\n");
   printf("#define KernelMod         0x%08X /* Kernel */\n", SymbolFor("Kernel"));
@@ -693,30 +696,30 @@ static char *NodeTypeName(NodeType type)
   case IDNode: return "ID";
   case NumNode: return "Num";
   case StringNode: return "String";
-  case NotEqNode: return "!=";
-  case RemNode: return "%";
-  case BitAndNode: return "&";
-  case MultiplyNode: return "*";
-  case AddNode: return "+";
-  case SubtractNode: return "-";
-  case DivideNode: return "/";
-  case LtNode: return "<";
-  case LShiftNode: return "<<";
-  case LtEqNode: return "<=";
-  case CatNode: return "<>";
-  case EqNode: return "==";
-  case GtNode: return ">";
-  case GtEqNode: return ">=";
-  case RShiftNode: return ">>";
-  case BitOrNode: return "^";
+  case NotEqNode: return "Not Equal";
+  case RemNode: return "Remainder";
+  case BitAndNode: return "Bit And";
+  case MultiplyNode: return "Multiply";
+  case AddNode: return "Add";
+  case SubtractNode: return "Subtract";
+  case DivideNode: return "Divide";
+  case LtNode: return "Less Than";
+  case LShiftNode: return "Shift Left";
+  case LtEqNode: return "Less Equal";
+  case CatNode: return "Concatenate";
+  case EqNode: return "Equal";
+  case GtNode: return "Greater Than";
+  case GtEqNode: return "Greater Equal";
+  case RShiftNode: return "Shift Right";
+  case BitOrNode: return "Bit Or";
   case AndNode: return "And";
   case InNode: return "In";
   case OrNode: return "Or";
-  case PairNode: return "|";
-  case LengthNode: return "#";
-  case NegativeNode: return "-";
+  case PairNode: return "Pair";
+  case LengthNode: return "Length";
+  case NegativeNode: return "Negative";
   case NotNode: return "Not";
-  case BitNotNode: return "~";
+  case BitNotNode: return "Bit Not";
   }
 }
 

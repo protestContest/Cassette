@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
   InitChunk(&chunk);
 
-  result = BuildProject(argc - opts.file_args, argv + opts.file_args, opts.stdlib_path, &chunk);
+  result = BuildProject(opts, &chunk);
 
   if (!result.ok) {
     PrintError(result);
@@ -65,14 +65,14 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  if (opts.trace) {
+  if (opts.debug) {
     Disassemble(&chunk);
   }
 
   /* Ok, time to run the code */
   Seed(Time());
   InitVM(&vm, &chunk);
-  if (opts.trace) vm.trace = true;
+  if (opts.debug) vm.trace = true;
   InitGraphics();
   MainLoop(CanvasUpdate, &vm);
 

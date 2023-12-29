@@ -361,12 +361,11 @@ static Result ParseRightAssoc(Node *prefix, Parser *p)
   Precedence prec = rules[token.type].prec;
   Result result;
 
-  NodePush(node, prefix);
-
   SkipNewlines(&p->lex);
   result = ParsePrec(prec, p);
   if (!result.ok) return result;
   NodePush(node, result.data);
+  NodePush(node, prefix);
 
   return ParseOk(node);
 }

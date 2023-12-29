@@ -81,8 +81,6 @@ void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
   u32 i;
   Mem new_mem;
 
-  /* printf("GARBAGE DAY!!!\n"); */
-
   InitMem(&new_mem, mem->capacity);
 
   for (i = 0; i < num_roots; i++) {
@@ -139,7 +137,7 @@ static Val ObjSize(Val value)
   } else if (IsBinaryHeader(value)) {
     return Max(2, NumBinCells(RawVal(value)) + 1);
   } else if (IsMapHeader(value)) {
-    return Max(2, PopCount(RawVal(value)) + 1);
+    return Max(2, (1 + PopCount(value & 0xFFFF)));
   } else if (IsFuncHeader(value)) {
     return 3;
   } else {

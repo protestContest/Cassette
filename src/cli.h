@@ -3,8 +3,9 @@
 #include "runtime/vm.h"
 
 typedef struct {
-  bool trace;
-  u32 file_args;
+  bool debug;
+  u32 num_files;
+  char **filenames;
   char *stdlib_path;
 } Options;
 

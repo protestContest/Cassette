@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 typedef struct {
-  Val entry;
+  Options opts;
   ObjVec modules;
   HashMap mod_map;
   SymbolTable symbols;
@@ -18,7 +18,7 @@ typedef struct {
   ObjVec build_list;
 } Project;
 
-static void InitProject(Project *project);
+static void InitProject(Project *project, Options opts);
 static void DestroyProject(Project *project);
 static Result ReadManifest(char *filename, Project *project);
 static Result ParseModules(Project *project);
@@ -26,20 +26,20 @@ static Result ScanDependencies(Project *project);
 static Result CompileProject(Chunk *chunk, Project *project);
 static void AddPrimitiveModules(Project *project);
 
-Result BuildProject(u32 num_files, char **filenames, char *stdlib, Chunk *chunk)
+Result BuildProject(Options opts, Chunk *chunk)
 {
   u32 i;
   Result result;
   Project project;
 
-  InitProject(&project);
+  InitProject(&project, opts);
 
-  for (i = 0; i < num_files; i++) {
-    ObjVecPush(&project.manifest, CopyStr(filenames[i], StrLen(filenames[i])));
+  for (i = 0; i < opts.num_files; i++) {
+    ObjVecPush(&project.manifest, CopyStr(opts.filenames[i], StrLen(opts.filenames[i])));
   }
 
-  if (stdlib) {
-    DirContents(stdlib, "ct", &project.manifest);
+  if (opts.stdlib_path) {
+    DirContents(opts.stdlib_path, "ct", &project.manifest);
   }
 
   result = ParseModules(&project);
@@ -51,9 +51,9 @@ Result BuildProject(u32 num_files, char **filenames, char *stdlib, Chunk *chunk)
   return result;
 }
 
-static void InitProject(Project *project)
+static void InitProject(Project *project, Options opts)
 {
-  project->entry = Nil;
+  project->opts = opts;
   InitVec((Vec*)&project->manifest, sizeof(char*), 8);
   InitHashMap(&project->mod_map);
   InitVec((Vec*)&project->modules, sizeof(Node*), 8);
@@ -76,7 +76,6 @@ static void DestroyProject(Project *project)
   }
   DestroyVec((Vec*)&project->manifest);
   DestroyVec((Vec*)&project->build_list);
-  project->entry = Nil;
 }
 
 /* parses each file and puts the result in a hashmap, keyed by module name (or
@@ -100,7 +99,9 @@ static Result ParseModules(Project *project)
     if (!result.ok) return result;
     Free(source);
 
-    /*PrintAST(result.data, &parser);*/
+    if (project->opts.debug) {
+      PrintAST(result.data, &parser);
+    }
 
     HashMapSet(&project->mod_map, ModuleName(result.data), project->modules.count);
     ObjVecPush(&project->modules, result.data);

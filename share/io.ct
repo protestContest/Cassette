@@ -17,7 +17,7 @@ def format(iodata) do
         acc <> Type.stuff(List.reverse(bytes))
       byte?(head(iolist)) ->
         stuff(tail(iolist), acc, head(iolist) | bytes)
-      binary?(head(iolist)) ->
+      Type.typeof(head(iolist)) == :binary ->
         stuff(tail(iolist), acc <> Type.stuff(List.reverse(bytes)) <> head(iolist), [])
       true ->
         panic!("Bad IO list")
@@ -36,21 +36,19 @@ end
 
 def inspect(value, depth) do
   def inspect-int(num, acc) do
-    if num == 0 do
-      if acc == nil do
-        $0
-      else
-        acc
+    cond do
+      num == 0 and acc == nil -> $0
+      num == 0 -> acc
+      true -> do
+        let d = $0 + num % 10
+        inspect-int(Type.trunc(num / 10), d | acc)
       end
-    else
-      let d = $0 + num % 10
-      inspect-int(Type.trunc(num / 10), d | acc)
     end
   end
 
   def inspect-num(num) do
     cond do
-      num < 0 -> ["-", inspect-num(0 - num)]
+      num < 0 -> ["-", inspect-num(-num)]
       Type.typeof(num) == :integer -> inspect-int(num, nil)
       true -> do
         let whole = inspect-int(Type.trunc(num), nil),

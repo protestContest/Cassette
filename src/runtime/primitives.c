@@ -11,6 +11,8 @@
 #include <math.h>
 #include <stdio.h>
 
+#define AnyType           0x7FD87D24 /* any */
+
 static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
 static Result VMPanic(u32 num_args, VM *vm);
@@ -111,7 +113,7 @@ static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
   u32 i;
   if (num_args != num_params) return RuntimeError("Arity error", vm);
   for (i = 0; i < num_params; i++) {
-    if (types[i] == Nil) continue;
+    if (types[i] == AnyType) continue;
     if (types[i] == NumType) {
       if (!IsInt(StackRef(vm, i)) && !IsFloat(StackRef(vm, i))) {
         return RuntimeError("Type error: Expected number", vm);
@@ -159,7 +161,7 @@ static Result VMTail(u32 num_args, VM *vm)
 static Result VMPanic(u32 num_args, VM *vm)
 {
   Val msg;
-  Val types[1] = {Nil};
+  Val types[1] = {AnyType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -174,7 +176,7 @@ static Result VMPanic(u32 num_args, VM *vm)
 static Result VMUnwrap(u32 num_args, VM *vm)
 {
   Val value, default_val;
-  Val types[2] = {PairType, Nil};
+  Val types[2] = {PairType, AnyType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -258,7 +260,7 @@ static Result VMClose(u32 num_args, VM *vm)
 
   id = RawInt(StackPop(vm));
 
-  if (id > ArrayCount(vm->devices) && (Bit(id) & vm->dev_map) == 0) {
+  if (id > ArrayCount(vm->devices) || (Bit(id) & vm->dev_map) == 0) {
     return OkError(ErrorResult("Not an open device", 0, 0), &vm->mem);
   }
 
@@ -274,14 +276,14 @@ static Result VMRead(u32 num_args, VM *vm)
 {
   u32 id;
   Val length;
-  Val types[2] = {Nil, IntType};
+  Val types[2] = {AnyType, IntType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
   length = StackPop(vm);
   id = RawInt(StackPop(vm));
 
-  if (id > ArrayCount(vm->devices) && (Bit(id) & vm->dev_map) == 0) {
+  if (id > ArrayCount(vm->devices) || (Bit(id) & vm->dev_map) == 0) {
     return OkError(ErrorResult("Not an open device", 0, 0), &vm->mem);
   }
 
@@ -295,14 +297,14 @@ static Result VMWrite(u32 num_args, VM *vm)
 {
   u32 id;
   Val data;
-  Val types[2] = {Nil, IntType};
+  Val types[2] = {AnyType, IntType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
   data = StackPop(vm);
   id = RawInt(StackPop(vm));
 
-  if (id > ArrayCount(vm->devices) && (Bit(id) & vm->dev_map) == 0) {
+  if (id > ArrayCount(vm->devices) || (Bit(id) & vm->dev_map) == 0) {
     return OkError(ErrorResult("Not an open device", 0, 0), &vm->mem);
   }
 
@@ -323,7 +325,7 @@ static Result VMGetParam(u32 num_args, VM *vm)
   key = StackPop(vm);
   id = RawInt(StackPop(vm));
 
-  if (id > ArrayCount(vm->devices) && (Bit(id) & vm->dev_map) == 0) {
+  if (id > ArrayCount(vm->devices) || (Bit(id) & vm->dev_map) == 0) {
     return OkError(ErrorResult("Not an open device", 0, 0), &vm->mem);
   }
 
@@ -337,7 +339,7 @@ static Result VMSetParam(u32 num_args, VM *vm)
 {
   u32 id;
   Val key, value;
-  Val types[3] = {Nil, SymType, IntType};
+  Val types[3] = {AnyType, SymType, IntType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -358,7 +360,7 @@ static Result VMSetParam(u32 num_args, VM *vm)
 static Result VMType(u32 num_args, VM *vm)
 {
   Val arg;
-  Val types[1] = {Nil};
+  Val types[1] = {AnyType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -379,7 +381,7 @@ static Result VMType(u32 num_args, VM *vm)
 static Result VMMapGet(u32 num_args, VM *vm)
 {
   Val key, map;
-  Val types[2] = {Nil, MapType};
+  Val types[2] = {AnyType, MapType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -391,7 +393,7 @@ static Result VMMapGet(u32 num_args, VM *vm)
 static Result VMMapSet(u32 num_args, VM *vm)
 {
   Val key, value, map;
-  Val types[3] = {Nil, Nil, MapType};
+  Val types[3] = {AnyType, AnyType, MapType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -404,7 +406,7 @@ static Result VMMapSet(u32 num_args, VM *vm)
 static Result VMMapDelete(u32 num_args, VM *vm)
 {
   Val key, map;
-  Val types[2] = {Nil, MapType};
+  Val types[2] = {AnyType, MapType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
@@ -501,7 +503,7 @@ static u32 CopyIOData(Val iodata, char *buf, u32 index, Mem *mem)
 static Result VMJoinBin(u32 num_args, VM *vm)
 {
   Val iodata, bin;
-  Val types[1] = {Nil};
+  Val types[1] = {AnyType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 

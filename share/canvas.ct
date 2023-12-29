@@ -30,6 +30,7 @@ def new(width, height) do
     pixel: \p, color -> Device.write(window, {:pixel, p.0, p.1, color}),
     text: \msg, p -> Device.write(window, {:text, msg, p.0, p.1}),
     blit: \img, p, size -> Device.write(window, {:blit, img, p.0, p.1, size.0, size.1}),
-    bezier: \a, b, c -> draw-bezier(a, b, c, window)
+    bezier: \a, b, c -> draw-bezier(a, b, c, window),
+    set-font: \font -> Device.set-param(window, :font, font)
   }
 end

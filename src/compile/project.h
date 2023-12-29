@@ -1,5 +1,6 @@
 #pragma once
 #include "result.h"
 #include "runtime/chunk.h"
+#include "cli.h"
 
-Result BuildProject(u32 num_files, char **filenames, char *stdlib, Chunk *chunk);
+Result BuildProject(Options opts, Chunk *chunk);

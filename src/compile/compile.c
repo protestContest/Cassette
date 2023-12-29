@@ -689,7 +689,7 @@ static Result CompileList(Node *node, bool linkage, Compiler *c)
   PushConst(Nil, c->pos, c->chunk);
 
   for (i = 0; i < NumNodeChildren(node); i++) {
-    Node *item = NodeChild(node, i);
+    Node *item = NodeChild(node, NumNodeChildren(node) - i - 1);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
     PushByte(OpPair, c->pos, c->chunk);
@@ -726,8 +726,8 @@ static Result CompileMap(Node *node, bool linkage, Compiler *c)
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
-  for (i = 0; i < num_items*2; i += 2) {
-    Node *value = NodeChild(node, i+1);
+  for (i = 0; i < num_items; i++) {
+    Node *value = NodeChild(node, (i*2)+1);
 
     Result result = CompileExpr(value, LinkNext, c);
     if (!result.ok) return result;
@@ -739,8 +739,8 @@ static Result CompileMap(Node *node, bool linkage, Compiler *c)
   PushConst(IntVal(num_items), c->pos, c->chunk);
   PushByte(OpTuple, c->pos, c->chunk);
 
-  for (i = 0; i < num_items*2; i += 2) {
-    Node *key = NodeChild(node, i);
+  for (i = 0; i < num_items; i++) {
+    Node *key = NodeChild(node, i*2);
 
     Result result = CompileExpr(key, LinkNext, c);
     if (!result.ok) return result;

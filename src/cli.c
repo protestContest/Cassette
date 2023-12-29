@@ -10,7 +10,7 @@ static void PrintSourceContext(u32 pos, char *source, u32 context);
 
 int Usage(void)
 {
-  printf("Usage: cassette [-t] entryScript [module1 ... moduleN]\n");
+  printf("Usage: cassette [-d] entryScript [module1 ... moduleN]\n");
   return 1;
 }
 
@@ -39,34 +39,53 @@ static char *GetStdLibPath(void)
   return 0;
 }
 
+static char *GetFontPath(void)
+{
+  char *path = GetEnv("CASSETTE_FONTS");
+  if (path && *path) return path;
+#ifdef FONT_PATH
+  if (FONT_PATH) return FONT_PATH;
+#endif
+  return "(unset)";
+}
+
 void Version(void)
 {
   printf("Cassette v1.0 2023-12\n");
   printf("  Standard library: %s\n", GetStdLibPath());
-#ifdef FONT_PATH
-  printf("  Font path: %s\n", FONT_PATH);
-#endif
+  printf("  Font path: %s\n", GetFontPath());
 }
 
 Options ParseOpts(u32 argc, char *argv[])
 {
   u32 i;
-  Options opts = {false, 1, 0};
+  u32 file_args = 1;
+  Options opts = {false, 0, 0, 0};
   for (i = 0; i < argc; i++) {
-    if (StrEq(argv[i], "-h")) {
-      Usage();
-      Exit();
-    }
-    if (StrEq(argv[i], "-v")) {
-      Version();
-      Exit();
-    }
-    if (StrEq(argv[i], "-t")) {
-      opts.trace = true;
-      opts.file_args++;
+    if (argv[i][0] == '-') {
+      switch (argv[i][1]) {
+      case 'h':
+        Usage();
+        Exit();
+        break;
+      case 'v':
+        Version();
+        Exit();
+        break;
+      case 'd':
+        opts.debug = true;
+        file_args++;
+        break;
+      default:
+        printf("Unknown flag: %s\n", argv[i]);
+        Usage();
+        Exit();
+      }
     }
   }
 
+  opts.num_files = argc - file_args;
+  opts.filenames = argv + file_args;
   opts.stdlib_path = GetStdLibPath();
   return opts;
 }

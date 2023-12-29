@@ -8,21 +8,21 @@ import System
 
 let width = 800,
     height = 480,
-    canvas = Canvas.new width height
+    canvas = Canvas.new(width, height)
 
-Canvas.text canvas "Lines!" 200 2
+Canvas.text(canvas, "Lines!", 200, 2)
 
-System.seed (System.time)
+System.seed(System.time())
 
-def (rand-line i) do
-  let x0 = Math.floor i * width / 100,
-      y0 = Math.rand-int 20 height / 10,
-      x1 = Math.rand-int 0 width,
-      y1 = Math.rand-int 20 height
-  Canvas.line canvas x0 y0 x1 y1
+def rand-line(i) do
+  let x0 = Math.floor(i * width / 100),
+      y0 = Math.rand-int(20, height / 10),
+      x1 = Math.rand-int(0, width),
+      y1 = Math.rand-int(20, height)
+  Canvas.line(canvas, x0, y0, x1, y1)
 end
 
-List.map (List.range 0 100) \i -> (rand-line i)
+List.map(\i -> rand-line(i), List.range(0, 100))
 ```
 
 <aside>

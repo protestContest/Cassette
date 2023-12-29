@@ -31,7 +31,7 @@ void FrameSet(Frame *frame, u32 index, Val value)
 i32 FrameFind(Frame *frame, Val value)
 {
   i32 index;
-  for (index = 0; index < (i32)frame->count; index++) {
+  for (index = (i32)frame->count - 1; index >= 0; index--) {
     if (frame->items[index] == value) return index;
   }
 

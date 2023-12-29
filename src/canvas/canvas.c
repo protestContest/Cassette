@@ -13,6 +13,8 @@
 #define FONT_PATH 0
 #endif
 
+static char *font_path = FONT_PATH;
+
 typedef struct {
   SDL_Window *window;
   SDL_Surface *surface;
@@ -31,25 +33,33 @@ void InitGraphics(void)
     exit(1);
   }
 
+  font_path = GetEnv("CASSETTE_FONTS");
+  if (!font_path || !*font_path) font_path = FONT_PATH;
+
   TTF_Init();
 }
 
 bool SetFont(Canvas *canvas, char *font_file, u32 size)
 {
   TTF_Font *font;
-  char *new_filename;
+  char *filename;
 
-  if (font_file[0] != '/' && FONT_PATH) {
-    new_filename = JoinPath(FONT_PATH, font_file);
+  if (font_file[0] != '/' && font_path) {
+    filename = JoinPath(font_path, font_file);
+    font = TTF_OpenFont(filename, size);
+    if (!font) {
+      filename = JoinPath(FONT_PATH, font_file);
+      font = TTF_OpenFont(filename, size);
+    }
   } else {
-    new_filename = CopyStr(font_file, StrLen(font_file));
+    filename = CopyStr(font_file, StrLen(font_file));
+    font = TTF_OpenFont(filename, size);
   }
 
-  font = TTF_OpenFont(new_filename, size);
   if (font) {
     if (canvas->font_filename) Free(canvas->font_filename);
     if (canvas->font) TTF_CloseFont(canvas->font);
-    canvas->font_filename = new_filename;
+    canvas->font_filename = filename;
     canvas->font_size = size;
     canvas->font = font;
     return true;

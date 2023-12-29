@@ -128,3 +128,9 @@ Val MapDelete(Val map, Val key, Mem *mem);
 u32 MapCount(Val map, Mem *mem);
 bool MapContains(Val map, Val key, Mem *mem);
 bool MapIsSubset(Val v1, Val v2, Mem *mem);
+
+/* func.c */
+Val MakeFunction(Val arity, Val position, Val env, Mem *mem);
+#define FuncArity(val, mem)        RawVal(MemRef(mem, RawVal(val)))
+#define FuncPos(val, mem)          MemRef(mem, RawVal(val) + 1)
+#define FuncEnv(val, mem)          MemRef(mem, RawVal(val) + 2)

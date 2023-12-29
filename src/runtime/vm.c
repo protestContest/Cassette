@@ -18,8 +18,9 @@ void InitVM(VM *vm, Chunk *chunk)
 {
   vm->pc = 0;
   vm->link = 0;
-  vm->chunk = chunk;
   vm->trace = false;
+  vm->chunk = chunk;
+  vm->dev_map = 0;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
   InitMem(&vm->mem, 1024);
 
@@ -354,8 +355,9 @@ static Result RunInstruction(VM *vm)
     StackPush(vm, MakeMap(&vm->mem));
     for (i = 0; i < TupleCount(StackRef(vm, 1), &vm->mem); i++) {
       Val key = TupleGet(StackRef(vm, 1), i, &vm->mem);
-      Val value = TupleGet(StackRef(vm, 2), i, &vm->mem);
+      Val value;
       MaybeGC(vm, MapSetSize(StackRef(vm, 0), key, &vm->mem));
+      value = TupleGet(StackRef(vm, 2), i, &vm->mem);
       StackRef(vm, 0) = MapSet(StackRef(vm, 0), key, value, &vm->mem);
     }
     StackRef(vm, 2) =  StackRef(vm, 0);
@@ -485,12 +487,8 @@ static Result RunInstruction(VM *vm)
   case OpLambda:
     if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
     if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
-    MaybeGC(vm, 8);
-    StackRef(vm, 1) =
-      Pair(Function,
-      Pair(StackRef(vm, 1),
-      Pair(IntVal(vm->pc + RawInt(StackRef(vm, 0))),
-      Pair(Env(vm), Nil, &vm->mem), &vm->mem), &vm->mem), &vm->mem);
+    MaybeGC(vm, 3);
+    StackRef(vm, 1) = MakeFunction(StackRef(vm, 1), IntVal(vm->pc + RawInt(StackRef(vm, 0))), Env(vm), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
@@ -512,16 +510,16 @@ static Result RunInstruction(VM *vm)
   case OpApply: {
     Val operator = StackPop(vm);
     i32 num_args = ChunkRef(vm->chunk, vm->pc+1);
-    if (IsFunction(operator, &vm->mem)) {
+    if (IsFunc(operator, &vm->mem)) {
       /* normal function */
-      Val arity = ListGet(operator, 1, &vm->mem);
+      Val arity = FuncArity(operator, &vm->mem);
       if (arity != Nil && num_args != RawInt(arity)) {
         char msg[255];
         snprintf(msg, 255, "Wrong number of arguments: Expected %d", RawInt(arity));
         return RuntimeError(msg, vm);
       }
-      vm->pc = RawInt(ListGet(operator, 2, &vm->mem));
-      Env(vm) = ListGet(operator, 3, &vm->mem);
+      vm->pc = RawInt(FuncPos(operator, &vm->mem));
+      Env(vm) = FuncEnv(operator, &vm->mem);
     } else if (IsPrimitive(operator, &vm->mem)) {
       /* apply primitive */
       Result result;
@@ -581,15 +579,9 @@ static Val StackTrace(VM *vm)
   char *filename;
   Val item;
 
-  /*
-  file_pos = GetSourcePosition(vm->pc, vm->chunk);
-  filename = ChunkFile(vm->pc, vm->chunk);
-  item = Pair(SymbolFrom(filename, StrLen(filename)), IntVal(file_pos), &vm->mem);
-  trace = Pair(item, trace, &vm->mem);
-  */
-
   while (link > 0) {
     u32 index = RawInt(VecRef(&vm->stack, link - 2));
+    index -= 2; /* this hack depends on the compiler always linking to a point just after an apply op */
     file_pos = GetSourcePosition(index, vm->chunk);
     filename = ChunkFile(index, vm->chunk);
     item = Pair(SymbolFrom(filename, StrLen(filename)), IntVal(file_pos), &vm->mem);
@@ -623,6 +615,9 @@ bool AnyWindowsOpen(VM *vm)
 static void MaybeGC(VM *vm, u32 num)
 {
   if (!CheckMem(&vm->mem, num)) {
+    if (vm->trace) {
+      printf("GARBAGE DAY!!!\n");
+    }
     CollectGarbage(vm->stack.items, vm->stack.count, &vm->mem);
   }
 }
