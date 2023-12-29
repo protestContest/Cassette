@@ -8,6 +8,7 @@ Val MakeBinary(u32 size, Mem *mem)
   u32 cells = NumBinCells(size);
   u32 i;
 
+  if (!CheckMem(mem, cells+1)) CollectGarbage(mem);
   Assert(CheckMem(mem, cells + 1));
 
   binary = ObjVal(MemNext(mem));
@@ -58,7 +59,11 @@ Val BinaryCat(Val binary1, Val binary2, Mem *mem)
   if (len1 == 0) return binary2;
   if (len2 == 0) return binary1;
 
+  PushRoot(mem, binary1);
+  PushRoot(mem, binary2);
   result = MakeBinary(len1+len2, mem);
+  binary2 = PopRoot(mem);
+  binary1 = PopRoot(mem);
 
   data = BinaryData(result, mem);
   Copy(BinaryData(binary1, mem), data, len1);

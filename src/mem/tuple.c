@@ -6,6 +6,7 @@ Val MakeTuple(u32 length, Mem *mem)
   u32 i;
   Val tuple;
 
+  if (!CheckMem(mem, length+1)) CollectGarbage(mem);
   Assert(CheckMem(mem, length + 1));
 
   tuple = ObjVal(MemNext(mem));
@@ -38,7 +39,13 @@ Val TupleCat(Val tuple1, Val tuple2, Mem *mem)
   u32 len1, len2, i;
   len1 = TupleCount(tuple1, mem);
   len2 = TupleCount(tuple2, mem);
+
+  PushRoot(mem, tuple1);
+  PushRoot(mem, tuple2);
   result = MakeTuple(len1+len2, mem);
+  tuple2 = PopRoot(mem);
+  tuple1 = PopRoot(mem);
+
   for (i = 0; i < len1; i++) {
     TupleSet(result, i, TupleGet(tuple1, i, mem), mem);
   }

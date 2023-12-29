@@ -4,7 +4,16 @@
 Val Pair(Val head, Val tail, Mem *mem)
 {
   Val pair;
+
+  if (!CheckMem(mem, 2)) {
+    PushRoot(mem, head);
+    PushRoot(mem, tail);
+    CollectGarbage(mem);
+    tail = PopRoot(mem);
+    head = PopRoot(mem);
+  }
   Assert(CheckMem(mem, 2));
+
   pair = PairVal(MemNext(mem));
   PushMem(mem, head);
   PushMem(mem, tail);
@@ -42,15 +51,18 @@ bool ListContains(Val list, Val item, Mem *mem)
 
 Val ListCat(Val list1, Val list2, Mem *mem)
 {
+  PushRoot(mem, list2);
   list1 = ReverseList(list1, Nil, mem);
+  list2 = PopRoot(mem);
   return ReverseList(list1, list2, mem);
 }
 
 Val ReverseList(Val list, Val tail, Mem *mem)
 {
   while (list != Nil) {
+    PushRoot(mem, Tail(list, mem));
     tail = Pair(Head(list, mem), tail, mem);
-    list = Tail(list, mem);
+    list = PopRoot(mem);
   }
   return tail;
 }

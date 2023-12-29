@@ -21,11 +21,12 @@ float RawFloat(Val value)
   return convert.as_f;
 }
 
-void InitMem(Mem *mem, u32 capacity)
+void InitMem(Mem *mem, u32 capacity, IntVec *roots)
 {
   InitVec((Vec*)mem, sizeof(Val), capacity);
   /* Nil is defined as the first pair in memory, which references itself */
   Pair(Nil, Nil, mem);
+  mem->roots = roots;
 }
 
 void PushMem(Mem *mem, Val value)
@@ -76,15 +77,18 @@ bool ValEqual(Val v1, Val v2, Mem *mem)
 /* Cheney's algorithm */
 static Val CopyValue(Val value, Mem *from, Mem *to);
 static Val ObjSize(Val value);
-void CollectGarbage(Val *roots, u32 num_roots, Mem *mem)
+
+void CollectGarbage(Mem *mem)
 {
   u32 i;
   Mem new_mem;
 
-  InitMem(&new_mem, mem->capacity);
+  /* printf("GARBAGE DAY!!!\n"); */
 
-  for (i = 0; i < num_roots; i++) {
-    roots[i] = CopyValue(roots[i], mem, &new_mem);
+  InitMem(&new_mem, mem->capacity, mem->roots);
+
+  for (i = 0; i < mem->roots->count; i++) {
+    VecRef(mem->roots, i) = CopyValue(VecRef(mem->roots, i), mem, &new_mem);
   }
 
   i = 2; /* Skip nil */

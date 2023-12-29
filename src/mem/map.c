@@ -24,6 +24,7 @@ Val MakeMap(Mem *mem)
 {
   Val map;
 
+  if (!CheckMem(mem, 2)) CollectGarbage(mem);
   Assert(CheckMem(mem, 2));
 
   map = ObjVal(MemNext(mem));
@@ -34,8 +35,11 @@ Val MakeMap(Mem *mem)
 
 Val MapKeys(Val map, Val keys, Mem *mem)
 {
+  u32 num_keys = MapCount(map, mem);
   u32 num_children = NodeCount(map, mem);
   u32 i;
+
+  if (!CheckMem(mem, 2*num_keys)) CollectGarbage(mem);
 
   for (i = 0; i < num_children; i++) {
     Val node = NodeRef(map, i, mem);
@@ -51,8 +55,11 @@ Val MapKeys(Val map, Val keys, Mem *mem)
 
 Val MapValues(Val map, Val values, Mem *mem)
 {
+  u32 num_vals = MapCount(map, mem);
   u32 num_children = NodeCount(map, mem);
   u32 i;
+
+  if (!CheckMem(mem, 2*num_vals)) CollectGarbage(mem);
 
   for (i = 0; i < num_children; i++) {
     Val node = NodeRef(map, i, mem);
@@ -101,6 +108,15 @@ Val MapSetSize(Val map, Val key, Mem *mem)
 Val MapSet(Val map, Val key, Val value, Mem *mem)
 {
   u32 needed = NodeSetSize(map, key, 0, mem);
+  if (!CheckMem(mem, needed)) {
+    PushRoot(mem, map);
+    PushRoot(mem, key);
+    PushRoot(mem, value);
+    CollectGarbage(mem);
+    value = PopRoot(mem);
+    key = PopRoot(mem);
+    map = PopRoot(mem);
+  }
   Assert(CheckMem(mem, needed));
   return NodeSet(map, key, value, 0, mem);
 }
@@ -207,7 +223,9 @@ static Val NodeSet(Val node, Val key, Val value, u32 level, Mem *mem)
     Val child = NodeRef(node, index, mem);
     if (!IsPair(child)) {
       /* slot is a sub-map - recurse down a level */
+      PushRoot(mem, node);
       new_child = NodeSet(child, key, value, level + 1, mem);
+      node = PopRoot(mem);
       return NodeUpdate(node, slot, new_child, mem);
     } else if (key == Head(child, mem)) {
       /* key match, easy insert */
@@ -216,7 +234,9 @@ static Val NodeSet(Val node, Val key, Val value, u32 level, Mem *mem)
     } else {
       /* collision with another leaf - create a new internal node */
       pair = Pair(key, value, mem);
+      PushRoot(mem, node);
       new_child = MakeInternalNode(child, pair, level + 1, mem);
+      node = PopRoot(mem);
       return NodeUpdate(node, slot, new_child, mem);
     }
   }
@@ -289,12 +309,19 @@ static Val NodeUpdate(Val node, u32 slot, Val child, Mem *mem)
   if (child == Nil) {
     if (!replace) return node;
     if (num_children == 2) return NodeRef(node, !index, mem);
+    PushRoot(mem, node);
     new_node = MakeMapNode(MapHeader(header & ~Bit(slot)), mem);
+    node = PopRoot(mem);
     for (i = 0; i < num_children; i++) {
       NodeRef(new_node, i, mem) = NodeRef(node, i, mem);
     }
   } else {
+    PushRoot(mem, node);
+    PushRoot(mem, child);
     new_node = MakeMapNode(MapHeader(header | Bit(slot)), mem);
+    child = PopRoot(mem);
+    node = PopRoot(mem);
+
     for (i = 0; i < index; i++) {
       NodeRef(new_node, i, mem) = NodeRef(node, i, mem);
     }
@@ -317,7 +344,13 @@ static Val MakeInternalNode(Val child1, Val child2, u32 level, Mem *mem)
   Val key2 = Head(child2, mem);
   u32 hash2 = Hash(&key2, sizeof(Val));
   u32 slot2 = SlotNum(hash2, level);
-  Val node = MakeMapNode(MapHeader(Bit(slot1) | Bit(slot2)), mem);
+  Val node;
+
+  PushRoot(mem, child1);
+  PushRoot(mem, child2);
+  node = MakeMapNode(MapHeader(Bit(slot1) | Bit(slot2)), mem);
+  child2 = PopRoot(mem);
+  child1 = PopRoot(mem);
 
   if (slot1 == slot2) {
     NodeRef(node, 0, mem) = MakeInternalNode(child1, child2, level+1, mem);
@@ -337,6 +370,7 @@ static Val MakeMapNode(u32 header, Mem *mem)
   u32 num_children = Max(1, HeaderCount(header));
   u32 i;
 
+  if (!CheckMem(mem, num_children+1)) CollectGarbage(mem);
   Assert(CheckMem(mem, num_children+1));
 
   node = ObjVal(MemNext(mem));

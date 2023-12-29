@@ -72,18 +72,21 @@ typedef struct {
   u32 capacity;
   u32 count;
   Val *items;
+  IntVec *roots;
 } Mem;
 
-void InitMem(Mem *mem, u32 capacity);
+void InitMem(Mem *mem, u32 capacity, IntVec *roots);
 #define DestroyMem(mem)           DestroyVec((Vec*)mem)
 #define ResizeMem(mem, capacity)  ResizeVec((Vec*)(mem), sizeof(Val), capacity)
 #define MemRef(mem, v)            ((mem)->items[v])
 #define CheckMem(mem, size)       ((mem)->count + (size) <= (mem)->capacity)
 #define MemCapacity(mem)          ((mem)->capacity)
 #define MemNext(mem)              ((mem)->count)
+#define PushRoot(mem, value)      IntVecPush((mem)->roots, value)
+#define PopRoot(mem)              VecPop((mem)->roots)
 void PushMem(Mem *mem, Val value);
 bool ValEqual(Val v1, Val v2, Mem *mem);
-void CollectGarbage(Val *roots, u32 num_roots, Mem *mem);
+void CollectGarbage(Mem *mem);
 
 #define IsTuple(val, mem)         (IsObj(val) && IsTupleHeader(MemRef(mem, RawVal(val))))
 #define IsBinary(val, mem)        (IsObj(val) && IsBinaryHeader(MemRef(mem, RawVal(val))))
