@@ -1,20 +1,22 @@
-import Canvas
-import Math
-import IO
 import List
+import Math
+import Canvas
+import System
 
-let width = 600,
-    height = 400,
+let width = 800,
+    height = 480,
     canvas = Canvas.new(width, height)
 
-def loop(x, y, amp, freq) do
-  if x >= width do
-    :done
-  else
-    let y1 = amp * Math.sin(freq * x + 1)
-    canvas.line({x, y + height / 2}, {x + 1, y1 + height / 2})
-    loop(x + 1, y1, amp, freq)
-  end
+canvas.text("Lines!", {200, 2})
+
+System.seed(System.time())
+
+def rand-line(i) do
+  let x0 = Math.floor(i * width / 100),
+      y0 = Math.rand-int(20, height / 10),
+      x1 = Math.rand-int(0, width),
+      y1 = Math.rand-int(20, height)
+  canvas.line({x0, y0}, {x1, y1})
 end
 
-loop(0, 100*Math.sin(0), 100, 0.01)
+List.map(\i -> rand-line(i), List.range(0, 100))

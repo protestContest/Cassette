@@ -4,6 +4,7 @@
 #include "univ/math.h"
 #include "compile/lex.h"
 #include "runtime/vm.h"
+#include "version.h"
 #include <stdio.h>
 
 static void PrintSourceContext(u32 pos, char *source, u32 context);
@@ -51,7 +52,7 @@ static char *GetFontPath(void)
 
 void Version(void)
 {
-  printf("Cassette v1.0 2023-12\n");
+  printf("Cassette v%s\n", VERSION);
   printf("  Standard library: %s\n", GetStdLibPath());
   printf("  Font path: %s\n", GetFontPath());
 }
