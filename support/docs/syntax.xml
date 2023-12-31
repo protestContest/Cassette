@@ -7,14 +7,10 @@
 
   <highlighting>
     <contexts>
-      <context name="stmt" lineEndContext="#pop">
-        <DetectChar char=";" attribute="Comment" context="comment" />
+      <context name="script">
         <WordDetect String="module" attribute="Control" context="module" />
         <WordDetect String="import" attribute="Control" context="import" />
-        <WordDetect String="let" attribute="Control" context="assigns" />
-        <RegExpr String="def\s+\(([a-zA-Z_]\w*\s*)+\s*\)" lookAhead="true" context="define" />
-        <DetectChar char="," context="#pop" />
-        <IncludeRules context="call" />
+        <IncludeRules context="stmt" />
       </context>
 
       <context name="module" lineEndContext="#pop">
@@ -34,64 +30,60 @@
         <DetectIdentifier attribute="Definition" />
       </context>
 
-      <context name="call" lineEndContext="#pop">
+      <context name="stmt" lineEndContext="#pop">
         <DetectChar char=";" attribute="Comment" context="comment" />
-        <DetectChar char=")" context="#pop" />
-        <DetectChar char="," lookAhead="true" context="#pop" />
-        <WordDetect String="end" lookAhead="true" context="#pop" />
-        <WordDetect String="do" lookAhead="true" context="args" />
-        <WordDetect String="if" lookAhead="true" context="args" />
-        <WordDetect String="cond do" lookAhead="true" context="args" />
-        <WordDetect String="not" lookAhead="true" context="args" />
-        <WordDetect String="and" lookAhead="true" context="args" />
-        <WordDetect String="or" lookAhead="true" context="args" />
-        <WordDetect String="in" lookAhead="true" context="args" />
-        <RegExpr String="[a-zA-Z_]\S*\s*(\sand\s|\sor\s|\sin\s|\s+[+*/%#~&gt;&lt;=&amp;^|!]\s+)" lookAhead="true" context="args" />
-        <RegExpr String="[a-zA-Z_]\S*(\.[a-zA-Z_]\w*)?" attribute="Variable" context="args" />
-        <IncludeRules context="args" />
-      </context>
-
-      <context name="args" lineEndContext="#pop">
-        <DetectChar char=";" attribute="Comment" context="comment" />
-        <DetectChar char="}" lookAhead="true" context="#pop" />
-        <DetectChar char="]" lookAhead="true" context="#pop" />
-        <DetectChar char=")" lookAhead="true" context="#pop" />
-        <WordDetect String="else" lookAhead="true" context="#pop" />
-        <WordDetect String="end" lookAhead="true" context="#pop" />
-        <WordDetect String="not" attribute="Control" />
-        <WordDetect String="and" attribute="Control" />
-        <WordDetect String="or" attribute="Control" />
-        <WordDetect String="in" attribute="Control" />
-        <RegExpr String="^(==|!=|&lt;=|&gt;=|&lt;&gt;|&lt;&lt;|&gt;&gt;|->|[-+*/%~#&gt;&lt;=|&amp;^])" attribute="Control" />
-        <RegExpr String="\s(==|!=|&lt;=|&gt;=|&lt;&gt;|&lt;&lt;|&gt;&gt;|->|[-+*/%~#&gt;&lt;=|&amp;^])" attribute="Control" />
-        <DetectChar char="," lookAhead="true" context="#pop" />
-        <DetectChar char="\" attribute="Control" context="lambda" />
-        <DetectChar char="{" context="tuple" />
-        <DetectChar char="[" context="list" />
-        <DetectChar char="(" context="call" />
-        <WordDetect String="do" attribute="Control" context="block" />
-        <WordDetect String="if" attribute="Control" context="if" />
-        <RegExpr String="cond\s+do" attribute="Control" context="clauses" />
-        <IncludeRules context="value" />
+        <WordDetect String="let" attribute="Control" context="assigns" />
+        <RegExpr String="def" attribute="Control" context="define" />
+        <DetectChar char="," context="#pop" />
+        <IncludeRules context="expr" />
       </context>
 
       <context name="assigns" lineEndContext="#pop">
         <DetectChar char=";" attribute="Comment" context="comment" />
         <RegExpr String="[a-zA-Z_]\S*" attribute="Definition" />
         <RegExpr String=",\s*$" context="assigns" />
-        <DetectChar char="=" context="call" />
+        <DetectChar char="=" context="expr" />
       </context>
 
       <context name="define">
         <DetectChar char=";" attribute="Comment" context="comment" />
-        <WordDetect String="def" attribute="Control" />
-        <DetectIdentifier attribute="Variable" context="#pop!defargs" />
+        <RegExpr String="[a-zA-Z_][^,\s()]*(?=\()" attribute="Variable" context="#pop!params" />
       </context>
 
-      <context name="defargs">
+      <context name="params">
         <DetectChar char=";" attribute="Comment" context="comment" />
-        <DetectChar char=")" context="#pop!args" />
-        <DetectIdentifier attribute="Definition" />
+        <DetectChar char=")" context="#pop!expr" />
+        <RegExpr String="[a-zA-Z_][^,\s()]*" attribute="Definition" />
+      </context>
+
+      <context name="expr" lineEndContext="#pop">
+        <DetectChar char=";" attribute="Comment" context="comment" />
+        <DetectChar char="}" lookAhead="true" context="#pop" />
+        <DetectChar char="]" lookAhead="true" context="#pop" />
+        <DetectChar char=")" lookAhead="true" context="#pop" />
+        <DetectChar char="," lookAhead="true" context="#pop" />
+        <WordDetect String="else" lookAhead="true" context="#pop" />
+        <WordDetect String="end" lookAhead="true" context="#pop" />
+
+        <DetectChar char="\" attribute="Control" context="lambda" />
+        <DetectChar char="{" context="tuple" />
+        <DetectChar char="[" context="list" />
+        <DetectChar char="(" context="group" />
+
+        <WordDetect String="do" attribute="Control" context="block" />
+        <WordDetect String="if" attribute="Control" context="if" />
+        <RegExpr String="cond\s+do" attribute="Control" context="clauses" />
+
+        <WordDetect String="not" attribute="Control" />
+        <WordDetect String="and" attribute="Control" />
+        <WordDetect String="or" attribute="Control" />
+        <WordDetect String="in" attribute="Control" />
+
+        <RegExpr String="^(==|!=|&lt;=|&gt;=|&lt;&gt;|&lt;&lt;|&gt;&gt;|->|[-+*/%~#&gt;&lt;=|&amp;^])" attribute="Control" />
+        <RegExpr String="\s(==|!=|&lt;=|&gt;=|&lt;&gt;|&lt;&lt;|&gt;&gt;|->|[-+*/%~#&gt;&lt;=|&amp;^])" attribute="Control" />
+
+        <RegExpr String="[a-zA-Z_][^,\s()]*(?=\()" attribute="Variable" context="args" />
+        <IncludeRules context="value" />
       </context>
 
       <context name="block">
@@ -104,14 +96,14 @@
       <context name="if">
         <DetectChar char=";" attribute="Comment" context="comment" />
         <WordDetect String="do" attribute="Control" context="#pop!block" />
-        <IncludeRules context="args" />
+        <IncludeRules context="expr" />
       </context>
 
       <context name="clauses">
         <DetectChar char=";" attribute="Comment" context="comment" />
         <WordDetect String="end" attribute="Control" context="#pop" />
-        <RegExpr String="->" attribute="Control" context="call" />
-        <IncludeRules context="args" />
+        <RegExpr String="->" attribute="Control" context="expr" />
+        <IncludeRules context="expr" />
       </context>
 
       <context name="tuple">
@@ -119,20 +111,34 @@
         <DetectChar char="}" context="#pop" />
         <RegExpr String="[a-zA-Z_]\w*:" attribute="Symbol" />
         <DetectChar char="," context="#stay" />
-        <IncludeRules context="stmt" />
+        <IncludeRules context="expr" />
       </context>
 
       <context name="list">
         <DetectChar char=";" attribute="Comment" context="comment" />
         <DetectChar char="]" context="#pop" />
         <DetectChar char="," context="#stay" />
-        <IncludeRules context="stmt" />
+        <IncludeRules context="expr" />
       </context>
 
       <context name="lambda">
         <DetectChar char=";" attribute="Comment" context="comment" />
         <RegExpr String="->" attribute="Control" context="#pop" />
         <DetectIdentifier attribute="Definition" />
+      </context>
+
+      <context name="group">
+        <DetectChar char=";" attribute="Comment" context="comment" />
+        <DetectChar char=")" attribute="Definition" context="#pop" />
+        <IncludeRules context="expr" />
+      </context>
+
+      <context name="args">
+        <DetectChar char=";" attribute="Comment" context="comment" />
+        <DetectChar char="(" />
+        <DetectChar char=")" context="#pop" />
+        <DetectChar char="," context="#stay" />
+        <IncludeRules context="expr" />
       </context>
 
       <context name="value">

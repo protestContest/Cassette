@@ -43,6 +43,15 @@ Here are some of the design goals of Cassette:
 - DIY over standard library
 - Small implementation
 
+Here are some things not yet implemented:
+
+- Bignum support
+- Generational garbage collection
+- Simpler (faster?) VM
+- Support other backends (WebAssembly, LLVM)
+- Destructuring assignment (v2?)
+- Pattern-based function dispatch (v2?)
+
 ## [Getting Started](#getting-started)
 
 This project requires a C build toolchain. You may need to install `make` and `clang`. The source code can be found [here](https://git.sr.ht/~zjm/Cassette).
@@ -176,9 +185,9 @@ Variables are defined with `let`. A `do` block can introduce a new scope, and ca
 ```cassette
 let x = 1, y = 2, x-y = 3
 
-print x - y       ; prints "-1"
-print x-y         ; prints "3"
-print x -y        ; error: tries to call function "x" with argument "-y"
+print(x - y)     ; prints "-1"
+print(x-y)       ; prints "3"
+print(x -y)      ; error: tries to call function "x" with argument "-y"
 
 do
   let y = 3, z = 4
@@ -199,7 +208,7 @@ Cassette has `if`/`else` blocks and `cond` blocks for conditionals. A `cond` blo
 
 ```cassette
 if x == 0 do
-  IO.print "Uh oh!"
+  IO.print("Uh oh!")
   :error
 else
   :ok
@@ -214,23 +223,23 @@ end
 </div>
 
 <div class="columns">
-Lambdas can be created with a backslash, argument list, and an arrow. The `def` syntax is syntactic sugar for defining a lambda as a variable, with the distinction that `def`-declared functions have block scope, so they can be called recursively. Functions are called when placed between parentheses. In blocks, functions with one or more arguments may omit parentheses.
+Lambdas can be created with a backslash, argument list, and an arrow. The `def` syntax is syntactic sugar for defining a lambda as a variable, with the distinction that `def`-declared functions have block scope, so they can be called recursively. Functions are called with parentheses.
 
 ```cassette
 let foo = \x -> x + 1
-foo 3             ; => 4
+foo(3)            ; => 4
 
 ; equivalent, except for scope:
 let foo = \x -> x + 1
-def (foo x) x + 1
+def foo(x) x + 1
 
 ; these produce an error, since `b` isn't defined when the body of `a` is compiled
 let a = \x -> (b x * 3),
     b = \x -> (a x / 2)
 
 ; these are ok, since `a` and `b` are in scope from the beginning of the block
-def (a x) (b x * 3)
-def (b x) (a x / 2)
+def a(x) b(x * 3)
+def b(x) a(x / 2)
 ```
 </div>
 
@@ -243,14 +252,14 @@ Cassette programs can be split up into different modules, one per file. A manife
 module Foo
 
 let pi = 3.14
-def (bar x) x + 1
+def bar(x) x + 1
 ```
 
 ```cassette
 ; file "main.ct"
 import Foo        ; imported as a map called `Foo`
 
-Foo.bar 3         ; => 4
+Foo.bar(3)        ; => 4
 Foo.pi            ; => 3.14
 ```
 
@@ -258,17 +267,17 @@ Foo.pi            ; => 3.14
 ; alternative "main.ct"
 import Foo as F   ; imported as a map called `F`
 
-def (bar x) x + 8
+def bar(x) x + 8
 
-bar 3             ; => 11
-F.bar 3           ; => 4
+bar(3)            ; => 11
+F.bar(3)          ; => 4
 ```
 
 ```cassette
 ; alternative "main.ct"
 import Foo as *   ; imported directly into current scope
 
-bar 3             ; => 4
+bar(3)            ; => 4
 pi                ; => 3.14
 ```
 </div>
