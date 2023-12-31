@@ -104,6 +104,12 @@ void CollectGarbage(Mem *mem)
 
   Free(mem->items);
   *mem = new_mem;
+
+  if (mem->count > 0.75*mem->capacity) {
+    ResizeMem(mem, 2*mem->capacity);
+  } else if (mem->count < 0.25*mem->capacity) {
+    ResizeMem(mem, 0.5*mem->capacity);
+  }
 }
 
 static Val CopyValue(Val value, Mem *from, Mem *to)

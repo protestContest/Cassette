@@ -127,6 +127,14 @@ static Result RunInstruction(VM *vm)
     StackPush(vm, ChunkConst(vm->chunk, vm->pc+1));
     vm->pc += OpLength(op);
     break;
+  case OpConst2: {
+    u32 index;
+    if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    index = (ChunkRef(vm->chunk, vm->pc+1) << 8) | ChunkRef(vm->chunk, vm->pc+2);
+    StackPush(vm, vm->chunk->constants[index]);
+    vm->pc += OpLength(op);
+    break;
+  }
   case OpInt:
     if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
     StackPush(vm, IntVal(ChunkRef(vm->chunk, vm->pc+1)));
@@ -571,7 +579,7 @@ static Val StackTrace(VM *vm)
     filename = ChunkFile(index, vm->chunk);
 
     if (!CheckMem(&vm->mem, 4)) {
-      ResizeMem(&vm->mem, vm->mem.capacity*2);
+      ResizeMem(&vm->mem, MemCapacity(&vm->mem)*2);
     }
     item = Pair(SymbolFrom(filename, StrLen(filename)), IntVal(file_pos), &vm->mem);
     trace = Pair(item, trace, &vm->mem);

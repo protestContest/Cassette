@@ -158,8 +158,10 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   /* create lambda for module */
   PushConst(IntVal(0), c->pos, c->chunk);
   link = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpNoop, c->pos, c->chunk);
   PushByte(OpLambda, c->pos, c->chunk);
   jump = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpNoop, c->pos, c->chunk);
   PushByte(OpJump, c->pos, c->chunk);
   PatchConst(c->chunk, link);
 
@@ -312,6 +314,7 @@ static Result CompileImports(Node *imports, Compiler *c)
 
     /* call module function */
     link = PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpNoop, c->pos, c->chunk);
     PushByte(OpLink, c->pos, c->chunk);
     PushConst(IntVal(import_def), c->pos, c->chunk);
     PushByte(OpLookup, c->pos, c->chunk);
@@ -490,6 +493,7 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
 
   if (linkage != LinkReturn) {
     patch = PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpNoop, c->pos, c->chunk);
     PushByte(OpLink, c->pos, c->chunk);
   }
 
@@ -524,8 +528,10 @@ static Result CompileLambda(Node *node, bool linkage, Compiler *c)
   /* create lambda */
   PushConst(IntVal(num_params), c->pos, c->chunk);
   link = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpNoop, c->pos, c->chunk);
   PushByte(OpLambda, c->pos, c->chunk);
   jump = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpNoop, c->pos, c->chunk);
   PushByte(OpJump, c->pos, c->chunk);
   PatchConst(c->chunk, link);
 
@@ -567,6 +573,7 @@ static Result CompileIf(Node *node, bool linkage, Compiler *c)
   if (!result.ok) return result;
 
   branch = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpNoop, c->pos, c->chunk);
   PushByte(OpBranch, c->pos, c->chunk);
 
   PushByte(OpPop, c->pos, c->chunk);
@@ -574,6 +581,7 @@ static Result CompileIf(Node *node, bool linkage, Compiler *c)
   if (!result.ok) return result;
   if (linkage == LinkNext) {
     jump = PushConst(IntVal(0), c->pos, c->chunk);
+    PushByte(OpNoop, c->pos, c->chunk);
     PushByte(OpJump, c->pos, c->chunk);
   }
 
@@ -600,11 +608,13 @@ static Result CompileAnd(Node *node, bool linkage, Compiler *c)
   if (!result.ok) return result;
 
   branch = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpNoop, c->pos, c->chunk);
   PushByte(OpBranch, c->pos, c->chunk);
 
   if (linkage == LinkNext) {
     jump = PushConst(IntVal(0), c->pos, c->chunk);
     PushByte(OpJump, c->pos, c->chunk);
+    PushByte(OpNoop, c->pos, c->chunk);
   } else {
     CompileLinkage(linkage, c);
   }
@@ -632,6 +642,7 @@ static Result CompileOr(Node *node, bool linkage, Compiler *c)
   if (!result.ok) return result;
 
   branch = PushConst(IntVal(0), c->pos, c->chunk);
+  PushByte(OpNoop, c->pos, c->chunk);
   PushByte(OpBranch, c->pos, c->chunk);
 
   PushByte(OpPop, c->pos, c->chunk);

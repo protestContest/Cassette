@@ -1,3 +1,20 @@
+import Canvas
+import Math
 import IO
+import List
 
-IO.print("Hello, world!")
+let width = 600,
+    height = 400,
+    canvas = Canvas.new(width, height)
+
+def loop(x, y, amp, freq) do
+  if x >= width do
+    :done
+  else
+    let y1 = amp * Math.sin(freq * x + 1)
+    canvas.line({x, y + height / 2}, {x + 1, y1 + height / 2})
+    loop(x + 1, y1, amp, freq)
+  end
+end
+
+loop(0, 100*Math.sin(0), 100, 0.01)

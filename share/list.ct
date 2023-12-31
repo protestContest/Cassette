@@ -1,10 +1,11 @@
 module List
 import Map
+import Math
 
 def from(value) do
   def from-tuple(index, acc) do
     if index == #value do
-      reverse acc
+      reverse(acc)
     else
       from-tuple(index + 1, value(index) | acc)
     end
@@ -216,4 +217,9 @@ def unzip(list) do
       end, nil, list)
 
   reverse(head(result)) | reverse(tail(result))
+end
+
+def random-choice(list) do
+  let i = Math.rand-int(0, #list)
+  list(i)
 end

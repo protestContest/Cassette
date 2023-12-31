@@ -137,7 +137,7 @@ u32 PushConst(Val value, u32 source_pos, Chunk *chunk)
 
 void PatchConst(Chunk *chunk, u32 index)
 {
-  u32 dist = chunk->code.count - index - 2;
+  u32 dist = chunk->code.count - index - 3;
   if (dist < 256) {
     chunk->code.items[index] = OpInt;
     chunk->code.items[index+1] = (u8)dist;
@@ -145,8 +145,10 @@ void PatchConst(Chunk *chunk, u32 index)
     chunk->code.items[index] = OpConst;
     chunk->code.items[index+1] = AddConst(IntVal(dist), chunk);
   } else {
-    /* to-do: support long jumps when small consts are full */
-    Assert(false);
+    u32 const_idx = AddConst(IntVal(dist), chunk);
+    chunk->code.items[index] = OpConst2;
+    chunk->code.items[index+1] = (u8)((const_idx >> 8) & 0xFF);
+    chunk->code.items[index+2] = (u8)(const_idx & 0xFF);
   }
 }
 

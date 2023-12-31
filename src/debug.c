@@ -75,11 +75,11 @@ static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols
 
 static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem)
 {
-  u32 j, size = RawVal(VecRef(mem, index));
+  u32 j, size = RawVal(MemRef(mem, index));
   u32 cells = NumBinCells(size);
 
   for (j = 0; j < cells; j++) {
-    Val value = VecRef(mem, index+j+1);
+    Val value = MemRef(mem, index+j+1);
     u32 bytes = (j == cells-1) ? (size-1) % 4 + 1 : 4;
     bool printable  = true;
     u32 k;
@@ -154,18 +154,24 @@ static char *op_names[] = {
   [OpHalt]    = "halt",
   [OpError]   = "error",
   [OpPop]     = "pop",
+  [OpSwap]    = "swap",
   [OpDup]     = "dup",
   [OpConst]   = "const",
+  [OpConst2]  = "const2",
   [OpInt]     = "int",
   [OpNil]     = "nil",
   [OpNeg]     = "neg",
   [OpNot]     = "not",
+  [OpBitNot]  = "bnot",
   [OpLen]     = "len",
   [OpMul]     = "mul",
   [OpDiv]     = "div",
   [OpRem]     = "rem",
   [OpAdd]     = "add",
   [OpSub]     = "sub",
+  [OpShift]   = "shift",
+  [OpBitAnd]  = "band",
+  [OpBitOr]   = "bor",
   [OpIn]      = "in",
   [OpLt]      = "lt",
   [OpGt]      = "gt",
@@ -349,6 +355,11 @@ void TraceInstruction(OpCode op, VM *vm)
   col_width -= printf("%s", OpName(op));
   if (op == OpInt || op == OpApply) {
     col_width -= printf(" %d", ChunkRef(vm->chunk, vm->pc+1));
+  } else if (op == OpConst2) {
+    u32 index = (ChunkRef(vm->chunk, vm->pc+1) << 8) | ChunkRef(vm->chunk, vm->pc+2);
+    Val arg = vm->chunk->constants[index];
+    col_width -= printf(" ");
+    col_width -= PrintVal(arg, &vm->mem, &vm->chunk->symbols);
   } else {
     for (i = 0; i < (i32)OpLength(op) - 1; i++) {
       Val arg = ChunkConst(vm->chunk, vm->pc + 1 + i);
