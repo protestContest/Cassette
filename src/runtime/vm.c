@@ -572,7 +572,7 @@ static Val StackTrace(VM *vm)
   char *filename;
   Val item;
 
-  while (link > 0) {
+  while (link > 0 && vm->stack.count > 2) {
     u32 index = RawInt(VecRef(&vm->stack, link - 2));
     index -= 2; /* this hack depends on the compiler always linking to a point just after an apply op */
     file_pos = GetSourcePosition(index, vm->chunk);

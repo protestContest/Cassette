@@ -613,8 +613,8 @@ static Result CompileAnd(Node *node, bool linkage, Compiler *c)
 
   if (linkage == LinkNext) {
     jump = PushConst(IntVal(0), c->pos, c->chunk);
-    PushByte(OpJump, c->pos, c->chunk);
     PushByte(OpNoop, c->pos, c->chunk);
+    PushByte(OpJump, c->pos, c->chunk);
   } else {
     CompileLinkage(linkage, c);
   }

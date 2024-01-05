@@ -119,14 +119,14 @@ u32 PushConst(Val value, u32 source_pos, Chunk *chunk)
     PushByte(OpNil, source_pos, chunk);
   } else {
     i32 index = FindConst(value, chunk);
-    if (index >= 0) {
+    if (index < 0) {
+      index = AddConst(value, chunk);
+    }
+
+    if (index < 256) {
       PushByte(OpConst, source_pos, chunk);
       PushByte((u8)index, source_pos, chunk);
-    } else if (chunk->num_constants < 256) {
-      PushByte(OpConst, source_pos, chunk);
-      PushByte((u8)AddConst(value, chunk), source_pos, chunk);
     } else {
-      u32 index = AddConst(value, chunk);
       PushByte(OpConst2, source_pos, chunk);
       PushByte((u8)((index >> 8) & 0xFF), source_pos, chunk);
       PushByte((u8)(index & 0xFF), source_pos, chunk);

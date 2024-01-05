@@ -6,11 +6,13 @@
 typedef Result (*PrimitiveFn)(u32 num_args, VM *vm);
 
 typedef struct {
+  char *desc;
   Val name;
   PrimitiveFn fn;
 } PrimitiveDef;
 
 typedef struct {
+  char *desc;
   Val module;
   u32 num_fns;
   PrimitiveDef *fns;

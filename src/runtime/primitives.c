@@ -47,48 +47,48 @@ static Result VMTrunc(u32 num_args, VM *vm);
 static Result VMSymName(u32 num_args, VM *vm);
 
 static PrimitiveDef kernel[] = {
-  {/* head */         0x7FD4FAFD, &VMHead},
-  {/* tail */         0x7FD1655A, &VMTail},
-  {/* panic! */       0x7FDA4AE9, &VMPanic},
-  {/* unwrap */       0x7FDC5932, &VMUnwrap},
-  {/* unwrap! */      0x7FDC1BBA, &VMForceUnwrap},
-  {/* ok? */          0x7FD3025E, &VMOk},
-  {/* float? */       0x7FD6E4F4, &VMIsFloat},
-  {/* integer? */     0x7FDAB1E8, &VMIsInt},
-  {/* symbol? */      0x7FD46DF2, &VMIsSym},
-  {/* pair? */        0x7FDCEEC5, &VMIsPair},
-  {/* tuple? */       0x7FDE7376, &VMIsTuple},
-  {/* binary? */      0x7FD265F5, &VMIsBin},
-  {/* map? */         0x7FDE5C7F, &VMIsMap},
-  {/* function? */    0x7FD03556, &VMIsFunc},
+  {"head",            0x7FD4FAFD, &VMHead},
+  {"tail",            0x7FD1655A, &VMTail},
+  {"panic!",          0x7FDA4AE9, &VMPanic},
+  {"unwrap",          0x7FDC5932, &VMUnwrap},
+  {"unwrap!",         0x7FDC1BBA, &VMForceUnwrap},
+  {"ok?",             0x7FD3025E, &VMOk},
+  {"float?",          0x7FD6E4F4, &VMIsFloat},
+  {"integer?",        0x7FDAB1E8, &VMIsInt},
+  {"symbol?",         0x7FD46DF2, &VMIsSym},
+  {"pair?",           0x7FDCEEC5, &VMIsPair},
+  {"tuple?",          0x7FDE7376, &VMIsTuple},
+  {"binary?",         0x7FD265F5, &VMIsBin},
+  {"map?",            0x7FDE5C7F, &VMIsMap},
+  {"function?",       0x7FD03556, &VMIsFunc},
 };
 
 static PrimitiveDef device[] = {
-  {/* open */         0x7FD6E11B, &VMOpen},
-  {/* close */        0x7FDF88C9, &VMClose},
-  {/* read */         0x7FDEC474, &VMRead},
-  {/* write */        0x7FDA90A8, &VMWrite},
-  {/* get-param */    0x7FDE696B, &VMGetParam},
-  {/* set-param */    0x7FDB637C, &VMSetParam},
+  {"open",            0x7FD6E11B, &VMOpen},
+  {"close",           0x7FDF88C9, &VMClose},
+  {"read",            0x7FDEC474, &VMRead},
+  {"write",           0x7FDA90A8, &VMWrite},
+  {"get-param",       0x7FDE696B, &VMGetParam},
+  {"set-param",       0x7FDB637C, &VMSetParam},
 };
 
 static PrimitiveDef type[] = {
-  {/* map-get */      0x7FD781D0, &VMMapGet},
-  {/* map-set */      0x7FDFD878, &VMMapSet},
-  {/* map-del */      0x7FD330D3, &VMMapDelete},
-  {/* map-keys */     0x7FD18996, &VMMapKeys},
-  {/* map-values */   0x7FDC7EF0, &VMMapValues},
-  {/* split-bin */    0x7FD24E81, &VMSplit},
-  {/* join-bin */     0x7FD1C3BB, &VMJoinBin},
-  {/* stuff */        0x7FD2CC7F, &VMStuff},
-  {/* trunc */        0x7FD36865, &VMTrunc},
-  {/* symbol-name */  0x7FD0CEDC, &VMSymName},
+  {"map-get",         0x7FD781D0, &VMMapGet},
+  {"map-set",         0x7FDFD878, &VMMapSet},
+  {"map-del",         0x7FD330D3, &VMMapDelete},
+  {"map-keys",        0x7FD18996, &VMMapKeys},
+  {"map-values",      0x7FDC7EF0, &VMMapValues},
+  {"split-bin",       0x7FD24E81, &VMSplit},
+  {"join-bin",        0x7FD1C3BB, &VMJoinBin},
+  {"stuff",           0x7FD2CC7F, &VMStuff},
+  {"trunc",           0x7FD36865, &VMTrunc},
+  {"symbol-name",     0x7FD0CEDC, &VMSymName},
 };
 
 static PrimitiveModuleDef primitives[] = {
-  {/* Kernel */       KernelMod, ArrayCount(kernel), kernel},
-  {/* Device */       0x7FDBC2CD, ArrayCount(device), device},
-  {/* Type */         0x7FDE0D53, ArrayCount(type), type},
+  {"Kernel",          KernelMod, ArrayCount(kernel), kernel},
+  {"Device",          0x7FDBC2CD, ArrayCount(device), device},
+  {"Type",            0x7FDE0D53, ArrayCount(type), type},
 };
 
 PrimitiveModuleDef *GetPrimitives(void)

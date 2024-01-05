@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "compile/lex.h"
 #include "compile/project.h"
+#include "runtime/primitives.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
@@ -292,6 +293,11 @@ void Disassemble(Chunk *chunk)
     k += printf(" %s", OpName(op));
     if (op == OpInt || op == OpApply) {
       k += printf(" %d", ChunkRef(chunk, i+1));
+    } else if (op == OpConst2) {
+      u32 index = (ChunkRef(chunk, i+1) << 8) | ChunkRef(chunk, i+2);
+      Val arg = chunk->constants[index];
+      k += printf(" %d ", index);
+      k += PrintVal(arg, 0, &chunk->symbols);
     } else {
       for (j = 0; j < OpLength(op) - 1; j++) {
         k += printf(" ");
@@ -470,36 +476,16 @@ void DefineSymbols(SymbolTable *symbols)
 
 void DefinePrimitiveSymbols(SymbolTable *symbols)
 {
+  u32 i, j;
+  PrimitiveModuleDef *primitives = GetPrimitives();
+  for (i = 0; i < NumPrimitives(); i++) {
+    Sym(primitives[i].desc, symbols);
+    for (j = 0; j < primitives[i].num_fns; j++) {
+      Sym(primitives[i].fns[j].desc, symbols);
+    }
+  }
   Sym("*prim*", symbols);
   Sym("*func*", symbols);
-
-  /* primitives */
-  Sym("Kernel", symbols);
-  Sym("Device", symbols);
-  Sym("Type", symbols);
-  Sym("head", symbols);
-  Sym("tail", symbols);
-  Sym("panic!", symbols);
-  Sym("unwrap", symbols);
-  Sym("unwrap!", symbols);
-  Sym("ok?", symbols);
-  Sym("open", symbols);
-  Sym("close", symbols);
-  Sym("read", symbols);
-  Sym("write", symbols);
-  Sym("get-param", symbols);
-  Sym("set-param", symbols);
-  Sym("typeof", symbols);
-  Sym("map-get", symbols);
-  Sym("map-set", symbols);
-  Sym("map-del", symbols);
-  Sym("map-keys", symbols);
-  Sym("map-values", symbols);
-  Sym("split-bin", symbols);
-  Sym("join-bin", symbols);
-  Sym("stuff", symbols);
-  Sym("trunc", symbols);
-  Sym("symbol-name", symbols);
 }
 
 /*
