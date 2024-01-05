@@ -25,6 +25,7 @@ static Result CompileMap(Node *items, bool linkage, Compiler *c);
 static Result CompileString(Node *sym, bool linkage, Compiler *c);
 static Result CompileVar(Node *id, bool linkage, Compiler *c);
 static Result CompileConst(Node *value, bool linkage, Compiler *c);
+static Result CompileSet(Node *node, bool linkage, Compiler *c);
 
 static void CompileLinkage(bool linkage, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
@@ -484,6 +485,7 @@ static Result CompileDo(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+#define SymSet 0x7FDB0EE9
 static Result CompileCall(Node *node, bool linkage, Compiler *c)
 {
   Node *op = NodeChild(node, 0);
@@ -491,7 +493,11 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   u32 i, patch;
   Result result;
 
-  if (linkage != LinkReturn) {
+  if (op->type == IDNode && op->expr.value == SymSet) {
+    return CompileSet(node, linkage, c);
+  }
+
+  if (linkage == LinkNext) {
     patch = PushConst(IntVal(0), c->pos, c->chunk);
     PushByte(OpNoop, c->pos, c->chunk);
     PushByte(OpLink, c->pos, c->chunk);
@@ -799,13 +805,44 @@ static Result CompileConst(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+static Result CompileSet(Node *node, bool linkage, Compiler *c)
+{
+  u32 num_args = NumNodeChildren(node) - 1;
+  Node *var, *val;
+  Val id;
+  i32 def;
+  Result result;
+
+  if (num_args != 2) {
+    return CompileError("Wrong number of arguments: Expected 2", c);
+  }
+
+  var = NodeChild(node, 1);
+  val = NodeChild(node, 2);
+
+  if (var->type != IDNode) {
+    return CompileError("Expected variable", c);
+  }
+
+  id = NodeValue(var);
+  def = FrameFind(c->env, id);
+  if (def == -1) return CompileError("Undefined variable", c);
+
+  result = CompileExpr(val, LinkNext, c);
+  if (!result.ok) return result;
+
+  PushByte(OpDup, c->pos, c->chunk);
+  PushConst(IntVal(def), c->pos, c->chunk);
+  PushByte(OpDefine, c->pos, c->chunk);
+
+  CompileLinkage(linkage, c);
+  return CompileOk();
+}
+
 static void CompileLinkage(bool linkage, Compiler *c)
 {
   if (linkage == LinkReturn) {
     PushByte(OpReturn, c->pos, c->chunk);
-  } else if (linkage != LinkNext) {
-    PushConst(linkage, c->pos, c->chunk);
-    PushByte(OpJump, c->pos, c->chunk);
   }
 }
 

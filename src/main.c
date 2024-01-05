@@ -72,7 +72,10 @@ int main(int argc, char *argv[])
   /* Ok, time to run the code */
   Seed(Time());
   InitVM(&vm, &chunk);
-  if (opts.debug) vm.trace = true;
+  if (opts.debug) {
+    vm.trace = true;
+    PrintTraceHeader();
+  }
   InitGraphics();
   MainLoop(CanvasUpdate, &vm);
 

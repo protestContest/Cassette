@@ -4,8 +4,14 @@
 
 void Define(Val value, u32 index, Val env, Mem *mem)
 {
+  Val frame;
   Assert(env != Nil);
-  TupleSet(Head(env, mem), index, value, mem);
+  frame = Head(env, mem);
+  if (index < TupleCount(frame, mem)) {
+    TupleSet(frame, index, value, mem);
+  } else {
+    Define(value, index - TupleCount(frame, mem), Tail(env, mem), mem);
+  }
 }
 
 Val Lookup(u32 index, Val env, Mem *mem)

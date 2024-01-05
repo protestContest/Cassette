@@ -2,4 +2,11 @@ module Map
 
 def get(map, key) Type.map-get(map, key)
 def put(map, key, value) Type.map-set(map, key, value)
+def put-new(map, key, value) do
+  if key in map do
+    map
+  else
+    put(map, key, value)
+  end
+end
 def delete(map, key) Type.map-del(map, key)
