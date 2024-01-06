@@ -179,27 +179,10 @@ static Result RunInstruction(VM *vm)
     StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
     vm->pc += OpLength(op);
     break;
-  case OpMap: {
-    u32 i;
-    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-    if (!IsTuple(StackRef(vm, 0), &vm->mem) || !IsTuple(StackRef(vm, 1), &vm->mem)) {
-      return RuntimeError("Expected map keys and values to be tuples", vm);
-    }
-    if (TupleCount(StackRef(vm, 0), &vm->mem) != TupleCount(StackRef(vm, 1), &vm->mem)) {
-      return RuntimeError("Maps must have the same number of keys and values", vm);
-    }
+  case OpMap:
     StackPush(vm, MakeMap(&vm->mem));
-    for (i = 0; i < TupleCount(StackRef(vm, 1), &vm->mem); i++) {
-      Val key = TupleGet(StackRef(vm, 1), i, &vm->mem);
-      Val value = TupleGet(StackRef(vm, 2), i, &vm->mem);
-      StackRef(vm, 0) = MapSet(StackRef(vm, 0), key, value, &vm->mem);
-    }
-    StackRef(vm, 2) =  StackRef(vm, 0);
-    StackPop(vm);
-    StackPop(vm);
     vm->pc += OpLength(op);
     break;
-  }
   case OpSet:
     if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
     if (IsTuple(StackRef(vm, 2), &vm->mem)) {

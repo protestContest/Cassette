@@ -77,11 +77,15 @@ Result CompileScript(Node *module, Compiler *c)
 
 Result CompileModuleFrame(u32 num_modules, Compiler *c)
 {
-  if (num_modules == 0) return CompileOk();
+  BeginChunkFile(Sym("*init*", &c->chunk->symbols), c->chunk);
 
-  PushConst(IntVal(num_modules), 0, c->chunk);
-  PushByte(OpTuple, 0, c->chunk);
-  PushByte(OpExtend, 0, c->chunk);
+  if (num_modules > 0) {
+    PushConst(IntVal(num_modules), 0, c->chunk);
+    PushByte(OpTuple, 0, c->chunk);
+    PushByte(OpExtend, 0, c->chunk);
+  }
+
+  EndChunkFile(c->chunk);
   return CompileOk();
 }
 
@@ -133,31 +137,21 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   PushByte(OpPop, c->pos, c->chunk);
 
   /* export assigned values */
+  PushByte(OpMap, c->pos, c->chunk);
   if (num_exports > 0) {
     u32 i;
-    PushByte(OpExport, c->pos, c->chunk);
-
-    /* build tuple of keys */
-    PushConst(IntVal(num_exports), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-
     for (i = 0; i < num_exports; i++) {
       Val export = NodeValue(NodeChild(exports, i));
       Sym(SymbolName(export, c->symbols), &c->chunk->symbols);
-      PushConst(export, c->pos, c->chunk);
       PushConst(IntVal(i), c->pos, c->chunk);
+      PushByte(OpLookup, c->pos, c->chunk);
+      PushConst(export, c->pos, c->chunk);
       PushByte(OpSet, c->pos, c->chunk);
     }
-    PushByte(OpPair, c->pos, c->chunk);
+
     c->env = PopFrame(c->env);
-  } else {
-    /* empty map */
-    PushConst(IntVal(0), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-    PushConst(IntVal(0), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-    PushByte(OpPair, c->pos, c->chunk);
   }
+
   /* copy exports to redefine module */
   PushByte(OpDup, c->pos, c->chunk);
 
@@ -189,17 +183,14 @@ static u32 DefineImports(Node *imports, u32 num_imported, Compiler *c)
 {
   u32 i;
 
-  PushByte(OpUnpair, c->pos, c->chunk);
-  PushByte(OpPop, c->pos, c->chunk);
-
   for (i = 0; i < NumNodeChildren(imports); i++) {
     Val import = NodeValue(NodeChild(imports, i));
 
     if (i < NumNodeChildren(imports) - 1) {
-      /* keep tuple for future iterations */
+      /* keep map for future iterations */
       PushByte(OpDup, c->pos, c->chunk);
     }
-    PushConst(IntVal(i), c->pos, c->chunk);
+    PushConst(import, c->pos, c->chunk);
     PushByte(OpGet, c->pos, c->chunk);
     PushConst(IntVal(num_imported+i), c->pos, c->chunk);
     PushByte(OpDefine, c->pos, c->chunk);
@@ -273,10 +264,7 @@ static Result CompileImports(Node *imports, Compiler *c)
       /* import directly into module namespace */
       num_imported += DefineImports(imported_vals, num_imported, c);
     } else {
-      /* import into a map */
-      PushByte(OpUnpair, c->pos, c->chunk);
-      PushByte(OpMap, c->pos, c->chunk);
-
+      /* import map */
       PushConst(IntVal(num_imported), c->pos, c->chunk);
       PushByte(OpDefine, c->pos, c->chunk);
       FrameSet(c->env, num_imported, alias);
@@ -638,34 +626,20 @@ static Result CompileMap(Node *node, bool linkage, Compiler *c)
 {
   u32 i, num_items = NumNodeChildren(node) / 2;
 
-  /* create tuple for values */
-  PushConst(IntVal(num_items), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
+  PushByte(OpMap, c->pos, c->chunk);
 
   for (i = 0; i < num_items; i++) {
     Node *value = NodeChild(node, (i*2)+1);
+    Node *key = NodeChild(node, i*2);
 
     Result result = CompileExpr(value, LinkNext, c);
     if (!result.ok) return result;
-    PushConst(IntVal(i), c->pos, c->chunk);
-    PushByte(OpSet, c->pos, c->chunk);
-  }
 
-  /* create tuple for keys */
-  PushConst(IntVal(num_items), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
-
-  for (i = 0; i < num_items; i++) {
-    Node *key = NodeChild(node, i*2);
-
-    Result result = CompileExpr(key, LinkNext, c);
+    result = CompileExpr(key, LinkNext, c);
     if (!result.ok) return result;
-    PushConst(IntVal(i), c->pos, c->chunk);
+
     PushByte(OpSet, c->pos, c->chunk);
   }
-
-  /* create map from tuples */
-  PushByte(OpMap, c->pos, c->chunk);
 
   CompileLinkage(linkage, c);
   return CompileOk();
