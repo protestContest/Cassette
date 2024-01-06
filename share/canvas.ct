@@ -32,6 +32,7 @@ def new(width, height) do
   {
     width: width,
     height: height,
+    font-size: unwrap!(get-param(window, :font-size)),
     clear: \color -> write(window, {:clear, color}),
     line: \a, b -> write(window, {:line, a.0, a.1, b.0, b.1}),
     rect: \r -> draw-rect(r.0, r.1, r.2, r.3, window),

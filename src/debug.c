@@ -501,6 +501,7 @@ void GenerateSymbols(void)
   printf("  case TokenPlus:       return 0x%08X;\n", SymbolFor("+"));
   printf("  case TokenMinus:      return 0x%08X;\n", SymbolFor("-"));
   printf("  case TokenDot:        return 0x%08X;\n", SymbolFor("."));
+  printf("  case TokenDotDot:     return 0x%08X;\n", SymbolFor(".."));
   printf("  case TokenSlash:      return 0x%08X;\n", SymbolFor("/"));
   printf("  case TokenLt:         return 0x%08X;\n", SymbolFor("<"));
   printf("  case TokenLtLt:       return 0x%08X;\n", SymbolFor("<<"));
@@ -602,6 +603,7 @@ void GeneratePrimitives(void)
   printf("  {\"*\",               0x%08X, &VMMul},\n", SymbolFor("*"));
   printf("  {\"+\",               0x%08X, &VMAdd},\n", SymbolFor("+"));
   printf("  {\"-\",               0x%08X, &VMSub},\n", SymbolFor("-"));
+  printf("  {\"..\",              0x%08X, &VMRange},\n", SymbolFor(".."));
   printf("  {\"/\",               0x%08X, &VMDiv},\n", SymbolFor("/"));
   printf("  {\"<\",               0x%08X, &VMLess},\n", SymbolFor("<"));
   printf("  {\"<<\",              0x%08X, &VMShiftLeft},\n", SymbolFor("<<"));

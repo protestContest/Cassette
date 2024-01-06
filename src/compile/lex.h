@@ -3,11 +3,11 @@
 typedef enum {
   TokenEOF, TokenNewline, TokenBangEq, TokenStr, TokenHash, TokenPercent,
   TokenAmpersand, TokenLParen, TokenRParen, TokenStar, TokenPlus, TokenComma,
-  TokenMinus, TokenArrow, TokenDot, TokenSlash, TokenNum, TokenColon, TokenLt,
-  TokenLtLt, TokenLtEq, TokenLtGt, TokenEq, TokenEqEq, TokenGt, TokenGtEq,
-  TokenGtGt, TokenLBracket, TokenBackslash, TokenRBracket, TokenCaret, TokenAnd,
-  TokenAs, TokenCond, TokenDef, TokenDo, TokenElse, TokenEnd,
-  TokenFalse, TokenIf, TokenImport, TokenIn, TokenLet, TokenModule,
+  TokenMinus, TokenArrow, TokenDot, TokenDotDot, TokenSlash, TokenNum,
+  TokenColon, TokenLt, TokenLtLt, TokenLtEq, TokenLtGt, TokenEq, TokenEqEq,
+  TokenGt, TokenGtEq, TokenGtGt, TokenLBracket, TokenBackslash, TokenRBracket,
+  TokenCaret, TokenAnd, TokenAs, TokenCond, TokenDef, TokenDo, TokenElse,
+  TokenEnd, TokenFalse, TokenIf, TokenImport, TokenIn, TokenLet, TokenModule,
   TokenNil, TokenNot, TokenOr, TokenTrue, TokenLBrace, TokenBar,
   TokenRBrace, TokenTilde, TokenID
 } TokenType;

@@ -85,6 +85,7 @@ static Rule rules[] = {
   [TokenMinus]          = {ParseUnary,   ParseLeftAssoc,    PrecSum},
   [TokenArrow]          = {0,            0,                 PrecNone},
   [TokenDot]            = {0,            ParseAccess,       PrecAccess},
+  [TokenDotDot]         = {0,            ParseLeftAssoc,    PrecAccess},
   [TokenSlash]          = {0,            ParseLeftAssoc,    PrecProduct},
   [TokenNum]            = {ParseNum,     0,                 PrecNone},
   [TokenColon]          = {ParseSymbol,  0,                 PrecNone},
@@ -836,6 +837,7 @@ static Val OpSymbol(TokenType token_type)
   case TokenPlus:       return 0x7FD26AB0;
   case TokenMinus:      return 0x7FD9FBF9;
   case TokenDot:        return 0x7FD21A5F;
+  case TokenDotDot:     return 0x7FD62EE1;
   case TokenSlash:      return 0x7FDDA21C;
   case TokenLt:         return 0x7FDD1F00;
   case TokenLtLt:       return 0x7FD72101;

@@ -7,16 +7,24 @@ let width = 800,
     height = 480,
     canvas = Canvas.new(width, height)
 
-canvas.text("Lines!", {200, 2})
+let c = 180 / Math.Pi,
+    scale = 4,
+    offset = 100
 
-System.seed(System.time())
-
-def rand-line(i) do
-  let x0 = Math.floor(i * width / 100),
-      y0 = Math.rand-int(20, height / 10),
-      x1 = Math.rand-int(0, width),
-      y1 = Math.rand-int(20, height)
-  canvas.line({x0, y0}, {x1, y1})
-end
-
-List.map(\i -> rand-line(i), List.range(0, 100))
+List.map(\n -> do
+  let a1 = (150 + 40 * n) / c,
+      x1 = 75 + 3.5 * n * Math.cos(a1),
+      y1 = 65 + 3.5 * n * Math.sin(a1)
+  List.map(\i -> do
+    List.map(\j -> do
+      let r = 1.2 * n,
+          a = i * (360 / n) / c,
+          aa = j * (360 / n) / c,
+          x = x1 + r * Math.cos(a),
+          y = y1 + r * Math.sin(a),
+          xx = x1 + r * Math.cos(aa),
+          yy = y1 + r * Math.sin(aa)
+      canvas.line({scale * x + offset, scale * y}, {scale * xx + offset, scale * yy})
+    end, (i + 1)..n)
+  end, 0..(n - 1))
+end, 3..12)

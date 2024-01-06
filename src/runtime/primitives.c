@@ -31,6 +31,7 @@ static Result VMLessEqual(u32 num_args, VM *vm);
 static Result VMGreaterEqual(u32 num_args, VM *vm);
 static Result VMNot(u32 num_args, VM *vm);
 static Result VMSub(u32 num_args, VM *vm);
+static Result VMRange(u32 num_args, VM *vm);
 static Result VMAdd(u32 num_args, VM *vm);
 static Result VMBitNot(u32 num_args, VM *vm);
 static Result VMLen(u32 num_args, VM *vm);
@@ -88,6 +89,7 @@ static PrimitiveDef primitives[] = {
   {"*",               0x7FD9A24B, &VMMul},
   {"+",               0x7FD26AB0, &VMAdd},
   {"-",               0x7FD9FBF9, &VMSub},
+  {"..",              0x7FD62EE1, &VMRange},
   {"/",               0x7FDDA21C, &VMDiv},
   {"<",               0x7FDD1F00, &VMLess},
   {"<<",              0x7FD72101, &VMShiftLeft},
@@ -425,6 +427,26 @@ static Result VMSub(u32 num_args, VM *vm)
   } else {
     return RuntimeError("Wrong number of arguments", vm);
   }
+}
+
+static Result VMRange(u32 num_args, VM *vm)
+{
+  i32 a, b, i;
+  Val list = Nil;
+  Val types[2] = {IntType, IntType};
+  Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
+  if (!result.ok) return result;
+
+  b = RawInt(StackPop(vm));
+  a = RawInt(StackPop(vm));
+
+  if (a > b) return OkResult(Nil);
+
+  for (i = b - 1; i >= a; i--) {
+    list = Pair(IntVal(i), list, &vm->mem);
+  }
+
+  return OkResult(list);
 }
 
 static Result VMAdd(u32 num_args, VM *vm)

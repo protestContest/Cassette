@@ -60,6 +60,7 @@ static Token AdvanceToken(Lexer *lex)
   if (Match("\n", lex)) return MakeToken(TokenNewline, start, 1);
   if (Match("!=", lex)) return MakeToken(TokenBangEq, start, 2);
   if (Match("->", lex)) return MakeToken(TokenArrow, start, 2);
+  if (Match("..", lex)) return MakeToken(TokenDotDot, start, 2);
   if (Match("<<", lex)) return MakeToken(TokenLtLt, start, 2);
   if (Match("<=", lex)) return MakeToken(TokenLtEq, start, 2);
   if (Match("<>", lex)) return MakeToken(TokenLtGt, start, 2);
