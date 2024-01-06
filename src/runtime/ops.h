@@ -5,7 +5,6 @@ typedef enum {
   OpHalt,
   OpError,
   OpPop,
-  OpSwap,
   OpDup,
   OpConst,
   OpConst2,
@@ -13,7 +12,6 @@ typedef enum {
   OpNil,
   OpStr,
   OpPair,
-  OpUnpair,
   OpTuple,
   OpMap,
   OpSet,
@@ -27,6 +25,7 @@ typedef enum {
   OpLambda,
   OpLink,
   OpReturn,
-  OpApply} OpCode;
+  OpApply
+} OpCode;
 
 u32 OpLength(OpCode op);

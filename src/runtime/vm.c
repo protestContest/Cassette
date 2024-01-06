@@ -109,14 +109,6 @@ static Result RunInstruction(VM *vm)
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
-  case OpSwap:
-    if (vm->stack.count >= 2) {
-      Val tmp = StackRef(vm, 0);
-      StackRef(vm, 0) = StackRef(vm, 1);
-      StackRef(vm, 1) = tmp;
-    }
-    vm->pc += OpLength(op);
-    break;
   case OpDup:
     if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
     StackPush(vm, StackRef(vm, 0));
@@ -155,16 +147,6 @@ static Result RunInstruction(VM *vm)
     len = StrLen(str);
 
     StackRef(vm, 0) = BinaryFrom(str, len, &vm->mem);
-    vm->pc += OpLength(op);
-    break;
-  }
-  case OpUnpair: {
-    Val pair;
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    if (!IsPair(StackRef(vm, 0))) return RuntimeError("Unpair only works on pairs", vm);
-    pair = StackPop(vm);
-    StackPush(vm, Tail(pair, &vm->mem));
-    StackPush(vm, Head(pair, &vm->mem));
     vm->pc += OpLength(op);
     break;
   }
