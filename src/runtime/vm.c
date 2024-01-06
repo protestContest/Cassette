@@ -3,6 +3,7 @@
 #include "compile/compile.h"
 #include "env.h"
 #include "primitives.h"
+#include "stacktrace.h"
 #include "univ/str.h"
 #include "univ/math.h"
 #include "univ/system.h"
@@ -298,7 +299,7 @@ static Result RunInstruction(VM *vm)
       if (!IsInt(index)) return RuntimeError("Index for a tuple must be an integer", vm);
       if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
       Return(TupleGet(operator, RawInt(index), &vm->mem), vm);
-    } else if (IsMap(operator, &vm->mem)) {
+    } else if (IsMap(operator, &vm->mem) && num_args == 1) {
       Val key = StackPop(vm);
       if (!MapContains(operator, key, &vm->mem)) return RuntimeError("Undefined map key", vm);
       Return(MapGet(operator, key, &vm->mem), vm);
@@ -336,37 +337,12 @@ static Result RunInstruction(VM *vm)
   }
 }
 
-static Val StackTrace(VM *vm)
-{
-  u32 link = vm->link;
-  Val trace = Nil;
-  u32 file_pos;
-  char *filename;
-  Val item;
-
-  while (link > 0 && vm->stack.count > 2) {
-    u32 index = RawInt(VecRef(&vm->stack, link - 2));
-    index -= 2; /* this hack depends on the compiler always linking to a point just after an apply op */
-    file_pos = GetSourcePosition(index, vm->chunk);
-    filename = ChunkFile(index, vm->chunk);
-
-    if (!CheckMem(&vm->mem, 4)) {
-      ResizeMem(&vm->mem, MemCapacity(&vm->mem)*2);
-    }
-    item = Pair(SymbolFrom(filename, StrLen(filename)), IntVal(file_pos), &vm->mem);
-    trace = Pair(item, trace, &vm->mem);
-    link = RawInt(VecRef(&vm->stack, link - 1));
-  }
-
-  return trace;
-}
-
 Result RuntimeError(char *message, VM *vm)
 {
   char *filename = ChunkFile(vm->pc, vm->chunk);
   u32 pos = GetSourcePosition(vm->pc, vm->chunk);
   Result error = ErrorResult(message, filename, pos);
-  error.value = StackTrace(vm);
+  error.data = StackTrace(vm);
   return error;
 }
 

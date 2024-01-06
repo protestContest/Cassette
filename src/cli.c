@@ -99,7 +99,8 @@ void PrintRuntimeError(Result error, VM *vm)
   printf("%s", ANSIRed);
   printf("Error: %s\n", error.error);
 
-  PrintStackTrace(error.value, vm);
+  PrintStackTrace(error.data, vm);
+  FreeStackTrace(error.data);
 
   if (error.filename) {
     source = ReadFile(error.filename);
@@ -162,17 +163,14 @@ static void PrintStackTraceLine(char *filename, u32 pos)
   printf("    %s:%d:%d", filename, line + 1, col + 1);
 }
 
-void PrintStackTrace(Val stack, VM *vm)
+void PrintStackTrace(StackTraceItem *stack, VM *vm)
 {
   u32 iterations = 0;
   char *prev_filename = 0;
   u32 prev_pos = 0;
 
-  while (stack != Nil) {
-    Val item = Head(stack, &vm->mem);
-    char *filename = SymbolName(Head(item, &vm->mem), &vm->chunk->symbols);
-    u32 pos = RawInt(Tail(item, &vm->mem));
-    if (filename == prev_filename && pos == prev_pos) {
+  while (stack != 0) {
+    if (stack->filename == prev_filename && stack->position == prev_pos) {
       iterations++;
     } else {
       if (iterations > 0) {
@@ -180,11 +178,11 @@ void PrintStackTrace(Val stack, VM *vm)
         iterations = 0;
       }
       printf("\n");
-      PrintStackTraceLine(filename, pos);
+      PrintStackTraceLine(stack->filename, stack->position);
     }
-    prev_filename = filename;
-    prev_pos = pos;
-    stack = Tail(stack, &vm->mem);
+    prev_filename = stack->filename;
+    prev_pos = stack->position;
+    stack = stack->prev;
   }
   if (iterations > 0) {
     printf(" (%d iterations)\n", iterations + 1);
