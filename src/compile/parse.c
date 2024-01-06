@@ -39,6 +39,7 @@ static Result ParseLeftAssoc(Node *prefix, Parser *p);
 static Result ParseRightAssoc(Node *prefix, Parser *p);
 static Result ParseCall(Node *prefix, Parser *p);
 static Result ParseAccess(Node *prefix, Parser *p);
+static Result ParseLogic(Node *prefix, Parser *p);
 static Result ParseLambda(Parser *p);
 static Result ParseUnary(Parser *p);
 static Result ParseGroup(Parser *p);
@@ -56,8 +57,7 @@ static Result ParseID(Parser *p);
 static Result ParseNum(Parser *p);
 static Result ParseString(Parser *p);
 
-static NodeType InfixNodeType(TokenType token_type);
-static NodeType PrefixNodeType(TokenType token_type);
+static Val OpSymbol(TokenType token_type);
 
 typedef Result (*ParseFn)(Parser *p);
 typedef Result (*InfixFn)(Node *prefix, Parser *p);
@@ -69,59 +69,59 @@ typedef struct {
 } Rule;
 
 static Rule rules[] = {
-  [TokenEOF]            = {0,            0,                  PrecNone},
-  [TokenID]             = {ParseID,      0,                  PrecNone},
-  [TokenBangEq]         = {0,            ParseLeftAssoc,     PrecEqual},
-  [TokenStr]            = {ParseString,  0,                  PrecNone},
-  [TokenNewline]        = {0,            0,                  PrecNone},
-  [TokenHash]           = {ParseUnary,   0,                  PrecNone},
-  [TokenPercent]        = {0,            ParseLeftAssoc,     PrecProduct},
-  [TokenAmpersand]      = {0,            ParseLeftAssoc,     PrecBitwise},
-  [TokenLParen]         = {ParseGroup,   ParseCall,          PrecCall},
-  [TokenRParen]         = {0,            0,                  PrecNone},
-  [TokenStar]           = {0,            ParseLeftAssoc,     PrecProduct},
-  [TokenPlus]           = {0,            ParseLeftAssoc,     PrecSum},
-  [TokenComma]          = {0,            0,                  PrecNone},
-  [TokenMinus]          = {ParseUnary,   ParseLeftAssoc,     PrecSum},
-  [TokenArrow]          = {0,            0,                  PrecNone},
-  [TokenDot]            = {0,            ParseAccess,        PrecAccess},
-  [TokenSlash]          = {0,            ParseLeftAssoc,     PrecProduct},
-  [TokenNum]            = {ParseNum,     0,                  PrecNone},
-  [TokenColon]          = {ParseSymbol,  0,                  PrecNone},
-  [TokenLt]             = {0,            ParseLeftAssoc,     PrecCompare},
-  [TokenLtLt]           = {0,            ParseLeftAssoc,     PrecShift},
-  [TokenLtEq]           = {0,            ParseLeftAssoc,     PrecCompare},
-  [TokenLtGt]           = {0,            ParseLeftAssoc,     PrecPair},
-  [TokenEq]             = {0,            0,                  PrecNone},
-  [TokenEqEq]           = {0,            ParseLeftAssoc,     PrecEqual},
-  [TokenGt]             = {0,            ParseLeftAssoc,     PrecCompare},
-  [TokenGtEq]           = {0,            ParseLeftAssoc,     PrecCompare},
-  [TokenGtGt]           = {0,            ParseLeftAssoc,     PrecShift},
-  [TokenLBracket]       = {ParseList,    0,                  PrecNone},
-  [TokenBackslash]      = {ParseLambda,  0,                  PrecNone},
-  [TokenRBracket]       = {0,            0,                  PrecNone},
-  [TokenCaret]          = {0,            ParseLeftAssoc,     PrecBitwise},
-  [TokenAnd]            = {0,            ParseLeftAssoc,     PrecLogic},
-  [TokenAs]             = {0,            0,                  PrecNone},
-  [TokenCond]           = {ParseCond,    0,                  PrecNone},
-  [TokenDef]            = {0,            0,                  PrecNone},
-  [TokenDo]             = {ParseDo,      0,                  PrecNone},
-  [TokenElse]           = {0,            0,                  PrecNone},
-  [TokenEnd]            = {0,            0,                  PrecNone},
-  [TokenFalse]          = {ParseLiteral, 0,                  PrecNone},
-  [TokenIf]             = {ParseIf,      0,                  PrecNone},
-  [TokenImport]         = {0,            0,                  PrecNone},
-  [TokenIn]             = {0,            ParseLeftAssoc,     PrecMember},
-  [TokenLet]            = {0,            0,                  PrecNone},
-  [TokenModule]         = {0,            0,                  PrecNone},
-  [TokenNil]            = {ParseLiteral, 0,                  PrecNone},
-  [TokenNot]            = {ParseUnary,   0,                  PrecNone},
-  [TokenOr]             = {0,            ParseLeftAssoc,     PrecLogic},
-  [TokenTrue]           = {ParseLiteral, 0,                  PrecNone},
-  [TokenLBrace]         = {ParseBraces,  0,                  PrecNone},
-  [TokenBar]            = {0,            ParseRightAssoc,    PrecPair},
-  [TokenRBrace]         = {0,            0,                  PrecNone},
-  [TokenTilde]          = {ParseUnary,   0,                  PrecNone}
+  [TokenEOF]            = {0,            0,                 PrecNone},
+  [TokenID]             = {ParseID,      0,                 PrecNone},
+  [TokenBangEq]         = {0,            ParseLeftAssoc,    PrecEqual},
+  [TokenStr]            = {ParseString,  0,                 PrecNone},
+  [TokenNewline]        = {0,            0,                 PrecNone},
+  [TokenHash]           = {ParseUnary,   0,                 PrecNone},
+  [TokenPercent]        = {0,            ParseLeftAssoc,    PrecProduct},
+  [TokenAmpersand]      = {0,            ParseLeftAssoc,    PrecBitwise},
+  [TokenLParen]         = {ParseGroup,   ParseCall,         PrecCall},
+  [TokenRParen]         = {0,            0,                 PrecNone},
+  [TokenStar]           = {0,            ParseLeftAssoc,    PrecProduct},
+  [TokenPlus]           = {0,            ParseLeftAssoc,    PrecSum},
+  [TokenComma]          = {0,            0,                 PrecNone},
+  [TokenMinus]          = {ParseUnary,   ParseLeftAssoc,    PrecSum},
+  [TokenArrow]          = {0,            0,                 PrecNone},
+  [TokenDot]            = {0,            ParseAccess,       PrecAccess},
+  [TokenSlash]          = {0,            ParseLeftAssoc,    PrecProduct},
+  [TokenNum]            = {ParseNum,     0,                 PrecNone},
+  [TokenColon]          = {ParseSymbol,  0,                 PrecNone},
+  [TokenLt]             = {0,            ParseLeftAssoc,    PrecCompare},
+  [TokenLtLt]           = {0,            ParseLeftAssoc,    PrecShift},
+  [TokenLtEq]           = {0,            ParseLeftAssoc,    PrecCompare},
+  [TokenLtGt]           = {0,            ParseLeftAssoc,    PrecPair},
+  [TokenEq]             = {0,            0,                 PrecNone},
+  [TokenEqEq]           = {0,            ParseLeftAssoc,    PrecEqual},
+  [TokenGt]             = {0,            ParseLeftAssoc,    PrecCompare},
+  [TokenGtEq]           = {0,            ParseLeftAssoc,    PrecCompare},
+  [TokenGtGt]           = {0,            ParseLeftAssoc,    PrecShift},
+  [TokenLBracket]       = {ParseList,    0,                 PrecNone},
+  [TokenBackslash]      = {ParseLambda,  0,                 PrecNone},
+  [TokenRBracket]       = {0,            0,                 PrecNone},
+  [TokenCaret]          = {0,            ParseLeftAssoc,    PrecBitwise},
+  [TokenAnd]            = {0,            ParseLogic,        PrecLogic},
+  [TokenAs]             = {0,            0,                 PrecNone},
+  [TokenCond]           = {ParseCond,    0,                 PrecNone},
+  [TokenDef]            = {0,            0,                 PrecNone},
+  [TokenDo]             = {ParseDo,      0,                 PrecNone},
+  [TokenElse]           = {0,            0,                 PrecNone},
+  [TokenEnd]            = {0,            0,                 PrecNone},
+  [TokenFalse]          = {ParseLiteral, 0,                 PrecNone},
+  [TokenIf]             = {ParseIf,      0,                 PrecNone},
+  [TokenImport]         = {0,            0,                 PrecNone},
+  [TokenIn]             = {0,            ParseLeftAssoc,    PrecMember},
+  [TokenLet]            = {0,            0,                 PrecNone},
+  [TokenModule]         = {0,            0,                 PrecNone},
+  [TokenNil]            = {ParseLiteral, 0,                 PrecNone},
+  [TokenNot]            = {ParseUnary,   0,                 PrecNone},
+  [TokenOr]             = {0,            ParseLogic,        PrecLogic},
+  [TokenTrue]           = {ParseLiteral, 0,                 PrecNone},
+  [TokenLBrace]         = {ParseBraces,  0,                 PrecNone},
+  [TokenBar]            = {0,            ParseRightAssoc,   PrecPair},
+  [TokenRBrace]         = {0,            0,                 PrecNone},
+  [TokenTilde]          = {ParseUnary,   0,                 PrecNone}
 };
 
 void InitParser(Parser *p, SymbolTable *symbols)
@@ -164,30 +164,9 @@ static Result ParseModuleName(Parser *p)
   }
 }
 
-
-static void AddDefaultImports(Node *node)
-{
-  PrimitiveModuleDef *primitives = GetPrimitives();
-  u32 num_primitives = NumPrimitives();
-  u32 i;
-
-  for (i = 0; i < num_primitives; i++) {
-    Node *import_node = MakeNode(ImportNode, 0);
-    Node *mod_name = MakeTerminal(IDNode, 0, primitives[i].module);
-    NodePush(import_node, mod_name);
-    if (i == 0) {
-      NodePush(import_node, MakeTerminal(NilNode, 0, Nil));
-    } else {
-      NodePush(import_node, mod_name);
-    }
-    NodePush(node, import_node);
-  }
-}
-
 static Result ParseImports(Parser *p)
 {
   Node *node = MakeNode(ListNode, TokenPos(&p->lex));
-  AddDefaultImports(node);
 
   while (MatchToken(TokenImport, &p->lex)) {
     Node *import_node = MakeNode(ImportNode, TokenPos(&p->lex));
@@ -339,11 +318,14 @@ static Result ParsePrec(Precedence prec, Parser *p)
 
 static Result ParseLeftAssoc(Node *prefix, Parser *p)
 {
+  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  Node *node = MakeNode(InfixNodeType(token.type), TokenPos(&p->lex));
   Precedence prec = rules[token.type].prec;
+  Node *node = MakeNode(CallNode, pos);
+  Node *op = MakeTerminal(IDNode, pos, OpSymbol(token.type));
   Result result;
 
+  NodePush(node, op);
   NodePush(node, prefix);
 
   SkipNewlines(&p->lex);
@@ -356,10 +338,14 @@ static Result ParseLeftAssoc(Node *prefix, Parser *p)
 
 static Result ParseRightAssoc(Node *prefix, Parser *p)
 {
+  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  Node *node = MakeNode(InfixNodeType(token.type), TokenPos(&p->lex));
   Precedence prec = rules[token.type].prec;
+  Node *node = MakeNode(CallNode, pos);
+  Node *op = MakeTerminal(IDNode, pos, OpSymbol(token.type));
   Result result;
+
+  NodePush(node, op);
 
   SkipNewlines(&p->lex);
   result = ParsePrec(prec, p);
@@ -415,6 +401,24 @@ static Result ParseAccess(Node *prefix, Parser *p)
   return ParseOk(node);
 }
 
+static Result ParseLogic(Node *prefix, Parser *p)
+{
+  Token token = NextToken(&p->lex);
+  NodeType type = token.type == TokenAnd ? AndNode : OrNode;
+  Node *node = MakeNode(type, TokenPos(&p->lex));
+  Precedence prec = rules[token.type].prec;
+  Result result;
+
+  NodePush(node, prefix);
+
+  SkipNewlines(&p->lex);
+  result = ParsePrec(prec+1, p);
+  if (!result.ok) return result;
+  NodePush(node, result.data);
+
+  return ParseOk(node);
+}
+
 static Result ParseLambda(Parser *p)
 {
   Node *node = MakeNode(LambdaNode, TokenPos(&p->lex));
@@ -447,13 +451,19 @@ static Result ParseLambda(Parser *p)
 
 static Result ParseUnary(Parser *p)
 {
+  u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  Node *node = MakeNode(PrefixNodeType(token.type), TokenPos(&p->lex));
+  Node *node = MakeNode(CallNode, pos);
+  Node *op = MakeTerminal(IDNode, pos, OpSymbol(token.type));
   Result result;
 
+  NodePush(node, op);
+
+  SkipNewlines(&p->lex);
   result = ParsePrec(PrecUnary, p);
   if (!result.ok) return result;
   NodePush(node, result.data);
+
   return ParseOk(node);
 }
 
@@ -815,40 +825,31 @@ void FreeAST(Node *node)
   FreeNode(node);
 }
 
-static NodeType InfixNodeType(TokenType token_type)
+static Val OpSymbol(TokenType token_type)
 {
   switch (token_type) {
-  case TokenBangEq: return NotEqNode;
-  case TokenPercent: return RemNode;
-  case TokenAmpersand: return BitAndNode;
-  case TokenStar: return MultiplyNode;
-  case TokenPlus: return AddNode;
-  case TokenMinus: return SubtractNode;
-  case TokenSlash: return DivideNode;
-  case TokenLt: return LtNode;
-  case TokenLtLt: return LShiftNode;
-  case TokenLtEq: return LtEqNode;
-  case TokenLtGt: return CatNode;
-  case TokenEqEq: return EqNode;
-  case TokenGt: return GtNode;
-  case TokenGtEq: return GtEqNode;
-  case TokenGtGt: return RShiftNode;
-  case TokenCaret: return BitOrNode;
-  case TokenAnd: return AndNode;
-  case TokenIn: return InNode;
-  case TokenOr: return OrNode;
-  case TokenBar: return PairNode;
-  default: return NilNode;
-  }
-}
-
-static NodeType PrefixNodeType(TokenType token_type)
-{
-  switch (token_type) {
-  case TokenHash: return LengthNode;
-  case TokenMinus: return NegativeNode;
-  case TokenNot: return NotNode;
-  case TokenTilde: return BitNotNode;
-  default: return NilNode;
+  case TokenBangEq:     return 0x7FDD5C4E;
+  case TokenHash:       return 0x7FDF82DB;
+  case TokenPercent:    return 0x7FD3E679;
+  case TokenAmpersand:  return 0x7FDB283C;
+  case TokenStar:       return 0x7FD9A24B;
+  case TokenPlus:       return 0x7FD26AB0;
+  case TokenMinus:      return 0x7FD9FBF9;
+  case TokenDot:        return 0x7FD21A5F;
+  case TokenSlash:      return 0x7FDDA21C;
+  case TokenLt:         return 0x7FDD1F00;
+  case TokenLtLt:       return 0x7FD72101;
+  case TokenLtEq:       return 0x7FDE01F2;
+  case TokenLtGt:       return 0x7FD3C54B;
+  case TokenEqEq:       return 0x7FDC5014;
+  case TokenGt:         return 0x7FD9FB4A;
+  case TokenGtEq:       return 0x7FD7C966;
+  case TokenGtGt:       return 0x7FDA0DDF;
+  case TokenCaret:      return 0x7FDC17FE;
+  case TokenIn:         return 0x7FD98998;
+  case TokenNot:        return 0x7FDBCA20;
+  case TokenBar:        return 0x7FDA1ADB;
+  case TokenTilde:      return 0x7FD373CF;
+  default:              return Nil;
   }
 }

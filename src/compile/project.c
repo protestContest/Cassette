@@ -24,7 +24,6 @@ static Result ReadManifest(char *filename, Project *project);
 static Result ParseModules(Project *project);
 static Result ScanDependencies(Project *project);
 static Result CompileProject(Chunk *chunk, Project *project);
-static void AddPrimitiveModules(Project *project);
 
 Result BuildProject(Options opts, Chunk *chunk)
 {
@@ -121,8 +120,6 @@ static Result ScanDependencies(Project *project)
   IntVecPush(&stack, ModuleName(VecRef(&project->modules, 0)));
   InitHashMap(&seen);
 
-  AddPrimitiveModules(project);
-
   while (stack.count > 0) {
     Val name = VecPop(&stack);
     Node *module, *imports;
@@ -169,14 +166,14 @@ static Result CompileProject(Chunk *chunk, Project *project)
   Compiler c;
   u32 i;
   u32 num_modules = project->build_list.count - 1; /* exclude entry script */
-  Frame *compile_env;
+  Frame *compile_env = CompileEnv(num_modules);
   Result result = OkResult(Nil);
+
+  chunk->num_modules = num_modules;
 
   InitCompiler(&c, &project->symbols, &project->modules, &project->mod_map, chunk);
 
-  result = CompileInitialEnv(num_modules, &c);
-  if (!result.ok) return result;
-  compile_env = result.data;
+  CompileModuleFrame(num_modules, &c);
 
   /* pre-define all modules */
   for (i = 0; i < num_modules; i++) {
@@ -194,40 +191,8 @@ static Result CompileProject(Chunk *chunk, Project *project)
   }
 
   /* compile the entry module a little differently */
-  c.env = compile_env;
+  Assert(c.env == compile_env);
   result = CompileScript(VecRef(&project->build_list, 0), &c);
 
   return result;
-}
-
-static void AddPrimitiveModules(Project *project)
-{
-  /* set primitive modules in the module map */
-  PrimitiveModuleDef *primitives = GetPrimitives();
-  u32 num_primitives = NumPrimitives();
-  u32 i, j;
-
-  for (i = 0; i < num_primitives; i++) {
-    Node *module = MakeNode(ModuleNode, 0);
-    Node *body = MakeNode(DoNode, 0);
-    Node *exports = MakeNode(ListNode, 0);
-
-    Node *name = MakeTerminal(IDNode, 0, primitives[i].module);
-    NodePush(module, name);
-    NodePush(module, MakeNode(ListNode, 0));
-
-    for (j = 0; j < primitives[i].num_fns; j++) {
-      Node *export = MakeTerminal(IDNode, 0, primitives[i].fns[j].name);
-      NodePush(exports, export);
-    }
-
-    NodePush(body, exports);
-    NodePush(body, 0);
-    NodePush(module, body);
-
-    NodePush(module, MakeTerminal(NilNode, 0, Nil));
-
-    HashMapSet(&project->mod_map, primitives[i].module, project->modules.count);
-    ObjVecPush(&project->modules, module);
-  }
 }

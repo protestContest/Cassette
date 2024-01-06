@@ -6,16 +6,16 @@ import Enum
 
 def open(path, mode) do
   cond do
-    mode == :read -> Device.open(:file, {path, "r"})
-    mode == :write -> Device.open(:file, {path, "w"})
-    mode == :append -> Device.open(:file, {path, "a"})
+    mode == :read -> open(:file, {path, "r"})
+    mode == :write -> open(:file, {path, "w"})
+    mode == :append -> open(:file, {path, "a"})
     true -> panic!("File mode must be :read :write or :append")
   end
 end
 
 def open!(path, mode) unwrap!(open(path, mode))
-def close(file) Device.close(file)
-def read(file, n) Device.read(file, n)
+def close(file) close(file)
+def read(file, n) read(file, n)
 def read!(file, n) unwrap!(read(file, n))
 
 def stream(path) do
@@ -49,13 +49,13 @@ def stream-contents(file) do
 end
 
 def list-dir(path) do
-  let dir = Device.open(:directory, {path})
+  let dir = open(:directory, {path})
   if not ok?(dir) do
     nil
   else
     let dir = unwrap(dir, nil),
-        items = Device.read(dir, nil)
-    Device.close(dir)
+        items = read(dir, nil)
+    close(dir)
     unwrap(items, nil)
   end
 end
@@ -70,18 +70,18 @@ end
 
 def basename(path) do
   let index = Enum.last-index-of($/, path)
-  tail(Type.split-bin(path, index))
+  tail(split-bin(path, index))
 end
 
 def abs-path(path) do
   if #path == 0 do
     nil
   else
-    let dir = Device.open(:directory, {path})
+    let dir = open(:directory, {path})
 
     if ok?(dir) do
-      let path = unwrap(Device.get-param(unwrap!(dir), :path), nil)
-      Device.close(tail(dir))
+      let path = unwrap(get-param(unwrap!(dir), :path), nil)
+      close(tail(dir))
       path
     else
       let dirpath = abs-path(dirname(path))
@@ -101,9 +101,9 @@ def join-path(left, right) do
     #right == 0 ->
       left
     left(#left - 1) == $/ ->
-      join-path(head(Type.split-bin(left, #left - 1)), right)
+      join-path(head(split-bin(left, #left - 1)), right)
     right(0) == $/ ->
-      join-path(left, tail(Type.split-bin(right, 1)))
+      join-path(left, tail(split-bin(right, 1)))
     true ->
       left <> "/" <> right
   end

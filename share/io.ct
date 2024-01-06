@@ -1,23 +1,23 @@
 module IO
 import List
 
-let console = unwrap!(Device.open(:console, {}))
+let console = unwrap!(open(:console, {}))
 
 def read-line do
-  unwrap!(Device.read(console, 1024))
+  unwrap!(read(console, 1024))
 end
 
 def byte?(n) integer?(n) and n >= 0 and n <= 255
 
 def format(iodata) do
-  def stuff(iolist, acc, bytes) do
+  def loop(iolist, acc, bytes) do
     cond do
       iolist == nil ->
-        acc <> Type.stuff(List.reverse(bytes))
+        acc <> stuff(List.reverse(bytes))
       byte?(head(iolist)) ->
-        stuff(tail(iolist), acc, head(iolist) | bytes)
+        loop(tail(iolist), acc, head(iolist) | bytes)
       binary?(head(iolist)) ->
-        stuff(tail(iolist), acc <> Type.stuff(List.reverse(bytes)) <> head(iolist), [])
+        loop(tail(iolist), acc <> stuff(List.reverse(bytes)) <> head(iolist), [])
       true ->
         panic!("Bad IO list")
     end
@@ -25,8 +25,8 @@ def format(iodata) do
 
   cond do
     binary?(iodata) -> iodata
-    byte?(iodata) -> Type.stuff([iodata])
-    pair?(iodata) -> stuff(List.flatten(iodata), "", nil)
+    byte?(iodata) -> stuff([iodata])
+    pair?(iodata) -> loop(List.flatten(iodata), "", nil)
     true -> panic!("Bad IO list")
   end
 end
@@ -38,7 +38,7 @@ def inspect(value, depth) do
       num == 0 -> acc
       true -> do
         let d = $0 + num % 10
-        inspect-int(Type.trunc(num / 10), d | acc)
+        inspect-int(trunc(num / 10), d | acc)
       end
     end
   end
@@ -48,8 +48,8 @@ def inspect(value, depth) do
       num < 0 -> ["-", inspect-num(-num)]
       integer?(num) -> inspect-int(num, nil)
       true -> do
-        let whole = inspect-int(Type.trunc(num), nil),
-            part = inspect-int(Type.trunc((num - Type.trunc(num)) * 1000), nil)
+        let whole = inspect-int(trunc(num), nil),
+            part = inspect-int(trunc((num - trunc(num)) * 1000), nil)
         [whole, ".", part]
       end
     end
@@ -59,7 +59,7 @@ def inspect(value, depth) do
     cond do
       value == true -> "true"
       value == false -> "false"
-      true -> [":", Type.symbol-name(value)]
+      true -> [":", symbol-name(value)]
     end
   end
 
@@ -97,7 +97,7 @@ def inspect(value, depth) do
   def inspect-entry(entry) do
     let key = head(entry), value = tail(entry)
     if symbol?(key) do
-      [Type.symbol-name(key), ": ", inspect(value, depth - 1)]
+      [symbol-name(key), ": ", inspect(value, depth - 1)]
     else
       [inspect(key, depth - 1), " => ", inspect(value, depth - 1)]
     end
@@ -124,10 +124,10 @@ end
 
 def print(value) do
   if binary?(value) do
-    Device.write(console, value)
-    Device.write(console, 0x0A)
+    write(console, value)
+    write(console, 0x0A)
   else
-    Device.write(console, format(inspect(value, 5)))
-    Device.write(console, 0x0A)
+    write(console, format(inspect(value, 5)))
+    write(console, 0x0A)
   end
 end

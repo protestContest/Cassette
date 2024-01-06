@@ -6,7 +6,7 @@ let Pi = 3.141593,
     E = 2.718282
 
 def abs(n) if n < 0 do -n else n end
-def ceil(n) if n >= 0 do Type.trunc(n) + 1 else Type.trunc(n) end
+def ceil(n) if n >= 0 do trunc(n) + 1 else trunc(n) end
 def clamp(n, low, high) min(max(n, low), high)
 
 def exp(n) expt(E, n)
@@ -27,7 +27,7 @@ def expt(base, power) do
   end
 end
 
-def floor(n) if n >= 0 do Type.trunc(n) else Type.trunc(n) - 1 end
+def floor(n) if n >= 0 do trunc(n) else trunc(n) - 1 end
 def max(a, b) if a > b do a else b end
 
 def midpoint(p1, p2) do
@@ -35,7 +35,7 @@ def midpoint(p1, p2) do
 end
 
 def min(a, b) if a < b do a else b end
-def rand-int(min, max) Type.trunc(System.random() * (max - min)) + min
+def rand-int(min, max) trunc(System.random() * (max - min)) + min
 def random System.random()
 def round(n) floor(n + 0.5)
 
@@ -88,9 +88,9 @@ let sin_table = {
 };
 
 def sin(x) do
-  let si = Type.trunc(x * 0.5 * #sin_table / Pi),
+  let si = trunc(x * 0.5 * #sin_table / Pi),
       d = x - si * 2 * Pi / #sin_table,
-      ci = Type.trunc(si + #sin_table / 4),
+      ci = trunc(si + #sin_table / 4),
       si = si & #sin_table - 1,
       ci = ci & #sin_table - 1
   sin_table(si) + (sin_table(ci) - 0.5 * sin_table(si) * d) * d

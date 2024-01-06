@@ -55,7 +55,7 @@ char *SymbolName(Val sym, SymbolTable *symbols)
   if (HashMapContains(&symbols->map, sym)) {
     return (char*)symbols->names.items + HashMapGet(&symbols->map, sym);
   } else {
-    return 0;
+    return "?";
   }
 }
 

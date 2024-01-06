@@ -8,9 +8,8 @@
 #include <stdio.h>
 
 static void PrintSourceContext(u32 pos, char *source, u32 context);
-static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols);
 
-static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
+u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
 {
   if (value == Nil) {
     return printf("nil");
@@ -26,6 +25,10 @@ static u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
     }
   } else if (IsPair(value)) {
     return printf("p%d", RawVal(value));
+  } else if (IsPrimitive(value)) {
+    PrimitiveDef *primitives = GetPrimitives();
+    u32 fn = PrimNum(value);
+    return printf("λ%s", primitives[fn].desc) - 1;
   } else if (IsObj(value)) {
     if (mem && IsTuple(value, mem)) {
       return printf("t%d", RawVal(value));
@@ -161,22 +164,6 @@ static char *op_names[] = {
   [OpConst2]  = "const2",
   [OpInt]     = "int",
   [OpNil]     = "nil",
-  [OpNeg]     = "neg",
-  [OpNot]     = "not",
-  [OpBitNot]  = "bnot",
-  [OpLen]     = "len",
-  [OpMul]     = "mul",
-  [OpDiv]     = "div",
-  [OpRem]     = "rem",
-  [OpAdd]     = "add",
-  [OpSub]     = "sub",
-  [OpShift]   = "shift",
-  [OpBitAnd]  = "band",
-  [OpBitOr]   = "bor",
-  [OpIn]      = "in",
-  [OpLt]      = "lt",
-  [OpGt]      = "gt",
-  [OpEq]      = "eq",
   [OpStr]     = "str",
   [OpPair]    = "pair",
   [OpUnpair]  = "unpair",
@@ -184,7 +171,6 @@ static char *op_names[] = {
   [OpMap]     = "map",
   [OpSet]     = "set",
   [OpGet]     = "get",
-  [OpCat]     = "cat",
   [OpExtend]  = "extend",
   [OpDefine]  = "define",
   [OpLookup]  = "lookup",
@@ -218,16 +204,13 @@ void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
 
     printf("│ ");
     for (i = 0; i < TupleCount(frame, mem); i++) {
-      Val item = TupleGet(frame, i, mem);
-      u32 len = StrLen(SymbolName(item, symbols));
-      if (written + len + 1 > 78) {
-        for (j = written; j < 78; j++) printf(" ");
+      written += PrintVal(TupleGet(frame, i, mem), mem, symbols);
+      written += printf(" ");
+      if (written > 78) {
         printf("│\n");
         printf("│ ");
         written = 1;
       }
-      written += PrintVal(TupleGet(frame, i, mem), mem, symbols);
-      written += printf(" ");
     }
     for (j = written; j < 78; j++) printf(" ");
     printf("│\n");
@@ -238,6 +221,20 @@ void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
     else printf("┘\n");
 
     env = Tail(env, mem);
+  }
+}
+
+void PrintCompileEnv(Frame *frame, SymbolTable *symbols)
+{
+  while (frame != 0) {
+    u32 i;
+    printf("- ");
+    for (i = 0; i < frame->count; i++) {
+      PrintVal(frame->items[i], 0, symbols);
+      printf(" ");
+    }
+    printf("\n");
+    frame = frame->parent;
   }
 }
 
@@ -476,16 +473,11 @@ void DefineSymbols(SymbolTable *symbols)
 
 void DefinePrimitiveSymbols(SymbolTable *symbols)
 {
-  u32 i, j;
-  PrimitiveModuleDef *primitives = GetPrimitives();
+  u32 i;
+  PrimitiveDef *primitives = GetPrimitives();
   for (i = 0; i < NumPrimitives(); i++) {
     Sym(primitives[i].desc, symbols);
-    for (j = 0; j < primitives[i].num_fns; j++) {
-      Sym(primitives[i].fns[j].desc, symbols);
-    }
   }
-  Sym("*prim*", symbols);
-  Sym("*func*", symbols);
 }
 
 /*
@@ -499,68 +491,41 @@ void GenerateSymbols(void)
   printf("#define LinkReturn        0x%08X /* return */\n", SymbolFor("return"));
   printf("#define LinkNext          0x%08X /* next */\n", SymbolFor("next"));
 
-  printf("/* parse.h */\n");
-  printf("#define SymEOF            0x%08X /* *eof* */\n", SymbolFor("*eof*"));
-  printf("#define SymID             0x%08X /* *id* */\n", SymbolFor("*id*"));
-  printf("#define SymBangEqual      0x%08X /* != */\n", SymbolFor("!="));
-  printf("#define SymString         0x%08X /* \" */\n", SymbolFor("\""));
-  printf("#define SymNewline        0x%08X /* *nl* */\n", SymbolFor("*nl*"));
-  printf("#define SymHash           0x%08X /* # */\n", SymbolFor("#"));
-  printf("#define SymPercent        0x%08X /* %% */\n", SymbolFor("%"));
-  printf("#define SymAmpersand      0x%08X /* & */\n", SymbolFor("&"));
-  printf("#define SymLParen         0x%08X /* ( */\n", SymbolFor("("));
-  printf("#define SymRParen         0x%08X /* ) */\n", SymbolFor(")"));
-  printf("#define SymStar           0x%08X /* * */\n", SymbolFor("*"));
-  printf("#define SymPlus           0x%08X /* + */\n", SymbolFor("+"));
-  printf("#define SymComma          0x%08X /* , */\n", SymbolFor(","));
-  printf("#define SymMinus          0x%08X /* - */\n", SymbolFor("-"));
-  printf("#define SymArrow          0x%08X /* -> */\n", SymbolFor("->"));
-  printf("#define SymDot            0x%08X /* . */\n", SymbolFor("."));
-  printf("#define SymSlash          0x%08X /* / */\n", SymbolFor("/"));
-  printf("#define SymNum            0x%08X /* *num* */\n", SymbolFor("*num*"));
-  printf("#define SymColon          0x%08X /* : */\n", SymbolFor(":"));
-  printf("#define SymLess           0x%08X /* < */\n", SymbolFor("<"));
-  printf("#define SymLessLess       0x%08X /* << */\n", SymbolFor("<<"));
-  printf("#define SymLessEqual      0x%08X /* <= */\n", SymbolFor("<="));
-  printf("#define SymLessGreater    0x%08X /* <> */\n", SymbolFor("<>"));
-  printf("#define SymEqual          0x%08X /* = */\n", SymbolFor("="));
-  printf("#define SymEqualEqual     0x%08X /* == */\n", SymbolFor("=="));
-  printf("#define SymGreater        0x%08X /* > */\n", SymbolFor(">"));
-  printf("#define SymGreaterEqual   0x%08X /* >= */\n", SymbolFor(">="));
-  printf("#define SymGreaterGreater 0x%08X /* >> */\n", SymbolFor(">>"));
-  printf("#define SymLBracket       0x%08X /* [ */\n", SymbolFor("["));
-  printf("#define SymBackslash      0x%08X /* \\ */\n", SymbolFor("\\"));
-  printf("#define SymRBracket       0x%08X /* ] */\n", SymbolFor("]"));
-  printf("#define SymCaret          0x%08X /* ^ */\n", SymbolFor("^"));
-  printf("#define SymAnd            0x%08X /* and */\n", SymbolFor("and"));
-  printf("#define SymAs             0x%08X /* as */\n", SymbolFor("as"));
-  printf("#define SymCond           0x%08X /* cond */\n", SymbolFor("cond"));
-  printf("#define SymDef            0x%08X /* def */\n", SymbolFor("def"));
-  printf("#define SymDo             0x%08X /* do */\n", SymbolFor("do"));
-  printf("#define SymElse           0x%08X /* else */\n", SymbolFor("else"));
-  printf("#define SymEnd            0x%08X /* end */\n", SymbolFor("end"));
-  printf("#define SymFalse          0x%08X /* false */\n", SymbolFor("false"));
-  printf("#define SymIf             0x%08X /* if */\n", SymbolFor("if"));
-  printf("#define SymImport         0x%08X /* import */\n", SymbolFor("import"));
-  printf("#define SymIn             0x%08X /* in */\n", SymbolFor("in"));
-  printf("#define SymLet            0x%08X /* let */\n", SymbolFor("let"));
-  printf("#define SymModule         0x%08X /* module */\n", SymbolFor("module"));
-  printf("#define SymNil            0x%08X /* nil */\n", SymbolFor("nil"));
-  printf("#define SymNot            0x%08X /* not */\n", SymbolFor("not"));
-  printf("#define SymOr             0x%08X /* or */\n", SymbolFor("or"));
-  printf("#define SymTrue           0x%08X /* true */\n", SymbolFor("true"));
-  printf("#define SymLBrace         0x%08X /* { */\n", SymbolFor("{"));
-  printf("#define SymBar            0x%08X /* | */\n", SymbolFor("|"));
-  printf("#define SymRBrace         0x%08X /* } */\n", SymbolFor("}"));
-  printf("#define SymTilde          0x%08X /* ~ */\n", SymbolFor("~"));
+  printf("/* parse.c */\n");
+  printf("static Val OpSymbol(TokenType token_type)\n");
+  printf("{\n");
+  printf("  switch (token_type) {\n");
+  printf("  case TokenBangEq:     return 0x%08X;\n", SymbolFor("!="));
+  printf("  case TokenHash:       return 0x%08X;\n", SymbolFor("#"));
+  printf("  case TokenPercent:    return 0x%08X;\n", SymbolFor("%"));
+  printf("  case TokenAmpersand:  return 0x%08X;\n", SymbolFor("&"));
+  printf("  case TokenStar:       return 0x%08X;\n", SymbolFor("*"));
+  printf("  case TokenPlus:       return 0x%08X;\n", SymbolFor("+"));
+  printf("  case TokenMinus:      return 0x%08X;\n", SymbolFor("-"));
+  printf("  case TokenDot:        return 0x%08X;\n", SymbolFor("."));
+  printf("  case TokenSlash:      return 0x%08X;\n", SymbolFor("/"));
+  printf("  case TokenLt:         return 0x%08X;\n", SymbolFor("<"));
+  printf("  case TokenLtLt:       return 0x%08X;\n", SymbolFor("<<"));
+  printf("  case TokenLtEq:       return 0x%08X;\n", SymbolFor("<="));
+  printf("  case TokenLtGt:       return 0x%08X;\n", SymbolFor("<>"));
+  printf("  case TokenEqEq:       return 0x%08X;\n", SymbolFor("=="));
+  printf("  case TokenGt:         return 0x%08X;\n", SymbolFor(">"));
+  printf("  case TokenGtEq:       return 0x%08X;\n", SymbolFor(">="));
+  printf("  case TokenGtGt:       return 0x%08X;\n", SymbolFor(">>"));
+  printf("  case TokenCaret:      return 0x%08X;\n", SymbolFor("^"));
+  printf("  case TokenIn:         return 0x%08X;\n", SymbolFor("in"));
+  printf("  case TokenNot:        return 0x%08X;\n", SymbolFor("not"));
+  printf("  case TokenBar:        return 0x%08X;\n", SymbolFor("|"));
+  printf("  case TokenTilde:      return 0x%08X;\n", SymbolFor("~"));
+  printf("  default:              return Nil;\n");
+  printf("  }\n");
+  printf("}\n");
 
   printf("/* symbols.h */\n");
   printf("#define True              0x%08X /* true */\n", SymbolFor("true"));
   printf("#define False             0x%08X /* false */\n", SymbolFor("false"));
   printf("#define Ok                0x%08X /* ok */\n", SymbolFor("ok"));
   printf("#define Error             0x%08X /* error */\n", SymbolFor("error"));
-  printf("#define Primitive         0x%08X /* *prim* */\n", SymbolFor("*prim*"));
-  printf("#define Function          0x%08X /* *func* */\n", SymbolFor("*func*"));
   printf("#define Undefined         0x%08X /* *undefined* */\n", SymbolFor("*undefined*"));
   printf("#define Moved             0x%08X /* *moved* */\n", SymbolFor("*moved*"));
   printf("#define File              0x%08X /* *file* */\n", SymbolFor("*file*"));
@@ -632,6 +597,27 @@ void GeneratePrimitives(void)
   printf("  {\"binary?\",         0x%08X, &VMIsBin},\n", SymbolFor("binary?"));
   printf("  {\"map?\",            0x%08X, &VMIsMap},\n", SymbolFor("map?"));
   printf("  {\"function?\",       0x%08X, &VMIsFunc},\n", SymbolFor("function?"));
+  printf("  {\"!=\",              0x%08X, &VMNotEqual},\n", SymbolFor("!="));
+  printf("  {\"#\",               0x%08X, &VMLen},\n", SymbolFor("#"));
+  printf("  {\"%%\",               0x%08X, &VMRem},\n", SymbolFor("%"));
+  printf("  {\"&\",               0x%08X, &VMBitAnd},\n", SymbolFor("&"));
+  printf("  {\"*\",               0x%08X, &VMMul},\n", SymbolFor("*"));
+  printf("  {\"+\",               0x%08X, &VMAdd},\n", SymbolFor("+"));
+  printf("  {\"-\",               0x%08X, &VMSub},\n", SymbolFor("-"));
+  printf("  {\"/\",               0x%08X, &VMDiv},\n", SymbolFor("/"));
+  printf("  {\"<\",               0x%08X, &VMLess},\n", SymbolFor("<"));
+  printf("  {\"<<\",              0x%08X, &VMShiftLeft},\n", SymbolFor("<<"));
+  printf("  {\"<=\",              0x%08X, &VMLessEqual},\n", SymbolFor("<="));
+  printf("  {\"<>\",              0x%08X, &VMCat},\n", SymbolFor("<>"));
+  printf("  {\"==\",              0x%08X, &VMEqual},\n", SymbolFor("=="));
+  printf("  {\">\",               0x%08X, &VMGreater},\n", SymbolFor(">"));
+  printf("  {\">=\",              0x%08X, &VMGreaterEqual},\n", SymbolFor(">="));
+  printf("  {\">>\",              0x%08X, &VMShiftRight},\n", SymbolFor(">>"));
+  printf("  {\"^\",               0x%08X, &VMBitOr},\n", SymbolFor("^"));
+  printf("  {\"in\",              0x%08X, &VMIn},\n", SymbolFor("in"));
+  printf("  {\"not\",             0x%08X, &VMNot},\n", SymbolFor("not"));
+  printf("  {\"|\",               0x%08X, &VMPair},\n", SymbolFor("|"));
+  printf("  {\"~\",               0x%08X, &VMBitNot},\n", SymbolFor("~"));
   printf("};\n");
   printf("\n");
   printf("static PrimitiveDef device[] = {\n");
@@ -701,30 +687,8 @@ static char *NodeTypeName(NodeType type)
   case IDNode: return "ID";
   case NumNode: return "Num";
   case StringNode: return "String";
-  case NotEqNode: return "Not Equal";
-  case RemNode: return "Remainder";
-  case BitAndNode: return "Bit And";
-  case MultiplyNode: return "Multiply";
-  case AddNode: return "Add";
-  case SubtractNode: return "Subtract";
-  case DivideNode: return "Divide";
-  case LtNode: return "Less Than";
-  case LShiftNode: return "Shift Left";
-  case LtEqNode: return "Less Equal";
-  case CatNode: return "Concatenate";
-  case EqNode: return "Equal";
-  case GtNode: return "Greater Than";
-  case GtEqNode: return "Greater Equal";
-  case RShiftNode: return "Shift Right";
-  case BitOrNode: return "Bit Or";
   case AndNode: return "And";
-  case InNode: return "In";
   case OrNode: return "Or";
-  case PairNode: return "Pair";
-  case LengthNode: return "Length";
-  case NegativeNode: return "Negative";
-  case NotNode: return "Not";
-  case BitNotNode: return "Bit Not";
   }
 }
 

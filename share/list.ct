@@ -12,7 +12,7 @@ def from(value) do
   end
 
   def from-map(map) do
-    zip(Type.map-keys(map), Type.map-values(map))
+    zip(map-keys(map), map-values(map))
   end
 
   cond do

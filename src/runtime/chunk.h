@@ -12,6 +12,7 @@ typedef struct {
   SymbolTable symbols;
   IntVec source_map;
   IntVec file_map;
+  u32 num_modules;
 } Chunk;
 
 #define ChunkRef(chunk, i)        ((chunk)->code.items[i])

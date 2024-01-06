@@ -12,7 +12,7 @@ def tab?(char) char == tab
 def whitespace?(char) space?(char) or newline?(char) or tab?(char)
 
 def split(str, a, b) do
-  head(Type.split-bin(tail(Type.split-bin(str, a)), b))
+  head(split-bin(tail(split-bin(str, a)), b))
 end
 
 def slice(str, start, length) [str, start, length]

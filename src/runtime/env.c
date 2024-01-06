@@ -1,6 +1,23 @@
 #include "env.h"
 #include "univ/system.h"
 #include "mem/symbols.h"
+#include "primitives.h"
+#include "debug.h"
+#include <stdio.h>
+
+Val InitialEnv(Mem *mem)
+{
+  u32 num_primitives = NumPrimitives();
+  Val frame = MakeTuple(num_primitives, mem);
+  u32 i;
+
+  for (i = 0; i < num_primitives; i++) {
+    Val primitive = PrimVal(i);
+    TupleSet(frame, i, primitive, mem);
+  }
+
+  return ExtendEnv(Nil, frame, mem);
+}
 
 void Define(Val value, u32 index, Val env, Mem *mem)
 {

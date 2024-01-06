@@ -32,3 +32,4 @@ void ClearCanvas(Canvas *canvas, u32 color);
 void Pixel(i32 x, i32 y, u32 value, Canvas *canvas);
 void WritePixel(i32 x, i32 y, u32 value, Canvas *canvas);
 void MainLoop(UpdateFn update, void *arg);
+char *CanvasError(void);

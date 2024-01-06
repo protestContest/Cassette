@@ -9,7 +9,7 @@ def color(r, g, b) {r, g, b}
 def draw-bezier(c1, c2, c3, canvas) do
   if Math.abs(c3.0 - c1.0) < 4 and
      Math.abs(c3.1 - c1.1) < 4 do
-    Device.write(canvas, {:line, c1.0, c1.1, c3.0, c3.1})
+    write(canvas, {:line, c1.0, c1.1, c3.0, c3.1})
   else
     let m1 = Math.midpoint(c1, c2),
         m2 = Math.midpoint(c2, c3),
@@ -20,25 +20,25 @@ def draw-bezier(c1, c2, c3, canvas) do
 end
 
 def draw-rect(left, bottom, right, top, canvas) do
-  Device.write(canvas, {:line, left, bottom, left, top})
-  Device.write(canvas, {:line, right, bottom, right, top})
-  Device.write(canvas, {:line, left, bottom, right, bottom})
-  Device.write(canvas, {:line, left, top, right, top})
+  write(canvas, {:line, left, bottom, left, top})
+  write(canvas, {:line, right, bottom, right, top})
+  write(canvas, {:line, left, bottom, right, bottom})
+  write(canvas, {:line, left, top, right, top})
 end
 
 def new(width, height) do
-  let window = unwrap!(Device.open(:window, {width, height}))
+  let window = unwrap!(open(:window, {width, height}))
 
   {
     width: width,
     height: height,
-    clear: \color -> Device.write(window, {:clear, color}),
-    line: \a, b -> Device.write(window, {:line, a.0, a.1, b.0, b.1}),
+    clear: \color -> write(window, {:clear, color}),
+    line: \a, b -> write(window, {:line, a.0, a.1, b.0, b.1}),
     rect: \r -> draw-rect(r.0, r.1, r.2, r.3, window),
-    pixel: \p, color -> Device.write(window, {:pixel, p.0, p.1, color}),
-    text: \msg, p -> Device.write(window, {:text, msg, p.0, p.1}),
-    blit: \img, p, size -> Device.write(window, {:blit, img, p.0, p.1, size.0, size.1}),
+    pixel: \p, color -> write(window, {:pixel, p.0, p.1, color}),
+    text: \msg, p -> write(window, {:text, msg, p.0, p.1}),
+    blit: \img, p, size -> write(window, {:blit, img, p.0, p.1, size.0, size.1}),
     bezier: \a, b, c -> draw-bezier(a, b, c, window),
-    set-font: \font -> Device.set-param(window, :font, font)
+    set-font: \font -> set-param(window, :font, font)
   }
 end

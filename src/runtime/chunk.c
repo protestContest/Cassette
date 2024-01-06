@@ -13,6 +13,7 @@ void InitChunk(Chunk *chunk)
   DefinePrimitiveSymbols(&chunk->symbols);
   InitVec((Vec*)&chunk->source_map, sizeof(u32), 256);
   InitVec((Vec*)&chunk->file_map, sizeof(u32), 8);
+  chunk->num_modules = 0;
 }
 
 void DestroyChunk(Chunk *chunk)

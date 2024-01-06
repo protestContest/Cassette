@@ -118,6 +118,7 @@ static Val CopyValue(Val value, Mem *from, Mem *to)
 
   if (value == Nil) return Nil;
   if (!IsObj(value) && !IsPair(value)) return value;
+  if (IsPrimitive(value)) return value;
 
   if (MemRef(from, RawVal(value)) == Moved) {
     return MemRef(from, RawVal(value)+1);

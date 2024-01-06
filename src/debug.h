@@ -5,10 +5,13 @@
 #include "runtime/chunk.h"
 #include "runtime/vm.h"
 #include "compile/parse.h"
+#include "compile/env.h"
 
+u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols);
 void DumpMem(Mem *mem, SymbolTable *symbols);
 void PrintError(Result error);
 void PrintEnv(Val env, Mem *mem, SymbolTable *symbols);
+void PrintCompileEnv(Frame *frame, SymbolTable *symbols);
 void Disassemble(Chunk *chunk);
 void PrintTraceHeader(void);
 void TraceInstruction(OpCode op, VM *vm);

@@ -33,9 +33,9 @@ def perlin(x, y, freq, depth) do
   end
 
   def noise2d(x, y) do
-    let x0 = Type.trunc(x),
+    let x0 = trunc(x),
         xfrac = x - x0,
-        y0 = Type.trunc(y),
+        y0 = trunc(y),
         yfrac = y - y0,
         x1 = x0 + 1,
         y1 = y0 + 1,

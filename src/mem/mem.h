@@ -22,6 +22,7 @@ typedef u32 Val;
 #define BinaryType          0xFFD00000
 #define MapType             0xFFE00000
 #define FuncType            0xFFF00000
+#define PrimType            0xFFF70000
 
 #define MakeVal(n, mask)    (((n) & ~typeMask) | (mask))
 #define IntVal(n)           MakeVal((i32)(n), IntType)
@@ -32,6 +33,7 @@ typedef u32 Val;
 #define BinaryHeader(n)     MakeVal(n, BinaryType)
 #define MapHeader(n)        MakeVal(n, MapType)
 #define FuncHeader(n)       MakeVal(n, FuncType)
+#define PrimVal(n)          MakeVal(n, PrimType)
 
 #define TypeOf(v)           ((v) & typeMask)
 #define IsType(v, mask)     (TypeOf(v) == (mask))
@@ -44,12 +46,14 @@ typedef u32 Val;
 #define IsBinaryHeader(v)   IsType(v, BinaryType)
 #define IsMapHeader(v)      IsType(v, MapType)
 #define IsFuncHeader(v)     IsType(v, FuncType)
+#define IsPrimitive(v)      (((v) & PrimType) == PrimType)
 
 #define SignExt(n)          ((((n) + 0x00080000) & 0x000FFFFF) - 0x00080000)
 #define valBits             20
 
 #define RawInt(v)           ((i32)SignExt(v))
 #define RawVal(v)           ((v) & ~typeMask)
+#define PrimNum(v)          ((v) & ~PrimType)
 
 #define BoolVal(v)          ((v) ? True : False)
 #define IsNum(v,m)          (IsFloat(v) || IsInt(v))
@@ -134,6 +138,6 @@ bool MapIsSubset(Val v1, Val v2, Mem *mem);
 
 /* func.c */
 Val MakeFunction(Val arity, Val position, Val env, Mem *mem);
-#define FuncArity(val, mem)        RawVal(MemRef(mem, RawVal(val)))
-#define FuncPos(val, mem)          MemRef(mem, RawVal(val) + 1)
-#define FuncEnv(val, mem)          MemRef(mem, RawVal(val) + 2)
+#define FuncArity(val, mem)         RawInt(MemRef(mem, RawVal(val)))
+#define FuncPos(val, mem)           MemRef(mem, RawVal(val) + 1)
+#define FuncEnv(val, mem)           MemRef(mem, RawVal(val) + 2)

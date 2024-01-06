@@ -3,6 +3,7 @@
 #include "project.h"
 #include "runtime/ops.h"
 #include "runtime/primitives.h"
+#include "debug.h"
 
 #define LinkNext false
 #define LinkReturn true
@@ -16,9 +17,6 @@ static Result CompileLambda(Node *expr, bool linkage, Compiler *c);
 static Result CompileIf(Node *expr, bool linkage, Compiler *c);
 static Result CompileAnd(Node *expr, bool linkage, Compiler *c);
 static Result CompileOr(Node *expr, bool linkage, Compiler *c);
-static Result CompileOp(OpCode op, Node *expr, bool linkage, Compiler *c);
-static Result CompileNotOp(OpCode op, Node *expr, bool linkage, Compiler *c);
-static Result CompileNegOp(OpCode op, Node *args, bool linkage, Compiler *c);
 static Result CompileList(Node *items, bool linkage, Compiler *c);
 static Result CompileTuple(Node *items, bool linkage, Compiler *c);
 static Result CompileMap(Node *items, bool linkage, Compiler *c);
@@ -40,68 +38,6 @@ void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *m
   c->modules = modules;
   c->mod_map = mod_map;
   c->chunk = chunk;
-}
-
-Result CompileInitialEnv(u32 num_modules, Compiler *c)
-{
-  PrimitiveModuleDef *primitives = GetPrimitives();
-  u32 num_primitives = NumPrimitives();
-  u32 frame_size = num_primitives + num_modules;
-  Frame *env;
-  u32 mod;
-
-  c->filename = "*startup*";
-  c->pos = 0;
-  BeginChunkFile(Sym(c->filename, &c->chunk->symbols), c->chunk);
-
-  PushConst(IntVal(frame_size), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
-  PushByte(OpExtend, c->pos, c->chunk);
-  env = ExtendFrame(0, frame_size);
-
-  for (mod = 0; mod < num_primitives; mod++) {
-    u32 fn;
-
-    /* create tuples for module */
-    PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-
-    for (fn = 0; fn < primitives[mod].num_fns; fn++) {
-      /*  build primitive reference */
-      PushConst(Nil, c->pos, c->chunk);
-      PushConst(IntVal(fn), c->pos, c->chunk);
-      PushByte(OpPair, c->pos, c->chunk);
-      PushConst(IntVal(mod), c->pos, c->chunk);
-      PushByte(OpPair, c->pos, c->chunk);
-      PushConst(Primitive, c->pos, c->chunk);
-      PushByte(OpPair, c->pos, c->chunk);
-
-      /* add to tuple */
-      PushConst(IntVal(fn), c->pos, c->chunk);
-      PushByte(OpSet, c->pos, c->chunk);
-    }
-
-    PushConst(IntVal(primitives[mod].num_fns), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-
-    for (fn = 0; fn < primitives[mod].num_fns; fn++) {
-      PushConst(primitives[mod].fns[fn].name, c->pos, c->chunk);
-      PushConst(IntVal(fn), c->pos, c->chunk);
-      PushByte(OpSet, c->pos, c->chunk);
-    }
-
-    PushByte(OpPair, c->pos, c->chunk);
-
-    /* define primitive module */
-    PushConst(IntVal(num_modules + mod), c->pos, c->chunk);
-    PushByte(OpDefine, c->pos, c->chunk);
-
-    FrameSet(env, num_modules + mod, primitives[mod].module);
-  }
-
-  EndChunkFile(c->chunk);
-
-  return DataResult(env);
 }
 
 Result CompileScript(Node *module, Compiler *c)
@@ -136,6 +72,16 @@ Result CompileScript(Node *module, Compiler *c)
 
   EndChunkFile(c->chunk);
 
+  return CompileOk();
+}
+
+Result CompileModuleFrame(u32 num_modules, Compiler *c)
+{
+  if (num_modules == 0) return CompileOk();
+
+  PushConst(IntVal(num_modules), 0, c->chunk);
+  PushByte(OpTuple, 0, c->chunk);
+  PushByte(OpExtend, 0, c->chunk);
   return CompileOk();
 }
 
@@ -358,30 +304,8 @@ static Result CompileExpr(Node *node, bool linkage, Compiler *c)
   case IDNode:            return CompileVar(node, linkage, c);
   case NumNode:           return CompileConst(node, linkage, c);
   case StringNode:        return CompileString(node, linkage, c);
-  case NotEqNode:         return CompileNotOp(OpEq, node, linkage, c);
-  case RemNode:           return CompileOp(OpRem, node, linkage, c);
-  case BitAndNode:        return CompileOp(OpBitAnd, node, linkage, c);
-  case MultiplyNode:      return CompileOp(OpMul, node, linkage, c);
-  case AddNode:           return CompileOp(OpAdd, node, linkage, c);
-  case SubtractNode:      return CompileOp(OpSub, node, linkage, c);
-  case DivideNode:        return CompileOp(OpDiv, node, linkage, c);
-  case LtNode:            return CompileOp(OpLt, node, linkage, c);
-  case LShiftNode:        return CompileOp(OpShift, node, linkage, c);
-  case LtEqNode:          return CompileNotOp(OpGt, node, linkage, c);
-  case CatNode:           return CompileOp(OpCat, node, linkage, c);
-  case EqNode:            return CompileOp(OpEq, node, linkage, c);
-  case GtNode:            return CompileOp(OpGt, node, linkage, c);
-  case GtEqNode:          return CompileNotOp(OpLt, node, linkage, c);
-  case RShiftNode:        return CompileNegOp(OpShift, node, linkage, c);
-  case BitOrNode:         return CompileOp(OpBitOr, node, linkage, c);
   case AndNode:           return CompileAnd(node, linkage, c);
-  case InNode:            return CompileOp(OpIn, node, linkage, c);
   case OrNode:            return CompileOr(node, linkage, c);
-  case PairNode:          return CompileOp(OpPair, node, linkage, c);
-  case LengthNode:        return CompileOp(OpLen, node, linkage, c);
-  case NegativeNode:      return CompileOp(OpNeg, node, linkage, c);
-  case NotNode:           return CompileOp(OpNot, node, linkage, c);
-  case BitNotNode:        return CompileOp(OpBitNot, node, linkage, c);
   default:                return CompileError("Unknown expression", c);
   }
 }
@@ -485,6 +409,13 @@ static Result CompileDo(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+static bool IsPrimitiveCall(Node *op, Compiler *c)
+{
+  /* primitive calls are calls from the highest env frame */
+  if (op->type != IDNode) return false;
+  return FrameNum(c->env, op->expr.value) == 0;
+}
+
 #define SymSet 0x7FDB0EE9
 static Result CompileCall(Node *node, bool linkage, Compiler *c)
 {
@@ -492,12 +423,15 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   u32 num_args = NumNodeChildren(node) - 1;
   u32 i, patch;
   Result result;
+  bool is_primitive;
 
   if (op->type == IDNode && op->expr.value == SymSet) {
     return CompileSet(node, linkage, c);
   }
 
-  if (linkage == LinkNext) {
+  is_primitive = IsPrimitiveCall(op, c);
+
+  if (linkage == LinkNext && !is_primitive) {
     patch = PushConst(IntVal(0), c->pos, c->chunk);
     PushByte(OpNoop, c->pos, c->chunk);
     PushByte(OpLink, c->pos, c->chunk);
@@ -516,8 +450,12 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   PushByte(OpApply, c->pos, c->chunk);
   PushByte(num_args, c->pos, c->chunk);
 
-  if (linkage == LinkNext) {
+  if (linkage == LinkNext && !is_primitive) {
     PatchConst(c->chunk, patch);
+  }
+
+  if (is_primitive) {
+    CompileLinkage(linkage, c);
   }
 
   return CompileOk();
@@ -658,45 +596,6 @@ static Result CompileOr(Node *node, bool linkage, Compiler *c)
   PatchConst(c->chunk, branch);
   CompileLinkage(linkage, c);
 
-  return CompileOk();
-}
-
-static Result CompileOp(OpCode op, Node *node, bool linkage, Compiler *c)
-{
-  u32 pos = c->pos;
-  u32 i;
-  for (i = 0; i < NumNodeChildren(node); i++) {
-    Result result = CompileExpr(NodeChild(node, i), LinkNext, c);
-    if (!result.ok) return result;
-  }
-  PushByte(op, pos, c->chunk);
-  CompileLinkage(linkage, c);
-  return CompileOk();
-}
-
-static Result CompileNotOp(OpCode op, Node *node, bool linkage, Compiler *c)
-{
-  u32 i;
-  for (i = 0; i < NumNodeChildren(node); i++) {
-    Result result = CompileExpr(NodeChild(node, i), LinkNext, c);
-    if (!result.ok) return result;
-  }
-  PushByte(op, c->pos, c->chunk);
-  PushByte(OpNot, c->pos, c->chunk);
-  CompileLinkage(linkage, c);
-  return CompileOk();
-}
-
-static Result CompileNegOp(OpCode op, Node *node, bool linkage, Compiler *c)
-{
-  u32 i;
-  for (i = 0; i < NumNodeChildren(node); i++) {
-    Result result = CompileExpr(NodeChild(node, i), LinkNext, c);
-    if (!result.ok) return result;
-  }
-  PushByte(OpNeg, c->pos, c->chunk);
-  PushByte(op, c->pos, c->chunk);
-  CompileLinkage(linkage, c);
   return CompileOk();
 }
 

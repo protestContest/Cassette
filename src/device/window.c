@@ -43,6 +43,8 @@ Result WindowOpen(Val opts, Mem *mem)
   if (!IsInt(height)) return ErrorResult("Expected integer", 0, 0);
 
   result.data = MakeCanvas(RawInt(width), RawInt(height), title);
+  if (result.data == 0) return ErrorResult(CanvasError(), 0, 0);
+
   return result;
 }
 

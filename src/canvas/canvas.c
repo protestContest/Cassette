@@ -220,3 +220,8 @@ void MainLoop(UpdateFn update, void *arg)
 
   SDL_Quit();
 }
+
+char *CanvasError(void)
+{
+  return (char*)SDL_GetError();
+}

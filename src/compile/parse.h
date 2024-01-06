@@ -21,30 +21,8 @@ typedef enum {
   IDNode,
   NumNode,
   StringNode,
-  NotEqNode,
-  RemNode,
-  BitAndNode,
-  MultiplyNode,
-  AddNode,
-  SubtractNode,
-  DivideNode,
-  LtNode,
-  LShiftNode,
-  LtEqNode,
-  CatNode,
-  EqNode,
-  GtNode,
-  GtEqNode,
-  RShiftNode,
-  BitOrNode,
   AndNode,
-  InNode,
-  OrNode,
-  PairNode,
-  LengthNode,
-  NegativeNode,
-  NotNode,
-  BitNotNode
+  OrNode
 } NodeType;
 
 typedef struct {
