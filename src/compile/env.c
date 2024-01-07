@@ -37,6 +37,11 @@ Frame *PopFrame(Frame *frame)
   return parent;
 }
 
+void FreeEnv(Frame *env)
+{
+  while (env != 0) env = PopFrame(env);
+}
+
 void FrameSet(Frame *frame, u32 index, Val value)
 {
   Assert(index < frame->count);

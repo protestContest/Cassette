@@ -4,6 +4,7 @@ let system = unwrap!(open(:system, {}))
 
 def seed(s) set-param(system, :seed, s)
 def time unwrap!(get-param(system, :time))
+def ticks unwrap!(get-param(system, :ticks))
 def random unwrap!(get-param(system, :random))
 def list-ports unwrap!(get-param(system, :serial-ports))
 

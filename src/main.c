@@ -48,30 +48,29 @@ static bool CanvasUpdate(void *arg);
 
 int main(int argc, char *argv[])
 {
-  Chunk chunk;
+  Chunk *chunk;
   Result result;
   VM vm;
 
   if (argc < 2) return Usage();
   opts = ParseOpts(argc, argv);
 
-  InitChunk(&chunk);
-
-  result = BuildProject(opts, &chunk);
-
+  result = BuildProject(opts);
   if (!result.ok) {
     PrintError(result);
-    DestroyChunk(&chunk);
     return 1;
   }
 
+  chunk = result.data;
+
   if (opts.debug) {
-    Disassemble(&chunk);
+    Disassemble(chunk);
+  }
   }
 
   /* Ok, time to run the code */
   Seed(Time());
-  InitVM(&vm, &chunk);
+  InitVM(&vm, chunk);
   if (opts.debug) {
     vm.trace = true;
     PrintTraceHeader();
@@ -79,10 +78,8 @@ int main(int argc, char *argv[])
   InitGraphics();
   MainLoop(CanvasUpdate, &vm);
 
-  /* Not sure why we bother cleaning up if we're just about to exit, but somehow
-  it feels right */
   DestroyVM(&vm);
-  DestroyChunk(&chunk);
+  DestroyChunk(chunk);
 
   return 0;
 }

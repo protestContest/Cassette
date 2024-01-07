@@ -27,6 +27,7 @@ typedef struct {
 #define VecRef(vec, i)      ((vec)->items[i])
 #define CapacityLeft(vec)   ((vec)->capacity - (vec)->count)
 #define VecPop(vec)         ((vec)->items[--(vec)->count])
+#define VecPeek(vec, i)     ((vec)->items[(vec)->count - (i) - 1])
 
 void InitVec(Vec *vec, u32 item_size, u32 capacity);
 void DestroyVec(Vec *vec);

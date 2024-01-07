@@ -3,12 +3,14 @@
 #include "math.h"
 #include "system.h"
 
+#define HashMapMinSize        8
+
 #define IndexFor(hash, cap)   ((hash) & ((cap) - 1))
 #define IsEmpty(bucket)       ((bucket).probe < 0)
 #define MaxBuckets(cap)       (((map)->capacity >> 2) + ((map)->capacity >> 1))
 #define MinBuckets(cap)       ((cap) >> 2)
 #define TooSmall(map)         ((map)->capacity == 0 || (map)->count > MaxBuckets((map)->capacity))
-#define TooBig(map)           ((map)->capacity > 32 && (map)->count < MinBuckets((map)->capacity))
+#define TooBig(map)           ((map)->capacity > HashMapMinSize && (map)->count < MinBuckets((map)->capacity))
 
 static bool Put(HashMap *map, u32 key, u32 value);
 
@@ -17,7 +19,7 @@ static void ResizeMap(HashMap *map, u32 capacity)
   HashMap map2;
   u32 i;
 
-  map2.capacity = Max(capacity, 32);
+  map2.capacity = Max(capacity, HashMapMinSize);
   map2.count = map->count;
   map2.buckets = Alloc(sizeof(MapBucket)*map2.capacity);
 
@@ -135,7 +137,7 @@ void HashMapDelete(HashMap *map, u32 key)
         next_index = IndexFor(next_index + 1, map->capacity);
       }
       map->count--;
-      /* if (TooBig(map)) ResizeMap(map, map->capacity/2);*/
+      if (TooBig(map)) ResizeMap(map, map->capacity/2);
       return;
     }
     index = IndexFor(index + 1, map->capacity);

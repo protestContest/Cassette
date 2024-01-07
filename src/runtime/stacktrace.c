@@ -32,7 +32,7 @@ StackTraceItem *StackTrace(VM *vm)
   while (link > 0 && vm->stack.count > 2) {
     u32 index = RawInt(VecRef(&vm->stack, link - 2));
     index -= 2; /* this hack depends on the compiler always linking to a point just after an apply op */
-    file_pos = GetSourcePosition(index, vm->chunk);
+    file_pos = SourcePosAt(index, vm->chunk);
     filename = ChunkFileAt(index, vm->chunk);
     trace = NewStackTraceItem(filename, file_pos, trace);
     link = RawInt(VecRef(&vm->stack, link - 1));

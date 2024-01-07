@@ -40,16 +40,10 @@ typedef struct {
   SymbolTable *symbols;
 } Parser;
 
+Result ParseFile(char *filename, SymbolTable *symbols);
 void InitParser(Parser *p, SymbolTable *symbols);
 Result Parse(char *source, Parser *p);
-
-
-Node *MakeTerminal(NodeType type, u32 position, Val value);
-Node *MakeNode(NodeType type, u32 position);
-void SetNodeType(Node *node, NodeType type);
-void FreeNode(Node *node);
 void FreeAST(Node *node);
-bool IsTerminal(Node *node);
 
 #define NodePush(node, child)   ObjVecPush(&(node)->expr.children, child)
 #define NodeChild(node, i)      (((Node*)(node))->expr.children.items[i])

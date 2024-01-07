@@ -43,7 +43,6 @@ void DestroyVM(VM *vm)
 
   DestroyVec((Vec*)&vm->stack);
   DestroyMem(&vm->mem);
-
 }
 
 Result Run(VM *vm, u32 num_instructions)
@@ -124,7 +123,7 @@ static Result RunInstruction(VM *vm)
     u32 index;
     if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
     index = (ChunkRef(vm->chunk, vm->pc+1) << 8) | ChunkRef(vm->chunk, vm->pc+2);
-    StackPush(vm, vm->chunk->constants[index]);
+    StackPush(vm, vm->chunk->constants.items[index]);
     vm->pc += OpLength(op);
     break;
   }
@@ -340,7 +339,7 @@ static Result RunInstruction(VM *vm)
 Result RuntimeError(char *message, VM *vm)
 {
   char *filename = ChunkFileAt(vm->pc, vm->chunk);
-  u32 pos = GetSourcePosition(vm->pc, vm->chunk);
+  u32 pos = SourcePosAt(vm->pc, vm->chunk);
   Result error = ErrorResult(message, filename, pos);
   error.data = StackTrace(vm);
   return error;

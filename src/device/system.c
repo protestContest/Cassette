@@ -23,6 +23,8 @@ Result SystemGet(void *context, Val key, Mem *mem)
 {
   if (key == SymTime) {
     return OkResult(IntVal(Time()));
+  } else if (key == SymbolFor("ticks")) {
+    return OkResult(IntVal(Ticks()));
   } else if (key == SymRandom) {
     float r = (float)Random() / (float)MaxUInt;
     return OkResult(FloatVal(r));

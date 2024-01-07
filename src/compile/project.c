@@ -1,4 +1,5 @@
 #include "project.h"
+#include "runtime/chunk.h"
 #include "compile.h"
 #include "univ/str.h"
 #include "parse.h"
@@ -23,9 +24,9 @@ static void DestroyProject(Project *project);
 static Result ReadManifest(char *filename, Project *project);
 static Result ParseModules(Project *project);
 static Result ScanDependencies(Project *project);
-static Result CompileProject(Chunk *chunk, Project *project);
+static Result CompileProject(Project *project);
 
-Result BuildProject(Options opts, Chunk *chunk)
+Result BuildProject(Options opts)
 {
   u32 i;
   Result result;
@@ -43,7 +44,7 @@ Result BuildProject(Options opts, Chunk *chunk)
 
   result = ParseModules(&project);
   if (result.ok) result = ScanDependencies(&project);
-  if (result.ok) result = CompileProject(chunk, &project);
+  if (result.ok) result = CompileProject(&project);
 
   DestroyProject(&project);
 
@@ -53,12 +54,15 @@ Result BuildProject(Options opts, Chunk *chunk)
 static void InitProject(Project *project, Options opts)
 {
   project->opts = opts;
-  InitVec((Vec*)&project->manifest, sizeof(char*), 8);
-  InitHashMap(&project->mod_map);
   InitVec((Vec*)&project->modules, sizeof(Node*), 8);
+  InitHashMap(&project->mod_map);
   InitSymbolTable(&project->symbols);
+  InitVec((Vec*)&project->manifest, sizeof(char*), 8);
   InitVec((Vec*)&project->build_list, sizeof(Node*), 8);
-  DefineSymbols(&project->symbols);
+
+  if (opts.debug) {
+    DefineSymbols(&project->symbols);
+  }
 }
 
 static void DestroyProject(Project *project)
@@ -67,8 +71,8 @@ static void DestroyProject(Project *project)
   for (i = 0; i < project->modules.count; i++) {
     FreeAST(VecRef(&project->modules, i));
   }
-  DestroyHashMap(&project->mod_map);
   DestroyVec((Vec*)&project->modules);
+  DestroyHashMap(&project->mod_map);
   DestroySymbolTable(&project->symbols);
   for (i = 0; i < project->manifest.count; i++) {
     Free(project->manifest.items[i]);
@@ -77,29 +81,18 @@ static void DestroyProject(Project *project)
   DestroyVec((Vec*)&project->build_list);
 }
 
-/* parses each file and puts the result in a hashmap, keyed by module name (or
-   filename if it isn't a module) */
 static Result ParseModules(Project *project)
 {
   Result result;
-  Parser parser;
   u32 i;
-
-  InitParser(&parser, &project->symbols);
 
   for (i = 0; i < project->manifest.count; i++) {
     char *filename = project->manifest.items[i];
-    char *source = ReadFile(filename);
-
-    if (source == 0) return ErrorResult("Could not read file", filename, 0);
-    parser.filename = filename;
-
-    result = Parse(source, &parser);
+    result = ParseFile(filename, &project->symbols);
     if (!result.ok) return result;
-    Free(source);
 
     if (project->opts.debug) {
-      PrintAST(result.data, &parser);
+      PrintAST(result.data, &project->symbols);
     }
 
     HashMapSet(&project->mod_map, ModuleName(result.data), project->modules.count);
@@ -128,9 +121,6 @@ static Result ScanDependencies(Project *project)
     Assert(HashMapContains(&project->mod_map, name));
     module = VecRef(&project->modules, HashMapGet(&project->mod_map, name));
 
-    /* skip nil modules (e.g. primitive modules) */
-    if (ModuleFile(module) == Nil) continue;
-
     /* add current module to build list */
     ObjVecPush(&project->build_list, module);
     HashMapSet(&seen, name, 1);
@@ -144,6 +134,8 @@ static Result ScanDependencies(Project *project)
       /* make sure we know about the imported module */
       if (!HashMapContains(&project->mod_map, import_name)) {
         char *filename = SymbolName(ModuleFile(module), &project->symbols);
+        DestroyHashMap(&seen);
+        DestroyVec((Vec*)&stack);
         return ErrorResult("Module not found", filename, import->pos);
       }
 
@@ -161,14 +153,16 @@ static Result ScanDependencies(Project *project)
 }
 
 /* compiles a list of modules into a chunk that can be run */
-static Result CompileProject(Chunk *chunk, Project *project)
+static Result CompileProject(Project *project)
 {
-  Compiler c;
   u32 i;
+  Result result;
+  Compiler c;
   u32 num_modules = project->build_list.count - 1; /* exclude entry script */
   Frame *compile_env = CompileEnv(num_modules);
-  Result result = OkResult(Nil);
+  Chunk *chunk = Alloc(sizeof(Chunk));
 
+  InitChunk(chunk);
   InitCompiler(&c, &project->symbols, &project->modules, &project->mod_map, chunk);
 
   CompileModuleFrame(num_modules, &c);
@@ -185,12 +179,21 @@ static Result CompileProject(Chunk *chunk, Project *project)
     Node *module = VecRef(&project->build_list, num_modules - i);
     Assert(c.env == compile_env);
     result = CompileModule(module, i, &c);
-    if (!result.ok) return result;
+    if (!result.ok) break;
   }
 
-  /* compile the entry module a little differently */
-  Assert(c.env == compile_env);
-  result = CompileScript(VecRef(&project->build_list, 0), &c);
+  if (result.ok) {
+    /* compile the entry module a little differently */
+    Assert(c.env == compile_env);
+    result = CompileScript(VecRef(&project->build_list, 0), &c);
+  }
 
-  return result;
+  if (result.ok) {
+    result.data = chunk;
+    return result;
+  } else {
+    DestroyChunk(chunk);
+    FreeEnv(compile_env);
+    return result;
+  }
 }

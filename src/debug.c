@@ -244,7 +244,7 @@ void PrintInstruction(Chunk *chunk, u32 pos)
     printf(" %d", ChunkRef(chunk, pos+1));
   } else if (op == OpConst2) {
     u32 index = (ChunkRef(chunk, pos+1) << 8) | ChunkRef(chunk, pos+2);
-    Val arg = chunk->constants[index];
+    Val arg = chunk->constants.items[index];
     printf(" %d ", index);
     PrintVal(arg, 0, &chunk->symbols);
   } else {
@@ -290,7 +290,7 @@ void Disassemble(Chunk *chunk)
   for (i = 0; i < chunk->code.count; i += OpLength(ChunkRef(chunk, i))) {
     u8 op = ChunkRef(chunk, i);
     u32 j, k;
-    u32 source = GetSourcePosition(i, chunk);
+    u32 source = SourcePosAt(i, chunk);
 
     if (i == next_file) {
       u32 written;
@@ -310,7 +310,7 @@ void Disassemble(Chunk *chunk)
       k += printf(" %d", ChunkRef(chunk, i+1));
     } else if (op == OpConst2) {
       u32 index = (ChunkRef(chunk, i+1) << 8) | ChunkRef(chunk, i+2);
-      Val arg = chunk->constants[index];
+      Val arg = chunk->constants.items[index];
       k += printf(" %d ", index);
       k += PrintVal(arg, 0, &chunk->symbols);
     } else {
@@ -321,13 +321,13 @@ void Disassemble(Chunk *chunk)
     }
 
     while (k < col1) k += printf(" ");
-    if (line < chunk->num_constants) {
-      Val value = chunk->constants[line];
+    if (line < chunk->constants.count) {
+      Val value = chunk->constants.items[line];
       k += printf("%3d: ", line);
       if (IsSym(value)) {
         k += printf("%.*s", longest_sym, SymbolName(value, &chunk->symbols));
       } else {
-        k += PrintVal(chunk->constants[line], 0, &chunk->symbols);
+        k += PrintVal(chunk->constants.items[line], 0, &chunk->symbols);
       }
     }
 
@@ -378,7 +378,7 @@ void TraceInstruction(OpCode op, VM *vm)
     col_width -= printf(" %d", ChunkRef(vm->chunk, vm->pc+1));
   } else if (op == OpConst2) {
     u32 index = (ChunkRef(vm->chunk, vm->pc+1) << 8) | ChunkRef(vm->chunk, vm->pc+2);
-    Val arg = vm->chunk->constants[index];
+    Val arg = vm->chunk->constants.items[index];
     col_width -= printf(" ");
     col_width -= PrintVal(arg, &vm->mem, &vm->chunk->symbols);
   } else {
@@ -721,7 +721,7 @@ static void Indent(u32 level, u32 lines)
   }
 }
 
-static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
+static void PrintASTNode(Node *node, u32 level, u32 lines, SymbolTable *symbols)
 {
   NodeType type = node->type;
   char *name = NodeTypeName(type);
@@ -733,9 +733,9 @@ static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
     Val name = NodeValue(NodeChild(node, 3));
     Node *body = NodeChild(node, 2);
 
-    printf(" %s\n", SymbolName(name, p->symbols));
+    printf(" %s\n", SymbolName(name, symbols));
     printf("└╴");
-    PrintASTNode(body, level+1, lines, p);
+    PrintASTNode(body, level+1, lines, symbols);
   } else if (type == DoNode) {
     Node *assigns = NodeChild(node, 0);
     Node *stmts = NodeChild(node, 1);
@@ -743,7 +743,7 @@ static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
     printf(" Assigns: [");
     for (i = 0; i < NumNodeChildren(assigns); i++) {
       Val assign = NodeValue(NodeChild(assigns, i));
-      printf("%s", SymbolName(assign, p->symbols));
+      printf("%s", SymbolName(assign, symbols));
       if (i < NumNodeChildren(assigns) - 1) printf(", ");
     }
     printf("]\n");
@@ -759,35 +759,35 @@ static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
         printf("├╴");
       }
 
-      PrintASTNode(NodeChild(stmts, i), level+1, lines, p);
+      PrintASTNode(NodeChild(stmts, i), level+1, lines, symbols);
     }
   } else if (type == LetNode || type == DefNode) {
     Val var = NodeValue(NodeChild(node, 0));
-    printf(" %s\n", SymbolName(var, p->symbols));
+    printf(" %s\n", SymbolName(var, symbols));
     Indent(level, lines);
     printf("└╴");
-    PrintASTNode(NodeChild(node, 1), level+1, lines, p);
+    PrintASTNode(NodeChild(node, 1), level+1, lines, symbols);
   } else if (type == ImportNode) {
     Val mod = NodeValue(NodeChild(node, 0));
     Node *alias = NodeChild(node, 1);
-    printf(" %s as ", SymbolName(mod, p->symbols));
+    printf(" %s as ", SymbolName(mod, symbols));
     if (alias->type == NilNode) {
       printf("*\n");
     } else {
-      printf("%s\n", SymbolName(NodeValue(alias), p->symbols));
+      printf("%s\n", SymbolName(NodeValue(alias), symbols));
     }
   } else if (type == LambdaNode) {
     Node *params = NodeChild(node, 0);
     printf(" (");
     for (i = 0; i < NumNodeChildren(params); i++) {
       Val param = NodeValue(NodeChild(params, i));
-      printf("%s", SymbolName(param, p->symbols));
+      printf("%s", SymbolName(param, symbols));
       if (i < NumNodeChildren(params) - 1) printf(", ");
     }
     printf(")\n");
     Indent(level, lines);
     printf("└╴");
-    PrintASTNode(NodeChild(node, 1), level+1, lines, p);
+    PrintASTNode(NodeChild(node, 1), level+1, lines, symbols);
   } else if (type == NumNode) {
     Val expr = NodeValue(node);
     if (IsInt(expr)) {
@@ -798,11 +798,11 @@ static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
       printf("\n");
     }
   } else if (type == IDNode) {
-    printf(" %s\n", SymbolName(NodeValue(node), p->symbols));
+    printf(" %s\n", SymbolName(NodeValue(node), symbols));
   } else if (type == SymbolNode) {
-    printf(" :%s\n", SymbolName(NodeValue(node), p->symbols));
+    printf(" :%s\n", SymbolName(NodeValue(node), symbols));
   } else if (type == StringNode) {
-    printf(" \"%s\"\n", SymbolName(NodeValue(node), p->symbols));
+    printf(" \"%s\"\n", SymbolName(NodeValue(node), symbols));
   } else if (type == MapNode) {
     printf("\n");
     lines |= Bit(level);
@@ -819,8 +819,8 @@ static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
         printf("├╴");
       }
 
-      printf("%s: ", SymbolName(key, p->symbols));
-      PrintASTNode(value, level+1, lines, p);
+      printf("%s: ", SymbolName(key, symbols));
+      PrintASTNode(value, level+1, lines, symbols);
     }
   } else if (type == NilNode) {
     printf("\n");
@@ -837,14 +837,14 @@ static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
         printf("├╴");
       }
 
-      PrintASTNode(NodeChild(node, i), level+1, lines, p);
+      PrintASTNode(NodeChild(node, i), level+1, lines, symbols);
     }
   }
 }
 
-void PrintAST(Node *ast, Parser *p)
+void PrintAST(Node *ast, SymbolTable *symbols)
 {
-  PrintASTNode(ast, 0, 0, p);
+  PrintASTNode(ast, 0, 0, symbols);
 }
 
 void DumpSourceMap(Chunk *chunk)
@@ -862,10 +862,13 @@ void DumpSourceMap(Chunk *chunk)
       source = ReadFile(file);
       next_file += ChunkFileByteSize(bytes, chunk);
       printf("%s (%d)\n", file, next_file);
-      pos = 0;
     }
 
-    pos += (i8)map.items[i];
+    if ((i8)map.items[i] == -128) {
+      pos = 0;
+    } else {
+      pos += (i8)map.items[i];
+    }
 
     if (source) {
       u32 line = LineNum(source, pos);

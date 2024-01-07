@@ -41,6 +41,19 @@ void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *m
   c->chunk = chunk;
 }
 
+Result CompileModuleFrame(u32 num_modules, Compiler *c)
+{
+  PushFilePos(Sym("*init*", &c->chunk->symbols), c->chunk);
+
+  if (num_modules > 0) {
+    PushConst(IntVal(num_modules), c->chunk);
+    PushByte(OpTuple, c->chunk);
+    PushByte(OpExtend, c->chunk);
+  }
+
+  return CompileOk();
+}
+
 Result CompileScript(Node *module, Compiler *c)
 {
   Result result;
@@ -54,7 +67,7 @@ Result CompileScript(Node *module, Compiler *c)
 
   /* record start position of module in chunk */
   c->pos = 0;
-  BeginChunkFile(ModuleFile(module), c->chunk);
+  PushFilePos(ModuleFile(module), c->chunk);
 
   /* compile imports */
   if (num_imports > 0) {
@@ -76,22 +89,6 @@ Result CompileScript(Node *module, Compiler *c)
     c->env = PopFrame(c->env);
   }
 
-  EndChunkFile(c->chunk);
-
-  return CompileOk();
-}
-
-Result CompileModuleFrame(u32 num_modules, Compiler *c)
-{
-  BeginChunkFile(Sym("*init*", &c->chunk->symbols), c->chunk);
-
-  if (num_modules > 0) {
-    PushConst(IntVal(num_modules), c->chunk);
-    PushByte(OpTuple, c->chunk);
-    PushByte(OpExtend, c->chunk);
-  }
-
-  EndChunkFile(c->chunk);
   return CompileOk();
 }
 
@@ -110,7 +107,7 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
 
   /* record start position of module in chunk */
   c->pos = 0;
-  BeginChunkFile(ModuleFile(module), c->chunk);
+  PushFilePos(ModuleFile(module), c->chunk);
 
   /* create lambda for module */
   PushConst(IntVal(0), c->chunk);
@@ -183,8 +180,6 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   /* define module as the lambda */
   PushConst(IntVal(mod_num), c->chunk);
   PushByte(OpDefine, c->chunk);
-
-  EndChunkFile(c->chunk);
 
   return CompileOk();
 }
