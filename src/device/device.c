@@ -42,7 +42,7 @@ Result DeviceOpen(DeviceType type, Val opts, Mem *mem)
   if (drivers[type].open) {
     return drivers[type].open(opts, mem);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
@@ -51,7 +51,7 @@ Result DeviceClose(Device *device, Mem *mem)
   if (drivers[device->type].close) {
     return drivers[device->type].close(device->context, mem);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
@@ -60,7 +60,7 @@ Result DeviceRead(Device *device, Val length, Mem *mem)
   if (drivers[device->type].read) {
     return drivers[device->type].read(device->context, length, mem);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
@@ -69,7 +69,7 @@ Result DeviceWrite(Device *device, Val data, Mem *mem)
   if (drivers[device->type].write) {
     return drivers[device->type].write(device->context, data, mem);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
@@ -78,7 +78,7 @@ Result DeviceSet(Device *device, Val key, Val value, Mem *mem)
   if (drivers[device->type].set) {
     return drivers[device->type].set(device->context, key, value, mem);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
@@ -87,7 +87,7 @@ Result DeviceGet(Device *device, Val key, Mem *mem)
   if (drivers[device->type].get) {
     return drivers[device->type].get(device->context, key, mem);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 

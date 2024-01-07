@@ -1,6 +1,5 @@
 #include "mem/mem.h"
 #include "mem/symbols.h"
-#include "result.h"
 #include "runtime/ops.h"
 #include "runtime/chunk.h"
 #include "runtime/vm.h"

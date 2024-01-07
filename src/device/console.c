@@ -20,7 +20,7 @@ Result ConsoleRead(void *context, Val length, Mem *mem)
     u32 length = StrLen(buf);
     if (IsNewline(buf[length-1])) length--;
     bin = BinaryFrom(buf, length, mem);
-    return OkResult(bin);
+    return ValueResult(bin);
   }
 }
 
@@ -28,11 +28,11 @@ Result ConsoleWrite(void *context, Val data, Mem *mem)
 {
   if (IsInt(data) && RawInt(data) >= 0 && RawInt(data) < 256) {
     printf("%c", RawInt(data));
-    return OkResult(1);
+    return ValueResult(IntVal(1));
   } else if (IsBinary(data, mem)) {
     u32 length = printf("%*.*s", BinaryCount(data, mem), BinaryCount(data, mem), BinaryData(data, mem));
     fflush(stdout);
-    return OkResult(IntVal(length));
+    return ValueResult(IntVal(length));
   } else {
     return ErrorResult("Invalid console data", 0, 0);
   }

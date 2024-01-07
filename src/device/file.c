@@ -35,7 +35,7 @@ Result FileOpen(Val opts, Mem *mem)
   context->path = path;
   context->mode = mode;
 
-  return DataResult(context);
+  return ItemResult(context);
 }
 
 Result FileClose(void *context, Mem *mem)
@@ -44,7 +44,7 @@ Result FileClose(void *context, Mem *mem)
   fclose(ctx->file);
   Free(ctx->path);
   Free(ctx->mode);
-  return OkResult(Ok);
+  return ValueResult(Ok);
 }
 
 Result FileRead(void *context, Val length, Mem *mem)
@@ -53,23 +53,23 @@ Result FileRead(void *context, Val length, Mem *mem)
   if (!IsInt(length)) return ErrorResult("Expected integer", 0, 0);
 
   if (RawInt(length) == 0) {
-    return OkResult(MakeBinary(0, mem));
+    return ValueResult(MakeBinary(0, mem));
   } else {
     char *buf = Alloc(RawInt(length));
     u32 bytes_read = fread(buf, 1, RawInt(length), ctx->file);
     if (bytes_read == 0) {
       Free(buf);
       if (feof(ctx->file)) {
-        return OkResult(Nil);
+        return ValueResult(Nil);
       } else if (ferror(ctx->file)) {
         return ErrorResult(strerror(errno), 0, 0);
       } else {
-        return OkResult(MakeBinary(0, mem));
+        return ValueResult(MakeBinary(0, mem));
       }
     } else {
       Val bin = BinaryFrom(buf, bytes_read, mem);
       Free(buf);
-      return OkResult(bin);
+      return ValueResult(bin);
     }
   }
 }
@@ -80,17 +80,17 @@ Result FileWrite(void *context, Val data, Mem *mem)
   if (!IsBinary(data, mem)) return ErrorResult("Expected binary", 0, 0);
 
   if (BinaryCount(data, mem) == 0) {
-    return OkResult(IntVal(0));
+    return ValueResult(IntVal(0));
   } else {
     u32 length = BinaryCount(data, mem);
     char *bytes = BinaryData(data, mem);
     u32 bytes_written = fwrite(bytes, 1, length, ctx->file);
     if (bytes_written == length) {
-      return OkResult(Ok);
+      return ValueResult(Ok);
     } else if (ferror(ctx->file)) {
       return ErrorResult(strerror(errno), 0, 0);
     } else {
-      return OkResult(Nil);
+      return ValueResult(Nil);
     }
   }
 }
@@ -101,9 +101,9 @@ Result FileSet(void *context, Val key, Val value, Mem *mem)
   if (key == SymPosition) {
     if (!IsInt(value)) return ErrorResult("Expected integer", 0, 0);
     fseek(ctx->file, RawInt(value), SEEK_SET);
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
@@ -112,7 +112,7 @@ Result FileGet(void *context, Val key, Mem *mem)
   FileContext *ctx = (FileContext*)context;
   if (key == SymPosition) {
     u32 pos = ftell(ctx->file);
-    return OkResult(IntVal(pos));
+    return ValueResult(IntVal(pos));
   } else {
     return ErrorResult("Read only", 0, 0);
   }

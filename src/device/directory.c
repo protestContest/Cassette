@@ -51,7 +51,7 @@ Result DirectoryOpen(Val opts, Mem *mem)
   ctx = Alloc(sizeof(DirContext));
   ctx->dir = dir;
   ctx->path = resolved_path;
-  return DataResult(ctx);
+  return ItemResult(ctx);
 }
 
 Result DirectoryClose(void *context, Mem *mem)
@@ -59,7 +59,7 @@ Result DirectoryClose(void *context, Mem *mem)
   DirContext *ctx = (DirContext*)context;
   closedir(ctx->dir);
   Free(ctx->path);
-  return OkResult(Ok);
+  return ValueResult(Ok);
 }
 
 Result DirectoryRead(void *context, Val length, Mem *mem)
@@ -104,7 +104,7 @@ Result DirectoryRead(void *context, Val length, Mem *mem)
     items = Pair(item, items, mem);
   }
   items = ReverseList(items, Nil, mem);
-  return OkResult(items);
+  return ValueResult(items);
 }
 
 Result DirectoryWrite(void *context, Val data, Mem *mem)
@@ -128,13 +128,13 @@ Result DirectoryWrite(void *context, Val data, Mem *mem)
     Free(path);
     if (file == -1) return ErrorResult(strerror(errno), 0, 0);
     close(file);
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else if (type == SymDirectory) {
     mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
     int file = mkdir(path, mode);
     Free(path);
     if (file == -1) return ErrorResult(strerror(errno), 0, 0);
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else {
     return ErrorResult("Expected type to be :file or :directory", 0, 0);
   }
@@ -146,8 +146,8 @@ Result DirectoryGet(void *context, Val key, Mem *mem)
 
   if (key == SymPath) {
     Val path = BinaryFrom(ctx->path, StrLen(ctx->path), mem);
-    return OkResult(path);
+    return ValueResult(path);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }

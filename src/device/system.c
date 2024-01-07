@@ -13,21 +13,21 @@ Result SystemSet(void *context, Val key, Val value, Mem *mem)
 {
   if (key == SymSeed) {
     Seed(RawInt(value));
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
 Result SystemGet(void *context, Val key, Mem *mem)
 {
   if (key == SymTime) {
-    return OkResult(IntVal(Time()));
+    return ValueResult(IntVal(Time()));
   } else if (key == SymbolFor("ticks")) {
-    return OkResult(IntVal(Ticks()));
+    return ValueResult(IntVal(Ticks()));
   } else if (key == SymRandom) {
     float r = (float)Random() / (float)MaxUInt;
-    return OkResult(FloatVal(r));
+    return ValueResult(FloatVal(r));
   } else if (key == SymbolFor("serial-ports")) {
     ObjVec *ports = ListSerialPorts();
     u32 i;
@@ -43,8 +43,8 @@ Result SystemGet(void *context, Val key, Mem *mem)
     }
     list = ReverseList(list, Nil, mem);
     Free(ports);
-    return OkResult(list);
+    return ValueResult(list);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }

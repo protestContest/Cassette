@@ -8,43 +8,44 @@ value or error details.
 #include "univ/str.h"
 #include "mem/symbols.h"
 
-Result OkResult(Val value)
+Result ValueResult(Val value)
 {
   Result result;
   result.ok = true;
-  result.value = value;
-  result.error = 0;
-  result.filename = 0;
-  result.pos = 0;
-  result.data = 0;
+  result.data.value = value;
   return result;
 }
 
-Result DataResult(void *data)
-{
-  Result result = OkResult(Nil);
-  result.data = data;
-  return result;
-}
-
-Result ErrorResult(char *error, char *filename, u32 pos)
+Result ItemResult(void *item)
 {
   Result result;
-  result.ok = false;
-  result.value = Error;
-  result.error = CopyStr(error, StrLen(error));
-  result.data = 0;
-  if (filename) {
-    result.filename = CopyStr(filename, StrLen(filename));
-    result.pos = pos;
-  } else {
-    result.filename = 0;
-    result.pos = 0;
-  }
+  result.ok = true;
+  result.data.item = item;
   return result;
 }
 
-Result OkError(Result error, Mem *mem)
+Result ErrorResult(char *message, char *filename, u32 pos)
 {
-  return OkResult(Pair(Error, BinaryFrom(error.error, StrLen(error.error), mem), mem));
+  Result result;
+  ErrorDetails *error = Alloc(sizeof(ErrorDetails));
+  error->message = message;
+  if (filename) {
+    error->filename = CopyStr(filename, StrLen(filename));
+    error->pos = pos;
+  } else {
+    error->filename = 0;
+    error->pos = 0;
+  }
+  error->value = Nil;
+  error->item = 0;
+
+  result.ok = false;
+  result.data.error = error;
+  return result;
+}
+
+Result OkError(Result result, Mem *mem)
+{
+  char *message = ResultError(result)->message;
+  return ValueResult(Pair(Error, BinaryFrom(message, StrLen(message), mem), mem));
 }

@@ -413,5 +413,5 @@ Result DeserializeChunk(u8 *data, u32 size)
     return ErrorResult("Invalid checksum", 0, 0);
   }
 
-  return DataResult(chunk);
+  return ItemResult(chunk);
 }

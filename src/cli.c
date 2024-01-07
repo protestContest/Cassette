@@ -95,27 +95,26 @@ Options ParseOpts(u32 argc, char *argv[])
   return opts;
 }
 
-void PrintRuntimeError(Result error, VM *vm)
+void PrintRuntimeError(Result result, VM *vm)
 {
   u32 line, col;
   char *source = 0;
+  ErrorDetails *error = ResultError(result);
 
   printf("%s", ANSIRed);
-  printf("Error: %s\n", error.error);
+  printf("Error: %s\n", error->message);
 
-  PrintStackTrace(error.data, vm);
-  FreeStackTrace(error.data);
+  PrintStackTrace(error->item, vm);
+  FreeStackTrace(error->item);
 
-  if (error.filename) {
-    source = ReadFile(error.filename);
+  if (error->filename) {
+    source = ReadFile(error->filename);
     if (source) {
-      line = LineNum(source, error.pos);
-      col = ColNum(source, error.pos);
+      line = LineNum(source, error->pos);
+      col = ColNum(source, error->pos);
     }
-  }
 
-  if (error.filename) {
-    printf("    %s", error.filename);
+    printf("    %s", error->filename);
     if (source) {
       printf(":%d:%d", line+1, col+1);
     }
@@ -123,36 +122,37 @@ void PrintRuntimeError(Result error, VM *vm)
   }
 
   if (source) {
-    PrintSourceContext(error.pos, source, 3);
+    PrintSourceContext(error->pos, source, 3);
   }
   printf("%s", ANSINormal);
 }
 
-void PrintError(Result error)
+void PrintError(Result result)
 {
   u32 line, col;
   char *source = 0;
+  ErrorDetails *error = ResultError(result);
 
-  if (error.filename) {
-    source = ReadFile(error.filename);
+  if (error->filename) {
+    source = ReadFile(error->filename);
     if (source) {
-      line = LineNum(source, error.pos);
-      col = ColNum(source, error.pos);
+      line = LineNum(source, error->pos);
+      col = ColNum(source, error->pos);
     }
   }
 
   printf("%s", ANSIRed);
-  if (error.filename) {
-    printf("%s", error.filename);
+  if (error->filename) {
+    printf("%s", error->filename);
     if (source) {
       printf(":%d:%d", line+1, col+1);
     }
     printf(" ");
   }
 
-  printf("Error: %s\n", error.error);
+  printf("Error: %s\n", error->message);
   if (source) {
-    PrintSourceContext(error.pos, source, 3);
+    PrintSourceContext(error->pos, source, 3);
   }
   printf("%s", ANSINormal);
 }

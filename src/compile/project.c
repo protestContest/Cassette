@@ -92,11 +92,11 @@ static Result ParseModules(Project *project)
     if (!result.ok) return result;
 
     if (project->opts.debug) {
-      PrintAST(result.data, &project->symbols);
+      PrintAST(ResultItem(result), &project->symbols);
     }
 
-    HashMapSet(&project->mod_map, ModuleName(result.data), project->modules.count);
-    ObjVecPush(&project->modules, result.data);
+    HashMapSet(&project->mod_map, ModuleName(ResultItem(result)), project->modules.count);
+    ObjVecPush(&project->modules, ResultItem(result));
   }
 
   return result;
@@ -149,7 +149,7 @@ static Result ScanDependencies(Project *project)
   DestroyHashMap(&seen);
   DestroyVec((Vec*)&stack);
 
-  return OkResult(Nil);
+  return ValueResult(Nil);
 }
 
 /* compiles a list of modules into a chunk that can be run */
@@ -189,7 +189,7 @@ static Result CompileProject(Project *project)
   }
 
   if (result.ok) {
-    result.data = chunk;
+    ResultItem(result) = chunk;
     return result;
   } else {
     DestroyChunk(chunk);

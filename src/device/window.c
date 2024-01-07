@@ -22,7 +22,7 @@ Result WindowOpen(Val opts, Mem *mem)
 {
   Val width, height;
   char *title;
-  Result result = OkResult(Nil);
+  Result result = ValueResult(Nil);
 
   if (!IsTuple(opts, mem)) {
     return ErrorResult("Opts must be a tuple", 0, 0);
@@ -42,8 +42,8 @@ Result WindowOpen(Val opts, Mem *mem)
   if (!IsInt(width)) return ErrorResult("Expected integer", 0, 0);
   if (!IsInt(height)) return ErrorResult("Expected integer", 0, 0);
 
-  result.data = MakeCanvas(RawInt(width), RawInt(height), title);
-  if (result.data == 0) return ErrorResult(CanvasError(), 0, 0);
+  ResultItem(result) = MakeCanvas(RawInt(width), RawInt(height), title);
+  if (ResultItem(result) == 0) return ErrorResult(CanvasError(), 0, 0);
 
   return result;
 }
@@ -51,7 +51,7 @@ Result WindowOpen(Val opts, Mem *mem)
 Result WindowClose(void *context, Mem *mem)
 {
   FreeCanvas((Canvas*)context);
-  return OkResult(Ok);
+  return ValueResult(Ok);
 }
 
 Result WindowRead(void *context, Val length, Mem *mem)
@@ -78,7 +78,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     if (!IsColor(color, mem)) return ErrorResult("Invalid color", 0, 0);
 
     Pixel(RawInt(x), RawInt(y), ColorFrom(color, mem), (Canvas*)context);
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else if (type == SymClear) {
     Val color;
     if (TupleCount(cmd, mem) != 2) return ErrorResult("Invalid window command", 0, 0);
@@ -86,7 +86,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     if (!IsColor(color, mem)) return ErrorResult("Invalid color", 0, 0);
 
     ClearCanvas((Canvas*)context, ColorFrom(color, mem));
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else if (type == SymText) {
     Val string, x, y;
     char *text;
@@ -102,7 +102,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     DrawText(text, RawNum(x), RawNum(y), (Canvas*)context);
     Free(text);
 
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else if (type == SymLine) {
     Val x1, y1, x2, y2;
     if (TupleCount(cmd, mem) != 5) return ErrorResult("Invalid window command", 0, 0);
@@ -117,7 +117,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
 
     DrawLine(RawNum(x1), RawNum(y1), RawNum(x2), RawNum(y2), (Canvas*)context);
 
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else if (type == SymBlit) {
     Val img, x, y, width, height;
     if (TupleCount(cmd, mem) != 6) return ErrorResult("Invalid window command", 0, 0);
@@ -131,7 +131,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     if (!IsInt(x) || !IsInt(y)) return ErrorResult("Invalid window command", 0, 0);
 
     CanvasBlit(BinaryData(img, mem), RawInt(x), RawInt(y), RawInt(width), RawInt(height), (Canvas*)context);
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else {
     return ErrorResult("Invalid window command", 0, 0);
   }
@@ -165,7 +165,7 @@ Result WindowSet(void *context, Val key, Val value, Mem *mem)
     }
     Free(filename);
 
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else if (key == SymFontSize) {
     u32 size = RawInt(value);
     if (!IsInt(value)) return ErrorResult("Expected integer", 0, 0);
@@ -173,13 +173,13 @@ Result WindowSet(void *context, Val key, Val value, Mem *mem)
       canvas->font_size = size;
       SetFont(canvas, canvas->font_filename, size);
     }
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else if (key == SymColor) {
     if (!IsColor(value, mem)) return ErrorResult("Invalid color", 0, 0);
     canvas->color = ColorFrom(value, mem);
-    return OkResult(Ok);
+    return ValueResult(Ok);
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 
@@ -187,18 +187,18 @@ Result WindowGet(void *context, Val key, Mem *mem)
 {
   Canvas *canvas = (Canvas*)context;
   if (key == SymWidth) {
-    return OkResult(IntVal(canvas->width));
+    return ValueResult(IntVal(canvas->width));
   } else if (key == SymHeight) {
-    return OkResult(IntVal(canvas->height));
+    return ValueResult(IntVal(canvas->height));
   } else if (key == SymFont) {
     Val font = BinaryFrom(canvas->font_filename, StrLen(canvas->font_filename), mem);
-    return OkResult(font);
+    return ValueResult(font);
   } else if (key == SymFontSize) {
-    return OkResult(IntVal(canvas->font_size));
+    return ValueResult(IntVal(canvas->font_size));
   } else if (key == SymColor) {
-    return OkResult(MakeColor(canvas->color, mem));
+    return ValueResult(MakeColor(canvas->color, mem));
   } else {
-    return OkResult(Nil);
+    return ValueResult(Nil);
   }
 }
 

@@ -29,7 +29,7 @@ Result SerialOpen(Val opts, Mem *mem)
     return ErrorResult(strerror(errno), 0, 0);
   }
 
-  return DataResult(port);
+  return ItemResult(port);
 }
 
 Result SerialClose(void *context, Mem *mem)
@@ -38,7 +38,7 @@ Result SerialClose(void *context, Mem *mem)
   CloseSerial(port->file);
   Free(port->path);
   Free(port);
-  return OkResult(Ok);
+  return ValueResult(Ok);
 }
 
 Result SerialRead(void *context, Val length, Mem *mem)
@@ -47,7 +47,7 @@ Result SerialRead(void *context, Val length, Mem *mem)
   if (!IsInt(length)) return ErrorResult("Expected integer", 0, 0);
 
   if (RawInt(length) == 0) {
-    return OkResult(MakeBinary(0, mem));
+    return ValueResult(MakeBinary(0, mem));
   } else {
     u32 size = RawInt(length);
     char *buf = Alloc(size);
@@ -63,7 +63,7 @@ Result SerialRead(void *context, Val length, Mem *mem)
     } else {
       Val bin = BinaryFrom(buf, cur - buf, mem);
       Free(buf);
-      return OkResult(bin);
+      return ValueResult(bin);
     }
   }
 }
@@ -74,7 +74,7 @@ Result SerialWrite(void *context, Val data, Mem *mem)
   if (!IsBinary(data, mem)) return ErrorResult("Expected binary", 0, 0);
 
   if (BinaryCount(data, mem) == 0) {
-    return OkResult(IntVal(0));
+    return ValueResult(IntVal(0));
   } else {
 
     u32 size = BinaryCount(data, mem);
@@ -90,7 +90,7 @@ Result SerialWrite(void *context, Val data, Mem *mem)
       Free(buf);
       return ErrorResult(strerror(errno), 0, 0);
     } else {
-      return OkResult(IntVal(bytes_written));
+      return ValueResult(IntVal(bytes_written));
     }
   }
 }

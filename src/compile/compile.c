@@ -28,7 +28,7 @@ static Result CompileSet(Node *node, bool linkage, Compiler *c);
 static void CompileLinkage(bool linkage, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
 static void PushNodePos(Node *node, Compiler *c);
-#define CompileOk()  OkResult(Nil)
+#define CompileOk()  ValueResult(Nil)
 
 void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *mod_map, Chunk *chunk)
 {

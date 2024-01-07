@@ -48,10 +48,10 @@ void DestroyVM(VM *vm)
 Result Run(VM *vm, u32 num_instructions)
 {
   u32 i;
-  Result result = OkResult(BoolVal(vm->pc < vm->chunk->code.count));
+  Result result = ValueResult(BoolVal(vm->pc < vm->chunk->code.count));
   if (!vm->chunk) return RuntimeError("VM not initialized", vm);
 
-  for (i = 0; i < num_instructions && result.value == True; i++) {
+  for (i = 0; i < num_instructions && ResultValue(result) == True; i++) {
     result = RunInstruction(vm);
     if (!result.ok) return result;
   }
@@ -61,7 +61,7 @@ Result Run(VM *vm, u32 num_instructions)
 
 Result RunChunk(Chunk *chunk, VM *vm)
 {
-  Result result = OkResult(Nil);
+  Result result = ValueResult(Nil);
   vm->pc = 0;
   vm->chunk = chunk;
 
@@ -281,7 +281,7 @@ static Result RunInstruction(VM *vm)
       Result result;
       result = DoPrimitive(PrimNum(operator), num_args, vm);
       if (!result.ok) return result;
-      StackPush(vm, result.value);
+      StackPush(vm, ResultValue(result));
       vm->pc += OpLength(op);
     } else if (IsFunc(operator, &vm->mem)) {
       /* normal function */
@@ -329,10 +329,10 @@ static Result RunInstruction(VM *vm)
   }
 
   if (vm->pc < vm->chunk->code.count) {
-    return OkResult(True);
+    return ValueResult(True);
   } else {
     if (vm->trace) TraceInstruction(OpHalt, vm);
-    return OkResult(False);
+    return ValueResult(False);
   }
 }
 
@@ -340,9 +340,9 @@ Result RuntimeError(char *message, VM *vm)
 {
   char *filename = ChunkFileAt(vm->pc, vm->chunk);
   u32 pos = SourcePosAt(vm->pc, vm->chunk);
-  Result error = ErrorResult(message, filename, pos);
-  error.data = StackTrace(vm);
-  return error;
+  Result result = ErrorResult(message, filename, pos);
+  result.data.error->item = StackTrace(vm);
+  return result;
 }
 
 bool AnyWindowsOpen(VM *vm)

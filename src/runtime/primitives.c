@@ -178,7 +178,7 @@ static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
       return RuntimeError(error, vm);
     }
   }
-  return OkResult(Nil);
+  return ValueResult(Nil);
 }
 
 static Result VMHead(u32 num_args, VM *vm)
@@ -189,7 +189,7 @@ static Result VMHead(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   arg = StackPop(vm);
-  return OkResult(Head(arg, &vm->mem));
+  return ValueResult(Head(arg, &vm->mem));
 }
 
 static Result VMTail(u32 num_args, VM *vm)
@@ -200,7 +200,7 @@ static Result VMTail(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   arg = StackPop(vm);
-  return OkResult(Tail(arg, &vm->mem));
+  return ValueResult(Tail(arg, &vm->mem));
 }
 
 static Result VMPanic(u32 num_args, VM *vm)
@@ -228,9 +228,9 @@ static Result VMUnwrap(u32 num_args, VM *vm)
   default_val = StackPop(vm);
   value = StackPop(vm);
   if (Head(value, &vm->mem) == Ok) {
-    return OkResult(Tail(value, &vm->mem));
+    return ValueResult(Tail(value, &vm->mem));
   } else {
-    return OkResult(default_val);
+    return ValueResult(default_val);
   }
 }
 
@@ -243,7 +243,7 @@ static Result VMForceUnwrap(u32 num_args, VM *vm)
 
   value = StackPop(vm);
   if (Head(value, &vm->mem) == Ok) {
-    return OkResult(Tail(value, &vm->mem));
+    return ValueResult(Tail(value, &vm->mem));
   } else {
     Val error = Tail(value, &vm->mem);
     if (IsBinary(error, &vm->mem)) {
@@ -262,7 +262,7 @@ static Result VMOk(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(Head(value, &vm->mem) == Ok));
+  return ValueResult(BoolVal(Head(value, &vm->mem) == Ok));
 }
 
 static Result VMIsFloat(u32 num_args, VM *vm)
@@ -273,7 +273,7 @@ static Result VMIsFloat(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsFloat(value)));
+  return ValueResult(BoolVal(IsFloat(value)));
 }
 
 static Result VMIsInt(u32 num_args, VM *vm)
@@ -284,7 +284,7 @@ static Result VMIsInt(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsInt(value)));
+  return ValueResult(BoolVal(IsInt(value)));
 }
 
 static Result VMIsSym(u32 num_args, VM *vm)
@@ -295,7 +295,7 @@ static Result VMIsSym(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsSym(value)));
+  return ValueResult(BoolVal(IsSym(value)));
 }
 
 static Result VMIsPair(u32 num_args, VM *vm)
@@ -306,7 +306,7 @@ static Result VMIsPair(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsPair(value)));
+  return ValueResult(BoolVal(IsPair(value)));
 }
 
 static Result VMIsTuple(u32 num_args, VM *vm)
@@ -317,7 +317,7 @@ static Result VMIsTuple(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsTuple(value, &vm->mem)));
+  return ValueResult(BoolVal(IsTuple(value, &vm->mem)));
 }
 
 static Result VMIsBin(u32 num_args, VM *vm)
@@ -328,7 +328,7 @@ static Result VMIsBin(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsBinary(value, &vm->mem)));
+  return ValueResult(BoolVal(IsBinary(value, &vm->mem)));
 }
 
 static Result VMIsMap(u32 num_args, VM *vm)
@@ -339,7 +339,7 @@ static Result VMIsMap(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsMap(value, &vm->mem)));
+  return ValueResult(BoolVal(IsMap(value, &vm->mem)));
 }
 
 static Result VMIsFunc(u32 num_args, VM *vm)
@@ -350,7 +350,7 @@ static Result VMIsFunc(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   value = StackPop(vm);
-  return OkResult(BoolVal(IsFunc(value, &vm->mem)));
+  return ValueResult(BoolVal(IsFunc(value, &vm->mem)));
 }
 
 static Result VMNotEqual(u32 num_args, VM *vm)
@@ -363,7 +363,7 @@ static Result VMNotEqual(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(BoolVal(!ValEqual(b, a, &vm->mem)));
+  return ValueResult(BoolVal(!ValEqual(b, a, &vm->mem)));
 }
 
 static Result VMLessEqual(u32 num_args, VM *vm)
@@ -376,7 +376,7 @@ static Result VMLessEqual(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(BoolVal(RawNum(b) <= RawNum(a)));
+  return ValueResult(BoolVal(RawNum(b) <= RawNum(a)));
 }
 
 static Result VMGreaterEqual(u32 num_args, VM *vm)
@@ -389,7 +389,7 @@ static Result VMGreaterEqual(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(BoolVal(RawNum(b) >= RawNum(a)));
+  return ValueResult(BoolVal(RawNum(b) >= RawNum(a)));
 }
 
 static Result VMNot(u32 num_args, VM *vm)
@@ -400,7 +400,7 @@ static Result VMNot(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   arg = StackPop(vm);
-  return OkResult(BoolVal(arg == False || arg == Nil));
+  return ValueResult(BoolVal(arg == False || arg == Nil));
 }
 
 static Result VMSub(u32 num_args, VM *vm)
@@ -408,9 +408,9 @@ static Result VMSub(u32 num_args, VM *vm)
   if (num_args == 1) {
     Val arg = StackPop(vm);
     if (IsInt(arg)) {
-      return OkResult(IntVal(-RawInt(arg)));
+      return ValueResult(IntVal(-RawInt(arg)));
     } else if (IsFloat(arg)) {
-      return OkResult(FloatVal(-RawFloat(arg)));
+      return ValueResult(FloatVal(-RawFloat(arg)));
     } else {
       return RuntimeError("Negative is only defined for numbers", vm);
     }
@@ -420,9 +420,9 @@ static Result VMSub(u32 num_args, VM *vm)
     if (!IsNum(b, &vm->mem) || !IsNum(a, &vm->mem)) {
       return RuntimeError("Subtraction is only defined for numbers", vm);
     } else if (IsInt(b) && IsInt(a)) {
-      return OkResult(IntVal(RawInt(b) - RawInt(a)));
+      return ValueResult(IntVal(RawInt(b) - RawInt(a)));
     } else {
-      return OkResult(FloatVal(RawNum(b) - RawNum(a)));
+      return ValueResult(FloatVal(RawNum(b) - RawNum(a)));
     }
   } else {
     return RuntimeError("Wrong number of arguments", vm);
@@ -440,13 +440,13 @@ static Result VMRange(u32 num_args, VM *vm)
   b = RawInt(StackPop(vm));
   a = RawInt(StackPop(vm));
 
-  if (a > b) return OkResult(Nil);
+  if (a > b) return ValueResult(Nil);
 
   for (i = b - 1; i >= a; i--) {
     list = Pair(IntVal(i), list, &vm->mem);
   }
 
-  return OkResult(list);
+  return ValueResult(list);
 }
 
 static Result VMAdd(u32 num_args, VM *vm)
@@ -460,9 +460,9 @@ static Result VMAdd(u32 num_args, VM *vm)
   b = StackPop(vm);
 
   if (IsInt(b) && IsInt(a)) {
-    return OkResult(IntVal(RawInt(b) + RawInt(a)));
+    return ValueResult(IntVal(RawInt(b) + RawInt(a)));
   } else {
-    return OkResult(FloatVal(RawNum(b) + RawNum(a)));
+    return ValueResult(FloatVal(RawNum(b) + RawNum(a)));
   }
 }
 
@@ -474,7 +474,7 @@ static Result VMBitNot(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   arg = StackPop(vm);
-  return OkResult(IntVal(~RawInt(arg)));
+  return ValueResult(IntVal(~RawInt(arg)));
 }
 
 static Result VMLen(u32 num_args, VM *vm)
@@ -486,13 +486,13 @@ static Result VMLen(u32 num_args, VM *vm)
 
   arg = StackPop(vm);
   if (IsPair(arg)) {
-    return OkResult(IntVal(ListLength(arg, &vm->mem)));
+    return ValueResult(IntVal(ListLength(arg, &vm->mem)));
   } else if (IsTuple(arg, &vm->mem)) {
-    return OkResult(IntVal(TupleCount(arg, &vm->mem)));
+    return ValueResult(IntVal(TupleCount(arg, &vm->mem)));
   } else if (IsBinary(arg, &vm->mem)) {
-    return OkResult(IntVal(BinaryCount(arg, &vm->mem)));
+    return ValueResult(IntVal(BinaryCount(arg, &vm->mem)));
   } else if (IsMap(arg, &vm->mem)) {
-    return OkResult(IntVal(MapCount(arg, &vm->mem)));
+    return ValueResult(IntVal(MapCount(arg, &vm->mem)));
   } else {
     return RuntimeError("Length is only defined for collections", vm);
   }
@@ -509,9 +509,9 @@ static Result VMMul(u32 num_args, VM *vm)
   b = StackPop(vm);
 
   if (IsInt(b) && IsInt(a)) {
-    return OkResult(IntVal(RawInt(b) * RawInt(a)));
+    return ValueResult(IntVal(RawInt(b) * RawInt(a)));
   } else {
-    return OkResult(FloatVal(RawNum(b) * RawNum(a)));
+    return ValueResult(FloatVal(RawNum(b) * RawNum(a)));
   }
 }
 
@@ -528,7 +528,7 @@ static Result VMDiv(u32 num_args, VM *vm)
   if (RawNum(a) == 0) {
     return RuntimeError("Division by zero", vm);
   } else {
-    return OkResult(FloatVal(RawNum(b) / RawNum(a)));
+    return ValueResult(FloatVal(RawNum(b) / RawNum(a)));
   }
 }
 
@@ -541,7 +541,7 @@ static Result VMRem(u32 num_args, VM *vm)
 
   a = StackPop(vm);
   b = StackPop(vm);
-  return OkResult(IntVal(RawInt(b) % RawInt(a)));
+  return ValueResult(IntVal(RawInt(b) % RawInt(a)));
 }
 
 static Result VMShiftLeft(u32 num_args, VM *vm)
@@ -554,7 +554,7 @@ static Result VMShiftLeft(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(IntVal(RawInt(b) << RawInt(a)));
+  return ValueResult(IntVal(RawInt(b) << RawInt(a)));
 }
 
 static Result VMShiftRight(u32 num_args, VM *vm)
@@ -567,7 +567,7 @@ static Result VMShiftRight(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(IntVal(RawInt(b) >> RawInt(a)));
+  return ValueResult(IntVal(RawInt(b) >> RawInt(a)));
 }
 
 static Result VMBitAnd(u32 num_args, VM *vm)
@@ -580,7 +580,7 @@ static Result VMBitAnd(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(IntVal(RawInt(b) & RawInt(a)));
+  return ValueResult(IntVal(RawInt(b) & RawInt(a)));
 }
 
 static Result VMBitOr(u32 num_args, VM *vm)
@@ -593,7 +593,7 @@ static Result VMBitOr(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(IntVal(RawInt(b) | RawInt(a)));
+  return ValueResult(IntVal(RawInt(b) | RawInt(a)));
 }
 
 static Result VMIn(u32 num_args, VM *vm)
@@ -607,15 +607,15 @@ static Result VMIn(u32 num_args, VM *vm)
   b = StackPop(vm);
 
   if (IsPair(a)) {
-    return OkResult(BoolVal(ListContains(a, b, &vm->mem)));
+    return ValueResult(BoolVal(ListContains(a, b, &vm->mem)));
   } else if (IsTuple(a, &vm->mem)) {
-    return OkResult(BoolVal(TupleContains(a, b, &vm->mem)));
+    return ValueResult(BoolVal(TupleContains(a, b, &vm->mem)));
   } else if (IsBinary(a, &vm->mem)) {
-    return OkResult(BoolVal(BinaryContains(a, b, &vm->mem)));
+    return ValueResult(BoolVal(BinaryContains(a, b, &vm->mem)));
   } else if (IsMap(a, &vm->mem)) {
-    return OkResult(BoolVal(MapContains(a, b, &vm->mem)));
+    return ValueResult(BoolVal(MapContains(a, b, &vm->mem)));
   } else {
-    return OkResult(False);
+    return ValueResult(False);
   }
 }
 
@@ -629,7 +629,7 @@ static Result VMLess(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(BoolVal(RawNum(b) < RawNum(a)));
+  return ValueResult(BoolVal(RawNum(b) < RawNum(a)));
 }
 
 static Result VMGreater(u32 num_args, VM *vm)
@@ -642,7 +642,7 @@ static Result VMGreater(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(BoolVal(RawNum(b) > RawNum(a)));
+  return ValueResult(BoolVal(RawNum(b) > RawNum(a)));
 }
 
 static Result VMEqual(u32 num_args, VM *vm)
@@ -655,7 +655,7 @@ static Result VMEqual(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(BoolVal(ValEqual(b, a, &vm->mem)));
+  return ValueResult(BoolVal(ValEqual(b, a, &vm->mem)));
 }
 
 static Result VMPair(u32 num_args, VM *vm)
@@ -668,7 +668,7 @@ static Result VMPair(u32 num_args, VM *vm)
   a = StackPop(vm);
   b = StackPop(vm);
 
-  return OkResult(Pair(a, b, &vm->mem));
+  return ValueResult(Pair(a, b, &vm->mem));
 }
 
 static Result VMCat(u32 num_args, VM *vm)
@@ -705,7 +705,7 @@ static Result VMCat(u32 num_args, VM *vm)
 
   StackPop(vm);
   StackPop(vm);
-  return OkResult(concatenated);
+  return ValueResult(concatenated);
 }
 
 static Result VMOpen(u32 num_args, VM *vm)
@@ -734,9 +734,9 @@ static Result VMOpen(u32 num_args, VM *vm)
 
   vm->dev_map |= Bit(id);
   vm->devices[id].type = type;
-  vm->devices[id].context = result.data;
+  vm->devices[id].context = ResultItem(result);
 
-  return OkResult(Pair(Ok, IntVal(id), &vm->mem));
+  return ValueResult(Pair(Ok, IntVal(id), &vm->mem));
 }
 
 static Result VMClose(u32 num_args, VM *vm)
@@ -757,7 +757,7 @@ static Result VMClose(u32 num_args, VM *vm)
 
   vm->dev_map &= ~Bit(id);
 
-  return OkResult(Nil);
+  return ValueResult(Nil);
 }
 
 static Result VMRead(u32 num_args, VM *vm)
@@ -778,7 +778,7 @@ static Result VMRead(u32 num_args, VM *vm)
   result = DeviceRead(&vm->devices[id], length, &vm->mem);
   if (!result.ok) return OkError(result, &vm->mem);
 
-  return OkResult(Pair(Ok, result.value, &vm->mem));
+  return ValueResult(Pair(Ok, ResultValue(result), &vm->mem));
 }
 
 static Result VMWrite(u32 num_args, VM *vm)
@@ -799,7 +799,7 @@ static Result VMWrite(u32 num_args, VM *vm)
   result = DeviceWrite(&vm->devices[id], data, &vm->mem);
   if (!result.ok) return OkError(result, &vm->mem);
 
-  return OkResult(Pair(Ok, result.value, &vm->mem));
+  return ValueResult(Pair(Ok, ResultValue(result), &vm->mem));
 }
 
 static Result VMGetParam(u32 num_args, VM *vm)
@@ -820,7 +820,7 @@ static Result VMGetParam(u32 num_args, VM *vm)
   result = DeviceGet(&vm->devices[id], key, &vm->mem);
   if (!result.ok) return OkError(result, &vm->mem);
 
-  return OkResult(Pair(Ok, result.value, &vm->mem));
+  return ValueResult(Pair(Ok, ResultValue(result), &vm->mem));
 }
 
 static Result VMSetParam(u32 num_args, VM *vm)
@@ -842,7 +842,7 @@ static Result VMSetParam(u32 num_args, VM *vm)
   result = DeviceSet(&vm->devices[id], key, value, &vm->mem);
   if (!result.ok) return OkError(result, &vm->mem);
 
-  return OkResult(Pair(Ok, result.value, &vm->mem));
+  return ValueResult(Pair(Ok, ResultValue(result), &vm->mem));
 }
 
 static Result VMMapGet(u32 num_args, VM *vm)
@@ -854,7 +854,7 @@ static Result VMMapGet(u32 num_args, VM *vm)
 
   key = StackPop(vm);
   map = StackPop(vm);
-  return OkResult(MapGet(map, key, &vm->mem));
+  return ValueResult(MapGet(map, key, &vm->mem));
 }
 
 static Result VMMapSet(u32 num_args, VM *vm)
@@ -867,7 +867,7 @@ static Result VMMapSet(u32 num_args, VM *vm)
   value = StackPop(vm);
   key = StackPop(vm);
   map = StackPop(vm);
-  return OkResult(MapSet(map, key, value, &vm->mem));
+  return ValueResult(MapSet(map, key, value, &vm->mem));
 }
 
 static Result VMMapDelete(u32 num_args, VM *vm)
@@ -879,7 +879,7 @@ static Result VMMapDelete(u32 num_args, VM *vm)
 
   key = StackPop(vm);
   map = StackPop(vm);
-  return OkResult(MapDelete(map, key, &vm->mem));
+  return ValueResult(MapDelete(map, key, &vm->mem));
 }
 
 static Result VMMapKeys(u32 num_args, VM *vm)
@@ -890,7 +890,7 @@ static Result VMMapKeys(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   map = StackPop(vm);
-  return OkResult(MapKeys(map, Nil, &vm->mem));
+  return ValueResult(MapKeys(map, Nil, &vm->mem));
 }
 
 static Result VMMapValues(u32 num_args, VM *vm)
@@ -901,7 +901,7 @@ static Result VMMapValues(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   map = StackPop(vm);
-  return OkResult(MapValues(map, Nil, &vm->mem));
+  return ValueResult(MapValues(map, Nil, &vm->mem));
 }
 
 static Result VMSubStr(u32 num_args, VM *vm)
@@ -917,33 +917,33 @@ static Result VMSubStr(u32 num_args, VM *vm)
   bin = StackRef(vm, 0);
 
   if (start >= end || end < 0 || start >= BinaryCount(bin, &vm->mem)) {
-    return OkResult(MakeBinary(0, &vm->mem));
+    return ValueResult(MakeBinary(0, &vm->mem));
   } else {
     Val substr = MakeBinary(end - start, &vm->mem);
     Copy(BinaryData(bin, &vm->mem), BinaryData(substr, &vm->mem), end - start);
     StackPop(vm);
-    return OkResult(substr);
+    return ValueResult(substr);
   }
 }
 
 static Result IODataLength(Val iodata, VM *vm)
 {
   if (iodata == Nil) {
-    return OkResult(0);
+    return ValueResult(0);
   } else if (IsBinary(iodata, &vm->mem)) {
-    return OkResult(BinaryCount(iodata, &vm->mem));
+    return ValueResult(BinaryCount(iodata, &vm->mem));
   } else if (IsInt(iodata)) {
     if (RawInt(iodata) < 0 && RawInt(iodata) > 255) {
       return RuntimeError("Type error: Expected iodata", vm);
     }
-    return OkResult(1);
+    return ValueResult(1);
   } else if (IsPair(iodata)) {
     Result head, tail;
     head = IODataLength(Head(iodata, &vm->mem), vm);
     if (!head.ok) return head;
     tail = IODataLength(Tail(iodata, &vm->mem), vm);
     if (!tail.ok) return tail;
-    return OkResult(head.value + tail.value);
+    return ValueResult(ResultValue(head) + ResultValue(tail));
   } else {
     return RuntimeError("Type error: Expected iodata", vm);
   }
@@ -977,14 +977,14 @@ static Result VMJoinBin(u32 num_args, VM *vm)
 
   iodata = StackPop(vm);
   if (IsBinary(iodata, &vm->mem)) {
-    return OkResult(iodata);
+    return ValueResult(iodata);
   } else {
     result = IODataLength(iodata, vm);
-    if (!result.ok) return OkResult(Error);
+    if (!result.ok) return ValueResult(Error);
 
-    bin = MakeBinary(result.value, &vm->mem);
+    bin = MakeBinary(ResultValue(result), &vm->mem);
     CopyIOData(iodata, BinaryData(bin, &vm->mem), 0, &vm->mem);
-    return OkResult(bin);
+    return ValueResult(bin);
   }
 }
 
@@ -1006,7 +1006,7 @@ static Result VMStuff(u32 num_args, VM *vm)
     data[i] = byte;
   }
 
-  return OkResult(bin);
+  return ValueResult(bin);
 }
 
 static Result VMTrunc(u32 num_args, VM *vm)
@@ -1017,7 +1017,7 @@ static Result VMTrunc(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   num = StackPop(vm);
-  return OkResult(IntVal((i32)RawNum(num)));
+  return ValueResult(IntVal((i32)RawNum(num)));
 }
 
 static Result VMSymName(u32 num_args, VM *vm)
@@ -1030,5 +1030,5 @@ static Result VMSymName(u32 num_args, VM *vm)
 
   sym = StackPop(vm);
   name = SymbolName(sym, &vm->chunk->symbols);
-  return OkResult(BinaryFrom(name, StrLen(name), &vm->mem));
+  return ValueResult(BinaryFrom(name, StrLen(name), &vm->mem));
 }

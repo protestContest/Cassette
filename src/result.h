@@ -3,15 +3,27 @@
 #include "mem/mem.h"
 
 typedef struct {
-  bool ok;
-  char *error;
+  char *message;
   char *filename;
   u32 pos;
   Val value;
-  void *data;
+  void *item;
+} ErrorDetails;
+
+typedef struct {
+  bool ok;
+  union {
+    Val value;
+    void *item;
+    ErrorDetails *error;
+  } data;
 } Result;
 
-Result OkResult(Val value);
-Result DataResult(void *data);
-Result ErrorResult(char *error, char *filename, u32 pos);
+#define ResultValue(r)  (r).data.value
+#define ResultItem(r)   (r).data.item
+#define ResultError(r)  (r).data.error
+
+Result ValueResult(Val value);
+Result ItemResult(void *item);
+Result ErrorResult(char *message, char *filename, u32 pos);
 Result OkError(Result error, Mem *mem);

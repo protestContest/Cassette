@@ -58,10 +58,11 @@ int main(int argc, char *argv[])
   result = BuildProject(opts);
   if (!result.ok) {
     PrintError(result);
+    Free(ResultError(result));
     return 1;
   }
 
-  chunk = result.data;
+  chunk = ResultItem(result);
 
   if (opts.debug) {
     Disassemble(chunk);
@@ -106,8 +107,9 @@ static bool CanvasUpdate(void *arg)
 
   if (!result.ok) {
     PrintRuntimeError(result, vm);
+    Free(ResultError(result));
     return false;
   }
 
-  return result.value == True || AnyWindowsOpen(vm);
+  return ResultValue(result) == True || AnyWindowsOpen(vm);
 }
