@@ -61,7 +61,7 @@ static Result VMMapSet(u32 num_args, VM *vm);
 static Result VMMapDelete(u32 num_args, VM *vm);
 static Result VMMapKeys(u32 num_args, VM *vm);
 static Result VMMapValues(u32 num_args, VM *vm);
-static Result VMSplit(u32 num_args, VM *vm);
+static Result VMSubStr(u32 num_args, VM *vm);
 static Result VMJoinBin(u32 num_args, VM *vm);
 static Result VMStuff(u32 num_args, VM *vm);
 static Result VMTrunc(u32 num_args, VM *vm);
@@ -115,7 +115,7 @@ static PrimitiveDef primitives[] = {
   {"map-del",         0x7FD330D3, &VMMapDelete},
   {"map-keys",        0x7FD18996, &VMMapKeys},
   {"map-values",      0x7FDC7EF0, &VMMapValues},
-  {"split-bin",       0x7FD24E81, &VMSplit},
+  {"substr",          0x7FD808FD, &VMSubStr},
   {"join-bin",        0x7FD1C3BB, &VMJoinBin},
   {"stuff",           0x7FD2CC7F, &VMStuff},
   {"trunc",           0x7FD36865, &VMTrunc},
@@ -904,24 +904,25 @@ static Result VMMapValues(u32 num_args, VM *vm)
   return OkResult(MapValues(map, Nil, &vm->mem));
 }
 
-static Result VMSplit(u32 num_args, VM *vm)
+static Result VMSubStr(u32 num_args, VM *vm)
 {
-  Val bin, index;
-  Val types[2] = {IntType, BinaryType};
+  Val bin;
+  u32 start, end;
+  Val types[3] = {IntType, IntType, BinaryType};
   Result result = CheckTypes(num_args, ArrayCount(types), types, vm);
   if (!result.ok) return result;
 
-  index = StackPop(vm);
-  bin = StackPop(vm);
-  if (RawInt(index) <= 0) {
-    return OkResult(Pair(MakeBinary(0, &vm->mem), bin, &vm->mem));
-  } else if ((u32)RawInt(index) >= BinaryCount(bin, &vm->mem)) {
-    return OkResult(Pair(bin, MakeBinary(0, &vm->mem), &vm->mem));
+  end = RawInt(StackPop(vm));
+  start = RawInt(StackPop(vm));
+  bin = StackRef(vm, 0);
+
+  if (start >= end || end < 0 || start >= BinaryCount(bin, &vm->mem)) {
+    return OkResult(MakeBinary(0, &vm->mem));
   } else {
-    u32 tail_len = BinaryCount(bin, &vm->mem) - RawInt(index);
-    Val head = BinaryFrom(BinaryData(bin, &vm->mem), RawInt(index), &vm->mem);
-    Val tail = BinaryFrom(BinaryData(bin, &vm->mem) + RawInt(index), tail_len, &vm->mem);
-    return OkResult(Pair(head, tail, &vm->mem));
+    Val substr = MakeBinary(end - start, &vm->mem);
+    Copy(BinaryData(bin, &vm->mem), BinaryData(substr, &vm->mem), end - start);
+    StackPop(vm);
+    return OkResult(substr);
   }
 }
 
