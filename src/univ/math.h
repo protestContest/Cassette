@@ -20,6 +20,8 @@
 #define Lerp(a, b, w)   (((b) - (a))*(w) + (a))
 #define Norm(a, b, w)   (((w) - (a)) / ((b) - (a)))
 
+#define Align(n, m)     ((((n) - 1) / (m) + 1) * (m))
+
 void Seed(u32 seed);
 u32 Random(void);
 u32 PopCount(u32 n);

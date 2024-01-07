@@ -2,6 +2,7 @@
 #include "univ/system.h"
 #include "ops.h"
 #include "debug.h"
+#include "univ/math.h"
 
 static u32 AddConst(Val value, Chunk *chunk);
 
@@ -11,9 +12,8 @@ void InitChunk(Chunk *chunk)
   chunk->num_constants = 0;
   InitSymbolTable(&chunk->symbols);
   DefinePrimitiveSymbols(&chunk->symbols);
-  InitVec((Vec*)&chunk->source_map, sizeof(u32), 256);
+  InitVec((Vec*)&chunk->source_map, sizeof(u8), 256);
   InitVec((Vec*)&chunk->file_map, sizeof(u32), 8);
-  chunk->num_modules = 0;
 }
 
 void DestroyChunk(Chunk *chunk)
@@ -29,6 +29,8 @@ void BeginChunkFile(Val filename, Chunk *chunk)
 {
   IntVecPush(&chunk->file_map, filename);
   IntVecPush(&chunk->file_map, 0);
+  ByteVecPush(&chunk->source_map, 0);
+  ByteVecPush(&chunk->source_map, 0);
 }
 
 void EndChunkFile(Chunk *chunk)
@@ -43,7 +45,7 @@ void EndChunkFile(Chunk *chunk)
   chunk->file_map.items[chunk->file_map.count-1] = chunk->code.count - prev_size;
 }
 
-char *ChunkFile(u32 pos, Chunk *chunk)
+char *ChunkFileAt(u32 pos, Chunk *chunk)
 {
   u32 size = 0;
   u32 i;
@@ -58,7 +60,7 @@ char *ChunkFile(u32 pos, Chunk *chunk)
   return 0;
 }
 
-u32 ChunkFileLength(u32 pos, Chunk *chunk)
+u32 ChunkFileByteSize(u32 pos, Chunk *chunk)
 {
   u32 size = 0;
   u32 i;
@@ -73,20 +75,16 @@ u32 ChunkFileLength(u32 pos, Chunk *chunk)
   return 0;
 }
 
-#define LastSourcePos(chunk)    ((chunk)->source_map.items[(chunk)->source_map.count-2])
-u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk)
+#define SourceMapPeek(chunk, i)    ((chunk)->source_map.items[(chunk)->source_map.count-(i)])
+u32 PushByte(u8 byte, Chunk *chunk)
 {
   u32 pos = chunk->code.count;
 
   ByteVecPush(&chunk->code, byte);
 
-  /* the source map is an RLE encoded list of source positions */
-  if (chunk->source_map.count == 0 || LastSourcePos(chunk) != source_pos) {
-    IntVecPush(&chunk->source_map, source_pos);
-    IntVecPush(&chunk->source_map, 1);
-  } else {
-    /* increment the position counter */
-    chunk->source_map.items[chunk->source_map.count-1]++;
+  chunk->source_map.items[chunk->source_map.count-1]++;
+  if (chunk->source_map.items[chunk->source_map.count-1] == 127) {
+    PushSourcePos(0, chunk);
   }
 
   return pos;
@@ -109,15 +107,15 @@ static u32 AddConst(Val value, Chunk *chunk)
   return chunk->num_constants - 1;
 }
 
-u32 PushConst(Val value, u32 source_pos, Chunk *chunk)
+u32 PushConst(Val value, Chunk *chunk)
 {
   u32 pos = chunk->code.count;
   if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) <= 255) {
     u8 byte = RawInt(value);
-    PushByte(OpInt, source_pos, chunk);
-    PushByte(byte, source_pos, chunk);
+    PushByte(OpInt, chunk);
+    PushByte(byte, chunk);
   } else if (value == Nil) {
-    PushByte(OpNil, source_pos, chunk);
+    PushByte(OpNil, chunk);
   } else {
     i32 index = FindConst(value, chunk);
     if (index < 0) {
@@ -125,12 +123,12 @@ u32 PushConst(Val value, u32 source_pos, Chunk *chunk)
     }
 
     if (index < 256) {
-      PushByte(OpConst, source_pos, chunk);
-      PushByte((u8)index, source_pos, chunk);
+      PushByte(OpConst, chunk);
+      PushByte((u8)index, chunk);
     } else {
-      PushByte(OpConst2, source_pos, chunk);
-      PushByte((u8)((index >> 8) & 0xFF), source_pos, chunk);
-      PushByte((u8)(index & 0xFF), source_pos, chunk);
+      PushByte(OpConst2, chunk);
+      PushByte((u8)((index >> 8) & 0xFF), chunk);
+      PushByte((u8)(index & 0xFF), chunk);
     }
   }
   return pos;
@@ -153,14 +151,41 @@ void PatchConst(Chunk *chunk, u32 index)
   }
 }
 
+void PushSourcePos(i32 pos, Chunk *chunk)
+{
+  if (chunk->source_map.count > 0 && pos == 0) return;
+
+  if (SourceMapPeek(chunk, 1) == 0) {
+    pos += (i8)SourceMapPeek(chunk, 2);
+    chunk->source_map.count -= 2;
+  }
+
+  while (pos > 127) {
+    ByteVecPush(&chunk->source_map, 127);
+    ByteVecPush(&chunk->source_map, 0);
+    pos -= 127;
+  }
+  while (pos < -128) {
+    ByteVecPush(&chunk->source_map, -128);
+    ByteVecPush(&chunk->source_map, 0);
+    pos += 128;
+  }
+  ByteVecPush(&chunk->source_map, (u8)pos);
+  ByteVecPush(&chunk->source_map, 0);
+}
+
 u32 GetSourcePosition(u32 byte_pos, Chunk *chunk)
 {
-  IntVec map = chunk->source_map;
-  u32 i;
+  ByteVec map = chunk->source_map;
+  u32 i, pos = 0, bytes = 0;
 
   for (i = 0; i < map.count; i += 2) {
-    if (map.items[i+1] > byte_pos) return map.items[i];
-    byte_pos -= map.items[i+1];
+    pos += map.items[i];
+    if (bytes + map.items[i+1] > byte_pos) {
+      return pos;
+    }
+
+    bytes += map.items[i+1];
   }
 
   return -1;

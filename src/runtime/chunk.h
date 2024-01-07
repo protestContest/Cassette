@@ -10,9 +10,8 @@ typedef struct {
   u32 num_constants;
   Val constants[MaxConstants];
   SymbolTable symbols;
-  IntVec source_map;
+  ByteVec source_map;
   IntVec file_map;
-  u32 num_modules;
 } Chunk;
 
 #define ChunkRef(chunk, i)        ((chunk)->code.items[i])
@@ -23,11 +22,12 @@ void DestroyChunk(Chunk *chunk);
 
 void BeginChunkFile(Val filename, Chunk *chunk);
 void EndChunkFile(Chunk *chunk);
-char *ChunkFile(u32 pos, Chunk *chunk);
-u32 ChunkFileLength(u32 pos, Chunk *chunk);
+char *ChunkFileAt(u32 pos, Chunk *chunk);
+u32 ChunkFileByteSize(u32 pos, Chunk *chunk);
 
-u32 PushByte(u8 byte, u32 source_pos, Chunk *chunk);
-u32 PushConst(Val value, u32 source_pos, Chunk *chunk);
+u32 PushByte(u8 byte, Chunk *chunk);
+u32 PushConst(Val value, Chunk *chunk);
 void PatchConst(Chunk *chunk, u32 index);
 
+void PushSourcePos(i32 pos, Chunk *chunk);
 u32 GetSourcePosition(u32 byte_pos, Chunk *chunk);

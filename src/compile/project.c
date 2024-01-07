@@ -169,8 +169,6 @@ static Result CompileProject(Chunk *chunk, Project *project)
   Frame *compile_env = CompileEnv(num_modules);
   Result result = OkResult(Nil);
 
-  chunk->num_modules = num_modules;
-
   InitCompiler(&c, &project->symbols, &project->modules, &project->mod_map, chunk);
 
   CompileModuleFrame(num_modules, &c);

@@ -2,29 +2,68 @@ import List
 import Math
 import Canvas
 import System
+import Map
 
 let width = 800,
     height = 480,
     canvas = Canvas.new(width, height)
 
-let c = 180 / Math.Pi,
-    scale = 4,
-    offset = 100
+def update-pt(pt) do
+  def constrain-x(pt) do
+    if pt.x < 0 or pt.x > width do
+      Map.put(pt, :dir, Math.Pi - pt.dir)
+    else
+      pt
+    end
+  end
 
-List.map(\n -> do
-  let a1 = (150 + 40 * n) / c,
-      x1 = 75 + 3.5 * n * Math.cos(a1),
-      y1 = 65 + 3.5 * n * Math.sin(a1)
-  List.map(\i -> do
-    List.map(\j -> do
-      let r = 1.2 * n,
-          a = i * (360 / n) / c,
-          aa = j * (360 / n) / c,
-          x = x1 + r * Math.cos(a),
-          y = y1 + r * Math.sin(a),
-          xx = x1 + r * Math.cos(aa),
-          yy = y1 + r * Math.sin(aa)
-      canvas.line({scale * x + offset, scale * y}, {scale * xx + offset, scale * yy})
-    end, (i + 1)..n)
-  end, 0..(n - 1))
-end, 3..12)
+  def constrain-y(pt) do
+    if pt.y < 0 or pt.y > height do
+      Map.put(pt, :dir, 2 * Math.Pi - pt.dir)
+    else
+      pt
+    end
+  end
+
+  def update-pos(pt) do
+    let dx = pt.speed * Math.cos(pt.dir),
+        dy = pt.speed * Math.sin(pt.dir)
+    Map.put(Map.put(pt, :x, pt.x + dx), :y, pt.y + dy)
+  end
+
+  constrain-y(constrain-x(update-pos(pt)))
+end
+
+def draw-pt(pt) do
+  canvas.line({pt.x, pt.y}, {pt.x, pt.y})
+end
+
+def random-pt {
+  x: Math.rand-int(0, width),
+  y: Math.rand-int(0, height),
+  dir: 2 * Math.Pi * Math.random(),
+  speed: 5
+}
+
+def delay(n) do
+  if n == 0 do
+    :ok
+  else
+    delay(n - 1)
+  end
+end
+
+let delta = 5
+
+def loop(a, b, count) do
+  if count == 0 do
+    canvas.clear(Canvas.white)
+    loop(a, b, 1000)
+  else
+    canvas.line({a.x, a.y}, {b.x, b.y})
+    delay(5000)
+    loop(update-pt(a), update-pt(b), count - 1)
+  end
+end
+
+loop(random-pt(), random-pt(), 1000)

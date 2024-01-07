@@ -236,13 +236,33 @@ void PrintCompileEnv(Frame *frame, SymbolTable *symbols)
   }
 }
 
+void PrintInstruction(Chunk *chunk, u32 pos)
+{
+  u8 op = ChunkRef(chunk, pos);
+  printf(" %s", OpName(op));
+  if (op == OpInt || op == OpApply) {
+    printf(" %d", ChunkRef(chunk, pos+1));
+  } else if (op == OpConst2) {
+    u32 index = (ChunkRef(chunk, pos+1) << 8) | ChunkRef(chunk, pos+2);
+    Val arg = chunk->constants[index];
+    printf(" %d ", index);
+    PrintVal(arg, 0, &chunk->symbols);
+  } else {
+    u32 j;
+    for (j = 0; j < OpLength(op) - 1; j++) {
+      printf(" ");
+      PrintVal(ChunkConst(chunk, pos+j+1), 0, &chunk->symbols);
+    }
+  }
+}
+
 void Disassemble(Chunk *chunk)
 {
   u32 longest_sym, width, col1, col2;
   u32 i, line;
   char *sym;
-  char *filename = ChunkFile(0, chunk);
-  u32 next_file = ChunkFileLength(0, chunk);
+  char *filename = ChunkFileAt(0, chunk);
+  u32 next_file = ChunkFileByteSize(0, chunk);
 
   longest_sym = Min(17, LongestSymbol(&chunk->symbols));
   col1 = 20 + longest_sym;
@@ -274,8 +294,8 @@ void Disassemble(Chunk *chunk)
 
     if (i == next_file) {
       u32 written;
-      filename = ChunkFile(i, chunk);
-      next_file += ChunkFileLength(i, chunk);
+      filename = ChunkFileAt(i, chunk);
+      next_file += ChunkFileByteSize(i, chunk);
       printf("╟─");
       written = printf("%s", filename);
       for (j = written+2; j < width-1; j++) printf("─");
@@ -825,4 +845,41 @@ static void PrintASTNode(Node *node, u32 level, u32 lines, Parser *p)
 void PrintAST(Node *ast, Parser *p)
 {
   PrintASTNode(ast, 0, 0, p);
+}
+
+void DumpSourceMap(Chunk *chunk)
+{
+  ByteVec map = chunk->source_map;
+  u32 i, j, pos = 0, bytes = 0;
+  char *file;
+  char *source;
+  u32 next_file = 0;
+  Lexer lex;
+
+  for (i = 0; i < map.count; i += 2) {
+    if (bytes == 0 || bytes >= next_file) {
+      file = ChunkFileAt(bytes, chunk);
+      source = ReadFile(file);
+      next_file += ChunkFileByteSize(bytes, chunk);
+      printf("%s (%d)\n", file, next_file);
+      pos = 0;
+    }
+
+    pos += (i8)map.items[i];
+
+    if (source) {
+      u32 line = LineNum(source, pos);
+      u32 col = ColNum(source, pos);
+      InitLexer(&lex, source, pos);
+      printf("[%d:%d] %.*s\n", line + 1, col + 1, lex.token.length, lex.token.lexeme);
+    }
+
+    for (j = bytes; j < bytes + map.items[i+1]; j += OpLength(ChunkRef(chunk, j))) {
+      printf("  ");
+      PrintInstruction(chunk, j);
+      printf("\n");
+    }
+
+    bytes += map.items[i+1];
+  }
 }

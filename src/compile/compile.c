@@ -27,6 +27,7 @@ static Result CompileSet(Node *node, bool linkage, Compiler *c);
 
 static void CompileLinkage(bool linkage, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
+static void PushNodePos(Node *node, Compiler *c);
 #define CompileOk()  OkResult(Nil)
 
 void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *mod_map, Chunk *chunk)
@@ -44,6 +45,7 @@ Result CompileScript(Node *module, Compiler *c)
 {
   Result result;
   Node *imports = ModuleImports(module);
+  Node *body = ModuleBody(module);
   u32 num_imports = NumNodeChildren(imports);
 
   /* copy filename symbol to chunk */
@@ -60,13 +62,17 @@ Result CompileScript(Node *module, Compiler *c)
     if (!result.ok) return result;
   }
 
-  result = CompileDo(ModuleBody(module), LinkNext, c);
+  PushNodePos(body, c);
+
+  result = CompileDo(body, LinkNext, c);
   if (!result.ok) return result;
+
+  PushNodePos(NodeChild(module, 3), c);
 
   /* discard import frame */
   if (num_imports > 0) {
-    PushByte(OpExport, c->pos, c->chunk);
-    PushByte(OpPop, c->pos, c->chunk);
+    PushByte(OpExport, c->chunk);
+    PushByte(OpPop, c->chunk);
     c->env = PopFrame(c->env);
   }
 
@@ -80,9 +86,9 @@ Result CompileModuleFrame(u32 num_modules, Compiler *c)
   BeginChunkFile(Sym("*init*", &c->chunk->symbols), c->chunk);
 
   if (num_modules > 0) {
-    PushConst(IntVal(num_modules), 0, c->chunk);
-    PushByte(OpTuple, 0, c->chunk);
-    PushByte(OpExtend, 0, c->chunk);
+    PushConst(IntVal(num_modules), c->chunk);
+    PushByte(OpTuple, c->chunk);
+    PushByte(OpExtend, c->chunk);
   }
 
   EndChunkFile(c->chunk);
@@ -107,13 +113,13 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   BeginChunkFile(ModuleFile(module), c->chunk);
 
   /* create lambda for module */
-  PushConst(IntVal(0), c->pos, c->chunk);
-  link = PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpNoop, c->pos, c->chunk);
-  PushByte(OpLambda, c->pos, c->chunk);
-  jump = PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpNoop, c->pos, c->chunk);
-  PushByte(OpJump, c->pos, c->chunk);
+  PushConst(IntVal(0), c->chunk);
+  link = PushConst(IntVal(0), c->chunk);
+  PushByte(OpNoop, c->chunk);
+  PushByte(OpLambda, c->chunk);
+  jump = PushConst(IntVal(0), c->chunk);
+  PushByte(OpNoop, c->chunk);
+  PushByte(OpJump, c->chunk);
   PatchConst(c->chunk, link);
 
   /* compile imports */
@@ -124,9 +130,9 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
 
   /* extend env for assigns */
   if (num_exports > 0) {
-    PushConst(IntVal(num_exports), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-    PushByte(OpExtend, c->pos, c->chunk);
+    PushConst(IntVal(num_exports), c->chunk);
+    PushByte(OpTuple, c->chunk);
+    PushByte(OpExtend, c->chunk);
     c->env = ExtendFrame(c->env, num_exports);
   }
 
@@ -134,45 +140,49 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   if (!result.ok) return result;
 
   /* discard last statement result */
-  PushByte(OpPop, c->pos, c->chunk);
+  PushByte(OpPop, c->chunk);
+
+  PushNodePos(NodeChild(module, 3), c);
 
   /* export assigned values */
-  PushByte(OpMap, c->pos, c->chunk);
+  PushByte(OpMap, c->chunk);
   if (num_exports > 0) {
     u32 i;
     for (i = 0; i < num_exports; i++) {
       Val export = NodeValue(NodeChild(exports, i));
       Sym(SymbolName(export, c->symbols), &c->chunk->symbols);
-      PushConst(IntVal(i), c->pos, c->chunk);
-      PushByte(OpLookup, c->pos, c->chunk);
-      PushConst(export, c->pos, c->chunk);
-      PushByte(OpSet, c->pos, c->chunk);
+      PushConst(IntVal(i), c->chunk);
+      PushByte(OpLookup, c->chunk);
+      PushConst(export, c->chunk);
+      PushByte(OpSet, c->chunk);
     }
 
     c->env = PopFrame(c->env);
   }
 
   /* copy exports to redefine module */
-  PushByte(OpDup, c->pos, c->chunk);
+  PushByte(OpDup, c->chunk);
 
   /* discard import frame */
   if (num_imports > 0) {
-    PushByte(OpExport, c->pos, c->chunk);
-    PushByte(OpPop, c->pos, c->chunk);
+    PushByte(OpExport, c->chunk);
+    PushByte(OpPop, c->chunk);
     c->env = PopFrame(c->env);
   }
 
   /* redefine module as exported value */
-  PushConst(IntVal(mod_num), c->pos, c->chunk);
-  PushByte(OpDefine, c->pos, c->chunk);
+  PushConst(IntVal(mod_num), c->chunk);
+  PushByte(OpDefine, c->chunk);
 
-  PushByte(OpReturn, c->pos, c->chunk);
+  PushByte(OpReturn, c->chunk);
 
   PatchConst(c->chunk, jump);
 
+  PushNodePos(NodeChild(module, 0), c);
+
   /* define module as the lambda */
-  PushConst(IntVal(mod_num), c->pos, c->chunk);
-  PushByte(OpDefine, c->pos, c->chunk);
+  PushConst(IntVal(mod_num), c->chunk);
+  PushByte(OpDefine, c->chunk);
 
   EndChunkFile(c->chunk);
 
@@ -188,12 +198,12 @@ static u32 DefineImports(Node *imports, u32 num_imported, Compiler *c)
 
     if (i < NumNodeChildren(imports) - 1) {
       /* keep map for future iterations */
-      PushByte(OpDup, c->pos, c->chunk);
+      PushByte(OpDup, c->chunk);
     }
-    PushConst(import, c->pos, c->chunk);
-    PushByte(OpGet, c->pos, c->chunk);
-    PushConst(IntVal(num_imported+i), c->pos, c->chunk);
-    PushByte(OpDefine, c->pos, c->chunk);
+    PushConst(import, c->chunk);
+    PushByte(OpGet, c->chunk);
+    PushConst(IntVal(num_imported+i), c->chunk);
+    PushByte(OpDefine, c->chunk);
     FrameSet(c->env, num_imported + i, import);
   }
   return i;
@@ -226,9 +236,9 @@ static Result CompileImports(Node *imports, Compiler *c)
   u32 i;
 
   /* extend env for imports */
-  PushConst(IntVal(num_imports), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
-  PushByte(OpExtend, c->pos, c->chunk);
+  PushConst(IntVal(num_imports), c->chunk);
+  PushByte(OpTuple, c->chunk);
+  PushByte(OpExtend, c->chunk);
   c->env = ExtendFrame(c->env, num_imports);
 
   for (i = 0; i < NumNodeChildren(imports); i++) {
@@ -240,7 +250,7 @@ static Result CompileImports(Node *imports, Compiler *c)
     i32 import_def;
     u32 link;
 
-    c->pos = node->pos;
+    PushNodePos(node, c);
 
     if (!HashMapContains(c->mod_map, import_name)) return CompileError("Undefined module", c);
 
@@ -251,13 +261,13 @@ static Result CompileImports(Node *imports, Compiler *c)
     if (import_def < 0) return CompileError("Undefined module", c);
 
     /* call module function */
-    link = PushConst(IntVal(0), c->pos, c->chunk);
-    PushByte(OpNoop, c->pos, c->chunk);
-    PushByte(OpLink, c->pos, c->chunk);
-    PushConst(IntVal(import_def), c->pos, c->chunk);
-    PushByte(OpLookup, c->pos, c->chunk);
-    PushByte(OpApply, c->pos, c->chunk);
-    PushByte(0, c->pos, c->chunk);
+    link = PushConst(IntVal(0), c->chunk);
+    PushByte(OpNoop, c->chunk);
+    PushByte(OpLink, c->chunk);
+    PushConst(IntVal(import_def), c->chunk);
+    PushByte(OpLookup, c->chunk);
+    PushByte(OpApply, c->chunk);
+    PushByte(0, c->chunk);
     PatchConst(c->chunk, link);
 
     if (alias == Nil) {
@@ -265,8 +275,8 @@ static Result CompileImports(Node *imports, Compiler *c)
       num_imported += DefineImports(imported_vals, num_imported, c);
     } else {
       /* import map */
-      PushConst(IntVal(num_imported), c->pos, c->chunk);
-      PushByte(OpDefine, c->pos, c->chunk);
+      PushConst(IntVal(num_imported), c->chunk);
+      PushByte(OpDefine, c->chunk);
       FrameSet(c->env, num_imported, alias);
       num_imported++;
     }
@@ -277,7 +287,7 @@ static Result CompileImports(Node *imports, Compiler *c)
 
 static Result CompileExpr(Node *node, bool linkage, Compiler *c)
 {
-  c->pos = node->pos;
+  PushNodePos(node, c);
 
   switch (node->type) {
   case SymbolNode:        return CompileConst(node, linkage, c);
@@ -329,41 +339,44 @@ static Result CompileStmts(Node *node, bool linkage, Compiler *c)
     bool stmt_linkage = is_last ? linkage : LinkNext;
 
     if (stmt->type == LetNode) {
-      Val var = NodeValue(NodeChild(stmt, 0));
+      Node *var = NodeChild(stmt, 0);
       Node *value = NodeChild(stmt, 1);
 
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
 
-      PushConst(IntVal(num_assigned), c->pos, c->chunk);
-      PushByte(OpDefine, c->pos, c->chunk);
-      FrameSet(c->env, num_assigned, var);
+      PushNodePos(var, c);
+      PushConst(IntVal(num_assigned), c->chunk);
+      PushByte(OpDefine, c->chunk);
+      FrameSet(c->env, num_assigned, NodeValue(var));
       num_assigned++;
 
       if (is_last) {
         /* the last statement must produce a result */
-        PushConst(Nil, c->pos, c->chunk);
+        PushConst(Nil, c->chunk);
       }
     } else if (stmt->type == DefNode) {
+      Node *var = NodeChild(stmt, 0);
       Node *value = NodeChild(stmt, 1);
 
       result = CompileExpr(value, stmt_linkage, c);
       if (!result.ok) return result;
 
-      PushConst(IntVal(num_assigned), c->pos, c->chunk);
-      PushByte(OpDefine, c->pos, c->chunk);
+      PushNodePos(var, c);
+      PushConst(IntVal(num_assigned), c->chunk);
+      PushByte(OpDefine, c->chunk);
       num_assigned++;
 
       if (is_last) {
         /* the last statement must produce a result */
-        PushConst(Nil, c->pos, c->chunk);
+        PushConst(Nil, c->chunk);
       }
     } else {
       result = CompileExpr(stmt, stmt_linkage, c);
       if (!result.ok) return result;
       if (!is_last) {
         /* discard each statement result except the last */
-        PushByte(OpPop, c->pos, c->chunk);
+        PushByte(OpPop, c->chunk);
       }
     }
   }
@@ -378,19 +391,21 @@ static Result CompileDo(Node *node, bool linkage, Compiler *c)
   u32 num_assigns = NumNodeChildren(assigns);
 
   if (num_assigns > 0) {
-    PushConst(IntVal(num_assigns), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-    PushByte(OpExtend, c->pos, c->chunk);
+    PushConst(IntVal(num_assigns), c->chunk);
+    PushByte(OpTuple, c->chunk);
+    PushByte(OpExtend, c->chunk);
     c->env = ExtendFrame(c->env, num_assigns);
   }
 
   result = CompileStmts(node, linkage, c);
   if (!result.ok) return result;
 
+  PushNodePos(node, c);
+
   /* discard frame for assigns */
   if (num_assigns > 0) {
-    PushByte(OpExport, c->pos, c->chunk);
-    PushByte(OpPop, c->pos, c->chunk);
+    PushByte(OpExport, c->chunk);
+    PushByte(OpPop, c->chunk);
     c->env = PopFrame(c->env);
   }
 
@@ -420,9 +435,9 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   is_primitive = IsPrimitiveCall(op, c);
 
   if (linkage == LinkNext && !is_primitive) {
-    patch = PushConst(IntVal(0), c->pos, c->chunk);
-    PushByte(OpNoop, c->pos, c->chunk);
-    PushByte(OpLink, c->pos, c->chunk);
+    patch = PushConst(IntVal(0), c->chunk);
+    PushByte(OpNoop, c->chunk);
+    PushByte(OpLink, c->chunk);
   }
 
   for (i = 0; i < num_args; i++) {
@@ -435,8 +450,8 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   result = CompileExpr(op, LinkNext, c);
   if (!result.ok) return result;
 
-  PushByte(OpApply, c->pos, c->chunk);
-  PushByte(num_args, c->pos, c->chunk);
+  PushByte(OpApply, c->chunk);
+  PushByte(num_args, c->chunk);
 
   if (linkage == LinkNext && !is_primitive) {
     PatchConst(c->chunk, patch);
@@ -458,26 +473,29 @@ static Result CompileLambda(Node *node, bool linkage, Compiler *c)
   u32 num_params = NumNodeChildren(params);
 
   /* create lambda */
-  PushConst(IntVal(num_params), c->pos, c->chunk);
-  link = PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpNoop, c->pos, c->chunk);
-  PushByte(OpLambda, c->pos, c->chunk);
-  jump = PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpNoop, c->pos, c->chunk);
-  PushByte(OpJump, c->pos, c->chunk);
+  PushConst(IntVal(num_params), c->chunk);
+  link = PushConst(IntVal(0), c->chunk);
+  PushByte(OpNoop, c->chunk);
+  PushByte(OpLambda, c->chunk);
+  jump = PushConst(IntVal(0), c->chunk);
+  PushByte(OpNoop, c->chunk);
+  PushByte(OpJump, c->chunk);
   PatchConst(c->chunk, link);
 
   if (num_params > 0) {
-    PushConst(IntVal(num_params), c->pos, c->chunk);
-    PushByte(OpTuple, c->pos, c->chunk);
-    PushByte(OpExtend, c->pos, c->chunk);
+    PushNodePos(params, c);
+    PushConst(IntVal(num_params), c->chunk);
+    PushByte(OpTuple, c->chunk);
+    PushByte(OpExtend, c->chunk);
     c->env = ExtendFrame(c->env, num_params);
 
     for (i = 0; i < num_params; i++) {
-      Val param = NodeValue(NodeChild(params, i));
-      FrameSet(c->env, i, param);
-      PushConst(IntVal(num_params - i - 1), c->pos, c->chunk);
-      PushByte(OpDefine, c->pos, c->chunk);
+      Node *param = NodeChild(params, i);
+      Val id = NodeValue(NodeChild(params, i));
+      PushNodePos(param, c);
+      FrameSet(c->env, i, id);
+      PushConst(IntVal(num_params - i - 1), c->chunk);
+      PushByte(OpDefine, c->chunk);
     }
   }
 
@@ -504,22 +522,22 @@ static Result CompileIf(Node *node, bool linkage, Compiler *c)
   result = CompileExpr(predicate, LinkNext, c);
   if (!result.ok) return result;
 
-  branch = PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpNoop, c->pos, c->chunk);
-  PushByte(OpBranch, c->pos, c->chunk);
+  branch = PushConst(IntVal(0), c->chunk);
+  PushByte(OpNoop, c->chunk);
+  PushByte(OpBranch, c->chunk);
 
-  PushByte(OpPop, c->pos, c->chunk);
+  PushByte(OpPop, c->chunk);
   result = CompileExpr(alternative, linkage, c);
   if (!result.ok) return result;
   if (linkage == LinkNext) {
-    jump = PushConst(IntVal(0), c->pos, c->chunk);
-    PushByte(OpNoop, c->pos, c->chunk);
-    PushByte(OpJump, c->pos, c->chunk);
+    jump = PushConst(IntVal(0), c->chunk);
+    PushByte(OpNoop, c->chunk);
+    PushByte(OpJump, c->chunk);
   }
 
   PatchConst(c->chunk, branch);
 
-  PushByte(OpPop, c->pos, c->chunk);
+  PushByte(OpPop, c->chunk);
   result = CompileExpr(consequent, linkage, c);
   if (!result.ok) return result;
 
@@ -539,21 +557,21 @@ static Result CompileAnd(Node *node, bool linkage, Compiler *c)
   Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
-  branch = PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpNoop, c->pos, c->chunk);
-  PushByte(OpBranch, c->pos, c->chunk);
+  branch = PushConst(IntVal(0), c->chunk);
+  PushByte(OpNoop, c->chunk);
+  PushByte(OpBranch, c->chunk);
 
   if (linkage == LinkNext) {
-    jump = PushConst(IntVal(0), c->pos, c->chunk);
-    PushByte(OpNoop, c->pos, c->chunk);
-    PushByte(OpJump, c->pos, c->chunk);
+    jump = PushConst(IntVal(0), c->chunk);
+    PushByte(OpNoop, c->chunk);
+    PushByte(OpJump, c->chunk);
   } else {
     CompileLinkage(linkage, c);
   }
 
   PatchConst(c->chunk, branch);
 
-  PushByte(OpPop, c->pos, c->chunk);
+  PushByte(OpPop, c->chunk);
   result = CompileExpr(b, linkage, c);
   if (!result.ok) return result;
 
@@ -573,11 +591,11 @@ static Result CompileOr(Node *node, bool linkage, Compiler *c)
   Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
-  branch = PushConst(IntVal(0), c->pos, c->chunk);
-  PushByte(OpNoop, c->pos, c->chunk);
-  PushByte(OpBranch, c->pos, c->chunk);
+  branch = PushConst(IntVal(0), c->chunk);
+  PushByte(OpNoop, c->chunk);
+  PushByte(OpBranch, c->chunk);
 
-  PushByte(OpPop, c->pos, c->chunk);
+  PushByte(OpPop, c->chunk);
   result = CompileExpr(b, linkage, c);
   if (!result.ok) return result;
 
@@ -590,13 +608,13 @@ static Result CompileOr(Node *node, bool linkage, Compiler *c)
 static Result CompileList(Node *node, bool linkage, Compiler *c)
 {
   u32 i;
-  PushConst(Nil, c->pos, c->chunk);
+  PushConst(Nil, c->chunk);
 
   for (i = 0; i < NumNodeChildren(node); i++) {
     Node *item = NodeChild(node, NumNodeChildren(node) - i - 1);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
-    PushByte(OpPair, c->pos, c->chunk);
+    PushByte(OpPair, c->chunk);
   }
 
   CompileLinkage(linkage, c);
@@ -607,15 +625,15 @@ static Result CompileTuple(Node *node, bool linkage, Compiler *c)
 {
   u32 i, num_items = NumNodeChildren(node);
 
-  PushConst(IntVal(num_items), c->pos, c->chunk);
-  PushByte(OpTuple, c->pos, c->chunk);
+  PushConst(IntVal(num_items), c->chunk);
+  PushByte(OpTuple, c->chunk);
 
   for (i = 0; i < num_items; i++) {
     Node *item = NodeChild(node, i);
     Result result = CompileExpr(item, LinkNext, c);
     if (!result.ok) return result;
-    PushConst(IntVal(i), c->pos, c->chunk);
-    PushByte(OpSet, c->pos, c->chunk);
+    PushConst(IntVal(i), c->chunk);
+    PushByte(OpSet, c->chunk);
   }
 
   CompileLinkage(linkage, c);
@@ -626,7 +644,7 @@ static Result CompileMap(Node *node, bool linkage, Compiler *c)
 {
   u32 i, num_items = NumNodeChildren(node) / 2;
 
-  PushByte(OpMap, c->pos, c->chunk);
+  PushByte(OpMap, c->chunk);
 
   for (i = 0; i < num_items; i++) {
     Node *value = NodeChild(node, (i*2)+1);
@@ -638,7 +656,7 @@ static Result CompileMap(Node *node, bool linkage, Compiler *c)
     result = CompileExpr(key, LinkNext, c);
     if (!result.ok) return result;
 
-    PushByte(OpSet, c->pos, c->chunk);
+    PushByte(OpSet, c->chunk);
   }
 
   CompileLinkage(linkage, c);
@@ -649,8 +667,8 @@ static Result CompileString(Node *node, bool linkage, Compiler *c)
 {
   Val sym = NodeValue(node);
   Sym(SymbolName(sym, c->symbols), &c->chunk->symbols);
-  PushConst(sym, c->pos, c->chunk);
-  PushByte(OpStr, c->pos, c->chunk);
+  PushConst(sym, c->chunk);
+  PushByte(OpStr, c->chunk);
   CompileLinkage(linkage, c);
   return CompileOk();
 }
@@ -661,8 +679,8 @@ static Result CompileVar(Node *node, bool linkage, Compiler *c)
   i32 def = FrameFind(c->env, id);
   if (def == -1) return CompileError("Undefined variable", c);
 
-  PushConst(IntVal(def), c->pos, c->chunk);
-  PushByte(OpLookup, c->pos, c->chunk);
+  PushConst(IntVal(def), c->chunk);
+  PushByte(OpLookup, c->chunk);
   CompileLinkage(linkage, c);
   return CompileOk();
 }
@@ -670,7 +688,7 @@ static Result CompileVar(Node *node, bool linkage, Compiler *c)
 static Result CompileConst(Node *node, bool linkage, Compiler *c)
 {
   Val value = NodeValue(node);
-  PushConst(value, c->pos, c->chunk);
+  PushConst(value, c->chunk);
   CompileLinkage(linkage, c);
   if (IsSym(value)) {
     Sym(SymbolName(value, c->symbols), &c->chunk->symbols);
@@ -704,9 +722,9 @@ static Result CompileSet(Node *node, bool linkage, Compiler *c)
   result = CompileExpr(val, LinkNext, c);
   if (!result.ok) return result;
 
-  PushByte(OpDup, c->pos, c->chunk);
-  PushConst(IntVal(def), c->pos, c->chunk);
-  PushByte(OpDefine, c->pos, c->chunk);
+  PushByte(OpDup, c->chunk);
+  PushConst(IntVal(def), c->chunk);
+  PushByte(OpDefine, c->chunk);
 
   CompileLinkage(linkage, c);
   return CompileOk();
@@ -715,11 +733,17 @@ static Result CompileSet(Node *node, bool linkage, Compiler *c)
 static void CompileLinkage(bool linkage, Compiler *c)
 {
   if (linkage == LinkReturn) {
-    PushByte(OpReturn, c->pos, c->chunk);
+    PushByte(OpReturn, c->chunk);
   }
 }
 
 static Result CompileError(char *message, Compiler *c)
 {
   return ErrorResult(message, c->filename, c->pos);
+}
+
+static void PushNodePos(Node *node, Compiler *c)
+{
+  PushSourcePos(node->pos - c->pos, c->chunk);
+  c->pos = node->pos;
 }

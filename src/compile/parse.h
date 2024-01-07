@@ -55,9 +55,11 @@ bool IsTerminal(Node *node);
 #define NodeChild(node, i)      (((Node*)(node))->expr.children.items[i])
 #define NumNodeChildren(node)   ((node)->expr.children.count)
 #define NodeValue(node)         (((Node*)(node))->expr.value)
+#define NodePos(node)           ((node)->pos)
 
 #define ModuleName(mod)         NodeValue(NodeChild(mod, 0))
 #define ModuleImports(mod)      NodeChild(mod, 1)
 #define ModuleBody(mod)         NodeChild(mod, 2)
 #define ModuleExports(mod)      NodeChild(ModuleBody(mod), 0)
 #define ModuleFile(mod)         NodeValue(NodeChild(mod, 3))
+#define ModuleSize(mod)         NodePos((Node*)NodeChild(mod, 3))

@@ -123,11 +123,18 @@ def inspect(value, depth) do
 end
 
 def print(value) do
-  if binary?(value) do
-    write(console, value)
-    write(console, 0x0A)
-  else
-    write(console, format(inspect(value, 5)))
-    write(console, 0x0A)
+  def to-str(item) do
+    if binary?(item) do
+      item
+    else
+      inspect(item, 5)
+    end
   end
+
+  cond do
+    binary?(value) -> write(console, value)
+    pair?(value) -> write(console, format(List.map(to-str, value)))
+    true -> write(console, format(inspect(value, 5)))
+  end
+  write(console, 0x0A)
 end

@@ -339,7 +339,7 @@ static Result RunInstruction(VM *vm)
 
 Result RuntimeError(char *message, VM *vm)
 {
-  char *filename = ChunkFile(vm->pc, vm->chunk);
+  char *filename = ChunkFileAt(vm->pc, vm->chunk);
   u32 pos = GetSourcePosition(vm->pc, vm->chunk);
   Result error = ErrorResult(message, filename, pos);
   error.data = StackTrace(vm);
