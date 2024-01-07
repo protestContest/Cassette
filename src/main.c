@@ -66,6 +66,16 @@ int main(int argc, char *argv[])
   if (opts.debug) {
     Disassemble(chunk);
   }
+
+  if (opts.compile) {
+    u32 ext = FindExt(opts.filenames[0]);
+    char filename[256];
+
+    Copy(opts.filenames[0], filename, ext);
+    Copy(".tape", filename + ext, 5);
+    filename[ext+5] = 0;
+    WriteChunk(chunk, filename);
+    return 0;
   }
 
   /* Ok, time to run the code */

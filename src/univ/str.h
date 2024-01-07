@@ -16,6 +16,7 @@
 
 u32 StrLen(char *str);
 bool StrEq(char *str1, char *str2);
+bool MemEq(u8 *str1, u8 *str2, u32 size);
 
 void StrCat(char *str1, char *str2, char *dst);
 u32 NumDigits(u32 num, u32 base);
@@ -32,4 +33,5 @@ char *LineEnd(char *str);
 u32 LineNum(char *str, u32 index);
 u32 ColNum(char *str, u32 index);
 char *Basename(char *str, char sep);
+u32 FindExt(char *str);
 char *CopyStr(char *str, u32 length);

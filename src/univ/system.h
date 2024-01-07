@@ -21,3 +21,7 @@ void DirContents(char *path, char *ext, ObjVec *contents);
 u32 Time(void);
 u32 Ticks(void);
 void Exit(void);
+void WriteInt(u32 n, u8 *data);
+u32 ReadInt(u8 *data);
+void WriteShort(u16 n, u8 *data);
+u16 ReadShort(u8 *data);

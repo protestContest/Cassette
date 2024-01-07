@@ -52,7 +52,7 @@ static char *GetFontPath(void)
 
 void Version(void)
 {
-  printf("Cassette v%s\n", VERSION);
+  printf("Cassette v%s\n", VERSION_NAME);
   printf("  Standard library: %s\n", GetStdLibPath());
   printf("  Font path: %s\n", GetFontPath());
 }
@@ -61,7 +61,7 @@ Options ParseOpts(u32 argc, char *argv[])
 {
   u32 i;
   u32 file_args = 1;
-  Options opts = {false, 0, 0, 0};
+  Options opts = {false, false, 0, 0, 0};
   for (i = 0; i < argc; i++) {
     if (argv[i][0] == '-') {
       switch (argv[i][1]) {
@@ -75,6 +75,10 @@ Options ParseOpts(u32 argc, char *argv[])
         break;
       case 'd':
         opts.debug = true;
+        file_args++;
+        break;
+      case 'c':
+        opts.compile = true;
         file_args++;
         break;
       default:
@@ -239,4 +243,12 @@ static void PrintSourceContext(u32 pos, char *source, u32 context)
     cur = end + 1;
     cur_line++;
   }
+}
+
+void WriteChunk(Chunk *chunk, char *filename)
+{
+  int file = CreateOrOpen(filename);
+  ByteVec data = SerializeChunk(chunk);
+  Write(file, data.items, data.count);
+  DestroyVec((Vec*)&data);
 }

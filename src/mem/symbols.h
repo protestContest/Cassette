@@ -41,3 +41,4 @@ Val Sym(char *name, SymbolTable *symbols);
 Val MakeSymbol(char *name, u32 length, SymbolTable *symbols);
 char *SymbolName(Val sym, SymbolTable *symbols);
 u32 LongestSymbol(SymbolTable *symbols);
+void DeserializeSymbols(u32 count, char *names, SymbolTable *symbols);

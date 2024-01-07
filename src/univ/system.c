@@ -128,3 +128,27 @@ void Exit(void)
 {
   exit(0);
 }
+
+void WriteInt(u32 n, u8 *data)
+{
+  data[0] = (n >> 24) & 0xFF;
+  data[1] = (n >> 16) & 0xFF;
+  data[2] = (n >> 8) & 0xFF;
+  data[3] = n & 0xFF;
+}
+
+u32 ReadInt(u8 *data)
+{
+  return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+}
+
+void WriteShort(u16 n, u8 *data)
+{
+  data[0] = (n >> 8) & 0xFF;
+  data[1] = n & 0xFF;
+}
+
+u16 ReadShort(u8 *data)
+{
+  return (data[0] << 8) | data[1];
+}

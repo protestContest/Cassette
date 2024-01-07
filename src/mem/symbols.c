@@ -70,3 +70,20 @@ u32 LongestSymbol(SymbolTable *symbols)
   }
   return max_length;
 }
+
+void DeserializeSymbols(u32 count, char *names, SymbolTable *symbols)
+{
+  char *cur = names;
+  symbols->names.count = count;
+  symbols->names.capacity = count;
+  symbols->names.items = Alloc(count);
+  Copy(names, symbols->names.items, count);
+
+  InitHashMap(&symbols->map);
+  while (cur < names + count) {
+    u32 len = StrLen(cur);
+    Val sym = SymbolFrom(cur, len);
+    HashMapSet(&symbols->map, sym, cur - names);
+    cur += len + 1;
+  }
+}

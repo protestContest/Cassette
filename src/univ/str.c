@@ -20,6 +20,15 @@ bool StrEq(char *str1, char *str2)
   return *str1 == *str2;
 }
 
+bool MemEq(u8 *str1, u8 *str2, u32 size)
+{
+  u32 i;
+  for (i = 0; i < size; i++) {
+    if (*str1 != *str2) return false;
+  }
+  return true;
+}
+
 void StrCat(char *str1, char *str2, char *dst)
 {
   if (str1 != dst) {
@@ -192,6 +201,16 @@ char *JoinStr(char *str1, char *str2, char joiner)
   Copy(str2, str+len1+1, len2);
   str[len1+1+len2] = 0;
   return str;
+}
+
+u32 FindExt(char *str)
+{
+  u32 len = StrLen(str);
+  u32 i;
+  for (i = 0; i < len; i++) {
+    if (str[len - i - 1] == '.') return len - i - 1;
+  }
+  return len;
 }
 
 char *CopyStr(char *str, u32 length)
