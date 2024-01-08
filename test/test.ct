@@ -44,7 +44,7 @@ def random-pt {
 def loop(a, b, count) do
   if count == 0 do
     canvas.clear(Canvas.white)
-    loop(a, b, count)
+    loop(a, b, 1000)
   else
     canvas.line({a.x, a.y}, {b.x, b.y})
     loop(update-pt(a), update-pt(b), count - 1)

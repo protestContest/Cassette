@@ -3,17 +3,6 @@
 #include "univ/hashmap.h"
 #include "univ/vec.h"
 
-/* pre-computed symbols */
-#define True              0x7FD7E33F /* true */
-#define False             0x7FDAF4C4 /* false */
-#define Ok                0x7FDDDE52 /* ok */
-#define Error             0x7FD04FC6 /* error */
-#define Undefined         0x7FDBC789 /* *undefined* */
-#define Moved             0x7FDE7580 /* *moved* */
-#define File              0x7FDA0003 /* *file* */
-#define FloatType         0x7FDF2D07 /* float */
-#define NumType           0x7FDFEE5C /* number */
-#define AnyType           0x7FD87D24 /* any */
 /*
 Symbol names are kept in a dynamic array of characters, where each name is a
 null-terminated C string. A hash map maps a symbol's value to the starting

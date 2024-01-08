@@ -23,6 +23,8 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 - If the chunk is done and no windows were open, the main loop exits
 */
 
+#ifndef GEN_SYMBOLS
+
 #include "cli.h"
 #include "debug.h"
 #include "canvas/canvas.h"
@@ -108,3 +110,5 @@ static bool CanvasUpdate(void *arg)
 
   return ResultValue(result) == True || AnyWindowsOpen(vm);
 }
+
+#endif

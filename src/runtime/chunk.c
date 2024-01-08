@@ -27,7 +27,6 @@ the source map entry.
 */
 
 #include "chunk.h"
-#include "debug.h"
 #include "ops.h"
 #include "version.h"
 #include "univ/math.h"
@@ -43,7 +42,6 @@ void InitChunk(Chunk *chunk)
   InitVec((Vec*)&chunk->code, sizeof(u8), 256);
   InitVec((Vec*)&chunk->constants, sizeof(Val), 256);
   InitSymbolTable(&chunk->symbols);
-  DefinePrimitiveSymbols(&chunk->symbols);
   InitVec((Vec*)&chunk->source_map, sizeof(u8), 256);
   InitVec((Vec*)&chunk->file_map, sizeof(u32), 8);
 }

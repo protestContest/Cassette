@@ -69,6 +69,12 @@ typedef u32 Val;
 #define MaxIntVal           0x7FC7FFFF
 #define MinIntVal           0x7FC80000
 
+/* pre-computed symbols */
+#define True              0x7FD7E33F /* true */
+#define False             0x7FDAF4C4 /* false */
+#define Ok                0x7FDDDE52 /* ok */
+#define Error             0x7FD04FC6 /* error */
+
 Val FloatVal(float num);
 float RawFloat(Val value);
 

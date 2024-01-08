@@ -1,5 +1,4 @@
 #include "compile.h"
-#include "debug.h"
 #include "project.h"
 #include "runtime/ops.h"
 #include "runtime/primitives.h"

@@ -1,5 +1,4 @@
 #include "env.h"
-#include "debug.h"
 #include "primitives.h"
 #include "mem/symbols.h"
 #include "univ/system.h"

@@ -9,6 +9,10 @@
 #include "univ/str.h"
 #include "univ/system.h"
 
+#define FloatType         0x7FDF2D07 /* float */
+#define NumType           0x7FDFEE5C /* number */
+#define AnyType           0x7FD87D24 /* any */
+
 static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
 static Result VMPanic(u32 num_args, VM *vm);

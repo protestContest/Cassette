@@ -77,6 +77,8 @@ bool ValEqual(Val v1, Val v2, Mem *mem)
 static Val CopyValue(Val value, Mem *from, Mem *to);
 static Val ObjSize(Val value);
 
+#define Moved             0x7FDE7580 /* *moved* */
+
 void CollectGarbage(Mem *mem)
 {
   u32 i;

@@ -68,10 +68,6 @@ static void InitProject(Project *project, Options opts)
   InitSymbolTable(&project->symbols);
   InitVec((Vec*)&project->manifest, sizeof(char*), 8);
   InitVec((Vec*)&project->build_list, sizeof(Node*), 8);
-
-  if (opts.debug) {
-    DefineSymbols(&project->symbols);
-  }
 }
 
 static void DestroyProject(Project *project)
