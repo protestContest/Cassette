@@ -1,76 +1,38 @@
 #include "cli.h"
+#include "version.h"
+#include "compile/lex.h"
+#include "runtime/vm.h"
 #include "univ/str.h"
 #include "univ/system.h"
 #include "univ/math.h"
-#include "compile/lex.h"
-#include "runtime/vm.h"
-#include "version.h"
 #include <stdio.h>
 
 static void PrintSourceContext(u32 pos, char *source, u32 context);
-
-int Usage(void)
-{
-  printf("Usage: cassette [-d] entryScript [module1 ... moduleN]\n");
-  return 1;
-}
-
-/*
-Looks for the standard lib in this order:
-- value of CASSETTE_STDLIB env variable
-- $(HOME)/.local/share/cassette
-- /usr/share/cassette
-*/
-static char *GetStdLibPath(void)
-{
-  char *home = GetEnv("HOME");
-  char *path = GetEnv("CASSETTE_STDLIB");
-
-  if (path && DirExists(path)) return path;
-
-  if (home) {
-    path = JoinStr(home, ".local/share/cassette", '/');
-    if (DirExists(path)) return path;
-  }
-
-  if (DirExists("/usr/share/cassette")) {
-    return "/usr/share/cassette";
-  }
-
-  return 0;
-}
-
-static char *GetFontPath(void)
-{
-  char *path = GetEnv("CASSETTE_FONTS");
-  if (path && *path) return path;
-#ifdef FONT_PATH
-  if (FONT_PATH) return FONT_PATH;
-#endif
-  return "(unset)";
-}
-
-void Version(void)
-{
-  printf("Cassette v%s\n", VERSION_NAME);
-  printf("  Standard library: %s\n", GetStdLibPath());
-  printf("  Font path: %s\n", GetFontPath());
-}
+static int PrintUsage(void);
+static void PrintVersion(void);
+static char *GetStdLibPath(void);
+static char *GetFontPath(void);
 
 Options ParseOpts(u32 argc, char *argv[])
 {
   u32 i;
   u32 file_args = 1;
   Options opts = {false, false, 0, 0, 0};
+
+  if (argc < 2) {
+    PrintUsage();
+    Exit();
+  }
+
   for (i = 0; i < argc; i++) {
     if (argv[i][0] == '-') {
       switch (argv[i][1]) {
       case 'h':
-        Usage();
+        PrintUsage();
         Exit();
         break;
       case 'v':
-        Version();
+        PrintVersion();
         Exit();
         break;
       case 'd':
@@ -83,7 +45,7 @@ Options ParseOpts(u32 argc, char *argv[])
         break;
       default:
         printf("Unknown flag: %s\n", argv[i]);
-        Usage();
+        PrintUsage();
         Exit();
       }
     }
@@ -92,7 +54,43 @@ Options ParseOpts(u32 argc, char *argv[])
   opts.num_files = argc - file_args;
   opts.filenames = argv + file_args;
   opts.stdlib_path = GetStdLibPath();
+
+  if (opts.num_files == 0) {
+    PrintUsage();
+    Exit();
+  }
+
   return opts;
+}
+
+void PrintError(Result result)
+{
+  u32 line, col;
+  char *source = 0;
+  ErrorDetails *error = ResultError(result);
+
+  if (error->filename) {
+    source = ReadFile(error->filename);
+    if (source) {
+      line = LineNum(source, error->pos);
+      col = ColNum(source, error->pos);
+    }
+  }
+
+  printf("%s", ANSIRed);
+  if (error->filename) {
+    printf("%s", error->filename);
+    if (source) {
+      printf(":%d:%d", line+1, col+1);
+    }
+    printf(" ");
+  }
+
+  printf("Error: %s\n", error->message);
+  if (source) {
+    PrintSourceContext(error->pos, source, 3);
+  }
+  printf("%s", ANSINormal);
 }
 
 void PrintRuntimeError(Result result, VM *vm)
@@ -121,36 +119,6 @@ void PrintRuntimeError(Result result, VM *vm)
     printf("\n");
   }
 
-  if (source) {
-    PrintSourceContext(error->pos, source, 3);
-  }
-  printf("%s", ANSINormal);
-}
-
-void PrintError(Result result)
-{
-  u32 line, col;
-  char *source = 0;
-  ErrorDetails *error = ResultError(result);
-
-  if (error->filename) {
-    source = ReadFile(error->filename);
-    if (source) {
-      line = LineNum(source, error->pos);
-      col = ColNum(source, error->pos);
-    }
-  }
-
-  printf("%s", ANSIRed);
-  if (error->filename) {
-    printf("%s", error->filename);
-    if (source) {
-      printf(":%d:%d", line+1, col+1);
-    }
-    printf(" ");
-  }
-
-  printf("Error: %s\n", error->message);
   if (source) {
     PrintSourceContext(error->pos, source, 3);
   }
@@ -251,4 +219,52 @@ void WriteChunk(Chunk *chunk, char *filename)
   ByteVec data = SerializeChunk(chunk);
   Write(file, data.items, data.count);
   DestroyVec((Vec*)&data);
+}
+
+static int PrintUsage(void)
+{
+  printf("Usage: cassette [-d] entryScript [module1 ... moduleN]\n");
+  return 1;
+}
+
+static void PrintVersion(void)
+{
+  printf("Cassette v%s\n", VERSION_NAME);
+  printf("  Standard library: %s\n", GetStdLibPath());
+  printf("  Font path: %s\n", GetFontPath());
+}
+
+/*
+Looks for the standard lib in this order:
+- value of CASSETTE_STDLIB env variable
+- $(HOME)/.local/share/cassette
+- /usr/share/cassette
+*/
+static char *GetStdLibPath(void)
+{
+  char *home = GetEnv("HOME");
+  char *path = GetEnv("CASSETTE_STDLIB");
+
+  if (path && DirExists(path)) return path;
+
+  if (home) {
+    path = JoinStr(home, ".local/share/cassette", '/');
+    if (DirExists(path)) return path;
+  }
+
+  if (DirExists("/usr/share/cassette")) {
+    return "/usr/share/cassette";
+  }
+
+  return 0;
+}
+
+static char *GetFontPath(void)
+{
+  char *path = GetEnv("CASSETTE_FONTS");
+  if (path && *path) return path;
+#ifdef FONT_PATH
+  if (FONT_PATH) return FONT_PATH;
+#endif
+  return "(unset)";
 }

@@ -1,9 +1,8 @@
 #include "compile.h"
-#include "parse.h"
+#include "debug.h"
 #include "project.h"
 #include "runtime/ops.h"
 #include "runtime/primitives.h"
-#include "debug.h"
 
 #define LinkNext false
 #define LinkReturn true
@@ -414,7 +413,6 @@ static bool IsPrimitiveCall(Node *op, Compiler *c)
   return FrameNum(c->env, op->expr.value) == 0;
 }
 
-#define SymSet 0x7FDB0EE9
 static Result CompileCall(Node *node, bool linkage, Compiler *c)
 {
   Node *op = NodeChild(node, 0);

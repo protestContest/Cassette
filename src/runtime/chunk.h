@@ -1,8 +1,8 @@
 #pragma once
 #include "mem/mem.h"
 #include "mem/symbols.h"
+#include "univ/result.h"
 #include "univ/vec.h"
-#include "result.h"
 
 typedef struct {
   ByteVec code;

@@ -1,11 +1,10 @@
 #include "system.h"
 #include "str.h"
-#include <fcntl.h>
-#include <unistd.h>
-#include <time.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 
 void *Alloc(u32 size)
 {
@@ -46,6 +45,11 @@ int Open(char *path)
   return open(path, O_RDWR, 0);
 }
 
+void Close(int file)
+{
+  close(file);
+}
+
 int CreateOrOpen(char *path)
 {
   mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
@@ -74,6 +78,7 @@ char *ReadFile(char *path)
   data = Alloc(size + 1);
   read(file, data, size);
   data[size] = 0;
+  Close(file);
   return data;
 }
 

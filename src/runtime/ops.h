@@ -29,3 +29,4 @@ typedef enum {
 } OpCode;
 
 u32 OpLength(OpCode op);
+char *OpName(OpCode op);

@@ -1,10 +1,8 @@
 #include "symbols.h"
 #include "univ/hash.h"
 #include "univ/math.h"
-#include "univ/system.h"
 #include "univ/str.h"
-
-#include "debug.h"
+#include "univ/system.h"
 
 void InitSymbolTable(SymbolTable *symbols)
 {

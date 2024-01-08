@@ -11,6 +11,7 @@ void Copy(void *src, void *dst, u32 size);
 i32 Read(i32 file, void *buf, u32 size);
 i32 Write(i32 file, void *buf, u32 size);
 int Open(char *path);
+void Close(int file);
 int CreateOrOpen(char *path);
 u32 FileSize(int file);
 char *ReadFile(char *path);

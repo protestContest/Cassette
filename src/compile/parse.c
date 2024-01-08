@@ -1,9 +1,9 @@
 #include "parse.h"
 #include "project.h"
+#include "runtime/primitives.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
-#include "runtime/primitives.h"
 
 #define ExprNext(lex)       (rules[(lex)->token.type].prefix)
 #define PrecNext(lex)       (rules[(lex)->token.type].prec)
@@ -884,29 +884,29 @@ static Result ParseFail(Result result, Node *node)
 static Val OpSymbol(TokenType token_type)
 {
   switch (token_type) {
-  case TokenBangEq:     return 0x7FDD5C4E;
-  case TokenHash:       return 0x7FDF82DB;
-  case TokenPercent:    return 0x7FD3E679;
-  case TokenAmpersand:  return 0x7FDB283C;
-  case TokenStar:       return 0x7FD9A24B;
-  case TokenPlus:       return 0x7FD26AB0;
-  case TokenMinus:      return 0x7FD9FBF9;
-  case TokenDot:        return 0x7FD21A5F;
-  case TokenDotDot:     return 0x7FD62EE1;
-  case TokenSlash:      return 0x7FDDA21C;
-  case TokenLt:         return 0x7FDD1F00;
-  case TokenLtLt:       return 0x7FD72101;
-  case TokenLtEq:       return 0x7FDE01F2;
-  case TokenLtGt:       return 0x7FD3C54B;
-  case TokenEqEq:       return 0x7FDC5014;
-  case TokenGt:         return 0x7FD9FB4A;
-  case TokenGtEq:       return 0x7FD7C966;
-  case TokenGtGt:       return 0x7FDA0DDF;
-  case TokenCaret:      return 0x7FDC17FE;
-  case TokenIn:         return 0x7FD98998;
-  case TokenNot:        return 0x7FDBCA20;
-  case TokenBar:        return 0x7FDA1ADB;
-  case TokenTilde:      return 0x7FD373CF;
+  case TokenBangEq:     return SymBangEq;
+  case TokenHash:       return SymHash;
+  case TokenPercent:    return SymPercent;
+  case TokenAmpersand:  return SymAmpersand;
+  case TokenStar:       return SymStar;
+  case TokenPlus:       return SymPlus;
+  case TokenMinus:      return SymMinus;
+  case TokenDot:        return SymDot;
+  case TokenDotDot:     return SymDotDot;
+  case TokenSlash:      return SymSlash;
+  case TokenLt:         return SymLt;
+  case TokenLtLt:       return SymLtLt;
+  case TokenLtEq:       return SymLtEq;
+  case TokenLtGt:       return SymLtGt;
+  case TokenEqEq:       return SymEqEq;
+  case TokenGt:         return SymGt;
+  case TokenGtEq:       return SymGtEq;
+  case TokenGtGt:       return SymGtGt;
+  case TokenCaret:      return SymCaret;
+  case TokenIn:         return SymIn;
+  case TokenNot:        return SymNot;
+  case TokenBar:        return SymBar;
+  case TokenTilde:      return SymTilde;
   default:              return Nil;
   }
 }

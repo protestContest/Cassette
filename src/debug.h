@@ -1,10 +1,10 @@
+#include "compile/env.h"
+#include "compile/parse.h"
 #include "mem/mem.h"
 #include "mem/symbols.h"
-#include "runtime/ops.h"
 #include "runtime/chunk.h"
+#include "runtime/ops.h"
 #include "runtime/vm.h"
-#include "compile/parse.h"
-#include "compile/env.h"
 
 u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols);
 void DumpMem(Mem *mem, SymbolTable *symbols);

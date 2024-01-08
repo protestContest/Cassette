@@ -1,5 +1,6 @@
 #pragma once
-#include "result.h"
+#include "mem/mem.h"
+#include "univ/result.h"
 
 Result DirectoryOpen(Val opts, Mem *mem);
 Result DirectoryClose(void *context, Mem *mem);

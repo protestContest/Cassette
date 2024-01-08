@@ -1,8 +1,7 @@
 #include "device.h"
-
 #include "console.h"
-#include "file.h"
 #include "directory.h"
+#include "file.h"
 #include "serial.h"
 #include "system.h"
 #include "window.h"

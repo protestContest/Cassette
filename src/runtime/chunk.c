@@ -27,12 +27,12 @@ the source map entry.
 */
 
 #include "chunk.h"
-#include "univ/system.h"
-#include "univ/str.h"
-#include "ops.h"
 #include "debug.h"
-#include "univ/math.h"
+#include "ops.h"
 #include "version.h"
+#include "univ/math.h"
+#include "univ/str.h"
+#include "univ/system.h"
 
 #define SourceMapReset  -128
 

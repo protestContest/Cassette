@@ -1,6 +1,6 @@
 #include "mem.h"
-#include "univ/system.h"
 #include "univ/str.h"
+#include "univ/system.h"
 
 Val MakeBinary(u32 size, Mem *mem)
 {

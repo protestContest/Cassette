@@ -1,34 +1,44 @@
 #include "ops.h"
 
-static u8 op_lengths[] = {
-  [OpNoop]    = 1,
-  [OpHalt]    = 1,
-  [OpError]   = 1,
-  [OpPop]     = 1,
-  [OpDup]     = 1,
-  [OpConst]   = 2,
-  [OpConst2]  = 3,
-  [OpInt]     = 2,
-  [OpNil]     = 1,
-  [OpStr]     = 1,
-  [OpPair]    = 1,
-  [OpTuple]   = 1,
-  [OpMap]     = 1,
-  [OpSet]     = 1,
-  [OpGet]     = 1,
-  [OpExtend]  = 1,
-  [OpDefine]  = 1,
-  [OpLookup]  = 1,
-  [OpExport]  = 1,
-  [OpJump]    = 1,
-  [OpBranch]  = 1,
-  [OpLambda]  = 1,
-  [OpLink]    = 1,
-  [OpReturn]  = 1,
-  [OpApply]   = 2,
+typedef struct {
+  u8 length;
+  char *name;
+} OpInfo;
+
+static OpInfo ops[] = {
+  [OpNoop]    = {1, "noop"},
+  [OpHalt]    = {1, "halt"},
+  [OpError]   = {1, "error"},
+  [OpPop]     = {1, "pop"},
+  [OpDup]     = {1, "dup"},
+  [OpConst]   = {2, "const"},
+  [OpConst2]  = {3, "const2"},
+  [OpInt]     = {2, "int"},
+  [OpNil]     = {1, "nil"},
+  [OpStr]     = {1, "str"},
+  [OpPair]    = {1, "pair"},
+  [OpTuple]   = {1, "tuple"},
+  [OpMap]     = {1, "map"},
+  [OpSet]     = {1, "set"},
+  [OpGet]     = {1, "get"},
+  [OpExtend]  = {1, "extend"},
+  [OpDefine]  = {1, "define"},
+  [OpLookup]  = {1, "lookup"},
+  [OpExport]  = {1, "export"},
+  [OpJump]    = {1, "jump"},
+  [OpBranch]  = {1, "branch"},
+  [OpLambda]  = {1, "lambda"},
+  [OpLink]    = {1, "link"},
+  [OpReturn]  = {1, "return"},
+  [OpApply]   = {2, "apply"},
 };
 
 u32 OpLength(OpCode op)
 {
-  return op_lengths[op];
+  return ops[op].length;
+}
+
+char *OpName(OpCode op)
+{
+  return ops[op].name;
 }

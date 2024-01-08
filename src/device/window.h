@@ -1,5 +1,6 @@
 #pragma once
-#include "result.h"
+#include "mem/mem.h"
+#include "univ/result.h"
 
 Result WindowOpen(Val opts, Mem *mem);
 Result WindowClose(void *context, Mem *mem);

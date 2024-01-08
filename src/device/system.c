@@ -1,9 +1,9 @@
 #include "system.h"
-#include "univ/system.h"
+#include "mem/symbols.h"
 #include "univ/math.h"
 #include "univ/serial.h"
 #include "univ/str.h"
-#include "mem/symbols.h"
+#include "univ/system.h"
 
 #define SymSeed           0x7FDCADD1 /* seed */
 #define SymRandom         0x7FD3FCF1 /* random */

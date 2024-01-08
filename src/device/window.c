@@ -1,7 +1,7 @@
 #include "window.h"
 #include "canvas/canvas.h"
-#include "univ/str.h"
 #include "mem/symbols.h"
+#include "univ/str.h"
 #include "univ/system.h"
 
 #define SymClear          0x7FD7153E /* clear */

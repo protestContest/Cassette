@@ -1,7 +1,7 @@
 #include "mem.h"
-#include "univ/system.h"
 #include "univ/hash.h"
 #include "univ/math.h"
+#include "univ/system.h"
 
 #define HeaderCount(header)     PopCount((header) & 0xFFFF)
 #define NodeCount(node, mem)    HeaderCount(VecRef(mem, RawVal(node)))

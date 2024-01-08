@@ -1,10 +1,10 @@
 #include "file.h"
+#include "mem/symbols.h"
 #include "univ/str.h"
 #include "univ/system.h"
-#include "mem/symbols.h"
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 
 #define SymPosition       0x7FDEFA47 /* position */
 

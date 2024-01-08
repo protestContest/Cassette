@@ -1,28 +1,25 @@
 #include "vm.h"
-#include "ops.h"
-#include "compile/compile.h"
+#include "debug.h"
 #include "env.h"
+#include "ops.h"
 #include "primitives.h"
 #include "stacktrace.h"
 #include "univ/str.h"
 #include "univ/math.h"
-#include "univ/system.h"
-
-#include "canvas/canvas.h"
-#include "debug.h"
 #include <stdio.h>
 
 static Result RunInstruction(VM *vm);
+static void Return(Val value, VM *vm);
 
 void InitVM(VM *vm, Chunk *chunk)
 {
   vm->pc = 0;
   vm->link = 0;
-  vm->trace = false;
-  vm->chunk = chunk;
-  vm->dev_map = 0;
   InitVec((Vec*)&vm->stack, sizeof(Val), 256);
   InitMem(&vm->mem, 1024, &vm->stack);
+  vm->chunk = chunk;
+  vm->dev_map = 0;
+  vm->trace = false;
 
   vm->stack.count = 1;
   Env(vm) = InitialEnv(&vm->mem);
@@ -32,6 +29,9 @@ void DestroyVM(VM *vm)
 {
   u32 i;
   vm->pc = 0;
+  vm->link = 0;
+  DestroyVec((Vec*)&vm->stack);
+  DestroyMem(&vm->mem);
   vm->chunk = 0;
 
   for (i = 0; i < ArrayCount(vm->devices); i++) {
@@ -40,12 +40,9 @@ void DestroyVM(VM *vm)
     }
   }
   vm->dev_map = 0;
-
-  DestroyVec((Vec*)&vm->stack);
-  DestroyMem(&vm->mem);
 }
 
-Result Run(VM *vm, u32 num_instructions)
+Result Run(u32 num_instructions, VM *vm)
 {
   u32 i;
   Result result = ValueResult(BoolVal(vm->pc < vm->chunk->code.count));
@@ -74,14 +71,6 @@ Result RunChunk(Chunk *chunk, VM *vm)
   if (vm->trace) TraceInstruction(OpHalt, vm);
 
   return result;
-}
-
-static void Return(Val value, VM *vm)
-{
-  vm->link = RawInt(StackPop(vm));
-  vm->pc = RawInt(StackPop(vm));
-  Env(vm) = StackPop(vm);
-  StackPush(vm, value);
 }
 
 static Result RunInstruction(VM *vm)
@@ -276,51 +265,58 @@ static Result RunInstruction(VM *vm)
   case OpApply: {
     Val operator = StackPop(vm);
     i32 num_args = ChunkRef(vm->chunk, vm->pc+1);
+
     if (IsPrimitive(operator)) {
-      /* apply primitive */
       Result result;
       result = DoPrimitive(PrimNum(operator), num_args, vm);
       if (!result.ok) return result;
+
       StackPush(vm, ResultValue(result));
       vm->pc += OpLength(op);
     } else if (IsFunc(operator, &vm->mem)) {
-      /* normal function */
       Val arity = FuncArity(operator, &vm->mem);
       if (arity != Nil && num_args != RawInt(arity)) {
         char msg[255];
         snprintf(msg, 255, "Wrong number of arguments: Expected %d", RawInt(arity));
         return RuntimeError(msg, vm);
       }
+
       vm->pc = RawInt(FuncPos(operator, &vm->mem));
       Env(vm) = FuncEnv(operator, &vm->mem);
     } else if (IsTuple(operator, &vm->mem) && num_args == 1) {
       Val index = StackPop(vm);
       if (!IsInt(index)) return RuntimeError("Index for a tuple must be an integer", vm);
       if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+
       Return(TupleGet(operator, RawInt(index), &vm->mem), vm);
     } else if (IsMap(operator, &vm->mem) && num_args == 1) {
       Val key = StackPop(vm);
       if (!MapContains(operator, key, &vm->mem)) return RuntimeError("Undefined map key", vm);
+      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+
       Return(MapGet(operator, key, &vm->mem), vm);
     } else if (IsBinary(operator, &vm->mem) && num_args == 1) {
       Val index = StackPop(vm);
       u8 byte;
       if (!IsInt(index)) return RuntimeError("Index for a binary must be an integer", vm);
       if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+
       byte = BinaryData(operator, &vm->mem)[RawInt(index)];
       Return(IntVal(byte), vm);
     } else if (IsPair(operator) && num_args == 1) {
       Val index = StackPop(vm);
       if (!IsInt(index)) return RuntimeError("Index for a list must be an integer", vm);
       if (RawInt(index) < 0) return RuntimeError("Index out of bounds", vm);
+      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+
       Return(ListGet(operator, RawInt(index), &vm->mem), vm);
-    } else {
-      /* not a function, just return */
-      if (num_args != 0) {
-        return RuntimeError("Tried to call a non-function", vm);
-      }
-      if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    } else if (num_args > 0) {
+      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
       Return(operator, vm);
+    } else {
+      return RuntimeError("Tried to call a non-function", vm);
     }
     break;
   }
@@ -334,6 +330,14 @@ static Result RunInstruction(VM *vm)
     if (vm->trace) TraceInstruction(OpHalt, vm);
     return ValueResult(False);
   }
+}
+
+static void Return(Val value, VM *vm)
+{
+  vm->link = RawInt(StackPop(vm));
+  vm->pc = RawInt(StackPop(vm));
+  Env(vm) = StackPop(vm);
+  StackPush(vm, value);
 }
 
 Result RuntimeError(char *message, VM *vm)

@@ -1,7 +1,7 @@
 #pragma once
-#include "result.h"
-#include "runtime/vm.h"
 #include "runtime/stacktrace.h"
+#include "runtime/vm.h"
+#include "univ/result.h"
 
 typedef struct {
   bool debug;
@@ -11,9 +11,8 @@ typedef struct {
   char *stdlib_path;
 } Options;
 
-int Usage(void);
 Options ParseOpts(u32 argc, char *argv[]);
+void PrintError(Result error);
 void PrintRuntimeError(Result error, VM *vm);
 void PrintStackTrace(StackTraceItem *stack, VM *vm);
-void PrintError(Result error);
 void WriteChunk(Chunk *chunk, char *filename);

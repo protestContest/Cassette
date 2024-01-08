@@ -1,13 +1,13 @@
 #include "directory.h"
-#include "univ/str.h"
-#include "univ/system.h"
 #include "mem/symbols.h"
 #include "univ/math.h"
+#include "univ/str.h"
+#include "univ/system.h"
 #include <dirent.h>
-#include <string.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 

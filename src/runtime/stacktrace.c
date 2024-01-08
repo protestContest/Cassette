@@ -1,7 +1,7 @@
 #include "stacktrace.h"
-#include "univ/system.h"
 #include "chunk.h"
 #include "univ/str.h"
+#include "univ/system.h"
 
 StackTraceItem *NewStackTraceItem(char *filename, u32 position, StackTraceItem *prev)
 {

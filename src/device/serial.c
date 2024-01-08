@@ -1,9 +1,9 @@
 #include "serial.h"
-#include "univ/system.h"
+#include "mem/symbols.h"
 #include "univ/math.h"
 #include "univ/serial.h"
 #include "univ/str.h"
-#include "mem/symbols.h"
+#include "univ/system.h"
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>

@@ -1,46 +1,38 @@
 /*
-Welcome to the main file. You've chosen a good starting point. I'll outline the
-major project structure here.
+Welcome to the main file. You've chosen a good starting point. This is the main
+project structure:
 
-Files in the top-level folder, "src", are generally user interface related
-files. ("base.h" is an exception, it defines some C conveniences.) All debug
-output is kept in "debug.c", which can be switched off at compile time when the
-DEBUG flag is off (check the Makefile). "result.c" is a wrapper for errors, and
-used by the compiler and VM for intermediate results. "cli.c" handles parsing
-CLI options, printing errors to the console, etc.
+- base.h: Conveniences auto-included in every file (via the Makefile)
+- cli.c: Handles option parsing and printing errors.
+- debug.c: Handles debug output.
+- main.c: The entry point. Depending on the CLI options, a project is compiled and run or saved.
+- version.h: Holds the version number.
+- canvas/: Abstracts all SDL-specific stuff, including the main event loop.
+- compile/: The parser & compiler, and associated files.
+- device/: Runtime device drivers.
+- mem/: Dynamic memory system.
+- runtime/: The VM and associated files.
+- univ/: General utility functions, and C stdlib abstractions
 
-The "univ" folder contains general utility code, often simply wrapping the C
-standard library. This should make porting to systems without libc easier, since
-only this folder would need to be ported. It also contains conveniences like a
-hashmap, dynamic vector, rolling hash, math, and string stuff.
+A typical invocation (`cassette file1.ct ...`) goes through this process:
 
-The "mem" folder contains the dynamic memory system and symbol table
-implementation. Basically everything works with a memory heap defined here. The
-"mem.h" file in particular defines the representation of values in the system.
-
-The "compile" folder contains implementations of the lexer, parser, compiler,
-and linker ("project.c").
-
-The "runtime" folder contains the VM (and its supporting files) and defines
-the "Chunk" type, which is an executable object created by the compiler and run
-on the VM.
-
-The "canvas" folder contains the implementation of the canvas and any other SDL2
-dependent code, and can be switched off with the CANVAS flag.
+- Options are parsed, which gives a list of files to include in the project
+- The project is compiled into a chunk (see compile/project.c)
+- If there are no errors, a VM is created, SDL initialized, and the SDL main loop is run
+- Each time through the event loop, CanvasUpdate is called, which runs a bit of the chunk
+- If the chunk is done and no windows were open, the main loop exits
 */
 
-#include "result.h"
-#include "univ/str.h"
-#include "runtime/chunk.h"
-#include "compile/project.h"
-#include "runtime/vm.h"
 #include "cli.h"
-#include "canvas/canvas.h"
-#include <stdio.h>
-#include <unistd.h>
 #include "debug.h"
-#include "univ/system.h"
+#include "canvas/canvas.h"
+#include "compile/project.h"
+#include "runtime/chunk.h"
+#include "runtime/vm.h"
 #include "univ/math.h"
+#include "univ/result.h"
+#include "univ/str.h"
+#include "univ/system.h"
 
 static Options opts;
 
@@ -52,7 +44,6 @@ int main(int argc, char *argv[])
   Result result;
   VM vm;
 
-  if (argc < 2) return Usage();
   opts = ParseOpts(argc, argv);
 
   result = BuildProject(opts);
@@ -103,7 +94,7 @@ once it's done running code, but only if there are no windows open.
 static bool CanvasUpdate(void *arg)
 {
   VM *vm = (VM*)arg;
-  Result result = Run(vm, 1000);
+  Result result = Run(1000, vm);
 
   if (!result.ok) {
     PrintRuntimeError(result, vm);

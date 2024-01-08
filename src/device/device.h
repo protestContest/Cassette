@@ -1,5 +1,6 @@
 #pragma once
-#include "result.h"
+#include "mem/mem.h"
+#include "univ/result.h"
 
 typedef enum {
   ConsoleDevice,

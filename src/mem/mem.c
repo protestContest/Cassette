@@ -1,10 +1,9 @@
 #include "mem.h"
-#include "univ/system.h"
-#include "univ/math.h"
-#include "univ/hash.h"
-#include "univ/str.h"
 #include "symbols.h"
-#include <stdio.h>
+#include "univ/hash.h"
+#include "univ/math.h"
+#include "univ/str.h"
+#include "univ/system.h"
 
 Val FloatVal(float num)
 {

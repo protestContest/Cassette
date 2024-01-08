@@ -1,7 +1,5 @@
-
 #include "mem.h"
 #include "univ/system.h"
-#include <stdio.h>
 
 Val MakeFunction(Val arity, Val position, Val env, Mem *mem)
 {

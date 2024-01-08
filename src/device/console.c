@@ -1,9 +1,9 @@
 #include "console.h"
-#include "univ/system.h"
 #include "univ/str.h"
+#include "univ/system.h"
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 
 Result ConsoleRead(void *context, Val length, Mem *mem)
 {

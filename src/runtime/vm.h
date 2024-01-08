@@ -1,19 +1,21 @@
 #pragma once
-#include "mem/mem.h"
 #include "chunk.h"
-#include "result.h"
-#include "univ/vec.h"
 #include "device/device.h"
+#include "mem/mem.h"
+#include "univ/result.h"
+#include "univ/vec.h"
+
+#define MaxDevices 32
 
 typedef struct {
   u32 pc;
   u32 link;
-  bool trace;
   IntVec stack;
   Mem mem;
   Chunk *chunk;
   u32 dev_map;
-  Device devices[32];
+  Device devices[MaxDevices];
+  bool trace;
 } VM;
 
 #define StackPush(vm, v)    IntVecPush(&(vm)->stack, v)
@@ -23,7 +25,7 @@ typedef struct {
 
 void InitVM(VM *vm, Chunk *chunk);
 void DestroyVM(VM *vm);
-Result Run(VM *vm, u32 num_instructions);
+Result Run(u32 num_instructions, VM *vm);
 Result RunChunk(Chunk *chunk, VM *vm);
 Result RuntimeError(char *message, VM *vm);
 bool AnyWindowsOpen(VM *vm);

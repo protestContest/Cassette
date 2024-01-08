@@ -1,10 +1,10 @@
 #pragma once
 #include "env.h"
-#include "result.h"
 #include "parse.h"
 #include "mem/symbols.h"
 #include "runtime/chunk.h"
 #include "univ/hashmap.h"
+#include "univ/result.h"
 
 typedef struct {
   u32 pos;

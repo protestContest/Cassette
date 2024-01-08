@@ -34,10 +34,6 @@ def update-pt(pt) do
   constrain-y(constrain-x(update-pos(pt)))
 end
 
-def draw-pt(pt) do
-  canvas.line({pt.x, pt.y}, {pt.x, pt.y})
-end
-
 def random-pt {
   x: Math.rand-int(0, width),
   y: Math.rand-int(0, height),
@@ -45,23 +41,12 @@ def random-pt {
   speed: 5
 }
 
-def delay(n) do
-  if n == 0 do
-    :ok
-  else
-    delay(n - 1)
-  end
-end
-
-let delta = 5
-
 def loop(a, b, count) do
   if count == 0 do
     canvas.clear(Canvas.white)
-    loop(a, b, 1000)
+    loop(a, b, count)
   else
     canvas.line({a.x, a.y}, {b.x, b.y})
-    delay(5000)
     loop(update-pt(a), update-pt(b), count - 1)
   end
 end

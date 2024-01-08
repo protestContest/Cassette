@@ -1,14 +1,23 @@
+/*
+A project is a list of files that are compiled into a chunk, which can be run by
+the VM. It follows this process:
+
+- Each file is parsed, producing an AST (specifically, a ModuleNode).
+- Starting with the entry file, each file's AST is scanned for imports. Any
+  imported modules are added to a build list.
+- Each AST in the build list is compiled into a single chunk.
+*/
+
 #include "project.h"
-#include "runtime/chunk.h"
 #include "compile.h"
-#include "univ/str.h"
-#include "parse.h"
-#include "runtime/primitives.h"
-#include "env.h"
-#include "runtime/ops.h"
-#include "univ/system.h"
 #include "debug.h"
-#include <stdio.h>
+#include "env.h"
+#include "parse.h"
+#include "runtime/chunk.h"
+#include "runtime/ops.h"
+#include "runtime/primitives.h"
+#include "univ/str.h"
+#include "univ/system.h"
 
 typedef struct {
   Options opts;
@@ -88,6 +97,7 @@ static Result ParseModules(Project *project)
 
   for (i = 0; i < project->manifest.count; i++) {
     char *filename = project->manifest.items[i];
+
     result = ParseFile(filename, &project->symbols);
     if (!result.ok) return result;
 
@@ -109,13 +119,17 @@ static Result ScanDependencies(Project *project)
   HashMap seen;
   u32 i;
 
+  /* stack of modules to scan */
   InitVec((Vec*)&stack, sizeof(u32), 8);
-  IntVecPush(&stack, ModuleName(VecRef(&project->modules, 0)));
   InitHashMap(&seen);
+
+  /* start with the entry file (the first file given) */
+  IntVecPush(&stack, ModuleName(VecRef(&project->modules, 0)));
 
   while (stack.count > 0) {
     Val name = VecPop(&stack);
     Node *module, *imports;
+
     if (HashMapContains(&seen, name)) continue;
 
     Assert(HashMapContains(&project->mod_map, name));

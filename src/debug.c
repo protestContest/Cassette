@@ -153,39 +153,6 @@ void DumpMem(Mem *mem, SymbolTable *symbols)
   printf("╝\n");
 }
 
-static char *op_names[] = {
-  [OpNoop]    = "noop",
-  [OpHalt]    = "halt",
-  [OpError]   = "error",
-  [OpPop]     = "pop",
-  [OpDup]     = "dup",
-  [OpConst]   = "const",
-  [OpConst2]  = "const2",
-  [OpInt]     = "int",
-  [OpNil]     = "nil",
-  [OpStr]     = "str",
-  [OpPair]    = "pair",
-  [OpTuple]   = "tuple",
-  [OpMap]     = "map",
-  [OpSet]     = "set",
-  [OpGet]     = "get",
-  [OpExtend]  = "extend",
-  [OpDefine]  = "define",
-  [OpLookup]  = "lookup",
-  [OpExport]  = "export",
-  [OpJump]    = "jump",
-  [OpBranch]  = "branch",
-  [OpLambda]  = "lambda",
-  [OpLink]    = "link",
-  [OpReturn]  = "return",
-  [OpApply]   = "apply"
-};
-
-static char *OpName(OpCode op)
-{
-  return op_names[op];
-}
-
 void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
 {
   u32 i, j;
