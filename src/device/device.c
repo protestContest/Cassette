@@ -14,12 +14,12 @@
 #define SymWindow         0x7FDDF3AE  /* window */
 
 static DeviceDriver drivers[] = {
-  [ConsoleDevice] = {ConsoleDevice, 0, 0, ConsoleRead, ConsoleWrite, 0, 0},
-  [FileDevice] = {FileDevice, FileOpen, FileClose, FileRead, FileWrite, FileSet, FileGet},
-  [DirectoryDevice] = {DirectoryDevice, DirectoryOpen, DirectoryClose, DirectoryRead, DirectoryWrite, 0, DirectoryGet},
-  [SerialDevice] = {SerialDevice, SerialOpen, SerialClose, SerialRead, SerialWrite, SerialSet, SerialGet},
-  [SystemDevice] = {SystemDevice, 0, 0, 0, 0, SystemSet, SystemGet},
-  [WindowDevice] = {WindowDevice, WindowOpen, WindowClose, WindowRead, WindowWrite, WindowSet, WindowGet}
+  /* ConsoleDevice */   {ConsoleDevice, 0, 0, ConsoleRead, ConsoleWrite, 0, 0},
+  /* FileDevice */      {FileDevice, FileOpen, FileClose, FileRead, FileWrite, FileSet, FileGet},
+  /* DirectoryDevice */ {DirectoryDevice, DirectoryOpen, DirectoryClose, DirectoryRead, DirectoryWrite, 0, DirectoryGet},
+  /* SerialDevice */    {SerialDevice, SerialOpen, SerialClose, SerialRead, SerialWrite, SerialSet, SerialGet},
+  /* SystemDevice */    {SystemDevice, 0, 0, 0, 0, SystemSet, SystemGet},
+  /* WindowDevice */    {WindowDevice, WindowOpen, WindowClose, WindowRead, WindowWrite, WindowSet, WindowGet}
 };
 
 

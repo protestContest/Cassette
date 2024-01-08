@@ -20,7 +20,10 @@ typedef struct {
 bool SetFont(Canvas *canvas, char *name, u32 size)
 {
   TTF_Font *font;
-  char *font_path = FontPath(name);
+  char *font_path;
+  if (!name) return false;
+
+  font_path = FontPath(name);
 
   if (!font_path) return false;
   font = TTF_OpenFont(font_path, size);

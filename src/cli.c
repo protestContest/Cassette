@@ -13,7 +13,6 @@ static void PrintSourceContext(u32 pos, char *source, u32 context);
 static int PrintUsage(void);
 static void PrintVersion(void);
 static char *GetStdLibPath(void);
-static char *GetFontPath(void);
 
 Options ParseOpts(u32 argc, char *argv[])
 {
@@ -269,7 +268,6 @@ static void PrintVersion(void)
 {
   printf("Cassette v%s\n", VERSION_NAME);
   printf("  Standard library: %s\n", GetStdLibPath());
-  printf("  Font path: %s\n", GetFontPath());
 }
 
 /*
@@ -295,14 +293,4 @@ static char *GetStdLibPath(void)
   }
 
   return 0;
-}
-
-static char *GetFontPath(void)
-{
-  char *path = GetEnv("CASSETTE_FONTS");
-  if (path && *path) return path;
-#ifdef FONT_PATH
-  if (FONT_PATH) return FONT_PATH;
-#endif
-  return "(unset)";
 }

@@ -1,33 +1,28 @@
 NAME = cassette
 
-### Config section: set appropriate values here
-
-PLATFORM=Apple
-FONT_PATH = \"/Library/Fonts\"
-DEFAULT_FONT = \"SF-Pro.ttf\"
-PREFIX = /opt/homebrew
-INSTALL_PREFIX = $(HOME)/.local
-
-### End Config
 
 TARGET = $(NAME)
 SRC = src
 BUILD = build
 SHARE = share
+INSTALL_PREFIX = $(HOME)/.local
+PREFIX = $(if $(shell brew --prefix),$(shell brew --prefix))
 
 SRCS := $(shell find $(SRC) -name '*.c' -print)
 OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 
-DEFINES = -DPLATFORM=$(PLATFORM) -DFONT_PATH=$(FONT_PATH) -DDEFAULT_FONT=$(DEFAULT_FONT)
-
 CC = clang
 INCLUDE_FLAGS = -I$(PREFIX)/include -I$(SRC) -include base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
-CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFINES) -fsanitize=address
+CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -fsanitize=address
 LDFLAGS = -L$(PREFIX)/lib -lSDL2 -lSDL2_ttf
 
 ifeq ($(shell uname),Darwin)
 	LDFLAGS += -framework IOKit -framework CoreFoundation -framework CoreText
+endif
+
+ifeq ($(shell uname),Linux)
+	LDFLAGS += -lfontconfig
 endif
 
 $(TARGET): $(OBJS)

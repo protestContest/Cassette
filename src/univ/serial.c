@@ -1,9 +1,11 @@
 #include "serial.h"
 #include "str.h"
 #include "system.h"
+#include <fcntl.h>
 #include <termios.h>
+#include <limits.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
-#include <sys/syslimits.h>
 
 #if PLATFORM == Apple
 
@@ -118,7 +120,7 @@ i32 OpenSerial(char *path, u32 speed)
 
   /* set speed & options */
   cfsetspeed(&options, speed);
-  options.c_cflag |= (CS8 | PARENB | CCTS_OFLOW | CRTS_IFLOW);
+  options.c_cflag |= (CS8 | PARENB);
 
   /* make options take effect */
   if (tcsetattr(file, TCSANOW, &options) == -1) {
