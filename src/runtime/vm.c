@@ -15,7 +15,7 @@ void InitVM(VM *vm, Chunk *chunk)
 {
   vm->pc = 0;
   vm->link = 0;
-  InitVec((Vec*)&vm->stack, sizeof(Val), 256);
+  InitVec(&vm->stack, sizeof(Val), 256);
   InitMem(&vm->mem, 1024, &vm->stack);
   vm->chunk = chunk;
   vm->dev_map = 0;
@@ -30,7 +30,7 @@ void DestroyVM(VM *vm)
   u32 i;
   vm->pc = 0;
   vm->link = 0;
-  DestroyVec((Vec*)&vm->stack);
+  DestroyVec(&vm->stack);
   DestroyMem(&vm->mem);
   vm->chunk = 0;
 
@@ -68,7 +68,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
     result = RunInstruction(vm);
   }
 
-  if (vm->trace) TraceInstruction(OpHalt, vm);
+  if (vm->trace) TraceInstruction(vm);
 
   return result;
 }
@@ -77,14 +77,14 @@ static Result RunInstruction(VM *vm)
 {
   OpCode op = ChunkRef(vm->chunk, vm->pc);
 
-  if (vm->trace) TraceInstruction(op, vm);
+  if (vm->trace) TraceInstruction(vm);
 
   switch (op) {
   case OpNoop:
     vm->pc += OpLength(op);
     break;
   case OpHalt:
-    vm->pc = vm->chunk->code.count;
+    Halt(vm);
     break;
   case OpError:
     if (vm->stack.count > 0 && IsSym(StackRef(vm, 0))) {
@@ -327,7 +327,7 @@ static Result RunInstruction(VM *vm)
   if (vm->pc < vm->chunk->code.count) {
     return ValueResult(True);
   } else {
-    if (vm->trace) TraceInstruction(OpHalt, vm);
+    if (vm->trace) TraceInstruction(vm);
     return ValueResult(False);
   }
 }
@@ -340,6 +340,11 @@ static void Return(Val value, VM *vm)
   StackPush(vm, value);
 }
 
+void Halt(VM *vm)
+{
+  vm->pc = vm->chunk->code.count;
+}
+
 Result RuntimeError(char *message, VM *vm)
 {
   char *filename = ChunkFileAt(vm->pc, vm->chunk);
@@ -347,15 +352,4 @@ Result RuntimeError(char *message, VM *vm)
   Result result = ErrorResult(message, filename, pos);
   result.data.error->item = StackTrace(vm);
   return result;
-}
-
-bool AnyWindowsOpen(VM *vm)
-{
-  u32 i;
-  for (i = 0; i < ArrayCount(vm->devices); i++) {
-    if ((vm->dev_map & Bit(i)) && vm->devices[i].type == WindowDevice) {
-      return true;
-    }
-  }
-  return false;
 }

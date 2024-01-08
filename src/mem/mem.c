@@ -22,7 +22,7 @@ float RawFloat(Val value)
 
 void InitMem(Mem *mem, u32 capacity, IntVec *roots)
 {
-  InitVec((Vec*)mem, sizeof(Val), capacity);
+  InitVec(mem, sizeof(Val), capacity);
   /* Nil is defined as the first pair in memory, which references itself */
   Pair(Nil, Nil, mem);
   mem->roots = roots;

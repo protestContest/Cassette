@@ -33,5 +33,7 @@ char *LineEnd(char *str);
 u32 LineNum(char *str, u32 index);
 u32 ColNum(char *str, u32 index);
 char *Basename(char *str, char sep);
-u32 FindExt(char *str);
 char *CopyStr(char *str, u32 length);
+char *StrReplace(char *str, char *find, char *replacement);
+
+u32 ParseInt(char *str);

@@ -1,5 +1,8 @@
 #pragma once
 
+/* A simple dynamic array implementation. Each type has the same structure, but
+   is more convenient to access */
+
 typedef struct {
   u32 capacity;
   u32 count;
@@ -29,11 +32,10 @@ typedef struct {
 #define VecPop(vec)         ((vec)->items[--(vec)->count])
 #define VecPeek(vec, i)     ((vec)->items[(vec)->count - (i) - 1])
 
-void InitVec(Vec *vec, u32 item_size, u32 capacity);
-void DestroyVec(Vec *vec);
-void ResizeVec(Vec *vec, u32 item_size, u32 capacity);
-u32 GrowVec(Vec *vec, u32 item_size, u32 amount);
-
+void InitVec(void *vec, u32 item_size, u32 capacity);
+void DestroyVec(void *vec);
+void ResizeVec(void *vec, u32 item_size, u32 capacity);
+u32 GrowVec(void *vec, u32 item_size, u32 amount);
 
 void IntVecPush(IntVec *vec, u32 value);
 void ByteVecPush(ByteVec *vec, u8 value);

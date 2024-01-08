@@ -1,6 +1,7 @@
 #include "parse.h"
 #include "project.h"
 #include "runtime/primitives.h"
+#include "univ/file.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
@@ -831,7 +832,7 @@ static Node *MakeNode(NodeType type, u32 position)
   Node *node = Alloc(sizeof(Node));
   node->type = type;
   node->pos = position;
-  InitVec((Vec*)&node->expr.children, sizeof(Node*), 2);
+  InitVec(&node->expr.children, sizeof(Node*), 2);
   return node;
 }
 
@@ -857,7 +858,7 @@ static void SetNodeType(Node *node, NodeType type)
 static void FreeNode(Node *node)
 {
   if (!IsTerminal(node)) {
-    DestroyVec((Vec*)&node->expr.children);
+    DestroyVec(&node->expr.children);
   }
 
   Free(node);

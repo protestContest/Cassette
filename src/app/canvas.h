@@ -7,8 +7,6 @@
 #define Green(c)  (((c) >> 16) & 0xFF)
 #define Blue(c)   (((c) >> 8) & 0xFF)
 
-typedef bool (*UpdateFn)(void *arg);
-
 typedef struct {
   void *window;
   void *surface;
@@ -20,7 +18,6 @@ typedef struct {
   u32 height;
 } Canvas;
 
-void InitGraphics(void);
 bool SetFont(Canvas *canvas, char *font_file, u32 size);
 Canvas *MakeCanvas(u32 width, u32 height, char *title);
 void FreeCanvas(Canvas *canvas);
@@ -31,5 +28,4 @@ void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas);
 void ClearCanvas(Canvas *canvas, u32 color);
 void Pixel(i32 x, i32 y, u32 value, Canvas *canvas);
 void WritePixel(i32 x, i32 y, u32 value, Canvas *canvas);
-void MainLoop(UpdateFn update, void *arg);
 char *CanvasError(void);

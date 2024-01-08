@@ -7,7 +7,7 @@ project structure:
 - debug.c: Handles debug output.
 - main.c: The entry point. Depending on the CLI options, a project is compiled and run or saved.
 - version.h: Holds the version number.
-- canvas/: Abstracts all SDL-specific stuff, including the main event loop.
+- app/: Abstracts all SDL-specific stuff, like canvas graphics and the main event loop.
 - compile/: The parser & compiler, and associated files.
 - device/: Runtime device drivers.
 - mem/: Dynamic memory system.
@@ -23,11 +23,12 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 - If the chunk is done and no windows were open, the main loop exits
 */
 
+#include <stdio.h>
 #ifndef GEN_SYMBOLS
 
 #include "cli.h"
 #include "debug.h"
-#include "canvas/canvas.h"
+#include "app/app.h"
 #include "compile/project.h"
 #include "runtime/chunk.h"
 #include "runtime/vm.h"
@@ -38,7 +39,7 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 
 static Options opts;
 
-static bool CanvasUpdate(void *arg);
+static bool Update(void *arg);
 
 int main(int argc, char *argv[])
 {
@@ -66,25 +67,21 @@ int main(int argc, char *argv[])
   }
 
   if (opts.compile) {
-    u32 ext = FindExt(opts.filenames[0]);
-    char filename[256];
-
-    Copy(opts.filenames[0], filename, ext);
-    Copy(".tape", filename + ext, 5);
-    filename[ext+5] = 0;
+    char *filename = StrReplace(opts.filenames[0], ".ct", ".tape");
     WriteChunk(chunk, filename);
     return 0;
   }
 
   /* Ok, time to run the code */
-  Seed(Time());
+  Seed(opts.seed);
+  printf("Seed: %u\n", opts.seed);
   InitVM(&vm, chunk);
   if (opts.debug) {
     vm.trace = true;
     PrintTraceHeader();
   }
-  InitGraphics();
-  MainLoop(CanvasUpdate, &vm);
+  InitApp();
+  MainLoop(Update, &vm);
 
   DestroyVM(&vm);
   DestroyChunk(chunk);
@@ -94,10 +91,9 @@ int main(int argc, char *argv[])
 
 /*
 Since SDL has to run in a main loop, we use this function every tick to run some
-of the VM code. When it returns false, the SDL main loop ends. It returns false
-once it's done running code, but only if there are no windows open.
+of the VM code. When it returns false, the SDL main loop ends.
 */
-static bool CanvasUpdate(void *arg)
+static bool Update(void *arg)
 {
   VM *vm = (VM*)arg;
   Result result = Run(1000, vm);
@@ -108,7 +104,7 @@ static bool CanvasUpdate(void *arg)
     return false;
   }
 
-  return ResultValue(result) == True || AnyWindowsOpen(vm);
+  return ResultValue(result) == True;
 }
 
 #endif

@@ -1,8 +1,3 @@
-/*
-A result object indicates success or failure of some operation, plus the success
-value or error details.
-*/
-
 #include "result.h"
 #include "univ/str.h"
 #include "univ/system.h"

@@ -1,5 +1,5 @@
 #include "window.h"
-#include "canvas/canvas.h"
+#include "app/canvas.h"
 #include "mem/symbols.h"
 #include "univ/str.h"
 #include "univ/system.h"

@@ -27,5 +27,5 @@ void InitVM(VM *vm, Chunk *chunk);
 void DestroyVM(VM *vm);
 Result Run(u32 num_instructions, VM *vm);
 Result RunChunk(Chunk *chunk, VM *vm);
+void Halt(VM *vm);
 Result RuntimeError(char *message, VM *vm);
-bool AnyWindowsOpen(VM *vm);

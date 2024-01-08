@@ -1,10 +1,8 @@
 #include "debug.h"
-#include "compile/lex.h"
-#include "compile/project.h"
 #include "runtime/primitives.h"
+#include "univ/file.h"
 #include "univ/math.h"
 #include "univ/str.h"
-#include "univ/system.h"
 #include <stdio.h>
 
 static u32 PrintInstruction(Chunk *chunk, u32 pos);
@@ -480,7 +478,7 @@ void PrintTraceHeader(void)
   printf("────┬─────────────────────┬─────┬─────────────────\n");
 }
 
-void TraceInstruction(OpCode op, VM *vm)
+void TraceInstruction(VM *vm)
 {
   i32 i, col_width;
 
@@ -550,8 +548,12 @@ void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
 
 static u32 PrintInstruction(Chunk *chunk, u32 pos)
 {
-  u8 op = ChunkRef(chunk, pos);
+  u8 op;
   u32 printed = 0;
+
+  if (pos >= chunk->code.count) return 0;
+
+  op = ChunkRef(chunk, pos);
 
   printed += printf(" %s", OpName(op));
   if (op == OpInt || op == OpApply) {

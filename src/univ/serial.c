@@ -50,7 +50,7 @@ ObjVec *ListSerialPorts(void)
   io_object_t port;
   ObjVec *list = Alloc(sizeof(ObjVec));
 
-  InitVec((Vec*)list, sizeof(void*), 8);
+  InitVec(list, sizeof(void*), 8);
 
   dict = IOServiceMatching(kIOSerialBSDServiceValue);
   if (!dict) return list;
@@ -123,6 +123,24 @@ void CloseSerial(int file)
   /* block until all data is sent */
   tcdrain(file);
   close(file);
+}
+
+#else
+
+ObjVec *ListSerialPorts(void)
+{
+  ObjVec *list = Alloc(sizeof(ObjVec));
+  InitVec(list, sizeof(void*), 0);
+  return list;
+}
+
+i32 OpenSerial(char *path, u32 speed)
+{
+  return -1;
+}
+
+void CloseSerial(int file)
+{
 }
 
 #endif

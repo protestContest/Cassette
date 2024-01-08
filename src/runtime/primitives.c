@@ -1,6 +1,6 @@
 #include "primitives.h"
 #include "env.h"
-#include "canvas/canvas.h"
+#include "app/canvas.h"
 #include "compile/parse.h"
 #include "compile/project.h"
 #include "device/device.h"
@@ -16,6 +16,7 @@
 static Result VMHead(u32 num_args, VM *vm);
 static Result VMTail(u32 num_args, VM *vm);
 static Result VMPanic(u32 num_args, VM *vm);
+static Result VMExit(u32 num_args, VM *vm);
 static Result VMUnwrap(u32 num_args, VM *vm);
 static Result VMForceUnwrap(u32 num_args, VM *vm);
 static Result VMOk(u32 num_args, VM *vm);
@@ -72,6 +73,7 @@ static PrimitiveDef primitives[] = {
   {"head",            0x7FD4FAFD, &VMHead},
   {"tail",            0x7FD1655A, &VMTail},
   {"panic!",          0x7FDA4AE9, &VMPanic},
+  {"exit",            0x7FD1CB34, &VMExit},
   {"unwrap",          0x7FDC5932, &VMUnwrap},
   {"unwrap!",         0x7FDC1BBA, &VMForceUnwrap},
   {"ok?",             0x7FD3025E, &VMOk},
@@ -222,6 +224,12 @@ static Result VMPanic(u32 num_args, VM *vm)
   } else {
     return RuntimeError("Unknown error", vm);
   }
+}
+
+static Result VMExit(u32 num_args, VM *vm)
+{
+  Halt(vm);
+  return ValueResult(Nil);
 }
 
 static Result VMUnwrap(u32 num_args, VM *vm)

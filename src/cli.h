@@ -9,6 +9,7 @@ typedef struct {
   u32 num_files;
   char **filenames;
   char *stdlib_path;
+  u32 seed;
 } Options;
 
 Options ParseOpts(u32 argc, char *argv[]);

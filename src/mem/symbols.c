@@ -6,13 +6,13 @@
 
 void InitSymbolTable(SymbolTable *symbols)
 {
-  InitVec((Vec*)&symbols->names, sizeof(char), 256);
+  InitVec(&symbols->names, sizeof(char), 256);
   InitHashMap(&symbols->map);
 }
 
 void DestroySymbolTable(SymbolTable *symbols)
 {
-  DestroyVec((Vec*)&symbols->names);
+  DestroyVec(&symbols->names);
   DestroyHashMap(&symbols->map);
 }
 
@@ -33,7 +33,7 @@ Val Sym(char *name, SymbolTable *symbols)
 
 static void AddSymbol(char *name, u32 length, SymbolTable *symbols)
 {
-  u32 index = GrowVec((Vec*)&symbols->names, sizeof(*symbols->names.items), length+1);
+  u32 index = GrowVec(&symbols->names, sizeof(*symbols->names.items), length+1);
   Copy(name, symbols->names.items + index, length);
   symbols->names.items[symbols->names.count-1] = 0;
 }

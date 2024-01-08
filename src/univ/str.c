@@ -203,20 +203,39 @@ char *JoinStr(char *str1, char *str2, char joiner)
   return str;
 }
 
-u32 FindExt(char *str)
-{
-  u32 len = StrLen(str);
-  u32 i;
-  for (i = 0; i < len; i++) {
-    if (str[len - i - 1] == '.') return len - i - 1;
-  }
-  return len;
-}
-
 char *CopyStr(char *str, u32 length)
 {
   char *str2 = Alloc(length+1);
   Copy(str, str2, length);
   str2[length] = 0;
   return str2;
+}
+
+char *StrReplace(char *str, char *find, char *replacement)
+{
+  u32 len = StrLen(str);
+  u32 find_len = StrLen(find);
+  u32 rep_len = StrLen(replacement);
+  u32 new_len = len - find_len + rep_len;
+  char *newstr;
+  i32 index = FindString(find, find_len, str, len);
+  if (index < 0) return str;
+
+  newstr = Alloc(new_len + 1);
+  Copy(str, newstr, index);
+  Copy(replacement, newstr + index, rep_len);
+  Copy(str + index + find_len, newstr + index + rep_len, len - find_len - index);
+  newstr[new_len] = 0;
+  return newstr;
+}
+
+u32 ParseInt(char *str)
+{
+  u32 num = 0;
+  while (IsDigit(*str)) {
+    u32 d = *str - '0';
+    num = num * 10 + d;
+    str++;
+  }
+  return num;
 }

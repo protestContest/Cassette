@@ -16,5 +16,5 @@ void Disassemble(Chunk *chunk);
 void DumpSourceMap(Chunk *chunk);
 
 void PrintTraceHeader(void);
-void TraceInstruction(OpCode op, VM *vm);
+void TraceInstruction(VM *vm);
 void PrintEnv(Val env, Mem *mem, SymbolTable *symbols);

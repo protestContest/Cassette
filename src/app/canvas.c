@@ -1,19 +1,11 @@
 #include "canvas.h"
+#include "app.h"
 #include "univ/str.h"
 #include "univ/system.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-#ifndef DEFAULT_FONT
-/* override this in Makefile */
-#define DEFAULT_FONT 0
-#endif
 
-#ifndef FONT_PATH
-#define FONT_PATH 0
-#endif
-
-static char *font_path = FONT_PATH;
 
 typedef struct {
   SDL_Window *window;
@@ -26,29 +18,17 @@ typedef struct {
   u32 height;
 } SDLCanvas;
 
-void InitGraphics(void)
-{
-  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-    perror(SDL_GetError());
-    exit(1);
-  }
-
-  font_path = GetEnv("CASSETTE_FONTS");
-  if (!font_path || !*font_path) font_path = FONT_PATH;
-
-  TTF_Init();
-}
-
 bool SetFont(Canvas *canvas, char *font_file, u32 size)
 {
   TTF_Font *font;
   char *filename;
+  char *font_path = FontPath();
 
   if (font_file[0] != '/' && font_path) {
     filename = JoinPath(font_path, font_file);
     font = TTF_OpenFont(filename, size);
     if (!font) {
-      filename = JoinPath(FONT_PATH, font_file);
+      filename = JoinPath(DEFAULT_FONT_PATH, font_file);
       font = TTF_OpenFont(filename, size);
     }
   } else {
@@ -195,30 +175,6 @@ void ClearCanvas(Canvas *canvas, u32 color)
   SDL_FillRect(canvas->surface, &rect, color);
   SDL_UnlockSurface(canvas->surface);
   UpdateCanvas(canvas);
-}
-
-void MainLoop(UpdateFn update, void *arg)
-{
-  bool done = false;
-  SDL_Event event;
-  while (!done) {
-    while (SDL_PollEvent(&event)) {
-      switch (event.type) {
-      case SDL_QUIT:
-        done = true;
-        break;
-      case SDL_KEYDOWN:
-        if (event.key.keysym.sym == SDLK_ESCAPE) done = true;
-        break;
-      default:
-        break;
-      }
-    }
-
-    if (!update(arg)) done = true;
-  }
-
-  SDL_Quit();
 }
 
 char *CanvasError(void)

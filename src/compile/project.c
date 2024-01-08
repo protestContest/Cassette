@@ -16,6 +16,7 @@ the VM. It follows this process:
 #include "runtime/chunk.h"
 #include "runtime/ops.h"
 #include "runtime/primitives.h"
+#include "univ/file.h"
 #include "univ/str.h"
 #include "univ/system.h"
 
@@ -63,11 +64,11 @@ Result BuildProject(Options opts)
 static void InitProject(Project *project, Options opts)
 {
   project->opts = opts;
-  InitVec((Vec*)&project->modules, sizeof(Node*), 8);
+  InitVec(&project->modules, sizeof(Node*), 8);
   InitHashMap(&project->mod_map);
   InitSymbolTable(&project->symbols);
-  InitVec((Vec*)&project->manifest, sizeof(char*), 8);
-  InitVec((Vec*)&project->build_list, sizeof(Node*), 8);
+  InitVec(&project->manifest, sizeof(char*), 8);
+  InitVec(&project->build_list, sizeof(Node*), 8);
 }
 
 static void DestroyProject(Project *project)
@@ -76,14 +77,14 @@ static void DestroyProject(Project *project)
   for (i = 0; i < project->modules.count; i++) {
     FreeAST(VecRef(&project->modules, i));
   }
-  DestroyVec((Vec*)&project->modules);
+  DestroyVec(&project->modules);
   DestroyHashMap(&project->mod_map);
   DestroySymbolTable(&project->symbols);
   for (i = 0; i < project->manifest.count; i++) {
     Free(project->manifest.items[i]);
   }
-  DestroyVec((Vec*)&project->manifest);
-  DestroyVec((Vec*)&project->build_list);
+  DestroyVec(&project->manifest);
+  DestroyVec(&project->build_list);
 }
 
 static Result ParseModules(Project *project)
@@ -116,7 +117,7 @@ static Result ScanDependencies(Project *project)
   u32 i;
 
   /* stack of modules to scan */
-  InitVec((Vec*)&stack, sizeof(u32), 8);
+  InitVec(&stack, sizeof(u32), 8);
   InitHashMap(&seen);
 
   /* start with the entry file (the first file given) */
@@ -145,7 +146,7 @@ static Result ScanDependencies(Project *project)
       if (!HashMapContains(&project->mod_map, import_name)) {
         char *filename = SymbolName(ModuleFile(module), &project->symbols);
         DestroyHashMap(&seen);
-        DestroyVec((Vec*)&stack);
+        DestroyVec(&stack);
         return ErrorResult("Module not found", filename, import->pos);
       }
 
@@ -157,7 +158,7 @@ static Result ScanDependencies(Project *project)
   }
 
   DestroyHashMap(&seen);
-  DestroyVec((Vec*)&stack);
+  DestroyVec(&stack);
 
   return ValueResult(Nil);
 }

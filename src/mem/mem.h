@@ -86,8 +86,8 @@ typedef struct {
 } Mem;
 
 void InitMem(Mem *mem, u32 capacity, IntVec *roots);
-#define DestroyMem(mem)           DestroyVec((Vec*)mem)
-#define ResizeMem(mem, capacity)  ResizeVec((Vec*)(mem), sizeof(Val), capacity)
+#define DestroyMem(mem)           DestroyVec(mem)
+#define ResizeMem(mem, capacity)  ResizeVec(mem, sizeof(Val), capacity)
 #define MemRef(mem, v)            ((mem)->items[v])
 #define CheckMem(mem, size)       ((mem)->count + (size) <= (mem)->capacity)
 #define MemCapacity(mem)          ((mem)->capacity)

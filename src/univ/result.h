@@ -1,5 +1,10 @@
 #pragma once
 
+/*
+A result object indicates success or failure of some operation, plus the success
+value or error details.
+*/
+
 typedef struct {
   char *message;
   char *filename;

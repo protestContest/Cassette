@@ -29,6 +29,7 @@ the source map entry.
 #include "chunk.h"
 #include "ops.h"
 #include "version.h"
+#include "univ/file.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
@@ -39,20 +40,20 @@ static u32 AddConst(Val value, Chunk *chunk);
 
 void InitChunk(Chunk *chunk)
 {
-  InitVec((Vec*)&chunk->code, sizeof(u8), 256);
-  InitVec((Vec*)&chunk->constants, sizeof(Val), 256);
+  InitVec(&chunk->code, sizeof(u8), 256);
+  InitVec(&chunk->constants, sizeof(Val), 256);
   InitSymbolTable(&chunk->symbols);
-  InitVec((Vec*)&chunk->source_map, sizeof(u8), 256);
-  InitVec((Vec*)&chunk->file_map, sizeof(u32), 8);
+  InitVec(&chunk->source_map, sizeof(u8), 256);
+  InitVec(&chunk->file_map, sizeof(u32), 8);
 }
 
 void DestroyChunk(Chunk *chunk)
 {
-  DestroyVec((Vec*)&chunk->code);
-  DestroyVec((Vec*)&chunk->constants);
+  DestroyVec(&chunk->code);
+  DestroyVec(&chunk->constants);
   DestroySymbolTable(&chunk->symbols);
-  DestroyVec((Vec*)&chunk->source_map);
-  DestroyVec((Vec*)&chunk->file_map);
+  DestroyVec(&chunk->source_map);
+  DestroyVec(&chunk->file_map);
 }
 
 /* Pushes a byte into a chunk's code. Also updates the source map and file map. */

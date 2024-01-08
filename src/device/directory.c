@@ -1,5 +1,6 @@
 #include "directory.h"
 #include "mem/symbols.h"
+#include "univ/file.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"

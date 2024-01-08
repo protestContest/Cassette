@@ -1,5 +1,7 @@
 #pragma once
 
+/* A basic hashmap with robin hood hashing */
+
 typedef struct MapBucket {
   u32 key;
   u32 value;

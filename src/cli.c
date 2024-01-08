@@ -2,6 +2,8 @@
 #include "version.h"
 #include "compile/lex.h"
 #include "runtime/vm.h"
+#include "univ/file.h"
+#include "univ/hash.h"
 #include "univ/str.h"
 #include "univ/system.h"
 #include "univ/math.h"
@@ -17,14 +19,14 @@ Options ParseOpts(u32 argc, char *argv[])
 {
   u32 i;
   u32 file_args = 1;
-  Options opts = {false, false, 0, 0, 0};
+  Options opts = {false, false, 0, 0, 0, 0};
 
   if (argc < 2) {
     PrintUsage();
     Exit();
   }
 
-  for (i = 0; i < argc; i++) {
+  for (i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
       switch (argv[i][1]) {
       case 'h':
@@ -43,17 +45,36 @@ Options ParseOpts(u32 argc, char *argv[])
         opts.compile = true;
         file_args++;
         break;
+      case 's':
+        if (i == argc - 1) {
+          PrintUsage();
+          Exit();
+        }
+        opts.seed = i + 1;
+        file_args += 2;
+        i++;
+        break;
       default:
         printf("Unknown flag: %s\n", argv[i]);
         PrintUsage();
         Exit();
       }
+    } else {
+      break;
     }
   }
 
   opts.num_files = argc - file_args;
   opts.filenames = argv + file_args;
   opts.stdlib_path = GetStdLibPath();
+
+  if (opts.seed > 0) {
+    opts.seed = ParseInt(argv[opts.seed]);
+  } else {
+    u32 seed = Time();
+    seed = Hash(&seed, sizeof(seed));
+    opts.seed = seed;
+  }
 
   if (opts.num_files == 0) {
     PrintUsage();
@@ -217,8 +238,9 @@ void WriteChunk(Chunk *chunk, char *filename)
 {
   int file = CreateOrOpen(filename);
   ByteVec data = SerializeChunk(chunk);
+  Truncate(file);
   Write(file, data.items, data.count);
-  DestroyVec((Vec*)&data);
+  DestroyVec(&data);
 }
 
 Result ReadChunk(char *filename)
@@ -231,7 +253,15 @@ Result ReadChunk(char *filename)
 
 static int PrintUsage(void)
 {
-  printf("Usage: cassette [-d] entryScript [module1 ... moduleN]\n");
+  printf("Usage: cassette [opts] entryScript [module1 ... moduleN]\n");
+  printf("       cassette [opts] compiledScript\n");
+  printf("\n");
+  printf("Options:\n");
+  printf("  -h        Prints this help and exits.\n");
+  printf("  -v        Prints the version number and exits.\n");
+  printf("  -s seed   Seeds the random number generator with an integer.\n");
+  printf("  -c        Compiles the project into a binary script and exits.\n");
+  printf("  -d        Enables debugging output.\n");
   return 1;
 }
 
