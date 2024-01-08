@@ -221,6 +221,14 @@ void WriteChunk(Chunk *chunk, char *filename)
   DestroyVec((Vec*)&data);
 }
 
+Result ReadChunk(char *filename)
+{
+  u32 size = FileSize(filename);
+  u8 *data = (u8*)ReadFile(filename);
+  if (!data) return ErrorResult("Could not read file", filename, 0);
+  return DeserializeChunk(data, size);
+}
+
 static int PrintUsage(void)
 {
   printf("Usage: cassette [-d] entryScript [module1 ... moduleN]\n");

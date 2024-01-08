@@ -46,13 +46,17 @@ int main(int argc, char *argv[])
 
   opts = ParseOpts(argc, argv);
 
-  result = BuildProject(opts);
+  if (IsBinaryChunk(opts.filenames[0])) {
+    result = ReadChunk(opts.filenames[0]);
+  } else {
+    result = BuildProject(opts);
+  }
+
   if (!result.ok) {
     PrintError(result);
     Free(ResultError(result));
     return 1;
   }
-
   chunk = ResultItem(result);
 
   if (opts.debug) {

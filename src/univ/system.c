@@ -56,11 +56,13 @@ int CreateOrOpen(char *path)
   return open(path, O_RDWR | O_CREAT, mode);
 }
 
-u32 FileSize(int file)
+u32 FileSize(char *filename)
 {
-  u32 pos = lseek(file, 0, 1);
-  u32 size = lseek(file, 0, 2);
-  lseek(file, pos, 0);
+  u32 size;
+  int file = Open(filename);
+  if (file < 0) return 0;
+  size = lseek(file, 0, 2);
+  Close(file);
   return size;
 }
 
@@ -73,7 +75,8 @@ char *ReadFile(char *path)
   file = Open(path);
   if (file < 0) return 0;
 
-  size = FileSize(file);
+  size = lseek(file, 0, 2);
+  lseek(file, 0, 0);
 
   data = Alloc(size + 1);
   read(file, data, size);

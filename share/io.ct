@@ -64,7 +64,7 @@ def inspect(value, depth) do
   end
 
   def inspect-function(func) do
-    ["λ", inspect(head(tail(tail(func))), 1)]
+    ["%", inspect(head(tail(tail(func))), 1)]
   end
 
   def inspect-list(list) do

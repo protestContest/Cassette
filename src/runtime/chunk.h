@@ -31,3 +31,4 @@ u32 SourcePosAt(u32 byte_pos, Chunk *chunk);
 
 ByteVec SerializeChunk(Chunk *chunk);
 Result DeserializeChunk(u8 *data, u32 size);
+bool IsBinaryChunk(char *filename);

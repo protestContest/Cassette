@@ -13,7 +13,7 @@ i32 Write(i32 file, void *buf, u32 size);
 int Open(char *path);
 void Close(int file);
 int CreateOrOpen(char *path);
-u32 FileSize(int file);
+u32 FileSize(char *filename);
 char *ReadFile(char *path);
 char *GetEnv(char *name);
 char *FileExt(char *name);

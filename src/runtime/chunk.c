@@ -267,22 +267,30 @@ u32 checksum
 
 static u8 chunk_tag[4] = {0xCA, 0x55, 0xE7, 0x7E};
 #define FormatVersion 1
-#define ChunkHeaderSize 28
-#define ChunkTrailerSize 4
+#define ChunkHeaderSize (sizeof(chunk_tag) + 2*sizeof(u16) + 5*sizeof(u32))
+#define ChunkTrailerSize sizeof(u32)
+
+static u32 WritePadding(u8 *data, u32 size)
+{
+  u32 i;
+  u32 n = Align(size, 4) - size;
+  for (i = 0; i < n; i++) *data++ = 0;
+  return n;
+}
 
 ByteVec SerializeChunk(Chunk *chunk)
 {
-  u32 size = ChunkHeaderSize
+  ByteVec serialized;
+  u8 *cur;
+  u32 i, size;
+
+  size = ChunkHeaderSize
     + Align(chunk->code.count, 4)
     + sizeof(Val)*chunk->constants.count
     + sizeof(u32)*chunk->file_map.count
     + Align(chunk->source_map.count, 4)
     + Align(chunk->symbols.names.count, 4)
     + ChunkTrailerSize;
-
-  u32 i;
-  ByteVec serialized;
-  u8 *cur;
 
   serialized.capacity = size;
   serialized.count = size;
@@ -308,7 +316,7 @@ ByteVec SerializeChunk(Chunk *chunk)
 
   Copy(chunk->code.items, cur, chunk->code.count);
   cur += chunk->code.count;
-  for (i = 0; i < Align(chunk->code.count, 4) - chunk->code.count; i++) *cur++ = 0;
+  cur += WritePadding(cur, chunk->code.count);
 
   for (i = 0; i < chunk->constants.count; i++) {
     WriteInt(VecRef(&chunk->constants, i), cur);
@@ -322,13 +330,11 @@ ByteVec SerializeChunk(Chunk *chunk)
 
   Copy(chunk->source_map.items, cur, chunk->source_map.count);
   cur += chunk->source_map.count;
-  for (i = 0; i < Align(chunk->source_map.count, 4) - chunk->source_map.count; i++) *cur++ = 0;
+  cur += WritePadding(cur, chunk->source_map.count);
 
   Copy(chunk->symbols.names.items, cur, chunk->symbols.names.count);
   cur += chunk->symbols.names.count;
-  for (i = 0; i < Align(chunk->symbols.names.count, 4) - chunk->symbols.names.count; i++) {
-    *cur++ = 0;
-  }
+  cur += WritePadding(cur, chunk->symbols.names.count);
 
   /* checksum */
   WriteInt(0, cur);
@@ -336,10 +342,11 @@ ByteVec SerializeChunk(Chunk *chunk)
   return serialized;
 }
 
-Result DeserializeChunk(u8 *data, u32 size)
+Result DeserializeChunk(u8 *start, u32 size)
 {
   Chunk *chunk;
   u32 symbols_size, i, size_read = 0, checksum = 0;
+  u8 *data = start;
 
   if (size < ChunkHeaderSize) return ErrorResult("Bad file: too small", 0, 0);
   if (!MemEq(data, chunk_tag, 4)) return ErrorResult("Bad file: tag mismatch", 0, 0);
@@ -374,7 +381,7 @@ Result DeserializeChunk(u8 *data, u32 size)
 
   symbols_size = ReadInt(data);
   data += sizeof(u32);
-  size_read += symbols_size;
+  size_read += Align(symbols_size, 4);
 
   if (size_read != size) {
     Free(chunk);
@@ -392,13 +399,13 @@ Result DeserializeChunk(u8 *data, u32 size)
 
   for (i = 0; i < chunk->constants.count; i++) {
     chunk->constants.items[i] = ReadInt(data);
+    data += sizeof(Val);
   }
-  data += sizeof(Val)*chunk->constants.count;
 
   for (i = 0; i < chunk->file_map.count; i++) {
     chunk->file_map.items[i] = ReadInt(data);
+    data += sizeof(u32);
   }
-  data += sizeof(u32)*chunk->file_map.count;
 
   Copy(data, chunk->source_map.items, chunk->source_map.count);
   data += chunk->source_map.count;
@@ -414,4 +421,14 @@ Result DeserializeChunk(u8 *data, u32 size)
   }
 
   return ItemResult(chunk);
+}
+
+bool IsBinaryChunk(char *filename)
+{
+  u8 buf[sizeof(chunk_tag)];
+  int file = Open(filename);
+  if (file < 0) return false;
+  Read(file, buf, sizeof(chunk_tag));
+  Close(file);
+  return MemEq(buf, chunk_tag, sizeof(chunk_tag));
 }

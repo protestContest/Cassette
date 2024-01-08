@@ -16,3 +16,4 @@ void PrintError(Result error);
 void PrintRuntimeError(Result error, VM *vm);
 void PrintStackTrace(StackTraceItem *stack, VM *vm);
 void WriteChunk(Chunk *chunk, char *filename);
+Result ReadChunk(char *filename);
