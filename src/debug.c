@@ -335,30 +335,37 @@ void PrintCompileEnv(Frame *frame, SymbolTable *symbols)
 
 void Disassemble(Chunk *chunk)
 {
-  u32 longest_sym, width, col1, col2;
+  u32 col1 = 7, col2, col3, col4, width = 80;
   u32 i, line;
   char *sym;
   char *filename = ChunkFileAt(0, chunk);
   u32 next_file = ChunkFileByteSize(0, chunk);
 
-  longest_sym = Min(17, LongestSymbol(&chunk->symbols));
-  col1 = 20 + longest_sym;
-  col2 = col1 + 6 + longest_sym;
-  width = col2 + longest_sym + 2;
+  col2 = col1 + Max(5, NumDigits(chunk->code.count, 10) + 1);
+  col3 = col2 + 24;
+  col4 = col3 + 24;
 
   /* header */
   printf("╔ Disassembled ");
-  for (i = 0; i < width-16; i++) printf("═");
+  i = 15;
+  while (i++ < width - 1) printf("═");
   printf("╗\n");
-  printf("║  src  idx  Instruction");
-  for (i = 24; i < col1; i++) printf(" ");
-  i += printf("Constants");
+
+  printf("║  src  idx");
+  i = 11;
   while (i < col2) i += printf(" ");
+  i += printf(" Instruction");
+  while (i < col3) i += printf(" ");
+  i += printf("Constants");
+  while (i < col4) i += printf(" ");
   i += printf("Symbols");
   while (i < width - 1) i += printf(" ");
   printf("║\n");
-  printf("╟─────┬────┬");
-  for (i = 12; i < width-1; i++) printf("─");
+
+  printf("╟─────┬");
+  for (i = 7; i < col2 - 1; i++) printf("─");
+  printf("┬");
+  for (i = 0; i < width - col2 - 1; i++) printf("─");
   printf("╢\n");
 
   /* on each line, print the instruction, the next constant, and the next symbol */
@@ -382,28 +389,28 @@ void Disassemble(Chunk *chunk)
     printf("║");
 
     /* source position and byte index */
-    printf(" %4d│%4d│", source, i);
-    k = 12;
+    printf("%5d│%*d│", source, col2 - col1 - 1, i);
+    k = col2;
 
     k += PrintInstruction(chunk, i);
-    while (k < col1) k += printf(" ");
+    while (k < col3) k += printf(" ");
 
     /* print next constant */
     if (line < chunk->constants.count) {
       Val value = chunk->constants.items[line];
       k += printf("%3d: ", line);
       if (IsSym(value)) {
-        k += printf("%.*s", longest_sym, SymbolName(value, &chunk->symbols));
+        k += printf("%.*s", col4-col3, SymbolName(value, &chunk->symbols));
       } else {
         k += PrintVal(chunk->constants.items[line], 0, &chunk->symbols);
       }
     }
-    while (k < col2) k += printf(" ");
+    while (k < col4) k += printf(" ");
 
     /* print next symbol */
     if ((u8*)sym < chunk->symbols.names.items + chunk->symbols.names.count) {
       u32 length = StrLen(sym);
-      k += printf("%.*s", longest_sym, sym);
+      k += printf("%.*s", width-col4-1, sym);
       sym += length + 1;
     }
     while (k < width - 1) k += printf(" ");
@@ -416,10 +423,9 @@ void Disassemble(Chunk *chunk)
   while ((u8*)sym < chunk->symbols.names.items + chunk->symbols.names.count) {
     u32 length = StrLen(sym);
     printf("║");
-    i = 1;
-    while (i < col2) i += printf(" ");
+    for (i = 1; i < col4; i++) printf(" ");
 
-    i += printf("%.*s", longest_sym, sym);
+    i += printf("%.*s", width-col4-1, sym);
     sym += length + 1;
 
     while (i < width - 1) i += printf(" ");
@@ -472,17 +478,23 @@ void DumpSourceMap(Chunk *chunk)
   }
 }
 
-void PrintTraceHeader(void)
+void PrintTraceHeader(u32 chunk_size)
 {
-  printf(" PC   Instruction           Env   Stack\n");
-  printf("────┬─────────────────────┬─────┬─────────────────\n");
+  u32 col_size = Max(4, NumDigits(chunk_size, 10));
+  u32 i;
+  printf(" PC ");
+  for (i = 0; i < col_size - 4; i++) printf(" ");
+  printf("  Instruction           Env   Stack\n");
+  for (i = 0; i < col_size; i++) printf("─");
+  printf("┬─────────────────────┬─────┬─────────────────\n");
 }
 
 void TraceInstruction(VM *vm)
 {
   i32 i, col_width;
+  u32 col1 = Max(4, NumDigits(vm->chunk->code.count, 10));
 
-  printf("%4d│ ", vm->pc);
+  printf("%*d│ ", col1, vm->pc);
 
   col_width = 20;
   col_width -= PrintInstruction(vm->chunk, vm->pc);

@@ -1,5 +1,6 @@
 #include "system.h"
 #include "mem/symbols.h"
+#include "univ/font.h"
 #include "univ/math.h"
 #include "univ/serial.h"
 #include "univ/str.h"
@@ -44,6 +45,19 @@ Result SystemGet(void *context, Val key, Mem *mem)
     list = ReverseList(list, Nil, mem);
     Free(ports);
     return ValueResult(list);
+  } else if (key == SymbolFor("fonts")) {
+    ObjVec *fonts = ListFonts();
+    Val list = Nil;
+    u32 i;
+    for (i = 0; i < fonts->count; i++) {
+      FontInfo *info = VecRef(fonts, i);
+      Val name = BinaryFrom(info->name, StrLen(info->name), mem);
+      list = Pair(name, list, mem);
+      Free(info);
+    }
+    DestroyVec(fonts);
+    Free(fonts);
+    return ValueResult(ReverseList(list, Nil, mem));
   } else {
     return ValueResult(Nil);
   }

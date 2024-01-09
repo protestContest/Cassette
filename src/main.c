@@ -36,6 +36,7 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 #include "univ/result.h"
 #include "univ/str.h"
 #include "univ/system.h"
+#include "univ/font.h"
 
 static Options opts;
 
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
   InitVM(&vm, chunk);
   if (opts.debug) {
     vm.trace = true;
-    PrintTraceHeader();
+    PrintTraceHeader(chunk->code.count);
   }
   InitApp();
   MainLoop(Update, &vm);

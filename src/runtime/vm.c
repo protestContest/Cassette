@@ -62,7 +62,7 @@ Result RunChunk(Chunk *chunk, VM *vm)
   vm->pc = 0;
   vm->chunk = chunk;
 
-  if (vm->trace) PrintTraceHeader();
+  if (vm->trace) PrintTraceHeader(chunk->code.count);
 
   while (vm->pc < chunk->code.count && result.ok) {
     result = RunInstruction(vm);
@@ -312,7 +312,7 @@ static Result RunInstruction(VM *vm)
       if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
 
       Return(ListGet(operator, RawInt(index), &vm->mem), vm);
-    } else if (num_args > 0) {
+    } else if (num_args == 0) {
       if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
       Return(operator, vm);
     } else {

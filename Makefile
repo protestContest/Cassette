@@ -26,8 +26,8 @@ WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedan
 CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFINES) -fsanitize=address
 LDFLAGS = -L$(PREFIX)/lib -lSDL2 -lSDL2_ttf
 
-ifeq ($(PLATFORM),Apple)
-	LDFLAGS += -framework IOKit -framework CoreFoundation
+ifeq ($(shell uname),Darwin)
+	LDFLAGS += -framework IOKit -framework CoreFoundation -framework CoreText
 endif
 
 $(TARGET): $(OBJS)

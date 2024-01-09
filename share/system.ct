@@ -7,6 +7,7 @@ def time unwrap!(get-param(system, :time))
 def ticks unwrap!(get-param(system, :ticks))
 def random unwrap!(get-param(system, :random))
 def list-ports unwrap!(get-param(system, :serial-ports))
+def fonts unwrap!(get-param(system, :fonts))
 
 def delay(amount) do
   let start = time()

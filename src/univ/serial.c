@@ -75,6 +75,17 @@ ObjVec *ListSerialPorts(void)
   return list;
 }
 
+#else
+
+ObjVec *ListSerialPorts(void)
+{
+  ObjVec *list = Alloc(sizeof(ObjVec));
+  InitVec(list, sizeof(void*), 0);
+  return list;
+}
+
+#endif
+
 i32 OpenSerial(char *path, u32 speed)
 {
   int file;
@@ -124,23 +135,3 @@ void CloseSerial(int file)
   tcdrain(file);
   close(file);
 }
-
-#else
-
-ObjVec *ListSerialPorts(void)
-{
-  ObjVec *list = Alloc(sizeof(ObjVec));
-  InitVec(list, sizeof(void*), 0);
-  return list;
-}
-
-i32 OpenSerial(char *path, u32 speed)
-{
-  return -1;
-}
-
-void CloseSerial(int file)
-{
-}
-
-#endif

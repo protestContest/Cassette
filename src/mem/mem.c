@@ -85,6 +85,8 @@ void CollectGarbage(Mem *mem)
   Mem new_mem;
 
   /* printf("GARBAGE DAY!!!\n"); */
+  ResizeMem(mem, 2*mem->capacity);
+  return;
 
   InitMem(&new_mem, mem->capacity, mem->roots);
 

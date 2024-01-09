@@ -15,6 +15,6 @@ void PrintCompileEnv(Frame *frame, SymbolTable *symbols);
 void Disassemble(Chunk *chunk);
 void DumpSourceMap(Chunk *chunk);
 
-void PrintTraceHeader(void);
+void PrintTraceHeader(u32 chunk_size);
 void TraceInstruction(VM *vm);
 void PrintEnv(Val env, Mem *mem, SymbolTable *symbols);

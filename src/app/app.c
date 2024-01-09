@@ -1,26 +1,33 @@
 #include "app.h"
+#include "univ/font.h"
+#include "univ/hash.h"
+#include "univ/hashmap.h"
+#include "univ/str.h"
 #include "univ/system.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-static char *font_path = DEFAULT_FONT_PATH;
+static ObjVec *fonts = 0;
+static HashMap font_map;
 
 void InitApp(void)
 {
+  u32 i;
+
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     perror(SDL_GetError());
     exit(1);
   }
 
-  font_path = GetEnv("CASSETTE_FONTS");
-  if (!font_path || !*font_path) font_path = DEFAULT_FONT_PATH;
+  fonts = ListFonts();
+  InitHashMap(&font_map);
+  for (i = 0; i < fonts->count; i++) {
+    FontInfo *info = VecRef(fonts, i);
+    u32 hash = Hash(info->name, StrLen(info->name));
+    HashMapSet(&font_map, hash, i);
+  }
 
   TTF_Init();
-}
-
-char *FontPath(void)
-{
-  return font_path;
 }
 
 void MainLoop(UpdateFn update, void *arg)
@@ -45,4 +52,15 @@ void MainLoop(UpdateFn update, void *arg)
   }
 
   SDL_Quit();
+}
+
+char *FontPath(char *name)
+{
+  u32 hash = Hash(name, StrLen(name));
+  if (HashMapContains(&font_map, hash)) {
+    FontInfo *info = VecRef(fonts, HashMapGet(&font_map, hash));
+    return info->path;
+  } else {
+    return 0;
+  }
 }

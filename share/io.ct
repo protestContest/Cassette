@@ -133,7 +133,6 @@ def print(value) do
 
   cond do
     binary?(value) -> write(console, value)
-    pair?(value) -> write(console, format(List.map(to-str, value)))
     true -> write(console, format(inspect(value, 5)))
   end
   write(console, 0x0A)

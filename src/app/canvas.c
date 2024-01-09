@@ -1,11 +1,10 @@
 #include "canvas.h"
 #include "app.h"
+#include "univ/font.h"
 #include "univ/str.h"
 #include "univ/system.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
-
-
 
 typedef struct {
   SDL_Window *window;
@@ -18,28 +17,18 @@ typedef struct {
   u32 height;
 } SDLCanvas;
 
-bool SetFont(Canvas *canvas, char *font_file, u32 size)
+bool SetFont(Canvas *canvas, char *name, u32 size)
 {
   TTF_Font *font;
-  char *filename;
-  char *font_path = FontPath();
+  char *font_path = FontPath(name);
 
-  if (font_file[0] != '/' && font_path) {
-    filename = JoinPath(font_path, font_file);
-    font = TTF_OpenFont(filename, size);
-    if (!font) {
-      filename = JoinPath(DEFAULT_FONT_PATH, font_file);
-      font = TTF_OpenFont(filename, size);
-    }
-  } else {
-    filename = CopyStr(font_file, StrLen(font_file));
-    font = TTF_OpenFont(filename, size);
-  }
+  if (!font_path) return false;
+  font = TTF_OpenFont(font_path, size);
 
   if (font) {
     if (canvas->font_filename) Free(canvas->font_filename);
     if (canvas->font) TTF_CloseFont(canvas->font);
-    canvas->font_filename = filename;
+    canvas->font_filename = font_path;
     canvas->font_size = size;
     canvas->font = font;
     return true;
@@ -61,7 +50,7 @@ Canvas *MakeCanvas(u32 width, u32 height, char *title)
   canvas->surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA8888);
   canvas->font_filename = 0;
   canvas->font = 0;
-  SetFont((Canvas*)canvas, DEFAULT_FONT, 16);
+  SetFont((Canvas*)canvas, DefaultFont(), 16);
   canvas->color = BLACK;
   ClearCanvas((Canvas*)canvas, WHITE);
   canvas->width = width;
