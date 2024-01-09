@@ -41,6 +41,20 @@ def random-pt {
   speed: 5
 }
 
+def flying-bez(a, b, c, count) do
+  def loop(a, b, c, n) do
+    if n == 0 do
+      canvas.clear(Canvas.white)
+      loop(a, b, c, count)
+    else
+      canvas.bezier({a.x, a.y}, {b.x, b.y}, {c.x, c.y})
+      loop(update-pt(a), update-pt(b), update-pt(c), n - 1)
+    end
+  end
+
+  loop(a, b, c, 0)
+end
+
 def flying-lines(a, b, count) do
   def loop(a, b, n) do
     if n == 0 do
@@ -55,4 +69,4 @@ def flying-lines(a, b, count) do
   loop(a, b, 0)
 end
 
-flying-lines(random-pt(), random-pt(), 1000)
+flying-bez(random-pt(), random-pt(), random-pt(), 1000)

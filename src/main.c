@@ -28,6 +28,7 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 #include "cli.h"
 #include "debug.h"
 #include "app/app.h"
+#include "app/canvas.h"
 #include "compile/project.h"
 #include "runtime/chunk.h"
 #include "runtime/vm.h"

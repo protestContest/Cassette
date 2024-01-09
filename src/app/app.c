@@ -9,6 +9,7 @@
 
 static ObjVec *fonts = 0;
 static HashMap font_map;
+static ObjVec canvases;
 
 void InitApp(void)
 {
@@ -27,6 +28,8 @@ void InitApp(void)
     HashMapSet(&font_map, hash, i);
   }
 
+  InitVec(&canvases, sizeof(Canvas*), 1);
+
   TTF_Init();
 }
 
@@ -34,6 +37,10 @@ void MainLoop(UpdateFn update, void *arg)
 {
   bool done = false;
   SDL_Event event;
+  u32 ts = SDL_GetTicks();
+  u32 frame = 30;
+  u32 now;
+
   while (!done) {
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
@@ -49,6 +56,15 @@ void MainLoop(UpdateFn update, void *arg)
     }
 
     if (!update(arg)) done = true;
+
+    now = SDL_GetTicks();
+    if (now - ts > frame) {
+      u32 i;
+      ts = now;
+      for (i = 0; i < canvases.count; i++) {
+        UpdateCanvas(VecRef(&canvases, i));
+      }
+    }
   }
 
   SDL_Quit();
@@ -63,4 +79,9 @@ char *FontPath(char *name)
   } else {
     return 0;
   }
+}
+
+void AddCanvas(Canvas *canvas)
+{
+  ObjVecPush(&canvases, canvas);
 }

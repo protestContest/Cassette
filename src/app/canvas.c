@@ -15,6 +15,7 @@ typedef struct {
   u32 color;
   u32 width;
   u32 height;
+  bool dirty;
 } SDLCanvas;
 
 bool SetFont(Canvas *canvas, char *name, u32 size)
@@ -58,6 +59,8 @@ Canvas *MakeCanvas(u32 width, u32 height, char *title)
   ClearCanvas((Canvas*)canvas, WHITE);
   canvas->width = width;
   canvas->height = height;
+  canvas->dirty = false;
+  AddCanvas((Canvas*)canvas);
   return (Canvas*)canvas;
 }
 
@@ -136,8 +139,7 @@ void DrawLine(i32 x0, i32 y0, i32 x1, i32 y1, Canvas *canvas)
   }
 
   SDL_UnlockSurface(canvas->surface);
-
-  UpdateCanvas(canvas);
+  canvas->dirty = true;
 }
 
 void Pixel(i32 x, i32 y, u32 value, Canvas *canvas)

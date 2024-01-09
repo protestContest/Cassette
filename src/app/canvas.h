@@ -16,6 +16,7 @@ typedef struct {
   u32 color;
   u32 width;
   u32 height;
+  bool dirty;
 } Canvas;
 
 bool SetFont(Canvas *canvas, char *font_file, u32 size);
