@@ -58,11 +58,14 @@ Here's some future work for Cassette:
 
 This project requires a C build toolchain and SDL2. The source code can be found [here](https://git.sr.ht/~zjm/Cassette).
 
-1. Clone the repo with `git clone https://git.sr.ht/~zjm/Cassette`.
-2. Run `make` to build the project. This creates the executable `cassette`.
-3. Optionally, run `make install` to install the Cassette executable. You can set the install folder in the Makefile.
-4. Try the example with `./cassette test/test.ct`.
-5. Write a little script and run it with `./cassette script.ct`.
+1. Get the project's dependencies
+  - On macOS with Homebrew, run `brew install llvm git sdl2 sdl2_ttf`
+  - On Debian, run `apt install build-essential clang git libsdl2-dev libsdl2-ttf-dev libfontconfig-dev`
+2. Clone the repo with `git clone https://git.sr.ht/~zjm/Cassette`.
+3. Run `make` to build the project. This creates the executable `cassette`.
+4. Optionally, run `make install` to install the Cassette executable. You can set the install folder in the Makefile.
+5. Try the example with `./cassette test/test.ct`.
+6. Write a little script and run it with `./cassette script.ct`.
 
 ## [Syntax](#syntax)
 
