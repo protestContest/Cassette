@@ -23,7 +23,6 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 - If the chunk is done and no windows were open, the main loop exits
 */
 
-#include <stdio.h>
 #ifndef GEN_SYMBOLS
 
 #include "cli.h"
@@ -37,6 +36,7 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 #include "univ/str.h"
 #include "univ/system.h"
 #include "univ/font.h"
+#include <stdio.h>
 
 static Options opts;
 

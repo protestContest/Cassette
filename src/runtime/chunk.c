@@ -29,6 +29,7 @@ the source map entry.
 #include "chunk.h"
 #include "ops.h"
 #include "version.h"
+#include "univ/crc.h"
 #include "univ/file.h"
 #include "univ/math.h"
 #include "univ/str.h"
@@ -336,50 +337,50 @@ ByteVec SerializeChunk(Chunk *chunk)
   cur += WritePadding(cur, chunk->symbols.names.count);
 
   /* checksum */
-  WriteInt(0, cur);
+  WriteInt(CRC32(serialized.items, serialized.count-4), cur);
 
   return serialized;
 }
 
-Result DeserializeChunk(u8 *start, u32 size)
+Result DeserializeChunk(u8 *data, u32 size)
 {
   Chunk *chunk;
-  u32 symbols_size, i, size_read = 0, checksum = 0;
-  u8 *data = start;
+  u32 symbols_size, i, size_read = 0, crc = CRC32(data, size-4);
+  u8 *cur = data;
 
   if (size < ChunkHeaderSize) return ErrorResult("Bad file: too small", 0, 0);
-  if (!MemEq(data, chunk_tag, 4)) return ErrorResult("Bad file: tag mismatch", 0, 0);
-  data += 4;
+  if (!MemEq(cur, chunk_tag, 4)) return ErrorResult("Bad file: tag mismatch", 0, 0);
+  cur += 4;
   size_read = ChunkHeaderSize + ChunkTrailerSize;
 
-  if (ReadShort(data) != FormatVersion) return ErrorResult("Unsupported format", 0, 0);
-  data += sizeof(u16);
-  if (ReadShort(data) != VERSION) return ErrorResult("Unsupported runtime", 0, 0);
-  data += sizeof(u16);
+  if (ReadShort(cur) != FormatVersion) return ErrorResult("Unsupported format", 0, 0);
+  cur += sizeof(u16);
+  if (ReadShort(cur) != VERSION) return ErrorResult("Unsupported runtime", 0, 0);
+  cur += sizeof(u16);
 
   chunk = Alloc(sizeof(Chunk));
-  chunk->code.count = ReadInt(data);
+  chunk->code.count = ReadInt(cur);
   chunk->code.capacity = chunk->code.count;
-  data += sizeof(u32);
+  cur += sizeof(u32);
   size_read += Align(chunk->code.count, 4);
 
-  chunk->constants.count = ReadInt(data);
+  chunk->constants.count = ReadInt(cur);
   chunk->constants.capacity = chunk->constants.count;
-  data += sizeof(u32);
+  cur += sizeof(u32);
   size_read += sizeof(Val)*chunk->constants.count;
 
-  chunk->file_map.count = ReadInt(data) * 2;
+  chunk->file_map.count = ReadInt(cur) * 2;
   chunk->file_map.capacity = chunk->file_map.count;
-  data += sizeof(u32);
+  cur += sizeof(u32);
   size_read += sizeof(u32)*chunk->file_map.count;
 
-  chunk->source_map.count = ReadInt(data) * 2;
+  chunk->source_map.count = ReadInt(cur) * 2;
   chunk->source_map.capacity = chunk->source_map.count;
-  data += sizeof(u32);
+  cur += sizeof(u32);
   size_read += Align(chunk->source_map.count, 4);
 
-  symbols_size = ReadInt(data);
-  data += sizeof(u32);
+  symbols_size = ReadInt(cur);
+  cur += sizeof(u32);
   size_read += Align(symbols_size, 4);
 
   if (size_read != size) {
@@ -392,29 +393,29 @@ Result DeserializeChunk(u8 *start, u32 size)
   chunk->file_map.items = Alloc(sizeof(u32)*chunk->file_map.count);
   chunk->source_map.items = Alloc(chunk->source_map.count);
 
-  Copy(data, chunk->code.items, chunk->code.count);
-  data += chunk->code.count;
-  data += Align(chunk->code.count, 4) - chunk->code.count;
+  Copy(cur, chunk->code.items, chunk->code.count);
+  cur += chunk->code.count;
+  cur += Align(chunk->code.count, 4) - chunk->code.count;
 
   for (i = 0; i < chunk->constants.count; i++) {
-    chunk->constants.items[i] = ReadInt(data);
-    data += sizeof(Val);
+    chunk->constants.items[i] = ReadInt(cur);
+    cur += sizeof(Val);
   }
 
   for (i = 0; i < chunk->file_map.count; i++) {
-    chunk->file_map.items[i] = ReadInt(data);
-    data += sizeof(u32);
+    chunk->file_map.items[i] = ReadInt(cur);
+    cur += sizeof(u32);
   }
 
-  Copy(data, chunk->source_map.items, chunk->source_map.count);
-  data += chunk->source_map.count;
-  data += Align(chunk->source_map.count, 4) - chunk->source_map.count;
+  Copy(cur, chunk->source_map.items, chunk->source_map.count);
+  cur += chunk->source_map.count;
+  cur += Align(chunk->source_map.count, 4) - chunk->source_map.count;
 
-  DeserializeSymbols(symbols_size, (char*)data, &chunk->symbols);
-  data += symbols_size;
-  data += Align(symbols_size, 4) - symbols_size;
+  DeserializeSymbols(symbols_size, (char*)cur, &chunk->symbols);
+  cur += symbols_size;
+  cur += Align(symbols_size, 4) - symbols_size;
 
-  if (ReadInt(data) != checksum) {
+  if (ReadInt(cur) != crc) {
     DestroyChunk(chunk);
     return ErrorResult("Invalid checksum", 0, 0);
   }

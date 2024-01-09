@@ -48,7 +48,7 @@ def flying-lines(a, b, count) do
       loop(a, b, count)
     else
       canvas.line({a.x, a.y}, {b.x, b.y})
-      loop(update-pt(a), update-pt(b), count - 1)
+      loop(update-pt(a), update-pt(b), n - 1)
     end
   end
 
