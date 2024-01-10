@@ -64,14 +64,13 @@ Result RunChunk(Chunk *chunk, VM *vm)
 
   if (vm->trace) PrintTraceHeader(chunk->code.count);
 
-  while (vm->pc < chunk->code.count && result.ok) {
-    result = RunInstruction(vm);
-  }
-
-  if (vm->trace) TraceInstruction(vm);
+  while (result.ok) result = RunInstruction(vm);
 
   return result;
 }
+
+#define StackMin(vm, n)   if ((vm)->stack.count < (n)) return RuntimeError("Stack underflow", vm);
+#define CheckStack(vm, n)   if ((vm)->stack.count + (n) > (vm)->stack.capacity) return RuntimeError("Stack overflow", vm);
 
 static Result RunInstruction(VM *vm)
 {
@@ -90,46 +89,56 @@ static Result RunInstruction(VM *vm)
     if (vm->stack.count > 0 && IsSym(StackRef(vm, 0))) {
       return RuntimeError(SymbolName(StackRef(vm, 0), &vm->chunk->symbols), vm);
     } else {
-      return RuntimeError("Unknown error", vm);
+      return RuntimeError("Panic!", vm);
     }
     break;
   case OpPop:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 1);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpDup:
-    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    StackMin(vm, 1);
+    CheckStack(vm, 1);
     StackPush(vm, StackRef(vm, 0));
     vm->pc += OpLength(op);
     break;
+  case OpSwap: {
+    Val tmp;
+    StackMin(vm, 2);
+    tmp = StackRef(vm, 0);
+    StackRef(vm, 0) = StackRef(vm, 1);
+    StackRef(vm, 1) = tmp;
+    vm->pc += OpLength(op);
+    break;
+  }
   case OpConst:
-    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    CheckStack(vm, 1);
     StackPush(vm, ChunkConst(vm->chunk, vm->pc+1));
     vm->pc += OpLength(op);
     break;
   case OpConst2: {
     u32 index;
-    if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    CheckStack(vm, 1);
     index = (ChunkRef(vm->chunk, vm->pc+1) << 8) | ChunkRef(vm->chunk, vm->pc+2);
     StackPush(vm, vm->chunk->constants.items[index]);
     vm->pc += OpLength(op);
     break;
   }
   case OpInt:
-    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    CheckStack(vm, 1);
     StackPush(vm, IntVal(ChunkRef(vm->chunk, vm->pc+1)));
     vm->pc += OpLength(op);
     break;
   case OpNil:
-    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    CheckStack(vm, 1);
     StackPush(vm, Nil);
     vm->pc += OpLength(op);
     break;
   case OpStr: {
     char *str;
     u32 len;
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 1);
     if (!IsSym(StackRef(vm, 0))) return RuntimeError("Strings must be made from symbols", vm);
 
     str = SymbolName(StackRef(vm, 0), &vm->chunk->symbols);
@@ -140,116 +149,94 @@ static Result RunInstruction(VM *vm)
     break;
   }
   case OpPair:
-    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 2);
     StackRef(vm, 1) = Pair(StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpTuple:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 1);
     StackRef(vm, 0) = MakeTuple(RawInt(StackRef(vm, 0)), &vm->mem);
+    vm->pc += OpLength(op);
+    break;
+  case OpSet:
+    StackMin(vm, 3);
+    if (!IsTuple(StackRef(vm, 2), &vm->mem)) return RuntimeError("Tuple set is only defined for tuples", vm);
+    if (!IsInt(StackRef(vm, 0))) return RuntimeError("Tuple indexes must be integers", vm);
+    if (TupleCount(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Index out of bounds", vm);
+
+    TupleSet(StackRef(vm, 2), RawInt(StackRef(vm, 0)), StackRef(vm, 1), &vm->mem);
+    StackPop(vm);
+    StackPop(vm);
+
     vm->pc += OpLength(op);
     break;
   case OpMap:
     StackPush(vm, MakeMap(&vm->mem));
     vm->pc += OpLength(op);
     break;
-  case OpSet:
-    if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-    if (IsTuple(StackRef(vm, 2), &vm->mem)) {
-      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Tuple indexes must be integers", vm);
-      if (TupleCount(StackRef(vm, 2), &vm->mem) <= (u32)RawInt(StackRef(vm, 0))) return RuntimeError("Index out of bounds", vm);
-      TupleSet(StackRef(vm, 2), RawInt(StackRef(vm, 0)), StackRef(vm, 1), &vm->mem);
-    } else if (IsMap(StackRef(vm, 2), &vm->mem)) {
-      StackRef(vm, 2) = MapSet(StackRef(vm, 2), StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
-    } else {
-      return RuntimeError("Set is only defined for tuples and maps", vm);
-    }
+  case OpPut:
+    StackMin(vm, 3);
+    if (!IsMap(StackRef(vm, 2), &vm->mem)) return RuntimeError("Map put is only defined for maps", vm);
 
+    StackRef(vm, 2) = MapSet(StackRef(vm, 2), StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
     StackPop(vm);
     StackPop(vm);
 
-    vm->pc += OpLength(op);
-    break;
-  case OpGet:
-    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
-
-    if (IsPair(StackRef(vm, 1))) {
-      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a list must be an integer", vm);
-      if (RawInt(StackRef(vm, 0)) < 0) return RuntimeError("Index out of bounds", vm);
-      StackRef(vm, 1) = ListGet(StackRef(vm, 1), RawInt(StackRef(vm, 0)), &vm->mem);
-    } else if (IsTuple(StackRef(vm, 1), &vm->mem)) {
-      u32 index = RawInt(StackRef(vm, 0));
-      Val tuple = StackRef(vm, 1);
-      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a tuple must be an integer", vm);
-      if (index < 0 || index >= TupleCount(tuple, &vm->mem)) return RuntimeError("Index out of bounds", vm);
-      StackRef(vm, 1) = TupleGet(tuple, index, &vm->mem);
-    } else if (IsBinary(StackRef(vm, 1), &vm->mem)) {
-      u32 index = RawInt(StackRef(vm, 0));
-      Val binary = StackRef(vm, 1);
-      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Index for a binary must be an integer", vm);
-      if (index < 0 || index >= BinaryCount(binary, &vm->mem)) return RuntimeError("Index out of bounds", vm);
-      StackRef(vm, 1) = IntVal(((u8*)BinaryData(binary, &vm->mem))[index]);
-    } else if (IsMap(StackRef(vm, 1), &vm->mem)) {
-      Val key = StackRef(vm, 0);
-      if (!IsSym(key)) return RuntimeError("Map access syntax must use a symbol key", vm);
-      if (!MapContains(StackRef(vm, 1), key, &vm->mem)) return RuntimeError("Undefined map key", vm);
-      StackRef(vm, 1) = MapGet(StackRef(vm, 1), key, &vm->mem);
-    } else {
-      return RuntimeError("Access is only defined for collections", vm);
-    }
-    StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpExtend:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 1);
     if (!IsTuple(StackRef(vm, 0), &vm->mem)) return RuntimeError("Frame must be a tuple", vm);
     Env(vm) = ExtendEnv(Env(vm), StackRef(vm, 0), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpDefine:
-    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 2);
     Define(StackRef(vm, 1), RawInt(StackRef(vm, 0)), Env(vm), &vm->mem);
     StackPop(vm);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpLookup:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
-    StackPush(vm, Lookup(RawInt(StackPop(vm)), Env(vm), &vm->mem));
+    StackMin(vm, 1);
+    if (!IsInt(StackRef(vm, 0))) return RuntimeError("Lookups must be integers", vm);
+    StackRef(vm, 0) = Lookup(RawInt(StackRef(vm, 0)), Env(vm), &vm->mem);
     if (StackRef(vm, 0) == Undefined) return RuntimeError("Undefined variable", vm);
     vm->pc += OpLength(op);
     break;
   case OpExport:
-    if (vm->stack.count + 1 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    CheckStack(vm, 1);
     StackPush(vm, Head(Env(vm), &vm->mem));
     Env(vm) = Tail(Env(vm), &vm->mem);
     vm->pc += OpLength(op);
     break;
   case OpJump:
+    StackMin(vm, 1);
+    if (!IsInt(StackRef(vm, 0))) return RuntimeError("Attempted jump with a non-integer", vm);
     vm->pc += RawInt(StackPop(vm));
     break;
   case OpBranch:
-    if (vm->stack.count < 2) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 2);
     if (StackRef(vm, 1) == Nil || StackRef(vm, 1) == False) {
       StackPop(vm);
       vm->pc += OpLength(op);
     } else {
+      if (!IsInt(StackRef(vm, 0))) return RuntimeError("Attempted branch with a non-integer", vm);
       vm->pc += RawInt(StackPop(vm));
     }
     break;
   case OpLambda:
-    if (vm->stack.count < 1) return RuntimeError("Stack underflow", vm);
-    if (vm->stack.count + 2 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    StackMin(vm, 2);
     StackRef(vm, 1) = MakeFunction(StackRef(vm, 1), IntVal(vm->pc + RawInt(StackRef(vm, 0))), Env(vm), &vm->mem);
     StackPop(vm);
     vm->pc += OpLength(op);
     break;
   case OpLink: {
     Val link;
-    if (vm->stack.count + 3 > vm->stack.capacity) return RuntimeError("Stack overflow", vm);
+    StackMin(vm, 1);
+    CheckStack(vm, 2);
     link = StackPop(vm);
     StackPush(vm, Env(vm));
     StackPush(vm, IntVal(vm->pc + RawInt(link)));
@@ -259,12 +246,17 @@ static Result RunInstruction(VM *vm)
     break;
   }
   case OpReturn:
-    if (vm->stack.count < 4) return RuntimeError("Stack underflow", vm);
+    StackMin(vm, 4);
     Return(StackPop(vm), vm);
     break;
   case OpApply: {
-    Val operator = StackPop(vm);
-    i32 num_args = ChunkRef(vm->chunk, vm->pc+1);
+    Val operator;
+    u32 num_args;
+
+    StackMin(vm, 1);
+    operator = StackPop(vm);
+    num_args = ChunkRef(vm->chunk, vm->pc+1);
+    StackMin(vm, num_args);
 
     if (IsPrimitive(operator)) {
       Result result;
@@ -275,7 +267,7 @@ static Result RunInstruction(VM *vm)
       vm->pc += OpLength(op);
     } else if (IsFunc(operator, &vm->mem)) {
       Val arity = FuncArity(operator, &vm->mem);
-      if (arity != Nil && num_args != RawInt(arity)) {
+      if (arity != Nil && num_args != (u32)RawInt(arity)) {
         char msg[255];
         snprintf(msg, 255, "Wrong number of arguments: Expected %d", RawInt(arity));
         return RuntimeError(msg, vm);
@@ -283,38 +275,42 @@ static Result RunInstruction(VM *vm)
 
       vm->pc = RawInt(FuncPos(operator, &vm->mem));
       Env(vm) = FuncEnv(operator, &vm->mem);
-    } else if (IsTuple(operator, &vm->mem) && num_args == 1) {
-      Val index = StackPop(vm);
-      if (!IsInt(index)) return RuntimeError("Index for a tuple must be an integer", vm);
-      if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
-      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-
-      Return(TupleGet(operator, RawInt(index), &vm->mem), vm);
-    } else if (IsMap(operator, &vm->mem) && num_args == 1) {
-      Val key = StackPop(vm);
-      if (!MapContains(operator, key, &vm->mem)) return RuntimeError("Undefined map key", vm);
-      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-
-      Return(MapGet(operator, key, &vm->mem), vm);
-    } else if (IsBinary(operator, &vm->mem) && num_args == 1) {
-      Val index = StackPop(vm);
-      u8 byte;
-      if (!IsInt(index)) return RuntimeError("Index for a binary must be an integer", vm);
-      if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
-      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-
-      byte = BinaryData(operator, &vm->mem)[RawInt(index)];
-      Return(IntVal(byte), vm);
-    } else if (IsPair(operator) && num_args == 1) {
-      Val index = StackPop(vm);
-      if (!IsInt(index)) return RuntimeError("Index for a list must be an integer", vm);
-      if (RawInt(index) < 0) return RuntimeError("Index out of bounds", vm);
-      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
-
-      Return(ListGet(operator, RawInt(index), &vm->mem), vm);
     } else if (num_args == 0) {
-      if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+      StackMin(vm, 3);
       Return(operator, vm);
+    } else if (num_args == 1) {
+      if (IsTuple(operator, &vm->mem)) {
+        Val index = StackPop(vm);
+        if (!IsInt(index)) return RuntimeError("Index for a tuple must be an integer", vm);
+        if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+
+        StackMin(vm, 3);
+        Return(TupleGet(operator, RawInt(index), &vm->mem), vm);
+      } else if (IsMap(operator, &vm->mem) && num_args == 1) {
+        Val key = StackPop(vm);
+        if (!MapContains(operator, key, &vm->mem)) return RuntimeError("Undefined map key", vm);
+
+        StackMin(vm, 3);
+        Return(MapGet(operator, key, &vm->mem), vm);
+      } else if (IsBinary(operator, &vm->mem) && num_args == 1) {
+        Val index = StackPop(vm);
+        u8 byte;
+        if (!IsInt(index)) return RuntimeError("Index for a binary must be an integer", vm);
+        if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryCount(operator, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+
+        byte = BinaryData(operator, &vm->mem)[RawInt(index)];
+        StackMin(vm, 3);
+        Return(IntVal(byte), vm);
+      } else if (IsPair(operator) && num_args == 1) {
+        Val index = StackPop(vm);
+        if (!IsInt(index)) return RuntimeError("Index for a list must be an integer", vm);
+        if (RawInt(index) < 0) return RuntimeError("Index out of bounds", vm);
+        if (vm->stack.count < 3) return RuntimeError("Stack underflow", vm);
+
+        Return(ListGet(operator, RawInt(index), &vm->mem), vm);
+      } else {
+        return RuntimeError("Tried to call a non-function", vm);
+      }
     } else {
       return RuntimeError("Tried to call a non-function", vm);
     }

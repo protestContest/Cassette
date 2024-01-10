@@ -149,7 +149,7 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
       PushConst(IntVal(i), c->chunk);
       PushByte(OpLookup, c->chunk);
       PushConst(export, c->chunk);
-      PushByte(OpSet, c->chunk);
+      PushByte(OpPut, c->chunk);
     }
 
     c->env = PopFrame(c->env);
@@ -194,7 +194,9 @@ static u32 DefineImports(Node *imports, u32 num_imported, Compiler *c)
       PushByte(OpDup, c->chunk);
     }
     PushConst(import, c->chunk);
-    PushByte(OpGet, c->chunk);
+    PushByte(OpSwap, c->chunk);
+    PushByte(OpApply, c->chunk);
+    PushByte(1, c->chunk);
     PushConst(IntVal(num_imported+i), c->chunk);
     PushByte(OpDefine, c->chunk);
     FrameSet(c->env, num_imported + i, import);
@@ -648,7 +650,7 @@ static Result CompileMap(Node *node, bool linkage, Compiler *c)
     result = CompileExpr(key, LinkNext, c);
     if (!result.ok) return result;
 
-    PushByte(OpSet, c->chunk);
+    PushByte(OpPut, c->chunk);
   }
 
   CompileLinkage(linkage, c);

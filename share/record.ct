@@ -1,7 +1,7 @@
 module Record
 import IO
 
-def new(fields) do
+def new(type, fields) do
   def get(field, fields, values) cond do
     fields == nil -> nil
     field == head(fields) -> head(values)
@@ -9,6 +9,6 @@ def new(fields) do
   end
 
   \values -> do
-    \field -> get(field, fields, values)
+    \field -> if field == :type do type else get(field, fields, values) end
   end
 end
