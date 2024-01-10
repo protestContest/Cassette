@@ -97,7 +97,7 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   Node *exports = ModuleExports(module);
   u32 num_imports = NumNodeChildren(imports);
   u32 num_exports = NumNodeChildren(exports);
-  u32 jump, link;
+  u32 jump, jump_ref, lambda, lambda_ref;
 
   /* copy filename symbol to chunk */
   c->filename = SymbolName(ModuleFile(module), c->symbols);
@@ -108,14 +108,12 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   PushFilePos(ModuleFile(module), c->chunk);
 
   /* create lambda for module */
+  lambda = PushConst(IntVal(0), c->chunk);
   PushConst(IntVal(0), c->chunk);
-  link = PushConst(IntVal(0), c->chunk);
-  PushByte(OpNoop, c->chunk);
-  PushByte(OpLambda, c->chunk);
+  lambda_ref = PushByte(OpLambda, c->chunk);
   jump = PushConst(IntVal(0), c->chunk);
-  PushByte(OpNoop, c->chunk);
-  PushByte(OpJump, c->chunk);
-  PatchConst(c->chunk, link);
+  jump_ref = PushByte(OpJump, c->chunk);
+  PatchConst(c->chunk, lambda, lambda_ref);
 
   /* compile imports */
   if (num_imports > 0) {
@@ -171,7 +169,7 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
 
   PushByte(OpReturn, c->chunk);
 
-  PatchConst(c->chunk, jump);
+  PatchConst(c->chunk, jump, jump_ref);
 
   PushNodePos(NodeChild(module, 0), c);
 
@@ -195,8 +193,8 @@ static u32 DefineImports(Node *imports, u32 num_imported, Compiler *c)
     }
     PushConst(import, c->chunk);
     PushByte(OpSwap, c->chunk);
+    PushConst(IntVal(1), c->chunk);
     PushByte(OpApply, c->chunk);
-    PushByte(1, c->chunk);
     PushConst(IntVal(num_imported+i), c->chunk);
     PushByte(OpDefine, c->chunk);
     FrameSet(c->env, num_imported + i, import);
@@ -243,7 +241,7 @@ static Result CompileImports(Node *imports, Compiler *c)
     Node *import_mod;
     Node *imported_vals;
     i32 import_def;
-    u32 link;
+    u32 link, link_ref;
 
     PushNodePos(node, c);
 
@@ -257,13 +255,12 @@ static Result CompileImports(Node *imports, Compiler *c)
 
     /* call module function */
     link = PushConst(IntVal(0), c->chunk);
-    PushByte(OpNoop, c->chunk);
-    PushByte(OpLink, c->chunk);
+    link_ref = PushByte(OpLink, c->chunk);
     PushConst(IntVal(import_def), c->chunk);
     PushByte(OpLookup, c->chunk);
+    PushConst(IntVal(0), c->chunk);
     PushByte(OpApply, c->chunk);
-    PushByte(0, c->chunk);
-    PatchConst(c->chunk, link);
+    PatchConst(c->chunk, link, link_ref);
 
     if (alias == Nil) {
       /* import directly into module namespace */
@@ -411,27 +408,26 @@ static bool IsPrimitiveCall(Node *op, Compiler *c)
 {
   /* primitive calls are calls from the highest env frame */
   if (op->type != IDNode) return false;
-  return FrameNum(c->env, op->expr.value) == 0;
+  return FrameNum(c->env, NodeValue(op)) == 0;
 }
 
 static Result CompileCall(Node *node, bool linkage, Compiler *c)
 {
   Node *op = NodeChild(node, 0);
   u32 num_args = NumNodeChildren(node) - 1;
-  u32 i, patch;
+  u32 i, link, link_ref;
   Result result;
   bool is_primitive;
 
-  if (op->type == IDNode && op->expr.value == SymSet) {
+  if (op->type == IDNode && NodeValue(op) == SymSet) {
     return CompileSet(node, linkage, c);
   }
 
   is_primitive = IsPrimitiveCall(op, c);
 
   if (linkage == LinkNext && !is_primitive) {
-    patch = PushConst(IntVal(0), c->chunk);
-    PushByte(OpNoop, c->chunk);
-    PushByte(OpLink, c->chunk);
+    link = PushConst(IntVal(0), c->chunk);
+    link_ref = PushByte(OpLink, c->chunk);
   }
 
   for (i = 0; i < num_args; i++) {
@@ -444,11 +440,11 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   result = CompileExpr(op, LinkNext, c);
   if (!result.ok) return result;
 
+  PushConst(IntVal(num_args), c->chunk);
   PushByte(OpApply, c->chunk);
-  PushByte(num_args, c->chunk);
 
   if (linkage == LinkNext && !is_primitive) {
-    PatchConst(c->chunk, patch);
+    PatchConst(c->chunk, link, link_ref);
   }
 
   if (is_primitive) {
@@ -463,18 +459,16 @@ static Result CompileLambda(Node *node, bool linkage, Compiler *c)
   Node *params = NodeChild(node, 0);
   Node *body = NodeChild(node, 1);
   Result result;
-  u32 jump, link, i;
+  u32 jump, jump_ref, lambda, lambda_ref, i;
   u32 num_params = NumNodeChildren(params);
 
   /* create lambda */
+  lambda = PushConst(IntVal(0), c->chunk);
   PushConst(IntVal(num_params), c->chunk);
-  link = PushConst(IntVal(0), c->chunk);
-  PushByte(OpNoop, c->chunk);
-  PushByte(OpLambda, c->chunk);
+  lambda_ref = PushByte(OpLambda, c->chunk);
   jump = PushConst(IntVal(0), c->chunk);
-  PushByte(OpNoop, c->chunk);
-  PushByte(OpJump, c->chunk);
-  PatchConst(c->chunk, link);
+  jump_ref = PushByte(OpJump, c->chunk);
+  PatchConst(c->chunk, lambda, lambda_ref);
 
   if (num_params > 0) {
     PushNodePos(params, c);
@@ -496,7 +490,7 @@ static Result CompileLambda(Node *node, bool linkage, Compiler *c)
   result = CompileExpr(body, LinkReturn, c);
   if (!result.ok) return result;
 
-  PatchConst(c->chunk, jump);
+  PatchConst(c->chunk, jump, jump_ref);
 
   CompileLinkage(linkage, c);
 
@@ -511,32 +505,30 @@ static Result CompileIf(Node *node, bool linkage, Compiler *c)
   Node *consequent = NodeChild(node, 1);
   Node *alternative = NodeChild(node, 2);
   Result result;
-  u32 branch, jump;
+  u32 branch, branch_ref, jump, jump_ref;
 
   result = CompileExpr(predicate, LinkNext, c);
   if (!result.ok) return result;
 
   branch = PushConst(IntVal(0), c->chunk);
-  PushByte(OpNoop, c->chunk);
-  PushByte(OpBranch, c->chunk);
+  branch_ref = PushByte(OpBranch, c->chunk);
 
   PushByte(OpPop, c->chunk);
   result = CompileExpr(alternative, linkage, c);
   if (!result.ok) return result;
   if (linkage == LinkNext) {
     jump = PushConst(IntVal(0), c->chunk);
-    PushByte(OpNoop, c->chunk);
-    PushByte(OpJump, c->chunk);
+    jump_ref = PushByte(OpJump, c->chunk);
   }
 
-  PatchConst(c->chunk, branch);
+  PatchConst(c->chunk, branch, branch_ref);
 
   PushByte(OpPop, c->chunk);
   result = CompileExpr(consequent, linkage, c);
   if (!result.ok) return result;
 
   if (linkage == LinkNext) {
-    PatchConst(c->chunk, jump);
+    PatchConst(c->chunk, jump, jump_ref);
   }
 
   return CompileOk();
@@ -546,31 +538,29 @@ static Result CompileAnd(Node *node, bool linkage, Compiler *c)
 {
   Node *a = NodeChild(node, 0);
   Node *b = NodeChild(node, 1);
-  u32 branch, jump;
+  u32 branch, branch_ref, jump, jump_ref;
 
   Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
   branch = PushConst(IntVal(0), c->chunk);
-  PushByte(OpNoop, c->chunk);
-  PushByte(OpBranch, c->chunk);
+  branch_ref = PushByte(OpBranch, c->chunk);
 
   if (linkage == LinkNext) {
     jump = PushConst(IntVal(0), c->chunk);
-    PushByte(OpNoop, c->chunk);
-    PushByte(OpJump, c->chunk);
+    jump_ref = PushByte(OpJump, c->chunk);
   } else {
     CompileLinkage(linkage, c);
   }
 
-  PatchConst(c->chunk, branch);
+  PatchConst(c->chunk, branch, branch_ref);
 
   PushByte(OpPop, c->chunk);
   result = CompileExpr(b, linkage, c);
   if (!result.ok) return result;
 
   if (linkage == LinkNext) {
-    PatchConst(c->chunk, jump);
+    PatchConst(c->chunk, jump, jump_ref);
   }
 
   return CompileOk();
@@ -580,20 +570,19 @@ static Result CompileOr(Node *node, bool linkage, Compiler *c)
 {
   Node *a = NodeChild(node, 0);
   Node *b = NodeChild(node, 1);
-  u32 branch;
+  u32 branch, branch_ref;
 
   Result result = CompileExpr(a, LinkNext, c);
   if (!result.ok) return result;
 
   branch = PushConst(IntVal(0), c->chunk);
-  PushByte(OpNoop, c->chunk);
-  PushByte(OpBranch, c->chunk);
+  branch_ref = PushByte(OpBranch, c->chunk);
 
   PushByte(OpPop, c->chunk);
   result = CompileExpr(b, linkage, c);
   if (!result.ok) return result;
 
-  PatchConst(c->chunk, branch);
+  PatchConst(c->chunk, branch, branch_ref);
   CompileLinkage(linkage, c);
 
   return CompileOk();
@@ -675,6 +664,11 @@ static Result CompileVar(Node *node, bool linkage, Compiler *c)
 
   PushConst(IntVal(def), c->chunk);
   PushByte(OpLookup, c->chunk);
+
+  if (IsPrimitiveCall(node, c)) {
+    /* TODO: wrap the primitive in a lambda, so it returns correctly when called */
+  }
+
   CompileLinkage(linkage, c);
   return CompileOk();
 }

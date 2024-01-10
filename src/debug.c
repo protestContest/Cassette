@@ -5,6 +5,8 @@
 #include "univ/str.h"
 #include <stdio.h>
 
+static u32 OpLength(OpCode op);
+static char *OpName(OpCode op);
 static u32 PrintInstruction(Chunk *chunk, u32 pos);
 
 u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
@@ -12,7 +14,9 @@ u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
   if (value == Nil) {
     return printf("nil");
   } else if (IsInt(value)) {
-    return printf("%d", RawInt(value));
+    u32 n = printf("%d", RawInt(value));
+    fflush(stdout);
+    return n;
   } else if (IsFloat(value)) {
     return printf("%.2f", RawFloat(value));
   } else if (IsSym(value)) {
@@ -558,6 +562,48 @@ void PrintEnv(Val env, Mem *mem, SymbolTable *symbols)
   }
 }
 
+static u32 OpLength(OpCode op)
+{
+  if (ConstOp(op) || IntOp(op)) return 2;
+  return 1;
+}
+
+static char *OpName(OpCode op)
+{
+  if (ConstOp(op)) {
+    return "const";
+  } else if (IntOp(op)) {
+    return "int";
+  } else {
+    switch (op) {
+    case OpNoop:    return "noop";
+    case OpHalt:    return "halt";
+    case OpError:   return "error";
+    case OpPop:     return "pop";
+    case OpDup:     return "dup";
+    case OpSwap:    return "swap";
+    case OpNil:     return "nil";
+    case OpStr:     return "str";
+    case OpPair:    return "pair";
+    case OpTuple:   return "tuple";
+    case OpSet:     return "set";
+    case OpMap:     return "map";
+    case OpPut:     return "put";
+    case OpExtend:  return "extend";
+    case OpDefine:  return "define";
+    case OpLookup:  return "lookup";
+    case OpExport:  return "export";
+    case OpJump:    return "jump";
+    case OpBranch:  return "branch";
+    case OpLambda:  return "lambda";
+    case OpLink:    return "link";
+    case OpReturn:  return "return";
+    case OpApply:   return "apply";
+    default:        return "???";
+    }
+  }
+}
+
 static u32 PrintInstruction(Chunk *chunk, u32 pos)
 {
   u8 op;
@@ -568,19 +614,14 @@ static u32 PrintInstruction(Chunk *chunk, u32 pos)
   op = ChunkRef(chunk, pos);
 
   printed += printf(" %s", OpName(op));
-  if (op == OpInt || op == OpApply) {
-    printed += printf(" %d", ChunkRef(chunk, pos+1));
-  } else if (op == OpConst2) {
-    u32 index = (ChunkRef(chunk, pos+1) << 8) | ChunkRef(chunk, pos+2);
-    Val arg = chunk->constants.items[index];
-    printed += printf(" %d ", index);
-    printed += PrintVal(arg, 0, &chunk->symbols);
-  } else {
-    u32 j;
-    for (j = 0; j < OpLength(op) - 1; j++) {
-      printed += printf(" ");
-      printed += PrintVal(ChunkConst(chunk, pos+j+1), 0, &chunk->symbols);
-    }
+  if (IntOp(op)) {
+    u32 num = ((op & 0x3F) << 8) | ChunkRef(chunk, pos+1);
+    printed += printf(" %d", num);
+  } else if (ConstOp(op)) {
+    u32 index = ((op & 0x7F) << 8) | ChunkRef(chunk, pos+1);
+    printed += printf(" ");
+    printed += PrintVal(ChunkConst(chunk, index), 0, &chunk->symbols);
   }
+
   return printed;
 }

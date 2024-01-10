@@ -14,7 +14,7 @@ Val InitialEnv(Mem *mem)
     TupleSet(frame, i, primitive, mem);
   }
 
-  return ExtendEnv(Nil, frame, mem);
+  return Pair(frame, Nil, mem);
 }
 
 void Define(Val value, u32 index, Val env, Mem *mem)

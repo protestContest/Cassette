@@ -13,7 +13,7 @@ typedef struct {
 } Chunk;
 
 #define ChunkRef(chunk, i)        ((chunk)->code.items[i])
-#define ChunkConst(chunk, i)      ((chunk)->constants.items[ChunkRef(chunk, i)])
+#define ChunkConst(chunk, i)      ((chunk)->constants.items[i])
 
 void InitChunk(Chunk *chunk);
 void DestroyChunk(Chunk *chunk);
@@ -24,7 +24,7 @@ u32 ChunkFileByteSize(u32 pos, Chunk *chunk);
 
 u32 PushByte(u8 byte, Chunk *chunk);
 u32 PushConst(Val value, Chunk *chunk);
-void PatchConst(Chunk *chunk, u32 index);
+void PatchConst(Chunk *chunk, u32 index, u32 ref);
 
 void PushSourcePos(i32 pos, Chunk *chunk);
 u32 SourcePosAt(u32 byte_pos, Chunk *chunk);

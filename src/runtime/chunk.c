@@ -99,17 +99,17 @@ static u32 AddConst(Val value, Chunk *chunk)
   return chunk->constants.count - 1;
 }
 
-/* Pushes a constant op code into a chunk. If the constant is an integer < 256,
-   it pushes OpInt instead. If the constant is in the const array, it uses its
-   index, otherwise it adds it. If the const array has more than 256 items, this
-   pushes OpConst2. */
+/* Pushes a constant op code into a chunk. If the constant is a positive integer
+   that fits in 14 bits, it pushes OpInt instead. If the constant is in the
+   const array, it uses its index, otherwise it adds it. If the index can't fit
+   in 15 bits, an error occurs. */
 u32 PushConst(Val value, Chunk *chunk)
 {
   u32 pos = chunk->code.count;
-  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) <= 255) {
-    u8 byte = RawInt(value);
-    PushByte(OpInt, chunk);
-    PushByte(byte, chunk);
+  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < Bit(14)) {
+    u16 num = RawInt(value);
+    PushByte(OpInt | ((num >> 8) & 0x3F), chunk);
+    PushByte(num & 0xFF, chunk);
   } else if (value == Nil) {
     PushByte(OpNil, chunk);
   } else {
@@ -117,33 +117,30 @@ u32 PushConst(Val value, Chunk *chunk)
     if (index < 0) {
       index = AddConst(value, chunk);
     }
-
-    if (index < 256) {
-      PushByte(OpConst, chunk);
-      PushByte((u8)index, chunk);
-    } else {
-      PushByte(OpConst2, chunk);
-      PushByte((u8)((index >> 8) & 0xFF), chunk);
-      PushByte((u8)(index & 0xFF), chunk);
-    }
+    Assert(index < Bit(15));
+    PushByte(OpConst | ((index >> 8) & 0x7F), chunk);
+    PushByte(index & 0xFF, chunk);
   }
   return pos;
 }
 
-void PatchConst(Chunk *chunk, u32 index)
+/* This patches two bytes at a given index as an OpInt or OpConst, with the
+   constant being the distance from a reference index to the current code
+   length */
+void PatchConst(Chunk *chunk, u32 index, u32 ref)
 {
-  u32 dist = chunk->code.count - index - 3;
-  if (dist < 256) {
-    chunk->code.items[index] = OpInt;
-    chunk->code.items[index+1] = (u8)dist;
-  } else if (chunk->constants.count < 256) {
-    chunk->code.items[index] = OpConst;
-    chunk->code.items[index+1] = AddConst(IntVal(dist), chunk);
+  u32 dist = chunk->code.count - ref;
+  if (dist < Bit(14)) {
+    chunk->code.items[index] = OpInt | (dist >> 8);
+    chunk->code.items[index+1] = dist & 0xFF;
   } else {
-    u32 const_idx = AddConst(IntVal(dist), chunk);
-    chunk->code.items[index] = OpConst2;
-    chunk->code.items[index+1] = (u8)((const_idx >> 8) & 0xFF);
-    chunk->code.items[index+2] = (u8)(const_idx & 0xFF);
+    i32 const_index = FindConst(IntVal(dist), chunk);
+    if (const_index < 0) {
+      const_index = AddConst(IntVal(dist), chunk);
+    }
+    Assert(const_index < Bit(15));
+    chunk->code.items[index] = OpConst | (const_index >> 8);
+    chunk->code.items[index+1] = const_index & 0xFF;
   }
 }
 

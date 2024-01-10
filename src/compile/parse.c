@@ -747,7 +747,7 @@ static Result ParseNum(Parser *p)
       d = IsDigit(token.lexeme[i]) ? token.lexeme[i] - '0' : 10 + token.lexeme[i] - 'A';
       whole = whole * 16 + d;
     }
-    if (whole > RawInt(MaxIntVal)) return ParseError("Number overflows", p);
+    if (whole > (u32)RawInt(MaxIntVal)) return ParseError("Number overflows", p);
     return ParseOk(MakeTerminal(NumNode, pos, IntVal(sign*whole)));
   }
 
@@ -781,7 +781,7 @@ static Result ParseNum(Parser *p)
     float num = (float)whole + (float)frac / (float)frac_size;
     return ParseOk(MakeTerminal(NumNode, pos, FloatVal(sign*num)));
   } else {
-    if (whole > RawInt(MaxIntVal)) return ParseError("Number overflows", p);
+    if (whole > (u32)RawInt(MaxIntVal)) return ParseError("Number overflows", p);
     return ParseOk(MakeTerminal(NumNode, pos, IntVal(sign*whole)));
   }
 }

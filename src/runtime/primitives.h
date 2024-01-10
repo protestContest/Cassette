@@ -12,3 +12,4 @@ typedef struct {
 PrimitiveDef *GetPrimitives(void);
 u32 NumPrimitives(void);
 Result DoPrimitive(Val id, u32 num_args, VM *vm);
+Result Access(Val val, Val index, VM *vm);

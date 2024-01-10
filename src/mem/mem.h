@@ -103,6 +103,8 @@ void CollectGarbage(Mem *mem);
 #define IsMap(val, mem)           (IsObj(val) && IsMapHeader(MemRef(mem, RawVal(val))))
 #define IsFunc(val, mem)          (IsObj(val) && IsFuncHeader(MemRef(mem, RawVal(val))))
 
+#define IsCollection(val, mem)    (IsPair(val) || IsTuple(val, mem) || IsBinary(val, mem) || IsMap(val, mem))
+
 /* list.c */
 Val Pair(Val head, Val tail, Mem *mem);
 #define Head(val, mem)            MemRef(mem, RawVal(val))
