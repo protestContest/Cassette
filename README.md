@@ -1,6 +1,6 @@
-![Cassette](https://cassette-lang.com/banner.gif)
+![Cassette](https://cassette-lang.com/banner.png)
 
-Cassette is a small, Lisp-like programming language. It is a [home-cooked meal](https://www.robinsloan.com/notes/home-cooked-app/). It looks like this:
+[Cassette](https://cassette-lang.com) is a small, Lisp-like programming language. It looks like this:
 
 ```cassette
 import List
@@ -27,11 +27,7 @@ end
 List.map(\i -> rand-line(i), List.range(0, 100))
 ```
 
-<aside>
-Please direct any comments, questions, and insults [here](mailto:cassette@zjm.me).
-</aside>
-
-## [Press _Play_](#press-play)
+## Press _Play_
 
 I made Cassette as a simple language for "playful programming". Playful programming is writing something for the sake of writing it. It's making a software 3D renderer or a GIF reader, even though better implementations of those already exist. It's making generative art programs and drawing them with a pen plotter. Cassette itself is playful programming—there are certainly other scripting languages that may be better for personal projects like these, but this one is mine.
 
@@ -54,9 +50,9 @@ Here's some future work for Cassette:
 - Destructuring assignment (v2?)
 - Pattern-based function dispatch (v2?)
 
-## [Getting Started](#getting-started)
+## Getting Started
 
-This project requires a C build toolchain and SDL2. The source code can be found [here](https://git.sr.ht/~zjm/Cassette).
+This project requires a C build toolchain and SDL2.
 
 1. Get the project's dependencies
   - On macOS with Homebrew, run `brew install llvm git sdl2 sdl2_ttf`
@@ -67,7 +63,7 @@ This project requires a C build toolchain and SDL2. The source code can be found
 5. Try the example with `./cassette test/test.ct`.
 6. Write a little script and run it with `./cassette script.ct`.
 
-## [Syntax](#syntax)
+## Syntax
 
 <div class="columns">
 Cassette has two number types, integers and floats. Integers can be written in decimal, hexadecimal, or as a character. The normal infix arithmetic operations work on numbers, and bitwise operations work on integers.
@@ -287,7 +283,7 @@ pi                ; => 3.14
 </div>
 </div>
 
-## [More Info](#more-info)
+## More Info
 
 For more information about Cassette, check out some of these other documents. Stay tuned for future articles.
 
