@@ -3,6 +3,7 @@
 #include "univ/file.h"
 #include "univ/math.h"
 #include "univ/str.h"
+#include "univ/system.h"
 #include <stdio.h>
 
 static u32 OpLength(OpCode op);
@@ -55,7 +56,7 @@ u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
 static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols);
 static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem);
 
-void DumpMem(Mem *mem, SymbolTable *symbols)
+void PrintMem(Mem *mem, SymbolTable *symbols)
 {
   u32 i, j;
   u32 cols = 8;
@@ -156,6 +157,27 @@ static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem)
     if ((index+j+2) % cols == 0) printf("║\n");
   }
   return cells;
+}
+
+void DumpMem(char *filename, Mem *mem, SymbolTable *symbols)
+{
+  u32 size = 2*sizeof(u32) + sizeof(Val)*mem->count + Align(symbols->names.count, 4);
+  u8 *data = Alloc(size);
+  u8 *cur = data;
+  int file = MakeFile(filename);
+
+  WriteInt(mem->count, cur);
+  cur += sizeof(u32);
+  WriteInt(symbols->names.count, cur);
+  cur += sizeof(u32);
+  Copy(mem->items, cur, sizeof(Val)*mem->count);
+  cur += sizeof(Val)*mem->count;
+  Copy(symbols->names.items, cur, symbols->names.count);
+  cur += symbols->names.count;
+  WritePadding(cur, symbols->names.count);
+
+  Write(file, data, size);
+  Close(file);
 }
 
 static void PrintASTNode(Node *node, u32 level, u32 lines, SymbolTable *symbols);
@@ -346,7 +368,7 @@ void Disassemble(Chunk *chunk)
   char *filename = ChunkFileAt(0, chunk);
   u32 next_file = ChunkFileByteSize(0, chunk);
 
-  col2 = col1 + Max(5, NumDigits(chunk->code.count, 10) + 1);
+  col2 = col1 + Max(5, NumDigits(chunk->code.count) + 1);
   col3 = col2 + 24;
   col4 = col3 + 24;
 
@@ -485,7 +507,7 @@ void DumpSourceMap(Chunk *chunk)
 
 void PrintTraceHeader(u32 chunk_size)
 {
-  u32 col_size = Max(4, NumDigits(chunk_size, 10));
+  u32 col_size = Max(4, NumDigits(chunk_size));
   u32 i;
   printf(" PC ");
   for (i = 0; i < col_size - 4; i++) printf(" ");
@@ -497,7 +519,7 @@ void PrintTraceHeader(u32 chunk_size)
 void TraceInstruction(VM *vm)
 {
   i32 i, col_width;
-  u32 col1 = Max(4, NumDigits(vm->chunk->code.count, 10));
+  u32 col1 = Max(4, NumDigits(vm->chunk->code.count));
 
   printf("%*d│ ", col1, vm->pc);
 

@@ -1,5 +1,5 @@
 #include "serial.h"
-#include "mem/symbols.h"
+#include "runtime/mem/symbols.h"
 #include "univ/math.h"
 #include "univ/serial.h"
 #include "univ/str.h"

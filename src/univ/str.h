@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string.h>
+
 #define IsSpace(c)      ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)    ((c) == '\n' || (c) == '\r')
 #define IsDigit(c)      ((c) >= '0' && (c) <= '9')
@@ -14,26 +16,23 @@
 #define ANSIUnderline   "\033[4m"
 #define ANSINormal      "\033[0m"
 
-u32 StrLen(char *str);
-bool StrEq(char *str1, char *str2);
-bool MemEq(u8 *str1, u8 *str2, u32 size);
+#define StrLen(str)         strlen(str)
+#define StrEq(s1, s2)       (strcmp(s1, s2) == 0)
+#define MemEq(s1, s2, n)    (memcmp(s1, s2, n) == 0)
+#define CopyStr(s, n)       strndup(s, n)
 
-void StrCat(char *str1, char *str2, char *dst);
-u32 NumDigits(u32 num, u32 base);
-u32 NumToStr(u32 num, char *str, u32 base, u32 width);
-u32 FloatToStr(float num, char *str, u32 width, u32 precision);
+#define ReadInt(data)       (((data)[0] << 24) | ((data)[1] << 16) | ((data)[2] << 8) | (data)[3])
+#define ReadShort(data)     (((data)[0] << 8) | (data)[1])
 
-i32 FindString(char *needle, u32 nlen, char *haystack, u32 hlen);
 char *SkipSpaces(char *str);
-char *SkipBlankLines(char *str);
-char *JoinPath(char *str1, char *str2);
-char *JoinStr(char *str1, char *str2, char joiner);
-
 char *LineEnd(char *str);
 u32 LineNum(char *str, u32 index);
 u32 ColNum(char *str, u32 index);
-char *Basename(char *str, char sep);
-char *CopyStr(char *str, u32 length);
+i32 FindString(char *needle, u32 nlen, char *haystack, u32 hlen);
+char *JoinStr(char *str1, char *str2, char joiner);
 char *StrReplace(char *str, char *find, char *replacement);
-
 u32 ParseInt(char *str);
+
+void WriteInt(u32 n, u8 *data);
+void WriteShort(u16 n, u8 *data);
+u32 WritePadding(u8 *data, u32 size);

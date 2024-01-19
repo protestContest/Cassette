@@ -1,24 +1,27 @@
 NAME = cassette
 
-
 TARGET = $(NAME)
 SRC = src
 BUILD = build
 SHARE = share
 INSTALL_PREFIX = $(HOME)/.local
-PREFIX = $(if $(shell brew --prefix),$(shell brew --prefix))
 
 SRCS := $(shell find $(SRC) -name '*.c' -print)
 OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 
 CC = clang
-INCLUDE_FLAGS = -I$(PREFIX)/include -I$(SRC) -include base.h
+INCLUDE_FLAGS = -I$(SRC) -include base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
 CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -fsanitize=address
-LDFLAGS = -L$(PREFIX)/lib -lSDL2 -lSDL2_ttf
+LDFLAGS = -lSDL2 -lSDL2_ttf
 
 ifeq ($(shell uname),Darwin)
 	LDFLAGS += -framework IOKit -framework CoreFoundation -framework CoreText
+	ifneq ($(shell which brew),)
+		PREFIX = $(shell brew --prefix)
+		INCLUDE_FLAGS += -I$(PREFIX)/include
+		LDFLAGS += -L$(PREFIX)/lib
+	endif
 endif
 
 ifeq ($(shell uname),Linux)

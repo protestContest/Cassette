@@ -2,10 +2,10 @@
 #include "str.h"
 #include "system.h"
 #include <fcntl.h>
-#include <termios.h>
 #include <limits.h>
-#include <unistd.h>
 #include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
 
 #if PLATFORM == Apple
 

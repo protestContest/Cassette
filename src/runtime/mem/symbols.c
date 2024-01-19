@@ -1,4 +1,5 @@
 #include "symbols.h"
+#include "mem.h"
 #include "univ/hash.h"
 #include "univ/math.h"
 #include "univ/str.h"

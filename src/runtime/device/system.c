@@ -1,14 +1,16 @@
 #include "system.h"
-#include "mem/symbols.h"
+#include "runtime/mem/symbols.h"
 #include "univ/font.h"
 #include "univ/math.h"
 #include "univ/serial.h"
 #include "univ/str.h"
 #include "univ/system.h"
 
-#define SymSeed           0x7FDCADD1 /* seed */
-#define SymRandom         0x7FD3FCF1 /* random */
-#define SymTime           0x7FD30526 /* time */
+#define SymSeed         0x7FDCADD1 /* seed */
+#define SymRandom       0x7FD3FCF1 /* random */
+#define SymTime         0x7FD30526 /* time */
+#define SymSerialPorts  0x7FD04B3C /* serial-ports */
+#define SymFonts        0x7FDB6110 /* fonts */
 
 Result SystemSet(void *context, Val key, Val value, Mem *mem)
 {
@@ -24,12 +26,10 @@ Result SystemGet(void *context, Val key, Mem *mem)
 {
   if (key == SymTime) {
     return ValueResult(IntVal(Time()));
-  } else if (key == SymbolFor("ticks")) {
-    return ValueResult(IntVal(Ticks()));
   } else if (key == SymRandom) {
     float r = (float)Random() / (float)MaxUInt;
     return ValueResult(FloatVal(r));
-  } else if (key == SymbolFor("serial-ports")) {
+  } else if (key == SymSerialPorts) {
     ObjVec *ports = ListSerialPorts();
     u32 i;
     Val list = Nil;
@@ -45,7 +45,7 @@ Result SystemGet(void *context, Val key, Mem *mem)
     list = ReverseList(list, Nil, mem);
     Free(ports);
     return ValueResult(list);
-  } else if (key == SymbolFor("fonts")) {
+  } else if (key == SymFonts) {
     ObjVec *fonts = ListFonts();
     Val list = Nil;
     u32 i;

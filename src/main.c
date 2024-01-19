@@ -1,26 +1,52 @@
 /*
-Welcome to the main file. You've chosen a good starting point. This is the main
-project structure:
+Welcome to the main file. You've chosen a good starting point.
 
-- base.h: Conveniences auto-included in every file (via the Makefile)
-- cli.c: Handles option parsing and printing errors.
-- debug.c: Handles debug output.
-- main.c: The entry point. Depending on the CLI options, a project is compiled and run or saved.
-- version.h: Holds the version number.
-- app/: Abstracts all SDL-specific stuff, like canvas graphics and the main event loop.
-- compile/: The parser & compiler, and associated files.
-- device/: Runtime device drivers.
-- mem/: Dynamic memory system.
-- runtime/: The VM and associated files.
-- univ/: General utility functions, and C stdlib abstractions
+This file, depending on the CLI options, loads or compiles a project and saves
+the result or runs it in a VM. The VM is run in the context of an SDL main loop
+to allow for graphics.
 
-A typical invocation (`cassette file1.ct ...`) goes through this process:
+The other top-level files are utility files. This is the project structure:
 
-- Options are parsed, which gives a list of files to include in the project
-- The project is compiled into a chunk (see compile/project.c)
-- If there are no errors, a VM is created, SDL initialized, and the SDL main loop is run
-- Each time through the event loop, CanvasUpdate is called, which runs a bit of the chunk
-- If the chunk is done and no windows were open, the main loop exits
+- base: Auto-included in every file; mainly defines convenient types.
+- cli: Handles option parsing and printing errors.
+- debug: Handles debug output.
+- gen_symbols: An alternative main function that just calculates and prints
+  symbol values.
+- version: Version numbers.
+
+The rest of the code is organized into these folders:
+- app/:
+    - app: Top-level SDL app stuff, like initialization and the main event loop.
+    - canvas: Functions to draw into an SDL window.
+- compile/:
+    - lex: Functions to parse a file into a token stream.
+    - parse: Functions to parse a file into an AST.
+    - compile: Functions to compile a module's AST into a chunk.
+    - project: Functions to compile files and link them into a chunk.
+    - env: Functions for the compiler's environment.
+- runtime/:
+    - chunk: Functions for a code chunk object.
+    - vm: Functions to run instructions from a chunk.
+    - ops: Opcode definitions.
+    - primitives: Primitive function definitions.
+    - env: Functions for the VM's environment.
+    - stacktrace: Functions for generating a stack trace.
+    - mem/: The dynamic memory system, including functions for manipulating
+      value objects and garbage collection.
+    - device/: The IO device system, including drivers for the console,
+      filesystem, serial ports, system info, and windows.
+- univ/: General-purpose utility functions, often wrapping libc functions (for
+  portability to systems without libc).
+    - file: File IO functions.
+    - font: Functions to list installed fonts.
+    - hash: Functions to generate hashes and CRCs.
+    - hashmap: A basic hash map.
+    - math: General math functions.
+    - result: An optional type, wrapping a value, pointer, or error object.
+    - serial: Functions for serial ports.
+    - str: String functions.
+    - system: Memory allocation and other general system functions.
+    - vec: Dynamic array implementations.
 */
 
 #ifndef GEN_SYMBOLS
@@ -39,8 +65,6 @@ A typical invocation (`cassette file1.ct ...`) goes through this process:
 #include "univ/font.h"
 #include <stdio.h>
 
-static Options opts;
-
 static bool Update(void *arg);
 
 int main(int argc, char *argv[])
@@ -49,8 +73,9 @@ int main(int argc, char *argv[])
   Result result;
   VM vm;
 
-  opts = ParseOpts(argc, argv);
+  Options opts = ParseOpts(argc, argv);
 
+  /* Read or build a chunk */
   if (IsBinaryChunk(opts.filenames[0])) {
     result = ReadChunk(opts.filenames[0]);
   } else {
@@ -62,26 +87,28 @@ int main(int argc, char *argv[])
     Free(ResultError(result));
     return 1;
   }
-  chunk = ResultItem(result);
 
-  if (opts.debug) {
-    Disassemble(chunk);
-  }
+  chunk = ResultItem(result);
+  if (opts.debug) Disassemble(chunk);
 
   if (opts.compile) {
+    /* Write the chunk to a file */
     char *filename = StrReplace(opts.filenames[0], ".ct", ".tape");
     WriteChunk(chunk, filename);
     return 0;
   }
 
-  /* Ok, time to run the code */
+  /* Time to run the code */
   Seed(opts.seed);
   printf("Seed: %u\n", opts.seed);
+
   InitVM(&vm, chunk);
   if (opts.debug) {
     vm.trace = true;
     PrintTraceHeader(chunk->code.count);
   }
+
+  /* Instructions will be run in Update, from the event loop */
   InitApp();
   MainLoop(Update, &vm);
 
@@ -91,10 +118,8 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-/*
-Since SDL has to run in a main loop, we use this function every tick to run some
-of the VM code. When it returns false, the SDL main loop ends.
-*/
+/* Since SDL has to run in a main loop, we use this function every tick to run some
+of the VM code. When it returns false, the SDL main loop ends. */
 static bool Update(void *arg)
 {
   VM *vm = (VM*)arg;

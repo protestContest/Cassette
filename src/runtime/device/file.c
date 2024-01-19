@@ -1,5 +1,5 @@
 #include "file.h"
-#include "mem/symbols.h"
+#include "runtime/mem/symbols.h"
 #include "univ/str.h"
 #include "univ/system.h"
 #include <errno.h>

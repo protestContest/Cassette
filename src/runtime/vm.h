@@ -1,4 +1,13 @@
 #pragma once
+
+/* The VM has these registers: the program counter (pc), link, stack, and
+memory. The link register is the stack position of the previous link register
+value, which is updated with the link instruction. This is used before function
+calls to save the return address; with the link register, we can construct a
+stacktrace. The VM also stores open device contexts in the devices array, and
+uses the dev_map as a bitfield to track which devices are open. The trace flag
+controls whether instruction tracing is enabled. */
+
 #include "chunk.h"
 #include "device/device.h"
 #include "mem/mem.h"

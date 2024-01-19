@@ -1,7 +1,6 @@
 #pragma once
 #include "lex.h"
-#include "mem/mem.h"
-#include "mem/symbols.h"
+#include "runtime/mem/symbols.h"
 #include "univ/result.h"
 
 #define SymBangEq       0x7FDD5C4E

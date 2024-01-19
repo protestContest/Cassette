@@ -239,7 +239,7 @@ static void PrintSourceContext(u32 pos, char *source, u32 context)
 
 void WriteChunk(Chunk *chunk, char *filename)
 {
-  int file = CreateOrOpen(filename);
+  int file = MakeFile(filename);
   ByteVec data = SerializeChunk(chunk);
   Truncate(file);
   Write(file, data.items, data.count);

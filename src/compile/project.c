@@ -172,25 +172,22 @@ static Result CompileProject(Project *project)
   Result result;
   Compiler c;
   u32 num_modules = project->build_list.count - 1; /* exclude entry script */
-  Frame *compile_env;
   Chunk *chunk = Alloc(sizeof(Chunk));
 
   InitChunk(chunk);
   InitCompiler(&c, &project->symbols, &project->modules, &project->mod_map, chunk);
 
-  /* pre-define all modules */
-  compile_env = CompileEnv(num_modules);
+  /* set up env and pre-define all modules */
+  c.env = CompileEnv(num_modules);
+  CompileModuleFrame(num_modules, &c);
   for (i = 0; i < num_modules; i++) {
     Node *module = VecRef(&project->build_list, num_modules - i);
-    FrameSet(compile_env, i, ModuleName(module));
+    FrameSet(c.env, i, ModuleName(module));
   }
-  CompileModuleFrame(num_modules, &c);
-  c.env = compile_env;
 
   /* compile each module */
   for (i = 0; i < num_modules + 1; i++) {
     Node *module = VecRef(&project->build_list, num_modules - i);
-    Assert(c.env == compile_env);
     result = CompileModule(module, &c);
     if (!result.ok) break;
   }
@@ -200,7 +197,7 @@ static Result CompileProject(Project *project)
     return result;
   } else {
     DestroyChunk(chunk);
-    FreeEnv(compile_env);
+    FreeEnv(c.env);
     return result;
   }
 }

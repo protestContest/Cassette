@@ -9,8 +9,6 @@ only exist in the heap. (Generally, an object pointer is refered to as a
 "tuple", "binary", or "map" based on what it points to.)
 */
 
-typedef u32 Val;
-
 #define nanMask             0x7FC00000
 #define typeMask            0xFFF00000
 

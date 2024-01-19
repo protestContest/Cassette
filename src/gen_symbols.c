@@ -61,6 +61,8 @@ int main(void)
   printf("#define SymSeed         0x%08X /* seed */\n", SymbolFor("seed"));
   printf("#define SymRandom       0x%08X /* random */\n", SymbolFor("random"));
   printf("#define SymTime         0x%08X /* time */\n", SymbolFor("time"));
+  printf("#define SymSerialPorts  0x%08X /* serial-ports */\n", SymbolFor("serial-ports"));
+  printf("#define SymFonts        0x%08X /* fonts */\n", SymbolFor("fonts"));
   printf("\n");
 
   printf("/* device/window.c */\n");
@@ -73,6 +75,7 @@ int main(void)
   printf("#define SymFont         0x%08X /* font */\n", SymbolFor("font"));
   printf("#define SymFontSize     0x%08X /* font-size */\n", SymbolFor("font-size"));
   printf("#define SymColor        0x%08X /* color */\n", SymbolFor("color"));
+  printf("#define SymPixel        0x%08X /* pixel */\n", SymbolFor("pixel"));
   printf("\n");
 
   printf("/* mem/mem.c */\n");

@@ -1,10 +1,10 @@
 #pragma once
 
 /* Op codes are 8 bits. If the high bit is set, the op is an OpConst, with the
-   remaining 7 bits plus the 8 bits following the op forming an index into the
-   const array. If the high two bits are 01, the op is an OpInt, with the
-   remaining 6 bits plus the 8 bits following the op forming an unsigned
-   integer. Otherwise, the op code identifies a normal instruction. */
+remaining 7 bits plus the 8 bits following the op forming an index into the
+const array. If the high two bits are 01, the op is an OpInt, with the remaining
+6 bits plus the 8 bits following the op forming an unsigned integer. Otherwise,
+the op code identifies a normal instruction. */
 
 #define ConstOp(op)   ((op) & 0x80)
 #define IntOp(op)     (((op) & 0xC0) == 0x40)

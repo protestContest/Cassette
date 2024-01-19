@@ -1,18 +1,19 @@
 #include "window.h"
 #include "app/canvas.h"
-#include "mem/symbols.h"
+#include "runtime/mem/symbols.h"
 #include "univ/str.h"
 #include "univ/system.h"
 
-#define SymClear          0x7FD7153E /* clear */
-#define SymText           0x7FD2824B /* text */
-#define SymLine           0x7FD0B46A /* line */
-#define SymBlit           0x7FDDE7FA /* blit */
-#define SymWidth          0x7FDDBDC0 /* width */
-#define SymHeight         0x7FD404E0 /* height */
-#define SymFont           0x7FD9A3DE /* font */
-#define SymFontSize       0x7FD1F2A6 /* font-size */
-#define SymColor          0x7FDA5335 /* color */
+#define SymClear        0x7FD7153E /* clear */
+#define SymText         0x7FD2824B /* text */
+#define SymLine         0x7FD0B46A /* line */
+#define SymBlit         0x7FDDE7FA /* blit */
+#define SymWidth        0x7FDDBDC0 /* width */
+#define SymHeight       0x7FD404E0 /* height */
+#define SymFont         0x7FD9A3DE /* font */
+#define SymFontSize     0x7FD1F2A6 /* font-size */
+#define SymColor        0x7FDA5335 /* color */
+#define SymPixel        0x7FDABBCB /* pixel */
 
 static Val MakeColor(u32 color, Mem *mem);
 static u32 ColorFrom(Val c, Mem *mem);
@@ -68,7 +69,7 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
   type = TupleGet(cmd, 0, mem);
   if (!IsSym(type)) return ErrorResult("Invalid window command", 0, 0);
 
-  if (type == SymbolFor("pixel")) {
+  if (type == SymPixel) {
     Val color, x, y;
     if (TupleCount(cmd, mem) != 4) return ErrorResult("Invalid window command", 0, 0);
     x = TupleGet(cmd, 1, mem);

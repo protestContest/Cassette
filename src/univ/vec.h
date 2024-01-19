@@ -40,4 +40,3 @@ u32 GrowVec(void *vec, u32 item_size, u32 amount);
 void IntVecPush(IntVec *vec, u32 value);
 void ByteVecPush(ByteVec *vec, u8 value);
 void ObjVecPush(ObjVec *vec, void *value);
-

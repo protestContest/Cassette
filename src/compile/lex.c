@@ -1,5 +1,4 @@
 #include "lex.h"
-#include "mem/mem.h"
 #include "univ/str.h"
 
 #define Peek(lex)     (lex)->source[(lex)->pos]

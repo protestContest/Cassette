@@ -1,6 +1,5 @@
 #include "font.h"
 #include "system.h"
-#include <stdio.h>
 
 #if PLATFORM == Apple
 

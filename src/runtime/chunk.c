@@ -29,8 +29,9 @@ the source map entry.
 #include "chunk.h"
 #include "ops.h"
 #include "version.h"
-#include "univ/crc.h"
+#include "mem/mem.h"
 #include "univ/file.h"
+#include "univ/hash.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
@@ -266,14 +267,6 @@ static u8 chunk_tag[4] = {0xCA, 0x55, 0xE7, 0x7E};
 #define ChunkHeaderSize (sizeof(chunk_tag) + 2*sizeof(u16) + 5*sizeof(u32))
 #define ChunkTrailerSize sizeof(u32)
 
-static u32 WritePadding(u8 *data, u32 size)
-{
-  u32 i;
-  u32 n = Align(size, 4) - size;
-  for (i = 0; i < n; i++) *data++ = 0;
-  return n;
-}
-
 ByteVec SerializeChunk(Chunk *chunk)
 {
   ByteVec serialized;
@@ -411,7 +404,7 @@ Result DeserializeChunk(u8 *data, u32 size)
   cur += symbols_size;
   cur += Align(symbols_size, 4) - symbols_size;
 
-  if (ReadInt(cur) != crc) {
+  if ((u32)ReadInt(cur) != crc) {
     DestroyChunk(chunk);
     return ErrorResult("Invalid checksum", 0, 0);
   }

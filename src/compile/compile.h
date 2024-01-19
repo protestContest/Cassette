@@ -1,8 +1,8 @@
 #pragma once
 #include "env.h"
 #include "parse.h"
-#include "mem/symbols.h"
 #include "runtime/chunk.h"
+#include "runtime/mem/symbols.h"
 #include "univ/hashmap.h"
 #include "univ/result.h"
 
