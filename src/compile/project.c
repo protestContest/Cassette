@@ -102,8 +102,10 @@ static Result ParseModules(Project *project)
       PrintAST(ResultItem(result), &project->symbols);
     }
 
-    HashMapSet(&project->mod_map, ModuleName(ResultItem(result)), project->modules.count);
-    ObjVecPush(&project->modules, ResultItem(result));
+    if (!HashMapContains(&project->mod_map, ModuleName(ResultItem(result)))) {
+      HashMapSet(&project->mod_map, ModuleName(ResultItem(result)), project->modules.count);
+      ObjVecPush(&project->modules, ResultItem(result));
+    }
   }
 
   return result;
@@ -170,33 +172,27 @@ static Result CompileProject(Project *project)
   Result result;
   Compiler c;
   u32 num_modules = project->build_list.count - 1; /* exclude entry script */
-  Frame *compile_env = CompileEnv(num_modules);
+  Frame *compile_env;
   Chunk *chunk = Alloc(sizeof(Chunk));
 
   InitChunk(chunk);
   InitCompiler(&c, &project->symbols, &project->modules, &project->mod_map, chunk);
 
-  CompileModuleFrame(num_modules, &c);
-
   /* pre-define all modules */
+  compile_env = CompileEnv(num_modules);
   for (i = 0; i < num_modules; i++) {
     Node *module = VecRef(&project->build_list, num_modules - i);
     FrameSet(compile_env, i, ModuleName(module));
   }
-
-  /* compile each module except the entry mod */
+  CompileModuleFrame(num_modules, &c);
   c.env = compile_env;
-  for (i = 0; i < num_modules; i++) {
+
+  /* compile each module */
+  for (i = 0; i < num_modules + 1; i++) {
     Node *module = VecRef(&project->build_list, num_modules - i);
     Assert(c.env == compile_env);
-    result = CompileModule(module, i, &c);
+    result = CompileModule(module, &c);
     if (!result.ok) break;
-  }
-
-  if (result.ok) {
-    /* compile the entry module a little differently */
-    Assert(c.env == compile_env);
-    result = CompileScript(VecRef(&project->build_list, 0), &c);
   }
 
   if (result.ok) {

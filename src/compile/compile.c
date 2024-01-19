@@ -6,26 +6,12 @@
 #define LinkNext false
 #define LinkReturn true
 
-static Result CompileImports(Node *imports, Compiler *c);
 static Result CompileExpr(Node *node, bool linkage, Compiler *c);
-static Result CompileStmts(Node *node, bool linkage, Compiler *c);
-static Result CompileDo(Node *expr, bool linkage, Compiler *c);
-static Result CompileCall(Node *call, bool linkage, Compiler *c);
-static Result CompileLambda(Node *expr, bool linkage, Compiler *c);
-static Result CompileIf(Node *expr, bool linkage, Compiler *c);
-static Result CompileAnd(Node *expr, bool linkage, Compiler *c);
-static Result CompileOr(Node *expr, bool linkage, Compiler *c);
-static Result CompileList(Node *items, bool linkage, Compiler *c);
-static Result CompileTuple(Node *items, bool linkage, Compiler *c);
-static Result CompileMap(Node *items, bool linkage, Compiler *c);
-static Result CompileString(Node *sym, bool linkage, Compiler *c);
-static Result CompileVar(Node *id, bool linkage, Compiler *c);
-static Result CompileConst(Node *value, bool linkage, Compiler *c);
-static Result CompileSet(Node *node, bool linkage, Compiler *c);
-
 static void CompileLinkage(bool linkage, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
 static void PushNodePos(Node *node, Compiler *c);
+static u32 LambdaBegin(u32 num_params, Compiler *c);
+static void LambdaEnd(u32 ref, Compiler *c);
 #define CompileOk()  ValueResult(Nil)
 
 void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *mod_map, Chunk *chunk)
@@ -37,13 +23,16 @@ void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *m
   c->modules = modules;
   c->mod_map = mod_map;
   c->chunk = chunk;
+  c->mod_num = 0;
 }
 
+/* If there are multiple modules in a chunk, the first thing a program does is
+extend the base environment (which defines the primitives) with a new frame,
+where the modules will be defined. */
 Result CompileModuleFrame(u32 num_modules, Compiler *c)
 {
-  PushFilePos(Sym("*init*", &c->chunk->symbols), c->chunk);
-
   if (num_modules > 0) {
+    PushFilePos(Sym("*init*", &c->chunk->symbols), c->chunk);
     PushConst(IntVal(num_modules), c->chunk);
     PushByte(OpTuple, c->chunk);
     PushByte(OpExtend, c->chunk);
@@ -52,52 +41,15 @@ Result CompileModuleFrame(u32 num_modules, Compiler *c)
   return CompileOk();
 }
 
-Result CompileScript(Node *module, Compiler *c)
+static Result CompileImports(Node *imports, Compiler *c);
+
+Result CompileModule(Node *module, Compiler *c)
 {
   Result result;
   Node *imports = ModuleImports(module);
   Node *body = ModuleBody(module);
   u32 num_imports = NumNodeChildren(imports);
-
-  /* copy filename symbol to chunk */
-  c->filename = SymbolName(ModuleFile(module), c->symbols);
-  Sym(c->filename, &c->chunk->symbols);
-
-  /* record start position of module in chunk */
-  c->pos = 0;
-  PushFilePos(ModuleFile(module), c->chunk);
-
-  /* compile imports */
-  if (num_imports > 0) {
-    result = CompileImports(imports, c);
-    if (!result.ok) return result;
-  }
-
-  PushNodePos(body, c);
-
-  result = CompileDo(body, LinkNext, c);
-  if (!result.ok) return result;
-
-  PushNodePos(NodeChild(module, 3), c);
-
-  /* discard import frame */
-  if (num_imports > 0) {
-    PushByte(OpExport, c->chunk);
-    PushByte(OpPop, c->chunk);
-    c->env = PopFrame(c->env);
-  }
-
-  return CompileOk();
-}
-
-Result CompileModule(Node *module, u32 mod_num, Compiler *c)
-{
-  Result result;
-  Node *imports = ModuleImports(module);
-  Node *exports = ModuleExports(module);
-  u32 num_imports = NumNodeChildren(imports);
-  u32 num_exports = NumNodeChildren(exports);
-  u32 jump, jump_ref, lambda, lambda_ref;
+  u32 lambda_ref;
 
   /* copy filename symbol to chunk */
   c->filename = SymbolName(ModuleFile(module), c->symbols);
@@ -108,12 +60,9 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
   PushFilePos(ModuleFile(module), c->chunk);
 
   /* create lambda for module */
-  lambda = PushConst(IntVal(0), c->chunk);
-  PushConst(IntVal(0), c->chunk);
-  lambda_ref = PushByte(OpLambda, c->chunk);
-  jump = PushConst(IntVal(0), c->chunk);
-  jump_ref = PushByte(OpJump, c->chunk);
-  PatchConst(c->chunk, lambda, lambda_ref);
+  if (ModuleName(module) != MainModule) {
+    lambda_ref = LambdaBegin(0, c);
+  }
 
   /* compile imports */
   if (num_imports > 0) {
@@ -121,40 +70,9 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
     if (!result.ok) return result;
   }
 
-  /* extend env for assigns */
-  if (num_exports > 0) {
-    PushConst(IntVal(num_exports), c->chunk);
-    PushByte(OpTuple, c->chunk);
-    PushByte(OpExtend, c->chunk);
-    c->env = ExtendFrame(c->env, num_exports);
-  }
-
-  result = CompileStmts(ModuleBody(module), LinkNext, c);
+  result = CompileExpr(body, LinkNext, c);
   if (!result.ok) return result;
-
-  /* discard last statement result */
-  PushByte(OpPop, c->chunk);
-
-  PushNodePos(NodeChild(module, 3), c);
-
-  /* export assigned values */
-  PushByte(OpMap, c->chunk);
-  if (num_exports > 0) {
-    u32 i;
-    for (i = 0; i < num_exports; i++) {
-      Val export = NodeValue(NodeChild(exports, i));
-      Sym(SymbolName(export, c->symbols), &c->chunk->symbols);
-      PushConst(IntVal(i), c->chunk);
-      PushByte(OpLookup, c->chunk);
-      PushConst(export, c->chunk);
-      PushByte(OpPut, c->chunk);
-    }
-
-    c->env = PopFrame(c->env);
-  }
-
-  /* copy exports to redefine module */
-  PushByte(OpDup, c->chunk);
+  PushNodePos(ModuleFilename(module), c);
 
   /* discard import frame */
   if (num_imports > 0) {
@@ -163,19 +81,17 @@ Result CompileModule(Node *module, u32 mod_num, Compiler *c)
     c->env = PopFrame(c->env);
   }
 
-  /* redefine module as exported value */
-  PushConst(IntVal(mod_num), c->chunk);
-  PushByte(OpDefine, c->chunk);
+  if (ModuleName(module) != MainModule) {
+    PushByte(OpReturn, c->chunk);
+    LambdaEnd(lambda_ref, c);
 
-  PushByte(OpReturn, c->chunk);
-
-  PatchConst(c->chunk, jump, jump_ref);
-
-  PushNodePos(NodeChild(module, 0), c);
-
-  /* define module as the lambda */
-  PushConst(IntVal(mod_num), c->chunk);
-  PushByte(OpDefine, c->chunk);
+    /* define module as the lambda */
+    PushConst(IntVal(c->mod_num), c->chunk);
+    PushByte(OpDefine, c->chunk);
+    c->mod_num++;
+  } else {
+    PushByte(OpHalt, c->chunk);
+  }
 
   return CompileOk();
 }
@@ -277,6 +193,21 @@ static Result CompileImports(Node *imports, Compiler *c)
   return CompileOk();
 }
 
+static Result CompileDo(Node *expr, bool linkage, Compiler *c);
+static Result CompileExport(Node *node, bool linkage, Compiler *c);
+static Result CompileCall(Node *call, bool linkage, Compiler *c);
+static Result CompileSet(Node *node, bool linkage, Compiler *c);
+static Result CompileLambda(Node *expr, bool linkage, Compiler *c);
+static Result CompileIf(Node *expr, bool linkage, Compiler *c);
+static Result CompileAnd(Node *expr, bool linkage, Compiler *c);
+static Result CompileOr(Node *expr, bool linkage, Compiler *c);
+static Result CompileList(Node *items, bool linkage, Compiler *c);
+static Result CompileTuple(Node *items, bool linkage, Compiler *c);
+static Result CompileMap(Node *items, bool linkage, Compiler *c);
+static Result CompileString(Node *sym, bool linkage, Compiler *c);
+static Result CompileVar(Node *id, bool linkage, Compiler *c);
+static Result CompileConst(Node *value, bool linkage, Compiler *c);
+
 static Result CompileExpr(Node *node, bool linkage, Compiler *c)
 {
   PushNodePos(node, c);
@@ -296,15 +227,26 @@ static Result CompileExpr(Node *node, bool linkage, Compiler *c)
   case StringNode:        return CompileString(node, linkage, c);
   case AndNode:           return CompileAnd(node, linkage, c);
   case OrNode:            return CompileOr(node, linkage, c);
+  case ExportNode:        return CompileExport(node, linkage, c);
   default:                return CompileError("Unknown expression", c);
   }
 }
 
-static Result CompileStmts(Node *node, bool linkage, Compiler *c)
+static Result CompileDo(Node *node, bool linkage, Compiler *c)
 {
+
+  Node *assigns = NodeChild(node, 0);
   Node *stmts = NodeChild(node, 1);
+  u32 num_assigns = NumNodeChildren(assigns);
   u32 num_assigned = 0;
   u32 i;
+
+  if (num_assigns > 0) {
+    PushConst(IntVal(num_assigns), c->chunk);
+    PushByte(OpTuple, c->chunk);
+    PushByte(OpExtend, c->chunk);
+    c->env = ExtendFrame(c->env, num_assigns);
+  }
 
   /* pre-define all def statements */
   for (i = 0; i < NumNodeChildren(stmts); i++) {
@@ -373,33 +315,43 @@ static Result CompileStmts(Node *node, bool linkage, Compiler *c)
     }
   }
 
-  return CompileOk();
-}
-
-static Result CompileDo(Node *node, bool linkage, Compiler *c)
-{
-  Result result;
-  Node *assigns = NodeChild(node, 0);
-  u32 num_assigns = NumNodeChildren(assigns);
-
-  if (num_assigns > 0) {
-    PushConst(IntVal(num_assigns), c->chunk);
-    PushByte(OpTuple, c->chunk);
-    PushByte(OpExtend, c->chunk);
-    c->env = ExtendFrame(c->env, num_assigns);
-  }
-
-  result = CompileStmts(node, linkage, c);
-  if (!result.ok) return result;
-
-  PushNodePos(node, c);
-
   /* discard frame for assigns */
+  PushNodePos(node, c);
   if (num_assigns > 0) {
     PushByte(OpExport, c->chunk);
     PushByte(OpPop, c->chunk);
     c->env = PopFrame(c->env);
   }
+
+  return CompileOk();
+}
+
+static Result CompileExport(Node *node, bool linkage, Compiler *c)
+{
+  u32 num_exports = NumNodeChildren(node);
+  u32 exports_frame;
+
+  PushByte(OpMap, c->chunk);
+  if (num_exports > 0) {
+    u32 i;
+
+    for (i = 0; i < num_exports; i++) {
+      Val name = NodeValue(NodeChild(node, i));
+      Sym(SymbolName(name, c->symbols), &c->chunk->symbols);
+      PushConst(IntVal(i), c->chunk);
+      PushByte(OpLookup, c->chunk);
+      PushConst(name, c->chunk);
+      PushByte(OpPut, c->chunk);
+    }
+  }
+
+  PushByte(OpDup, c->chunk);
+
+  /* redefine module as exported value */
+  exports_frame = ExportsFrame(c->env);
+  PushConst(IntVal(exports_frame + c->mod_num), c->chunk);
+  PushByte(OpDefine, c->chunk);
+  CompileLinkage(linkage, c);
 
   return CompileOk();
 }
@@ -454,21 +406,50 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+static Result CompileSet(Node *node, bool linkage, Compiler *c)
+{
+  u32 num_args = NumNodeChildren(node) - 1;
+  Node *var, *val;
+  Val id;
+  i32 def;
+  Result result;
+
+  if (num_args != 2) {
+    return CompileError("Wrong number of arguments: Expected 2", c);
+  }
+
+  var = NodeChild(node, 1);
+  val = NodeChild(node, 2);
+
+  if (var->type != IDNode) {
+    return CompileError("Expected variable", c);
+  }
+
+  id = NodeValue(var);
+  def = FrameFind(c->env, id);
+  if (def == -1) return CompileError("Undefined variable", c);
+
+  result = CompileExpr(val, LinkNext, c);
+  if (!result.ok) return result;
+
+  PushByte(OpDup, c->chunk);
+  PushConst(IntVal(def), c->chunk);
+  PushByte(OpDefine, c->chunk);
+
+  CompileLinkage(linkage, c);
+  return CompileOk();
+}
+
 static Result CompileLambda(Node *node, bool linkage, Compiler *c)
 {
   Node *params = NodeChild(node, 0);
   Node *body = NodeChild(node, 1);
   Result result;
-  u32 jump, jump_ref, lambda, lambda_ref, i;
+  u32 lambda_ref, i;
   u32 num_params = NumNodeChildren(params);
 
   /* create lambda */
-  lambda = PushConst(IntVal(0), c->chunk);
-  PushConst(IntVal(num_params), c->chunk);
-  lambda_ref = PushByte(OpLambda, c->chunk);
-  jump = PushConst(IntVal(0), c->chunk);
-  jump_ref = PushByte(OpJump, c->chunk);
-  PatchConst(c->chunk, lambda, lambda_ref);
+  lambda_ref = LambdaBegin(num_params, c);
 
   if (num_params > 0) {
     PushNodePos(params, c);
@@ -490,7 +471,7 @@ static Result CompileLambda(Node *node, bool linkage, Compiler *c)
   result = CompileExpr(body, LinkReturn, c);
   if (!result.ok) return result;
 
-  PatchConst(c->chunk, jump, jump_ref);
+  LambdaEnd(lambda_ref, c);
 
   CompileLinkage(linkage, c);
 
@@ -684,40 +665,6 @@ static Result CompileConst(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileSet(Node *node, bool linkage, Compiler *c)
-{
-  u32 num_args = NumNodeChildren(node) - 1;
-  Node *var, *val;
-  Val id;
-  i32 def;
-  Result result;
-
-  if (num_args != 2) {
-    return CompileError("Wrong number of arguments: Expected 2", c);
-  }
-
-  var = NodeChild(node, 1);
-  val = NodeChild(node, 2);
-
-  if (var->type != IDNode) {
-    return CompileError("Expected variable", c);
-  }
-
-  id = NodeValue(var);
-  def = FrameFind(c->env, id);
-  if (def == -1) return CompileError("Undefined variable", c);
-
-  result = CompileExpr(val, LinkNext, c);
-  if (!result.ok) return result;
-
-  PushByte(OpDup, c->chunk);
-  PushConst(IntVal(def), c->chunk);
-  PushByte(OpDefine, c->chunk);
-
-  CompileLinkage(linkage, c);
-  return CompileOk();
-}
-
 static void CompileLinkage(bool linkage, Compiler *c)
 {
   if (linkage == LinkReturn) {
@@ -734,4 +681,21 @@ static void PushNodePos(Node *node, Compiler *c)
 {
   PushSourcePos(node->pos - c->pos, c->chunk);
   c->pos = node->pos;
+}
+
+static u32 LambdaBegin(u32 num_params, Compiler *c)
+{
+  u32 lambda, lambda_ref, ref;
+  lambda = PushConst(IntVal(0), c->chunk);
+  PushConst(IntVal(num_params), c->chunk);
+  lambda_ref = PushByte(OpLambda, c->chunk);
+  PushConst(IntVal(0), c->chunk);
+  ref = PushByte(OpJump, c->chunk);
+  PatchConst(c->chunk, lambda, lambda_ref);
+  return ref;
+}
+
+static void LambdaEnd(u32 ref, Compiler *c)
+{
+  PatchConst(c->chunk, ref - 2, ref);
 }

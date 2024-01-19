@@ -29,7 +29,7 @@ typedef enum {
   PrecAccess
 } Precedence;
 
-static Result ParseModuleName(Parser *p);
+static Node *WithExport(Node *node, Parser *p);
 static Result ParseImports(Parser *p);
 static Result ParseStmts(Parser *p);
 static Result ParseAssign(Parser *p);
@@ -155,35 +155,57 @@ Result Parse(char *source, Parser *p)
 {
   Result result;
   Node *module = MakeNode(ModuleNode, 0);
+  Val mod_name;
 
   InitLexer(&p->lex, source, 0);
   SkipNewlines(&p->lex);
 
-  result = ParseModuleName(p);
-  if (!result.ok) return ParseFail(result, module);
-  NodePush(module, ResultItem(result));
+  /* module name */
+  if (MatchToken(TokenModule, &p->lex)) {
+    result = ParseID(p);
+    if (!result.ok) return ParseFail(result, module);
+    NodePush(module, ResultItem(result));
+    mod_name = NodeValue(ResultItem(result));
+  } else {
+    NodePush(module, MakeTerminal(IDNode, 0, MainModule));
+    mod_name = MainModule;
+  }
 
+  /* imports */
   SkipNewlines(&p->lex);
   result = ParseImports(p);
   if (!result.ok) return ParseFail(result, module);
   NodePush(module, ResultItem(result));
 
+  /* body */
   result = ParseStmts(p);
   if (!result.ok) return ParseFail(result, module);
   if (!MatchToken(TokenEOF, &p->lex)) return ParseFail(ParseError("Unexpected token", p), module);
-  NodePush(module, ResultItem(result));
+  if (mod_name == MainModule) {
+    NodePush(module, ResultItem(result));
+  } else {
+    NodePush(module, WithExport(ResultItem(result), p));
+  }
 
+  /* filename */
   NodePush(module, MakeTerminal(StringNode, TokenPos(&p->lex), Sym(p->filename, p->symbols)));
+
   return ParseOk(module);
 }
 
-static Result ParseModuleName(Parser *p)
+static Node *WithExport(Node *node, Parser *p)
 {
-  if (!MatchToken(TokenModule, &p->lex)) {
-    return ParseOk(MakeTerminal(IDNode, 0, Sym(p->filename, p->symbols)));
-  } else {
-    return ParseID(p);
+  Node *assigns = NodeChild(node, 0);
+  Node *stmts = NodeChild(node, 1);
+  Node *export = MakeNode(ExportNode, TokenPos(&p->lex));
+  u32 i;
+
+  NodePush(stmts, export);
+  for (i = 0; i < NumNodeChildren(assigns); i++) {
+    NodePush(export, NodeChild(assigns, i));
   }
+
+  return node;
 }
 
 static Result ParseImports(Parser *p)

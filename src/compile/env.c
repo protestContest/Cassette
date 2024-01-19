@@ -79,3 +79,14 @@ i32 FrameNum(Frame *frame, Val value)
   }
   return -1;
 }
+
+i32 ExportsFrame(Frame *frame)
+{
+  i32 num = 0;
+  if (frame == 0 || frame->parent == 0) return -1;
+  while (frame->parent->parent != 0) {
+    num += frame->count;
+    frame = frame->parent;
+  }
+  return num;
+}

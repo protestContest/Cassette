@@ -293,6 +293,7 @@ static char *NodeTypeName(NodeType type)
   switch (type) {
   case ModuleNode: return "Module";
   case ImportNode: return "Import";
+  case ExportNode: return "Export";
   case LetNode: return "Let";
   case DefNode: return "Def";
   case SymbolNode: return "Symbol";

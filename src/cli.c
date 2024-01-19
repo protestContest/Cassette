@@ -220,7 +220,11 @@ static void PrintSourceContext(u32 pos, char *source, u32 context)
   /* underline target token */
   printf("   │ ");
   for (i = 0; i < col; i++) printf(" ");
-  for (i = 0; i < lex.token.length; i++) printf("^");
+  if (lex.token.length == 0) {
+    printf("^");
+  } else {
+    for (i = 0; i < lex.token.length; i++) printf("^");
+  }
   printf("\n");
 
   /* print remaining context */

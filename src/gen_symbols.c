@@ -30,6 +30,7 @@ int main(void)
   printf("#define SymBar          0x%08X /* | */\n", SymbolFor("|"));
   printf("#define SymTilde        0x%08X /* ~ */\n", SymbolFor("~"));
   printf("#define SymSet          0x%08X /* set! */\n", SymbolFor("set!"));
+  printf("#define ModuleMain      0x%08X /* *main* */\n", SymbolFor("*main*"));
   printf("\n");
 
   printf("/* device/device.c */\n");

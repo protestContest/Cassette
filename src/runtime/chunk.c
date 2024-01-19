@@ -114,9 +114,8 @@ u32 PushConst(Val value, Chunk *chunk)
     PushByte(OpNil, chunk);
   } else {
     i32 index = FindConst(value, chunk);
-    if (index < 0) {
-      index = AddConst(value, chunk);
-    }
+    if (index < 0) index = AddConst(value, chunk);
+
     Assert(index < Bit(15));
     PushByte(OpConst | ((index >> 8) & 0x7F), chunk);
     PushByte(index & 0xFF, chunk);
