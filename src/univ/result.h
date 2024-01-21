@@ -25,6 +25,7 @@ typedef struct {
 #define ResultValue(r)  (r).data.value
 #define ResultItem(r)   (r).data.item
 #define ResultError(r)  (r).data.error
+#define OkResult()      ValueResult(0)
 
 Result ValueResult(u32 value);
 Result ItemResult(void *item);

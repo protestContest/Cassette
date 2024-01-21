@@ -49,7 +49,9 @@ bool ValEqual(Val v1, Val v2, Mem *mem)
     u32 i;
     if (TupleCount(v1, mem) != TupleCount(v2, mem)) return false;
     for (i = 0; i < TupleCount(v1, mem); i++) {
-      if (!ValEqual(TupleGet(v1, i, mem), TupleGet(v2, i, mem), mem)) return false;
+      if (!ValEqual(TupleGet(v1, i, mem), TupleGet(v2, i, mem), mem)) {
+        return false;
+      }
     }
     return true;
   }

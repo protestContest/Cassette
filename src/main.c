@@ -118,8 +118,8 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-/* Since SDL has to run in a main loop, we use this function every tick to run some
-of the VM code. When it returns false, the SDL main loop ends. */
+/* Since SDL has to run in a main loop, we use this function every tick to run
+some of the VM code. When it returns false, the SDL main loop ends. */
 static bool Update(void *arg)
 {
   VM *vm = (VM*)arg;

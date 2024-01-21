@@ -71,7 +71,8 @@ Result RunChunk(Chunk *chunk, VM *vm)
 }
 
 #define StackMin(vm, n)     Assert((vm)->stack.count >= (n))
-#define CheckStack(vm, n)   if ((vm)->stack.count + (n) > (vm)->stack.capacity) return RuntimeError("Stack overflow", vm);
+#define CheckStack(vm, n)   if ((vm)->stack.count + (n) > (vm)->stack.capacity)\
+return RuntimeError("Stack overflow", vm);
 
 static Result RunInstruction(VM *vm)
 {
@@ -99,7 +100,8 @@ static Result RunInstruction(VM *vm)
       break;
     case OpError:
       if (vm->stack.count > 0 && IsSym(StackRef(vm, 0))) {
-        return RuntimeError(SymbolName(StackRef(vm, 0), &vm->chunk->symbols), vm);
+        char *error = SymbolName(StackRef(vm, 0), &vm->chunk->symbols);
+        return RuntimeError(error, vm);
       } else {
         return RuntimeError("Panic!", vm);
       }
@@ -179,8 +181,11 @@ static Result RunInstruction(VM *vm)
       StackMin(vm, 3);
       Assert(IsTuple(StackRef(vm, 2), &vm->mem));
       Assert(IsInt(StackRef(vm, 0)));
-      Assert((u32)RawInt(StackRef(vm, 0)) >= 0 && (u32)RawInt(StackRef(vm, 0)) < TupleCount(StackRef(vm, 2), &vm->mem));
-      TupleSet(StackRef(vm, 2), RawInt(StackRef(vm, 0)), StackRef(vm, 1), &vm->mem);
+      Assert((u32)RawInt(StackRef(vm, 0)) >= 0 &&
+        (u32)RawInt(StackRef(vm, 0)) < TupleCount(StackRef(vm, 2), &vm->mem));
+      TupleSet(StackRef(vm, 2),
+               RawInt(StackRef(vm, 0)),
+               StackRef(vm, 1), &vm->mem);
       StackDrop(vm, 2);
       vm->pc++;
       break;
@@ -192,7 +197,9 @@ static Result RunInstruction(VM *vm)
     case OpPut:
       StackMin(vm, 3);
       Assert(IsMap(StackRef(vm, 2), &vm->mem));
-      StackRef(vm, 2) = MapSet(StackRef(vm, 2), StackRef(vm, 0), StackRef(vm, 1), &vm->mem);
+      StackRef(vm, 2) = MapSet(StackRef(vm, 2),
+                               StackRef(vm, 0),
+                               StackRef(vm, 1), &vm->mem);
       StackDrop(vm, 2);
       vm->pc++;
       break;
@@ -220,7 +227,9 @@ static Result RunInstruction(VM *vm)
       StackMin(vm, 1);
       Assert(IsInt(StackRef(vm, 0)));
       StackRef(vm, 0) = Lookup(RawInt(StackRef(vm, 0)), Env(vm), &vm->mem);
-      if (StackRef(vm, 0) == Undefined) return RuntimeError("Undefined variable", vm);
+      if (StackRef(vm, 0) == Undefined) {
+        return RuntimeError("Undefined variable", vm);
+      }
       vm->pc++;
       break;
     case OpLink:
@@ -247,7 +256,10 @@ static Result RunInstruction(VM *vm)
       StackMin(vm, 2);
       Assert(IsInt(StackRef(vm, 0)));
       Assert(IsInt(StackRef(vm, 1)));
-      StackRef(vm, 1) = MakeFunction(StackRef(vm, 0), IntVal(vm->pc + RawInt(StackRef(vm, 1))), Env(vm), &vm->mem);
+      StackRef(vm, 1) = MakeFunction(StackRef(vm, 0),
+                                     IntVal(vm->pc + RawInt(StackRef(vm, 1))),
+                                     Env(vm),
+                                     &vm->mem);
       StackPop(vm);
       vm->pc++;
       break;
@@ -270,7 +282,9 @@ static Result RunInstruction(VM *vm)
         vm->pc++;
       } else if (IsFunc(operator, &vm->mem)) {
         u32 arity = FuncArity(operator, &vm->mem);
-        if (num_args != (u32)RawInt(arity)) return RuntimeError("Wrong number of arguments", vm);
+        if (num_args != (u32)RawInt(arity)) {
+          return RuntimeError("Wrong number of arguments", vm);
+        }
         vm->pc = RawInt(FuncPos(operator, &vm->mem));
         Env(vm) = FuncEnv(operator, &vm->mem);
       } else if (num_args == 0) {

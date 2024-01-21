@@ -53,7 +53,8 @@ u32 PrintVal(Val value, Mem *mem, SymbolTable *symbols)
   }
 }
 
-static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols);
+static void PrintCell(u32 index, Val value, u32 cell_width,
+                      SymbolTable *symbols);
 static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem);
 
 void PrintMem(Mem *mem, SymbolTable *symbols)
@@ -97,7 +98,8 @@ void PrintMem(Mem *mem, SymbolTable *symbols)
   printf("╝\n");
 }
 
-static void PrintCell(u32 index, Val value, u32 cell_width, SymbolTable *symbols)
+static void PrintCell(u32 index, Val value, u32 cell_width,
+                      SymbolTable *symbols)
 {
   if (IsInt(value)) {
     printf("%*d", cell_width, RawInt(value));
@@ -161,7 +163,9 @@ static u32 PrintBinData(u32 index, u32 cell_width, u32 cols, Mem *mem)
 
 void DumpMem(char *filename, Mem *mem, SymbolTable *symbols)
 {
-  u32 size = 2*sizeof(u32) + sizeof(Val)*mem->count + Align(symbols->names.count, 4);
+  u32 size = 2*sizeof(u32)
+      + sizeof(Val)*mem->count
+      + Align(symbols->names.count, 4);
   u8 *data = Alloc(size);
   u8 *cur = data;
   int file = MakeFile(filename);
@@ -180,7 +184,8 @@ void DumpMem(char *filename, Mem *mem, SymbolTable *symbols)
   Close(file);
 }
 
-static void PrintASTNode(Node *node, u32 level, u32 lines, SymbolTable *symbols);
+static void PrintASTNode(Node *node, u32 level, u32 lines,
+                         SymbolTable *symbols);
 static char *NodeTypeName(NodeType type);
 static void Indent(u32 level, u32 lines);
 
@@ -189,7 +194,8 @@ void PrintAST(Node *ast, SymbolTable *symbols)
   PrintASTNode(ast, 0, 0, symbols);
 }
 
-static void PrintASTNode(Node *node, u32 level, u32 lines, SymbolTable *symbols)
+static void PrintASTNode(Node *node, u32 level, u32 lines,
+                         SymbolTable *symbols)
 {
   NodeType type = node->type;
   char *name = NodeTypeName(type);
@@ -316,6 +322,7 @@ static char *NodeTypeName(NodeType type)
   case ModuleNode: return "Module";
   case ImportNode: return "Import";
   case ExportNode: return "Export";
+  case SetNode: return "Set";
   case LetNode: return "Let";
   case DefNode: return "Def";
   case SymbolNode: return "Symbol";
@@ -395,7 +402,7 @@ void Disassemble(Chunk *chunk)
   for (i = 0; i < width - col2 - 1; i++) printf("─");
   printf("╢\n");
 
-  /* on each line, print the instruction, the next constant, and the next symbol */
+  /* on each line, print the op, the next constant, and the next symbol */
   line = 0;
   sym = (char*)chunk->symbols.names.items;
   for (i = 0; i < chunk->code.count; i += OpLength(ChunkRef(chunk, i))) {
@@ -492,10 +499,13 @@ void DumpSourceMap(Chunk *chunk)
       u32 line = LineNum(source, pos);
       u32 col = ColNum(source, pos);
       InitLexer(&lex, source, pos);
-      printf("[%d:%d] %.*s\n", line + 1, col + 1, lex.token.length, lex.token.lexeme);
+      printf("[%d:%d] %.*s\n",
+             line + 1, col + 1, lex.token.length, lex.token.lexeme);
     }
 
-    for (j = bytes; j < bytes + map.items[i+1]; j += OpLength(ChunkRef(chunk, j))) {
+    for (j = bytes;
+         j < bytes + map.items[i+1];
+         j += OpLength(ChunkRef(chunk, j))) {
       printf("  ");
       PrintInstruction(chunk, j);
       printf("\n");

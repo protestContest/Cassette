@@ -1,3 +1,25 @@
+/*
+The compiler takes a ModuleNode AST and compiles it into bytecode, which is
+appended to a chunk. Named modules are compiled into a lambda, which is defined
+in the module frame, while the main module is compiled directly. Each module's
+imports are compiled, then its body, with each node type generating specific
+code (described below).
+
+Most compile functions take a "linkage" parameter, which is true if the node is
+part of a returned expression. This allows the compiler to skip generating a
+call stack frame for tail calls, which allows efficient tail-call recursion.
+
+The compiler keeps track of the the current environment and the symbols defined
+in it. When a variable lookup is compiled, the VM only needs the relative
+environment position, not the symbol, making lookups faster. This also lets the
+compiler detect undefined variables.
+
+The compiler updates the chunk's file map for each compiled module and source
+map for each compiled node. It also copies symbols from the compiler symbol
+table to the chunk's symbol table for filenames, exported variables, literal
+symbols, and literal strings.
+*/
+
 #include "compile.h"
 #include "project.h"
 #include "runtime/ops.h"
@@ -6,6 +28,7 @@
 #define LinkNext false
 #define LinkReturn true
 
+static Result CompileImports(Node *imports, Compiler *c);
 static Result CompileExpr(Node *node, bool linkage, Compiler *c);
 static void CompileLinkage(bool linkage, Compiler *c);
 static Result CompileError(char *message, Compiler *c);
@@ -14,7 +37,8 @@ static u32 LambdaBegin(u32 num_params, Compiler *c);
 static void LambdaEnd(u32 ref, Compiler *c);
 #define CompileOk()  ValueResult(Nil)
 
-void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *mod_map, Chunk *chunk)
+void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules,
+                  HashMap *mod_map, Chunk *chunk)
 {
   c->pos = 0;
   c->env = 0;
@@ -24,6 +48,7 @@ void InitCompiler(Compiler *c, SymbolTable *symbols, ObjVec *modules, HashMap *m
   c->mod_map = mod_map;
   c->chunk = chunk;
   c->mod_num = 0;
+  c->import_num = 0;
 }
 
 /* If there are multiple modules in a chunk, the first thing a program does is
@@ -41,8 +66,33 @@ Result CompileModuleFrame(u32 num_modules, Compiler *c)
   return CompileOk();
 }
 
-static Result CompileImports(Node *imports, Compiler *c);
+/* Compiles a module. Imports are compiled, followed by the module statements.
+The main module ends with a "halt" instruction, while other modules are wrapped
+in a lambda and defined in the module frame.
 
+  ; for normal modules:
+  const body
+  const 0   ; modules have no parameters
+  lambda
+  const after
+  jump
+body:
+  <imports code>
+  <body code>
+  export    ; discard imports frame (omitted if no imports)
+  pop
+  return
+after:
+  const <module num>
+  define
+
+  ; for the main module:
+  <imports code>
+  <body code>
+  export    ; discard imports frame (omitted if no imports)
+  pop
+  halt
+*/
 Result CompileModule(Node *module, Compiler *c)
 {
   Result result;
@@ -96,28 +146,46 @@ Result CompileModule(Node *module, Compiler *c)
   return CompileOk();
 }
 
-static u32 DefineImports(Node *imports, u32 num_imported, Compiler *c)
+static u32 CountExports(Node *imports, Compiler *c);
+static Result CompileImport(Node *name, Node *alias, Compiler *c);
+static u32 DefineImports(Node *imports, Compiler *c);
+
+/* Extends the environment for the imports, then compiles each one. The extended
+frame is discarded elsewhere.
+
+  const <num_imports>
+  tuple
+  extend
+  ; for each import:
+  <import code>
+*/
+static Result CompileImports(Node *imports, Compiler *c)
 {
+  u32 num_imports = CountExports(imports, c);
   u32 i;
 
-  for (i = 0; i < NumNodeChildren(imports); i++) {
-    Val import = NodeValue(NodeChild(imports, i));
+  /* extend env for imports */
+  PushConst(IntVal(num_imports), c->chunk);
+  PushByte(OpTuple, c->chunk);
+  PushByte(OpExtend, c->chunk);
+  c->env = ExtendFrame(c->env, num_imports);
+  c->import_num = 0;
 
-    if (i < NumNodeChildren(imports) - 1) {
-      /* keep map for future iterations */
-      PushByte(OpDup, c->chunk);
-    }
-    PushConst(import, c->chunk);
-    PushByte(OpSwap, c->chunk);
-    PushConst(IntVal(1), c->chunk);
-    PushByte(OpApply, c->chunk);
-    PushConst(IntVal(num_imported+i), c->chunk);
-    PushByte(OpDefine, c->chunk);
-    FrameSet(c->env, num_imported + i, import);
+  for (i = 0; i < NumNodeChildren(imports); i++) {
+    Node *node = NodeChild(imports, i);
+    Result result;
+
+    PushNodePos(node, c);
+    result = CompileImport(NodeChild(node, 0), NodeChild(node, 1), c);
+    if (!result.ok) return result;
   }
-  return i;
+
+  return CompileOk();
 }
 
+/* Counts the number of imported symbols in a module. This is the number of
+aliased imports plus the total number of exports from unqualified imports (e.g.
+`import X as *`). */
 static u32 CountExports(Node *imports, Compiler *c)
 {
   u32 count = 0;
@@ -138,59 +206,93 @@ static u32 CountExports(Node *imports, Compiler *c)
   return count;
 }
 
-static Result CompileImports(Node *imports, Compiler *c)
+/* An import calls the module as a function, and either defines the result as
+the module's alias or defines each export directly.
+
+  const after
+  link
+  const <module env position>
+  lookup
+  const 0
+  apply
+
+  ; if module is aliased:
+  const <next assignment slot>
+  define
+  ; otherwise, see DefineImports
+*/
+static Result CompileImport(Node *name, Node *alias, Compiler *c)
 {
-  u32 num_imported = 0;
-  u32 num_imports = CountExports(imports, c);
-  u32 i;
+  Val name_val = NodeValue(name);
+  Val alias_val = NodeValue(alias);
+  i32 def, link, link_ref;
 
-  /* extend env for imports */
-  PushConst(IntVal(num_imports), c->chunk);
-  PushByte(OpTuple, c->chunk);
-  PushByte(OpExtend, c->chunk);
-  c->env = ExtendFrame(c->env, num_imports);
+  if (!HashMapContains(c->mod_map, name_val)) {
+    return CompileError("Undefined module", c);
+  }
 
-  for (i = 0; i < NumNodeChildren(imports); i++) {
-    Node *node = NodeChild(imports, i);
-    Val import_name = NodeValue(NodeChild(node, 0));
-    Val alias = NodeValue(NodeChild(node, 1));
-    Node *import_mod;
-    Node *imported_vals;
-    i32 import_def;
-    u32 link, link_ref;
+  def = FrameFind(c->env, name_val);
+  if (def < 0) return CompileError("Undefined module", c);
 
-    PushNodePos(node, c);
+  link = PushConst(IntVal(0), c->chunk);
+  link_ref = PushByte(OpLink, c->chunk);
+  PushConst(IntVal(def), c->chunk);
+  PushByte(OpLookup, c->chunk);
 
-    if (!HashMapContains(c->mod_map, import_name)) return CompileError("Undefined module", c);
+  PushConst(IntVal(0), c->chunk);
+  PushByte(OpApply, c->chunk);
+  PatchConst(c->chunk, link, link_ref);
 
-    import_mod = VecRef(c->modules, HashMapGet(c->mod_map, import_name));
-    imported_vals = ModuleExports(import_mod);
-
-    import_def = FrameFind(c->env, import_name);
-    if (import_def < 0) return CompileError("Undefined module", c);
-
-    /* call module function */
-    link = PushConst(IntVal(0), c->chunk);
-    link_ref = PushByte(OpLink, c->chunk);
-    PushConst(IntVal(import_def), c->chunk);
-    PushByte(OpLookup, c->chunk);
-    PushConst(IntVal(0), c->chunk);
-    PushByte(OpApply, c->chunk);
-    PatchConst(c->chunk, link, link_ref);
-
-    if (alias == Nil) {
-      /* import directly into module namespace */
-      num_imported += DefineImports(imported_vals, num_imported, c);
-    } else {
-      /* import map */
-      PushConst(IntVal(num_imported), c->chunk);
-      PushByte(OpDefine, c->chunk);
-      FrameSet(c->env, num_imported, alias);
-      num_imported++;
-    }
+  if (alias_val == Nil) {
+    /* import directly into module namespace */
+    Node *import_mod = VecRef(c->modules, HashMapGet(c->mod_map, name_val));
+    Node *imported_vals = ModuleExports(import_mod);
+    c->import_num += DefineImports(imported_vals, c);
+  } else {
+    /* import map */
+    PushConst(IntVal(c->import_num), c->chunk);
+    PushByte(OpDefine, c->chunk);
+    FrameSet(c->env, c->import_num, alias_val);
+    c->import_num++;
   }
 
   return CompileOk();
+}
+
+/* Extracts and defines each import symbol from an exported map
+
+  ; for each exported var from the import:
+  dup   ; duplicate the exported map (omitted for the last item)
+  const <var>
+  swap  ; swap args to access the map as a function call
+  const 1
+  apply
+  const <next assignment slot>
+  define
+*/
+static u32 DefineImports(Node *imports, Compiler *c)
+{
+  u32 i;
+
+  for (i = 0; i < NumNodeChildren(imports); i++) {
+    Val import = NodeValue(NodeChild(imports, i));
+
+    if (i < NumNodeChildren(imports) - 1) {
+      /* keep map for future iterations */
+      PushByte(OpDup, c->chunk);
+    }
+
+    /* access map with import name key */
+    PushConst(import, c->chunk);
+    PushByte(OpSwap, c->chunk);
+    PushConst(IntVal(1), c->chunk);
+    PushByte(OpApply, c->chunk);
+
+    PushConst(IntVal(c->import_num + i), c->chunk);
+    PushByte(OpDefine, c->chunk);
+    FrameSet(c->env, c->import_num + i, import);
+  }
+  return NumNodeChildren(imports);
 }
 
 static Result CompileDo(Node *expr, bool linkage, Compiler *c);
@@ -213,66 +315,91 @@ static Result CompileExpr(Node *node, bool linkage, Compiler *c)
   PushNodePos(node, c);
 
   switch (node->type) {
-  case SymbolNode:        return CompileConst(node, linkage, c);
-  case DoNode:            return CompileDo(node, linkage, c);
-  case LambdaNode:        return CompileLambda(node, linkage, c);
-  case CallNode:          return CompileCall(node, linkage, c);
   case NilNode:           return CompileConst(node, linkage, c);
-  case IfNode:            return CompileIf(node, linkage, c);
-  case ListNode:          return CompileList(node, linkage, c);
-  case MapNode:           return CompileMap(node, linkage, c);
-  case TupleNode:         return CompileTuple(node, linkage, c);
   case IDNode:            return CompileVar(node, linkage, c);
   case NumNode:           return CompileConst(node, linkage, c);
   case StringNode:        return CompileString(node, linkage, c);
+  case SymbolNode:        return CompileConst(node, linkage, c);
+  case ListNode:          return CompileList(node, linkage, c);
+  case TupleNode:         return CompileTuple(node, linkage, c);
+  case MapNode:           return CompileMap(node, linkage, c);
   case AndNode:           return CompileAnd(node, linkage, c);
   case OrNode:            return CompileOr(node, linkage, c);
+  case IfNode:            return CompileIf(node, linkage, c);
+  case DoNode:            return CompileDo(node, linkage, c);
+  case CallNode:          return CompileCall(node, linkage, c);
+  case LambdaNode:        return CompileLambda(node, linkage, c);
+  case SetNode:           return CompileSet(node, linkage, c);
   case ExportNode:        return CompileExport(node, linkage, c);
   default:                return CompileError("Unknown expression", c);
   }
 }
 
+/* A DoNode introduces a new lexical scope if it contains any assignments, and
+compiles each statement in sequence. At the beginning of the block, all DefNode
+variables are defined to allow recursion. Each statement's result except the
+last is discarded. If the last statement is an assignment, its result is `nil`
+(assignment otherwise doesn't produce a result).
+
+  const <num_assigns>     ; env extension is omitted if there are no assigns
+  tuple
+  extend
+  ; for each statement:
+  ; if the statement is a LetNode or DefNode:
+  <code for value>
+  const <next assignment slot>
+  define
+  ; if the assignment is the last statement, a `nil` value is pushed here
+  ; normal statements:
+  <statement code>
+  pop   ; omitted from the last statement
+
+  ; discard assignment frame (omitted if there are no assigns)
+  export
+  pop
+*/
 static Result CompileDo(Node *node, bool linkage, Compiler *c)
 {
-
   Node *assigns = NodeChild(node, 0);
   Node *stmts = NodeChild(node, 1);
   u32 num_assigns = NumNodeChildren(assigns);
-  u32 num_assigned = 0;
+  u32 assign_num = 0;
   u32 i;
 
+  /* extend env for assigns */
   if (num_assigns > 0) {
     PushConst(IntVal(num_assigns), c->chunk);
     PushByte(OpTuple, c->chunk);
     PushByte(OpExtend, c->chunk);
     c->env = ExtendFrame(c->env, num_assigns);
-  }
 
-  /* pre-define all def statements */
-  for (i = 0; i < NumNodeChildren(stmts); i++) {
-    Node *stmt = NodeChild(stmts, i);
-    Val var;
+    /* pre-define all def statements */
+    assign_num = 0;
+    for (i = 0; i < NumNodeChildren(stmts); i++) {
+      Node *stmt = NodeChild(stmts, i);
+      Val var;
 
-    /* keep the assignment slots aligned */
-    if (stmt->type == LetNode) {
-      num_assigned++;
-      continue;
+      /* keep the assignment slots aligned */
+      if (stmt->type == LetNode) {
+        assign_num++;
+        continue;
+      }
+      if (stmt->type != DefNode) continue;
+
+      var = NodeValue(NodeChild(stmt, 0));
+      FrameSet(c->env, assign_num, var);
+      assign_num++;
     }
-    if (stmt->type != DefNode) continue;
-
-    var = NodeValue(NodeChild(stmt, 0));
-    FrameSet(c->env, num_assigned, var);
-    num_assigned++;
   }
 
-  num_assigned = 0;
+  assign_num = 0;
   for (i = 0; i < NumNodeChildren(stmts); i++) {
     Node *stmt = NodeChild(stmts, i);
     Result result;
     bool is_last = i == NumNodeChildren(stmts) - 1;
     bool stmt_linkage = is_last ? linkage : LinkNext;
 
-    if (stmt->type == LetNode) {
+    if (stmt->type == LetNode || stmt->type == DefNode) {
       Node *var = NodeChild(stmt, 0);
       Node *value = NodeChild(stmt, 1);
 
@@ -280,38 +407,15 @@ static Result CompileDo(Node *node, bool linkage, Compiler *c)
       if (!result.ok) return result;
 
       PushNodePos(var, c);
-      PushConst(IntVal(num_assigned), c->chunk);
+      PushConst(IntVal(assign_num), c->chunk);
       PushByte(OpDefine, c->chunk);
-      FrameSet(c->env, num_assigned, NodeValue(var));
-      num_assigned++;
-
-      if (is_last) {
-        /* the last statement must produce a result */
-        PushConst(Nil, c->chunk);
-      }
-    } else if (stmt->type == DefNode) {
-      Node *var = NodeChild(stmt, 0);
-      Node *value = NodeChild(stmt, 1);
-
-      result = CompileExpr(value, stmt_linkage, c);
-      if (!result.ok) return result;
-
-      PushNodePos(var, c);
-      PushConst(IntVal(num_assigned), c->chunk);
-      PushByte(OpDefine, c->chunk);
-      num_assigned++;
-
-      if (is_last) {
-        /* the last statement must produce a result */
-        PushConst(Nil, c->chunk);
-      }
+      FrameSet(c->env, assign_num, NodeValue(var));
+      assign_num++;
+      if (is_last) PushConst(Nil, c->chunk);
     } else {
       result = CompileExpr(stmt, stmt_linkage, c);
       if (!result.ok) return result;
-      if (!is_last) {
-        /* discard each statement result except the last */
-        PushByte(OpPop, c->chunk);
-      }
+      if (!is_last) PushByte(OpPop, c->chunk);
     }
   }
 
@@ -326,6 +430,19 @@ static Result CompileDo(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* An ExportNode takes the current env frame and creates a map of each assigned
+variable. It then redefines the current module as the exported map.
+
+  map
+  ; for each assigned variable n, with matching var:
+  const <n>
+  lookup
+  const <var>
+  put
+  dup   ; duplicate map to redefine it and return it
+  const <module env position>
+  define
+*/
 static Result CompileExport(Node *node, bool linkage, Compiler *c)
 {
   u32 num_exports = NumNodeChildren(node);
@@ -363,6 +480,25 @@ static bool IsPrimitiveCall(Node *op, Compiler *c)
   return FrameNum(c->env, NodeValue(op)) == 0;
 }
 
+/* Each argument in a call is evaluated left-to-right (placing them in reverse
+order on the stack), followed by the operator. Then OpApply calls the function.
+If the node is within a tail node, the stack should already be set up with the
+correct return address before this node is evaluated, so no linking is done—this
+implements tail-call recursion. Otherwise, before the call is compiled, the link
+information is compiled to return to the position after the call. Primitive
+functions don't require linkage info, since they don't jump anywhere, but a
+return instruction must be added if the node is in a tail node.
+
+  const <after>   ; linkage if not a tail call
+  link
+  ; for each argument n:
+  <code for n>
+  <code for operator>
+  const <num_args>
+  apply
+after:
+  ; if the call is primitive and a tail call, a return op is added here
+*/
 static Result CompileCall(Node *node, bool linkage, Compiler *c)
 {
   Node *op = NodeChild(node, 0);
@@ -370,10 +506,6 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   u32 i, link, link_ref;
   Result result;
   bool is_primitive;
-
-  if (op->type == IDNode && NodeValue(op) == SymSet) {
-    return CompileSet(node, linkage, c);
-  }
 
   is_primitive = IsPrimitiveCall(op, c);
 
@@ -406,6 +538,12 @@ static Result CompileCall(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* Redefines a variable to the value on the stack
+
+  dup
+  const <var>
+  define
+*/
 static Result CompileSet(Node *node, bool linkage, Compiler *c)
 {
   u32 num_args = NumNodeChildren(node) - 1;
@@ -440,6 +578,29 @@ static Result CompileSet(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* A lambda creates a function, whose body is compiled just afterwards. If the
+lambda has any parameters, the body defines them in a new frame. Parameters are
+passed in reverse order on the stack, so the lambda defines them in reverse to
+place them in the frame in the order they appear in the source code. The body is
+compiled as a tail node, which results in a return op at the end of the body.
+
+  const body
+  const <num_params>
+  lambda
+  const after
+  jump
+body:
+  <num_params>
+  tuple
+  extend
+
+  ; for each param n:
+  const <num_params - n - 1>
+  define
+
+  <lambda body>
+after:
+*/
 static Result CompileLambda(Node *node, bool linkage, Compiler *c)
 {
   Node *params = NodeChild(node, 0);
@@ -480,6 +641,19 @@ static Result CompileLambda(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/*
+  <predicate code>
+  const true_branch
+  ; false branch:
+  pop   ; discard predicate result
+  <alternative code>
+  const after   ; if linkage is return, this jump is omitted
+  jump
+true_branch:
+  pop   ; discard predicate result
+  <consequent code>
+after:
+*/
 static Result CompileIf(Node *node, bool linkage, Compiler *c)
 {
   Node *predicate = NodeChild(node, 0);
@@ -515,6 +689,19 @@ static Result CompileIf(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* For `a and b`:
+
+  <a code>
+  const next
+  branch
+  ; a is false:
+  const after   ; if linkage is return, a return op is emitted here instead
+  jump
+next:
+  pop   ; discard a result
+  <b code>
+after:
+*/
 static Result CompileAnd(Node *node, bool linkage, Compiler *c)
 {
   Node *a = NodeChild(node, 0);
@@ -547,6 +734,15 @@ static Result CompileAnd(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* For `a or b`:
+
+  <a code>
+  const after
+  branch
+  pop   ; discard a result
+  <b code>
+after:
+*/
 static Result CompileOr(Node *node, bool linkage, Compiler *c)
 {
   Node *a = NodeChild(node, 0);
@@ -569,6 +765,14 @@ static Result CompileOr(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* A ListNode starts with `nil`, then compiles each list item from back to
+front, prepending each onto the result.
+
+  nil
+  ; for each item n:
+  <code for num_items - n - 1>
+  pair
+*/
 static Result CompileList(Node *node, bool linkage, Compiler *c)
 {
   u32 i;
@@ -585,6 +789,14 @@ static Result CompileList(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* A TupleNode creates a tuple, then compiles each item and sets it.
+
+  tuple
+  ; for each item n:
+  <code for n>
+  const n
+  set
+*/
 static Result CompileTuple(Node *node, bool linkage, Compiler *c)
 {
   u32 i, num_items = NumNodeChildren(node);
@@ -604,6 +816,15 @@ static Result CompileTuple(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* A MapNode creates an empty map, and for each entry compiles the value and
+sets it in the map under its key.
+
+  map
+  ; for each key, value pair:
+  <code for value>
+  const <key>
+  put
+*/
 static Result CompileMap(Node *node, bool linkage, Compiler *c)
 {
   u32 i, num_items = NumNodeChildren(node) / 2;
@@ -627,6 +848,12 @@ static Result CompileMap(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* Strings are stored in the symbol table, and use a special opcode to fetch
+their name.
+
+  const <string symbol>
+  str
+*/
 static Result CompileString(Node *node, bool linkage, Compiler *c)
 {
   Val sym = NodeValue(node);
@@ -637,6 +864,13 @@ static Result CompileString(Node *node, bool linkage, Compiler *c)
   return CompileOk();
 }
 
+/* Since the compiler keeps track of what symbols are defined and where in the
+environment, the runtime only needs the variable's relative environment position
+to find it.
+
+  const <env position>
+  lookup
+*/
 static Result CompileVar(Node *node, bool linkage, Compiler *c)
 {
   Val id = NodeValue(node);
@@ -646,14 +880,13 @@ static Result CompileVar(Node *node, bool linkage, Compiler *c)
   PushConst(IntVal(def), c->chunk);
   PushByte(OpLookup, c->chunk);
 
-  if (IsPrimitiveCall(node, c)) {
-    /* TODO: wrap the primitive in a lambda, so it returns correctly when called */
-  }
-
   CompileLinkage(linkage, c);
   return CompileOk();
 }
 
+/*
+  const <value>
+*/
 static Result CompileConst(Node *node, bool linkage, Compiler *c)
 {
   Val value = NodeValue(node);

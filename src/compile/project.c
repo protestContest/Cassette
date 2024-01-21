@@ -2,10 +2,20 @@
 A project is a list of files that are compiled into a chunk, which can be run by
 the VM. It follows this process:
 
-- Each file is parsed, producing an AST (specifically, a ModuleNode).
-- Starting with the entry file, each file's AST is scanned for imports. Any
-  imported modules are added to a build list.
-- Each AST in the build list is compiled into a single chunk.
+- Parse files: Each file is parsed, producing a ModuleNode. Each module has a
+  name, a list of import nodes, a body, and a filename node. The entry script
+  module name is always "*main*".
+- Scan dependencies: Only modules which are imported in the project are compiled
+  into a chunk. Starting with the main module, each module in a scan queue is
+  added to the build list, and its imports are added to the scan queue. The
+  build list includes all imported modules in order of dependency.
+- Each module in the build list is compiled into the chunk. The chunk's high-
+  level format is:
+    - If there are imported modules, extend the env with a frame for module
+      definitions.
+    - Each non-main module is compiled as a lambda, which is then defined in the
+      module frame.
+    - The main module is compiled, not as a lambda, ending with "halt".
 */
 
 #include "project.h"
@@ -21,12 +31,12 @@ the VM. It follows this process:
 #include "univ/system.h"
 
 typedef struct {
-  Options opts;
-  ObjVec modules;
-  HashMap mod_map;
-  SymbolTable symbols;
-  ObjVec manifest;
-  ObjVec build_list;
+  Options opts;         /* CLI options */
+  ObjVec modules;       /* List of module ASTs */
+  HashMap mod_map;      /* Map from module name to index */
+  SymbolTable symbols;  /* Table for parsed symbols and filenames */
+  ObjVec manifest;      /* List of source files */
+  ObjVec build_list;    /* List of module ASTs to compile */
 } Project;
 
 static void InitProject(Project *project, Options opts);
@@ -44,10 +54,13 @@ Result BuildProject(Options opts)
 
   InitProject(&project, opts);
 
+  /* Copy project filenames into manifest */
   for (i = 0; i < opts.num_files; i++) {
-    ObjVecPush(&project.manifest, CopyStr(opts.filenames[i], StrLen(opts.filenames[i])));
+    char *filename = CopyStr(opts.filenames[i], StrLen(opts.filenames[i]));
+    ObjVecPush(&project.manifest, filename);
   }
 
+  /* Copy stdlib module filenames into manifest */
   if (opts.stdlib_path) {
     DirContents(opts.stdlib_path, "ct", &project.manifest);
   }
@@ -94,49 +107,59 @@ static Result ParseModules(Project *project)
 
   for (i = 0; i < project->manifest.count; i++) {
     char *filename = project->manifest.items[i];
+    Node *module;
 
     result = ParseFile(filename, &project->symbols);
     if (!result.ok) return result;
+    module = ResultItem(result);
 
-    if (project->opts.debug) {
-      PrintAST(ResultItem(result), &project->symbols);
-    }
+    if (project->opts.debug) PrintAST(module, &project->symbols);
 
-    if (!HashMapContains(&project->mod_map, ModuleName(ResultItem(result)))) {
-      HashMapSet(&project->mod_map, ModuleName(ResultItem(result)), project->modules.count);
-      ObjVecPush(&project->modules, ResultItem(result));
+    /* the entry module is always named "*main*" */
+    if (i == 0) {
+      ModuleName(module) = MainModule;
+      HashMapSet(&project->mod_map, ModuleName(module), project->modules.count);
+      ObjVecPush(&project->modules, module);
+    } else {
+      /* skip unnamed modules */
+      if (ModuleName(module) == MainModule) continue;
+
+      /* return an error for duplicate modules */
+      if (HashMapContains(&project->mod_map, ModuleName(module))) {
+        char *filename = SymbolName(ModuleFile(module), &project->symbols);
+        return ErrorResult("Duplicate module definition", filename, 0);
+      }
+
+      HashMapSet(&project->mod_map, ModuleName(module), project->modules.count);
+      ObjVecPush(&project->modules, module);
     }
   }
 
   return result;
 }
 
-/* starting with the entry module, assemble a list of modules in order of dependency */
 static Result ScanDependencies(Project *project)
 {
-  IntVec stack;
+  IntVec queue;
   HashMap seen;
-  u32 i;
+  u32 cur, i;
 
   /* stack of modules to scan */
-  InitVec(&stack, sizeof(u32), 8);
+  InitVec(&queue, sizeof(u32), 1);
   InitHashMap(&seen);
 
-  /* start with the entry file (the first file given) */
-  IntVecPush(&stack, ModuleName(VecRef(&project->modules, 0)));
+  /* start with the entry file */
+  IntVecPush(&queue, MainModule);
 
-  while (stack.count > 0) {
-    Val name = VecPop(&stack);
+  cur = 0;
+  while (cur < queue.count) {
+    Val name = VecRef(&queue, cur++);
     Node *module, *imports;
 
-    if (HashMapContains(&seen, name)) continue;
-
-    Assert(HashMapContains(&project->mod_map, name));
     module = VecRef(&project->modules, HashMapGet(&project->mod_map, name));
 
     /* add current module to build list */
     ObjVecPush(&project->build_list, module);
-    HashMapSet(&seen, name, 1);
 
     /* add each of the module's imports to the stack */
     imports = ModuleImports(module);
@@ -144,50 +167,53 @@ static Result ScanDependencies(Project *project)
       Node *import = NodeChild(imports, i);
       Val import_name = NodeValue(NodeChild(import, 0));
 
+      /* skip modules we've already seen */
+      if (HashMapContains(&seen, import_name)) continue;
+
       /* make sure we know about the imported module */
       if (!HashMapContains(&project->mod_map, import_name)) {
         char *filename = SymbolName(ModuleFile(module), &project->symbols);
         DestroyHashMap(&seen);
-        DestroyVec(&stack);
+        DestroyVec(&queue);
         return ErrorResult("Module not found", filename, import->pos);
       }
 
-      /* add import to the stack if it's not already in the build list */
-      if (!HashMapContains(&seen, import_name)) {
-        IntVecPush(&stack, import_name);
-      }
+      IntVecPush(&queue, import_name);
+      HashMapSet(&seen, name, 1);
     }
   }
 
   DestroyHashMap(&seen);
-  DestroyVec(&stack);
+  DestroyVec(&queue);
 
-  return ValueResult(Nil);
+  return OkResult();
 }
 
-/* compiles a list of modules into a chunk that can be run */
 static Result CompileProject(Project *project)
 {
   u32 i;
   Result result;
   Compiler c;
-  u32 num_modules = project->build_list.count - 1; /* exclude entry script */
+  u32 num_modules = project->build_list.count;
   Chunk *chunk = Alloc(sizeof(Chunk));
 
   InitChunk(chunk);
-  InitCompiler(&c, &project->symbols, &project->modules, &project->mod_map, chunk);
+  InitCompiler(&c, &project->symbols, &project->modules,
+               &project->mod_map, chunk);
 
   /* set up env and pre-define all modules */
   c.env = CompileEnv(num_modules);
-  CompileModuleFrame(num_modules, &c);
-  for (i = 0; i < num_modules; i++) {
-    Node *module = VecRef(&project->build_list, num_modules - i);
-    FrameSet(c.env, i, ModuleName(module));
+  if (num_modules > 1) {
+    CompileModuleFrame(num_modules - 1, &c);
+    for (i = 0; i < num_modules - 1; i++) {
+      Node *module = VecRef(&project->build_list, num_modules - 1 - i);
+      FrameSet(c.env, i, ModuleName(module));
+    }
   }
 
   /* compile each module */
-  for (i = 0; i < num_modules + 1; i++) {
-    Node *module = VecRef(&project->build_list, num_modules - i);
+  for (i = 0; i < num_modules; i++) {
+    Node *module = VecRef(&project->build_list, num_modules - 1 - i);
     result = CompileModule(module, &c);
     if (!result.ok) break;
   }

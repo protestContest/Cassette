@@ -13,7 +13,11 @@ Frame *CompileEnv(u32 num_modules)
     FrameSet(env, i, primitives[i].name);
   }
 
-  return ExtendFrame(env, num_modules);
+  if (num_modules > 1) {
+    return ExtendFrame(env, num_modules - 1);
+  } else {
+    return env;
+  }
 }
 
 Frame *ExtendFrame(Frame *parent, u32 size)

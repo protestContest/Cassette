@@ -65,13 +65,17 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
 {
   Val type;
   if (!IsTuple(cmd, mem)) return ErrorResult("Invalid window command", 0, 0);
-  if (TupleCount(cmd, mem) == 0) return ErrorResult("Invalid window command", 0, 0);
+  if (TupleCount(cmd, mem) == 0) {
+    return ErrorResult("Invalid window command", 0, 0);
+  }
   type = TupleGet(cmd, 0, mem);
   if (!IsSym(type)) return ErrorResult("Invalid window command", 0, 0);
 
   if (type == SymPixel) {
     Val color, x, y;
-    if (TupleCount(cmd, mem) != 4) return ErrorResult("Invalid window command", 0, 0);
+    if (TupleCount(cmd, mem) != 4) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
     x = TupleGet(cmd, 1, mem);
     y = TupleGet(cmd, 2, mem);
     color = TupleGet(cmd, 3, mem);
@@ -82,7 +86,9 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     return ValueResult(Ok);
   } else if (type == SymClear) {
     Val color;
-    if (TupleCount(cmd, mem) != 2) return ErrorResult("Invalid window command", 0, 0);
+    if (TupleCount(cmd, mem) != 2) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
     color = TupleGet(cmd, 1, mem);
     if (!IsColor(color, mem)) return ErrorResult("Invalid color", 0, 0);
 
@@ -91,11 +97,15 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
   } else if (type == SymText) {
     Val string, x, y;
     char *text;
-    if (TupleCount(cmd, mem) != 4) return ErrorResult("Invalid window command", 0, 0);
+    if (TupleCount(cmd, mem) != 4) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
     string = TupleGet(cmd, 1, mem);
     x = TupleGet(cmd, 2, mem);
     y = TupleGet(cmd, 3, mem);
-    if (!IsBinary(string, mem)) return ErrorResult("Invalid window command", 0, 0);
+    if (!IsBinary(string, mem)) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
     if (!IsNum(x, mem)) return ErrorResult("Invalid window command", 0, 0);
     if (!IsNum(y, mem)) return ErrorResult("Invalid window command", 0, 0);
 
@@ -106,7 +116,9 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     return ValueResult(Ok);
   } else if (type == SymLine) {
     Val x1, y1, x2, y2;
-    if (TupleCount(cmd, mem) != 5) return ErrorResult("Invalid window command", 0, 0);
+    if (TupleCount(cmd, mem) != 5) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
     x1 = TupleGet(cmd, 1, mem);
     y1 = TupleGet(cmd, 2, mem);
     x2 = TupleGet(cmd, 3, mem);
@@ -121,17 +133,24 @@ Result WindowWrite(void *context, Val cmd, Mem *mem)
     return ValueResult(Ok);
   } else if (type == SymBlit) {
     Val img, x, y, width, height;
-    if (TupleCount(cmd, mem) != 6) return ErrorResult("Invalid window command", 0, 0);
+    if (TupleCount(cmd, mem) != 6) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
     img = TupleGet(cmd, 1, mem);
     x = TupleGet(cmd, 2, mem);
     y = TupleGet(cmd, 3, mem);
     width = TupleGet(cmd, 4, mem);
     height = TupleGet(cmd, 5, mem);
     if (!IsBinary(img, mem)) return ErrorResult("Invalid window command", 0, 0);
-    if (!IsInt(width) || !IsInt(height)) return ErrorResult("Invalid window command", 0, 0);
-    if (!IsInt(x) || !IsInt(y)) return ErrorResult("Invalid window command", 0, 0);
+    if (!IsInt(width) || !IsInt(height)) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
+    if (!IsInt(x) || !IsInt(y)) {
+      return ErrorResult("Invalid window command", 0, 0);
+    }
 
-    CanvasBlit(BinaryData(img, mem), RawInt(x), RawInt(y), RawInt(width), RawInt(height), (Canvas*)context);
+    CanvasBlit(BinaryData(img, mem), RawInt(x), RawInt(y), RawInt(width),
+               RawInt(height), (Canvas*)context);
     return ValueResult(Ok);
   } else {
     return ErrorResult("Invalid window command", 0, 0);
@@ -150,8 +169,12 @@ Result WindowSet(void *context, Val key, Val value, Mem *mem)
     u32 size;
     if (IsTuple(value, mem) && TupleCount(value, mem) == 2) {
       Val bin = TupleGet(value, 0, mem);
-      if (!IsBinary(bin, mem)) return ErrorResult("Expected {string, integer}", 0, 0);
-      if (!IsInt(TupleGet(value, 1, mem))) return ErrorResult("Expected {string, integer}", 0, 0);
+      if (!IsBinary(bin, mem)) {
+        return ErrorResult("Expected {string, integer}", 0, 0);
+      }
+      if (!IsInt(TupleGet(value, 1, mem))) {
+        return ErrorResult("Expected {string, integer}", 0, 0);
+      }
       filename = CopyStr(BinaryData(bin, mem), BinaryCount(bin, mem));
       size = RawInt(TupleGet(value, 1, mem));
     } else if (IsBinary(value, mem)) {
@@ -192,7 +215,8 @@ Result WindowGet(void *context, Val key, Mem *mem)
   } else if (key == SymHeight) {
     return ValueResult(IntVal(canvas->height));
   } else if (key == SymFont) {
-    Val font = BinaryFrom(canvas->font_filename, StrLen(canvas->font_filename), mem);
+    Val font = BinaryFrom(canvas->font_filename,
+                          StrLen(canvas->font_filename), mem);
     return ValueResult(font);
   } else if (key == SymFontSize) {
     return ValueResult(IntVal(canvas->font_size));

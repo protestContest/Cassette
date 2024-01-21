@@ -16,7 +16,7 @@ the op code identifies a normal instruction. */
 /* control flow */
 #define OpNoop    0x00
 #define OpHalt    0x01  /* halts execution */
-#define OpError   0x02  /* halts execution, indicating an error (with optional message stack[0]) */
+#define OpError   0x02  /* halts execution, indicating an error */
 #define OpJump    0x03  /* pc <- pc + pop(stack) */
 #define OpBranch  0x04  /* jumps if stack[1] is not false or nil */
 
@@ -42,13 +42,22 @@ the op code identifies a normal instruction. */
 #define OpLookup  0x13  /* stack[0] <- lookup(env, stack[0]) */
 
 /* application */
-#define OpLink    0x14  /* stack[0] <- pc + stack[0]; push(env); push(link); link <- #stack */
-#define OpReturn  0x15  /* link <- stack[1]; env <- stack[2]; pc <- stack[3]; stack[3] <- stack[0]; drop(3) */
-#define OpLambda  0x16  /* stack[0] <- make-func(stack[0], pc + stack[1], env); drop(1) */
-#define OpApply   0x17  /* application: depends on what stack[1] is (see below) */
+#define OpLink    0x14  /* stack[0] <- pc + stack[0]
+                           push(env)
+                           push(link)
+                           link <- #stack */
+#define OpReturn  0x15  /* link <- stack[1]; env <- stack[2]
+                           pc <- stack[3]
+                           stack[3] <- stack[0]
+                           drop(3) */
+#define OpLambda  0x16  /* stack[0] <- make-func(stack[0], pc + stack[1], env)
+                           drop(1) */
+#define OpApply   0x17  /* application: see below */
 
 /* Application
-  num-args = pop(stack); func = pop(stack)
+  num-args = pop(stack)
+  func = pop(stack)
+
   primitive?(func):
     result = do-primitive(func, stack[0..num-args])
     drop(num-args)

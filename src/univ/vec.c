@@ -24,7 +24,8 @@ u32 GrowVec(void *vec, u32 item_size, u32 amount)
 {
   u32 old_count = ((Vec*)vec)->count;
   if (((Vec*)vec)->count + amount >= ((Vec*)vec)->capacity) {
-    ResizeVec(vec, item_size, Max(2*((Vec*)vec)->capacity, ((Vec*)vec)->count + amount));
+    u32 capacity = Max(2*((Vec*)vec)->capacity, ((Vec*)vec)->count + amount);
+    ResizeVec(vec, item_size, capacity);
   }
   ((Vec*)vec)->count += amount;
   return old_count;

@@ -13,10 +13,16 @@ Result SerialOpen(Val opts, Mem *mem)
   Val path;
   SerialPort *port;
 
-  if (TupleCount(opts, mem) != 2) return ErrorResult("Expected {path, speed}", 0, 0);
+  if (TupleCount(opts, mem) != 2) {
+    return ErrorResult("Expected {path, speed}", 0, 0);
+  }
   path = TupleGet(opts, 0, mem);
-  if (!IsBinary(path, mem)) return ErrorResult("Expected path to be a string", 0, 0);
-  if (!IsInt(TupleGet(opts, 1, mem))) return ErrorResult("Expected speed to be an integer", 0, 0);
+  if (!IsBinary(path, mem)) {
+    return ErrorResult("Expected path to be a string", 0, 0);
+  }
+  if (!IsInt(TupleGet(opts, 1, mem))) {
+    return ErrorResult("Expected speed to be an integer", 0, 0);
+  }
 
   port = Alloc(sizeof(SerialPort));
   port->path = CopyStr(BinaryData(path, mem), BinaryCount(path, mem));

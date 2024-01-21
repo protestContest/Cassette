@@ -4,11 +4,11 @@
 #include "univ/vec.h"
 
 typedef struct {
-  ByteVec code;
-  IntVec constants;
-  SymbolTable symbols;
-  ByteVec source_map;
-  IntVec file_map;
+  ByteVec code;         /* OpCodes */
+  IntVec constants;     /* Constant array */
+  SymbolTable symbols;  /* Symbol names */
+  ByteVec source_map;   /* Map from code index to file index */
+  IntVec file_map;      /* Map from code index to file name */
 } Chunk;
 
 #define ChunkRef(chunk, i)        ((chunk)->code.items[i])

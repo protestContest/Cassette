@@ -86,7 +86,9 @@ char *StrReplace(char *str, char *find, char *replacement)
   newstr = Alloc(new_len + 1);
   Copy(str, newstr, index);
   Copy(replacement, newstr + index, rep_len);
-  Copy(str + index + find_len, newstr + index + rep_len, len - find_len - index);
+  Copy(str + index + find_len,
+       newstr + index + rep_len,
+       len - find_len - index);
   newstr[new_len] = 0;
   return newstr;
 }

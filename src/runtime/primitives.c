@@ -142,19 +142,31 @@ Result DoPrimitive(Val id, u32 num_args, VM *vm)
 Result Access(Val val, Val index, VM *vm)
 {
   if (IsPair(val)) {
-    if (!IsInt(index)) return RuntimeError("Index for a list must be an integer", vm);
+    if (!IsInt(index)) {
+      return RuntimeError("Index for a list must be an integer", vm);
+    }
     if (RawInt(index) < 0) return RuntimeError("Index out of bounds", vm);
     return ValueResult(ListGet(val, RawInt(index), &vm->mem));
   } else if (IsTuple(val, &vm->mem)) {
-    if (!IsInt(index)) return RuntimeError("Index for a tuple must be an integer", vm);
-    if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleCount(val, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+    if (!IsInt(index)) {
+      return RuntimeError("Index for a tuple must be an integer", vm);
+    }
+    if (RawInt(index) < 0 || (u32)RawInt(index) >= TupleCount(val, &vm->mem)) {
+      return RuntimeError("Index out of bounds", vm);
+    }
     return ValueResult(TupleGet(val, RawInt(index), &vm->mem));
   } else if (IsBinary(val, &vm->mem)) {
-    if (!IsInt(index)) return RuntimeError("Index for a binary must be an integer", vm);
-    if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryCount(val, &vm->mem)) return RuntimeError("Index out of bounds", vm);
+    if (!IsInt(index)) {
+      return RuntimeError("Index for a binary must be an integer", vm);
+    }
+    if (RawInt(index) < 0 || (u32)RawInt(index) >= BinaryCount(val, &vm->mem)) {
+      return RuntimeError("Index out of bounds", vm);
+    }
     return ValueResult(IntVal(BinaryData(val, &vm->mem)[RawInt(index)]));
   } else if (IsMap(val, &vm->mem)) {
-    if (!MapContains(val, index, &vm->mem)) return RuntimeError("Undefined map key", vm);
+    if (!MapContains(val, index, &vm->mem)) {
+      return RuntimeError("Undefined map key", vm);
+    }
     return ValueResult(MapGet(val, index, &vm->mem));
   } else {
     return RuntimeError("Tried to access a non-collection", vm);
@@ -180,7 +192,9 @@ static char *TypeName(Val type)
 static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
 {
   u32 i;
-  if (num_args != num_params) return RuntimeError("Wrong number of arguments", vm);
+  if (num_args != num_params) {
+    return RuntimeError("Wrong number of arguments", vm);
+  }
   for (i = 0; i < num_params; i++) {
     if (types[i] == AnyType) continue;
     if (types[i] == NumType) {
@@ -208,7 +222,8 @@ static Result CheckTypes(u32 num_args, u32 num_params, Val *types, VM *vm)
 static Result OkError(Result result, Mem *mem)
 {
   char *message = ResultError(result)->message;
-  return ValueResult(Pair(Error, BinaryFrom(message, StrLen(message), mem), mem));
+  return ValueResult(
+    Pair(Error, BinaryFrom(message, StrLen(message), mem), mem));
 }
 
 static Result VMHead(u32 num_args, VM *vm)
@@ -236,7 +251,7 @@ static Result VMPanic(u32 num_args, VM *vm)
   if (!result.ok) return result;
 
   if (IsBinary(StackRef(vm, 0), &vm->mem)) {
-    return RuntimeError(CopyStr(BinaryData(StackRef(vm, 0), &vm->mem), BinaryCount(StackRef(vm, 0), &vm->mem)), vm);
+    return RuntimeError(CopyBin(StackRef(vm, 0), &vm->mem), vm);
   } else {
     return RuntimeError("Unknown error", vm);
   }
@@ -277,7 +292,7 @@ static Result VMForceUnwrap(u32 num_args, VM *vm)
   } else {
     Val error = Tail(value, &vm->mem);
     if (IsBinary(error, &vm->mem)) {
-      return RuntimeError(CopyStr(BinaryData(error, &vm->mem), BinaryCount(error, &vm->mem)), vm);
+      return RuntimeError(CopyBin(error, &vm->mem), vm);
     } else {
       return RuntimeError("Unwrap error", vm);
     }
@@ -609,11 +624,14 @@ static Result VMCat(u32 num_args, VM *vm)
 
   if (IsPair(StackRef(vm, 0)) && IsPair(StackRef(vm, 1))) {
     concatenated = ListCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
-  } else if (IsTuple(StackRef(vm, 0), &vm->mem) && IsTuple(StackRef(vm, 1), &vm->mem)) {
+  } else if (IsTuple(StackRef(vm, 0), &vm->mem) &&
+             IsTuple(StackRef(vm, 1), &vm->mem)) {
     concatenated = TupleCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
-  } else if (IsBinary(StackRef(vm, 0), &vm->mem) && IsBinary(StackRef(vm, 1), &vm->mem)) {
+  } else if (IsBinary(StackRef(vm, 0), &vm->mem) &&
+             IsBinary(StackRef(vm, 1), &vm->mem)) {
     concatenated = BinaryCat(StackRef(vm, 1), StackRef(vm, 0), &vm->mem);
-  } else if (IsMap(StackRef(vm, 0), &vm->mem) && IsMap(StackRef(vm, 1), &vm->mem)) {
+  } else if (IsMap(StackRef(vm, 0), &vm->mem) &&
+             IsMap(StackRef(vm, 1), &vm->mem)) {
     if (MapCount(StackRef(vm, 1), &vm->mem) == 0) {
       concatenated = StackRef(vm, 0);
     } else if (MapCount(StackRef(vm, 0), &vm->mem) == 0) {

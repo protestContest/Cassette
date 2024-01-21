@@ -58,7 +58,7 @@ void DestroyChunk(Chunk *chunk)
   DestroyVec(&chunk->file_map);
 }
 
-/* Pushes a byte into a chunk's code. Also updates the source map and file map. */
+/* Pushes a byte into a chunk's code, updating the source map and file map. */
 u32 PushByte(u8 byte, Chunk *chunk)
 {
   u32 pos = chunk->code.count;
@@ -68,7 +68,8 @@ u32 PushByte(u8 byte, Chunk *chunk)
   Assert(chunk->source_map.count > 0);
   VecPeek(&chunk->source_map, 0)++;
   if (VecPeek(&chunk->source_map, 0) == 255) {
-    /* If the current source map entry is bigger than a byte can hold, make a new entry */
+    /* If the current source map entry is bigger than a byte can hold, make a
+    new entry */
     PushSourcePos(0, chunk);
   }
 
@@ -81,7 +82,7 @@ u32 PushByte(u8 byte, Chunk *chunk)
   return pos;
 }
 
-/* Returns the index of a constant from a chunk's const array, or -1 if not found */
+/* Returns the index of a constant from the const array, or -1 if not found. */
 static i32 FindConst(Val value, Chunk *chunk)
 {
   i32 i;
@@ -93,7 +94,7 @@ static i32 FindConst(Val value, Chunk *chunk)
   return -1;
 }
 
-/* Pushes a const into a chunk, returns its index */
+/* Pushes a const into a chunk, returns its index. */
 static u32 AddConst(Val value, Chunk *chunk)
 {
   IntVecPush(&chunk->constants, value);
@@ -101,9 +102,9 @@ static u32 AddConst(Val value, Chunk *chunk)
 }
 
 /* Pushes a constant op code into a chunk. If the constant is a positive integer
-   that fits in 14 bits, it pushes OpInt instead. If the constant is in the
-   const array, it uses its index, otherwise it adds it. If the index can't fit
-   in 15 bits, an error occurs. */
+that fits in 14 bits, it pushes OpInt instead. If the constant is in the const
+array, it uses its index, otherwise it adds it. If the index can't fit in 15
+bits, an error occurs. */
 u32 PushConst(Val value, Chunk *chunk)
 {
   u32 pos = chunk->code.count;
@@ -124,9 +125,8 @@ u32 PushConst(Val value, Chunk *chunk)
   return pos;
 }
 
-/* This patches two bytes at a given index as an OpInt or OpConst, with the
-   constant being the distance from a reference index to the current code
-   length */
+/* Patches two bytes at a given index as an OpInt or OpConst, with the constant
+being the distance from a reference index to the current code length. */
 void PatchConst(Chunk *chunk, u32 index, u32 ref)
 {
   u32 dist = chunk->code.count - ref;
@@ -144,10 +144,8 @@ void PatchConst(Chunk *chunk, u32 index, u32 ref)
   }
 }
 
-/* The file map is an array of (symbol, length) pairs, where the symbol's name is
-   a filename (in the chunk's symbol table), and the length is how many bytes of
-   code in the chunk map to the file. This lets us find the file for a specific
-   position in the code. */
+/* Pushes a new filename/position pair into the file map, and pushes a reset
+code into the source map. */
 void PushFilePos(Val filename, Chunk *chunk)
 {
   IntVecPush(&chunk->file_map, filename);
@@ -159,16 +157,17 @@ void PushFilePos(Val filename, Chunk *chunk)
 }
 
 /* Adds a new entry to the source map. If the previous entry's length was 0, it
-   is replaced. */
+is replaced. */
 void PushSourcePos(i32 pos, Chunk *chunk)
 {
-  u8 last_length;
-  i8 last_pos;
-
   if (chunk->source_map.count > 0) {
+    u8 last_length;
+    i8 last_pos;
+
     if (pos == 0) return;
     last_length = VecPeek(&chunk->source_map, 0);
     last_pos = (i8)VecPeek(&chunk->source_map, 1);
+
     if (last_length == 0 && last_pos != SourceMapReset) {
       pos += (i8)VecPeek(&chunk->source_map, 1);
       chunk->source_map.count -= 2;
@@ -195,7 +194,7 @@ char *ChunkFileAt(u32 pos, Chunk *chunk)
   u32 size = 0;
   u32 i;
 
-  /* step through each file map entry until the byte position falls with in one */
+  /* step thru each file map entry until the byte position falls within one */
   for (i = 0; i < chunk->file_map.count; i += 2) {
     if (size + chunk->file_map.items[i+1] > pos) {
       return SymbolName(chunk->file_map.items[i], &chunk->symbols);
@@ -338,13 +337,19 @@ Result DeserializeChunk(u8 *data, u32 size)
   u8 *cur = data;
 
   if (size < ChunkHeaderSize) return ErrorResult("Bad file: too small", 0, 0);
-  if (!MemEq(cur, chunk_tag, 4)) return ErrorResult("Bad file: tag mismatch", 0, 0);
+  if (!MemEq(cur, chunk_tag, 4)) {
+    return ErrorResult("Bad file: tag mismatch", 0, 0);
+  }
   cur += 4;
   size_read = ChunkHeaderSize + ChunkTrailerSize;
 
-  if (ReadShort(cur) != FormatVersion) return ErrorResult("Unsupported format", 0, 0);
+  if (ReadShort(cur) != FormatVersion) {
+    return ErrorResult("Unsupported format", 0, 0);
+  }
   cur += sizeof(u16);
-  if (ReadShort(cur) != VERSION) return ErrorResult("Unsupported runtime", 0, 0);
+  if (ReadShort(cur) != VERSION) {
+    return ErrorResult("Unsupported runtime", 0, 0);
+  }
   cur += sizeof(u16);
 
   chunk = Alloc(sizeof(Chunk));

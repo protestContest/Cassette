@@ -56,12 +56,12 @@ only exist in the heap. (Generally, an object pointer is refered to as a
 #define BoolVal(v)          ((v) ? True : False)
 #define IsNum(v,m)          (IsFloat(v) || IsInt(v))
 #define RawNum(v)           (IsFloat(v) ? RawFloat(v) : RawInt(v))
-#define IsZero(v)           ((IsFloat(v) && RawNum(v) == 0.0) || (IsInt(v) && RawInt(v) == 0))
 #define MulOverflows(a, b)  ((b) != 0 && (a) > RawInt(MaxIntVal) / (b))
 #define MulUnderflows(a, b) ((b) != 0 && (a) < RawInt(MinIntVal) / (b))
 #define AddOverflows(a, b)  ((b) > 0 && (a) > RawInt(MaxIntVal) - (b))
 #define AddUnderflows(a, b) ((b) < 0 && (a) < RawInt(MinIntVal) - (b))
 #define NumBinCells(size)   ((size) ? (((size) - 1) / 4 + 1) : 1)
+#define CopyBin(b, m)       CopyStr(BinaryData(b, m), BinaryCount(b, m))
 
 #define Nil                 0x7FE00000
 #define MaxIntVal           0x7FC7FFFF

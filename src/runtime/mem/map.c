@@ -202,7 +202,9 @@ static u32 NodeSetSize(Val node, Val key, u32 level, Mem *mem)
     } else if (key == Head(child, mem)) {
       return 2 + NewNodeSize(header);
     } else {
-      return 2 + NewInternalNodeSize(Head(child, mem), key, level + 1, mem) + NewNodeSize(header);
+      return 2
+        + NewInternalNodeSize(Head(child, mem), key, level + 1, mem)
+        + NewNodeSize(header);
     }
   }
 }

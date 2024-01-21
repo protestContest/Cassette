@@ -1,7 +1,5 @@
 #include "math.h"
 
-/* Based on this PCG algorithm: https://github.com/imneme/pcg-c-basic */
-
 u32 PopCount(u32 n)
 {
   n = n - ((n >> 1) & 0x55555555);

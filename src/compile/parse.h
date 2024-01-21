@@ -30,11 +30,14 @@
 #define MainModule      0x7FD09D97
 
 typedef enum {
+  /* Terminal nodes */
   NilNode,
-  NumNode,
-  SymbolNode,
-  StringNode,
   IDNode,
+  NumNode,
+  StringNode,
+  SymbolNode,
+
+  /* Non-terminal nodes */
   ListNode,
   TupleNode,
   MapNode,
@@ -46,11 +49,13 @@ typedef enum {
   LambdaNode,
   DefNode,
   LetNode,
+  SetNode,
   ExportNode,
   ImportNode,
   ModuleNode
 } NodeType;
 
+/* Terminal nodes have values; non-terminals have children */
 typedef struct {
   NodeType type;
   u32 pos;
@@ -66,8 +71,8 @@ typedef struct {
   SymbolTable *symbols;
 } Parser;
 
-Result ParseFile(char *filename, SymbolTable *symbols);
 void InitParser(Parser *p, SymbolTable *symbols);
+Result ParseFile(char *filename, SymbolTable *symbols);
 Result Parse(char *source, Parser *p);
 void FreeAST(Node *node);
 

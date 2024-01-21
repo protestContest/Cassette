@@ -34,8 +34,11 @@ Result DirectoryOpen(Val opts, Mem *mem)
   DirContext *ctx;
 
   if (TupleCount(opts, mem) != 1) return ErrorResult("Expected {path}", 0, 0);
-  if (!IsBinary(TupleGet(opts, 0, mem), mem)) return ErrorResult("Expected {path}", 0, 0);
-  path = CopyStr(BinaryData(TupleGet(opts, 0, mem), mem), BinaryCount(TupleGet(opts, 0, mem), mem));
+  if (!IsBinary(TupleGet(opts, 0, mem), mem)) {
+    return ErrorResult("Expected {path}", 0, 0);
+  }
+
+  path = CopyBin(TupleGet(opts, 0, mem), mem);
 
   if (!DirExists(path)) {
     Free(path);
@@ -115,23 +118,27 @@ Result DirectoryWrite(void *context, Val data, Mem *mem)
   char *name;
   char *path;
   if (!IsTuple(data, mem)) return ErrorResult("Expected {type, name}", 0, 0);
-  if (TupleCount(data, mem) != 2) return ErrorResult("Expected {type, name}", 0, 0);
+  if (TupleCount(data, mem) != 2) {
+    return ErrorResult("Expected {type, name}", 0, 0);
+  }
   type = TupleGet(data, 0, mem);
   if (!IsSym(type)) return ErrorResult("Expected {type, name}", 0, 0);
-  if (!IsBinary(TupleGet(data, 1, mem), mem)) return ErrorResult("Expected {type, name}", 0, 0);
-  name = CopyStr(BinaryData(TupleGet(data, 1, mem), mem), BinaryCount(TupleGet(data, 1, mem), mem));
+  if (!IsBinary(TupleGet(data, 1, mem), mem)) {
+    return ErrorResult("Expected {type, name}", 0, 0);
+  }
+  name = CopyBin(TupleGet(data, 1, mem), mem);
   path = JoinStr(ctx->path, name, '/');
   Free(name);
 
   if (type == SymFile) {
-    mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
+    mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix perm 0644 */
     int file = open(path, O_CREAT|O_WRONLY|O_EXCL, mode);
     Free(path);
     if (file == -1) return ErrorResult(strerror(errno), 0, 0);
     close(file);
     return ValueResult(Ok);
   } else if (type == SymDirectory) {
-    mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix permission 0644 */
+    mode_t mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR; /* unix perm 0644 */
     int file = mkdir(path, mode);
     Free(path);
     if (file == -1) return ErrorResult(strerror(errno), 0, 0);
