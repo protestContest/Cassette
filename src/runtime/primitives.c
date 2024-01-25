@@ -68,6 +68,7 @@ static Result VMSubStr(u32 num_args, VM *vm);
 static Result VMStuff(u32 num_args, VM *vm);
 static Result VMTrunc(u32 num_args, VM *vm);
 static Result VMSymName(u32 num_args, VM *vm);
+static Result VMDeviceList(u32 num_args, VM *vm);
 
 static PrimitiveDef primitives[] = {
   {"head",            0x7FD4FAFD, &VMHead},
@@ -122,6 +123,7 @@ static PrimitiveDef primitives[] = {
   {"stuff",           0x7FD2CC7F, &VMStuff},
   {"trunc",           0x7FD36865, &VMTrunc},
   {"symbol-name",     0x7FD0CEDC, &VMSymName},
+  {"device-list",     0x7FD44F43, &VMDeviceList}
 };
 
 PrimitiveDef *GetPrimitives(void)
@@ -1014,4 +1016,18 @@ static Result VMSymName(u32 num_args, VM *vm)
   sym = StackRef(vm, 0);
   name = SymbolName(sym, &vm->chunk->symbols);
   return ValueResult(BinaryFrom(name, StrLen(name), &vm->mem));
+}
+
+static Result VMDeviceList(u32 num_args, VM *vm)
+{
+  DeviceDriver *devices;
+  u32 num_devices = GetDevices(&devices);
+  u32 i;
+  Val list = Nil;
+
+  for (i = 0; i < num_devices; i++) {
+    list = Pair(devices[i].name, list, &vm->mem);
+  }
+
+  return ValueResult(list);
 }

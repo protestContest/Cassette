@@ -7,7 +7,6 @@
 #include "univ/str.h"
 #include "univ/math.h"
 #include "univ/system.h"
-#include <stdio.h>
 
 static Result RunInstruction(VM *vm);
 static void Return(Val value, VM *vm);

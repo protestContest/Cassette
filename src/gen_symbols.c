@@ -152,6 +152,7 @@ int main(void)
   printf("  {\"stuff\",           0x%08X, &VMStuff},\n", SymbolFor("stuff"));
   printf("  {\"trunc\",           0x%08X, &VMTrunc},\n", SymbolFor("trunc"));
   printf("  {\"symbol-name\",     0x%08X, &VMSymName},\n", SymbolFor("symbol-name"));
+  printf("  {\"device-list\",     0x%08X, &VMDeviceList},\n", SymbolFor("device-list"));
   printf("};\n");
 
   return 0;

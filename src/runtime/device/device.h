@@ -25,6 +25,7 @@ typedef Result (*DeviceGetFn)(void *context, Val key, Mem *mem);
 
 typedef struct {
   DeviceType type;
+  Val name;
   DeviceOpenFn open;
   DeviceCloseFn close;
   DeviceReadFn read;
@@ -34,6 +35,7 @@ typedef struct {
 } DeviceDriver;
 
 DeviceType GetDeviceType(Val symbol);
+u32 GetDevices(DeviceDriver **devices);
 
 Result DeviceOpen(DeviceType type, Val opts, Mem *mem);
 Result DeviceClose(Device *device, Mem *mem);

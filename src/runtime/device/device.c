@@ -16,6 +16,7 @@
 static DeviceDriver drivers[] = {
   {
     ConsoleDevice,
+    SymConsole,
     0, /* open */
     0, /* close */
     ConsoleRead,
@@ -25,13 +26,16 @@ static DeviceDriver drivers[] = {
   },
   {
     FileDevice,
+    SymFile,
     FileOpen,
     FileClose,
     FileRead,
     FileWrite,
     FileSet,
     FileGet},
-  { DirectoryDevice,
+  {
+    DirectoryDevice,
+    SymDirectory,
     DirectoryOpen,
     DirectoryClose,
     DirectoryRead,
@@ -41,6 +45,7 @@ static DeviceDriver drivers[] = {
   },
   {
     SerialDevice,
+    SymSerial,
     SerialOpen,
     SerialClose,
     SerialRead,
@@ -50,6 +55,7 @@ static DeviceDriver drivers[] = {
   },
   {
     SystemDevice,
+    SymSystem,
     0, /* open */
     0, /* close */
     0, /* read */
@@ -59,6 +65,7 @@ static DeviceDriver drivers[] = {
   },
   {
     WindowDevice,
+    SymWindow,
     WindowOpen,
     WindowClose,
     WindowRead,
@@ -80,6 +87,12 @@ DeviceType GetDeviceType(Val symbol)
   case SymWindow:     return WindowDevice;
   default: return -1;
   }
+}
+
+u32 GetDevices(DeviceDriver **devices)
+{
+  *devices = drivers;
+  return ArrayCount(drivers);
 }
 
 Result DeviceOpen(DeviceType type, Val opts, Mem *mem)
