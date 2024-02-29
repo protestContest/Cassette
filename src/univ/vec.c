@@ -58,6 +58,6 @@ void ResizeVec(void *vec, u32 item_size, u32 capacity)
 static void MaybeGrowVec(Vec *vec, u32 item_size)
 {
   if (vec->count >= vec->capacity) {
-    ResizeVec((Vec*)vec, item_size, 2*vec->capacity);
+    ResizeVec((Vec*)vec, item_size, Max(4, 2*vec->capacity));
   }
 }

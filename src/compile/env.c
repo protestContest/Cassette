@@ -1,24 +1,5 @@
 #include "env.h"
-#include "runtime/primitives.h"
 #include "univ/system.h"
-
-Frame *CompileEnv(u32 num_modules)
-{
-  PrimitiveDef *primitives = GetPrimitives();
-  u32 num_primitives = NumPrimitives();
-  Frame *env = ExtendFrame(0, num_primitives);
-  u32 i;
-
-  for (i = 0; i < num_primitives; i++) {
-    FrameSet(env, i, primitives[i].name);
-  }
-
-  if (num_modules > 1) {
-    return ExtendFrame(env, num_modules - 1);
-  } else {
-    return env;
-  }
-}
 
 Frame *ExtendFrame(Frame *parent, u32 size)
 {
@@ -28,7 +9,7 @@ Frame *ExtendFrame(Frame *parent, u32 size)
   frame->count = size;
   frame->items = Alloc(size * sizeof(Val));
   for (i = 0; i < size; i++) {
-    frame->items[i] = Nil;
+    frame->items[i] = 0;
   }
   return frame;
 }

@@ -1,54 +1,15 @@
-/*
-A module file is parsed into an AST of nodes, the root being a ModuleNode. Nodes
-are either terminal, in which case they contain a value, or non-terminal, in
-which case they contain a list of child nodes. This is the format of each node
-type's value (T = terminal, NT = non-terminal):
-
-- NilNode (T): The value `nil`.
-- IDNode (T): A symbol.
-- NumNode (T): A number, either a float or an int.
-- StringNode (T): A symbol, whose name is a string in the symbol table.
-- SymbolNode (T): A symbol intended to be a symbol constant.
-- ListNode (NT): List items.
-- TupleNode (NT): Tuple items.
-- MapNode (NT): Map entries, with each entry's key followed by its value.
-- AndNode (NT): Left-hand side, followed by right-hand side.
-- OrNode (NT): Left-hand side, followed by right-hand side.
-- IfNode (NT): Predicate, alternative, consequent. Default consequent is a
-  NilNode.
-- DoNode (NT): A ListNode of assignments, plus a ListNode of statements. Each
-  assignment node is an IDNode of a `let` or `def` in the block.
-- CallNode (NT): The function's node followed by its arguments. Access (`.`) and
-  operators (except for `and` and `or`) are also call nodes, with the operator
-  symbol as the function.
-- LambdaNode (NT): A ListNode of arguments, plus the body node. Each argument
-  node is an IDNode.
-- DefNode (NT): An IDNode (variable name) plus a LambdaNode.
-- LetNode (NT): An IDNode (variable name) plus the value node.
-- ExportNode (NT): IDNodes of variables to be exported.
-- ImportNode (NT): An IDNode of the module name, plus an IDNode of the alias. If
-  unspecified, the alias is the same as the module name. For unqualified imports
-  (`as *`), the alias is a NilNode.
-- ModuleNode (NT):
-    - IDNode, the module name. If unspecified, the module name is "*main*".
-    - ListNode, a list of ImportNodes.
-    - DoNode, the module body. If not a main module, the body's statements is
-      appended with an ExportNode.
-    - StringNode, the module's filename.
-
-Parsing generally follows this sequence:
-- Parse the module's name and imports
-- Parse the module's body as a DoNode. Each statement is parsed as an expression
-  with ParsePrec, which follows a precedence table.
-*/
-
 #include "parse.h"
-#include "project.h"
-#include "runtime/primitives.h"
+#include "ast.h"
 #include "univ/file.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
+
+
+typedef struct {
+  char *filename;
+  Lexer lex;
+} Parser;
 
 #define ExprNext(lex)       (rules[(lex)->token.type].prefix)
 #define PrecNext(lex)       (rules[(lex)->token.type].prec)
@@ -104,28 +65,17 @@ static Result ParseID(Parser *p);
 static Result ParseNum(Parser *p);
 static Result ParseString(Parser *p);
 
-static Val OpSymbol(TokenType token_type);
+static NodeType OpNode(TokenType token_type);
 
-static Node *MakeTerminal(NodeType type, u32 position, Val value);
-static Node *MakeNode(NodeType type, u32 position);
-static void SetNodeType(Node *node, NodeType type);
-static void FreeNode(Node *node);
-static bool IsTerminal(Node *node);
 static Result ParseFail(Result result, Node *node);
 
-void InitParser(Parser *p, SymbolTable *symbols)
-{
-  p->symbols = symbols;
-}
-
 /* A wrapper for ParseModule that handles opening/reading/closing the file */
-Result ParseFile(char *filename, SymbolTable *symbols)
+Result ParseFile(char *filename)
 {
   Parser p;
   Result result;
   char *source = ReadFile(filename);
   if (source == 0) return ErrorResult("Could not read file", filename, 0);
-  InitParser(&p, symbols);
   p.filename = filename;
   InitLexer(&p.lex, source, 0);
   SkipNewlines(&p.lex);
@@ -135,11 +85,12 @@ Result ParseFile(char *filename, SymbolTable *symbols)
 }
 
 /* Parses a single expression */
-Result Parse(char *source, Parser *p)
+Result Parse(char *source)
 {
-  InitLexer(&p->lex, source, 0);
-  SkipNewlines(&p->lex);
-  return ParseExpr(p);
+  Parser p;
+  InitLexer(&p.lex, source, 0);
+  SkipNewlines(&p.lex);
+  return ParseExpr(&p);
 }
 
 /* Returns a ModuleNode */
@@ -147,7 +98,8 @@ static Result ParseModule(Parser *p)
 {
   Result result;
   Node *module = MakeNode(ModuleNode, 0);
-  Val mod_name;
+  char *mod_name;
+  char *main = "*main*";
 
   /* module name */
   if (MatchToken(TokenModule, &p->lex)) {
@@ -156,8 +108,8 @@ static Result ParseModule(Parser *p)
     NodePush(module, ResultItem(result));
     mod_name = NodeValue(ResultItem(result));
   } else {
-    NodePush(module, MakeTerminal(IDNode, 0, MainModule));
-    mod_name = MainModule;
+    NodePush(module, MakeTerminal(IDNode, 0, main));
+    mod_name = main;
   }
 
   /* imports */
@@ -172,16 +124,15 @@ static Result ParseModule(Parser *p)
   if (!MatchToken(TokenEOF, &p->lex)) {
     return ParseFail(ParseError("Unexpected token", p), module);
   }
-  if (mod_name == MainModule) {
+
+  if (mod_name == main) {
     NodePush(module, ResultItem(result));
   } else {
     NodePush(module, WithExport(ResultItem(result), p));
   }
 
   /* filename */
-  NodePush(module, MakeTerminal(StringNode,
-                                TokenPos(&p->lex),
-                                Sym(p->filename, p->symbols)));
+  NodePush(module, MakeTerminal(StringNode, TokenPos(&p->lex), p->filename));
 
   return ParseOk(module);
 }
@@ -219,7 +170,7 @@ static Result ParseImports(Parser *p)
     if (MatchToken(TokenAs, &p->lex)) {
       u32 pos = TokenPos(&p->lex);
       if (MatchToken(TokenStar, &p->lex)) {
-        NodePush(import_node, MakeTerminal(NilNode, pos, Nil));
+        NodePush(import_node, MakeTerminal(NilNode, pos, 0));
       } else {
         result = ParseID(p);
         if (!result.ok) return ParseFail(result, node);
@@ -282,7 +233,7 @@ static Result ParseStmts(Parser *p)
   }
 
   if (NumNodeChildren(stmts) == 0) {
-    NodePush(stmts, MakeTerminal(NilNode, TokenPos(&p->lex), Nil));
+    NodePush(stmts, MakeTerminal(NilNode, TokenPos(&p->lex), 0));
   }
 
   return ParseOk(node);
@@ -432,16 +383,12 @@ static Result ParsePrec(Precedence prec, Parser *p)
   return result;
 }
 
-/* Returns a CallNode */
 static Result ParseUnary(Parser *p)
 {
   Result result;
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  Node *node = MakeNode(CallNode, pos);
-  Node *op = MakeTerminal(IDNode, pos, OpSymbol(token.type));
-
-  NodePush(node, op);
+  Node *node = MakeNode(OpNode(token.type), pos);
 
   SkipNewlines(&p->lex);
   result = ParsePrec(PrecUnary, p);
@@ -451,17 +398,14 @@ static Result ParseUnary(Parser *p)
   return ParseOk(node);
 }
 
-/* Returns a CallNode */
 static Result ParseLeftAssoc(Node *prefix, Parser *p)
 {
   Result result;
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
-  Node *node = MakeNode(CallNode, pos);
-  Node *op = MakeTerminal(IDNode, pos, OpSymbol(token.type));
+  Node *node = MakeNode(OpNode(token.type), pos);
 
-  NodePush(node, op);
   NodePush(node, prefix);
 
   SkipNewlines(&p->lex);
@@ -479,10 +423,7 @@ static Result ParseRightAssoc(Node *prefix, Parser *p)
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
-  Node *node = MakeNode(CallNode, pos);
-  Node *op = MakeTerminal(IDNode, pos, OpSymbol(token.type));
-
-  NodePush(node, op);
+  Node *node = MakeNode(OpNode(token.type), pos);
 
   SkipNewlines(&p->lex);
   result = ParsePrec(prec, p);
@@ -517,10 +458,6 @@ static Result ParseCall(Node *prefix, Parser *p)
     if (!MatchToken(TokenRParen, &p->lex)) {
       return ParseFail(ParseError("Expected \",\" or \")\"", p), node);
     }
-  }
-
-  if (node->type == IDNode && NodeValue(node) == SymSet) {
-    SetNodeType(node, SetNode);
   }
 
   return ParseOk(node);
@@ -677,7 +614,7 @@ static Result ParseIf(Parser *p)
     if (!result.ok) return ParseFail(result, node);
     NodePush(node, ResultItem(result));
   } else {
-    NodePush(node, MakeTerminal(NilNode, TokenPos(&p->lex), Nil));
+    NodePush(node, MakeTerminal(NilNode, TokenPos(&p->lex), 0));
   }
 
   if (!MatchToken(TokenEnd, &p->lex)) {
@@ -692,7 +629,7 @@ clauses, or a NilNode if it's the last clause */
 static Result ParseClauses(Parser *p)
 {
   if (MatchToken(TokenEnd, &p->lex)) {
-    return ParseOk(MakeTerminal(NilNode, TokenPos(&p->lex), Nil));
+    return ParseOk(MakeTerminal(NilNode, TokenPos(&p->lex), 0));
   } else {
     Result result;
     Node *node = MakeNode(IfNode, TokenPos(&p->lex));
@@ -835,10 +772,13 @@ static Result ParseID(Parser *p)
 {
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
+  char *name;
   if (token.type != TokenID) return ParseError("Expected identifier", p);
-  return ParseOk(MakeTerminal(IDNode, pos, MakeSymbol(token.lexeme,
-                                                      token.length,
-                                                      p->symbols)));
+
+  name = Alloc(token.length + 1);
+  Copy(token.lexeme, name, token.length);
+  name[token.length] = 0;
+  return ParseOk(MakeTerminal(IDNode, pos, name));
 }
 
 /* Returns a NumNode */
@@ -869,15 +809,13 @@ static Result ParseNum(Parser *p)
           : 10 + token.lexeme[i] - 'A';
       whole = whole * 16 + d;
     }
-    if (whole > (u32)RawInt(MaxIntVal)) {
-      return ParseError("Number overflows", p);
-    }
-    return ParseOk(MakeTerminal(NumNode, pos, IntVal(sign*whole)));
+
+    return ParseOk(MakeIntNode(pos, sign*whole));
   }
 
   if (*token.lexeme == '$') {
     u8 byte = token.lexeme[1];
-    return ParseOk(MakeTerminal(NumNode, pos, IntVal(byte)));
+    return ParseOk(MakeIntNode(pos, byte));
   }
 
   for (i = 0; i < token.length; i++) {
@@ -903,12 +841,9 @@ static Result ParseNum(Parser *p)
 
   if (frac != 0) {
     float num = (float)whole + (float)frac / (float)frac_size;
-    return ParseOk(MakeTerminal(NumNode, pos, FloatVal(sign*num)));
+    return ParseOk(MakeFloatNode(pos, sign*num));
   } else {
-    if (whole > (u32)RawInt(MaxIntVal)) {
-      return ParseError("Number overflows", p);
-    }
-    return ParseOk(MakeTerminal(NumNode, pos, IntVal(sign*whole)));
+    return ParseOk(MakeIntNode(pos, sign*whole));
   }
 }
 
@@ -917,8 +852,10 @@ static Result ParseString(Parser *p)
 {
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  Val symbol = MakeSymbol(token.lexeme + 1, token.length - 2, p->symbols);
-  return ParseOk(MakeTerminal(StringNode, pos, symbol));
+  char *name = Alloc(token.length - 1);
+  Copy(token.lexeme + 1, name, token.length - 2);
+  name[token.length-1] = 0;
+  return ParseOk(MakeTerminal(StringNode, pos, name));
 }
 
 /* Returns a SymbolNode */
@@ -938,71 +875,15 @@ static Result ParseLiteral(Parser *p)
 {
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
+  char *trueVal = "true";
+  char *falseVal = "false";
 
   switch (token.type) {
-  case TokenTrue:   return ParseOk(MakeTerminal(SymbolNode, pos, True));
-  case TokenFalse:  return ParseOk(MakeTerminal(SymbolNode, pos, False));
-  case TokenNil:    return ParseOk(MakeTerminal(NilNode, pos, Nil));
+  case TokenTrue:   return ParseOk(MakeTerminal(SymbolNode, pos, trueVal));
+  case TokenFalse:  return ParseOk(MakeTerminal(SymbolNode, pos, falseVal));
+  case TokenNil:    return ParseOk(MakeTerminal(NilNode, pos, 0));
   default:          return ParseError("Unknown literal", p);
   }
-}
-
-static Node *MakeTerminal(NodeType type, u32 position, Val value)
-{
-  Node *node = Alloc(sizeof(Node));
-  node->type = type;
-  node->pos = position;
-  node->expr.value = value;
-  return node;
-}
-
-static Node *MakeNode(NodeType type, u32 position)
-{
-  Node *node = Alloc(sizeof(Node));
-  node->type = type;
-  node->pos = position;
-  InitVec(&node->expr.children, sizeof(Node*), 2);
-  return node;
-}
-
-static bool IsTerminal(Node *node)
-{
-  switch (node->type) {
-  case NilNode:
-  case IDNode:
-  case NumNode:
-  case StringNode:
-  case SymbolNode:
-    return true;
-  default:
-    return false;
-  }
-}
-
-static void SetNodeType(Node *node, NodeType type)
-{
-  node->type = type;
-}
-
-static void FreeNode(Node *node)
-{
-  if (!IsTerminal(node)) {
-    DestroyVec(&node->expr.children);
-  }
-
-  Free(node);
-}
-
-void FreeAST(Node *node)
-{
-  if (!IsTerminal(node)) {
-    u32 i;
-    for (i = 0; i < NumNodeChildren(node); i++) {
-      FreeNode(NodeChild(node, i));
-    }
-  }
-
-  FreeNode(node);
 }
 
 /* Helper to deallocate a node and return a result */
@@ -1013,32 +894,25 @@ static Result ParseFail(Result result, Node *node)
 }
 
 /* Helper to map operator tokens to symbols, to use in a CallNode */
-static Val OpSymbol(TokenType token_type)
+static NodeType OpNode(TokenType token_type)
 {
   switch (token_type) {
-  case TokenBangEq:     return SymBangEq;
-  case TokenHash:       return SymHash;
-  case TokenPercent:    return SymPercent;
-  case TokenAmpersand:  return SymAmpersand;
-  case TokenStar:       return SymStar;
-  case TokenPlus:       return SymPlus;
-  case TokenMinus:      return SymMinus;
-  case TokenDot:        return SymDot;
-  case TokenDotDot:     return SymDotDot;
-  case TokenSlash:      return SymSlash;
-  case TokenLt:         return SymLt;
-  case TokenLtLt:       return SymLtLt;
-  case TokenLtEq:       return SymLtEq;
-  case TokenLtGt:       return SymLtGt;
-  case TokenEqEq:       return SymEqEq;
-  case TokenGt:         return SymGt;
-  case TokenGtEq:       return SymGtEq;
-  case TokenGtGt:       return SymGtGt;
-  case TokenCaret:      return SymCaret;
-  case TokenIn:         return SymIn;
-  case TokenNot:        return SymNot;
-  case TokenBar:        return SymBar;
-  case TokenTilde:      return SymTilde;
-  default:              return Nil;
+  case TokenBangEq:     return NotEqNode;
+  case TokenHash:       return LenNode;
+  case TokenPercent:    return RemNode;
+  case TokenStar:       return MulNode;
+  case TokenPlus:       return AddNode;
+  case TokenMinus:      return SubNode;
+  case TokenDot:        return AccessNode;
+  case TokenSlash:      return DivNode;
+  case TokenLt:         return LtNode;
+  case TokenLtEq:       return LtEqNode;
+  case TokenEqEq:       return EqNode;
+  case TokenGt:         return GtNode;
+  case TokenGtEq:       return GtEqNode;
+  case TokenIn:         return InNode;
+  case TokenNot:        return NotNode;
+  case TokenBar:        return PairNode;
+  default:              return NilNode;
   }
 }

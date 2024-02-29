@@ -6,7 +6,6 @@ typedef struct Frame {
   Val *items;
 } Frame;
 
-Frame *CompileEnv(u32 num_modules);
 Frame *ExtendFrame(Frame *parent, u32 size);
 Frame *PopFrame(Frame *frame);
 void FreeEnv(Frame *env);
