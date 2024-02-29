@@ -6,18 +6,24 @@ Frame *ExtendFrame(Frame *parent, u32 size)
   u32 i;
   Frame *frame = Alloc(sizeof(Frame));
   frame->parent = parent;
-  frame->count = size;
-  frame->items = Alloc(size * sizeof(Val));
+  InitVec(&frame->items, sizeof(FrameItem*), size);
   for (i = 0; i < size; i++) {
-    frame->items[i] = 0;
+    FrameItem *item = Alloc(sizeof(FrameItem));
+    item->type = AnyType;
+    item->name = 0;
+    ObjVecPush(&frame->items, item);
   }
   return frame;
 }
 
 Frame *PopFrame(Frame *frame)
 {
+  u32 i;
   Frame *parent = frame->parent;
-  Free(frame->items);
+  for (i = 0; i < frame->items.count; i++) {
+    Free(VecRef(&frame->items, i));
+  }
+  DestroyVec(&frame->items);
   Free(frame);
   return parent;
 }
@@ -27,51 +33,37 @@ void FreeEnv(Frame *env)
   while (env != 0) env = PopFrame(env);
 }
 
-void FrameSet(Frame *frame, u32 index, Val value)
+void FrameSet(Frame *frame, u32 index, ValType type, u32 name)
 {
-  Assert(index < frame->count);
-  frame->items[index] = value;
+  FrameItem *item;
+  Assert(index < frame->items.count);
+  item = VecRef(&frame->items, index);
+  item->type = type;
+  item->name = name;
 }
 
-i32 FrameFind(Frame *frame, Val value)
+i32 FrameFind(Frame *frame, u32 var)
 {
   i32 index;
-  for (index = (i32)frame->count - 1; index >= 0; index--) {
-    if (frame->items[index] == value) return index;
+  for (index = (i32)frame->items.count - 1; index >= 0; index--) {
+    FrameItem *item = VecRef(&frame->items, index);
+    if (item->name == var) return index;
   }
 
   if (frame->parent == 0) return -1;
-  index = FrameFind(frame->parent, value);
+  index = FrameFind(frame->parent, var);
   if (index < 0) return index;
-  return frame->count + index;
+  return frame->items.count + index;
 }
 
-i32 FrameNum(Frame *frame, Val value)
+ValType FrameFindType(Frame *frame, u32 index)
 {
-  while (frame != 0) {
-    i32 i;
-    for (i = 0; i < (i32)frame->count; i++) {
-      if (frame->items[i] == value) {
-        i32 num = 0;
-        while (frame->parent != 0) {
-          frame = frame->parent;
-          num++;
-        }
-        return num;
-      }
-    }
-    frame = frame->parent;
-  }
-  return -1;
-}
+  if (!frame) return AnyType;
 
-i32 ExportsFrame(Frame *frame)
-{
-  i32 num = 0;
-  if (frame == 0 || frame->parent == 0) return -1;
-  while (frame->parent->parent != 0) {
-    num += frame->count;
-    frame = frame->parent;
+  if (index >= frame->items.count) {
+    return FrameFindType(frame->parent, index - frame->items.count);
+  } else {
+    FrameItem *item = VecRef(&frame->items, index);
+    return item->type;
   }
-  return num;
 }

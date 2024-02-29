@@ -26,7 +26,6 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 typedef u32 bool;
-typedef u32 Val;
 
 #define true 1
 #define false 0

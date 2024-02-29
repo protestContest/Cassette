@@ -35,5 +35,7 @@ Export *MakeExport(char *name, u32 index);
 void FreeExport(Export *export);
 
 ByteVec SerializeModule(Module *module);
+void PushByte(ByteVec *bytes, u8 n);
+void InsertByte(ByteVec *bytes, u32 index, u8 n);
 void PushInt(ByteVec *bytes, u32 n);
 void PushWord(ByteVec *bytes, u32 n);

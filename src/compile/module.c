@@ -76,6 +76,21 @@ static u32 IntSize(u32 n)
   return 5;
 }
 
+void PushByte(ByteVec *bytes, u8 n)
+{
+  ByteVecPush(bytes, n);
+}
+
+void InsertByte(ByteVec *bytes, u32 index, u8 n)
+{
+  u32 i;
+  GrowVec(bytes, sizeof(u8), 1);
+  for (i = 0; i < bytes->count - index - 1; i++) {
+    VecRef(bytes, index + i + 1) = VecRef(bytes, index + i);
+  }
+  VecRef(bytes, index) = n;
+}
+
 void PushInt(ByteVec *bytes, u32 n)
 {
   u32 i;
