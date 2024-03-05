@@ -1,5 +1,6 @@
 #include "univ/result.h"
 #include "univ/vec.h"
+#include "compile/symbol.h"
 #include <stdio.h>
 #include "compile/parse.h"
 #include "compile/ast.h"
@@ -11,6 +12,7 @@ int main(int argc, char *argv[])
   Result result;
   ByteVec mod;
   FILE *file;
+  InitSymbols();
 
   if (argc < 2) return 1;
 

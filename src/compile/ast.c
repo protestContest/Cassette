@@ -1,9 +1,10 @@
 #include "ast.h"
 #include "univ/system.h"
 #include "univ/math.h"
+#include "symbol.h"
 #include <stdio.h>
 
-Node *MakeTerminal(NodeType type, u32 position, void *value)
+Node *MakeTerminal(NodeType type, u32 position, u32 value)
 {
   Node *node = Alloc(sizeof(Node));
   node->type = type;
@@ -18,24 +19,6 @@ Node *MakeNode(NodeType type, u32 position)
   node->type = type;
   node->pos = position;
   InitVec(&node->expr.children, sizeof(Node*), 2);
-  return node;
-}
-
-Node *MakeIntNode(u32 position, i64 value)
-{
-  Node *node = Alloc(sizeof(Node));
-  node->type = IntNode;
-  node->pos = position;
-  node->expr.intval = value;
-  return node;
-}
-
-Node *MakeFloatNode(u32 position, double value)
-{
-  Node *node = Alloc(sizeof(Node));
-  node->type = FloatNode;
-  node->pos = position;
-  node->expr.floatval = value;
   return node;
 }
 
@@ -141,7 +124,7 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
   printf("%s:%d", name, node->pos);
 
   if (type == ModuleNode) {
-    char *name = NodeValue(NodeChild(node, 3));
+    char *name = SymbolName(NodeValue(NodeChild(node, 3)));
     Node *body = NodeChild(node, 2);
 
     printf(" %s\n", name);
@@ -153,7 +136,7 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
 
     printf(" Assigns: [");
     for (i = 0; i < NumNodeChildren(assigns); i++) {
-      char *assign = NodeValue(NodeChild(assigns, i));
+      char *assign = SymbolName(NodeValue(NodeChild(assigns, i)));
       printf("%s", assign);
       if (i < NumNodeChildren(assigns) - 1) printf(", ");
     }
@@ -173,25 +156,25 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
       PrintASTNode(NodeChild(stmts, i), level+1, lines);
     }
   } else if (type == LetNode || type == DefNode) {
-    char *var = NodeValue(NodeChild(node, 0));
+    char *var = SymbolName(NodeValue(NodeChild(node, 0)));
     printf(" %s\n", var);
     Indent(level, lines);
     printf("└╴");
     PrintASTNode(NodeChild(node, 1), level+1, lines);
   } else if (type == ImportNode) {
-    char *mod = NodeValue(NodeChild(node, 0));
+    char *mod = SymbolName(NodeValue(NodeChild(node, 0)));
     Node *alias = NodeChild(node, 1);
     printf(" %s as ", mod);
     if (alias->type == NilNode) {
       printf("*\n");
     } else {
-      printf("%s\n", (char*)NodeValue(alias));
+      printf("%s\n", SymbolName(NodeValue(alias)));
     }
   } else if (type == LambdaNode) {
     Node *params = NodeChild(node, 0);
     printf(" (");
     for (i = 0; i < NumNodeChildren(params); i++) {
-      char *param = NodeValue(NodeChild(params, i));
+      char *param = SymbolName(NodeValue(NodeChild(params, i)));
       printf("%s", param);
       if (i < NumNodeChildren(params) - 1) printf(", ");
     }
@@ -200,15 +183,13 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
     printf("└╴");
     PrintASTNode(NodeChild(node, 1), level+1, lines);
   } else if (type == IntNode) {
-    printf(" %lld\n", node->expr.intval);
-  } else if (type == FloatNode) {
-    printf(" %f\n", node->expr.floatval);
+    printf(" %d\n", NodeValue(node));
   } else if (type == IDNode) {
-    printf(" %s\n", (char*)NodeValue(node));
+    printf(" %s\n", SymbolName(NodeValue(node)));
   } else if (type == SymbolNode) {
-    printf(" :%s\n", (char*)NodeValue(node));
+    printf(" :%s\n", SymbolName(NodeValue(node)));
   } else if (type == StringNode) {
-    printf(" \"%s\"\n", (char*)NodeValue(node));
+    printf(" \"%s\"\n", SymbolName(NodeValue(node)));
   } else if (type == MapNode) {
     printf("\n");
     lines |= Bit(level);
@@ -225,7 +206,7 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
         printf("├╴");
       }
 
-      printf("%s: ", (char*)NodeValue(key));
+      printf("%s: ", SymbolName(NodeValue(key)));
       PrintASTNode(value, level+1, lines);
     }
   } else if (type == NilNode) {

@@ -1,5 +1,4 @@
 #include "hashmap.h"
-#include "hash.h"
 #include "math.h"
 #include "system.h"
 
@@ -54,8 +53,7 @@ void DestroyHashMap(HashMap *map)
 
 static bool Put(HashMap *map, u32 key, u32 value)
 {
-  u32 hash = Hash(&key, sizeof(key));
-  u32 index = IndexFor(hash, map->capacity);
+  u32 index = IndexFor(key, map->capacity);
   MapBucket bucket;
   bucket.key = key;
   bucket.value = value;
@@ -89,11 +87,10 @@ void HashMapSet(HashMap *map, u32 key, u32 value)
 
 bool HashMapContains(HashMap *map, u32 key)
 {
-  u32 hash, index;
+  u32 index;
   if (map->capacity == 0) return false;
 
-  hash = Hash(&key, sizeof(key));
-  index = IndexFor(hash, map->capacity);
+  index = IndexFor(key, map->capacity);
 
   while (true) {
     if (IsEmpty(map->buckets[index])) return false;
@@ -104,11 +101,10 @@ bool HashMapContains(HashMap *map, u32 key)
 
 u32 HashMapGet(HashMap *map, u32 key)
 {
-  u32 hash, index;
+  u32 index;
   if (map->capacity == 0) return -1;
 
-  hash = Hash(&key, sizeof(key));
-  index = IndexFor(hash, map->capacity);
+  index = IndexFor(key, map->capacity);
 
   while (true) {
     if (IsEmpty(map->buckets[index])) return -1;
@@ -119,11 +115,10 @@ u32 HashMapGet(HashMap *map, u32 key)
 
 void HashMapDelete(HashMap *map, u32 key)
 {
-  u32 hash, index;
+  u32 index;
   if (map->capacity == 0) return;
 
-  hash = Hash(&key, sizeof(key));
-  index = IndexFor(hash, map->capacity);
+  index = IndexFor(key, map->capacity);
 
   while (true) {
     if (IsEmpty(map->buckets[index])) return;

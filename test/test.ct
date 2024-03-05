@@ -1,3 +1,7 @@
-def inc(a) do
-  a + 1
+; def inc(a) do
+;   a + 1
+; end
+
+def pair(x) do
+  x
 end

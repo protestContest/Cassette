@@ -49,14 +49,12 @@ typedef struct {
   NodeType type;
   u32 pos;
   union {
-    i64 intval;
-    double floatval;
-    void *value;
+    u32 value;
     ObjVec children;
   } expr;
 } Node;
 
-Node *MakeTerminal(NodeType type, u32 position, void *value);
+Node *MakeTerminal(NodeType type, u32 position, u32 value);
 Node *MakeNode(NodeType type, u32 position);
 Node *MakeIntNode(u32 position, i64 value);
 Node *MakeFloatNode(u32 position, double value);

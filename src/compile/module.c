@@ -6,25 +6,38 @@
 #include "env.h"
 #include "ops.h"
 #include "univ/hash.h"
+#include "value.h"
 #include <stdio.h>
 
 typedef enum {
   TypeSection = 1,
+  ImportSection = 2,
   FuncSection = 3,
+  TableSection = 4,
+  MemorySection = 5,
+  GlobalSection = 6,
   ExportSection = 7,
   StartSection = 8,
+  ElementsSection = 9,
   CodeSection = 10
 } SectionID;
 
 void InitModule(Module *mod)
 {
+  InitVec(&mod->types, sizeof(void*), 0);
+  InitVec(&mod->imports, sizeof(void*), 0);
   InitVec(&mod->funcs, sizeof(void*), 0);
   InitVec(&mod->exports, sizeof(void*), 0);
+  mod->num_globals = 0;
+  mod->start = -1;
 }
 
 void DestroyModule(Module *mod)
 {
   u32 i;
+  for (i = 0; i < mod->types.count; i++) {
+    Free(VecRef(&mod->types, i));
+  }
   for (i = 0; i < mod->funcs.count; i++) {
     FreeFunc(VecRef(&mod->funcs, i));
   }
@@ -35,21 +48,16 @@ void DestroyModule(Module *mod)
   DestroyVec(&mod->exports);
 }
 
-Func *MakeFunc(u32 num_params)
+Func *MakeFunc(u32 type)
 {
   Func *func = Alloc(sizeof(Func));
-  u32 i;
-  InitVec(&func->params, sizeof(u8), num_params);
-  for (i = 0; i < num_params; i++) ByteVecPush(&func->params, Int32);
-  func->result = Int32;
-  func->locals = 0;
+  func->type = type;
   InitVec(&func->code, sizeof(u8), 0);
   return func;
 }
 
 void FreeFunc(Func *func)
 {
-  DestroyVec(&func->params);
   Free(func);
 }
 
@@ -65,6 +73,52 @@ void FreeExport(Export *export)
 {
   Free(export->name);
   Free(export);
+}
+
+u32 AddImport(Module *mod, char *name, u32 type)
+{
+  Import *import = Alloc(sizeof(Import));
+  u32 i;
+  u32 len = StrLen(name);
+  import->mod = 0;
+  import->name = 0;
+  import->type = type;
+
+  for (i = 0; i < len; i++) {
+    if (name[i] == '.') {
+      import->mod = Alloc(i + 1);
+      Copy(name, import->mod, i);
+      import->mod[i] = 0;
+      i++;
+      break;
+    }
+  }
+
+  if (!import->mod) i = 0;
+  len -= i;
+  import->name = Alloc(len+1);
+  Copy(name+i, import->name, len);
+  import->name[len] = 0;
+
+  ObjVecPush(&mod->imports, import);
+
+  return mod->imports.count - 1;
+}
+
+u32 TypeIdx(Module *mod, u32 params, u32 results)
+{
+  u32 i;
+  Type *type;
+  for (i = 0; i < mod->types.count; i++) {
+    type = VecRef(&mod->types, i);
+    if (type->params == params && type->results == results) return i;
+  }
+
+  type = Alloc(sizeof(Type));
+  type->params = params;
+  type->results = results;
+  ObjVecPush(&mod->types, type);
+  return mod->types.count - 1;
 }
 
 static u32 IntSize(u32 n)
@@ -98,128 +152,178 @@ void PushInt(ByteVec *bytes, u32 n)
   u32 size = IntSize(n);
   for (i = 0; i < size - 1; i++) {
     byte = ((n >> (7*i)) & 0x7F) | 0x80;
-    ByteVecPush(bytes, byte);
+    PushByte(bytes, byte);
   }
   byte = ((n >> (7*(size-1))) & 0x7F);
-  ByteVecPush(bytes, byte);
+  PushByte(bytes, byte);
 }
 
 void PushWord(ByteVec *bytes, u32 n)
 {
-  ByteVecPush(bytes, (n >> 0) & 0xFF);
-  ByteVecPush(bytes, (n >> 8) & 0xFF);
-  ByteVecPush(bytes, (n >> 16) & 0xFF);
-  ByteVecPush(bytes, (n >> 24) & 0xFF);
+  PushByte(bytes, (n >> 0) & 0xFF);
+  PushByte(bytes, (n >> 8) & 0xFF);
+  PushByte(bytes, (n >> 16) & 0xFF);
+  PushByte(bytes, (n >> 24) & 0xFF);
 }
 
 static void AppendBytes(ByteVec *a, ByteVec *b)
 {
-  u8 *dst = a->items + a->count;
+  u32 a_count = a->count;
   GrowVec(a, sizeof(u8), b->count);
-  Copy(b->items, dst, b->count);
+  Copy(b->items, a->items + a_count, b->count);
 }
 
 static void PushHeader(ByteVec *bytes)
 {
-  ByteVecPush(bytes, 0);
-  ByteVecPush(bytes, 'a');
-  ByteVecPush(bytes, 's');
-  ByteVecPush(bytes, 'm');
+  PushByte(bytes, 0);
+  PushByte(bytes, 'a');
+  PushByte(bytes, 's');
+  PushByte(bytes, 'm');
   PushWord(bytes, 1);
 }
 
-static void PushTypes(ByteVec *bytes, ObjVec *funcs)
+static void PushTypes(ByteVec *bytes, ObjVec *types)
 {
   u32 i, j;
   u32 size = 0;
-  if (funcs->count == 0) return;
+  if (types->count == 0) return;
 
-  ByteVecPush(bytes, TypeSection);
-
-  size += IntSize(funcs->count); /* vec size of functypes */
-  for (i = 0; i < funcs->count; i++) {
-    Func *func = VecRef(funcs, i);
+  size += IntSize(types->count); /* vec size of functypes */
+  for (i = 0; i < types->count; i++) {
+    Type *type = VecRef(types, i);
     size++; /* functype label */
-    size += IntSize(func->params.count); /* vec size of params */
-    size += func->params.count; /* 1 byte for each param type */
-    size += 1; /* vec size of results */
-    size += 1; /* 1 byte for result type */
+    size += IntSize(type->params); /* vec size of params */
+    size += type->params; /* 1 byte for each param type */
+    size += IntSize(type->results); /* vec size of results */
+    size += type->results; /* 1 byte for result type */
   }
 
+  PushByte(bytes, TypeSection);
   PushInt(bytes, size);
-  PushInt(bytes, funcs->count);
-  for (i = 0; i < funcs->count; i++) {
-    Func *func = VecRef(funcs, i);
-    ByteVecPush(bytes, 0x60);
-    PushInt(bytes, func->params.count);
-    for (j = 0; j < func->params.count; j++) {
-      ByteVecPush(bytes, VecRef(&func->params, j));
+  PushInt(bytes, types->count);
+  for (i = 0; i < types->count; i++) {
+    Type *type = VecRef(types, i);
+    PushByte(bytes, 0x60);
+    PushInt(bytes, type->params);
+    for (j = 0; j < type->params; j++) {
+      PushByte(bytes, Int32);
     }
-    PushInt(bytes, 1);
-    ByteVecPush(bytes, func->result);
+    PushInt(bytes, type->results);
+    for (j = 0; j < type->results; j++) {
+      PushByte(bytes, Int32);
+    }
   }
 }
 
-static void PushFuncs(ByteVec *bytes, ObjVec *funcs)
+static void PushImports(ByteVec *bytes, ObjVec *imports)
 {
   u32 i;
   u32 size = 0;
-  if (funcs->count == 0) return;
 
+  size += IntSize(imports->count);
+  for (i = 0; i < imports->count; i++) {
+    Import *import = VecRef(imports, i);
+    u32 modlen = StrLen(import->mod);
+    u32 namelen = StrLen(import->name);
 
-  size += IntSize(funcs->count);
-  for (i = 0; i < funcs->count; i++) {
-    size += IntSize(i);
+    size += IntSize(modlen);
+    size += modlen;
+    size += IntSize(namelen);
+    size += namelen;
+    size++;
+    size+= IntSize(import->type);
   }
 
-  ByteVecPush(bytes, 0x03);
+  PushByte(bytes, ImportSection);
   PushInt(bytes, size);
-  PushInt(bytes, funcs->count);
-  for (i = 0; i < funcs->count; i++) {
-    PushInt(bytes, i);
+  PushInt(bytes, imports->count);
+  for (i = 0; i < imports->count; i++) {
+    u32 j;
+    Import *import = VecRef(imports, i);
+    u32 modlen = StrLen(import->mod);
+    u32 namelen = StrLen(import->name);
+
+    PushInt(bytes, modlen);
+    for (j = 0; j < modlen; j++) {
+      PushByte(bytes, import->mod[j]);
+    }
+    PushInt(bytes, namelen);
+    for (j = 0; j < namelen; j++) {
+      PushByte(bytes, import->name[j]);
+    }
+
+    PushByte(bytes, 0); /* function import type */
+    PushInt(bytes, import->type);
   }
 }
 
-static void PushCode(ByteVec *bytes, ObjVec *funcs)
+static void PushFuncs(ByteVec *bytes, Module *mod)
 {
   u32 i;
   u32 size = 0;
-  u32 codesize = 0;
-  if (funcs->count == 0) return;
+  if (mod->funcs.count == 0) return;
 
-  size += IntSize(funcs->count); /* count of entries */
-  for (i = 0; i < funcs->count; i++) {
-    Func *func = VecRef(funcs, i);
-
-    if (func->locals == 0) {
-      codesize += IntSize(0); /* count of locals vec */
-    } else {
-      codesize += IntSize(1); /* count of locals vec */
-      codesize += IntSize(func->locals); /* count of locals of a particular type */
-      codesize += 1; /* byte for local type */
-    }
-    codesize += func->code.count; /* size of code, plus end byte */
-
-
-    size += IntSize(codesize); /* size of entry */
-    size += codesize;
+  size += IntSize(mod->funcs.count);
+  for (i = 0; i < mod->funcs.count; i++) {
+    Func *func = VecRef(&mod->funcs, i);
+    size += IntSize(func->type);
   }
 
-  ByteVecPush(bytes, CodeSection);
+  PushByte(bytes, FuncSection);
   PushInt(bytes, size);
-  PushInt(bytes, funcs->count);
-  for (i = 0; i < funcs->count; i++) {
-    Func *func = VecRef(funcs, i);
+  PushInt(bytes, mod->funcs.count);
 
-    PushInt(bytes, codesize);
-    if (func->locals == 0) {
-      PushInt(bytes, 0); /* count of locals */
-    } else {
-      PushInt(bytes, 1); /* count of locals */
-      PushInt(bytes, func->locals);
-      ByteVecPush(bytes, Int32);
-    }
-    AppendBytes(bytes, &func->code);
+  for (i = 0; i < mod->funcs.count; i++) {
+    Func *func = VecRef(&mod->funcs, i);
+    PushInt(bytes, func->type);
+  }
+}
+
+static void PushTable(ByteVec *bytes, u32 min)
+{
+  u32 size = IntSize(1) + 3;
+
+  PushByte(bytes, TableSection);
+  PushInt(bytes, size);
+  PushInt(bytes, 1);
+  PushByte(bytes, FuncRef);
+  PushByte(bytes, 0); /* limit type */
+  PushInt(bytes, min); /* min */
+}
+
+static void PushMemory(ByteVec *bytes)
+{
+  u32 size = IntSize(1) + 1 + IntSize(1);
+  PushByte(bytes, MemorySection);
+  PushInt(bytes, size);
+  PushInt(bytes, 1);
+  PushByte(bytes, 0);
+  PushInt(bytes, 1);
+}
+
+static void PushGlobals(ByteVec *bytes, u32 num_globals)
+{
+  u32 i;
+  u32 size = 0;
+
+  size += IntSize(num_globals);
+  for (i = 0; i < num_globals; i++) {
+    size += 1; /* type */
+    size += 1; /* mut */
+    size += 1; /* i32.const */
+    size += 1; /* 0 */
+    size += 1; /* end */
+  }
+
+  PushByte(bytes, GlobalSection);
+  PushInt(bytes, size);
+  PushInt(bytes, num_globals);
+  for (i = 0; i < num_globals; i++) {
+    PushByte(bytes, Int32); /* type */
+    PushByte(bytes, 1); /* var */
+    PushByte(bytes, I32Const);
+    PushByte(bytes, 0);
+    PushByte(bytes, EndOp);
   }
 }
 
@@ -238,7 +342,7 @@ static void PushExports(ByteVec *bytes, ObjVec *exports)
     size += IntSize(i);
   }
 
-  ByteVecPush(bytes, ExportSection);
+  PushByte(bytes, ExportSection);
   PushInt(bytes, size);
   PushInt(bytes, exports->count);
   for (i = 0; i < exports->count; i++) {
@@ -246,18 +350,78 @@ static void PushExports(ByteVec *bytes, ObjVec *exports)
     u32 namelen = StrLen(export->name);
     PushInt(bytes, namelen);
     for (j = 0; j < namelen; j++) {
-      ByteVecPush(bytes, export->name[j]);
+      PushByte(bytes, export->name[j]);
     }
-    ByteVecPush(bytes, 0); /* function export type */
+    PushByte(bytes, 0); /* function export type */
     PushInt(bytes, i);
   }
 }
 
-static void PushStart(ByteVec *bytes, u32 start_index)
+static void PushStart(ByteVec *bytes, Module *mod)
 {
-  ByteVecPush(bytes, StartSection);
-  PushInt(bytes, IntSize(start_index));
-  PushInt(bytes, start_index);
+  if (mod->start > mod->funcs.count + mod->imports.count) return;
+  PushByte(bytes, StartSection);
+  PushInt(bytes, IntSize(mod->start));
+  PushInt(bytes, mod->start);
+}
+
+static void PushElements(ByteVec *bytes, ObjVec *funcs)
+{
+  u32 i;
+  u32 size = 0;
+
+  size += IntSize(1); /* num segments */
+  size += 4; /* segment attrs */
+  size += IntSize(funcs->count);
+  for (i = 0; i < funcs->count; i++) {
+    size += IntSize(i);
+  }
+
+  PushByte(bytes, ElementsSection);
+  PushInt(bytes, size);
+  PushInt(bytes, 1);
+
+  PushByte(bytes, 0); /* mode 0, active */
+  PushByte(bytes, I32Const); /* offset expr */
+  PushInt(bytes, 0);
+  PushByte(bytes, EndOp);
+  PushInt(bytes, funcs->count); /* vec(funcidx) */
+  for (i = 0; i < funcs->count; i++) {
+    PushInt(bytes, i);
+  }
+}
+
+static void PushCode(ByteVec *bytes, ObjVec *funcs)
+{
+  u32 i;
+  u32 size = 0;
+  if (funcs->count == 0) return;
+
+  size += IntSize(funcs->count); /* count of entries */
+  for (i = 0; i < funcs->count; i++) {
+    Func *func = VecRef(funcs, i);
+    u32 codesize = 0;
+    codesize = 0;
+    codesize += IntSize(0); /* count of locals vec */
+    codesize += func->code.count; /* size of code, plus end byte */
+
+    size += IntSize(codesize); /* size of entry */
+    size += codesize;
+  }
+
+  PushByte(bytes, CodeSection);
+  PushInt(bytes, size);
+  PushInt(bytes, funcs->count);
+  for (i = 0; i < funcs->count; i++) {
+    Func *func = VecRef(funcs, i);
+    u32 codesize = 0;
+    codesize += IntSize(0); /* count of locals vec */
+    codesize += func->code.count; /* size of code, plus end byte */
+
+    PushInt(bytes, codesize);
+    PushInt(bytes, 0); /* count of locals */
+    AppendBytes(bytes, &func->code);
+  }
 }
 
 ByteVec SerializeModule(Module *mod)
@@ -267,9 +431,15 @@ ByteVec SerializeModule(Module *mod)
   InitVec(&bytes, sizeof(u8), 256);
   PushHeader(&bytes);
 
-  PushTypes(&bytes, &mod->funcs);
-  PushFuncs(&bytes, &mod->funcs);
+  PushTypes(&bytes, &mod->types);
+  PushImports(&bytes, &mod->imports);
+  PushFuncs(&bytes, mod);
+  PushTable(&bytes, mod->funcs.count);
+  PushMemory(&bytes);
+  PushGlobals(&bytes, mod->num_globals);
   PushExports(&bytes, &mod->exports);
+  PushStart(&bytes, mod);
+  PushElements(&bytes, &mod->funcs);
   PushCode(&bytes, &mod->funcs);
 
   return bytes;

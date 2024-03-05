@@ -4,7 +4,7 @@
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/system.h"
-
+#include "symbol.h"
 
 typedef struct {
   char *filename;
@@ -98,8 +98,8 @@ static Result ParseModule(Parser *p)
 {
   Result result;
   Node *module = MakeNode(ModuleNode, 0);
-  char *mod_name;
-  char *main = "*main*";
+  u32 mod_name;
+  u32 main = AddSymbol("*main*");
 
   /* module name */
   if (MatchToken(TokenModule, &p->lex)) {
@@ -132,7 +132,7 @@ static Result ParseModule(Parser *p)
   }
 
   /* filename */
-  NodePush(module, MakeTerminal(StringNode, TokenPos(&p->lex), p->filename));
+  NodePush(module, MakeTerminal(StringNode, TokenPos(&p->lex), AddSymbol(p->filename)));
 
   return ParseOk(module);
 }
@@ -772,12 +772,10 @@ static Result ParseID(Parser *p)
 {
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  char *name;
+  u32 name;
   if (token.type != TokenID) return ParseError("Expected identifier", p);
 
-  name = Alloc(token.length + 1);
-  Copy(token.lexeme, name, token.length);
-  name[token.length] = 0;
+  name = AddSymbolLen(token.lexeme, token.length);
   return ParseOk(MakeTerminal(IDNode, pos, name));
 }
 
@@ -810,12 +808,12 @@ static Result ParseNum(Parser *p)
       whole = whole * 16 + d;
     }
 
-    return ParseOk(MakeIntNode(pos, sign*whole));
+    return ParseOk(MakeTerminal(IntNode, pos, sign*whole));
   }
 
   if (*token.lexeme == '$') {
     u8 byte = token.lexeme[1];
-    return ParseOk(MakeIntNode(pos, byte));
+    return ParseOk(MakeTerminal(IntNode, pos, byte));
   }
 
   for (i = 0; i < token.length; i++) {
@@ -841,9 +839,9 @@ static Result ParseNum(Parser *p)
 
   if (frac != 0) {
     float num = (float)whole + (float)frac / (float)frac_size;
-    return ParseOk(MakeFloatNode(pos, sign*num));
+    return ParseOk(MakeTerminal(FloatNode, pos, sign*num));
   } else {
-    return ParseOk(MakeIntNode(pos, sign*whole));
+    return ParseOk(MakeTerminal(IntNode, pos, sign*whole));
   }
 }
 
@@ -852,9 +850,7 @@ static Result ParseString(Parser *p)
 {
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  char *name = Alloc(token.length - 1);
-  Copy(token.lexeme + 1, name, token.length - 2);
-  name[token.length-1] = 0;
+  u32 name = AddSymbolLen(token.lexeme + 1, token.length - 2);
   return ParseOk(MakeTerminal(StringNode, pos, name));
 }
 
@@ -875,12 +871,10 @@ static Result ParseLiteral(Parser *p)
 {
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  char *trueVal = "true";
-  char *falseVal = "false";
 
   switch (token.type) {
-  case TokenTrue:   return ParseOk(MakeTerminal(SymbolNode, pos, trueVal));
-  case TokenFalse:  return ParseOk(MakeTerminal(SymbolNode, pos, falseVal));
+  case TokenTrue:   return ParseOk(MakeTerminal(SymbolNode, pos, AddSymbol("true")));
+  case TokenFalse:  return ParseOk(MakeTerminal(SymbolNode, pos, AddSymbol("false")));
   case TokenNil:    return ParseOk(MakeTerminal(NilNode, pos, 0));
   default:          return ParseError("Unknown literal", p);
   }
