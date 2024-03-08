@@ -1,31 +1,29 @@
-#include "univ/result.h"
-#include "univ/vec.h"
-#include "compile/symbol.h"
-#include <stdio.h>
-#include "compile/parse.h"
-#include "compile/ast.h"
-#include "compile/compile.h"
-#include "compile/module.h"
-#include "univ/str.h"
-#include "univ/file.h"
+#include "ast.h"
+#include "module.h"
+#include "parse.h"
+#include "compile.h"
+#include "builderror.h"
+#include <univ.h>
 
 int main(int argc, char *argv[])
 {
   Result result;
-  ByteVec mod;
+  Node *ast;
+  Module *mod;
+  u8 *data = 0;
   FILE *file;
-  InitSymbols();
 
   if (argc < 2) return 1;
 
   result = ParseFile(argv[1]);
-  if (!result.ok) return 1;
+  if (!IsOk(result)) return 1;
+  ast = ResValue(result);
 
-  PrintAST(ResultItem(result));
+  PrintAST(ast);
 
-  result = CompileModule(ResultItem(result));
-  if (!result.ok) {
-    ErrorDetails *err = ResultError(result);
+  result = CompileModule(ast);
+  if (!IsOk(result)) {
+    BuildError *err = ResError(result);
     char *source = ReadFile(argv[1]);
     u32 line = LineNum(source, err->pos);
     u32 col = ColNum(source, err->pos);
@@ -34,10 +32,14 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  mod = SerializeModule(ResultItem(result));
-  remove("out.wasm");
-  file = fopen("out.wasm", "w");
-  fwrite(mod.items, 1, mod.count, file);
+  mod = ResValue(result);
+  data = SerializeModule(mod);
+
+  HexDump(data, VecCount(data));
+
+  remove("bin/out.wasm");
+  file = fopen("bin/out.wasm", "w");
+  fwrite(data, 1, VecCount(data), file);
   fclose(file);
 
   return 0;

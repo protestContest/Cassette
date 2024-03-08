@@ -1,9 +1,8 @@
 #pragma once
-#include "univ/vec.h"
 
 typedef struct Frame {
   struct Frame *parent;
-  IntVec items;
+  u32 *items;
 } Frame;
 
 Frame *ExtendFrame(Frame *parent, u32 size);

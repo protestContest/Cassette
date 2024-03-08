@@ -1,5 +1,4 @@
 #pragma once
-#include "univ/vec.h"
 
 typedef enum {
   /* Terminal nodes */
@@ -46,12 +45,12 @@ typedef enum {
 } NodeType;
 
 /* Terminal nodes have values; non-terminals have children */
-typedef struct {
+typedef struct Node {
   NodeType type;
   u32 pos;
   union {
     u32 value;
-    ObjVec children;
+    struct Node **children;
   } expr;
 } Node;
 
@@ -66,9 +65,9 @@ bool IsTerminal(Node *node);
 char *NodeName(Node *node);
 void PrintAST(Node *ast);
 
-#define NodePush(node, child)   ObjVecPush(&(node)->expr.children, child)
-#define NodeChild(node, i)      (((Node*)(node))->expr.children.items[i])
-#define NumNodeChildren(node)   ((node)->expr.children.count)
+#define NodePush(node, child)   VecPush((node)->expr.children, child)
+#define NodeChild(node, i)      (((Node*)(node))->expr.children[i])
+#define NumNodeChildren(node)   VecCount((node)->expr.children)
 #define NodeValue(node)         (((Node*)(node))->expr.value)
 #define NodePos(node)           ((node)->pos)
 

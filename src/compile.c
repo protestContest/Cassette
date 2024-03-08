@@ -1,12 +1,9 @@
 #include "compile.h"
+#include "builderror.h"
 #include "env.h"
 #include "module.h"
-#include "ops.h"
-#include "symbol.h"
-#include "univ/hash.h"
-#include "univ/str.h"
-#include "univ/system.h"
-#include <stdio.h>
+#include "wasm.h"
+#include <univ.h>
 
 #define RegFree 0
 #define RegEnv  1
@@ -14,89 +11,97 @@
 #define RegTmp2 3
 #define RegTmp3 4
 
+typedef struct {
+  Module *mod;
+  Frame *env;
+  u8 **bytes;
+} Compiler;
+
 static u32 AllocFn;
 static u32 LookupFn;
 static u32 MakePairFn;
 static u32 MakeTupleFn;
 
 static Result CompileFunc(Node *lambda, Frame *env, Module *mod);
-static Result CompileExpr(Node *expr, Frame *env, ByteVec *bytes, Module *mod);
+static Result CompileExpr(Node *expr, u8 **bytes, Frame *env, Module *mod);
 
-static void CompileConst(ByteVec *bytes, u32 num)
+#define CompileError(msg, file, pos) Error(MakeBuildError(msg, file, pos))
+
+static void Const(u8 **bytes, i32 num)
 {
   PushByte(bytes, I32Const);
   PushInt(bytes, num);
 }
 
-static void CompileStore(ByteVec *bytes, u32 offset)
+static void Store(u8 **bytes, i32 offset)
 {
   PushByte(bytes, I32Store);
   PushInt(bytes, 2);
   PushInt(bytes, offset);
 }
 
-static void CompileLoad(ByteVec *bytes, u32 offset)
+static void Load(u8 **bytes, i32 offset)
 {
   PushByte(bytes, I32Load);
   PushInt(bytes, 2);
   PushInt(bytes, offset);
 }
 
-#define CompileHead(bytes)  CompileLoad(bytes, 0)
-#define CompileTail(bytes)  CompileLoad(bytes, 4)
+#define Head(bytes)  Load(bytes, 0)
+#define Tail(bytes)  Load(bytes, 4)
 
-static void CompileCallOp(ByteVec *bytes, u32 typeidx)
+static void Call(u8 **bytes, i32 typeidx)
 {
   PushByte(bytes, CallIndirect);
   PushInt(bytes, typeidx);
   PushInt(bytes, 0);
 }
 
-static void GetReg(ByteVec *bytes, u32 reg)
+static void GetReg(u8 **bytes, i32 reg)
 {
   PushByte(bytes, GlobalGet);
   PushByte(bytes, reg);
 }
 
-static void SetReg(ByteVec *bytes, u32 reg)
+static void SetReg(u8 **bytes, i32 reg)
 {
   PushByte(bytes, GlobalSet);
   PushInt(bytes, reg);
 }
 
-static void GetLocal(ByteVec *bytes, u32 local)
+static void GetLocal(u8 **bytes, i32 local)
 {
   PushByte(bytes, LocalGet);
   PushInt(bytes, local);
 }
 
-static void SetLocal(ByteVec *bytes, u32 local)
+static void SetLocal(u8 **bytes, i32 local)
 {
   PushByte(bytes, LocalSet);
   PushInt(bytes, local);
 }
 
-static void TeeLocal(ByteVec *bytes, u32 local)
+static void TeeLocal(u8 **bytes, i32 local)
 {
   PushByte(bytes, LocalTee);
   PushInt(bytes, local);
 }
 
-static void CompileAlloc(ByteVec *bytes, u32 size)
+static void Alloc(u8 **bytes, i32 size)
 {
-  CompileConst(bytes, size);
+  Const(bytes, size);
   PushByte(bytes, CallOp);
   PushInt(bytes, AllocFn);
 }
 
-static void CompileDup(ByteVec *bytes)
+static void Dup(u8 **bytes)
 {
   SetReg(bytes, RegTmp1);
   GetReg(bytes, RegTmp1);
   GetReg(bytes, RegTmp1);
 }
 
-static void CompileSwap(ByteVec *bytes)
+static void Swap(u8 **bytes)
 {
   SetReg(bytes, RegTmp1);
   SetReg(bytes, RegTmp2);
@@ -104,7 +109,7 @@ static void CompileSwap(ByteVec *bytes)
   GetReg(bytes, RegTmp2);
 }
 
-static void CompileDig(ByteVec *bytes)
+static void Dig(u8 **bytes)
 {
   SetReg(bytes, RegTmp1);
   SetReg(bytes, RegTmp2);
@@ -114,7 +119,7 @@ static void CompileDig(ByteVec *bytes)
   GetReg(bytes, RegTmp3);
 }
 
-static void CompileBury(ByteVec *bytes)
+static void Bury(u8 **bytes)
 {
   SetReg(bytes, RegTmp1);
   SetReg(bytes, RegTmp2);
@@ -124,62 +129,57 @@ static void CompileBury(ByteVec *bytes)
   GetReg(bytes, RegTmp2);
 }
 
-static void CompileMakePair(ByteVec *bytes)
+static void MakePair(u8 **bytes)
 {
   PushByte(bytes, CallOp);
   PushInt(bytes, MakePairFn);
 }
 
-static void CompileMakeTuple(ByteVec *bytes, u32 size)
+static void MakeTuple(u8 **bytes, i32 size)
 {
-  CompileConst(bytes, size);
+  Const(bytes, size);
   PushByte(bytes, CallOp);
   PushInt(bytes, MakeTupleFn);
 }
 
-static void CompileMakeLambda(ByteVec *bytes, u32 funcidx)
+static void MakeLambda(u8 **bytes, i32 funcidx)
 {
-  CompileConst(bytes, funcidx);
+  Const(bytes, funcidx);
   GetReg(bytes, RegEnv);
-  CompileMakePair(bytes);
+  MakePair(bytes);
 }
 
-static void CompileTupleLength(ByteVec *bytes)
-{
-  CompileLoad(bytes, 0);
-}
-
-static void ExtendEnv(ByteVec *bytes, u32 size)
+static void ExtendEnv(u8 **bytes, i32 size)
 {
   GetReg(bytes, RegEnv);
-  CompileMakeTuple(bytes, size);
-  CompileMakePair(bytes);
+  MakeTuple(bytes, size);
+  MakePair(bytes);
   SetReg(bytes, RegEnv);
 }
 
-static void CompileLookup(ByteVec *bytes, Module *mod)
+static void Lookup(u8 **bytes, Module *mod)
 {
   PushByte(bytes, CallOp);
   PushInt(bytes, LookupFn);
 }
 
-static Result CompileVar(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileVar(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   u32 var = NodeValue(expr);
   i32 index = FrameFind(env, var);
   printf("Var %s\n", SymbolName(var));
-  if (index < 0) return ErrorResult("Undefined variable", mod->filename, expr->pos);
+  if (index < 0) return CompileError("Undefined variable", mod->filename, expr->pos);
 
-  CompileConst(bytes, index);
-  CompileLookup(bytes, mod);
+  Const(bytes, index);
+  Lookup(bytes, mod);
 
-  return OkResult();
+  return Ok(0);
 }
 
-static Result CompileInt(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileInt(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
-  CompileConst(bytes, NodeValue(expr));
-  return OkResult();
+  Const(bytes, NodeValue(expr));
+  return Ok(0);
 }
 
 static OpCode NodeOp(Node *node)
@@ -200,94 +200,110 @@ static OpCode NodeOp(Node *node)
   }
 }
 
-static Result CompileNeg(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileNeg(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   Result result;
 
-  CompileConst(bytes, 0);
+  Const(bytes, 0);
 
-  result = CompileExpr(NodeChild(expr, 0), env, bytes, mod);
-  if (!result.ok) return result;
+  result = CompileExpr(NodeChild(expr, 0), bytes, env, mod);
+  if (!IsOk(result)) return result;
 
   PushByte(bytes, I32Sub);
-  return OkResult();
+  return Ok(0);
 }
 
-static Result CompileNot(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileNot(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
-  Result result = CompileExpr(NodeChild(expr, 0), env, bytes, mod);
-  if (!result.ok) return result;
+  Result result = CompileExpr(NodeChild(expr, 0), bytes, env, mod);
+  if (!IsOk(result)) return result;
 
   PushByte(bytes, I32EqZ);
-  return OkResult();
+  return Ok(0);
 }
 
-static Result CompileBinOp(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileBinOp(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   Result result;
 
-  result = CompileExpr(NodeChild(expr, 1), env, bytes, mod);
-  if (!result.ok) return result;
+  result = CompileExpr(NodeChild(expr, 1), bytes, env, mod);
+  if (!IsOk(result)) return result;
 
-  result = CompileExpr(NodeChild(expr, 0), env, bytes, mod);
-  if (!result.ok) return result;
+  result = CompileExpr(NodeChild(expr, 0), bytes, env, mod);
+  if (!IsOk(result)) return result;
 
   PushByte(bytes, NodeOp(expr));
-  return OkResult();
+  return Ok(0);
 }
 
-static Result CompilePair(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompilePair(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   Result result;
 
-  result = CompileExpr(NodeChild(expr, 1), env, bytes, mod);
-  if (!result.ok) return result;
+  result = CompileExpr(NodeChild(expr, 1), bytes, env, mod);
+  if (!IsOk(result)) return result;
 
-  result = CompileExpr(NodeChild(expr, 0), env, bytes, mod);
-  if (!result.ok) return result;
+  result = CompileExpr(NodeChild(expr, 0), bytes, env, mod);
+  if (!IsOk(result)) return result;
 
-  CompileMakePair(bytes);
+  MakePair(bytes);
 
-  return OkResult();
+  return Ok(0);
 }
 
-static Result CompileTuple(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileList(Node *expr, u8 **bytes, Frame *env, Module *mod)
+{
+  Result result;
+  u32 i;
+  u32 len = NumNodeChildren(expr);
+
+  Const(bytes, 0);
+  for (i = 0; i < len; i++) {
+    result = CompileExpr(NodeChild(expr, len - 1 - i), bytes, env, mod);
+    if (!IsOk(result)) return result;
+    MakePair(bytes);
+  }
+
+  return Ok(0);
+}
+
+static Result CompileTuple(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   u32 i;
   u32 num_items = NumNodeChildren(expr);
   Result result;
 
-  CompileMakeTuple(bytes, num_items);
-  CompileDup(bytes);
+  MakeTuple(bytes, num_items);
+  Dup(bytes);
 
   for (i = 0; i < num_items; i++) {
-    CompileDup(bytes);
+    Dup(bytes);
 
-    result = CompileExpr(NodeChild(expr, i), env, bytes, mod);
-    if (!result.ok) return result;
+    result = CompileExpr(NodeChild(expr, i), bytes, env, mod);
+    if (!IsOk(result)) return result;
 
-    CompileStore(bytes, 0);
+    Store(bytes, 0);
     if (i < num_items - 1) {
-      CompileConst(bytes, 1);
+      Const(bytes, 1);
       PushByte(bytes, I32Add);
     } else {
       PushByte(bytes, DropOp);
     }
   }
 
-  return OkResult();
+  return Ok(0);
 }
 
-static Result CompileLambda(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileLambda(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   Result result = CompileFunc(expr, env, mod);
-  if (!result.ok) return result;
+  if (!IsOk(result)) return result;
 
-  CompileMakeLambda(bytes, ResultValue(result));
+  MakeLambda(bytes, result);
   return result;
 }
 
-static Result CompileCall(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileCall(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   u32 i;
   Result result;
@@ -295,44 +311,67 @@ static Result CompileCall(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
 
   GetReg(bytes, RegEnv);
   for (i = 0; i < num_items; i++) {
-    result = CompileExpr(NodeChild(expr, num_items - 1 - i), env, bytes, mod);
-    if (!result.ok) return result;
+    result = CompileExpr(NodeChild(expr, num_items - 1 - i), bytes, env, mod);
+    if (!IsOk(result)) return result;
   }
 
   SetReg(bytes, RegTmp1);
   GetReg(bytes, RegTmp1);
-  CompileHead(bytes);
+  Head(bytes);
   SetReg(bytes, RegEnv);
   GetReg(bytes, RegTmp1);
-  CompileTail(bytes);
-  CompileCallOp(bytes, TypeIdx(mod, num_items-1, 1));
+  Tail(bytes);
+  Call(bytes, AddType(num_items-1, 1, mod));
   SetReg(bytes, RegTmp1);
   SetReg(bytes, RegEnv);
   GetReg(bytes, RegTmp1);
 
-  return OkResult();
+  return Ok(0);
 }
 
-static Result CompileExpr(Node *expr, Frame *env, ByteVec *bytes, Module *mod)
+static Result CompileDo(Node *expr, u8 **bytes, Frame *env, Module *mod)
+{
+  Result result;
+  u32 i;
+  u32 num_items = NumNodeChildren(expr);
+
+  for (i = 0; i < num_items; i++) {
+    GetReg(bytes, RegEnv);
+    result = CompileExpr(NodeChild(expr, i), bytes, env, mod);
+    if (!IsOk(result)) return result;
+
+    if (i < num_items - 1) {
+      PushByte(bytes, DropOp);
+    } else {
+      Swap(bytes);
+    }
+    SetReg(bytes, RegEnv);
+  }
+
+  return Ok(0);
+}
+
+static Result CompileExpr(Node *expr, u8 **bytes, Frame *env, Module *mod)
 {
   printf("Compiling %s (%d)\n", NodeName(expr), expr->pos);
 
   switch (expr->type) {
-  case IDNode:        return CompileVar(expr, env, bytes, mod);
-  case IntNode:       return CompileInt(expr, env, bytes, mod);
+  case IDNode:        return CompileVar(expr, bytes, env, mod);
+  case IntNode:       return CompileInt(expr, bytes, env, mod);
   case AddNode:
   case SubNode:
   case MulNode:
   case DivNode:
-  case RemNode:       return CompileBinOp(expr, env, bytes, mod);
-  /*case LenNode:       return CompileLen(expr, env, bytes, mod);*/
-  case NotNode:       return CompileNot(expr, env, bytes, mod);
-  case NegNode:       return CompileNeg(expr, env, bytes, mod);
-  case PairNode:      return CompilePair(expr, env, bytes, mod);
-  case TupleNode:     return CompileTuple(expr, env, bytes, mod);
-  case LambdaNode:    return CompileLambda(expr, env, bytes, mod);
-  case CallNode:      return CompileCall(expr, env, bytes, mod);
-  default:            return ErrorResult("Unknown expr type", mod->filename, NodePos(expr));
+  case RemNode:       return CompileBinOp(expr, bytes, env, mod);
+  case NotNode:       return CompileNot(expr, bytes, env, mod);
+  case NegNode:       return CompileNeg(expr, bytes, env, mod);
+  case PairNode:      return CompilePair(expr, bytes, env, mod);
+  case ListNode:      return CompileList(expr, bytes, env, mod);
+  case TupleNode:     return CompileTuple(expr, bytes, env, mod);
+  case LambdaNode:    return CompileLambda(expr, bytes, env, mod);
+  case CallNode:      return CompileCall(expr, bytes, env, mod);
+  case DoNode:        return CompileDo(expr, bytes, env, mod);
+  default:            return CompileError("Unknown expr type", mod->filename, NodePos(expr));
   }
 }
 
@@ -342,9 +381,10 @@ static Result CompileFunc(Node *lambda, Frame *env, Module *mod)
   Result result;
   Node *params = NodeChild(lambda, 0);
   u32 num_params = NumNodeChildren(params);
-  u32 type = TypeIdx(mod, num_params, 1);
+  u32 type = AddType(num_params, 1, mod);
   Node *body = NodeChild(lambda, 1);
-  Func *func = MakeFunc(type, 0);
+  Func *func = AddFunc(type, 0, mod);
+  u8 **bytes = &func->code;
   env = ExtendFrame(env, num_params);
 
   for (i = 0; i < num_params; i++) {
@@ -352,62 +392,57 @@ static Result CompileFunc(Node *lambda, Frame *env, Module *mod)
     FrameSet(env, i, NodeValue(param));
   }
 
-  ExtendEnv(&func->code, num_params);
-  GetReg(&func->code, RegEnv);
-  CompileLoad(&func->code, 0);
-  SetReg(&func->code, RegTmp1);
+  ExtendEnv(bytes, num_params);
+  GetReg(bytes, RegEnv);
+  Load(bytes, 0);
+  SetReg(bytes, RegTmp1);
   for (i = 0; i < num_params; i++) {
-    GetReg(&func->code, RegTmp1);
-    GetLocal(&func->code, i);
-    CompileStore(&func->code, i*4);
+    GetReg(bytes, RegTmp1);
+    GetLocal(bytes, i);
+    Store(bytes, i*4);
   }
 
-  result = CompileExpr(body, env, &func->code, mod);
+  result = CompileExpr(body, bytes, env, mod);
 
   PopFrame(env);
-  if (!result.ok) {
-    FreeFunc(func);
-    return result;
-  }
+  if (!IsOk(result)) return result;
 
   PushByte(&func->code, EndOp);
 
-  ObjVecPush(&mod->funcs, func);
-
-  return ValueResult(FuncIdx(mod, mod->funcs.count - 1));
+  return Ok(FuncIdx(func, mod));
 }
 
 #define PageSize 65536
 static void CompileUtilities(Module *mod)
 {
-  Func *alloc = MakeFunc(TypeIdx(mod, 1, 0), 0);
-  Func *lookup = MakeFunc(TypeIdx(mod, 1, 1), 2);
-  Func *makepair = MakeFunc(TypeIdx(mod, 2, 1), 0);
-  Func *maketuple = MakeFunc(TypeIdx(mod, 1, 1), 0);
+  u8 **code;
+  Func *alloc = AddFunc(AddType(1, 0, mod), 0, mod);
+  Func *lookup = AddFunc(AddType(1, 1, mod), 2, mod);
+  Func *makepair = AddFunc(AddType(2, 1, mod), 0, mod);
+  Func *maketuple = AddFunc(AddType(1, 1, mod), 0, mod);
 
-  ByteVec *code = &alloc->code;
+  code = &alloc->code;
   GetReg(code, RegFree);
   GetLocal(code, 0);
   PushByte(code, I32Add);
   SetReg(code, RegFree);
   PushByte(code, Block);
-  PushInt(code, EmptyBlock);
+  PushByte(code, EmptyBlock);
   GetReg(code, RegFree);
   PushByte(code, MemSize);
   PushByte(code, 0);
-  CompileConst(code, PageSize);
+  Const(code, PageSize);
   PushByte(code, I32Mul);
   PushByte(code, I32LtS);
   PushByte(code, BrIf);
   PushInt(code, 0);
-  CompileConst(code, 1);
+  Const(code, 1);
   PushByte(code, MemGrow);
   PushByte(code, 0);
   PushByte(code, DropOp);
   PushByte(code, EndOp);
   PushByte(code, EndOp);
-  ObjVecPush(&mod->funcs, alloc);
-  AllocFn = FuncIdx(mod, mod->funcs.count-1);
+  AllocFn = FuncIdx(alloc, mod);
 
   code = &lookup->code;
   GetReg(code, RegEnv);
@@ -420,7 +455,7 @@ static void CompileUtilities(Module *mod)
   PushByte(code, Block);
   PushByte(code, EmptyBlock);
   GetLocal(code, 1);
-  CompileConst(code, 0);
+  Const(code, 0);
   PushByte(code, I32Ne);
   PushByte(code, BrIf);
   PushByte(code, 0);
@@ -428,10 +463,10 @@ static void CompileUtilities(Module *mod)
   PushByte(code, EndOp);
   GetLocal(code, 0);
   GetLocal(code, 1);
-  CompileLoad(code, 0);
-  CompileConst(code, 4);
+  Load(code, 0);
+  Const(code, 4);
   PushByte(code, I32Sub);
-  CompileLoad(code, 0);
+  Load(code, 0);
   TeeLocal(code, 2);
   PushByte(code, I32LtS);
   PushByte(code, BrIf);
@@ -441,78 +476,75 @@ static void CompileUtilities(Module *mod)
   PushByte(code, I32Sub);
   SetLocal(code, 0);
   GetLocal(code, 1);
-  CompileLoad(code, 4);
+  Load(code, 4);
   SetLocal(code, 1);
   PushByte(code, Br);
   PushInt(code, 0);
   PushByte(code, EndOp);
   PushByte(code, EndOp);
   GetLocal(code, 1);
-  CompileLoad(code, 0);
+  Load(code, 0);
   GetLocal(code, 0);
-  CompileConst(code, 4);
+  Const(code, 4);
   PushByte(code, I32Mul);
   PushByte(code, I32Add);
-  CompileLoad(code, 0);
+  Load(code, 0);
   PushByte(code, EndOp);
-  ObjVecPush(&mod->funcs, lookup);
-  LookupFn = FuncIdx(mod, mod->funcs.count-1);
+  LookupFn = FuncIdx(lookup, mod);
 
   code = &makepair->code;
   GetReg(code, RegFree);
   GetReg(code, RegFree);
   GetReg(code, RegFree);
-  CompileAlloc(code, 8);
+  Alloc(code, 8);
   GetLocal(code, 1);
-  CompileStore(code, 0);
+  Store(code, 0);
   GetLocal(code, 0);
-  CompileStore(code, 4);
+  Store(code, 4);
   PushByte(code, EndOp);
-  ObjVecPush(&mod->funcs, makepair);
-  MakePairFn = FuncIdx(mod, mod->funcs.count-1);
+  MakePairFn = FuncIdx(makepair, mod);
 
   code = &maketuple->code;
   /* store count */
   GetReg(code, RegFree);
   PushByte(code, LocalGet);
   PushInt(code, 0);
-  CompileAlloc(code, 4);
-  CompileStore(code, 0);
+  Alloc(code, 4);
+  Store(code, 0);
   /* tuple pointer to return */
   GetReg(code, RegFree);
   /* allocate space for items */
   GetLocal(code, 0);
-  CompileConst(code, 4);
+  Const(code, 4);
   PushByte(code, I32Mul);
   PushByte(code, CallOp);
   PushInt(code, AllocFn);
   PushByte(code, EndOp);
-  ObjVecPush(&mod->funcs, maketuple);
-  MakeTupleFn = FuncIdx(mod, mod->funcs.count-1);
+  MakeTupleFn = FuncIdx(maketuple, mod);
 }
 
 void CompileImports(Frame *env, Func *start, Module *mod)
 {
   u32 i;
-  ByteVec *code = &start->code;
+  u8 **code = &start->code;
 
   /* load current frame to tmp1 */
   GetReg(code, RegEnv);
-  CompileLoad(code, 0);
+  Load(code, 0);
   SetReg(code, RegTmp1);
 
-  for (i = 0; i < mod->imports.count; i++) {
-    Import *import = VecRef(&mod->imports, i);
+  for (i = 0; i < VecCount(mod->imports); i++) {
+    Import *import = mod->imports[i];
     FrameSet(env, i, AddSymbol(import->name));
     GetReg(code, RegTmp1);
-    CompileMakeLambda(code, i);
-    CompileStore(code, i*4);
+    MakeLambda(code, i);
+    Store(code, i*4);
   }
 }
 
 Result CompileModule(Node *ast)
 {
-  Module *mod = Alloc(sizeof(Module));
+  Module *mod = malloc(sizeof(Module));
   u32 i, j;
   Node *stmts;
   Frame *env = 0;
@@ -521,7 +553,7 @@ Result CompileModule(Node *ast)
   Func *start;
   Node *exports;
 
-  if (ast->type != ModuleNode) return ErrorResult("Not a module", 0, 0);
+  if (ast->type != ModuleNode) return CompileError("Not a module", 0, 0);
   exports = ModuleExports(ast);
   num_exports = NumNodeChildren(exports);
   stmts = NodeChild(ModuleBody(ast), 1);
@@ -531,12 +563,12 @@ Result CompileModule(Node *ast)
   mod->filename = SymbolName(ModuleFile(ast));
 
   /* imports must be added first */
-  AddImport(mod, "print", TypeIdx(mod, 1, 1));
+  AddImport("print", AddType(1, 1, mod), mod);
   CompileUtilities(mod);
 
-  start = MakeFunc(TypeIdx(mod, 0, 0), 0);
-  env = ExtendFrame(env, mod->imports.count);
-  ExtendEnv(&start->code, mod->imports.count);
+  start = AddFunc(AddType(0, 0, mod), 0, mod);
+  env = ExtendFrame(env, VecCount(mod->imports));
+  ExtendEnv(&start->code, VecCount(mod->imports));
   CompileImports(env, start, mod);
 
   /* pre-define each func */
@@ -555,23 +587,21 @@ Result CompileModule(Node *ast)
     for (i = 0; i < NumNodeChildren(stmts); i++) {
       Node *stmt = NodeChild(stmts, i);
       Node *lambda;
-      Export *export;
       char *name;
 
       if (stmt->type != DefNode) continue;
 
       lambda = NodeChild(stmt, 1);
       result = CompileFunc(lambda, env, mod);
-      if (!result.ok) return result;
+      if (!IsOk(result)) return result;
 
       GetReg(&start->code, RegEnv);
-      CompileLoad(&start->code, 0);
-      CompileMakeLambda(&start->code, ResultValue(result));
-      CompileStore(&start->code, i*4);
+      Load(&start->code, 0);
+      MakeLambda(&start->code, result);
+      Store(&start->code, i*4);
 
       name = SymbolName(NodeValue(NodeChild(stmt, 0)));
-      export = MakeExport(name, ResultValue(result));
-      ObjVecPush(&mod->exports, export);
+      AddExport(name, result, mod);
     }
   }
 
@@ -581,15 +611,18 @@ Result CompileModule(Node *ast)
 
     if (stmt->type == DefNode) continue;
 
-    result = CompileExpr(stmt, env, &start->code, mod);
-    if (!result.ok) return result;
+    result = CompileExpr(stmt, &start->code, env, mod);
+    if (!IsOk(result)) return result;
 
+    if (i == NumNodeChildren(stmts)-1) {
+      PushByte(&start->code, CallOp);
+      PushInt(&start->code, 0);
+    }
     PushByte(&start->code, DropOp);
   }
   PushByte(&start->code, EndOp);
 
-  ObjVecPush(&mod->funcs, start);
-  mod->start = FuncIdx(mod, mod->funcs.count - 1);
+  mod->start = FuncIdx(start, mod);
 
-  return ItemResult(mod);
+  return Ok(mod);
 }

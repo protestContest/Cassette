@@ -1,19 +1,22 @@
-NAME = cassette
+TARGET = cassette
 
-TARGET = $(NAME)
-SRC = src
+BIN = bin
 BUILD = build
+INCLUDE = include
+LIB = lib
+SRC = src
 
 SRCS := $(shell find $(SRC) -name '*.c' -print)
 OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 
 CC = clang
-INCLUDE_FLAGS = -I$(SRC) -include base.h
+INCLUDE_FLAGS = -I$(INCLUDE) -include base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
 CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -fsanitize=address
-LDFLAGS =
+LDFLAGS = -L$(LIB) -luniv
 
-$(TARGET): $(OBJS)
+$(BIN)/$(TARGET): $(OBJS)
+	@mkdir -p $(dir $@)
 	@echo $<
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
@@ -24,13 +27,13 @@ $(BUILD)/%.o: $(SRC)/%.c
 .PHONY: clean
 clean:
 	rm -rf $(BUILD)
-	rm -rf $(TARGET)
+	rm -rf $(BIN)
 
 .PHONY: test
-test: $(TARGET)
-	./$(TARGET) test/test.ct && wasmer validate out.wasm
+test: $(BIN)/$(TARGET)
+	$(BIN)/$(TARGET) test/test.ct && wasm-validate bin/out.wasm && echo Ok
 
 .PHONY: entitlements
-entitlements: $(TARGET)
-	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(TARGET)
+entitlements: $(BIN)/$(TARGET)
+	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(BIN)/$(TARGET)
 

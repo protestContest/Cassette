@@ -1,10 +1,7 @@
 #include "parse.h"
+#include "builderror.h"
 #include "ast.h"
-#include "univ/file.h"
-#include "univ/math.h"
-#include "univ/str.h"
-#include "univ/system.h"
-#include "symbol.h"
+#include <univ.h>
 
 typedef struct {
   char *filename;
@@ -13,8 +10,7 @@ typedef struct {
 
 #define ExprNext(lex)       (rules[(lex)->token.type].prefix)
 #define PrecNext(lex)       (rules[(lex)->token.type].prec)
-#define ParseOk(node)       ItemResult(node)
-#define ParseError(msg, p)  ErrorResult(msg, (p)->filename, (p)->lex.token.lexeme - (p)->lex.source)
+#define ParseError(msg, p)  Error(MakeBuildError(msg, (p)->filename, TokenPos(&(p)->lex)))
 #define EndOfBlock(type)    ((type) == TokenEOF || (type) == TokenEnd || (type) == TokenElse)
 #define ParseExpr(p)        ParsePrec(PrecExpr, p)
 
@@ -76,12 +72,12 @@ Result ParseFile(char *filename)
   Parser p;
   Result result;
   char *source = ReadFile(filename);
-  if (source == 0) return ErrorResult("Could not read file", filename, 0);
+  if (source == 0) return Error(MakeBuildError("Could not read file", filename, 0));
   p.filename = filename;
   InitLexer(&p.lex, source, 0);
   SkipNewlines(&p.lex);
   result = ParseModule(&p);
-  Free(source);
+  free(source);
   return result;
 }
 
@@ -105,9 +101,9 @@ static Result ParseModule(Parser *p)
   /* module name */
   if (MatchToken(TokenModule, &p->lex)) {
     result = ParseID(p);
-    if (!result.ok) return ParseFail(result, module);
-    NodePush(module, ResultItem(result));
-    mod_name = NodeValue(ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, module);
+    NodePush(module, ResValue(result));
+    mod_name = NodeValue(ResValue(result));
   } else {
     NodePush(module, MakeTerminal(IDNode, 0, main));
     mod_name = main;
@@ -116,26 +112,26 @@ static Result ParseModule(Parser *p)
   /* imports */
   SkipNewlines(&p->lex);
   result = ParseImports(p);
-  if (!result.ok) return ParseFail(result, module);
-  NodePush(module, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, module);
+  NodePush(module, ResValue(result));
 
   /* body */
   result = ParseStmts(p);
-  if (!result.ok) return ParseFail(result, module);
+  if (!IsOk(result)) return ParseFail(result, module);
   if (!MatchToken(TokenEOF, &p->lex)) {
     return ParseFail(ParseError("Unexpected token", p), module);
   }
 
   if (mod_name == main) {
-    NodePush(module, ResultItem(result));
+    NodePush(module, ResValue(result));
   } else {
-    NodePush(module, WithExport(ResultItem(result), p));
+    NodePush(module, WithExport(ResValue(result), p));
   }
 
   /* filename */
   NodePush(module, MakeTerminal(StringNode, TokenPos(&p->lex), AddSymbol(p->filename)));
 
-  return ParseOk(module);
+  return Ok(module);
 }
 
 /* Adds an ExportNode to the end of a DoNode's statements */
@@ -166,25 +162,20 @@ static Result ParseImports(Parser *p)
     NodePush(node, import_node);
 
     result = ParseID(p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(import_node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(import_node, ResValue(result));
     if (MatchToken(TokenAs, &p->lex)) {
-      u32 pos = TokenPos(&p->lex);
-      if (MatchToken(TokenStar, &p->lex)) {
-        NodePush(import_node, MakeTerminal(NilNode, pos, 0));
-      } else {
-        result = ParseID(p);
-        if (!result.ok) return ParseFail(result, node);
-        NodePush(import_node, ResultItem(result));
-      }
+      result = ParseID(p);
+      if (!IsOk(result)) return ParseFail(result, node);
+      NodePush(import_node, ResValue(result));
     } else {
-      NodePush(import_node, ResultItem(result));
+      NodePush(import_node, ResValue(result));
     }
 
     SkipNewlines(&p->lex);
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a DoNode */
@@ -208,10 +199,10 @@ static Result ParseStmts(Parser *p)
         if (MatchToken(TokenEOF, &p->lex)) break;
 
         result = ParseAssign(p);
-        if (!result.ok) return ParseFail(result, node);
-        NodePush(stmts, ResultItem(result));
+        if (!IsOk(result)) return ParseFail(result, node);
+        NodePush(stmts, ResValue(result));
 
-        var = NodeChild(ResultItem(result), 0);
+        var = NodeChild(ResValue(result), 0);
         NodePush(assigns, var);
 
         if (MatchToken(TokenComma, &p->lex)) SkipNewlines(&p->lex);
@@ -219,15 +210,15 @@ static Result ParseStmts(Parser *p)
     } else if (MatchToken(TokenDef, &p->lex)) {
       Node *var;
       result = ParseDef(p, pos);
-      if (!result.ok) return ParseFail(result, node);
-      NodePush(stmts, ResultItem(result));
+      if (!IsOk(result)) return ParseFail(result, node);
+      NodePush(stmts, ResValue(result));
 
-      var = NodeChild(ResultItem(result), 0);
+      var = NodeChild(ResValue(result), 0);
       NodePush(assigns, var);
     } else {
       result = ParseExpr(p);
-      if (!result.ok) return ParseFail(result, node);
-      NodePush(stmts, ResultItem(result));
+      if (!IsOk(result)) return ParseFail(result, node);
+      NodePush(stmts, ResValue(result));
     }
 
     SkipNewlines(&p->lex);
@@ -237,7 +228,7 @@ static Result ParseStmts(Parser *p)
     NodePush(stmts, MakeTerminal(NilNode, TokenPos(&p->lex), 0));
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a LetNode */
@@ -247,8 +238,8 @@ static Result ParseAssign(Parser *p)
   Node *node = MakeNode(LetNode, TokenPos(&p->lex));
 
   result = ParseID(p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
   SkipNewlines(&p->lex);
   if (!MatchToken(TokenEq, &p->lex)) {
@@ -257,10 +248,10 @@ static Result ParseAssign(Parser *p)
   SkipNewlines(&p->lex);
 
   result = ParseExpr(p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a DefNode */
@@ -271,8 +262,8 @@ static Result ParseDef(Parser *p, u32 pos)
   Node *lambda, *params;
 
   result = ParseID(p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
   lambda = MakeNode(LambdaNode, pos);
   NodePush(node, lambda);
@@ -285,8 +276,8 @@ static Result ParseDef(Parser *p, u32 pos)
       do {
         SkipNewlines(&p->lex);
         result = ParseID(p);
-        if (!result.ok) return ParseFail(result, node);
-        NodePush(params, ResultItem(result));
+        if (!IsOk(result)) return ParseFail(result, node);
+        NodePush(params, ResValue(result));
       } while (MatchToken(TokenComma, &p->lex));
       SkipNewlines(&p->lex);
       if (!MatchToken(TokenRParen, &p->lex)) {
@@ -297,10 +288,10 @@ static Result ParseDef(Parser *p, u32 pos)
   }
 
   result = ParseExpr(p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(lambda, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(lambda, ResValue(result));
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 typedef Result (*ParseFn)(Parser *p);
@@ -377,8 +368,8 @@ static Result ParsePrec(Precedence prec, Parser *p)
   if (!ExprNext(&p->lex)) return ParseError("Expected expression", p);
   result = ExprNext(&p->lex)(p);
 
-  while (result.ok && PrecNext(&p->lex) >= prec) {
-    result = rules[p->lex.token.type].infix(ResultItem(result), p);
+  while (IsOk(result) && PrecNext(&p->lex) >= prec) {
+    result = rules[p->lex.token.type].infix(ResValue(result), p);
   }
 
   return result;
@@ -393,10 +384,10 @@ static Result ParseUnary(Parser *p)
 
   SkipNewlines(&p->lex);
   result = ParsePrec(PrecUnary, p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 static Result ParseLeftAssoc(Node *prefix, Parser *p)
@@ -411,10 +402,10 @@ static Result ParseLeftAssoc(Node *prefix, Parser *p)
 
   SkipNewlines(&p->lex);
   result = ParsePrec(prec+1, p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a CallNode */
@@ -428,14 +419,14 @@ static Result ParseRightAssoc(Node *prefix, Parser *p)
 
   SkipNewlines(&p->lex);
   result = ParsePrec(prec, p);
-  if (!result.ok) {
+  if (!IsOk(result)) {
     FreeAST(prefix);
     return ParseFail(result, node);
   }
-  NodePush(node, ResultItem(result));
+  NodePush(node, ResValue(result));
   NodePush(node, prefix);
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a CallNode or a SetNode */
@@ -452,8 +443,8 @@ static Result ParseCall(Node *prefix, Parser *p)
     do {
       SkipNewlines(&p->lex);
       result = ParseExpr(p);
-      if (!result.ok) return ParseFail(result, node);
-      NodePush(node, ResultItem(result));
+      if (!IsOk(result)) return ParseFail(result, node);
+      NodePush(node, ResValue(result));
       SkipNewlines(&p->lex);
     } while (MatchToken(TokenComma, &p->lex));
     if (!MatchToken(TokenRParen, &p->lex)) {
@@ -461,7 +452,7 @@ static Result ParseCall(Node *prefix, Parser *p)
     }
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a CallNode */
@@ -476,16 +467,16 @@ static Result ParseAccess(Node *prefix, Parser *p)
 
   if (LexPeek(&p->lex) == TokenID) {
     result = ParseID(p);
-    if (!result.ok) return ParseFail(result, node);
-    SetNodeType(ResultItem(result), SymbolNode);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    SetNodeType(ResValue(result), SymbolNode);
+    NodePush(node, ResValue(result));
   } else {
     result = ParsePrec(prec+1, p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(node, ResValue(result));
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns an AndNode or an OrNode */
@@ -501,10 +492,10 @@ static Result ParseLogic(Node *prefix, Parser *p)
 
   SkipNewlines(&p->lex);
   result = ParsePrec(prec+1, p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a LambdaNode */
@@ -526,8 +517,8 @@ static Result ParseLambda(Parser *p)
     do {
       SkipNewlines(&p->lex);
       result = ParseID(p);
-      if (!result.ok) return ParseFail(result, node);
-      NodePush(params, ResultItem(result));
+      if (!IsOk(result)) return ParseFail(result, node);
+      NodePush(params, ResValue(result));
       SkipNewlines(&p->lex);
     } while (MatchToken(TokenComma, &p->lex));
     if (!MatchToken(TokenArrow, &p->lex)) {
@@ -537,24 +528,24 @@ static Result ParseLambda(Parser *p)
 
   SkipNewlines(&p->lex);
   result = ParseExpr(p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a node parsed at the highest precedence */
 static Result ParseGroup(Parser *p)
 {
   Result result;
-  Assert(MatchToken(TokenLParen, &p->lex));
+  assert(MatchToken(TokenLParen, &p->lex));
 
   SkipNewlines(&p->lex);
   result = ParseExpr(p);
-  if (!result.ok) return result;
+  if (!IsOk(result)) return result;
   SkipNewlines(&p->lex);
   if (!MatchToken(TokenRParen, &p->lex)) {
-    return ParseFail(ParseError("Expected \")\"", p), ResultItem(result));
+    return ParseFail(ParseError("Expected \")\"", p), ResValue(result));
   }
   return result;
 }
@@ -565,13 +556,13 @@ static Result ParseDo(Parser *p)
   Result result;
   Node *node, *assigns, *stmts;
   u32 pos = TokenPos(&p->lex);
-  Assert(MatchToken(TokenDo, &p->lex));
+  assert(MatchToken(TokenDo, &p->lex));
 
   result = ParseStmts(p);
-  if (!result.ok) return result;
+  if (!IsOk(result)) return result;
   if (!MatchToken(TokenEnd, &p->lex)) return ParseError("Expected \"end\"", p);
 
-  node = ResultItem(result);
+  node = ResValue(result);
   node->pos = pos;
   assigns = NodeChild(node, 0);
   stmts = NodeChild(node, 1);
@@ -581,7 +572,7 @@ static Result ParseDo(Parser *p)
     FreeNode(assigns);
     FreeNode(stmts);
     FreeNode(node);
-    return ParseOk(stmt);
+    return Ok(stmt);
   }
 
   return result;
@@ -593,12 +584,12 @@ static Result ParseIf(Parser *p)
   Result result;
   Node *node = MakeNode(IfNode, TokenPos(&p->lex));
 
-  Assert(MatchToken(TokenIf, &p->lex));
+  assert(MatchToken(TokenIf, &p->lex));
 
   /* predicate */
   result = ParseExpr(p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
   if (!MatchToken(TokenDo, &p->lex)) {
     return ParseFail(ParseError("Expected \"do\"", p), node);
@@ -606,14 +597,14 @@ static Result ParseIf(Parser *p)
 
   /* consequent */
   result = ParseStmts(p);
-  if (!result.ok) return ParseFail(result, node);
-  NodePush(node, ResultItem(result));
+  if (!IsOk(result)) return ParseFail(result, node);
+  NodePush(node, ResValue(result));
 
   /* alternative */
   if (MatchToken(TokenElse, &p->lex)) {
     result = ParseStmts(p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(node, ResValue(result));
   } else {
     NodePush(node, MakeTerminal(NilNode, TokenPos(&p->lex), 0));
   }
@@ -622,7 +613,7 @@ static Result ParseIf(Parser *p)
     return ParseFail(ParseError("Expected \"end\"", p), node);
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns an IfNode, where the alternative is an IfNode for the remaining
@@ -630,14 +621,14 @@ clauses, or a NilNode if it's the last clause */
 static Result ParseClauses(Parser *p)
 {
   if (MatchToken(TokenEnd, &p->lex)) {
-    return ParseOk(MakeTerminal(NilNode, TokenPos(&p->lex), 0));
+    return Ok(MakeTerminal(NilNode, TokenPos(&p->lex), 0));
   } else {
     Result result;
     Node *node = MakeNode(IfNode, TokenPos(&p->lex));
 
     result = ParseExpr(p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(node, ResValue(result));
 
     SkipNewlines(&p->lex);
     if (!MatchToken(TokenArrow, &p->lex)) {
@@ -646,22 +637,22 @@ static Result ParseClauses(Parser *p)
     SkipNewlines(&p->lex);
 
     result = ParseExpr(p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(node, ResValue(result));
 
     SkipNewlines(&p->lex);
     result = ParseClauses(p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(node, ResValue(result));
 
-    return ParseOk(node);
+    return Ok(node);
   }
 }
 
 /* Begins the call to ParseClauses */
 static Result ParseCond(Parser *p)
 {
-  Assert(MatchToken(TokenCond, &p->lex));
+  assert(MatchToken(TokenCond, &p->lex));
   if (!MatchToken(TokenDo, &p->lex)) return ParseError("Expected \"do\"", p);
   SkipNewlines(&p->lex);
   return ParseClauses(p);
@@ -673,15 +664,15 @@ static Result ParseList(Parser *p)
   Result result;
   Node *node = MakeNode(ListNode, TokenPos(&p->lex));
 
-  Assert(MatchToken(TokenLBracket, &p->lex));
+  assert(MatchToken(TokenLBracket, &p->lex));
   SkipNewlines(&p->lex);
 
   if (!MatchToken(TokenRBracket, &p->lex)) {
     do {
       SkipNewlines(&p->lex);
       result = ParseExpr(p);
-      if (!result.ok) return ParseFail(result, node);
-      NodePush(node, ResultItem(result));
+      if (!IsOk(result)) return ParseFail(result, node);
+      NodePush(node, ResValue(result));
       SkipNewlines(&p->lex);
     } while(MatchToken(TokenComma, &p->lex));
     if (!MatchToken(TokenRBracket, &p->lex)) {
@@ -689,7 +680,7 @@ static Result ParseList(Parser *p)
     }
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Looks ahead to see if a tuple or map follows, then calls one of those.
@@ -703,7 +694,7 @@ static Result ParseBraces(Parser *p)
   MatchToken(TokenLBrace, &p->lex);
   if (MatchToken(TokenColon, &p->lex)) {
     if (MatchToken(TokenRBrace, &p->lex)) {
-      return ParseOk(MakeNode(MapNode, pos));
+      return Ok(MakeNode(MapNode, pos));
     }
   }
   p->lex = saved;
@@ -725,47 +716,47 @@ static Result ParseBraces(Parser *p)
 static Result ParseMap(Parser *p)
 {
   Node *node = MakeNode(MapNode, TokenPos(&p->lex));
-  Assert(MatchToken(TokenLBrace, &p->lex));
+  assert(MatchToken(TokenLBrace, &p->lex));
 
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
     Result result = ParseID(p);
-    if (!result.ok) return ParseFail(result, node);
-    SetNodeType(ResultItem(result), SymbolNode);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    SetNodeType(ResValue(result), SymbolNode);
+    NodePush(node, ResValue(result));
 
     if (!MatchToken(TokenColon, &p->lex)) {
       return ParseFail(ParseError("Expected \":\"", p), node);
     }
 
     result = ParseExpr(p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(node, ResValue(result));
 
     MatchToken(TokenComma, &p->lex);
     SkipNewlines(&p->lex);
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns a TupleNode */
 static Result ParseTuple(Parser *p)
 {
   Node *node = MakeNode(TupleNode, TokenPos(&p->lex));
-  Assert(MatchToken(TokenLBrace, &p->lex));
+  assert(MatchToken(TokenLBrace, &p->lex));
 
   SkipNewlines(&p->lex);
   while (!MatchToken(TokenRBrace, &p->lex)) {
     Result result = ParseExpr(p);
-    if (!result.ok) return ParseFail(result, node);
-    NodePush(node, ResultItem(result));
+    if (!IsOk(result)) return ParseFail(result, node);
+    NodePush(node, ResValue(result));
 
     MatchToken(TokenComma, &p->lex);
     SkipNewlines(&p->lex);
   }
 
-  return ParseOk(node);
+  return Ok(node);
 }
 
 /* Returns an IDNode */
@@ -777,7 +768,7 @@ static Result ParseID(Parser *p)
   if (token.type != TokenID) return ParseError("Expected identifier", p);
 
   name = AddSymbolLen(token.lexeme, token.length);
-  return ParseOk(MakeTerminal(IDNode, pos, name));
+  return Ok(MakeTerminal(IDNode, pos, name));
 }
 
 /* Returns a NumNode */
@@ -809,12 +800,12 @@ static Result ParseNum(Parser *p)
       whole = whole * 16 + d;
     }
 
-    return ParseOk(MakeTerminal(IntNode, pos, sign*whole));
+    return Ok(MakeTerminal(IntNode, pos, sign*whole));
   }
 
   if (*token.lexeme == '$') {
     u8 byte = token.lexeme[1];
-    return ParseOk(MakeTerminal(IntNode, pos, byte));
+    return Ok(MakeTerminal(IntNode, pos, byte));
   }
 
   for (i = 0; i < token.length; i++) {
@@ -840,9 +831,9 @@ static Result ParseNum(Parser *p)
 
   if (frac != 0) {
     float num = (float)whole + (float)frac / (float)frac_size;
-    return ParseOk(MakeTerminal(FloatNode, pos, sign*num));
+    return Ok(MakeTerminal(FloatNode, pos, sign*num));
   } else {
-    return ParseOk(MakeTerminal(IntNode, pos, sign*whole));
+    return Ok(MakeTerminal(IntNode, pos, sign*whole));
   }
 }
 
@@ -852,19 +843,19 @@ static Result ParseString(Parser *p)
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   u32 name = AddSymbolLen(token.lexeme + 1, token.length - 2);
-  return ParseOk(MakeTerminal(StringNode, pos, name));
+  return Ok(MakeTerminal(StringNode, pos, name));
 }
 
 /* Returns a SymbolNode */
 static Result ParseSymbol(Parser *p)
 {
   Result result;
-  Assert(MatchToken(TokenColon, &p->lex));
+  assert(MatchToken(TokenColon, &p->lex));
   result = ParseID(p);
-  if (!result.ok) return result;
-  SetNodeType(ResultItem(result), SymbolNode);
+  if (!IsOk(result)) return result;
+  SetNodeType(ResValue(result), SymbolNode);
 
-  return ParseOk(ResultItem(result));
+  return Ok(ResValue(result));
 }
 
 /* Returns a SymbolNode for `true` and `false`, or a NilNode for `nil` */
@@ -874,9 +865,9 @@ static Result ParseLiteral(Parser *p)
   Token token = NextToken(&p->lex);
 
   switch (token.type) {
-  case TokenTrue:   return ParseOk(MakeTerminal(SymbolNode, pos, AddSymbol("true")));
-  case TokenFalse:  return ParseOk(MakeTerminal(SymbolNode, pos, AddSymbol("false")));
-  case TokenNil:    return ParseOk(MakeTerminal(NilNode, pos, 0));
+  case TokenTrue:   return Ok(MakeTerminal(SymbolNode, pos, AddSymbol("true")));
+  case TokenFalse:  return Ok(MakeTerminal(SymbolNode, pos, AddSymbol("false")));
+  case TokenNil:    return Ok(MakeTerminal(NilNode, pos, 0));
   default:          return ParseError("Unknown literal", p);
   }
 }

@@ -1,12 +1,9 @@
 #include "ast.h"
-#include "univ/system.h"
-#include "univ/math.h"
-#include "symbol.h"
-#include <stdio.h>
+#include <univ.h>
 
 Node *MakeTerminal(NodeType type, u32 position, u32 value)
 {
-  Node *node = Alloc(sizeof(Node));
+  Node *node = malloc(sizeof(Node));
   node->type = type;
   node->pos = position;
   node->expr.value = value;
@@ -15,10 +12,10 @@ Node *MakeTerminal(NodeType type, u32 position, u32 value)
 
 Node *MakeNode(NodeType type, u32 position)
 {
-  Node *node = Alloc(sizeof(Node));
+  Node *node = malloc(sizeof(Node));
   node->type = type;
   node->pos = position;
-  InitVec(&node->expr.children, sizeof(Node*), 2);
+  node->expr.children = 0;
   return node;
 }
 
@@ -45,10 +42,10 @@ void SetNodeType(Node *node, NodeType type)
 void FreeNode(Node *node)
 {
   if (!IsTerminal(node)) {
-    DestroyVec(&node->expr.children);
+    FreeVec(&node->expr.children);
   }
 
-  Free(node);
+  free(node);
 }
 
 void FreeAST(Node *node)

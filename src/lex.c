@@ -1,5 +1,5 @@
 #include "lex.h"
-#include "univ/str.h"
+#include <univ.h>
 
 #define Peek(lex)     (lex)->source[(lex)->pos]
 #define Peek2(lex)    (lex)->source[(lex)->pos+1]

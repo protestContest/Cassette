@@ -1,15 +1,14 @@
 #include "env.h"
-#include "univ/system.h"
-#include "symbol.h"
+#include <univ.h>
 
 Frame *ExtendFrame(Frame *parent, u32 size)
 {
   u32 i;
-  Frame *frame = Alloc(sizeof(Frame));
+  Frame *frame = malloc(sizeof(Frame));
   frame->parent = parent;
-  InitVec(&frame->items, sizeof(u32), size);
+  frame->items = NewVec(u32, size);
   for (i = 0; i < size; i++) {
-    IntVecPush(&frame->items, 0);
+    VecPush(frame->items, 0);
   }
   return frame;
 }
@@ -17,8 +16,8 @@ Frame *ExtendFrame(Frame *parent, u32 size)
 Frame *PopFrame(Frame *frame)
 {
   Frame *parent = frame->parent;
-  DestroyVec(&frame->items);
-  Free(frame);
+  FreeVec(frame->items);
+  free(frame);
   return parent;
 }
 
@@ -29,22 +28,22 @@ void FreeEnv(Frame *env)
 
 void FrameSet(Frame *frame, u32 index, u32 name)
 {
-  Assert(index < frame->items.count);
-  VecRef(&frame->items, index) = name;
+  assert(index < VecCount(frame->items));
+  frame->items[index] = name;
 }
 
 i32 FrameFind(Frame *frame, u32 var)
 {
   i32 index;
-  for (index = (i32)frame->items.count - 1; index >= 0; index--) {
-    u32 item = VecRef(&frame->items, index);
+  for (index = (i32)VecCount(frame->items) - 1; index >= 0; index--) {
+    u32 item = frame->items[index];
     if (item == var) return index;
   }
 
   if (frame->parent == 0) return -1;
   index = FrameFind(frame->parent, var);
   if (index < 0) return index;
-  return frame->items.count + index;
+  return VecCount(frame->items) + index;
 }
 
 void PrintEnv(Frame *frame)
@@ -52,8 +51,8 @@ void PrintEnv(Frame *frame)
   while (frame) {
     u32 i;
     printf("- ");
-    for (i = 0; i < frame->items.count; i++) {
-      u32 var = VecRef(&frame->items, i);
+    for (i = 0; i < VecCount(frame->items); i++) {
+      u32 var = frame->items[i];
       printf("%s ", SymbolName(var));
     }
     printf("\n");

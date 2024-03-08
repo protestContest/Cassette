@@ -8,6 +8,7 @@
 -Wno-unused-parameter
 -pedantic
 -I/opt/homebrew/include
+-I/Users/zack/.local/include
+-I../include
 -I../src
--include
-base.h
+-include base.h

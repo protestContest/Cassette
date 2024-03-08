@@ -1,6 +1,6 @@
-*.sublime-workspace
+bin/*
 build/*
-dist/*
+*.sublime-workspace
 *.DS_Store
 .elixir_ls
 bison*
@@ -11,4 +11,3 @@ lib/*
 oldsrc/*
 support/docs/site/*.html
 support/docs/site/fonts/
-*.wasm

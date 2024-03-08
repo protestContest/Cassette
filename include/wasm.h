@@ -58,3 +58,8 @@ typedef enum {
 } OpCode;
 
 #define EmptyBlock 0x40
+
+u32 IntSize(i32 n);
+void PushByte(u8 **code, u8 n);
+void PushInt(u8 **code, i32 n);
+void AppendBytes(u8 **a, u8 **b);
