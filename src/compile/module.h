@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
   u32 type;
+  u32 locals;
   ByteVec code;
 } Func;
 
@@ -40,11 +41,12 @@ typedef struct {
   ObjVec exports;
   u32 start;
   u32 num_globals;
+  char *filename;
 } Module;
 
 void InitModule(Module *mod);
 void DestroyModule(Module *mod);
-Func *MakeFunc(u32 type);
+Func *MakeFunc(u32 type, u32 locals);
 void FreeFunc(Func *func);
 Export *MakeExport(char *name, u32 index);
 void FreeExport(Export *export);

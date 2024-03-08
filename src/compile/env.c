@@ -1,5 +1,6 @@
 #include "env.h"
 #include "univ/system.h"
+#include "symbol.h"
 
 Frame *ExtendFrame(Frame *parent, u32 size)
 {
@@ -45,3 +46,18 @@ i32 FrameFind(Frame *frame, u32 var)
   if (index < 0) return index;
   return frame->items.count + index;
 }
+
+void PrintEnv(Frame *frame)
+{
+  while (frame) {
+    u32 i;
+    printf("- ");
+    for (i = 0; i < frame->items.count; i++) {
+      u32 var = VecRef(&frame->items, i);
+      printf("%s ", SymbolName(var));
+    }
+    printf("\n");
+    frame = frame->parent;
+  }
+}
+

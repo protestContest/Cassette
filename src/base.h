@@ -1,19 +1,7 @@
 #pragma once
 
-#define _GNU_SOURCE
-#include <stdint.h>
-
-#define Apple   1
-#define Linux   2
-#define Windows 3
-
-#if __APPLE__
-#define PLATFORM Apple
-#elif __linux__
-#define PLATFORM Linux
-#elif _WIN32
-#define PLATFORM Windows
-#endif
+#include <stdlib.h>
+#include <stdio.h>
 
 typedef uint8_t u8;
 typedef int8_t i8;

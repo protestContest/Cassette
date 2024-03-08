@@ -63,9 +63,9 @@ void FreeAST(Node *node)
   FreeNode(node);
 }
 
-static char *NodeTypeName(NodeType type)
+char *NodeName(Node *node)
 {
-  switch (type) {
+  switch (node->type) {
   case ModuleNode: return "Module";
   case ImportNode: return "Import";
   case ExportNode: return "Export";
@@ -89,6 +89,7 @@ static char *NodeTypeName(NodeType type)
   case OrNode: return "Or";
   case PairNode: return "Pair";
   case AccessNode: return "Access";
+  case NegNode: return "Neg";
   case AddNode: return "Add";
   case SubNode: return "Sub";
   case MulNode: return "Mul";
@@ -118,7 +119,7 @@ static void Indent(u32 level, u32 lines)
 static void PrintASTNode(Node *node, u32 level, u32 lines)
 {
   NodeType type = node->type;
-  char *name = NodeTypeName(type);
+  char *name = NodeName(node);
   u32 i;
 
   printf("%s:%d", name, node->pos);

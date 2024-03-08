@@ -65,7 +65,8 @@ static Result ParseID(Parser *p);
 static Result ParseNum(Parser *p);
 static Result ParseString(Parser *p);
 
-static NodeType OpNode(TokenType token_type);
+static NodeType UnaryOpNode(TokenType token_type);
+static NodeType BinaryOpNode(TokenType token_type);
 
 static Result ParseFail(Result result, Node *node);
 
@@ -388,7 +389,7 @@ static Result ParseUnary(Parser *p)
   Result result;
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
-  Node *node = MakeNode(OpNode(token.type), pos);
+  Node *node = MakeNode(UnaryOpNode(token.type), pos);
 
   SkipNewlines(&p->lex);
   result = ParsePrec(PrecUnary, p);
@@ -404,7 +405,7 @@ static Result ParseLeftAssoc(Node *prefix, Parser *p)
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
-  Node *node = MakeNode(OpNode(token.type), pos);
+  Node *node = MakeNode(BinaryOpNode(token.type), pos);
 
   NodePush(node, prefix);
 
@@ -423,7 +424,7 @@ static Result ParseRightAssoc(Node *prefix, Parser *p)
   u32 pos = TokenPos(&p->lex);
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
-  Node *node = MakeNode(OpNode(token.type), pos);
+  Node *node = MakeNode(BinaryOpNode(token.type), pos);
 
   SkipNewlines(&p->lex);
   result = ParsePrec(prec, p);
@@ -887,12 +888,21 @@ static Result ParseFail(Result result, Node *node)
   return result;
 }
 
-/* Helper to map operator tokens to symbols, to use in a CallNode */
-static NodeType OpNode(TokenType token_type)
+/* Helpers to map operator tokens to symbols */
+static NodeType UnaryOpNode(TokenType token_type)
+{
+  switch (token_type) {
+  case TokenHash:       return LenNode;
+  case TokenMinus:      return NegNode;
+  case TokenNot:        return NotNode;
+  default:              return NilNode;
+  }
+}
+
+static NodeType BinaryOpNode(TokenType token_type)
 {
   switch (token_type) {
   case TokenBangEq:     return NotEqNode;
-  case TokenHash:       return LenNode;
   case TokenPercent:    return RemNode;
   case TokenStar:       return MulNode;
   case TokenPlus:       return AddNode;
@@ -905,7 +915,6 @@ static NodeType OpNode(TokenType token_type)
   case TokenGt:         return GtNode;
   case TokenGtEq:       return GtEqNode;
   case TokenIn:         return InNode;
-  case TokenNot:        return NotNode;
   case TokenBar:        return PairNode;
   default:              return NilNode;
   }

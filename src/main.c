@@ -6,6 +6,8 @@
 #include "compile/ast.h"
 #include "compile/compile.h"
 #include "compile/module.h"
+#include "univ/str.h"
+#include "univ/file.h"
 
 int main(int argc, char *argv[])
 {
@@ -23,7 +25,12 @@ int main(int argc, char *argv[])
 
   result = CompileModule(ResultItem(result));
   if (!result.ok) {
-    printf("%d: %s\n", ResultError(result)->pos, ResultError(result)->message);
+    ErrorDetails *err = ResultError(result);
+    char *source = ReadFile(argv[1]);
+    u32 line = LineNum(source, err->pos);
+    u32 col = ColNum(source, err->pos);
+
+    printf("%s:%d:%d: %s\n", err->filename, line, col, err->message);
     return 1;
   }
 

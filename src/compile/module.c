@@ -6,7 +6,6 @@
 #include "env.h"
 #include "ops.h"
 #include "univ/hash.h"
-#include "value.h"
 #include <stdio.h>
 
 typedef enum {
@@ -30,6 +29,7 @@ void InitModule(Module *mod)
   InitVec(&mod->exports, sizeof(void*), 0);
   mod->num_globals = 0;
   mod->start = -1;
+  mod->filename = 0;
 }
 
 void DestroyModule(Module *mod)
@@ -48,10 +48,11 @@ void DestroyModule(Module *mod)
   DestroyVec(&mod->exports);
 }
 
-Func *MakeFunc(u32 type)
+Func *MakeFunc(u32 type, u32 locals)
 {
   Func *func = Alloc(sizeof(Func));
   func->type = type;
+  func->locals = locals;
   InitVec(&func->code, sizeof(u8), 0);
   return func;
 }
@@ -94,7 +95,10 @@ u32 AddImport(Module *mod, char *name, u32 type)
     }
   }
 
-  if (!import->mod) i = 0;
+  if (!import->mod) {
+    import->mod = "imports";
+    i = 0;
+  }
   len -= i;
   import->name = Alloc(len+1);
   Copy(name+i, import->name, len);
@@ -332,6 +336,8 @@ static void PushExports(ByteVec *bytes, ObjVec *exports)
   u32 size = 0;
   u32 i, j;
 
+  if (exports->count == 0) return;
+
   size += IntSize(exports->count);
   for (i = 0; i < exports->count; i++) {
     Export *export = VecRef(exports, i);
@@ -402,8 +408,14 @@ static void PushCode(ByteVec *bytes, ObjVec *funcs)
     Func *func = VecRef(funcs, i);
     u32 codesize = 0;
     codesize = 0;
-    codesize += IntSize(0); /* count of locals vec */
-    codesize += func->code.count; /* size of code, plus end byte */
+    if (func->locals > 0) {
+      codesize += IntSize(1);
+      codesize += IntSize(func->locals);
+      codesize++; /* valtype of locals */
+    } else {
+      codesize += IntSize(0);
+    }
+    codesize += func->code.count; /* size of code */
 
     size += IntSize(codesize); /* size of entry */
     size += codesize;
@@ -415,11 +427,25 @@ static void PushCode(ByteVec *bytes, ObjVec *funcs)
   for (i = 0; i < funcs->count; i++) {
     Func *func = VecRef(funcs, i);
     u32 codesize = 0;
-    codesize += IntSize(0); /* count of locals vec */
-    codesize += func->code.count; /* size of code, plus end byte */
+    if (func->locals > 0) {
+      codesize += IntSize(1);
+      codesize += IntSize(func->locals);
+      codesize++; /* valtype of locals */
+    } else {
+      codesize += IntSize(0);
+    }
+    codesize += func->code.count; /* size of code */
 
     PushInt(bytes, codesize);
-    PushInt(bytes, 0); /* count of locals */
+
+    if (func->locals > 0) {
+      PushInt(bytes, 1);
+      PushInt(bytes, func->locals);
+      PushByte(bytes, Int32);
+    } else {
+      PushInt(bytes, 0);
+    }
+
     AppendBytes(bytes, &func->code);
   }
 }

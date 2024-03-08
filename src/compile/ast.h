@@ -16,6 +16,7 @@ typedef enum {
   MapNode,
   PairNode,
   AccessNode,
+  NegNode,
   AddNode,
   SubNode,
   MulNode,
@@ -62,6 +63,7 @@ void FreeNode(Node *node);
 void FreeAST(Node *node);
 void SetNodeType(Node *node, NodeType type);
 bool IsTerminal(Node *node);
+char *NodeName(Node *node);
 void PrintAST(Node *ast);
 
 #define NodePush(node, child)   ObjVecPush(&(node)->expr.children, child)
