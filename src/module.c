@@ -74,47 +74,40 @@ u32 AddType(u32 params, u32 results, Module *mod)
 }
 
 
-u32 AddImport(char *name, u32 type, Module *mod)
+u32 AddImport(char *modname, char *name, u32 type, Module *mod)
 {
   Import *import = malloc(sizeof(Import));
-  u32 i;
-  u32 len = strlen(name);
-  u32 modlen;
-  import->mod = 0;
-  import->name = 0;
+  u32 modlen = strlen(modname);
+  u32 namelen = strlen(name);
+  import->mod = CopyStr(modname, modlen);
+  import->name = CopyStr(name, namelen);
   import->type = type;
 
-  for (i = 0; i < len; i++) {
-    if (name[i] == '.') {
-      modlen = i;
-      import->mod = malloc(i + 1);
-      Copy(name, import->mod, i);
-      import->mod[i] = 0;
-      i++;
-      break;
-    }
-  }
-
-  if (!import->mod) {
-    import->mod = "imports";
-    modlen = 7;
-    i = 0;
-  }
-  len -= i;
-  import->name = malloc(len+1);
-  Copy(name+i, import->name, len);
-  import->name[len] = 0;
+  printf("Adding import %s.%s\n", modname, name);
 
   VecPush(mod->imports, import);
 
   mod->size.imports += IntSize(modlen);
   mod->size.imports += modlen;
-  mod->size.imports += IntSize(len);
-  mod->size.imports += len;
+  mod->size.imports += IntSize(namelen);
+  mod->size.imports += namelen;
   mod->size.imports += 1;
   mod->size.imports+= IntSize(type);
 
   return VecCount(mod->imports) - 1;
+}
+
+u32 ImportIdx(char *modname, char *name, Module *mod)
+{
+  u32 i;
+
+  for (i = 0; i < VecCount(mod->imports); i++) {
+    if (StrEq(modname, mod->imports[i]->mod) &&
+        StrEq(name, mod->imports[i]->name)) {
+      return i;
+    }
+  }
+  return 0;
 }
 
 Func *AddFunc(u32 type, u32 locals, Module *mod)

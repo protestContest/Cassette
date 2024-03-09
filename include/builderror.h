@@ -8,3 +8,4 @@ typedef struct {
 
 BuildError *MakeBuildError(char *message, char *filename, u32 pos);
 void FreeBuildError(BuildError *error);
+void PrintError(BuildError *error);

@@ -53,7 +53,8 @@ void InitModule(Module *mod);
 void DestroyModule(Module *mod);
 
 u32 AddType(u32 params, u32 results, Module *mod);
-u32 AddImport(char *name, u32 type, Module *mod);
+u32 AddImport(char *modname, char *name, u32 type, Module *mod);
+u32 ImportIdx(char *modname, char *name, Module *mod);
 Func *AddFunc(u32 type, u32 locals, Module *mod);
 u32 FuncIdx(Func *func, Module *mod);
 Export *AddExport(char *name, u32 index, Module *mod);

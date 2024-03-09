@@ -67,7 +67,7 @@ void PrintAST(Node *ast);
 
 #define NodePush(node, child)   VecPush((node)->expr.children, child)
 #define NodeChild(node, i)      (((Node*)(node))->expr.children[i])
-#define NumNodeChildren(node)   VecCount((node)->expr.children)
+#define NodeCount(node)         VecCount((node)->expr.children)
 #define NodeValue(node)         (((Node*)(node))->expr.value)
 #define NodePos(node)           ((node)->pos)
 

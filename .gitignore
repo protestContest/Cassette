@@ -1,13 +1,6 @@
-bin/*
-build/*
+/bin
+/build
+/lib
+/oldsrc
 *.sublime-workspace
 *.DS_Store
-.elixir_ls
-bison*
-cassette
-libcassette.a
-deps/*
-lib/*
-oldsrc/*
-support/docs/site/*.html
-support/docs/site/fonts/

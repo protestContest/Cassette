@@ -143,7 +143,7 @@ static Node *WithExport(Node *node, Parser *p)
   u32 i;
 
   NodePush(stmts, export);
-  for (i = 0; i < NumNodeChildren(assigns); i++) {
+  for (i = 0; i < NodeCount(assigns); i++) {
     NodePush(export, NodeChild(assigns, i));
   }
 
@@ -224,7 +224,7 @@ static Result ParseStmts(Parser *p)
     SkipNewlines(&p->lex);
   }
 
-  if (NumNodeChildren(stmts) == 0) {
+  if (NodeCount(stmts) == 0) {
     NodePush(stmts, MakeTerminal(NilNode, TokenPos(&p->lex), 0));
   }
 
@@ -459,7 +459,7 @@ static Result ParseCall(Node *prefix, Parser *p)
 static Result ParseAccess(Node *prefix, Parser *p)
 {
   Result result;
-  Node *node = MakeNode(CallNode, TokenPos(&p->lex));
+  Node *node = MakeNode(AccessNode, TokenPos(&p->lex));
   Token token = NextToken(&p->lex);
   Precedence prec = rules[token.type].prec;
 
@@ -567,7 +567,7 @@ static Result ParseDo(Parser *p)
   assigns = NodeChild(node, 0);
   stmts = NodeChild(node, 1);
 
-  if (NumNodeChildren(assigns) == 0 && NumNodeChildren(stmts) == 1) {
+  if (NodeCount(assigns) == 0 && NodeCount(stmts) == 1) {
     Node *stmt = NodeChild(stmts, 0);
     FreeNode(assigns);
     FreeNode(stmts);
@@ -875,7 +875,7 @@ static Result ParseLiteral(Parser *p)
 /* Helper to deallocate a node and return a result */
 static Result ParseFail(Result result, Node *node)
 {
-  FreeAST(node);
+  /*FreeAST(node);*/
   return result;
 }
 

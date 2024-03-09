@@ -52,7 +52,7 @@ void FreeAST(Node *node)
 {
   if (!IsTerminal(node)) {
     u32 i;
-    for (i = 0; i < NumNodeChildren(node); i++) {
+    for (i = 0; i < NodeCount(node); i++) {
       FreeNode(NodeChild(node, i));
     }
   }
@@ -133,16 +133,16 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
     Node *stmts = NodeChild(node, 1);
 
     printf(" Assigns: [");
-    for (i = 0; i < NumNodeChildren(assigns); i++) {
+    for (i = 0; i < NodeCount(assigns); i++) {
       char *assign = SymbolName(NodeValue(NodeChild(assigns, i)));
       printf("%s", assign);
-      if (i < NumNodeChildren(assigns) - 1) printf(", ");
+      if (i < NodeCount(assigns) - 1) printf(", ");
     }
     printf("]\n");
 
     lines |= Bit(level);
-    for (i = 0; i < NumNodeChildren(stmts); i++) {
-      if (i == NumNodeChildren(stmts) - 1) {
+    for (i = 0; i < NodeCount(stmts); i++) {
+      if (i == NodeCount(stmts) - 1) {
         lines &= ~Bit(level);
         Indent(level, lines);
         printf("└╴");
@@ -171,10 +171,10 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
   } else if (type == LambdaNode) {
     Node *params = NodeChild(node, 0);
     printf(" (");
-    for (i = 0; i < NumNodeChildren(params); i++) {
+    for (i = 0; i < NodeCount(params); i++) {
       char *param = SymbolName(NodeValue(NodeChild(params, i)));
       printf("%s", param);
-      if (i < NumNodeChildren(params) - 1) printf(", ");
+      if (i < NodeCount(params) - 1) printf(", ");
     }
     printf(")\n");
     Indent(level, lines);
@@ -191,11 +191,11 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
   } else if (type == MapNode) {
     printf("\n");
     lines |= Bit(level);
-    for (i = 0; i < NumNodeChildren(node); i += 2) {
+    for (i = 0; i < NodeCount(node); i += 2) {
       Node *key = NodeChild(node, i);
       Node *value = NodeChild(node, i+1);
 
-      if (i == NumNodeChildren(node) - 2) {
+      if (i == NodeCount(node) - 2) {
         lines &= ~Bit(level);
         Indent(level, lines);
         printf("└╴");
@@ -212,8 +212,8 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
   } else {
     printf("\n");
     lines |= Bit(level);
-    for (i = 0; i < NumNodeChildren(node); i++) {
-      if (i == NumNodeChildren(node) - 1) {
+    for (i = 0; i < NodeCount(node); i++) {
+      if (i == NodeCount(node) - 1) {
         lines &= ~Bit(level);
         Indent(level, lines);
         printf("└╴");

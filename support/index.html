@@ -3,12 +3,12 @@
 <script>
 
 const imports = {
-  imports: {
-    print(arg) {
+  console: {
+    log(arg) {
       console.log(arg);
     },
   },
 };
 
-WebAssembly.instantiateStreaming(fetch("../out.wasm"), imports)
+WebAssembly.instantiateStreaming(fetch("../bin/out.wasm"), imports)
 </script>
