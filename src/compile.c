@@ -1,430 +1,287 @@
 #include "compile.h"
-#include "builderror.h"
 #include "env.h"
 #include "module.h"
 #include "wasm.h"
 #include <univ.h>
 
-#define RegFree 0
-#define RegEnv  1
-#define RegTmp1 2
-#define RegTmp2 3
-#define RegTmp3 4
-
 typedef struct {
   Module *mod;
   Frame *env;
-  u8 **bytes;
+  u8 **code;
+  HashMap *imports;
+  Result result;
 } Compiler;
 
-static u32 AllocFn;
-static u32 LookupFn;
-static u32 MakePairFn;
-static u32 MakeTupleFn;
+#define regFree 0
+#define regEnv  1
+#define regTmp1 2
+#define regTmp2 3
+#define regTmp3 4
 
-static Result CompileFunc(Node *lambda, Frame *env, HashMap *imports, Module *mod);
-static Result CompileExpr(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod);
+static i32 allocFn = -1;
+static i32 lookupFn = -1;
+static i32 makePairFn = -1;
+static i32 makeTupleFn = -1;
 
-#define CompileError(msg, file, pos) Error(MakeBuildError(msg, file, pos))
+static i32 CompileFunc(LambdaNode *lambda, Compiler *c);
+static bool CompileExpr(Node *expr, Compiler *c);
 
-static void Const(u8 **bytes, i32 num)
+static bool CompileError(char *msg, u32 pos, Compiler *c)
 {
-  PushByte(bytes, I32Const);
-  PushInt(bytes, num);
+  c->result = Error(msg, c->mod->filename, pos);
+  DestroyHashMap(c->imports);
+  return false;
 }
 
-static void Store(u8 **bytes, i32 offset)
+#define EmitHead(code)  EmitLoad(0, code)
+#define EmitTail(code)  EmitLoad(4, code)
+
+static void EmitLambda(i32 funcidx, u8 **code)
 {
-  PushByte(bytes, I32Store);
-  PushInt(bytes, 2);
-  PushInt(bytes, offset);
+  EmitConst(funcidx, code);
+  EmitGetGlobal(regEnv, code);
+  EmitCall(makePairFn, code);
 }
 
-static void Load(u8 **bytes, i32 offset)
+static void EmitExtendEnv(i32 size, u8 **code)
 {
-  PushByte(bytes, I32Load);
-  PushInt(bytes, 2);
-  PushInt(bytes, offset);
+  EmitGetGlobal(regEnv, code);
+  EmitConst(size, code);
+  EmitCall(makeTupleFn, code);
+  EmitCall(makePairFn, code);
+  EmitSetGlobal(regEnv, code);
 }
 
-#define Head(bytes)  Load(bytes, 0)
-#define Tail(bytes)  Load(bytes, 4)
-
-static void Call(u8 **bytes, i32 typeidx)
+static bool CompileVar(TerminalNode *expr, Compiler *c)
 {
-  PushByte(bytes, CallIndirect);
-  PushInt(bytes, typeidx);
-  PushInt(bytes, 0);
+  i32 index = FrameFind(c->env, expr->value);
+  if (index < 0) return CompileError("Undefined variable", expr->pos, c);
+
+  EmitConst(index, c->code);
+  EmitCall(lookupFn, c->code);
+
+  return true;
 }
 
-static void GetReg(u8 **bytes, i32 reg)
+static bool CompileInt(TerminalNode *expr, Compiler *c)
 {
-  PushByte(bytes, GlobalGet);
-  PushByte(bytes, reg);
+  EmitConst(expr->value, c->code);
+  return true;
 }
 
-static void SetReg(u8 **bytes, i32 reg)
-{
-  PushByte(bytes, GlobalSet);
-  PushInt(bytes, reg);
-}
-
-static void GetLocal(u8 **bytes, i32 local)
-{
-  PushByte(bytes, LocalGet);
-  PushInt(bytes, local);
-}
-
-static void SetLocal(u8 **bytes, i32 local)
-{
-  PushByte(bytes, LocalSet);
-  PushInt(bytes, local);
-}
-
-static void TeeLocal(u8 **bytes, i32 local)
-{
-  PushByte(bytes, LocalTee);
-  PushInt(bytes, local);
-}
-
-static void Alloc(u8 **bytes, i32 size)
-{
-  Const(bytes, size);
-  PushByte(bytes, CallOp);
-  PushInt(bytes, AllocFn);
-}
-
-static void Dup(u8 **bytes)
-{
-  SetReg(bytes, RegTmp1);
-  GetReg(bytes, RegTmp1);
-  GetReg(bytes, RegTmp1);
-}
-
-static void Swap(u8 **bytes)
-{
-  SetReg(bytes, RegTmp1);
-  SetReg(bytes, RegTmp2);
-  GetReg(bytes, RegTmp1);
-  GetReg(bytes, RegTmp2);
-}
-
-static void Dig(u8 **bytes)
-{
-  SetReg(bytes, RegTmp1);
-  SetReg(bytes, RegTmp2);
-  SetReg(bytes, RegTmp3);
-  GetReg(bytes, RegTmp2);
-  GetReg(bytes, RegTmp1);
-  GetReg(bytes, RegTmp3);
-}
-
-static void Bury(u8 **bytes)
-{
-  SetReg(bytes, RegTmp1);
-  SetReg(bytes, RegTmp2);
-  SetReg(bytes, RegTmp3);
-  GetReg(bytes, RegTmp1);
-  GetReg(bytes, RegTmp3);
-  GetReg(bytes, RegTmp2);
-}
-
-static void MakePair(u8 **bytes)
-{
-  PushByte(bytes, CallOp);
-  PushInt(bytes, MakePairFn);
-}
-
-static void MakeTuple(u8 **bytes, i32 size)
-{
-  Const(bytes, size);
-  PushByte(bytes, CallOp);
-  PushInt(bytes, MakeTupleFn);
-}
-
-static void MakeLambda(u8 **bytes, i32 funcidx)
-{
-  Const(bytes, funcidx);
-  GetReg(bytes, RegEnv);
-  MakePair(bytes);
-}
-
-static void ExtendEnv(u8 **bytes, i32 size)
-{
-  GetReg(bytes, RegEnv);
-  MakeTuple(bytes, size);
-  MakePair(bytes);
-  SetReg(bytes, RegEnv);
-}
-
-static void Lookup(u8 **bytes, Module *mod)
-{
-  PushByte(bytes, CallOp);
-  PushInt(bytes, LookupFn);
-}
-
-static Result CompileVar(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
-{
-  u32 var = NodeValue(expr);
-  i32 index = FrameFind(env, var);
-  printf("Var %s\n", SymbolName(var));
-  if (index < 0) return CompileError("Undefined variable", mod->filename, expr->pos);
-
-  Const(bytes, index);
-  Lookup(bytes, mod);
-
-  return Ok(0);
-}
-
-static Result CompileInt(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
-{
-  Const(bytes, NodeValue(expr));
-  return Ok(0);
-}
-
-static OpCode NodeOp(Node *node)
+static OpCode NodeOp(BinaryNode *node)
 {
   switch (node->type) {
-  case AddNode:     return I32Add;
-  case SubNode:     return I32Sub;
-  case MulNode:     return I32Mul;
-  case DivNode:     return I32DivS;
-  case RemNode:     return I32RemS;
-  case LtNode:      return I32LtS;
-  case LtEqNode:    return I32LeS;
-  case GtNode:      return I32GtS;
-  case GtEqNode:    return I32GeS;
-  case EqNode:      return I32Eq;
-  case NotEqNode:   return I32Ne;
+  case addNode:     return I32Add;
+  case subNode:     return I32Sub;
+  case mulNode:     return I32Mul;
+  case divNode:     return I32DivS;
+  case remNode:     return I32RemS;
+  case ltNode:      return I32LtS;
+  case ltEqNode:    return I32LeS;
+  case gtNode:      return I32GtS;
+  case gtEqNode:    return I32GeS;
+  case eqNode:      return I32Eq;
+  case notEqNode:   return I32Ne;
   default:          return Unreachable;
   }
 }
 
-static Result CompileNeg(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileNeg(UnaryNode *expr, Compiler *c)
 {
-  Result result;
-
-  Const(bytes, 0);
-
-  result = CompileExpr(NodeChild(expr, 0), bytes, env, imports, mod);
-  if (!IsOk(result)) return result;
-
-  PushByte(bytes, I32Sub);
-  return Ok(0);
+  EmitConst(0, c->code);
+  if (!CompileExpr(expr->child, c)) return false;
+  EmitByte(I32Sub, c->code);
+  return true;
 }
 
-static Result CompileNot(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileNot(UnaryNode *expr, Compiler *c)
 {
-  Result result = CompileExpr(NodeChild(expr, 0), bytes, env, imports, mod);
-  if (!IsOk(result)) return result;
-
-  PushByte(bytes, I32EqZ);
-  return Ok(0);
+  if (!CompileExpr(expr->child, c)) return false;
+  EmitByte(I32EqZ, c->code);
+  return true;
 }
 
-static Result CompileBinOp(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileBinOp(BinaryNode *expr, Compiler *c)
 {
-  Result result;
-
-  result = CompileExpr(NodeChild(expr, 1), bytes, env, imports, mod);
-  if (!IsOk(result)) return result;
-
-  result = CompileExpr(NodeChild(expr, 0), bytes, env, imports, mod);
-  if (!IsOk(result)) return result;
-
-  PushByte(bytes, NodeOp(expr));
-  return Ok(0);
+  if (!CompileExpr(expr->right, c)) return false;
+  if (!CompileExpr(expr->left, c)) return false;
+  EmitByte(NodeOp(expr), c->code);
+  return true;
 }
 
-static Result CompilePair(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompilePair(BinaryNode *expr, Compiler *c)
 {
-  Result result;
-
-  result = CompileExpr(NodeChild(expr, 1), bytes, env, imports, mod);
-  if (!IsOk(result)) return result;
-
-  result = CompileExpr(NodeChild(expr, 0), bytes, env, imports, mod);
-  if (!IsOk(result)) return result;
-
-  MakePair(bytes);
-
-  return Ok(0);
+  if (!CompileExpr(expr->right, c)) return false;
+  if (!CompileExpr(expr->left, c)) return false;
+  EmitCall(makePairFn, c->code);
+  return true;
 }
 
-static Result CompileList(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileList(ListNode *expr, Compiler *c)
 {
-  Result result;
   u32 i;
-  u32 len = NodeCount(expr);
-
-  Const(bytes, 0);
+  u32 len = VecCount(expr->items);
+  EmitConst(0, c->code);
   for (i = 0; i < len; i++) {
-    result = CompileExpr(NodeChild(expr, len - 1 - i), bytes, env, imports, mod);
-    if (!IsOk(result)) return result;
-    MakePair(bytes);
+    if (!CompileExpr(expr->items[len-1-i], c)) return false;
+    EmitCall(makePairFn, c->code);
   }
-
-  return Ok(0);
+  return true;
 }
 
-static Result CompileTuple(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileTuple(ListNode *expr, Compiler *c)
 {
   u32 i;
-  u32 num_items = NodeCount(expr);
-  Result result;
+  u32 num_items = VecCount(expr->items);
 
-  MakeTuple(bytes, num_items);
-  Dup(bytes);
+  EmitConst(num_items, c->code);
+  EmitCall(makeTupleFn, c->code);
 
   for (i = 0; i < num_items; i++) {
-    Dup(bytes);
+    EmitSetGlobal(regTmp1, c->code);
+    EmitGetGlobal(regTmp1, c->code);
+    EmitGetGlobal(regTmp1, c->code);
 
-    result = CompileExpr(NodeChild(expr, i), bytes, env, imports, mod);
-    if (!IsOk(result)) return result;
+    if (!CompileExpr(expr->items[i], c)) return false;
 
-    Store(bytes, 0);
-    if (i < num_items - 1) {
-      Const(bytes, 1);
-      PushByte(bytes, I32Add);
-    } else {
-      PushByte(bytes, DropOp);
+    EmitStore(i*4, c->code);
+  }
+
+  return true;
+}
+
+static bool CompileLambda(LambdaNode *expr, Compiler *c)
+{
+  i32 func = CompileFunc(expr, c);
+  if (func < 0) return false;
+  EmitLambda(func, c->code);
+  return true;
+}
+
+static i32 ImportCallIdx(Node *expr, Compiler *c)
+{
+  if (expr->type == accessNode) {
+    BinaryNode* access = (BinaryNode*)expr;
+    if (access->left->type == varNode && access->right->type == symbolNode) {
+      TerminalNode *obj = (TerminalNode*)access->left;
+      TerminalNode *name = (TerminalNode*)access->right;
+      if (HashMapContains(c->imports, obj->value)) {
+        return ImportIdx(SymbolName(obj->value), SymbolName(name->value), c->mod);
+      }
     }
   }
-
-  return Ok(0);
+  return -1;
 }
 
-static Result CompileLambda(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
-{
-  Result result = CompileFunc(expr, env, imports, mod);
-  if (!IsOk(result)) return result;
-
-  MakeLambda(bytes, result);
-  return result;
-}
-
-static Result CompileCall(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileCall(CallNode *expr, Compiler *c)
 {
   u32 i;
-  Result result;
-  u32 num_items = NodeCount(expr);
-  Node *op = NodeChild(expr, 0);
+  i32 import;
+  u32 num_args = VecCount(expr->args);
 
-  GetReg(bytes, RegEnv);
-  for (i = 0; i < num_items - 1; i++) {
-    result = CompileExpr(NodeChild(expr, num_items - 1 - i), bytes, env, imports, mod);
-    if (!IsOk(result)) return result;
+  EmitGetGlobal(regEnv, c->code);
+  for (i = 0; i < num_args; i++) {
+    if (!CompileExpr(expr->args[num_args-1-i], c)) return false;
   }
 
-  if (op->type == AccessNode) {
-    Node *obj = NodeChild(op, 0);
-    Node *name = NodeChild(op, 1);
-    if (obj->type == IDNode && name->type == SymbolNode && HashMapContains(imports, NodeValue(obj))) {
-      u32 import = ImportIdx(SymbolName(NodeValue(obj)), SymbolName(NodeValue(name)), mod);
-      PushByte(bytes, CallOp);
-      PushInt(bytes, import);
-      SetReg(bytes, RegTmp1);
-      SetReg(bytes, RegEnv);
-      GetReg(bytes, RegTmp1);
-      return Ok(0);
-    }
+  import = ImportCallIdx(expr->op, c);
+  if (import >= 0) {
+    EmitCall(import, c->code);
+  } else {
+    EmitSetGlobal(regTmp1, c->code);
+    EmitGetGlobal(regTmp1, c->code);
+    EmitHead(c->code);
+    EmitSetGlobal(regEnv, c->code);
+    EmitGetGlobal(regTmp1, c->code);
+    EmitTail(c->code);
+    EmitCallIndirect(AddType(num_args, 1, c->mod), c->code);
   }
 
-  SetReg(bytes, RegTmp1);
-  GetReg(bytes, RegTmp1);
-  Head(bytes);
-  SetReg(bytes, RegEnv);
-  GetReg(bytes, RegTmp1);
-  Tail(bytes);
-  Call(bytes, AddType(num_items-1, 1, mod));
-  SetReg(bytes, RegTmp1);
-  SetReg(bytes, RegEnv);
-  GetReg(bytes, RegTmp1);
+  EmitSetGlobal(regTmp1, c->code);
+  EmitSetGlobal(regEnv, c->code);
+  EmitGetGlobal(regTmp1, c->code);
 
-  return Ok(0);
+  return true;
 }
 
-static Result CompileDo(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileDo(DoNode *expr, Compiler *c)
 {
-  Result result;
   u32 i;
-  u32 num_items = NodeCount(expr);
+  u32 num_items = VecCount(expr->stmts);
 
   for (i = 0; i < num_items; i++) {
-    GetReg(bytes, RegEnv);
-    result = CompileExpr(NodeChild(expr, i), bytes, env, imports, mod);
-    if (!IsOk(result)) return result;
+    EmitGetGlobal(regEnv, c->code);
+    if (!CompileExpr(expr->stmts[i], c)) return false;
 
     if (i < num_items - 1) {
-      PushByte(bytes, DropOp);
+      EmitByte(DropOp, c->code);
+      EmitSetGlobal(regEnv, c->code);
     } else {
-      Swap(bytes);
+      EmitSetGlobal(regTmp1, c->code);
+      EmitSetGlobal(regEnv, c->code);
+      EmitGetGlobal(regTmp1, c->code);
     }
-    SetReg(bytes, RegEnv);
   }
 
-  return Ok(0);
+  return true;
 }
 
-static Result CompileExpr(Node *expr, u8 **bytes, Frame *env, HashMap *imports, Module *mod)
+static bool CompileExpr(Node *expr, Compiler *c)
 {
   printf("Compiling %s (%d)\n", NodeName(expr), expr->pos);
 
   switch (expr->type) {
-  case IDNode:        return CompileVar(expr, bytes, env, imports, mod);
-  case IntNode:       return CompileInt(expr, bytes, env, imports, mod);
-  case AddNode:
-  case SubNode:
-  case MulNode:
-  case DivNode:
-  case RemNode:       return CompileBinOp(expr, bytes, env, imports, mod);
-  case NotNode:       return CompileNot(expr, bytes, env, imports, mod);
-  case NegNode:       return CompileNeg(expr, bytes, env, imports, mod);
-  case PairNode:      return CompilePair(expr, bytes, env, imports, mod);
-  case ListNode:      return CompileList(expr, bytes, env, imports, mod);
-  case TupleNode:     return CompileTuple(expr, bytes, env, imports, mod);
-  case LambdaNode:    return CompileLambda(expr, bytes, env, imports, mod);
-  case CallNode:      return CompileCall(expr, bytes, env, imports, mod);
-  case DoNode:        return CompileDo(expr, bytes, env, imports, mod);
-  default:            return CompileError("Unknown expr type", mod->filename, NodePos(expr));
+  case varNode:       return CompileVar((TerminalNode*)expr, c);
+  case intNode:       return CompileInt((TerminalNode*)expr, c);
+  case addNode:
+  case subNode:
+  case mulNode:
+  case divNode:
+  case remNode:       return CompileBinOp((BinaryNode*)expr, c);
+  case notNode:       return CompileNot((UnaryNode*)expr, c);
+  case negNode:       return CompileNeg((UnaryNode*)expr, c);
+  case pairNode:      return CompilePair((BinaryNode*)expr, c);
+  case listNode:      return CompileList((ListNode*)expr, c);
+  case tupleNode:     return CompileTuple((ListNode*)expr, c);
+  case lambdaNode:    return CompileLambda((LambdaNode*)expr, c);
+  case callNode:      return CompileCall((CallNode*)expr, c);
+  case doNode:        return CompileDo((DoNode*)expr, c);
+  default:            return CompileError("Unknown expr type", expr->pos, c);
   }
 }
 
-static Result CompileFunc(Node *lambda, Frame *env, HashMap *imports, Module *mod)
+static i32 CompileFunc(LambdaNode *lambda, Compiler *c)
 {
   u32 i;
-  Result result;
-  Node *params = NodeChild(lambda, 0);
-  u32 num_params = NodeCount(params);
-  u32 type = AddType(num_params, 1, mod);
-  Node *body = NodeChild(lambda, 1);
-  Func *func = AddFunc(type, 0, mod);
-  u8 **bytes = &func->code;
-  env = ExtendFrame(env, num_params);
+  u32 num_params = VecCount(lambda->params);
+  u32 type = AddType(num_params, 1, c->mod);
+  Func *func = AddFunc(type, 0, c->mod);
+  u8 **code = c->code;
 
+  c->code = &func->code;
+  c->env = ExtendFrame(c->env, num_params);
   for (i = 0; i < num_params; i++) {
-    Node *param = NodeChild(params, i);
-    FrameSet(env, i, NodeValue(param));
+    FrameSet(c->env, i, lambda->params[i]);
   }
 
-  ExtendEnv(bytes, num_params);
-  GetReg(bytes, RegEnv);
-  Load(bytes, 0);
-  SetReg(bytes, RegTmp1);
+  EmitExtendEnv(num_params, c->code);
+  EmitGetGlobal(regEnv, c->code);
+  EmitHead(c->code);
+  EmitSetGlobal(regTmp1, c->code);
   for (i = 0; i < num_params; i++) {
-    GetReg(bytes, RegTmp1);
-    GetLocal(bytes, i);
-    Store(bytes, i*4);
+    EmitGetGlobal(regTmp1, c->code);
+    EmitGetLocal(i, c->code);
+    EmitStore(i*4, c->code);
   }
 
-  result = CompileExpr(body, bytes, env, imports, mod);
+  if (!CompileExpr(lambda->body, c)) return false;
+  EmitByte(EndOp, c->code);
 
-  PopFrame(env);
-  if (!IsOk(result)) return result;
+  c->code = code;
+  c->env = PopFrame(c->env);
 
-  PushByte(&func->code, EndOp);
-
-  return Ok(FuncIdx(func, mod));
+  return FuncIdx(func, c->mod);
 }
 
 #define PageSize 65536
@@ -437,221 +294,271 @@ static void CompileUtilities(Module *mod)
   Func *maketuple = AddFunc(AddType(1, 1, mod), 0, mod);
 
   code = &alloc->code;
-  GetReg(code, RegFree);
-  GetLocal(code, 0);
-  PushByte(code, I32Add);
-  SetReg(code, RegFree);
-  PushByte(code, Block);
-  PushByte(code, EmptyBlock);
-  GetReg(code, RegFree);
-  PushByte(code, MemSize);
-  PushByte(code, 0);
-  Const(code, PageSize);
-  PushByte(code, I32Mul);
-  PushByte(code, I32LtS);
-  PushByte(code, BrIf);
-  PushInt(code, 0);
-  Const(code, 1);
-  PushByte(code, MemGrow);
-  PushByte(code, 0);
-  PushByte(code, DropOp);
-  PushByte(code, EndOp);
-  PushByte(code, EndOp);
-  AllocFn = FuncIdx(alloc, mod);
+  EmitGetGlobal(regFree, code);
+  EmitGetLocal(0, code);
+  EmitByte(I32Add, code);
+  EmitSetGlobal(regFree, code);
+  EmitByte(Block, code);
+  EmitByte(EmptyBlock, code);
+  EmitGetGlobal(regFree, code);
+  EmitByte(MemSize, code);
+  EmitByte(0, code);
+  EmitConst(PageSize, code);
+  EmitByte(I32Mul, code);
+  EmitByte(I32LtS, code);
+  EmitByte(BrIf, code);
+  EmitInt(0, code);
+  EmitConst(1, code);
+  EmitByte(MemGrow, code);
+  EmitByte(0, code);
+  EmitByte(DropOp, code);
+  EmitByte(EndOp, code);
+  EmitByte(EndOp, code);
+  allocFn = FuncIdx(alloc, mod);
 
   code = &lookup->code;
-  GetReg(code, RegEnv);
-  SetLocal(code, 1);
-  PushByte(code, Block);
-  PushByte(code, EmptyBlock);
-  PushByte(code, Loop);
-  PushByte(code, EmptyBlock);
+  EmitGetGlobal(regEnv, code);
+  EmitSetLocal(1, code);
+  EmitByte(Block, code);
+  EmitByte(EmptyBlock, code);
+  EmitByte(Loop, code);
+  EmitByte(EmptyBlock, code);
   /* assert env != 0 */
-  PushByte(code, Block);
-  PushByte(code, EmptyBlock);
-  GetLocal(code, 1);
-  Const(code, 0);
-  PushByte(code, I32Ne);
-  PushByte(code, BrIf);
-  PushByte(code, 0);
-  PushByte(code, Unreachable);
-  PushByte(code, EndOp);
-  GetLocal(code, 0);
-  GetLocal(code, 1);
-  Load(code, 0);
-  Const(code, 4);
-  PushByte(code, I32Sub);
-  Load(code, 0);
-  TeeLocal(code, 2);
-  PushByte(code, I32LtS);
-  PushByte(code, BrIf);
-  PushInt(code, 1);
-  GetLocal(code, 0);
-  GetLocal(code, 2);
-  PushByte(code, I32Sub);
-  SetLocal(code, 0);
-  GetLocal(code, 1);
-  Load(code, 4);
-  SetLocal(code, 1);
-  PushByte(code, Br);
-  PushInt(code, 0);
-  PushByte(code, EndOp);
-  PushByte(code, EndOp);
-  GetLocal(code, 1);
-  Load(code, 0);
-  GetLocal(code, 0);
-  Const(code, 4);
-  PushByte(code, I32Mul);
-  PushByte(code, I32Add);
-  Load(code, 0);
-  PushByte(code, EndOp);
-  LookupFn = FuncIdx(lookup, mod);
+  EmitByte(Block, code);
+  EmitByte(EmptyBlock, code);
+  EmitGetLocal(1, code);
+  EmitConst(0, code);
+  EmitByte(I32Ne, code);
+  EmitByte(BrIf, code);
+  EmitByte(0, code);
+  EmitByte(Unreachable, code);
+  EmitByte(EndOp, code);
+  EmitGetLocal(0, code);
+  EmitGetLocal(1, code);
+  EmitLoad(0, code);
+  EmitConst(4, code);
+  EmitByte(I32Sub, code);
+  EmitLoad(0, code);
+  EmitTeeLocal(2, code);
+  EmitByte(I32LtS, code);
+  EmitByte(BrIf, code);
+  EmitInt(1, code);
+  EmitGetLocal(0, code);
+  EmitGetLocal(2, code);
+  EmitByte(I32Sub, code);
+  EmitSetLocal(0, code);
+  EmitGetLocal(1, code);
+  EmitLoad(4, code);
+  EmitSetLocal(1, code);
+  EmitByte(Br, code);
+  EmitInt(0, code);
+  EmitByte(EndOp, code);
+  EmitByte(EndOp, code);
+  EmitGetLocal(1, code);
+  EmitLoad(0, code);
+  EmitGetLocal(0, code);
+  EmitConst(4, code);
+  EmitByte(I32Mul, code);
+  EmitByte(I32Add, code);
+  EmitLoad(0, code);
+  EmitByte(EndOp, code);
+  lookupFn = FuncIdx(lookup, mod);
 
   code = &makepair->code;
-  GetReg(code, RegFree);
-  GetReg(code, RegFree);
-  GetReg(code, RegFree);
-  Alloc(code, 8);
-  GetLocal(code, 1);
-  Store(code, 0);
-  GetLocal(code, 0);
-  Store(code, 4);
-  PushByte(code, EndOp);
-  MakePairFn = FuncIdx(makepair, mod);
+  EmitGetGlobal(regFree, code);
+  EmitGetGlobal(regFree, code);
+  EmitGetGlobal(regFree, code);
+  EmitConst(2, code);
+  EmitCall(allocFn, code);
+  EmitGetLocal(1, code);
+  EmitStore(0, code);
+  EmitGetLocal(0, code);
+  EmitStore(4, code);
+  EmitByte(EndOp, code);
+  makePairFn = FuncIdx(makepair, mod);
 
   code = &maketuple->code;
   /* store count */
-  GetReg(code, RegFree);
-  PushByte(code, LocalGet);
-  PushInt(code, 0);
-  Alloc(code, 4);
-  Store(code, 0);
+  EmitGetGlobal(regFree, code);
+  EmitGetLocal(0, code);
+  EmitConst(4, code);
+  EmitCall(allocFn, code);
+  EmitStore(0, code);
   /* tuple pointer to return */
-  GetReg(code, RegFree);
+  EmitGetGlobal(regFree, code);
   /* allocate space for items */
-  GetLocal(code, 0);
-  Const(code, 4);
-  PushByte(code, I32Mul);
-  PushByte(code, CallOp);
-  PushInt(code, AllocFn);
-  PushByte(code, EndOp);
-  MakeTupleFn = FuncIdx(maketuple, mod);
+  EmitGetLocal(0, code);
+  EmitConst(4, code);
+  EmitByte(I32Mul, code);
+  EmitCall(allocFn, code);
+  EmitByte(EndOp, code);
+  makeTupleFn = FuncIdx(maketuple, mod);
 }
 
 static void ScanImports(Node *node, HashMap *imports, Module *mod)
 {
   u32 i;
+  Node **children = 0;
+
   if (IsTerminal(node)) return;
 
-  if (node->type == ImportNode) {
-    u32 mod = NodeValue(NodeChild(node, 0));
-    u32 alias = NodeValue(NodeChild(node, 1));
-    HashMapSet(imports, alias, mod);
+  if (node->type == moduleNode) {
+    ModuleNode *module = (ModuleNode*)node;
+    for (i = 0; i < VecCount(module->imports); i++) {
+      HashMapSet(imports, module->imports[i]->alias, module->imports[i]->mod);
+    }
+    ScanImports((Node*)module->body, imports, mod);
     return;
   }
 
-  if (node->type == CallNode) {
-    Node *op = NodeChild(node, 0);
-    if (op->type == AccessNode) {
-      Node *modname = NodeChild(op, 0);
-      Node *name = NodeChild(op, 1);
-      if (modname->type == IDNode && name->type == SymbolNode) {
-        if (HashMapContains(imports, NodeValue(modname))) {
-          u32 alias = HashMapGet(imports, NodeValue(modname));
-          u32 type = AddType(NodeCount(node)-1, 1, mod);
-          AddImport(SymbolName(alias), SymbolName(NodeValue(name)), type, mod);
-          return;
+  if (node->type == callNode) {
+    CallNode *call = (CallNode*)node;
+    if (call->op->type == accessNode) {
+      BinaryNode *access = (BinaryNode*)call->op;
+      if (access->left->type == varNode && access->right->type == symbolNode) {
+        TerminalNode *alias = (TerminalNode*)access->left;
+        TerminalNode *name = (TerminalNode*)access->right;
+        if (HashMapContains(imports, alias->value)) {
+          u32 modname = HashMapGet(imports, alias->value);
+          u32 type = AddType(VecCount(call->args), 1, mod);
+          AddImport(SymbolName(modname), SymbolName(name->value), type, mod);
         }
       }
     }
   }
 
-  for (i = 0; i < NodeCount(node); i++) {
-    ScanImports(NodeChild(node, i), imports, mod);
+  switch (node->type) {
+  case listNode:
+  case tupleNode:
+    children = ((ListNode*)node)->items;
+    break;
+  case negNode:
+  case lenNode:
+  case notNode:
+    ScanImports(((UnaryNode*)node)->child, imports, mod);
+    break;
+  case pairNode:
+  case accessNode:
+  case addNode:
+  case subNode:
+  case mulNode:
+  case divNode:
+  case remNode:
+  case ltNode:
+  case ltEqNode:
+  case inNode:
+  case eqNode:
+  case notEqNode:
+  case gtNode:
+  case gtEqNode:
+  case andNode:
+  case orNode:
+    ScanImports(((BinaryNode*)node)->left, imports, mod);
+    ScanImports(((BinaryNode*)node)->right, imports, mod);
+    break;
+  case ifNode:
+    ScanImports(((IfNode*)node)->predicate, imports, mod);
+    ScanImports(((IfNode*)node)->ifTrue, imports, mod);
+    ScanImports(((IfNode*)node)->ifFalse, imports, mod);
+    break;
+  case doNode:
+    children = ((DoNode*)node)->stmts;
+    break;
+  case callNode:
+    children = ((CallNode*)node)->args;
+    ScanImports(((CallNode*)node)->op, imports, mod);
+    break;
+  case lambdaNode:
+    ScanImports(((LambdaNode*)node)->body, imports, mod);
+    break;
+  case defNode:
+  case letNode:
+    ScanImports(((LetNode*)node)->value, imports, mod);
+    break;
+  case moduleNode:
+    ScanImports((Node*)((ModuleNode*)node)->body, imports, mod);
+    break;
+  default:
+    break;
+
+  }
+
+  for (i = 0; i < VecCount(children); i++) {
+    ScanImports(children[i], imports, mod);
   }
 }
 
-Result CompileModule(Node *ast)
+Result CompileModule(ModuleNode *ast)
 {
-  Module *mod = malloc(sizeof(Module));
   u32 i, j;
-  Node *stmts;
-  Frame *env = 0;
-  Result result;
-  u32 num_exports = 0;
-  Func *start;
-  Node *exports;
+  Compiler *c = malloc(sizeof(Compiler));
+  u32 *exports = ast->body->locals;
+  u32 num_exports = VecCount(exports);
+  Node **stmts = ast->body->stmts;
   HashMap imports = EmptyHashMap;
+  Frame *env = 0;
+  Func *start;
 
-  if (ast->type != ModuleNode) return CompileError("Not a module", 0, 0);
-  exports = ModuleExports(ast);
-  num_exports = NodeCount(exports);
-  stmts = NodeChild(ModuleBody(ast), 1);
+  c->mod = malloc(sizeof(Module));
+  c->imports = &imports;
 
-  InitModule(mod);
-  mod->num_globals = 5; /* env, free, tmp1, tmp2, tmp3 */
-  mod->filename = SymbolName(ModuleFile(ast));
+  InitModule(c->mod);
+  c->mod->num_globals = 5; /* env, free, tmp1, tmp2, tmp3 */
+  c->mod->filename = SymbolName(ast->filename);
 
-  ScanImports(ast, &imports, mod);
+  ScanImports((Node*)ast, &imports, c->mod);
 
-  CompileUtilities(mod);
+  CompileUtilities(c->mod);
 
-  start = AddFunc(AddType(0, 0, mod), 0, mod);
-  env = ExtendFrame(env, VecCount(mod->imports));
-  ExtendEnv(&start->code, VecCount(mod->imports));
+  start = AddFunc(AddType(0, 0, c->mod), 0, c->mod);
+  env = ExtendFrame(env, VecCount(c->mod->imports));
+  EmitExtendEnv(VecCount(c->mod->imports), &start->code);
 
   /* pre-define each func */
   if (num_exports > 0) {
     env = ExtendFrame(env, num_exports);
-    ExtendEnv(&start->code, num_exports);
-    for (i = 0; i < NodeCount(stmts); i++) {
-      Node *stmt = NodeChild(stmts, i);
-      if (stmt->type != DefNode) continue;
-      FrameSet(env, i, NodeValue(NodeChild(stmt, 0)));
+    EmitExtendEnv(num_exports, &start->code);
+    for (i = 0; i < VecCount(stmts); i++) {
+      LetNode *stmt = (LetNode*)stmts[i];
+      if (stmt->type != defNode) continue;
+      FrameSet(env, i, stmt->var);
     }
 
-    PrintEnv(env);
-
     /* compile each func */
-    for (i = 0; i < NodeCount(stmts); i++) {
-      Node *stmt = NodeChild(stmts, i);
-      Node *lambda;
-      char *name;
+    for (i = 0; i < VecCount(stmts); i++) {
+      LetNode *stmt = (LetNode*)stmts[i];
+      LambdaNode *lambda;
+      i32 funcidx;
 
-      if (stmt->type != DefNode) continue;
+      if (stmt->type != defNode) continue;
 
-      lambda = NodeChild(stmt, 1);
-      result = CompileFunc(lambda, env, &imports, mod);
-      if (!IsOk(result)) return result;
+      lambda = (LambdaNode*)stmt->value;
+      funcidx = CompileFunc(lambda, c);
+      if (funcidx < 0) return c->result;
 
-      GetReg(&start->code, RegEnv);
-      Load(&start->code, 0);
-      MakeLambda(&start->code, result);
-      Store(&start->code, i*4);
+      EmitGetGlobal(regEnv, &start->code);
+      EmitHead(&start->code);
 
-      name = SymbolName(NodeValue(NodeChild(stmt, 0)));
-      AddExport(name, result, mod);
+      EmitLambda(funcidx, &start->code);
+      EmitStore(i*4, &start->code);
+
+      AddExport(SymbolName(stmt->var), funcidx, c->mod);
     }
   }
 
   /* compile start func */
-  for (i = 0, j = 0; i < NodeCount(stmts); i++) {
-    Node *stmt = NodeChild(stmts, i);
+  c->code = &start->code;
+  for (i = 0, j = 0; i < VecCount(stmts); i++) {
+    Node *stmt = stmts[i];
 
-    if (stmt->type == DefNode) continue;
+    if (stmt->type == defNode) continue;
 
-    result = CompileExpr(stmt, &start->code, env, &imports, mod);
-    if (!IsOk(result)) return result;
-
-    if (i == NodeCount(stmts)-1) {
-      PushByte(&start->code, CallOp);
-      PushInt(&start->code, 0);
-    }
-    PushByte(&start->code, DropOp);
+    if (!CompileExpr(stmt, c)) return c->result;
+    EmitByte(DropOp, c->code);
   }
-  PushByte(&start->code, EndOp);
+  EmitByte(EndOp, c->code);
 
-  mod->start = FuncIdx(start, mod);
+  c->mod->start = FuncIdx(start, c->mod);
 
-  return Ok(mod);
+  return Ok(c->mod);
 }

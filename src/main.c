@@ -1,7 +1,7 @@
 #include "module.h"
 #include "parse.h"
 #include "compile.h"
-#include "builderror.h"
+#include "result.h"
 #include <univ.h>
 
 int main(int argc, char *argv[])
@@ -13,20 +13,20 @@ int main(int argc, char *argv[])
   if (argc < 2) return 1;
 
   result = ParseFile(argv[1]);
-  if (!IsOk(result)) {
-    PrintError(ResError(result));
+  if (!result.ok) {
+    PrintError(result);
     return 1;
   }
 
-  PrintAST(ResValue(result));
+  PrintAST(result.value);
 
-  result = CompileModule(ResValue(result));
+  result = CompileModule(result.value);
   if (!IsOk(result)) {
-    PrintError(ResError(result));
+    PrintError(result);
     return 1;
   }
 
-  data = SerializeModule(ResValue(result));
+  data = SerializeModule(result.value);
 
   HexDump(data, VecCount(data));
 

@@ -73,7 +73,6 @@ u32 AddType(u32 params, u32 results, Module *mod)
   return VecCount(mod->types) - 1;
 }
 
-
 u32 AddImport(char *modname, char *name, u32 type, Module *mod)
 {
   Import *import = malloc(sizeof(Import));
@@ -82,8 +81,6 @@ u32 AddImport(char *modname, char *name, u32 type, Module *mod)
   import->mod = CopyStr(modname, modlen);
   import->name = CopyStr(name, namelen);
   import->type = type;
-
-  printf("Adding import %s.%s\n", modname, name);
 
   VecPush(mod->imports, import);
 
@@ -155,14 +152,14 @@ Export *AddExport(char *name, u32 index, Module *mod)
 
 static void SerializeHeader(u8 **bytes)
 {
-  PushByte(bytes, 0);
-  PushByte(bytes, 'a');
-  PushByte(bytes, 's');
-  PushByte(bytes, 'm');
-  PushByte(bytes, 1);
-  PushByte(bytes, 0);
-  PushByte(bytes, 0);
-  PushByte(bytes, 0);
+  EmitByte(0, bytes);
+  EmitByte('a', bytes);
+  EmitByte('s', bytes);
+  EmitByte('m', bytes);
+  EmitByte(1, bytes);
+  EmitByte(0, bytes);
+  EmitByte(0, bytes);
+  EmitByte(0, bytes);
 }
 
 static void SerializeTypes(u8 **bytes, Module *mod)
@@ -174,19 +171,19 @@ static void SerializeTypes(u8 **bytes, Module *mod)
 
   size += IntSize(VecCount(types)); /* vec size of functypes */
 
-  PushByte(bytes, TypeSection);
-  PushInt(bytes, size);
-  PushInt(bytes, VecCount(types));
+  EmitByte(TypeSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(VecCount(types), bytes);
   for (i = 0; i < VecCount(types); i++) {
     Type *type = types[i];
-    PushByte(bytes, 0x60);
-    PushInt(bytes, type->params);
+    EmitByte(0x60, bytes);
+    EmitInt(type->params, bytes);
     for (j = 0; j < type->params; j++) {
-      PushByte(bytes, Int32);
+      EmitByte(Int32, bytes);
     }
-    PushInt(bytes, type->results);
+    EmitInt(type->results, bytes);
     for (j = 0; j < type->results; j++) {
-      PushByte(bytes, Int32);
+      EmitByte(Int32, bytes);
     }
   }
 }
@@ -199,26 +196,26 @@ static void SerializeImports(u8 **bytes, Module *mod)
 
   size += IntSize(VecCount(imports));
 
-  PushByte(bytes, ImportSection);
-  PushInt(bytes, size);
-  PushInt(bytes, VecCount(imports));
+  EmitByte(ImportSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(VecCount(imports), bytes);
   for (i = 0; i < VecCount(imports); i++) {
     u32 j;
     Import *import = imports[i];
     u32 modlen = strlen(import->mod);
     u32 namelen = strlen(import->name);
 
-    PushInt(bytes, modlen);
+    EmitInt(modlen, bytes);
     for (j = 0; j < modlen; j++) {
-      PushByte(bytes, import->mod[j]);
+      EmitByte(import->mod[j], bytes);
     }
-    PushInt(bytes, namelen);
+    EmitInt(namelen, bytes);
     for (j = 0; j < namelen; j++) {
-      PushByte(bytes, import->name[j]);
+      EmitByte(import->name[j], bytes);
     }
 
-    PushByte(bytes, 0); /* function import type */
-    PushInt(bytes, import->type);
+    EmitByte(0, bytes); /* function import type */
+    EmitInt(import->type, bytes);
   }
 }
 
@@ -232,13 +229,13 @@ static void SerializeFuncs(u8 **bytes, Module *mod)
 
   size += IntSize(VecCount(funcs));
 
-  PushByte(bytes, FuncSection);
-  PushInt(bytes, size);
-  PushInt(bytes, VecCount(funcs));
+  EmitByte(FuncSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(VecCount(funcs), bytes);
 
   for (i = 0; i < VecCount(funcs); i++) {
     Func *func = funcs[i];
-    PushInt(bytes, func->type);
+    EmitInt(func->type, bytes);
   }
 }
 
@@ -246,22 +243,22 @@ static void SerializeTable(u8 **bytes, Module *mod)
 {
   u32 size = IntSize(1) + 3;
 
-  PushByte(bytes, TableSection);
-  PushInt(bytes, size);
-  PushInt(bytes, 1);
-  PushByte(bytes, FuncRef);
-  PushByte(bytes, 0); /* limit type (no max) */
-  PushInt(bytes, VecCount(mod->funcs)); /* min */
+  EmitByte(TableSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(1, bytes);
+  EmitByte(FuncRef, bytes);
+  EmitByte(0, bytes); /* limit type (no max) , bytes*/
+  EmitInt(VecCount(mod->funcs), bytes); /* min , bytes*/
 }
 
 static void SerializeMemory(u8 **bytes, Module *mod)
 {
   u32 size = IntSize(1) + 1 + IntSize(1);
-  PushByte(bytes, MemorySection);
-  PushInt(bytes, size);
-  PushInt(bytes, 1);
-  PushByte(bytes, 0);
-  PushInt(bytes, 1);
+  EmitByte(MemorySection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(1, bytes);
+  EmitByte(0, bytes);
+  EmitInt(1, bytes);
 }
 
 static void SerializeGlobals(u8 **bytes, Module *mod)
@@ -271,15 +268,15 @@ static void SerializeGlobals(u8 **bytes, Module *mod)
 
   size = IntSize(mod->num_globals) + 5*mod->num_globals;
 
-  PushByte(bytes, GlobalSection);
-  PushInt(bytes, size);
-  PushInt(bytes, mod->num_globals);
+  EmitByte(GlobalSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(mod->num_globals, bytes);
   for (i = 0; i < mod->num_globals; i++) {
-    PushByte(bytes, Int32); /* type */
-    PushByte(bytes, 1); /* var */
-    PushByte(bytes, I32Const);
-    PushByte(bytes, 0);
-    PushByte(bytes, EndOp);
+    EmitByte(Int32, bytes); /* type , bytes*/
+    EmitByte(1, bytes); /* var , bytes*/
+    EmitByte(I32Const, bytes);
+    EmitByte(0, bytes);
+    EmitByte(EndOp, bytes);
   }
 }
 
@@ -293,27 +290,27 @@ static void SerializeExports(u8 **bytes, Module *mod)
 
   size += IntSize(VecCount(exports));
 
-  PushByte(bytes, ExportSection);
-  PushInt(bytes, size);
-  PushInt(bytes, VecCount(exports));
+  EmitByte(ExportSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(VecCount(exports), bytes);
   for (i = 0; i < VecCount(exports); i++) {
     Export *export = exports[i];
     u32 namelen = strlen(export->name);
-    PushInt(bytes, namelen);
+    EmitInt(namelen, bytes);
     for (j = 0; j < namelen; j++) {
-      PushByte(bytes, export->name[j]);
+      EmitByte(export->name[j], bytes);
     }
-    PushByte(bytes, 0); /* function export type */
-    PushInt(bytes, i);
+    EmitByte(0, bytes); /* function export type , bytes*/
+    EmitInt(i, bytes);
   }
 }
 
 static void SerializeStart(u8 **bytes, Module *mod)
 {
   if (mod->start > VecCount(mod->funcs) + VecCount(mod->imports)) return;
-  PushByte(bytes, StartSection);
-  PushInt(bytes, IntSize(mod->start));
-  PushInt(bytes, mod->start);
+  EmitByte(StartSection, bytes);
+  EmitInt(IntSize(mod->start), bytes);
+  EmitInt(mod->start, bytes);
 }
 
 static void SerializeElements(u8 **bytes, Module *mod)
@@ -326,17 +323,17 @@ static void SerializeElements(u8 **bytes, Module *mod)
   size += 4; /* segment attrs */
   size += IntSize(VecCount(funcs));
 
-  PushByte(bytes, ElementsSection);
-  PushInt(bytes, size);
-  PushInt(bytes, 1);
+  EmitByte(ElementsSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(1, bytes);
 
-  PushByte(bytes, 0); /* mode 0, active */
-  PushByte(bytes, I32Const); /* offset expr */
-  PushInt(bytes, 0);
-  PushByte(bytes, EndOp);
-  PushInt(bytes, VecCount(funcs)); /* vec(funcidx) */
+  EmitByte(0, bytes); /* mode 0, active , bytes*/
+  EmitByte(I32Const, bytes); /* offset expr , bytes*/
+  EmitInt(0, bytes);
+  EmitByte(EndOp, bytes);
+  EmitInt(VecCount(funcs), bytes); /* vec(funcidx) , bytes*/
   for (i = 0; i < VecCount(funcs); i++) {
-    PushInt(bytes, i);
+    EmitInt(i, bytes);
   }
 }
 
@@ -364,19 +361,19 @@ static void SerializeCode(u8 **bytes, Module *mod)
     size += func->size;
   }
 
-  PushByte(bytes, CodeSection);
-  PushInt(bytes, size);
-  PushInt(bytes, VecCount(funcs));
+  EmitByte(CodeSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(VecCount(funcs), bytes);
   for (i = 0; i < VecCount(funcs); i++) {
     Func *func = funcs[i];
-    PushInt(bytes, func->size);
+    EmitInt(func->size, bytes);
 
     if (func->locals > 0) {
-      PushInt(bytes, 1);
-      PushInt(bytes, func->locals);
-      PushByte(bytes, Int32);
+      EmitInt(1, bytes);
+      EmitInt(func->locals, bytes);
+      EmitByte(Int32, bytes);
     } else {
-      PushInt(bytes, 0);
+      EmitInt(0, bytes);
     }
 
     AppendBytes(bytes, &func->code);

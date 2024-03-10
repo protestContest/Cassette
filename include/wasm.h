@@ -60,6 +60,16 @@ typedef enum {
 #define EmptyBlock 0x40
 
 u32 IntSize(i32 n);
-void PushByte(u8 **code, u8 n);
-void PushInt(u8 **code, i32 n);
+void EmitByte(u8 n, u8 **code);
+void EmitInt(i32 n, u8 **code);
 void AppendBytes(u8 **a, u8 **b);
+void EmitConst(i32 n, u8 **code);
+void EmitLoad(i32 offset, u8 **code);
+void EmitStore(i32 offset, u8 **code);
+void EmitGetGlobal(i32 idx, u8 **code);
+void EmitSetGlobal(i32 idx, u8 **code);
+void EmitGetLocal(i32 idx, u8 **code);
+void EmitSetLocal(i32 idx, u8 **code);
+void EmitTeeLocal(i32 idx, u8 **code);
+void EmitCall(i32 funcidx, u8 **code);
+void EmitCallIndirect(i32 typeidx, u8 **code);

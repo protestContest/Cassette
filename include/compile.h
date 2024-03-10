@@ -1,4 +1,5 @@
 #pragma once
-#include "ast.h"
+#include "node.h"
+#include "result.h"
 
-Result CompileModule(Node *ast);
+Result CompileModule(ModuleNode *ast);
