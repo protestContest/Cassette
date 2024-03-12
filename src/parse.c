@@ -33,7 +33,6 @@ typedef enum {
 } Precedence;
 
 static Result ParseModule(Parser *p);
-static Node *WithExport(Node *node, Parser *p);
 static Result ParseImport(Parser *p);
 static Result ParseStmts(Parser *p);
 static Result ParseAssign(Parser *p);
@@ -91,6 +90,7 @@ static Result ParseModule(Parser *p)
   Result result;
   ModuleNode *module = (ModuleNode*)MakeNode(moduleNode, 0);
   u32 main = AddSymbol("*main*");
+  u32 i;
 
   module->filename = AddSymbol(p->filename);
 
@@ -119,6 +119,13 @@ static Result ParseModule(Parser *p)
     return ParseFail(ParseError("Unexpected token", p), module);
   }
   module->body = result.value;
+
+  for (i = 0; i < VecCount(module->body->stmts); i++) {
+    Node *stmt = module->body->stmts[i];
+    if (stmt->type == defNode) {
+      VecPush(module->exports, (LetNode*)stmt);
+    }
+  }
 
   return Ok(module);
 }

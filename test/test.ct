@@ -1,3 +1,6 @@
 import console as IO
 
-IO.log(100)
+do
+  let x = 100
+  IO.log(x)
+end

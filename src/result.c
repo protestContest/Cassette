@@ -15,6 +15,7 @@ Result Error(char *message, char *filename, u32 pos)
   error->message = message;
   error->filename = CopyStr(filename, strlen(filename));
   error->pos = pos;
+  result.value = error;
   return result;
 }
 

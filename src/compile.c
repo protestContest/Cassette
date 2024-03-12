@@ -208,20 +208,78 @@ static bool CompileCall(CallNode *expr, Compiler *c)
 static bool CompileDo(DoNode *expr, Compiler *c)
 {
   u32 i;
-  u32 num_items = VecCount(expr->stmts);
+  u32 num_stmts = VecCount(expr->stmts);
+  u32 num_locals = VecCount(expr->locals);
+  u32 num_defs = 0;
 
-  for (i = 0; i < num_items; i++) {
-    EmitGetGlobal(regEnv, c->code);
-    if (!CompileExpr(expr->stmts[i], c)) return false;
+  if (num_locals > 0) {
+    c->env = ExtendFrame(c->env, num_locals);
+    EmitExtendEnv(num_locals, c->code);
 
-    if (i < num_items - 1) {
-      EmitByte(DropOp, c->code);
-      EmitSetGlobal(regEnv, c->code);
-    } else {
-      EmitSetGlobal(regTmp1, c->code);
-      EmitSetGlobal(regEnv, c->code);
-      EmitGetGlobal(regTmp1, c->code);
+    /* pre-define each def */
+    for (i = 0; i < VecCount(expr->stmts); i++) {
+      LetNode *stmt = (LetNode*)expr->stmts[i];
+      if (stmt->type != defNode) continue;
+      FrameSet(c->env, i, stmt->var);
+      num_defs++;
     }
+
+    /* compile each def */
+    for (i = 0; i < VecCount(expr->stmts); i++) {
+      LetNode *stmt = (LetNode*)expr->stmts[i];
+      LambdaNode *lambda;
+      i32 funcidx;
+
+      if (stmt->type != defNode) continue;
+
+      lambda = (LambdaNode*)stmt->value;
+      funcidx = CompileFunc(lambda, c);
+      if (funcidx < 0) return false;
+
+      EmitGetGlobal(regEnv, c->code);
+      EmitHead(c->code);
+      EmitLambda(funcidx, c->code);
+      EmitStore(i*4, c->code);
+    }
+  }
+
+  for (i = 0; i < num_stmts; i++) {
+    Node *stmt = expr->stmts[i];
+    bool is_last = i == num_stmts - 1;
+
+    /* save env */
+    EmitGetGlobal(regEnv, c->code);
+
+    if (stmt->type == letNode) {
+      LetNode *let = (LetNode*)stmt;
+      EmitGetGlobal(regEnv, c->code);
+      EmitHead(c->code);
+      if (!CompileExpr(let->value, c)) return false;
+      EmitStore((num_defs + i) * 4, c->code);
+      EmitSetGlobal(regEnv, c->code);
+      if (is_last) {
+        EmitConst(0, c->code);
+      }
+      FrameSet(c->env, num_defs + i, let->var);
+    } else {
+      if (!CompileExpr(expr->stmts[i], c)) return false;
+
+      if (i < num_stmts - 1) {
+        EmitByte(DropOp, c->code);
+        EmitSetGlobal(regEnv, c->code);
+      } else {
+        EmitSetGlobal(regTmp1, c->code);
+        EmitSetGlobal(regEnv, c->code);
+        EmitGetGlobal(regTmp1, c->code);
+      }
+    }
+  }
+
+  if (num_locals > 0) {
+    c->env = PopFrame(c->env);
+    EmitGetGlobal(regEnv, c->code);
+    EmitTail(c->code);
+    EmitSetGlobal(regEnv, c->code);
   }
 
   return true;
@@ -496,32 +554,32 @@ Result CompileModule(ModuleNode *ast)
   u32 num_exports = VecCount(exports);
   Node **stmts = ast->body->stmts;
   HashMap imports = EmptyHashMap;
-  Frame *env = 0;
   Func *start;
 
+  c->result = Ok(0);
   c->mod = malloc(sizeof(Module));
-  c->imports = &imports;
-
   InitModule(c->mod);
-  c->mod->num_globals = 5; /* env, free, tmp1, tmp2, tmp3 */
+  c->mod->num_globals = 5;
   c->mod->filename = SymbolName(ast->filename);
-
-  ScanImports((Node*)ast, &imports, c->mod);
+  c->imports = &imports;
+  ScanImports((Node*)ast, c->imports, c->mod);
+  c->env = ExtendFrame(0, VecCount(c->mod->imports));
 
   CompileUtilities(c->mod);
 
   start = AddFunc(AddType(0, 0, c->mod), 0, c->mod);
-  env = ExtendFrame(env, VecCount(c->mod->imports));
-  EmitExtendEnv(VecCount(c->mod->imports), &start->code);
+  c->code = &start->code;
+
+  EmitExtendEnv(VecCount(c->mod->imports), c->code);
 
   /* pre-define each func */
   if (num_exports > 0) {
-    env = ExtendFrame(env, num_exports);
+    c->env = ExtendFrame(c->env, num_exports);
     EmitExtendEnv(num_exports, &start->code);
     for (i = 0; i < VecCount(stmts); i++) {
       LetNode *stmt = (LetNode*)stmts[i];
       if (stmt->type != defNode) continue;
-      FrameSet(env, i, stmt->var);
+      FrameSet(c->env, i, stmt->var);
     }
 
     /* compile each func */
@@ -546,8 +604,7 @@ Result CompileModule(ModuleNode *ast)
     }
   }
 
-  /* compile start func */
-  c->code = &start->code;
+  /* compile statements */
   for (i = 0, j = 0; i < VecCount(stmts); i++) {
     Node *stmt = stmts[i];
 
