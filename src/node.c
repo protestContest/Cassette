@@ -81,7 +81,6 @@ Node *MakeNode(NodeType type, u32 pos)
     node = malloc(sizeof(ModuleNode));
     ((ModuleNode*)node)->name = 0;
     ((ModuleNode*)node)->filename = 0;
-    ((ModuleNode*)node)->exports = 0;
     ((ModuleNode*)node)->imports = 0;
     ((ModuleNode*)node)->body = 0;
     break;

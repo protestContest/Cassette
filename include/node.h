@@ -39,7 +39,6 @@ typedef enum {
   moduleNode
 } NodeType;
 
-/* Terminal nodes have values; non-terminals have children */
 typedef struct {
   NodeType type;
   u32 pos;
@@ -118,9 +117,8 @@ typedef struct {
   u32 pos;
   u32 name;
   u32 filename;
-  LetNode **exports;
   ImportNode **imports;
-  DoNode *body;
+  Node *body;
 } ModuleNode;
 
 TerminalNode *MakeTerminal(NodeType type, u32 pos, u32 value);

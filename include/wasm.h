@@ -8,14 +8,14 @@ typedef enum {
   IfBlock         = 0x04,
   ElseBlock       = 0x05,
 
-  EndOp           = 0x0B,
+  End             = 0x0B,
   Br              = 0x0C,
   BrIf            = 0x0D,
 
-  CallOp          = 0x10,
+  Call            = 0x10,
   CallIndirect    = 0x11,
 
-  DropOp          = 0x1A,
+  Drop            = 0x1A,
 
   LocalGet        = 0x20,
   LocalSet        = 0x21,
@@ -26,8 +26,10 @@ typedef enum {
   TableSet        = 0x26,
 
   I32Load         = 0x28,
+  I32Load8        = 0x2C,
 
   I32Store        = 0x36,
+  I32Store8       = 0x3A,
 
   MemSize         = 0x3F,
   MemGrow         = 0x40,
@@ -65,7 +67,9 @@ void EmitInt(i32 n, u8 **code);
 void AppendBytes(u8 **a, u8 **b);
 void EmitConst(i32 n, u8 **code);
 void EmitLoad(i32 offset, u8 **code);
+void EmitLoadByte(i32 offset, u8 **code);
 void EmitStore(i32 offset, u8 **code);
+void EmitStoreByte(i32 offset, u8 **code);
 void EmitGetGlobal(i32 idx, u8 **code);
 void EmitSetGlobal(i32 idx, u8 **code);
 void EmitGetLocal(i32 idx, u8 **code);

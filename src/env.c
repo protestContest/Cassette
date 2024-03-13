@@ -1,62 +1,100 @@
 #include "env.h"
 #include <univ.h>
 
-Frame *ExtendFrame(Frame *parent, u32 size)
+Env *ExtendEnv(Env *parent, u32 size)
 {
   u32 i;
-  Frame *frame = malloc(sizeof(Frame));
-  frame->parent = parent;
-  frame->items = NewVec(u32, size);
+  Env *env = malloc(sizeof(Env));
+  env->parent = parent;
+  env->items = NewVec(u32, size);
   for (i = 0; i < size; i++) {
-    VecPush(frame->items, 0);
+    VecPush(env->items, 0);
   }
-  return frame;
+  return env;
 }
 
-Frame *PopFrame(Frame *frame)
+Env *PopEnv(Env *env)
 {
-  Frame *parent = frame->parent;
-  FreeVec(frame->items);
-  free(frame);
+  Env *parent = env->parent;
+  FreeVec(env->items);
+  free(env);
   return parent;
 }
 
-void FreeEnv(Frame *env)
+void FreeEnv(Env *env)
 {
-  while (env != 0) env = PopFrame(env);
+  while (env != 0) env = PopEnv(env);
 }
 
-void FrameSet(Frame *frame, u32 index, u32 name)
+void Define(u32 name, u32 index, Env *env)
 {
-  assert(index < VecCount(frame->items));
-  frame->items[index] = name;
+  assert(index < VecCount(env->items));
+  env->items[index] = name;
 }
 
-i32 FrameFind(Frame *frame, u32 var)
+i32 Lookup(u32 var, Env *env)
 {
   i32 index;
-  for (index = (i32)VecCount(frame->items) - 1; index >= 0; index--) {
-    u32 item = frame->items[index];
+  for (index = (i32)VecCount(env->items) - 1; index >= 0; index--) {
+    u32 item = env->items[index];
     if (item == var) return index;
   }
 
-  if (frame->parent == 0) return -1;
-  index = FrameFind(frame->parent, var);
+  if (env->parent == 0) return -1;
+  index = Lookup(var, env->parent);
   if (index < 0) return index;
-  return VecCount(frame->items) + index;
+  return VecCount(env->items) + index;
 }
 
-void PrintEnv(Frame *frame)
+i32 LookupFrame(u32 name, Env *env)
 {
-  while (frame) {
+  u32 i;
+  if (!env) return -1;
+
+  for (i = 0; i < VecCount(env->items); i++) {
+    if (env->items[i] == name) return EnvSize(env) - 1;
+  }
+
+  return LookupFrame(name, env->parent);
+}
+
+i32 EnvSize(Env *env)
+{
+  i32 length = 0;
+  while (env) {
+    length++;
+    env = env->parent;
+  }
+  return length;
+}
+
+Env *GetEnv(i32 index, Env *env)
+{
+  i32 length = 0;
+  i32 i;
+  Env *cur = env;
+  while (cur) {
+    length++;
+    cur = cur->parent;
+  }
+
+  for (i = 0; i < length - index - 1; i++) {
+    env = env->parent;
+  }
+  return env;
+}
+
+void PrintEnv(Env *env)
+{
+  while (env) {
     u32 i;
     printf("- ");
-    for (i = 0; i < VecCount(frame->items); i++) {
-      u32 var = frame->items[i];
+    for (i = 0; i < VecCount(env->items); i++) {
+      u32 var = env->items[i];
       printf("%s ", SymbolName(var));
     }
     printf("\n");
-    frame = frame->parent;
+    env = env->parent;
   }
 }
 

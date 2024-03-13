@@ -1,6 +1,5 @@
-import console as IO
+import console
 
-do
-  let x = 100
-  IO.log(x)
+def print(expr) do
+  expr
 end

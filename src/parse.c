@@ -90,7 +90,6 @@ static Result ParseModule(Parser *p)
   Result result;
   ModuleNode *module = (ModuleNode*)MakeNode(moduleNode, 0);
   u32 main = AddSymbol("*main*");
-  u32 i;
 
   module->filename = AddSymbol(p->filename);
 
@@ -119,13 +118,6 @@ static Result ParseModule(Parser *p)
     return ParseFail(ParseError("Unexpected token", p), module);
   }
   module->body = result.value;
-
-  for (i = 0; i < VecCount(module->body->stmts); i++) {
-    Node *stmt = module->body->stmts[i];
-    if (stmt->type == defNode) {
-      VecPush(module->exports, (LetNode*)stmt);
-    }
-  }
 
   return Ok(module);
 }
@@ -195,6 +187,10 @@ static Result ParseStmts(Parser *p)
 
   if (VecCount(node->stmts) == 0) {
     VecPush(node->stmts, (Node*)MakeTerminal(nilNode, TokenPos(&p->lex), 0));
+  } else if (VecCount(node->locals) == 0 && VecCount(node->stmts) == 1) {
+    Node *stmt = node->stmts[0];
+    free(node);
+    return Ok(stmt);
   }
 
   return Ok(node);
@@ -499,12 +495,6 @@ static Result ParseDo(Parser *p)
   node = result.value;
   node->pos = pos;
 
-  if (VecCount(node->locals) == 0 && VecCount(node->stmts) == 1) {
-    Node *stmt = node->stmts[0];
-    free(node);
-    return Ok(stmt);
-  }
-
   return result;
 }
 
@@ -742,8 +732,8 @@ static Result ParseLiteral(Parser *p)
   Token token = NextToken(&p->lex);
 
   switch (token.type) {
-  case TokenTrue:   return Ok(MakeTerminal(symbolNode, pos, AddSymbol("true")));
-  case TokenFalse:  return Ok(MakeTerminal(symbolNode, pos, AddSymbol("false")));
+  case TokenTrue:   return Ok(MakeTerminal(intNode, pos, 1));
+  case TokenFalse:  return Ok(MakeTerminal(nilNode, pos, 0));
   case TokenNil:    return Ok(MakeTerminal(nilNode, pos, 0));
   default:          return ParseError("Unknown literal", p);
   }
@@ -784,6 +774,8 @@ static NodeType BinaryOpNode(TokenType token_type)
   case TokenGtEq:       return gtEqNode;
   case TokenIn:         return inNode;
   case TokenBar:        return pairNode;
+  case TokenAnd:        return andNode;
+  case TokenOr:         return orNode;
   default:              return nilNode;
   }
 }
