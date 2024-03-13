@@ -11,4 +11,8 @@ const imports = {
 };
 
 WebAssembly.instantiateStreaming(fetch("../bin/out.wasm"), imports)
+.then(res => {
+  console.log(res.instance)
+  debugger;
+})
 </script>

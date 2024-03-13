@@ -3,35 +3,36 @@
 typedef enum {
   nilNode,
   idNode,
-  varNode,
   intNode,
   floatNode,
   stringNode,
-  symbolNode,
   listNode,
   tupleNode,
-  pairNode,
+  doNode,
+  ifNode,
   accessNode,
+  callNode,
   negNode,
-  addNode,
-  subNode,
+  notNode,
+  bitNotNode,
+  lenNode,
   mulNode,
   divNode,
   remNode,
+  bitAndNode,
+  addNode,
+  subNode,
+  bitOrNode,
+  shiftNode,
   ltNode,
-  ltEqNode,
-  inNode,
-  lenNode,
-  eqNode,
-  notEqNode,
   gtNode,
-  gtEqNode,
-  notNode,
+  splitNode,
+  tailNode,
+  joinNode,
+  pairNode,
+  eqNode,
   andNode,
   orNode,
-  ifNode,
-  doNode,
-  callNode,
   lambdaNode,
   defNode,
   letNode,
@@ -39,91 +40,32 @@ typedef enum {
   moduleNode
 } NodeType;
 
-/* Terminal nodes have values; non-terminals have children */
-typedef struct {
+typedef struct Node {
   NodeType type;
   u32 pos;
+  struct Node **children;
+  u32 value;
 } Node;
 
-typedef struct {
-  NodeType type;
-  u32 pos;
-  u32 value;
-} TerminalNode;
+#define NodePush(node, child)     VecPush((node)->children, child)
+#define NodeCount(node)           VecCount((node)->children)
+#define DoNodeLocals(node)        (node)->children[0]
+#define DoNodeStmts(node)         (node)->children[1]
+#define IfNodePredicate(node)     (node)->children[0]
+#define IfNodeConsequent(node)    (node)->children[1]
+#define IfNodeAlternative(node)   (node)->children[2]
+#define LambdaNodeParams(node)    (node)->children[0]
+#define LambdaNodeBody(node)      (node)->children[1]
+#define AssignNodeVar(node)       (node)->children[0]
+#define AssignNodeValue(node)     (node)->children[1]
+#define ImportNodeMod(node)       (node)->children[0]
+#define ImportNodeAlias(node)     (node)->children[1]
+#define ModuleNodeName(node)      (node)->children[0]
+#define ModuleNodeImports(node)   (node)->children[1]
+#define ModuleNodeBody(node)      (node)->children[2]
+#define ModuleNodeFilename(node)  (node)->children[3]
 
-typedef struct {
-  NodeType type;
-  u32 pos;
-  Node **items;
-} ListNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  Node *child;
-} UnaryNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  Node *left;
-  Node *right;
-} BinaryNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  Node *predicate;
-  Node *ifTrue;
-  Node *ifFalse;
-} IfNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  u32 *locals;
-  Node **stmts;
-} DoNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  Node *op;
-  Node **args;
-} CallNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  u32 *params;
-  Node *body;
-} LambdaNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  u32 var;
-  Node *value;
-} LetNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  u32 mod;
-  u32 alias;
-} ImportNode;
-
-typedef struct {
-  NodeType type;
-  u32 pos;
-  u32 name;
-  u32 filename;
-  LetNode **exports;
-  ImportNode **imports;
-  DoNode *body;
-} ModuleNode;
-
-TerminalNode *MakeTerminal(NodeType type, u32 pos, u32 value);
+Node *MakeTerminal(NodeType type, u32 pos, u32 value);
 Node *MakeNode(NodeType type, u32 pos);
 void FreeNode(Node *node);
 bool IsTerminal(Node *node);

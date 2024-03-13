@@ -53,18 +53,15 @@ static Token AdvanceToken(Lexer *lex)
   start = lex->source + lex->pos;
 
   if (Peek(lex) == '\0') return MakeToken(TokenEOF, start, 0);
-  if (IsDigit(Peek(lex)) || Peek(lex) == '$') return NumberToken(lex);
+  if (IsDigit(Peek(lex))) return NumberToken(lex);
   if (Peek(lex) == '"') return StringToken(lex);
 
   if (Match("\n", lex)) return MakeToken(TokenNewline, start, 1);
   if (Match("!=", lex)) return MakeToken(TokenBangEq, start, 2);
   if (Match("->", lex)) return MakeToken(TokenArrow, start, 2);
-  if (Match("..", lex)) return MakeToken(TokenDotDot, start, 2);
   if (Match("<<", lex)) return MakeToken(TokenLtLt, start, 2);
-  if (Match("<=", lex)) return MakeToken(TokenLtEq, start, 2);
   if (Match("<>", lex)) return MakeToken(TokenLtGt, start, 2);
   if (Match("==", lex)) return MakeToken(TokenEqEq, start, 2);
-  if (Match(">=", lex)) return MakeToken(TokenGtEq, start, 2);
   if (Match(">>", lex)) return MakeToken(TokenGtGt, start, 2);
 
   if (Match("#", lex))  return MakeToken(TokenHash, start, 1);
@@ -82,6 +79,7 @@ static Token AdvanceToken(Lexer *lex)
   if (Match("<", lex))  return MakeToken(TokenLt, start, 1);
   if (Match("=", lex))  return MakeToken(TokenEq, start, 1);
   if (Match(">", lex))  return MakeToken(TokenGt, start, 1);
+  if (Match("@", lex))  return MakeToken(TokenAt, start, 1);
   if (Match("[", lex))  return MakeToken(TokenLBracket, start, 1);
   if (Match("\\", lex)) return MakeToken(TokenBackslash, start, 1);
   if (Match("]", lex))  return MakeToken(TokenRBracket, start, 1);
@@ -96,27 +94,16 @@ static Token AdvanceToken(Lexer *lex)
 
 static bool IsSymChar(char c)
 {
+  if (IsAlpha(c) || IsDigit(c)) return true;
+
   switch (c) {
-  case '\0':
-  case ' ':
-  case '\t':
-  case '\n':
-  case '\r':
-  case ';':
-  case '(':
-  case ')':
-  case ',':
-  case '.':
-  case ':':
-  case '[':
-  case '\\':
-  case ']':
-  case '{':
-  case '|':
-  case '}':
-    return false;
-  default:
+  case '!':
+  case '\'':
+  case '?':
+  case '_':
     return true;
+  default:
+    return false;
   }
 }
 
@@ -235,8 +222,6 @@ static Token KeywordToken(Lexer *lex)
       return MakeToken(TokenIf, lex->source + start, lex->pos - start);
     if (MatchKeyword("import", lex))
       return MakeToken(TokenImport, lex->source + start, lex->pos - start);
-    if (MatchKeyword("in", lex))
-      return MakeToken(TokenIn, lex->source + start, lex->pos - start);
     break;
   case 'l':
     if (MatchKeyword("let", lex))

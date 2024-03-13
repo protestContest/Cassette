@@ -1,8 +1,9 @@
 #include "module.h"
-#include "wasm.h"
+#include "ops.h"
 #include <univ.h>
 
 typedef enum {
+  CustomSection = 0,
   TypeSection = 1,
   ImportSection = 2,
   FuncSection = 3,
@@ -12,7 +13,9 @@ typedef enum {
   ExportSection = 7,
   StartSection = 8,
   ElementsSection = 9,
-  CodeSection = 10
+  CodeSection = 10,
+  DataSection = 11,
+  DataCountSection = 12
 } SectionID;
 
 void InitModule(Module *mod)
@@ -20,10 +23,11 @@ void InitModule(Module *mod)
   mod->types = 0;
   mod->imports = 0;
   mod->funcs = 0;
-  mod->num_globals = 0;
+  mod->globals = 0;
   mod->exports = 0;
   mod->start = -1;
   mod->filename = 0;
+  mod->data = 0;
   mod->size.types = 0;
   mod->size.imports = 0;
   mod->size.funcs = 0;
@@ -47,6 +51,8 @@ void DestroyModule(Module *mod)
     free(mod->exports[i]);
   }
   FreeVec(mod->exports);
+  FreeVec(mod->data);
+  FreeVec(mod->globals);
 }
 
 u32 AddType(u32 params, u32 results, Module *mod)
@@ -92,6 +98,16 @@ u32 AddImport(char *modname, char *name, u32 type, Module *mod)
   mod->size.imports+= IntSize(type);
 
   return VecCount(mod->imports) - 1;
+}
+
+bool HasImport(u32 modname, u32 name, Module *mod)
+{
+  u32 i;
+  for (i = 0; i < VecCount(mod->imports); i++) {
+    Import *import = mod->imports[i];
+    if (AddSymbol(import->mod) == modname && AddSymbol(import->name) == name) return true;
+  }
+  return false;
 }
 
 u32 ImportIdx(char *modname, char *name, Module *mod)
@@ -266,17 +282,20 @@ static void SerializeGlobals(u8 **bytes, Module *mod)
   u32 i;
   u32 size;
 
-  size = IntSize(mod->num_globals) + 5*mod->num_globals;
+  size = IntSize(VecCount(mod->globals));
+  for (i = 0; i < VecCount(mod->globals); i++) {
+    size += IntSize(mod->globals[i]) + 4;
+  }
 
   EmitByte(GlobalSection, bytes);
   EmitInt(size, bytes);
-  EmitInt(mod->num_globals, bytes);
-  for (i = 0; i < mod->num_globals; i++) {
-    EmitByte(Int32, bytes); /* type , bytes*/
-    EmitByte(1, bytes); /* var , bytes*/
+  EmitInt(VecCount(mod->globals), bytes);
+  for (i = 0; i < VecCount(mod->globals); i++) {
+    EmitByte(Int32, bytes); /* type */
+    EmitByte(1, bytes); /* var */
     EmitByte(I32Const, bytes);
-    EmitByte(0, bytes);
-    EmitByte(EndOp, bytes);
+    EmitInt(mod->globals[i], bytes);
+    EmitByte(End, bytes);
   }
 }
 
@@ -330,7 +349,7 @@ static void SerializeElements(u8 **bytes, Module *mod)
   EmitByte(0, bytes); /* mode 0, active , bytes*/
   EmitByte(I32Const, bytes); /* offset expr , bytes*/
   EmitInt(0, bytes);
-  EmitByte(EndOp, bytes);
+  EmitByte(End, bytes);
   EmitInt(VecCount(funcs), bytes); /* vec(funcidx) , bytes*/
   for (i = 0; i < VecCount(funcs); i++) {
     EmitInt(i, bytes);
@@ -380,6 +399,33 @@ static void SerializeCode(u8 **bytes, Module *mod)
   }
 }
 
+static void SerializeDataCount(u8 **bytes, Module *mod)
+{
+  u32 size = IntSize(1);
+  EmitByte(DataCountSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(1, bytes);
+}
+
+static void SerializeData(u8 ** bytes, Module *mod)
+{
+  u32 size = 0;
+  if (VecCount(mod->data) == 0) return;
+
+  size += 5;
+  size += IntSize(VecCount(mod->data));
+  size += VecCount(mod->data);
+
+  EmitByte(DataSection, bytes);
+  EmitInt(size, bytes);
+  EmitInt(1, bytes);
+  EmitInt(0, bytes);
+  EmitConst(0, bytes);
+  EmitByte(End, bytes);
+  EmitInt(VecCount(mod->data), bytes);
+  AppendBytes(bytes, &mod->data);
+}
+
 u8 *SerializeModule(Module *mod)
 {
   u8 *bytes = 0;
@@ -394,7 +440,9 @@ u8 *SerializeModule(Module *mod)
   SerializeExports(&bytes, mod);
   SerializeStart(&bytes, mod);
   SerializeElements(&bytes, mod);
+  SerializeDataCount(&bytes, mod);
   SerializeCode(&bytes, mod);
+  SerializeData(&bytes, mod);
 
   return bytes;
 }

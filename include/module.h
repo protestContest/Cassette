@@ -36,8 +36,9 @@ typedef struct {
   Type **types;
   Import **imports;
   Func **funcs;
-  u32 num_globals;
+  u32 *globals;
   Export **exports;
+  u8 *data;
   u32 start;
   char *filename;
   struct {
@@ -54,6 +55,7 @@ void DestroyModule(Module *mod);
 
 u32 AddType(u32 params, u32 results, Module *mod);
 u32 AddImport(char *modname, char *name, u32 type, Module *mod);
+bool HasImport(u32 modname, u32 name, Module *mod);
 u32 ImportIdx(char *modname, char *name, Module *mod);
 Func *AddFunc(u32 type, u32 locals, Module *mod);
 u32 FuncIdx(Func *func, Module *mod);

@@ -31,7 +31,7 @@ clean:
 
 .PHONY: test
 test: $(BIN)/$(TARGET)
-	$(BIN)/$(TARGET) test/test.ct && wasm-validate bin/out.wasm && echo Ok
+	$(BIN)/$(TARGET) test/test.ct
 
 .PHONY: entitlements
 entitlements: $(BIN)/$(TARGET)

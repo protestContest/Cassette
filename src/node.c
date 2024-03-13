@@ -1,96 +1,23 @@
 #include "node.h"
 #include <univ.h>
 
-TerminalNode *MakeTerminal(NodeType type, u32 position, u32 value)
+Node *MakeTerminal(NodeType type, u32 position, u32 value)
 {
-  TerminalNode *node = malloc(sizeof(TerminalNode));
+  Node *node = malloc(sizeof(Node));
   node->type = type;
   node->pos = position;
+  node->children = 0;
   node->value = value;
   return node;
 }
 
 Node *MakeNode(NodeType type, u32 pos)
 {
-  Node *node;
-  switch (type) {
-  case listNode:
-  case tupleNode:
-    node = malloc(sizeof(ListNode));
-    ((ListNode*)node)->items = 0;
-    break;
-  case negNode:
-  case lenNode:
-  case notNode:
-    node = malloc(sizeof(UnaryNode));
-    ((UnaryNode*)node)->child = 0;
-    break;
-  case pairNode:
-  case accessNode:
-  case addNode:
-  case subNode:
-  case mulNode:
-  case divNode:
-  case remNode:
-  case ltNode:
-  case ltEqNode:
-  case inNode:
-  case eqNode:
-  case notEqNode:
-  case gtNode:
-  case gtEqNode:
-  case andNode:
-  case orNode:
-    node = malloc(sizeof(BinaryNode));
-    ((BinaryNode*)node)->left = 0;
-    ((BinaryNode*)node)->right = 0;
-    break;
-  case ifNode:
-    node = malloc(sizeof(IfNode));
-    ((IfNode*)node)->predicate = 0;
-    ((IfNode*)node)->ifTrue = 0;
-    ((IfNode*)node)->ifFalse = 0;
-    break;
-  case doNode:
-    node = malloc(sizeof(DoNode));
-    ((DoNode*)node)->locals = 0;
-    ((DoNode*)node)->stmts = 0;
-    break;
-  case callNode:
-    node = malloc(sizeof(CallNode));
-    ((CallNode*)node)->op = 0;
-    ((CallNode*)node)->args = 0;
-    break;
-  case lambdaNode:
-    node = malloc(sizeof(LambdaNode));
-    ((LambdaNode*)node)->params = 0;
-    ((LambdaNode*)node)->body = 0;
-    break;
-  case defNode:
-  case letNode:
-    node = malloc(sizeof(LetNode));
-    ((LetNode*)node)->var = 0;
-    ((LetNode*)node)->value = 0;
-    break;
-  case importNode:
-    node = malloc(sizeof(ImportNode));
-    ((ImportNode*)node)->mod = 0;
-    ((ImportNode*)node)->alias = 0;
-    break;
-  case moduleNode:
-    node = malloc(sizeof(ModuleNode));
-    ((ModuleNode*)node)->name = 0;
-    ((ModuleNode*)node)->filename = 0;
-    ((ModuleNode*)node)->exports = 0;
-    ((ModuleNode*)node)->imports = 0;
-    ((ModuleNode*)node)->body = 0;
-    break;
-  default:
-    return (Node*)MakeTerminal(type, pos, 0);
-  }
-
+  Node *node = malloc(sizeof(Node));
   node->type = type;
   node->pos = pos;
+  node->children = 0;
+  node->value = 0;
   return node;
 }
 
@@ -98,11 +25,10 @@ bool IsTerminal(Node *node)
 {
   switch (node->type) {
   case nilNode:
-  case varNode:
+  case idNode:
   case intNode:
   case floatNode:
   case stringNode:
-  case symbolNode:
     return true;
   default:
     return false;
@@ -112,76 +38,8 @@ bool IsTerminal(Node *node)
 void FreeNode(Node *node)
 {
   u32 i;
-  Node **children;
-
-  if (!node) return;
-
-  switch (node->type) {
-  case listNode:
-  case tupleNode:
-    children = ((ListNode*)node)->items;
-    for (i = 0; i < VecCount(children); i++) FreeNode(children[i]);
-    FreeVec(children);
-    break;
-  case negNode:
-  case lenNode:
-  case notNode:
-    FreeNode(((UnaryNode*)node)->child);
-    break;
-  case pairNode:
-  case accessNode:
-  case addNode:
-  case subNode:
-  case mulNode:
-  case divNode:
-  case remNode:
-  case ltNode:
-  case ltEqNode:
-  case inNode:
-  case eqNode:
-  case notEqNode:
-  case gtNode:
-  case gtEqNode:
-  case andNode:
-  case orNode:
-    FreeNode(((BinaryNode*)node)->left);
-    FreeNode(((BinaryNode*)node)->right);
-    break;
-  case ifNode:
-    FreeNode(((IfNode*)node)->predicate);
-    FreeNode(((IfNode*)node)->ifTrue);
-    FreeNode(((IfNode*)node)->ifFalse);
-    break;
-  case doNode:
-    children = ((DoNode*)node)->stmts;
-    for (i = 0; i < VecCount(children); i++) FreeNode(children[i]);
-    FreeVec(children);
-    FreeVec(((DoNode*)node)->locals);
-    break;
-  case callNode:
-    children = ((CallNode*)node)->args;
-    for (i = 0; i < VecCount(children); i++) FreeNode(children[i]);
-    FreeVec(children);
-    FreeNode(((CallNode*)node)->op);
-    break;
-  case lambdaNode:
-    FreeVec(((LambdaNode*)node)->params);
-    FreeNode(((LambdaNode*)node)->body);
-    break;
-  case defNode:
-  case letNode:
-    FreeNode(((LetNode*)node)->value);
-    break;
-  case moduleNode:
-    children = (Node**)((ModuleNode*)node)->imports;
-    for (i = 0; i < VecCount(children); i++) FreeNode(children[i]);
-    FreeVec(children);
-    FreeNode((Node*)((ModuleNode*)node)->body);
-    break;
-  default:
-    break;
-  }
-
+  for (i = 0; i < VecCount(node->children); i++) FreeNode(node->children[i]);
+  FreeVec(node->children);
   free(node);
 }
 
@@ -189,35 +47,37 @@ char *NodeName(Node *node)
 {
   switch (node->type) {
   case nilNode:     return "nil";
-  case varNode:      return "var";
+  case idNode:      return "id";
   case intNode:     return "int";
   case floatNode:   return "float";
   case stringNode:  return "string";
-  case symbolNode:  return "symbol";
   case listNode:    return "list";
   case tupleNode:   return "tuple";
-  case pairNode:    return "pair";
+  case doNode:      return "do";
+  case ifNode:      return "if";
   case accessNode:  return "access";
+  case callNode:    return "call";
   case negNode:     return "neg";
-  case addNode:     return "add";
-  case subNode:     return "sub";
+  case notNode:     return "not";
+  case bitNotNode:  return "bit not";
+  case lenNode:     return "len";
   case mulNode:     return "mul";
   case divNode:     return "div";
   case remNode:     return "rem";
+  case bitAndNode:  return "bit and";
+  case addNode:     return "add";
+  case subNode:     return "sub";
+  case bitOrNode:   return "bit or";
+  case shiftNode:   return "shift";
   case ltNode:      return "lt";
-  case ltEqNode:    return "ltEq";
-  case inNode:      return "in";
-  case lenNode:     return "len";
-  case eqNode:      return "eq";
-  case notEqNode:   return "notEq";
   case gtNode:      return "gt";
-  case gtEqNode:    return "gtEq";
-  case notNode:     return "not";
+  case splitNode:   return "split";
+  case tailNode:    return "tail";
+  case joinNode:    return "join";
+  case pairNode:    return "pair";
+  case eqNode:      return "eq";
   case andNode:     return "and";
   case orNode:      return "or";
-  case ifNode:      return "if";
-  case doNode:      return "do";
-  case callNode:    return "call";
   case lambdaNode:  return "lambda";
   case defNode:     return "def";
   case letNode:     return "let";
@@ -277,128 +137,96 @@ static void PrintASTNode(Node *node, u32 level, u32 lines)
     printf("\n");
     break;
   case idNode:
-  case varNode: {
-    TerminalNode *var = (TerminalNode*)node;
-    printf(" %s\n", SymbolName(var->value));
+    printf(" %s\n", SymbolName(node->value));
     break;
-  }
-  case intNode: {
-    TerminalNode *num = (TerminalNode*)node;
-    printf(" %d\n", num->value);
+  case intNode:
+    printf(" %d\n", node->value);
     break;
-  }
-  case floatNode: {
+  case floatNode:
     /*TerminalNode *num = (TerminalNode*)node;*/
     printf(" <float>\n");
     break;
-  }
-  case stringNode: {
-    TerminalNode *str = (TerminalNode*)node;
-    printf(" \"%s\"\n", SymbolName(str->value));
+  case stringNode:
+    printf(" \"%s\"\n", SymbolName(node->value));
     break;
-  }
-  case symbolNode: {
-    TerminalNode *sym = (TerminalNode*)node;
-    printf(" :%s\n", SymbolName(sym->value));
-    break;
-  }
   case listNode:
-  case tupleNode: {
-    ListNode *list = (ListNode*)node;
+  case tupleNode:
     printf("\n");
-    PrintChildNodes(list->items, level, lines, true);
+    PrintChildNodes(node->children, level, lines, true);
+    break;
+  case doNode: {
+    Node *locals = DoNodeLocals(node);
+    Node *stmts = DoNodeStmts(node);
+    printf(" Locals: [");
+    for (i = 0; i < VecCount(locals->children); i++) {
+      char *assign = SymbolName(locals->children[i]->value);
+      printf("%s", assign);
+      if (i < VecCount(locals->children) - 1) printf(", ");
+    }
+    printf("]\n");
+    PrintChildNodes(stmts->children, level, lines, true);
     break;
   }
-  case negNode:
-  case lenNode:
-  case notNode: {
-    UnaryNode *unnode = (UnaryNode*)node;
+  case ifNode:
     printf("\n");
-    PrintChildNode(unnode->child, level, lines, true);
+    PrintChildNode(IfNodePredicate(node), level, lines, false);
+    PrintChildNode(IfNodeConsequent(node), level, lines, false);
+    PrintChildNode(IfNodeAlternative(node), level, lines, true);
     break;
-  }
-  case pairNode:
   case accessNode:
-  case addNode:
-  case subNode:
+  case callNode:
+  case negNode:
+  case notNode:
+  case bitNotNode:
+  case lenNode:
   case mulNode:
   case divNode:
   case remNode:
+  case bitAndNode:
+  case addNode:
+  case subNode:
+  case bitOrNode:
+  case shiftNode:
   case ltNode:
-  case ltEqNode:
-  case inNode:
-  case eqNode:
-  case notEqNode:
   case gtNode:
-  case gtEqNode:
+  case splitNode:
+  case tailNode:
+  case joinNode:
+  case pairNode:
+  case eqNode:
   case andNode:
-  case orNode: {
-    BinaryNode *binnode = (BinaryNode*)node;
+  case orNode:
     printf("\n");
-    PrintChildNode(binnode->left, level, lines, false);
-    PrintChildNode(binnode->right, level, lines, true);
+    PrintChildNodes(node->children, level, lines, true);
     break;
-  }
-  case ifNode: {
-    IfNode *ifnode = (IfNode*)node;
-    printf("\n");
-    PrintChildNode(ifnode->predicate, level, lines, false);
-    PrintChildNode(ifnode->ifTrue, level, lines, false);
-    PrintChildNode(ifnode->ifFalse, level, lines, true);
-    break;
-  }
-  case doNode: {
-    DoNode *donode = (DoNode*)node;
-    printf(" Locals: [");
-    for (i = 0; i < VecCount(donode->locals); i++) {
-      char *assign = SymbolName(donode->locals[i]);
-      printf("%s", assign);
-      if (i < VecCount(donode->locals) - 1) printf(", ");
-    }
-    printf("]\n");
-    PrintChildNodes(donode->stmts, level, lines, true);
-    break;
-  }
-  case callNode: {
-    CallNode *call = (CallNode*)node;
-    printf("\n");
-    PrintChildNode(call->op, level, lines, false);
-    PrintChildNodes(call->args, level, lines, true);
-    break;
-  }
   case lambdaNode: {
-    LambdaNode *lambda = (LambdaNode*)node;
+    Node *params = LambdaNodeParams(node);
+    Node *body = LambdaNodeBody(node);
     printf(" (");
-    for (i = 0; i < VecCount(lambda->params); i++) {
-      printf("%s", SymbolName(lambda->params[i]));
-      if (i < VecCount(lambda->params) - 1) printf(", ");
+    for (i = 0; i < VecCount(params->children); i++) {
+      printf("%s", SymbolName(params->children[i]->value));
+      if (i < VecCount(params->children) - 1) printf(", ");
     }
     printf(")\n");
-    PrintChildNode(lambda->body, level, lines, true);
+    PrintChildNodes(body->children, level, lines, true);
     break;
   }
   case letNode:
-  case defNode: {
-    LetNode *let = (LetNode*)node;
-    printf(" %s\n", SymbolName(let->var));
+  case defNode:
+    printf(" %s\n", SymbolName(AssignNodeVar(node)->value));
     Indent(level, lines);
     printf("└╴");
-    PrintASTNode(let->value, level+1, lines);
+    PrintASTNode(AssignNodeValue(node), level+1, lines);
     break;
-  }
-  case importNode: {
-    ImportNode *import = (ImportNode*)node;
-    printf(" %s as %s\n", SymbolName(import->mod), SymbolName(import->alias));
+  case importNode:
+    printf(" %s as %s\n", SymbolName(ImportNodeMod(node)->value),
+                          SymbolName(ImportNodeAlias(node)->value));
     break;
-  }
-  case moduleNode: {
-    ModuleNode *mod = (ModuleNode*)node;
-    char *name = SymbolName(mod->name);
-    printf(" %s\n", name);
-    PrintChildNodes((Node**)mod->imports, level, lines, false);
-    PrintChildNode((Node*)mod->body, level, lines, true);
+  case moduleNode:
+    printf(" %s\n", SymbolName(ModuleNodeName(node)->value));
+    PrintChildNodes(ModuleNodeImports(node)->children, level, lines, false);
+    PrintChildNode(ModuleNodeBody(node), level, lines, true);
     break;
-  }
   }
 }
 

@@ -1,32 +1,37 @@
-#include "wasm.h"
+#include "ops.h"
 #include <univ.h>
 
 u32 IntSize(i32 n)
 {
-  if (Abs(n) < Bit(6)) return 1;
-  if (Abs(n) < Bit(12)) return 2;
-  if (Abs(n) < Bit(18)) return 3;
-  if (Abs(n) < Bit(24)) return 4;
-  if (Abs(n) < Bit(30)) return 5;
-  return 6;
+  u32 size = 1;
+  while (n >= Bit(6) || n < -Bit(6)) {
+    size++;
+    n >>= 7;
+  }
+  return size;
 }
 
-void EmitByte(u8 n, u8 **bytes)
+void EmitByte(u8 n, u8 **code)
 {
-  VecPush(*bytes, n);
+  VecPush(*code, n);
 }
 
-void EmitInt(i32 n, u8 **bytes)
+void EmitInt(i32 n, u8 **code)
 {
   u32 i;
   u8 byte;
   u32 size = IntSize(n);
+
+  if (n == (i32)AddSymbol("false")) {
+    printf("x");
+  }
+
   for (i = 0; i < size - 1; i++) {
     byte = ((n >> (7*i)) & 0x7F) | 0x80;
-    EmitByte(byte, bytes);
+    EmitByte(byte, code);
   }
   byte = ((n >> (7*(size-1))) & 0x7F);
-  EmitByte(byte, bytes);
+  EmitByte(byte, code);
 }
 
 void AppendBytes(u8 **a, u8 **b)
@@ -49,10 +54,24 @@ void EmitLoad(i32 offset, u8 **code)
   EmitInt(offset, code);
 }
 
+void EmitLoadByte(i32 offset, u8 **code)
+{
+  EmitByte(I32Load8, code);
+  EmitInt(0, code);
+  EmitInt(offset, code);
+}
+
 void EmitStore(i32 offset, u8 **code)
 {
   EmitByte(I32Store, code);
   EmitInt(2, code);
+  EmitInt(offset, code);
+}
+
+void EmitStoreByte(i32 offset, u8 **code)
+{
+  EmitByte(I32Store8, code);
+  EmitInt(0, code);
   EmitInt(offset, code);
 }
 
@@ -88,7 +107,7 @@ void EmitTeeLocal(i32 idx, u8 **code)
 
 void EmitCall(i32 funcidx, u8 **code)
 {
-  EmitByte(CallOp, code);
+  EmitByte(Call, code);
   EmitInt(funcidx, code);
 }
 
@@ -98,4 +117,3 @@ void EmitCallIndirect(i32 typeidx, u8 **code)
   EmitInt(typeidx, code);
   EmitInt(0, code);
 }
-

@@ -1,6 +1,1 @@
-import console as IO
-
-do
-  let x = 100
-  IO.log(x)
-end
+x:1

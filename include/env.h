@@ -1,13 +1,16 @@
 #pragma once
 
-typedef struct Frame {
-  struct Frame *parent;
+typedef struct Env {
+  struct Env *parent;
   u32 *items;
-} Frame;
+} Env;
 
-Frame *ExtendFrame(Frame *parent, u32 size);
-Frame *PopFrame(Frame *frame);
-void FreeEnv(Frame *env);
-void FrameSet(Frame *frame, u32 index, u32 name);
-i32 FrameFind(Frame *frame, u32 name);
-void PrintEnv(Frame *frame);
+Env *ExtendEnv(Env *parent, u32 size);
+Env *PopEnv(Env *env);
+void FreeEnv(Env *env);
+void Define(u32 name, u32 index, Env *env);
+i32 Lookup(u32 name, Env *env);
+i32 LookupFrame(u32 name, Env *env);
+i32 EnvSize(Env *env);
+Env *GetEnv(i32 index, Env *env);
+void PrintEnv(Env *env);

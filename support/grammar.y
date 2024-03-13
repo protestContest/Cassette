@@ -4,60 +4,48 @@
 
 %%
 
-script: modname imports nl stmts;
+module:     modname imports stmts;
+modname:    "module" ID | ;
+imports:    import imports | ;
+import:     "import" ID | "import" ID "as" ID;
 
-modname: "module" ID "\n" | ;
-imports: import "\n" | imports "\n" nl import | ;
-import: "import" ID | "import" ID "as" ID | "import" ID "as" "*";
+stmts:      stmt stmts | ;
+stmt:       let_stmt | def_stmt | expr;
+let_stmt:   "let" assigns;
+assigns:    assign | assigns "," assign;
+assign:     ID "=" expr;
+def_stmt:   "def" ID "(" params ")" expr;
+params:     ID | ID "," params | ;
 
-stmts: stmt | stmt "\n" nl stmts | ;
-stmt: expr | let_stmt | def_stmt;
-let_stmt: "let" nl assigns;
-assigns: assign | assigns "," nl assign;
-assign: ID nl "=" nl expr;
-def_stmt: "def" ID "(" nl params nl ")" nl expr
-        | "def" ID "(" nl ")" nl expr
-        | "def" ID expr;
+expr:       lambda;
+lambda:     pair | "\\" params "->" lambda;
+logic:      equality | logic "and" equality | logic "or" equality;
+equality:   member | equality "==" member;
+pair:       logic | logic "|" pair;
+join:       split | join "<>" split;
+split:      compare | split ":" compare | split "@" compare;
+compare:    shift | compare "<" shift | compare ">" shift;
+shift:      sum | shift ">>" sum | shift "<<" sum;
+sum:        product | sum "+" product | sum "-" product | sum "^" product;
+product:    unary | product "*" unary | product "/" unary | product "%" unary | product "&" unary;
+unary:      call | "-" call | "~" call | "#" call | "not" call;
+call:       access | call "(" params ")";
+access:     primary | access "." primary;
+primary:    group | block | object | value;
 
-expr: lambda;
+group:      "(" expr ")";
 
-lambda: logic | "\\" nl params nl "->" nl expr | "\\" nl "->" nl expr;
-params: ID | params "," nl ID;
-logic: equality | logic "and" nl equality | logic "or" nl equality;
-equality: compare | equality "==" nl compare | equality "!=" nl compare;
-compare: member | compare "<" nl member | compare "<=" nl member | compare ">" nl member | compare ">=" nl member;
-member: concat | member "in" nl concat;
-concat: range | concat "<>" nl range;
-range: pair | range ".." nl pair;
-pair: bitwise | bitwise "|" nl pair;
-bitwise: shift | bitwise "&" nl shift | bitwise "^" nl shift;
-shift: sum | shift ">>" nl sum | shift "<<" nl sum;
-sum: product | product "+" nl sum | product "-" nl sum;
-product: unary | product "*" nl unary | product "/" nl unary | product "%" nl unary;
-unary: call | "-" call | "#" call | "~" call | "not" call;
-call: access "(" nl args nl ")" | access "(" nl ")";
-args: expr | args "," nl expr;
-access: primary | access "." primary;
+block:      do_block | if_block | cond_block;
+do_block:   "do" stmts "end";
+if_block:   "if" expr "do" stmts "else" stmts "end";
+cond_block: "cond" clauses "end";
+clauses:    clause clauses | ;
+clause:     expr "->" expr;
 
-primary: group | block | obj | value | ID;
-group: "(" nl expr nl ")";
+object:     list | tuple;
+list:       "[" list_tail;
+list_tail:  "]" | expr "]" | expr "," list_tail;
+tuple:      "{" tuple_tail;
+tuple_tail: "}" | expr "}" | expr "," tuple_tail;
 
-block: do | if | cond;
-do: "do" nl stmts "end";
-if: "if" nl expr "do" nl stmts "else" nl stmts "end" | "if" nl expr "do" nl stmts "end";
-cond: "cond" "do" clauses "end";
-clauses: clauses "\n" nl clause | ;
-clause: expr nl "->" nl expr;
-
-obj: list | tuple | map;
-list: "[" nl items nl "]" | "[" nl "]";
-tuple: "{" nl items nl "}" | "{" nl "}";
-map: "{" nl entries nl "}" | "{:" nl "}";
-items: expr | items "," nl expr;
-entries: entry | entries "," nl entry;
-entry: ID ":" nl expr;
-
-value: "true" | "false" | "nil" | symbol | NUM | STR;
-symbol: ":" ID;
-
-nl: "\n" nl | ;
+value:      NUM | ID | STR | "true" | "false" | "nil";

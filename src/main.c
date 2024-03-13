@@ -7,9 +7,10 @@
 int main(int argc, char *argv[])
 {
   Result result;
+  /*
   u8 *data = 0;
   FILE *file;
-
+*/
   if (argc < 2) return 1;
 
   result = ParseFile(argv[1]);
@@ -20,6 +21,7 @@ int main(int argc, char *argv[])
 
   PrintAST(result.value);
 
+/*
   result = CompileModule(result.value);
   if (!IsOk(result)) {
     PrintError(result);
@@ -34,6 +36,6 @@ int main(int argc, char *argv[])
   file = fopen("bin/out.wasm", "w");
   fwrite(data, 1, VecCount(data), file);
   fclose(file);
-
+*/
   return 0;
 }
