@@ -25,7 +25,8 @@ Result SystemSet(void *context, Val key, Val value, Mem *mem)
 Result SystemGet(void *context, Val key, Mem *mem)
 {
   if (key == SymTime) {
-    return ValueResult(IntVal(Time()));
+    clock_t ticks = clock() / (CLOCKS_PER_SEC / 1000);
+    return ValueResult(IntVal(ticks));
   } else if (key == SymRandom) {
     float r = (float)Random() / (float)MaxUInt;
     return ValueResult(FloatVal(r));

@@ -4,8 +4,8 @@ import Canvas
 import System
 import Map
 
-let width = 800,
-    height = 480,
+let width = 1000,
+    height = 600,
     canvas = Canvas.new(width, height)
 
 def update-pt(pt) do
@@ -57,6 +57,7 @@ end
 
 def flying-lines(a, b, count) do
   def loop(a, b, n) do
+    System.delay(10)
     if n == 0 do
       canvas.clear(Canvas.white)
       loop(a, b, count)
@@ -69,5 +70,5 @@ def flying-lines(a, b, count) do
   loop(a, b, 0)
 end
 
-; flying-lines(random-pt(), random-pt(), 1000)
-flying-bez(random-pt(), random-pt(), random-pt(), 1000)
+flying-lines(random-pt(), random-pt(), 1000)
+; flying-bez(random-pt(), random-pt(), random-pt(), 1000)
