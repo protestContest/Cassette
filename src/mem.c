@@ -3,14 +3,18 @@
 
 static i32 *mem = 0;
 
+void InitMem(void)
+{
+  if (mem) return;
+  VecPush(mem, 0);
+  VecPush(mem, 0);
+  SetSymbolSize(valBits);
+}
+
 i32 MemAlloc(i32 count)
 {
   i32 index;
-  if (!mem) {
-    VecPush(mem, 0);
-    VecPush(mem, 0);
-    SetSymbolSize(valBits);
-  }
+  if (!mem) InitMem();
   index = VecCount(mem);
   GrowVec(mem, count);
   return index;

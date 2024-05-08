@@ -21,8 +21,10 @@ enum {pairType, objType, intType, symType, tupleHdr, binHdr};
 #define IsInt(v)        IsType(v, intType)
 #define IsSym(v)        IsType(v, symType)
 
+#define MaxIntVal       (MaxInt >> typeBits)
 #define nil             0
 
+void InitMem(void);
 i32 MemAlloc(i32 count);
 i32 MemSize(void);
 i32 MemGet(i32 index);
