@@ -1,1 +1,11 @@
-3 + 1
+module TestMod
+exports reduce
+import Bar
+
+def reduce(list, acc, fn) do
+  if list == nil do
+    acc
+  else
+    reduce(tail(list), fn(head(list), acc), fn)
+  end
+end
