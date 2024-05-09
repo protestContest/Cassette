@@ -88,25 +88,25 @@ static OpFn ops[] = {
   [opDefine]  = OpDefine,
 };
 
-void InitVM(VM *vm, Program *program)
+void InitVM(VM *vm, Module *mod)
 {
-  vm->program = program;
+  vm->mod = mod;
   vm->status = ok;
   vm->pc = 0;
   vm->env = 0;
   FreeVec(vm->stack);
-  InitProgramSymbols(program);
+  InitModuleSymbols(mod);
 }
 
-void VMStep(VM *vm, i32 count)
+VMStatus VMStep(VM *vm)
 {
-  ops[vm->program->code[vm->pc]](vm);
+  return ops[vm->mod->code[vm->pc]](vm);
 }
 
 void VMRun(VM *vm)
 {
-  while (vm->status == ok && vm->pc < (i32)VecCount(vm->program->code)) {
-    vm->status = ops[vm->program->code[vm->pc++]](vm);
+  while (vm->status == ok && vm->pc < (i32)VecCount(vm->mod->code)) {
+    vm->status = ops[vm->mod->code[vm->pc++]](vm);
   }
 }
 
@@ -118,8 +118,8 @@ static VMStatus OpNoop(VM *vm)
 
 static VMStatus OpConst(VM *vm)
 {
-  i32 num = ReadInt(&vm->pc, vm->program);
-  VecPush(vm->stack, vm->program->constants[num]);
+  i32 num = ReadInt(&vm->pc, vm->mod);
+  VecPush(vm->stack, vm->mod->constants[num]);
   return ok;
 }
 
@@ -303,7 +303,7 @@ static VMStatus OpTail(VM *vm)
 
 static VMStatus OpTuple(VM *vm)
 {
-  i32 count = ReadInt(&vm->pc, vm->program);
+  i32 count = ReadInt(&vm->pc, vm->mod);
   VecPush(vm->stack, Tuple(count));
   return ok;
 }
@@ -350,27 +350,27 @@ static VMStatus OpStr(VM *vm)
 
 static VMStatus OpBin(VM *vm)
 {
-  i32 count = ReadInt(&vm->pc, vm->program);
+  i32 count = ReadInt(&vm->pc, vm->mod);
   VecPush(vm->stack, Binary(count));
   return ok;
 }
 
 static VMStatus OpJmp(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->program);
-  if (vm->pc + n < 0 || vm->pc + n > (i32)VecCount(vm->program->code)) return outOfBounds;
+  i32 n = ReadInt(&vm->pc, vm->mod);
+  if (vm->pc + n < 0 || vm->pc + n > (i32)VecCount(vm->mod->code)) return outOfBounds;
   vm->pc += n;
   return ok;
 }
 
 static VMStatus OpBr(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->program);
+  i32 n = ReadInt(&vm->pc, vm->mod);
   i32 a;
   if (VecCount(vm->stack) < 1) return stackUnderflow;
   a = VecPop(vm->stack);
   if (RawVal(a)) {
-    if (vm->pc + n < 0 || vm->pc + n > (i32)VecCount(vm->program->code)) return outOfBounds;
+    if (vm->pc + n < 0 || vm->pc + n > (i32)VecCount(vm->mod->code)) return outOfBounds;
     vm->pc += n;
   }
   return ok;
@@ -378,7 +378,7 @@ static VMStatus OpBr(VM *vm)
 
 static VMStatus OpTrap(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->program);
+  i32 n = ReadInt(&vm->pc, vm->mod);
   return n;
 }
 
@@ -400,7 +400,7 @@ static VMStatus OpGoto(VM *vm)
 
 static VMStatus OpHalt(VM *vm)
 {
-  vm->pc = VecCount(vm->program->code);
+  vm->pc = VecCount(vm->mod->code);
   return ok;
 }
 
@@ -472,7 +472,7 @@ static VMStatus OpSetEnv(VM *vm)
 
 static VMStatus OpLookup(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->program);
+  i32 n = ReadInt(&vm->pc, vm->mod);
   i32 env = vm->env;
   if (n < 0) return undefined;
   while (env) {
@@ -489,7 +489,7 @@ static VMStatus OpLookup(VM *vm)
 
 static VMStatus OpDefine(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->program);
+  i32 n = ReadInt(&vm->pc, vm->mod);
   i32 frame = Head(vm->env);
   i32 a;
   if (VecCount(vm->stack) < 1) return stackUnderflow;

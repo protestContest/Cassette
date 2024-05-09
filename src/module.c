@@ -1,13 +1,13 @@
-#include "program.h"
+#include "module.h"
 #include "vm.h"
 #include <univ.h>
 
-void PushByte(u8 byte, Program *p)
+void PushByte(u8 byte, Module *mod)
 {
-  VecPush(p->code, byte);
+  VecPush(mod->code, byte);
 }
 
-void PushInt(i32 num, Program *p)
+void PushInt(i32 num, Module *mod)
 {
   i32 length = 0;
   i32 test = num;
@@ -19,42 +19,42 @@ void PushInt(i32 num, Program *p)
 
   for (i = 0; i < length; i++) {
     u8 byte = ((num >> 7*i) | 0x80) & 0xFF;
-    PushByte(byte, p);
+    PushByte(byte, mod);
   }
-  PushByte(num & 0x7F, p);
+  PushByte(num & 0x7F, mod);
 }
 
-i32 ReadInt(i32 *index, Program *p)
+i32 ReadInt(i32 *index, Module *mod)
 {
-  i8 byte = p->code[(*index)++];
+  i8 byte = mod->code[(*index)++];
   i32 num = byte & 0x7F;
   while (byte & 0x80) {
-    byte = p->code[(*index)++];
+    byte = mod->code[(*index)++];
     num = (num << 7) | (byte & 0x7F);
   }
   return num;
 }
 
-void PushConst(i32 c, Program *p)
+void PushConst(i32 c, Module *mod)
 {
-  u8 index = VecCount(p->constants);
-  VecPush(p->constants, c);
-  PushByte(opConst, p);
-  PushInt(index, p);
+  u8 index = VecCount(mod->constants);
+  VecPush(mod->constants, c);
+  PushByte(opConst, mod);
+  PushInt(index, mod);
 }
 
-void PushData(char *data, i32 length, Program *p)
+void PushData(char *data, i32 length, Module *mod)
 {
-  char *dst = p->data + VecCount(p->data);
-  GrowVec(p->data, length);
+  char *dst = mod->data + VecCount(mod->data);
+  GrowVec(mod->data, length);
   Copy(data, dst, length);
   VecPush(data, 0);
 }
 
-void InitProgramSymbols(Program *p)
+void InitProgramSymbols(Module *mod)
 {
-  char *data = p->data;
-  while (data < p->data + VecCount(p->data)) {
+  char *data = mod->data;
+  while (data < mod->data + VecCount(mod->data)) {
     Symbol(data);
     data += strlen(data) + 1;
   }
@@ -74,14 +74,14 @@ void WriteInt(i32 n, char *buf)
   snprintf(buf + VecCount(buf) - len, VecCount(buf), "%d", n);
 }
 
-char *Disassemble(Program *p)
+char *Disassemble(Module *mod)
 {
   char *text = 0;
   i32 i = 0;
   i32 n;
 
-  while (i < (i32)VecCount(p->code)) {
-    switch (p->code[i]) {
+  while (i < (i32)VecCount(mod->code)) {
+    switch (mod->code[i]) {
     case opNoop:
       Write("noop\n", text);
       i++;
@@ -89,7 +89,7 @@ char *Disassemble(Program *p)
     case opConst:
       Write("const ", text);
       i++;
-      n = ReadInt(&i, p);
+      n = ReadInt(&i, mod);
       WriteInt(n, text);
       Write("\n", text);
       break;
@@ -164,7 +164,7 @@ char *Disassemble(Program *p)
     case opTuple:
       Write("tuple", text);
       i++;
-      WriteInt(ReadInt(&i, p), text);
+      WriteInt(ReadInt(&i, mod), text);
       Write("\n", text);
       break;
     case opLen:
@@ -186,25 +186,25 @@ char *Disassemble(Program *p)
     case opBin:
       Write("bin\n", text);
       i++;
-      WriteInt(ReadInt(&i, p), text);
+      WriteInt(ReadInt(&i, mod), text);
       Write("\n", text);
       break;
     case opJmp:
       Write("jmp", text);
       i++;
-      WriteInt(ReadInt(&i, p), text);
+      WriteInt(ReadInt(&i, mod), text);
       Write("\n", text);
       break;
     case opBr:
       Write("br", text);
       i++;
-      WriteInt(ReadInt(&i, p), text);
+      WriteInt(ReadInt(&i, mod), text);
       Write("\n", text);
       break;
     case opTrap:
       Write("trap", text);
       i++;
-      WriteInt(ReadInt(&i, p), text);
+      WriteInt(ReadInt(&i, mod), text);
       Write("\n", text);
       break;
     case opPos:
@@ -250,16 +250,21 @@ char *Disassemble(Program *p)
     case opLookup:
       Write("lookup", text);
       i++;
-      WriteInt(ReadInt(&i, p), text);
+      WriteInt(ReadInt(&i, mod), text);
       Write("\n", text);
       break;
     case opDefine:
       Write("define", text);
       i++;
-      WriteInt(ReadInt(&i, p), text);
+      WriteInt(ReadInt(&i, mod), text);
       Write("\n", text);
       break;
     }
   }
   return text;
+}
+
+void InitModuleSymbols(Module *m)
+{
+
 }

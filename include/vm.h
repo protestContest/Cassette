@@ -1,5 +1,5 @@
 #pragma once
-#include "program.h"
+#include "module.h"
 
 typedef enum {
   ok,
@@ -56,13 +56,14 @@ typedef enum {
 } OpCode;
 
 typedef struct {
-  Program *program;
+  Module *mod;
   i32 *stack;
   i32 pc;
   i32 env;
   i32 status;
 } VM;
 
-void InitVM(VM *vm, Program *program);
-void VMStep(VM *vm, i32 count);
+void InitVM(VM *vm, Module *mod);
+void InstantiateModule(Module *mod, VM *vm);
+VMStatus VMStep(VM *vm);
 void VMRun(VM *vm);
