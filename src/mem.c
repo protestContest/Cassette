@@ -1,7 +1,7 @@
 #include "mem.h"
 #include <univ.h>
 
-static i32 *mem = 0;
+static val *mem = 0;
 
 void InitMem(void)
 {
@@ -16,7 +16,7 @@ i32 MemAlloc(i32 count)
   i32 index;
   if (!mem) InitMem();
   index = VecCount(mem);
-  GrowVec(mem, count);
+  GrowVec(mem, Max(2, count));
   return index;
 }
 
@@ -25,19 +25,19 @@ i32 MemSize(void)
   return VecCount(mem);
 }
 
-i32 MemGet(i32 index)
+val MemGet(i32 index)
 {
   if (index < 0 || index >= (i32)VecCount(mem)) return 0;
   return mem[index];
 }
 
-void MemSet(i32 index, i32 value)
+void MemSet(i32 index, val value)
 {
   if (index < 0 || index >= (i32)VecCount(mem)) return;
   mem[index] = value;
 }
 
-i32 Pair(i32 head, i32 tail)
+val Pair(val head, val tail)
 {
   i32 index = MemAlloc(2);
   MemSet(index, head);
@@ -45,17 +45,17 @@ i32 Pair(i32 head, i32 tail)
   return PairVal(index);
 }
 
-i32 Head(i32 pair)
+val Head(val pair)
 {
   return MemGet(RawVal(pair));
 }
 
-i32 Tail(i32 pair)
+val Tail(val pair)
 {
   return MemGet(RawVal(pair)+1);
 }
 
-i32 ListLength(i32 list)
+i32 ListLength(val list)
 {
   i32 count = 0;
   while (list && ValType(list) == pairType) {
@@ -65,16 +65,16 @@ i32 ListLength(i32 list)
   return count;
 }
 
-i32 ListGet(i32 list, i32 index)
+val ListGet(val list, i32 index)
 {
   i32 i;
   for (i = 0; i < index; i++) list = Tail(list);
   return Head(list);
 }
 
-i32 ReverseList(i32 list)
+val ReverseList(val list)
 {
-  i32 reversed = 0;
+  val reversed = 0;
   while (list && ValType(list) == pairType) {
     reversed = Pair(Head(list), reversed);
     list = Tail(list);
@@ -82,32 +82,32 @@ i32 ReverseList(i32 list)
   return reversed;
 }
 
-i32 Tuple(i32 length)
+val Tuple(i32 length)
 {
   i32 index = MemAlloc(length+1);
   MemSet(index, TupleHeader(length));
   return ObjVal(index);
 }
 
-i32 Binary(i32 length)
+val Binary(i32 length)
 {
   i32 index = MemAlloc(Align(length, 4) / 4 + 1);
   MemSet(index, BinHeader(length));
   return ObjVal(index);
 }
 
-i32 ObjLength(i32 tuple)
+i32 ObjLength(val tuple)
 {
   return RawVal(MemGet(RawVal(tuple)));
 }
 
-i32 ObjGet(i32 tuple, i32 index)
+val ObjGet(val tuple, i32 index)
 {
   if (index < 0 || index >= ObjLength(tuple)) return 0;
   return MemGet(RawVal(tuple)+index+1);
 }
 
-void ObjSet(i32 tuple, i32 index, i32 value)
+void ObjSet(val tuple, i32 index, val value)
 {
   if (index < 0 || index >= ObjLength(tuple)) return;
   MemSet(RawVal(tuple)+index+1, value);

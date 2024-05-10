@@ -1,5 +1,6 @@
 #pragma once
 
+typedef u32 val;
 enum {pairType, objType, intType, symType, tupleHdr, binHdr};
 
 #define typeBits        3
@@ -27,18 +28,18 @@ enum {pairType, objType, intType, symType, tupleHdr, binHdr};
 void InitMem(void);
 i32 MemAlloc(i32 count);
 i32 MemSize(void);
-i32 MemGet(i32 index);
-void MemSet(i32 index, i32 value);
+val MemGet(i32 index);
+void MemSet(i32 index, val value);
 
-i32 Pair(i32 head, i32 tail);
-i32 Head(i32 pair);
-i32 Tail(i32 pair);
-i32 ListLength(i32 list);
-i32 ListGet(i32 list, i32 index);
-i32 ReverseList(i32 list);
+val Pair(val head, val tail);
+val Head(val pair);
+val Tail(val pair);
+i32 ListLength(val list);
+val ListGet(val list, i32 index);
+val ReverseList(val list);
 
-i32 Tuple(i32 length);
-i32 Binary(i32 length);
-i32 ObjLength(i32 tuple);
-i32 ObjGet(i32 tuple, i32 index);
-void ObjSet(i32 tuple, i32 index, i32 value);
+val Tuple(i32 length);
+val Binary(i32 length);
+i32 ObjLength(val tuple);
+val ObjGet(val tuple, i32 index);
+void ObjSet(val tuple, i32 index, val value);

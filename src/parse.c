@@ -26,14 +26,18 @@ bool Match(char *test, Parser *p)
     Adv(p);
     test++;
   }
-  return !(*test);
+  if (*test) {
+    p->pos = start;
+    return false;
+  }
+  return true;
 }
 
 bool MatchKeyword(char *test, Parser *p)
 {
   i32 start = p->pos;
   if (!Match(test, p)) return false;
-  if (IsIDChar(Peek(p))) {
+  if (!AtEnd(p) && IsIDChar(Peek(p))) {
     p->pos = start;
     return false;
   }
@@ -48,54 +52,56 @@ bool CheckKeyword(char *test, Parser *p)
   return result;
 }
 
-i32 MakeNode(i32 type, i32 pos, i32 value)
+val MakeNode(i32 type, i32 pos, val value)
 {
-  i32 node = Tuple(3);
+  val node = Tuple(4);
   ObjSet(node, 0, IntVal(type));
   ObjSet(node, 1, IntVal(pos));
   ObjSet(node, 2, value);
+  ObjSet(node, 3, 0);
   return node;
 }
 
-#define ParseError(msg, p)  MakeNode(errorNode, (p)->pos, SymVal(Symbol(msg)))
+#define ParseError(msg, p)  MakeNode(errNode, (p)->pos, SymVal(Symbol(msg)))
 
-i32 ParseModule(Parser *p);
-i32 ParseModname(Parser *p);
-i32 ParseExports(Parser *p);
-i32 ParseImports(Parser *p);
-i32 ParseStmts(Parser *p);
-i32 ParseStmt(Parser *p);
-i32 ParseDef(Parser *p);
-i32 ParseLet(Parser *p);
-i32 ParseAssign(Parser *p);
-i32 ParseExpr(Parser *p);
-i32 ParseLambda(Parser *p);
-i32 ParseLogic(Parser *p);
-i32 ParseEqual(Parser *p);
-i32 ParseCompare(Parser *p);
-i32 ParseSum(Parser *p);
-i32 ParseProduct(Parser *p);
-i32 ParseUnary(Parser *p);
-i32 ParseCall(Parser *p);
-i32 ParseAccess(Parser *p);
-i32 ParsePrimary(Parser *p);
-i32 ParseGroup(Parser *p);
-i32 ParseDo(Parser *p);
-i32 ParseIf(Parser *p);
-i32 ParseCond(Parser *p);
-i32 ParseClauses(Parser *p);
-i32 ParseList(Parser *p);
-i32 ParseTuple(Parser *p);
-i32 ParseNum(Parser *p);
-i32 ParseSymbol(Parser *p);
-i32 ParseString(Parser *p);
-i32 ParseID(Parser *p);
-i32 ParseIDList(Parser *p);
-i32 ParseArgs(Parser *p);
+val ParseModule(Parser *p);
+val ParseModname(Parser *p);
+val ParseExports(Parser *p);
+val ParseImports(Parser *p);
+val ParseStmts(Parser *p);
+val ParseStmt(Parser *p);
+val ParseDef(Parser *p);
+val ParseLet(Parser *p);
+val ParseAssign(Parser *p);
+val ParseExpr(Parser *p);
+val ParseLambda(Parser *p);
+val ParseLogic(Parser *p);
+val ParseEqual(Parser *p);
+val ParseCompare(Parser *p);
+val ParseSum(Parser *p);
+val ParseProduct(Parser *p);
+val ParseUnary(Parser *p);
+val ParseCall(Parser *p);
+val ParseAccess(Parser *p);
+val ParsePrimary(Parser *p);
+val ParseGroup(Parser *p);
+val ParseDo(Parser *p);
+val ParseIf(Parser *p);
+val ParseCond(Parser *p);
+val ParseClauses(Parser *p);
+val ParseList(Parser *p);
+val ParseTuple(Parser *p);
+val ParseNum(Parser *p);
+val ParseHex(Parser *p);
+val ParseSymbol(Parser *p);
+val ParseString(Parser *p);
+val ParseID(Parser *p);
+val ParseIDList(Parser *p);
+val ParseArgs(Parser *p);
 void Spacing(Parser *p);
 void VSpacing(Parser *p);
 
-i32 Parse(char *text, i32 length)
+val Parse(char *text, i32 length)
 {
   Parser p;
   p.text = text;
@@ -105,17 +111,23 @@ i32 Parse(char *text, i32 length)
   return ParseModule(&p);
 }
 
-i32 ParseModule(Parser *p)
+val ParseModule(Parser *p)
 {
-  i32 pos = p->pos, modname = 0, exports = 0, imports = 0, stmts = 0;
+  i32 pos, modname, exports, imports, stmts;
   VSpacing(p);
+  pos = p->pos;
   if (CheckKeyword("module", p)) {
     modname = ParseModname(p);
     if (IsError(modname)) return modname;
     if (CheckKeyword("exports", p)) {
       exports = ParseExports(p);
       if (IsError(exports)) return exports;
+    } else {
+      exports = MakeNode(exportNode, pos, 0);
     }
+  } else {
+    modname = MakeNode(idNode, pos, SymVal(Symbol("*main*")));
+    exports = MakeNode(exportNode, pos, 0);
   }
   imports = ParseImports(p);
   stmts = ParseStmts(p);
@@ -124,7 +136,7 @@ i32 ParseModule(Parser *p)
   return MakeNode(moduleNode, pos, Pair(modname, Pair(exports, Pair(imports, Pair(stmts, 0)))));
 }
 
-i32 ParseModname(Parser *p)
+val ParseModname(Parser *p)
 {
   i32 id;
   if (!MatchKeyword("module", p)) return ParseError("Expected \"module\"", p);
@@ -136,7 +148,7 @@ i32 ParseModname(Parser *p)
   return id;
 }
 
-i32 ParseExports(Parser *p)
+val ParseExports(Parser *p)
 {
   i32 exports, pos;
   if (!MatchKeyword("exports", p)) return ParseError("Expected \"exports\"", p);
@@ -149,12 +161,13 @@ i32 ParseExports(Parser *p)
   return MakeNode(exportNode, pos, NodeValue(exports));
 }
 
-i32 ParseImports(Parser *p)
+val ParseImports(Parser *p)
 {
   i32 imports = 0, start = p->pos;
   while (MatchKeyword("import", p)) {
-    i32 import, id, alias;
+    i32 import, id, alias, pos;
     Spacing(p);
+    pos = p->pos;
     id = ParseID(p);
     if (IsError(id)) return id;
     if (MatchKeyword("as", p)) {
@@ -164,7 +177,7 @@ i32 ParseImports(Parser *p)
     } else {
       alias = id;
     }
-    import = Pair(id, Pair(alias, 0));
+    import = MakeNode(listNode, pos, Pair(id, Pair(alias, 0)));
     imports = Pair(import, imports);
     if (!AtEnd(p) && !MatchNL(p)) return ParseError("Expected newline", p);
     VSpacing(p);
@@ -172,7 +185,7 @@ i32 ParseImports(Parser *p)
   return MakeNode(importNode, start, ReverseList(imports));
 }
 
-i32 ParseStmts(Parser *p)
+val ParseStmts(Parser *p)
 {
   i32 stmts = 0, stmt, pos = p->pos;
   stmt = ParseStmt(p);
@@ -189,14 +202,14 @@ i32 ParseStmts(Parser *p)
   return MakeNode(doNode, pos, ReverseList(stmts));
 }
 
-i32 ParseStmt(Parser *p)
+val ParseStmt(Parser *p)
 {
   if (CheckKeyword("def", p)) return ParseDef(p);
   if (CheckKeyword("let", p)) return ParseLet(p);
   return ParseExpr(p);
 }
 
-i32 ParseDef(Parser *p)
+val ParseDef(Parser *p)
 {
   i32 id, lambda, params = 0, body, pos = p->pos;
   if (!MatchKeyword("def", p)) return ParseError("Expected \"def\"", p);
@@ -217,7 +230,7 @@ i32 ParseDef(Parser *p)
   return MakeNode(defNode, pos, Pair(id, Pair(lambda, 0)));
 }
 
-i32 ParseLet(Parser *p)
+val ParseLet(Parser *p)
 {
   i32 assigns = 0, assign, pos = p->pos;
   if (!MatchKeyword("let", p)) return ParseError("Expected \"let\"", p);
@@ -225,7 +238,7 @@ i32 ParseLet(Parser *p)
   assign = ParseAssign(p);
   if (IsError(assign)) return assign;
   assigns = Pair(assign, assigns);
-  while (!AtEnd(p) && Match(",", p)) {
+  while (Match(",", p)) {
     VSpacing(p);
     assign = ParseAssign(p);
     if (IsError(assign)) return assign;
@@ -234,7 +247,7 @@ i32 ParseLet(Parser *p)
   return MakeNode(letNode, pos, ReverseList(assigns));
 }
 
-i32 ParseAssign(Parser *p)
+val ParseAssign(Parser *p)
 {
   i32 id, value, pos = p->pos;
   id = ParseID(p);
@@ -247,13 +260,13 @@ i32 ParseAssign(Parser *p)
   return MakeNode(listNode, pos, Pair(id, Pair(value, 0)));
 }
 
-i32 ParseExpr(Parser *p)
+val ParseExpr(Parser *p)
 {
   if (Peek(p) == '\\') return ParseLambda(p);
   return ParseLogic(p);
 }
 
-i32 ParseLambda(Parser *p)
+val ParseLambda(Parser *p)
 {
   i32 params = 0, body, pos = p->pos;
   if (!Match("\\", p)) return ParseError("Expected \"\\\"", p);
@@ -269,7 +282,7 @@ i32 ParseLambda(Parser *p)
   return MakeNode(lambdaNode, pos, Pair(params, Pair(body, 0)));
 }
 
-i32 ParseLogic(Parser *p)
+val ParseLogic(Parser *p)
 {
   i32 expr = ParseEqual(p), pos, arg;
   i32 op;
@@ -287,18 +300,19 @@ i32 ParseLogic(Parser *p)
   return expr;
 }
 
-i32 ParseEqual(Parser *p)
+val ParseEqual(Parser *p)
 {
-  i32 pos = p->pos, expr;
+  i32 pos, expr;
   expr = ParseCompare(p);
   if (IsError(expr)) return expr;
-  if (!AtEnd(p) && Match("==", p)) {
+  pos = p->pos;
+  if (Match("==", p)) {
     i32 arg;
     VSpacing(p);
     arg = ParseCompare(p);
     if (IsError(arg)) return arg;
     return MakeNode(eqNode, pos, Pair(expr, Pair(arg, 0)));
-  } else if (!AtEnd(p) && Match("!=", p)) {
+  } else if (Match("!=", p)) {
     i32 arg;
     VSpacing(p);
     arg = ParseCompare(p);
@@ -308,7 +322,7 @@ i32 ParseEqual(Parser *p)
   return expr;
 }
 
-i32 ParseCompare(Parser *p)
+val ParseCompare(Parser *p)
 {
   i32 expr = ParseSum(p), arg, pos, op;
   if (IsError(expr)) return expr;
@@ -325,7 +339,7 @@ i32 ParseCompare(Parser *p)
   return expr;
 }
 
-i32 ParseSum(Parser *p)
+val ParseSum(Parser *p)
 {
   i32 expr = ParseProduct(p), arg, pos, op;
   if (IsError(expr)) return expr;
@@ -342,7 +356,7 @@ i32 ParseSum(Parser *p)
   return expr;
 }
 
-i32 ParseProduct(Parser *p)
+val ParseProduct(Parser *p)
 {
   i32 expr = ParseUnary(p), arg, pos, op;
   if (IsError(expr)) return expr;
@@ -359,7 +373,7 @@ i32 ParseProduct(Parser *p)
   return expr;
 }
 
-i32 ParseUnary(Parser *p)
+val ParseUnary(Parser *p)
 {
   i32 pos = p->pos, expr;
   if (Match("-", p)) {
@@ -376,11 +390,11 @@ i32 ParseUnary(Parser *p)
   }
 }
 
-i32 ParseCall(Parser *p)
+val ParseCall(Parser *p)
 {
   i32 expr = ParseAccess(p);
   if (IsError(expr)) return expr;
-  while (!AtEnd(p) && Match("(", p)) {
+  while (Match("(", p)) {
     i32 pos = p->pos, args;
     VSpacing(p);
     args = 0;
@@ -396,11 +410,11 @@ i32 ParseCall(Parser *p)
   return expr;
 }
 
-i32 ParseAccess(Parser *p)
+val ParseAccess(Parser *p)
 {
   i32 expr = ParsePrimary(p);
   if (IsError(expr)) return expr;
-  while (!AtEnd(p) && Match(".", p)) {
+  while (Match(".", p)) {
     i32 pos = p->pos;
     i32 arg = ParseID(p);
     if (IsError(arg)) return arg;
@@ -409,7 +423,7 @@ i32 ParseAccess(Parser *p)
   return expr;
 }
 
-i32 ParsePrimary(Parser *p)
+val ParsePrimary(Parser *p)
 {
   i32 pos = p->pos;
   if (Peek(p) == '(') {
@@ -439,7 +453,7 @@ i32 ParsePrimary(Parser *p)
   }
 }
 
-i32 ParseGroup(Parser *p)
+val ParseGroup(Parser *p)
 {
   i32 expr;
   if (!Match("(", p)) return ParseError("Expected \"(\"", p);
@@ -452,7 +466,7 @@ i32 ParseGroup(Parser *p)
   return expr;
 }
 
-i32 ParseDo(Parser *p)
+val ParseDo(Parser *p)
 {
   i32 stmts, pos = p->pos;
   if (!MatchKeyword("do", p)) return ParseError("Expected \"do\"", p);
@@ -465,7 +479,7 @@ i32 ParseDo(Parser *p)
   return MakeNode(doNode, pos, NodeValue(stmts));
 }
 
-i32 ParseIf(Parser *p)
+val ParseIf(Parser *p)
 {
   i32 pred, cons, alt;
   i32 start = p->pos, pos;
@@ -493,7 +507,7 @@ i32 ParseIf(Parser *p)
   return MakeNode(ifNode, start, Pair(pred, Pair(cons, Pair(alt, 0))));
 }
 
-i32 ParseCond(Parser *p)
+val ParseCond(Parser *p)
 {
   i32 expr;
   if (!MatchKeyword("cond", p)) return ParseError("Expected \"cond\"", p);
@@ -504,7 +518,7 @@ i32 ParseCond(Parser *p)
   return expr;
 }
 
-i32 ParseClauses(Parser *p)
+val ParseClauses(Parser *p)
 {
   i32 pred, cons, alt, pos = p->pos;
   VSpacing(p);
@@ -520,7 +534,7 @@ i32 ParseClauses(Parser *p)
   return MakeNode(ifNode, pos, Pair(pred, Pair(cons, Pair(alt, 0))));
 }
 
-i32 ParseList(Parser *p)
+val ParseList(Parser *p)
 {
   i32 pos = p->pos;
   i32 items = 0;
@@ -535,7 +549,7 @@ i32 ParseList(Parser *p)
   return MakeNode(listNode, pos, NodeValue(items));
 }
 
-i32 ParseTuple(Parser *p)
+val ParseTuple(Parser *p)
 {
   i32 pos = p->pos, items = 0;
   if (!Match("{", p)) return ParseError("Expected \"{\"", p);
@@ -549,9 +563,10 @@ i32 ParseTuple(Parser *p)
   return MakeNode(tupleNode, pos, NodeValue(items));
 }
 
-i32 ParseNum(Parser *p)
+val ParseNum(Parser *p)
 {
   i32 n = 0, pos = p->pos;
+  if (Match("0x", p)) return ParseHex(p);
   if (!IsDigit(Peek(p))) return ParseError("Expected number", p);
   while (!AtEnd(p) && IsDigit(Peek(p))) {
     i32 d = Peek(p) - '0';
@@ -560,10 +575,24 @@ i32 ParseNum(Parser *p)
     Adv(p);
   }
   Spacing(p);
-  return MakeNode(numNode, pos, IntVal(n));
+  return MakeNode(intNode, pos, IntVal(n));
 }
 
-i32 ParseSymbol(Parser *p)
+val ParseHex(Parser *p)
+{
+  i32 n = 0, pos = p->pos;
+  if (!IsHexDigit(Peek(p))) return ParseError("Expected number", p);
+  while (!AtEnd(p) && IsHexDigit(Peek(p))) {
+    i32 d = IsDigit(Peek(p)) ? Peek(p) - '0' : Peek(p) - 'A' + 10;
+    if (n > (MaxIntVal - d)/16) return ParseError("Integer overflow", p);
+    n = n*16 + d;
+    Adv(p);
+  }
+  Spacing(p);
+  return MakeNode(intNode, pos, IntVal(n));
+}
+
+val ParseSymbol(Parser *p)
 {
   i32 sym, pos = p->pos;
   if (!Match(":", p)) return ParseError("Expected \":\"", p);
@@ -574,7 +603,7 @@ i32 ParseSymbol(Parser *p)
   return MakeNode(symNode, pos, SymVal(sym));
 }
 
-i32 ParseString(Parser *p)
+val ParseString(Parser *p)
 {
   i32 sym, pos = p->pos;
   if (!Match("\"", p)) return ParseError("Expected quote", p);
@@ -606,7 +635,7 @@ bool IsKeyword(u32 sym)
   return false;
 }
 
-i32 ParseID(Parser *p)
+val ParseID(Parser *p)
 {
   i32 sym, pos = p->pos;
   if (!IsIDStart(Peek(p))) return ParseError("Expected identifier", p);
@@ -617,14 +646,14 @@ i32 ParseID(Parser *p)
   return MakeNode(idNode, pos, SymVal(sym));
 }
 
-i32 ParseIDList(Parser *p)
+val ParseIDList(Parser *p)
 {
   i32 items = 0;
   i32 pos = p->pos;
   i32 id = ParseID(p);
   if (IsError(id)) return id;
   items = Pair(id, items);
-  while (!AtEnd(p) && Match(",", p)) {
+  while (Match(",", p)) {
     VSpacing(p);
     id = ParseID(p);
     if (IsError(id)) return id;
@@ -633,14 +662,14 @@ i32 ParseIDList(Parser *p)
   return MakeNode(listNode, pos, ReverseList(items));
 }
 
-i32 ParseArgs(Parser *p)
+val ParseArgs(Parser *p)
 {
   i32 items = 0;
   i32 item = ParseExpr(p);
   i32 pos = p->pos;
   if (IsError(item)) return item;
   items = Pair(item, items);
-  while (!AtEnd(p) && Match(",", p)) {
+  while (Match(",", p)) {
     VSpacing(p);
     item = ParseExpr(p);
     if (IsError(item)) return item;
@@ -671,10 +700,10 @@ void VSpacing(Parser *p)
 char *NodeName(i32 type)
 {
   switch (type) {
-  case errorNode:   return "error";
+  case errNode:   return "error";
   case nilNode:     return "nil";
   case idNode:      return "id";
-  case numNode:     return "num";
+  case intNode:     return "num";
   case symNode:     return "sym";
   case strNode:     return "str";
   case listNode:    return "list";
@@ -705,7 +734,7 @@ char *NodeName(i32 type)
   }
 }
 
-void PrintNode(i32 node, i32 level, u32 lines)
+void PrintNode(val node, i32 level, u32 lines)
 {
   i32 type = NodeType(node);
   i32 i, subnodes;
@@ -726,14 +755,8 @@ void PrintNode(i32 node, i32 level, u32 lines)
   case symNode:
     printf(" :%s\n", SymbolName(RawVal(NodeValue(node))));
     break;
-  case numNode:
+  case intNode:
     printf(" %d\n", RawVal(NodeValue(node)));
-    break;
-  case letNode:
-    printf("\n");
-    break;
-  case importNode:
-    printf("\n");
     break;
   default:
     subnodes = NodeValue(node);
@@ -759,12 +782,12 @@ void PrintNode(i32 node, i32 level, u32 lines)
   }
 }
 
-void PrintAST(i32 node)
+void PrintAST(val node)
 {
   PrintNode(node, 0, 0);
 }
 
-void PrintError(i32 node, char *source)
+void PrintError(val node, char *source)
 {
   i32 pos = NodePos(node);
   i32 col = 0, i;
