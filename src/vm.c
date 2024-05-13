@@ -18,6 +18,7 @@ static VMStatus OpLt(VM *vm);
 static VMStatus OpGt(VM *vm);
 static VMStatus OpEq(VM *vm);
 static VMStatus OpNeg(VM *vm);
+static VMStatus OpNot(VM *vm);
 static VMStatus OpShift(VM *vm);
 static VMStatus OpNil(VM *vm);
 static VMStatus OpPair(VM *vm);
@@ -60,6 +61,7 @@ static OpFn ops[] = {
   [opGt]      = OpGt,
   [opEq]      = OpEq,
   [opNeg]     = OpNeg,
+  [opNot]     = OpNot,
   [opShift]   = OpShift,
   [opNil]     = OpNil,
   [opPair]    = OpPair,
@@ -110,9 +112,30 @@ void VMRun(VM *vm)
   }
 }
 
+#define OneArg() \
+  i32 a;\
+  if (VecCount(vm->stack) < 1) return stackUnderflow;\
+  a = VecPop(vm->stack)
+
+#define TwoArgs() \
+  i32 a, b;\
+  if (VecCount(vm->stack) < 2) return stackUnderflow;\
+  b = VecPop(vm->stack);\
+  a = VecPop(vm->stack)
+
+#define ThreeArgs() \
+  i32 a, b, c;\
+  if (VecCount(vm->stack) < 3) return stackUnderflow;\
+  c = VecPop(vm->stack);\
+  b = VecPop(vm->stack);\
+  a = VecPop(vm->stack)
+
+#define UnaryOp(op)     VecPush(vm->stack, IntVal(op RawVal(a)))
+#define BinOp(op)       VecPush(vm->stack, IntVal(RawVal(a) op RawVal(b)))
+#define CheckBounds(n)  if ((n) < 0 || (n) > (i32)VecCount(vm->mod->code)) return outOfBounds
+
 static VMStatus OpNoop(VM *vm)
 {
-  vm->pc++;
   return ok;
 }
 
@@ -125,143 +148,113 @@ static VMStatus OpConst(VM *vm)
 
 static VMStatus OpAdd(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) + RawVal(b)));
+  BinOp(+);
   return ok;
 }
 
 static VMStatus OpSub(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) - RawVal(b)));
+  BinOp(-);
   return ok;
 }
 
 static VMStatus OpMul(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) * RawVal(b)));
+  BinOp(*);
   return ok;
 }
 
 static VMStatus OpDiv(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
   if (RawVal(b) == 0) return divideByZero;
-  VecPush(vm->stack, IntVal(RawVal(a) / RawVal(b)));
+  BinOp(/);
   return ok;
 }
 
 static VMStatus OpRem(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
   if (RawVal(b) == 0) return divideByZero;
-  VecPush(vm->stack, IntVal(RawVal(a) % RawVal(b)));
+  BinOp(%);
   return ok;
 }
 
 static VMStatus OpAnd(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) & RawVal(b)));
+  BinOp(&);
   return ok;
 }
 
 static VMStatus OpOr(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) | RawVal(b)));
+  BinOp(|);
   return ok;
 }
 
 static VMStatus OpComp(VM *vm)
 {
-  i32 a;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  a = VecPop(vm->stack);
+  OneArg();
   if (ValType(a) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(~RawVal(a)));
+  UnaryOp(~);
   return ok;
 }
 
 static VMStatus OpLt(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) < RawVal(b)));
+  BinOp(<);
   return ok;
 }
 
 static VMStatus OpGt(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) > RawVal(b)));
+  BinOp(>);
   return ok;
 }
 
 static VMStatus OpEq(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   VecPush(vm->stack, IntVal(a == b));
   return ok;
 }
 
 static VMStatus OpNeg(VM *vm)
 {
-  i32 a;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  a = VecPop(vm->stack);
+  OneArg();
   if (ValType(a) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(-RawVal(a)));
+  UnaryOp(-);
+  return ok;
+}
+
+static VMStatus OpNot(VM *vm)
+{
+  OneArg();
+  VecPush(vm->stack, IntVal(RawVal(a) != 0));
   return ok;
 }
 
 static VMStatus OpShift(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != intType || ValType(b) != intType) return invalidType;
-  VecPush(vm->stack, IntVal(RawVal(a) << RawVal(b)));
+  BinOp(<<);
   return ok;
 }
 
@@ -273,19 +266,14 @@ static VMStatus OpNil(VM *vm)
 
 static VMStatus OpPair(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   VecPush(vm->stack, Pair(a, b));
   return ok;
 }
 
 static VMStatus OpHead(VM *vm)
 {
-  i32 a;
-  if (VecCount(vm->stack) < 1) return stackUnderflow;
-  a = VecPop(vm->stack);
+  OneArg();
   if (ValType(a) != pairType) return invalidType;
   VecPush(vm->stack, Head(a));
   return ok;
@@ -293,9 +281,7 @@ static VMStatus OpHead(VM *vm)
 
 static VMStatus OpTail(VM *vm)
 {
-  i32 a;
-  if (VecCount(vm->stack) < 1) return stackUnderflow;
-  a = VecPop(vm->stack);
+  OneArg();
   if (ValType(a) != pairType) return invalidType;
   VecPush(vm->stack, Tail(a));
   return ok;
@@ -310,9 +296,7 @@ static VMStatus OpTuple(VM *vm)
 
 static VMStatus OpLen(VM *vm)
 {
-  i32 a;
-  if (VecCount(vm->stack) < 1) return stackUnderflow;
-  a = VecPop(vm->stack);
+  OneArg();
   if (ValType(a) != objType) return invalidType;
   VecPush(vm->stack, ObjLength(a));
   return ok;
@@ -320,10 +304,7 @@ static VMStatus OpLen(VM *vm)
 
 static VMStatus OpGet(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   if (ValType(a) != objType) return invalidType;
   if (ValType(b) != intType) return invalidType;
   VecPush(vm->stack, ObjGet(a, RawVal(b)));
@@ -332,11 +313,7 @@ static VMStatus OpGet(VM *vm)
 
 static VMStatus OpSet(VM *vm)
 {
-  i32 a, b, c;
-  if (VecCount(vm->stack) < 3) return stackUnderflow;
-  c = VecPop(vm->stack);
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  ThreeArgs();
   if (ValType(a) != objType) return invalidType;
   if (ValType(b) != intType) return invalidType;
   ObjSet(a, RawVal(b), c);
@@ -358,7 +335,7 @@ static VMStatus OpBin(VM *vm)
 static VMStatus OpJmp(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
-  if (vm->pc + n < 0 || vm->pc + n > (i32)VecCount(vm->mod->code)) return outOfBounds;
+  CheckBounds(vm->pc + n);
   vm->pc += n;
   return ok;
 }
@@ -370,7 +347,7 @@ static VMStatus OpBr(VM *vm)
   if (VecCount(vm->stack) < 1) return stackUnderflow;
   a = VecPop(vm->stack);
   if (RawVal(a)) {
-    if (vm->pc + n < 0 || vm->pc + n > (i32)VecCount(vm->mod->code)) return outOfBounds;
+    CheckBounds(vm->pc + n);
     vm->pc += n;
   }
   return ok;
@@ -390,10 +367,9 @@ static VMStatus OpPos(VM *vm)
 
 static VMStatus OpGoto(VM *vm)
 {
-  i32 a;
-  if (VecCount(vm->stack) < 1) return stackUnderflow;
-  a = VecPop(vm->stack);
+  OneArg();
   if (ValType(a) != intType) return invalidType;
+  CheckBounds((i32)RawVal(a));
   vm->pc = RawVal(a);
   return ok;
 }
@@ -406,9 +382,7 @@ static VMStatus OpHalt(VM *vm)
 
 static VMStatus OpDup(VM *vm)
 {
-  i32 a;
-  if (VecCount(vm->stack) < 1) return stackUnderflow;
-  a = VecPop(vm->stack);
+  OneArg();
   VecPush(vm->stack, a);
   VecPush(vm->stack, a);
   return ok;
@@ -423,10 +397,7 @@ static VMStatus OpDrop(VM *vm)
 
 static VMStatus OpSwap(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   VecPush(vm->stack, b);
   VecPush(vm->stack, a);
   return ok;
@@ -434,10 +405,7 @@ static VMStatus OpSwap(VM *vm)
 
 static VMStatus OpOver(VM *vm)
 {
-  i32 a, b;
-  if (VecCount(vm->stack) < 2) return stackUnderflow;
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  TwoArgs();
   VecPush(vm->stack, a);
   VecPush(vm->stack, b);
   VecPush(vm->stack, a);
@@ -446,11 +414,7 @@ static VMStatus OpOver(VM *vm)
 
 static VMStatus OpRot(VM *vm)
 {
-  i32 a, b, c;
-  if (VecCount(vm->stack) < 3) return stackUnderflow;
-  c = VecPop(vm->stack);
-  b = VecPop(vm->stack);
-  a = VecPop(vm->stack);
+  ThreeArgs();
   VecPush(vm->stack, b);
   VecPush(vm->stack, c);
   VecPush(vm->stack, a);

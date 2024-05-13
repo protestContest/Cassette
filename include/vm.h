@@ -27,6 +27,7 @@ typedef enum {
   opGt,
   opEq,
   opNeg,
+  opNot,
   opShift,
   opNil,
   opPair,
