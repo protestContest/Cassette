@@ -1,5 +1,6 @@
 #pragma once
 #include "module.h"
+#include <univ.h>
 
 typedef enum {
   ok,
@@ -7,7 +8,7 @@ typedef enum {
   invalidType,
   divideByZero,
   outOfBounds,
-  undefined
+  unhandledTrap
 } VMStatus;
 
 enum {pc, env};
@@ -39,6 +40,9 @@ typedef enum {
   opSet,
   opStr,
   opBin,
+  opJoin,
+  opTrunc,
+  opSkip,
   opJmp,
   opBr,
   opTrap,
@@ -56,15 +60,27 @@ typedef enum {
   opDefine
 } OpCode;
 
-typedef struct {
+struct VM;
+typedef VMStatus (*PrimFn)(struct VM *vm);
+
+typedef struct VM {
   Module *mod;
   i32 *stack;
-  i32 pc;
+  u32 pc;
   i32 env;
   i32 status;
+  HashMap primMap;
+  PrimFn *primitives;
 } VM;
 
+#define CheckStack(vm, n)   if (VecCount((vm)->stack) < (n)) return stackUnderflow
+
 void InitVM(VM *vm, Module *mod);
-void InstantiateModule(Module *mod, VM *vm);
+void DefinePrimitive(val id, PrimFn fn, VM *vm);
 VMStatus VMStep(VM *vm);
-void VMRun(VM *vm);
+void VMRun(VM *vm, char *src);
+val StackPop(VM *vm);
+void StackPush(val value, VM *vm);
+void TraceInst(VM *vm);
+u32 PrintStack(VM *vm);
+val VMError(VM *vm);

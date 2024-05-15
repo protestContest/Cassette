@@ -15,31 +15,51 @@ enum {pairType, objType, intType, symType, tupleHdr, binHdr};
 #define SymVal(x)       Val(symType, x)
 #define TupleHeader(x)  Val(tupleHdr, x)
 #define BinHeader(x)    Val(binHdr, x)
-#define LambdaHeader(x) Val(lambdaHdr, x)
-#define SliceHeader(x)  Val(sliceHdr, x)
 #define IsType(v,t)     (ValType(v) == (t))
 #define IsPair(v)       IsType(v, pairType)
 #define IsInt(v)        IsType(v, intType)
 #define IsSym(v)        IsType(v, symType)
-
+#define IsTupleHdr(v)   IsType(v, tupleHdr)
+#define IsBinHdr(v)     IsType(v, binHdr)
+#define IsTuple(v)      (IsType(v, objType) && IsTupleHdr(MemGet(RawVal(v))))
+#define IsBinary(v)     (IsType(v, objType) && IsBinHdr(MemGet(RawVal(v))))
 #define MaxIntVal       (MaxInt >> typeBits)
 #define nil             0
 
 void InitMem(void);
-i32 MemAlloc(i32 count);
-i32 MemSize(void);
-val MemGet(i32 index);
-void MemSet(i32 index, val value);
+u32 MemAlloc(u32 count);
+u32 MemSize(void);
+u32 MemFree(void);
+val MemGet(u32 index);
+void MemSet(u32 index, val value);
 
 val Pair(val head, val tail);
 val Head(val pair);
 val Tail(val pair);
-i32 ListLength(val list);
-val ListGet(val list, i32 index);
-val ReverseList(val list);
+u32 ListLength(val list);
+val ListGet(val list, u32 index);
+val ReverseList(val list, val tail);
+val ListJoin(val left, val right);
+val ListTrunc(val list, u32 index);
+val ListSkip(val list, u32 index);
 
-val Tuple(i32 length);
-val Binary(i32 length);
-i32 ObjLength(val tuple);
-val ObjGet(val tuple, i32 index);
-void ObjSet(val tuple, i32 index, val value);
+val Tuple(u32 length);
+u32 TupleLength(val tuple);
+val TupleGet(val tuple, u32 index);
+void TupleSet(val tuple, u32 index, val value);
+val TupleJoin(val left, val right);
+val TupleTrunc(val list, u32 index);
+val TupleSkip(val list, u32 index);
+
+val Binary(u32 length);
+val BinaryFrom(char *data, u32 length);
+u32 BinaryLength(val bin);
+char *BinaryData(val bin);
+val BinaryGet(val bin, u32 index);
+void BinarySet(val bin, u32 index, val value);
+val BinaryJoin(val left, val right);
+val BinaryTrunc(val list, u32 index);
+val BinarySkip(val list, u32 index);
+bool BinIsPrintable(val bin);
+
+char *ValStr(val value);

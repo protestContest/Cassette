@@ -55,21 +55,20 @@ bool CheckKeyword(char *test, Parser *p)
 val MakeNode(i32 type, i32 pos, val value)
 {
   val node = Tuple(4);
-  ObjSet(node, 0, IntVal(type));
-  ObjSet(node, 1, IntVal(pos));
-  ObjSet(node, 2, value);
-  ObjSet(node, 3, 0);
+  TupleSet(node, 0, IntVal(type));
+  TupleSet(node, 1, IntVal(pos));
+  TupleSet(node, 2, value);
+  TupleSet(node, 3, 0);
   return node;
 }
-
-#define ParseError(msg, p)  MakeNode(errNode, (p)->pos, SymVal(Symbol(msg)))
+#define ParseError(msg, p)  MakeError(msg, (p)->pos)
 
 val ParseModule(Parser *p);
 val ParseModname(Parser *p);
 val ParseExports(Parser *p);
 val ParseImports(Parser *p);
 val ParseStmts(Parser *p);
-val ParseStmt(Parser *p);
+val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p);
 val ParseDef(Parser *p);
 val ParseLet(Parser *p);
 val ParseAssign(Parser *p);
@@ -77,7 +76,11 @@ val ParseExpr(Parser *p);
 val ParseLambda(Parser *p);
 val ParseLogic(Parser *p);
 val ParseEqual(Parser *p);
+val ParsePair(Parser *p);
+val ParseJoin(Parser *p);
+val ParseSplit(Parser *p);
 val ParseCompare(Parser *p);
+val ParseShift(Parser *p);
 val ParseSum(Parser *p);
 val ParseProduct(Parser *p);
 val ParseUnary(Parser *p);
@@ -182,31 +185,46 @@ val ParseImports(Parser *p)
     if (!AtEnd(p) && !MatchNL(p)) return ParseError("Expected newline", p);
     VSpacing(p);
   }
-  return MakeNode(importNode, start, ReverseList(imports));
+  return MakeNode(importNode, start, ReverseList(imports, 0));
 }
 
 val ParseStmts(Parser *p)
 {
-  i32 stmts = 0, stmt, pos = p->pos;
-  stmt = ParseStmt(p);
+  val stmts = 0, defs = 0, stmt;
+  i32 pos = p->pos, numAssigns = 0;
+  stmt = ParseStmt(&stmts, &defs, &numAssigns, p);
   if (IsError(stmt)) return stmt;
-  stmts = Pair(stmt, stmts);
   while (!AtEnd(p) && IsNewline(Peek(p))) {
     VSpacing(p);
     if (AtEnd(p) || CheckKeyword("end", p) || CheckKeyword("else", p)) break;
-    stmt = ParseStmt(p);
+    stmt = ParseStmt(&stmts, &defs, &numAssigns, p);
     if (IsError(stmt)) return stmt;
-    stmts = Pair(stmt, stmts);
   }
   VSpacing(p);
-  return MakeNode(doNode, pos, ReverseList(stmts));
+  stmts = ReverseList(stmts, 0);
+  stmts = ReverseList(defs, stmts);
+  return MakeNode(doNode, pos, Pair(MakeNode(intNode, pos, IntVal(numAssigns)), stmts));
 }
 
-val ParseStmt(Parser *p)
+val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p)
 {
-  if (CheckKeyword("def", p)) return ParseDef(p);
-  if (CheckKeyword("let", p)) return ParseLet(p);
-  return ParseExpr(p);
+  val stmt;
+  if (CheckKeyword("def", p)) {
+    stmt = ParseDef(p);
+    if (IsError(stmt)) return stmt;
+    *defs = Pair(stmt, *defs);
+    (*numAssigns)++;
+  } else if (CheckKeyword("let", p)) {
+    stmt = ParseLet(p);
+    if (IsError(stmt)) return stmt;
+    *stmts = Pair(stmt, *stmts);
+    (*numAssigns) += NodeCount(stmt);
+  } else {
+    stmt = ParseExpr(p);
+    if (IsError(stmt)) return stmt;
+    *stmts = Pair(stmt, *stmts);
+  }
+  return MakeNode(nilNode, 0, 0);
 }
 
 val ParseDef(Parser *p)
@@ -244,7 +262,7 @@ val ParseLet(Parser *p)
     if (IsError(assign)) return assign;
     assigns = Pair(assign, assigns);
   }
-  return MakeNode(letNode, pos, ReverseList(assigns));
+  return MakeNode(letNode, pos, ReverseList(assigns, 0));
 }
 
 val ParseAssign(Parser *p)
@@ -303,38 +321,130 @@ val ParseLogic(Parser *p)
 val ParseEqual(Parser *p)
 {
   i32 pos, expr;
-  expr = ParseCompare(p);
+  expr = ParsePair(p);
   if (IsError(expr)) return expr;
   pos = p->pos;
   if (Match("==", p)) {
     i32 arg;
     VSpacing(p);
-    arg = ParseCompare(p);
+    arg = ParsePair(p);
     if (IsError(arg)) return arg;
     return MakeNode(eqNode, pos, Pair(expr, Pair(arg, 0)));
   } else if (Match("!=", p)) {
     i32 arg;
     VSpacing(p);
-    arg = ParseCompare(p);
+    arg = ParsePair(p);
     if (IsError(arg)) return arg;
     return MakeNode(notNode, pos, Pair(MakeNode(eqNode, pos, Pair(expr, Pair(arg, 0))), 0));
   }
   return expr;
 }
 
+val ParsePair(Parser *p)
+{
+  i32 expr = ParseJoin(p), arg, pos;
+  if (IsError(expr)) return expr;
+  pos = p->pos;
+  while (Match("|", p)) {
+    VSpacing(p);
+    arg = ParseJoin(p);
+    if (IsError(arg)) return arg;
+    expr = MakeNode(pairNode, pos, Pair(arg, Pair(expr, 0)));
+    pos = p->pos;
+  }
+  return expr;
+}
+
+val ParseJoin(Parser *p)
+{
+  i32 expr = ParseSplit(p), arg, pos;
+  if (IsError(expr)) return expr;
+  pos = p->pos;
+  while (Match("<>", p)) {
+    VSpacing(p);
+    arg = ParseSplit(p);
+    if (IsError(arg)) return arg;
+    expr = MakeNode(joinNode, pos, Pair(arg, Pair(expr, 0)));
+    pos = p->pos;
+  }
+  return expr;
+}
+
+val ParseSplit(Parser *p)
+{
+  i32 expr = ParseCompare(p), arg, pos, op;
+  if (IsError(expr)) return expr;
+  pos = p->pos;
+  op = Match(":", p) ? truncNode : Match("@", p) ? skipNode : 0;
+  while (op) {
+    VSpacing(p);
+    arg = ParseCompare(p);
+    if (IsError(arg)) return arg;
+    expr = MakeNode(op, pos, Pair(expr, Pair(arg, 0)));
+    pos = p->pos;
+    op = Match(":", p) ? truncNode : Match("@", p) ? skipNode : 0;
+  }
+  return expr;
+}
+
 val ParseCompare(Parser *p)
 {
-  i32 expr = ParseSum(p), arg, pos, op;
+  i32 expr = ParseShift(p), arg, pos, op;
   if (IsError(expr)) return expr;
   pos = p->pos;
   op = Match("<", p) ? ltNode : Match(">", p) ? gtNode : 0;
+  if (Match(">", p)) {
+    p->pos = pos;
+    op = 0;
+  }
   while (op) {
     VSpacing(p);
-    arg = ParseSum(p);
+    arg = ParseShift(p);
     if (IsError(arg)) return arg;
     expr = MakeNode(op, pos, Pair(expr, Pair(arg, 0)));
     pos = p->pos;
     op = Match("<", p) ? ltNode : Match(">", p) ? gtNode : 0;
+    if (Match(">", p)) {
+      p->pos = pos;
+      op = 0;
+    }
+  }
+  return expr;
+}
+
+val ParseShift(Parser *p)
+{
+  i32 expr = ParseSum(p), arg, pos, op = 0;
+  bool right = false;
+  if (IsError(expr)) return expr;
+  pos = p->pos;
+
+  if (Match("<<", p)) {
+    op = shiftNode;
+    right = false;
+  } else if (Match(">>", p)) {
+    op = shiftNode;
+    right = true;
+  } else {
+    op = 0;
+  }
+
+  while (op) {
+    VSpacing(p);
+    arg = ParseSum(p);
+    if (IsError(arg)) return arg;
+    if (right) arg = MakeNode(negNode, NodePos(arg), Pair(arg, 0));
+    expr = MakeNode(op, pos, Pair(expr, Pair(arg, 0)));
+    pos = p->pos;
+    if (Match("<<", p)) {
+      op = shiftNode;
+      right = false;
+    } else if (Match(">>", p)) {
+      op = shiftNode;
+      right = true;
+    } else {
+      op = 0;
+    }
   }
   return expr;
 }
@@ -344,14 +454,18 @@ val ParseSum(Parser *p)
   i32 expr = ParseProduct(p), arg, pos, op;
   if (IsError(expr)) return expr;
   pos = p->pos;
-  op = Match("+", p) ? addNode : Match("-", p) ? subNode : 0;
+  op = Match("+", p) ? addNode :
+       Match("-", p) ? subNode :
+       Match("^", p) ? borNode : 0;
   while (op) {
     VSpacing(p);
     arg = ParseProduct(p);
     if (IsError(arg)) return arg;
     expr = MakeNode(op, pos, Pair(expr, Pair(arg, 0)));
     pos = p->pos;
-    op = Match("+", p) ? addNode : Match("-", p) ? subNode : 0;
+    op = Match("+", p) ? addNode :
+         Match("-", p) ? subNode :
+         Match("^", p) ? borNode : 0;
   }
   return expr;
 }
@@ -361,14 +475,20 @@ val ParseProduct(Parser *p)
   i32 expr = ParseUnary(p), arg, pos, op;
   if (IsError(expr)) return expr;
   pos = p->pos;
-  op = Match("*", p) ? mulNode : Match("/", p) ? divNode : Match("%", p) ? remNode : 0;
+  op = Match("*", p) ? mulNode :
+       Match("/", p) ? divNode :
+       Match("%", p) ? remNode :
+       Match("&", p) ? bandNode : 0;
   while (op) {
     VSpacing(p);
     arg = ParseUnary(p);
     if (IsError(arg)) return arg;
     expr = MakeNode(op, pos, Pair(expr, Pair(arg, 0)));
     pos = p->pos;
-    op = Match("*", p) ? mulNode : Match("/", p) ? divNode : Match("%", p) ? remNode : 0;
+    op = Match("*", p) ? mulNode :
+         Match("/", p) ? divNode :
+         Match("%", p) ? remNode :
+         Match("&", p) ? bandNode : 0;
   }
   return expr;
 }
@@ -380,6 +500,14 @@ val ParseUnary(Parser *p)
     expr = ParseCall(p);
     if (IsError(expr)) return expr;
     return MakeNode(negNode, pos, Pair(expr, 0));
+  } else if (Match("~", p)) {
+    expr = ParseCall(p);
+    if (IsError(expr)) return expr;
+    return MakeNode(compNode, pos, Pair(expr, 0));
+  } else if (Match("#", p)) {
+    expr = ParseCall(p);
+    if (IsError(expr)) return expr;
+    return MakeNode(lenNode, pos, Pair(expr, 0));
   } else if (MatchKeyword("not", p)) {
     Spacing(p);
     expr = ParseCall(p);
@@ -392,19 +520,22 @@ val ParseUnary(Parser *p)
 
 val ParseCall(Parser *p)
 {
-  i32 expr = ParseAccess(p);
+  i32 pos;
+  val expr = ParseAccess(p);
   if (IsError(expr)) return expr;
+  pos = p->pos;
   while (Match("(", p)) {
-    i32 pos = p->pos, args;
+    val args;
     VSpacing(p);
     args = 0;
     if (!Match(")", p)) {
       args = ParseArgs(p);
       if (IsError(args)) return args;
-      expr = MakeNode(callNode, pos, Pair(expr, NodeValue(args)));
+      expr = MakeNode(callNode, pos, Pair(expr, ReverseList(NodeValue(args), 0)));
       VSpacing(p);
       if (!Match(")", p)) return ParseError("Expected \")\"", p);
     }
+    pos = p->pos;
   }
   Spacing(p);
   return expr;
@@ -412,13 +543,14 @@ val ParseCall(Parser *p)
 
 val ParseAccess(Parser *p)
 {
-  i32 expr = ParsePrimary(p);
+  i32 pos, expr = ParsePrimary(p);
   if (IsError(expr)) return expr;
+  pos = p->pos;
   while (Match(".", p)) {
-    i32 pos = p->pos;
-    i32 arg = ParseID(p);
+    i32 arg = ParsePrimary(p);
     if (IsError(arg)) return arg;
     expr = MakeNode(accessNode, pos, Pair(expr, Pair(arg, 0)));
+    pos = p->pos;
   }
   return expr;
 }
@@ -466,6 +598,7 @@ val ParseGroup(Parser *p)
   return expr;
 }
 
+#define TrivialDoNode(node)   (RawVal(NodeValue(NodeChild(node, 0))) == 0 && NodeCount(node) == 2)
 val ParseDo(Parser *p)
 {
   i32 stmts, pos = p->pos;
@@ -475,7 +608,7 @@ val ParseDo(Parser *p)
   if (IsError(stmts)) return stmts;
   if (!MatchKeyword("end", p)) return ParseError("Expected \"end\"", p);
   Spacing(p);
-  if (!Tail(NodeValue(stmts))) return Head(NodeValue(stmts));
+  if (TrivialDoNode(stmts)) return NodeChild(stmts, 1);
   return MakeNode(doNode, pos, NodeValue(stmts));
 }
 
@@ -492,13 +625,13 @@ val ParseIf(Parser *p)
   VSpacing(p);
   cons = ParseStmts(p);
   if (IsError(cons)) return cons;
-  if (!Tail(NodeValue(cons))) cons = Head(NodeValue(cons));
+  if (TrivialDoNode(cons)) cons = NodeChild(cons, 1);
   pos = p->pos;
   if (MatchKeyword("else", p)) {
     VSpacing(p);
     alt = ParseStmts(p);
     if (IsError(alt)) return alt;
-    if (!Tail(NodeValue(alt))) alt = Head(NodeValue(alt));
+    if (TrivialDoNode(alt)) alt = NodeChild(alt, 1);
   } else {
     alt = MakeNode(nilNode, pos, 0);
   }
@@ -543,7 +676,7 @@ val ParseList(Parser *p)
   if (!Match("]", p)) {
     items = ParseArgs(p);
     if (IsError(items)) return items;
-    if (Match("]", p)) return ParseError("Expected \"]\"", p);
+    if (!Match("]", p)) return ParseError("Expected \"]\"", p);
   }
   Spacing(p);
   return MakeNode(listNode, pos, NodeValue(items));
@@ -560,7 +693,7 @@ val ParseTuple(Parser *p)
     if (!Match("}", p)) return ParseError("Expected \"}\"", p);
   }
   Spacing(p);
-  return MakeNode(tupleNode, pos, NodeValue(items));
+  return MakeNode(tupleNode, pos, ReverseList(NodeValue(items), 0));
 }
 
 val ParseNum(Parser *p)
@@ -598,7 +731,7 @@ val ParseSymbol(Parser *p)
   if (!Match(":", p)) return ParseError("Expected \":\"", p);
   if (!IsIDStart(Peek(p))) return ParseError("Expected identifier", p);
   while (!AtEnd(p) && IsIDChar(Peek(p))) Adv(p);
-  sym = SymbolFrom(p->text + pos, p->pos - pos);
+  sym = SymbolFrom(p->text + pos + 1, p->pos - pos - 1);
   Spacing(p);
   return MakeNode(symNode, pos, SymVal(sym));
 }
@@ -659,7 +792,7 @@ val ParseIDList(Parser *p)
     if (IsError(id)) return id;
     items = Pair(id, items);
   }
-  return MakeNode(listNode, pos, ReverseList(items));
+  return MakeNode(listNode, pos, ReverseList(items, 0));
 }
 
 val ParseArgs(Parser *p)
@@ -675,7 +808,7 @@ val ParseArgs(Parser *p)
     if (IsError(item)) return item;
     items = Pair(item, items);
   }
-  return MakeNode(listNode, pos, ReverseList(items));
+  return MakeNode(listNode, pos, items);
 }
 
 void Spacing(Parser *p)
@@ -700,12 +833,16 @@ void VSpacing(Parser *p)
 char *NodeName(i32 type)
 {
   switch (type) {
-  case errNode:   return "error";
+  case errNode:     return "error";
   case nilNode:     return "nil";
   case idNode:      return "id";
   case intNode:     return "num";
   case symNode:     return "sym";
   case strNode:     return "str";
+  case pairNode:    return "pair";
+  case joinNode:    return "join";
+  case truncNode:   return "trunc";
+  case skipNode:    return "skip";
   case listNode:    return "list";
   case tupleNode:   return "tuple";
   case doNode:      return "do";
@@ -715,13 +852,18 @@ char *NodeName(i32 type)
   case eqNode:      return "eq";
   case ltNode:      return "lt";
   case gtNode:      return "gt";
+  case shiftNode:   return "shift";
   case addNode:     return "add";
   case subNode:     return "sub";
+  case borNode:     return "bitOr";
   case mulNode:     return "mul";
   case divNode:     return "div";
   case remNode:     return "rem";
+  case bandNode:    return "bitAnd";
   case negNode:     return "neg";
   case notNode:     return "not";
+  case compNode:    return "comp";
+  case lenNode:     return "len";
   case callNode:    return "call";
   case accessNode:  return "access";
   case lambdaNode:  return "lambda";
@@ -792,20 +934,23 @@ void PrintError(val node, char *source)
   i32 pos = NodePos(node);
   i32 col = 0, i;
   i32 line = 0;
-  char *start = source + pos;
-  char *end = source + pos;
-  while (start > source && !IsNewline(start[-1])) {
-    col++;
-    start--;
-  }
-  while (*end && !IsNewline(*end)) end++;
-  for (i = 0; i < pos; i++) {
-    if (IsNewline(source[i])) line++;
-  }
-
+  if (!node) return;
   printf("%sError: %s\n", ANSIRed, ErrorMsg(node));
-  printf("%3d| %*.*s\n", line+1, (i32)(end-start), (i32)(end-start), start);
-  printf("     ");
-  for (i = 0; i < col; i++) printf(" ");
-  printf("^\n%s", ANSINormal);
+  if (source) {
+    char *start = source + pos;
+    char *end = source + pos;
+    while (start > source && !IsNewline(start[-1])) {
+      col++;
+      start--;
+    }
+    while (*end && !IsNewline(*end)) end++;
+    for (i = 0; i < pos; i++) {
+      if (IsNewline(source[i])) line++;
+    }
+    printf("%3d| %*.*s\n", line+1, (i32)(end-start), (i32)(end-start), start);
+    printf("     ");
+    for (i = 0; i < col; i++) printf(" ");
+    printf("^\n");
+  }
+  printf("%s", ANSINormal);
 }

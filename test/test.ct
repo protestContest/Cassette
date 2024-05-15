@@ -1,11 +1,3 @@
-module List
-exports reduce
+def print(value) trap(:print, value)
 
-def reduce(list, acc, fn) do
-  if list == nil do
-    acc
-  else
-    let next = fn(head(list), acc)
-    reduce(tail(list), next, fn)
-  end
-end
+print(2)

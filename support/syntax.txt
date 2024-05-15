@@ -14,7 +14,7 @@ Equal       <- Compare (("==" / "!=") vsp Compare)?
 Compare     <- Sum ([<>] vsp Sum)?
 Sum         <- Product ([+-] vsp Product)*
 Product     <- Unary ([*/] vsp Unary)*
-Unary       <- "-" Call / "not" sp Call / Call
+Unary       <- [-~#] Call / "not" sp Call / Call
 Call        <- Access ("(" vsp Args* vsp ")")* sp
 Access      <- Primary ("." ID)*
 Primary     <- Group / List / Tuple / Do / If / Cond / Num / Str / Sym / "nil" / ID

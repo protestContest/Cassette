@@ -1,11 +1,11 @@
 {
 	"folders": [
 		{
-			"path": "..",
+			"path": "/Users/zack/Developer/Cassette",
 			"binary_file_patterns": [
 				"build/"
 			],
-		}
+		},
 	],
 	"settings": {
 		"lsp_format_on_save": false,
