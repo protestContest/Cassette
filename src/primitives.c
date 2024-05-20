@@ -27,7 +27,7 @@ VMStatus VMPrint(VM *vm)
   char *str;
   CheckStack(vm, 1);
   a = StackPop(vm);
-  str = ValStr(a);
+  str = ValStr(a, 0);
   printf("%s\n", str);
   free(str);
   StackPush(SymVal(Symbol("ok")), vm);

@@ -63,5 +63,5 @@ val BinaryTrunc(val list, u32 index);
 val BinarySkip(val list, u32 index);
 bool BinIsPrintable(val bin);
 
-char *ValStr(val value);
+char *ValStr(val value, char *str);
 void DumpMem(void);

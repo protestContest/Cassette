@@ -12,17 +12,18 @@ OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
-CFLAGS = -g -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -fsanitize=address
+CFLAGS = -g -O2 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
 LDFLAGS = -L$(LIB) -luniv
 
 $(BIN)/$(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
-	@echo $<
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
+	@echo $@
+	@$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
 $(BUILD)/%.o: $(SRC)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	@echo $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:

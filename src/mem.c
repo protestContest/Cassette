@@ -1,5 +1,4 @@
 #include "mem.h"
-#include "debug.h"
 #include <univ.h>
 
 static val *mem = 0;
@@ -38,17 +37,8 @@ static u32 MemAlloc(u32 count)
   return index;
 }
 
-static val MemGet(u32 index)
-{
-  if (index < 0 || index >= VecCount(mem)) return 0;
-  return mem[index];
-}
-
-static void MemSet(u32 index, val value)
-{
-  if (index < 0 || index >= VecCount(mem)) return;
-  mem[index] = value;
-}
+#define MemGet(index)       (mem[index])
+#define MemSet(index, val)  (mem[index] = val)
 
 val CopyObj(val value, val *oldmem)
 {
@@ -83,7 +73,7 @@ void CollectGarbage(val *roots)
   u32 i, scan;
   val *oldmem = mem;
 
-  debug("GARBAGE DAY!!!\n");
+  /*printf("GARBAGE DAY!!!\n");*/
 
   mem = NewVec(val, VecCapacity(mem));
   VecPush(mem, 0);
@@ -109,6 +99,8 @@ void CollectGarbage(val *roots)
       scan += 2;
     }
   }
+
+  FreeVec(oldmem);
 }
 
 val Pair(val head, val tail)
@@ -308,70 +300,69 @@ bool BinIsPrintable(val bin)
   return true;
 }
 
-char *ValStr(val value)
+char *ValStr(val value, char *str)
 {
   i32 len;
-  char *str;
 
   if (value == 0) {
-    str = malloc(4);
+    if (!str) str = malloc(4);
     strcpy(str, "nil");
     str[3] = 0;
     return str;
   } else if (IsPair(value)) {
     len = NumDigits(RawVal(value), 10) + 2;
-    str = malloc(len);
+    if (!str) str = malloc(len);
     str[0] = 'p';
     snprintf(str+1, len-1, "%d", RawVal(value));
     return str;
   } else if (IsTuple(value)) {
     len = NumDigits(RawVal(value), 10) + 2;
-    str = malloc(len);
+    if (!str) str = malloc(len);
     str[0] = 't';
     snprintf(str+1, len-1, "%d", RawVal(value));
     return str;
   } else if (IsBinary(value)) {
     len = BinaryLength(value);
     if (len <= 8 && BinIsPrintable(value)) {
-      str = malloc(len+3);
+      if (!str) str = malloc(len+3);
       str[0] = '"';
       Copy(BinaryData(value), str+1, BinaryLength(value));
       str[len+1] = '"';
       str[len+2] = 0;
     } else {
       len = NumDigits(RawVal(value), 10) + 2;
-      str = malloc(len);
+      if (!str) str = malloc(len);
       str[0] = 'b';
       snprintf(str+1, len-1, "%d", RawVal(value));
     }
     return str;
   } else if (IsInt(value)) {
     len = NumDigits(RawVal(value), 10) + 1;
-    str = malloc(len);
+    if (!str) str = malloc(len);
     snprintf(str, len, "%d", RawVal(value));
     return str;
   } else if (IsSym(value)) {
     char *name = SymbolName(RawVal(value));
     len = strlen(name) + 1;
-    str = malloc(len+1);
+    if (!str) str = malloc(len+1);
     str[0] = ':';
     Copy(name, str+1, len-1);
     str[len] = 0;
     return str;
   } else if (IsTupleHdr(value)) {
     len = NumDigits(RawVal(value), 10) + 2;
-    str = malloc(len);
+    if (!str) str = malloc(len);
     str[0] = '#';
     snprintf(str+1, len-1, "%d", RawVal(value));
     return str;
   } else if (IsBinHdr(value)) {
     len = NumDigits(RawVal(value), 10) + 2;
-    str = malloc(len);
+    if (!str) str = malloc(len);
     str[0] = '$';
     snprintf(str+1, len-1, "%d", RawVal(value));
     return str;
   } else {
-    str = malloc(9);
+    if (!str) str = malloc(9);
     snprintf(str, 9, "%08X", value);
     return str;
   }
@@ -385,7 +376,9 @@ void DumpMem(void)
 
   printf("%*d|", colWidth, 0);
   for (i = 0; i < VecCount(mem); i++) {
-    printf("%*s|", colWidth, ValStr(MemGet(i)));
+    char *str = ValStr(MemGet(i), 0);
+    printf("%*s|", colWidth, str);
+    free(str);
 
     if (i % numCols == numCols - 1) {
       printf("\n");

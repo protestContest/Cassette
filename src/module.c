@@ -104,34 +104,6 @@ void PushData(char *data, i32 length, Module *mod)
   VecPush(mod->data, 0);
 }
 
-void InitProgramSymbols(Module *mod)
-{
-  char *data = mod->data;
-  while (data < mod->data + VecCount(mod->data)) {
-    Symbol(data);
-    data += strlen(data) + 1;
-  }
-}
-
-char *Write(char *str, char *buf)
-{
-  i32 len = strlen(str);
-  if (VecCount(buf) > 0 && buf[VecCount(buf)-1] == 0) VecPop(buf);
-  GrowVec(buf, len);
-  Copy(str, buf + VecCount(buf) - len, len);
-  return buf;
-}
-
-char *WriteInt(i32 n, char *buf)
-{
-  i32 len = NumDigits(n, 10);
-  if (VecCount(buf) > 0 && buf[VecCount(buf)-1] == 0) VecPop(buf);
-  GrowVec(buf, len+1);
-  VecPop(buf);
-  snprintf(buf + VecCount(buf) - len, VecCount(buf)+1, "%d", n);
-  return buf;
-}
-
 char *DisassembleOp(u32 *index, char *text, Module *mod)
 {
   i32 n;
@@ -139,156 +111,156 @@ char *DisassembleOp(u32 *index, char *text, Module *mod)
   i32 nDigits = NumDigits(*index, 10);
   i32 j;
   char *str;
-  for (j = 0; j < col0-nDigits; j++) text = Write(" ", text);
-  text = WriteInt(*index, text);
-  text = Write("  ", text);
+  for (j = 0; j < col0-nDigits; j++) text = BufWrite(" ", text);
+  text = BufWriteNum(*index, text);
+  text = BufWrite("  ", text);
 
   if (*index < VecCount(mod->code)) {
     switch (mod->code[(*index)++]) {
     case opNoop:
-      text = Write("noop", text);
+      text = BufWrite("noop", text);
       break;
     case opConst:
-      text = Write("const ", text);
+      text = BufWrite("const ", text);
       n = ReadInt(index, mod);
-      str = ValStr(mod->constants[n]);
-      text = Write(str, text);
+      str = ValStr(mod->constants[n], 0);
+      text = BufWrite(str, text);
       free(str);
       break;
     case opAdd:
-      text = Write("add", text);
+      text = BufWrite("add", text);
       break;
     case opSub:
-      text = Write("sub", text);
+      text = BufWrite("sub", text);
       break;
     case opMul:
-      text = Write("mul", text);
+      text = BufWrite("mul", text);
       break;
     case opDiv:
-      text = Write("div", text);
+      text = BufWrite("div", text);
       break;
     case opRem:
-      text = Write("rem", text);
+      text = BufWrite("rem", text);
       break;
     case opAnd:
-      text = Write("and", text);
+      text = BufWrite("and", text);
       break;
     case opOr:
-      text = Write("or", text);
+      text = BufWrite("or", text);
       break;
     case opComp:
-      text = Write("comp", text);
+      text = BufWrite("comp", text);
       break;
     case opLt:
-      text = Write("lt", text);
+      text = BufWrite("lt", text);
       break;
     case opGt:
-      text = Write("gt", text);
+      text = BufWrite("gt", text);
       break;
     case opEq:
-      text = Write("eq", text);
+      text = BufWrite("eq", text);
       break;
     case opNeg:
-      text = Write("neg", text);
+      text = BufWrite("neg", text);
       break;
     case opNot:
-      text = Write("not", text);
+      text = BufWrite("not", text);
       break;
     case opShift:
-      text = Write("shift", text);
+      text = BufWrite("shift", text);
       break;
     case opNil:
-      text = Write("nil", text);
+      text = BufWrite("nil", text);
       break;
     case opPair:
-      text = Write("pair", text);
+      text = BufWrite("pair", text);
       break;
     case opHead:
-      text = Write("head", text);
+      text = BufWrite("head", text);
       break;
     case opTail:
-      text = Write("tail", text);
+      text = BufWrite("tail", text);
       break;
     case opTuple:
-      text = Write("tuple ", text);
-      text = WriteInt(ReadInt(index, mod), text);
+      text = BufWrite("tuple ", text);
+      text = BufWriteNum(ReadInt(index, mod), text);
       break;
     case opLen:
-      text = Write("len", text);
+      text = BufWrite("len", text);
       break;
     case opGet:
-      text = Write("get", text);
+      text = BufWrite("get", text);
       break;
     case opSet:
-      text = Write("set", text);
+      text = BufWrite("set", text);
       break;
     case opStr:
-      text = Write("str", text);
+      text = BufWrite("str", text);
       break;
     case opBin:
-      text = Write("bin ", text);
-      text = WriteInt(ReadInt(index, mod), text);
+      text = BufWrite("bin ", text);
+      text = BufWriteNum(ReadInt(index, mod), text);
       break;
     case opJoin:
-      text = Write("join", text);
+      text = BufWrite("join", text);
       break;
     case opTrunc:
-      text = Write("trunc", text);
+      text = BufWrite("trunc", text);
       break;
     case opSkip:
-      text = Write("skip", text);
+      text = BufWrite("skip", text);
       break;
     case opJmp:
-      text = Write("jmp ", text);
-      text = WriteInt(ReadInt(index, mod), text);
+      text = BufWrite("jmp ", text);
+      text = BufWriteNum(ReadInt(index, mod), text);
       break;
     case opBr:
-      text = Write("br ", text);
-      text = WriteInt(ReadInt(index, mod), text);
+      text = BufWrite("br ", text);
+      text = BufWriteNum(ReadInt(index, mod), text);
       break;
     case opTrap:
-      text = Write("trap ", text);
+      text = BufWrite("trap ", text);
       n = ReadInt(index, mod);
-      text = Write(SymbolName(n), text);
+      text = BufWrite(SymbolName(n), text);
       break;
     case opPos:
-      text = Write("pos ", text);
-      text = WriteInt(ReadInt(index, mod), text);
+      text = BufWrite("pos ", text);
+      text = BufWriteNum(ReadInt(index, mod), text);
       break;
     case opGoto:
-      text = Write("goto", text);
+      text = BufWrite("goto", text);
       break;
     case opHalt:
-      text = Write("halt", text);
+      text = BufWrite("halt", text);
       break;
     case opDup:
-      text = Write("dup", text);
+      text = BufWrite("dup", text);
       break;
     case opDrop:
-      text = Write("drop", text);
+      text = BufWrite("drop", text);
       break;
     case opSwap:
-      text = Write("swap", text);
+      text = BufWrite("swap", text);
       break;
     case opOver:
-      text = Write("over", text);
+      text = BufWrite("over", text);
       break;
     case opRot:
-      text = Write("rot", text);
+      text = BufWrite("rot", text);
       break;
     case opGetEnv:
-      text = Write("getenv", text);
+      text = BufWrite("getenv", text);
       break;
     case opSetEnv:
-      text = Write("setenv", text);
+      text = BufWrite("setenv", text);
       break;
     case opLookup:
-      text = Write("lookup ", text);
-      text = WriteInt(ReadInt(index, mod), text);
+      text = BufWrite("lookup ", text);
+      text = BufWriteNum(ReadInt(index, mod), text);
       break;
     case opDefine:
-      text = Write("define ", text);
-      text = WriteInt(ReadInt(index, mod), text);
+      text = BufWrite("define ", text);
+      text = BufWriteNum(ReadInt(index, mod), text);
       break;
     }
   }
@@ -302,7 +274,7 @@ char *Disassemble(Module *mod)
   char *text = 0;
   while (index < VecCount(mod->code)) {
     text = DisassembleOp(&index, text, mod);
-    text = Write("\n", text);
+    text = BufWrite("\n", text);
     VecPush(text, 0);
   }
   return text;

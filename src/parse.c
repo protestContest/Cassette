@@ -1,5 +1,4 @@
 #include "parse.h"
-#include "debug.h"
 #include <univ.h>
 
 #define IsIDStart(c)  (IsAlpha(c) || (c) == '_')
@@ -901,41 +900,41 @@ void PrintNode(val node, i32 level, u32 lines)
   i32 i, subnodes;
 
   if (!type) {
-    debug("nil:%d\n", NodePos(node));
+    printf("nil:%d\n", NodePos(node));
     return;
   }
 
-  debug("%s:%d", NodeName(type), NodePos(node));
+  printf("%s:%d", NodeName(type), NodePos(node));
   switch (type) {
   case idNode:
-    debug(" %s\n", SymbolName(RawVal(NodeValue(node))));
+    printf(" %s\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case strNode:
-    debug(" \"%s\"\n", SymbolName(RawVal(NodeValue(node))));
+    printf(" \"%s\"\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case symNode:
-    debug(" :%s\n", SymbolName(RawVal(NodeValue(node))));
+    printf(" :%s\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case intNode:
-    debug(" %d\n", RawVal(NodeValue(node)));
+    printf(" %d\n", RawVal(NodeValue(node)));
     break;
   default:
     subnodes = NodeValue(node);
-    debug("\n");
+    printf("\n");
     lines |= Bit(level);
     while (subnodes && IsPair(subnodes)) {
       for (i = 0; i < level; i++) {
         if (lines & Bit(i)) {
-          debug("│ ");
+          printf("│ ");
         } else {
-          debug("  ");
+          printf("  ");
         }
       }
       if (Tail(subnodes)) {
-        debug("├ ");
+        printf("├ ");
       } else {
         lines &= ~Bit(level);
-        debug("└ ");
+        printf("└ ");
       }
       PrintNode(Head(subnodes), level+1, lines);
       subnodes = Tail(subnodes);

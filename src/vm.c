@@ -1,5 +1,4 @@
 #include "vm.h"
-#include "debug.h"
 #include "mem.h"
 #include "env.h"
 #include "parse.h"
@@ -106,9 +105,16 @@ void InitVM(VM *vm, Module *mod)
   vm->pc = 0;
   vm->env = 0;
   vm->primitives = 0;
-  FreeVec(vm->stack);
+  vm->stack = 0;
   ImportSymbols(mod->data, VecCount(mod->data));
   InitHashMap(&vm->primMap);
+}
+
+void DestroyVM(VM *vm)
+{
+  FreeVec(vm->stack);
+  FreeVec(vm->primitives);
+  DestroyHashMap(&vm->primMap);
 }
 
 void DefinePrimitive(val id, PrimFn fn, VM *vm)
@@ -119,30 +125,21 @@ void DefinePrimitive(val id, PrimFn fn, VM *vm)
 
 VMStatus VMStep(VM *vm)
 {
-  return ops[vm->mod->code[vm->pc]](vm);
+  vm->status = ops[vm->mod->code[vm->pc++]](vm);
+  return vm->status;
 }
 
 void PrintSourceFrom(u32 index, char *src)
 {
   char *start = src+index;
   char *end = LineEnd(start);
-  debug("%*.*s", (i32)(end-start), (i32)(end-start), start);
+  fprintf(stderr, "%*.*s", (i32)(end-start), (i32)(end-start), start);
 }
 
-void VMRun(VM *vm, char *src)
+void VMRun(VM *vm)
 {
-  while (vm->status == vmOk && vm->pc < VecCount(vm->mod->code)) {
-    TraceInst(vm);
-    PrintStack(vm);
-    PrintSourceFrom(GetSourcePos(vm->pc, vm->mod), src);
-    debug("\n");
-    vm->status = ops[vm->mod->code[vm->pc++]](vm);
-  }
-  if (vm->status == vmOk) {
-    TraceInst(vm);
-    PrintStack(vm);
-    PrintSourceFrom(GetSourcePos(vm->pc, vm->mod), src);
-    debug("\n");
+  while (!VMDone(vm)) {
+    VMStep(vm);
   }
 }
 
@@ -654,13 +651,22 @@ static VMStatus OpDefine(VM *vm)
   return vmOk;
 }
 
+void VMTrace(VM *vm, char *src)
+{
+  TraceInst(vm);
+  PrintStack(vm);
+  PrintSourceFrom(GetSourcePos(vm->pc, vm->mod), src);
+  printf("\n");
+}
+
 void TraceInst(VM *vm)
 {
   u32 index = vm->pc;
   char *op = DisassembleOp(&index, 0, vm->mod);
   u32 i, len = strlen(op);
-  debug("%s ", op);
-  for (i = 0; i < 20 - len; i++) debug(" ");
+  fprintf(stderr, "%s ", op);
+  for (i = 0; i < 20 - len; i++) fprintf(stderr, " ");
+  FreeVec(op);
 }
 
 u32 PrintStack(VM *vm)
@@ -669,12 +675,12 @@ u32 PrintStack(VM *vm)
   char *str;
   for (i = 0; i < 3; i++) {
     if (i >= VecCount(vm->stack)) break;
-    str = ValStr(vm->stack[VecCount(vm->stack) - i - 1]);
-    printed += debug("%s ", str);
+    str = ValStr(vm->stack[VecCount(vm->stack) - i - 1], 0);
+    printed += fprintf(stderr, "%s ", str);
     free(str);
   }
-  if (VecCount(vm->stack) > 3) printed += debug("...");
-  for (i = 0; (i32)i < 30 - (i32)printed; i++) debug(" ");
+  if (VecCount(vm->stack) > 3) printed += fprintf(stderr, "...");
+  for (i = 0; (i32)i < 30 - (i32)printed; i++) fprintf(stderr, " ");
   return printed;
 }
 

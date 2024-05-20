@@ -12,8 +12,6 @@ int main(int argc, char *argv[])
   char *asm;
   i32 length, result;
 
-  InitMem(16);
-
   printf("%sSource%s\n", ANSIUnderline, ANSINormal);
   printf("%s\n", source);
   length = strlen(source);
@@ -38,18 +36,28 @@ int main(int argc, char *argv[])
   printf("%sCompiled%s\n", ANSIUnderline, ANSINormal);
   HexDump(module.code, VecCount(module.code));
   printf("\n");
-
   printf("%sDisassembled%s\n", ANSIUnderline, ANSINormal);
   asm = Disassemble(&module);
   printf("%s\n", asm);
+  FreeVec(asm);
 
-  printf("%sRuntime%s\n", ANSIUnderline, ANSINormal);
-  InitMem(2);
-
+  InitMem(256);
   InitVM(&vm, &module);
   DefinePrimitives(&vm);
-  VMRun(&vm, source);
+
+  printf("%sRuntime%s\n", ANSIUnderline, ANSINormal);
+  while (!VMDone(&vm)) {
+    VMTrace(&vm, source);
+    VMStep(&vm);
+  }
+
   if (vm.status != vmOk) {
     PrintError(VMError(&vm), source);
   }
+
+  DestroyVM(&vm);
+  DestroyModule(&module);
+  DestroyMem();
+  DestroySymbols();
+  free(source);
 }

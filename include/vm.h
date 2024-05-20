@@ -72,13 +72,17 @@ typedef struct VM {
 } VM;
 
 #define CheckStack(vm, n)   if (VecCount((vm)->stack) < (n)) return stackUnderflow
+#define VMDone(vm)          ((vm)->status != vmOk || (vm)->pc >= VecCount((vm)->mod->code))
 
 void InitVM(VM *vm, Module *mod);
+void DestroyVM(VM *vm);
 void DefinePrimitive(val id, PrimFn fn, VM *vm);
 VMStatus VMStep(VM *vm);
-void VMRun(VM *vm, char *src);
+void VMRun(VM *vm);
 val StackPop(VM *vm);
 void StackPush(val value, VM *vm);
+
+void VMTrace(VM *vm, char *src);
 void TraceInst(VM *vm);
 u32 PrintStack(VM *vm);
 val VMError(VM *vm);
