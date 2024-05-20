@@ -1,4 +1,5 @@
 #include "vm.h"
+#include "debug.h"
 #include "mem.h"
 #include "env.h"
 #include "parse.h"
@@ -101,7 +102,7 @@ static OpFn ops[] = {
 void InitVM(VM *vm, Module *mod)
 {
   vm->mod = mod;
-  vm->status = ok;
+  vm->status = vmOk;
   vm->pc = 0;
   vm->env = 0;
   vm->primitives = 0;
@@ -125,19 +126,23 @@ void PrintSourceFrom(u32 index, char *src)
 {
   char *start = src+index;
   char *end = LineEnd(start);
-  printf("%*.*s", (i32)(end-start), (i32)(end-start), start);
+  debug("%*.*s", (i32)(end-start), (i32)(end-start), start);
 }
 
 void VMRun(VM *vm, char *src)
 {
-  u32 pc;
-  while (vm->status == ok && vm->pc < VecCount(vm->mod->code)) {
-    pc = vm->pc;
+  while (vm->status == vmOk && vm->pc < VecCount(vm->mod->code)) {
     TraceInst(vm);
-    vm->status = ops[vm->mod->code[vm->pc++]](vm);
     PrintStack(vm);
-    PrintSourceFrom(GetSourcePos(pc, vm->mod), src);
-    printf("\n");
+    PrintSourceFrom(GetSourcePos(vm->pc, vm->mod), src);
+    debug("\n");
+    vm->status = ops[vm->mod->code[vm->pc++]](vm);
+  }
+  if (vm->status == vmOk) {
+    TraceInst(vm);
+    PrintStack(vm);
+    PrintSourceFrom(GetSourcePos(vm->pc, vm->mod), src);
+    debug("\n");
   }
 }
 
@@ -151,19 +156,23 @@ void StackPush(val value, VM *vm)
   VecPush(vm->stack, value);
 }
 
-#define OneArg() \
-  i32 a;\
+void RunGC(VM *vm)
+{
+  StackPush(vm->env, vm);
+  CollectGarbage(vm->stack);
+  vm->env = StackPop(vm);
+}
+
+#define OneArg(a) \
   CheckStack(vm, 1);\
   a = StackPop(vm)
 
-#define TwoArgs() \
-  i32 a, b;\
+#define TwoArgs(a, b) \
   CheckStack(vm, 2);\
   b = StackPop(vm);\
   a = StackPop(vm)
 
-#define ThreeArgs() \
-  i32 a, b, c;\
+#define ThreeArgs(a, b, c) \
   CheckStack(vm, 3);\
   c = StackPop(vm);\
   b = StackPop(vm);\
@@ -175,167 +184,187 @@ void StackPush(val value, VM *vm)
 
 static VMStatus OpNoop(VM *vm)
 {
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpConst(VM *vm)
 {
   i32 num = ReadInt(&vm->pc, vm->mod);
   StackPush(vm->mod->constants[num], vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpAdd(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(+);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpSub(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(-);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpMul(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(*);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpDiv(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   if (RawVal(b) == 0) return divideByZero;
   BinOp(/);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpRem(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   if (RawVal(b) == 0) return divideByZero;
   BinOp(%);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpAnd(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(&);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpOr(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(|);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpComp(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   if (!IsInt(a)) return invalidType;
   UnaryOp(~);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpLt(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(<);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpGt(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(>);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpEq(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   StackPush(IntVal(a == b), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpNeg(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   if (!IsInt(a)) return invalidType;
   UnaryOp(-);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpNot(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   StackPush(IntVal(RawVal(a) != 0), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpShift(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(<<);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpNil(VM *vm)
 {
   StackPush(0, vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpPair(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  if (MemFree() < 2) RunGC(vm);
+  TwoArgs(a, b);
   StackPush(Pair(b, a), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpHead(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   if (!IsPair(a)) return invalidType;
   StackPush(Head(a), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpTail(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   if (!IsPair(a)) return invalidType;
   StackPush(Tail(a), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpTuple(VM *vm)
 {
-  i32 count = ReadInt(&vm->pc, vm->mod);
+  u32 count = ReadInt(&vm->pc, vm->mod);
+  if (MemFree() < count+1) RunGC(vm);
   StackPush(Tuple(count), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpLen(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   if (IsPair(a)) {
     StackPush(IntVal(ListLength(a)), vm);
   } else if (IsTuple(a)) {
@@ -345,12 +374,13 @@ static VMStatus OpLen(VM *vm)
   } else {
     return invalidType;
   }
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpGet(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(b)) return invalidType;
   if (IsPair(a)) {
     if (RawVal(b) < 0 || RawVal(b) >= ListLength(a)) return outOfBounds;
@@ -364,12 +394,13 @@ static VMStatus OpGet(VM *vm)
   } else {
     return invalidType;
   }
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpSet(VM *vm)
 {
-  ThreeArgs();
+  val a, b, c;
+  ThreeArgs(a, b, c);
   if (!IsInt(b)) return invalidType;
   if (IsTuple(a)) {
     TupleSet(a, RawVal(b), c);
@@ -378,72 +409,123 @@ static VMStatus OpSet(VM *vm)
   } else {
     return invalidType;
   }
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpStr(VM *vm)
 {
   char *name;
-  OneArg();
+  u32 len;
+  val a;
+  OneArg(a);
   if (!IsSym(a)) return invalidType;
   name = SymbolName(RawVal(a));
-  StackPush(BinaryFrom(name, strlen(name)), vm);
-  return ok;
+  len = strlen(name);
+  if (MemFree() < BinSpace(len) + 1) RunGC(vm);
+  StackPush(BinaryFrom(name, len), vm);
+  return vmOk;
 }
 
 static VMStatus OpBin(VM *vm)
 {
-  i32 count = ReadInt(&vm->pc, vm->mod);
+  u32 count = ReadInt(&vm->pc, vm->mod);
+  if (MemFree() < BinSpace(count) + 1) RunGC(vm);
   StackPush(Binary(count), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpJoin(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (ValType(a) != ValType(b)) return invalidType;
   if (IsPair(a)) {
+    if (MemFree() < 2*(ListLength(a) + ListLength(b))) {
+      StackPush(a, vm);
+      StackPush(b, vm);
+      RunGC(vm);
+      TwoArgs(a, b);
+    }
     StackPush(ListJoin(a, b), vm);
   } else if (IsTuple(a)) {
+    if (MemFree() < 1 + TupleLength(a) + TupleLength(b)) {
+      StackPush(a, vm);
+      StackPush(b, vm);
+      RunGC(vm);
+      TwoArgs(a, b);
+    }
     StackPush(TupleJoin(a, b), vm);
   } else if (IsBinary(a)) {
+    if (MemFree() < 1 + BinSpace(BinaryLength(a)) + BinSpace(BinaryLength(b))) {
+      StackPush(a, vm);
+      StackPush(b, vm);
+      RunGC(vm);
+      TwoArgs(a, b);
+    }
     StackPush(BinaryJoin(a, b), vm);
   } else {
     return invalidType;
   }
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpTrunc(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(b)) return invalidType;
   if (IsPair(a)) {
+    if (MemFree() < 4*RawVal(b)) {
+      StackPush(a, vm);
+      RunGC(vm);
+      a = StackPop(vm);
+    }
     StackPush(ListTrunc(a, RawVal(b)), vm);
   } else if (IsTuple(a)) {
+    if (MemFree() < RawVal(b)+1) {
+      StackPush(a, vm);
+      RunGC(vm);
+      a = StackPop(vm);
+    }
     StackPush(TupleTrunc(a, RawVal(b)), vm);
   } else if (IsBinary(a)) {
+    if (MemFree() < BinSpace(RawVal(b))+1) {
+      StackPush(a, vm);
+      RunGC(vm);
+      a = StackPop(vm);
+    }
     StackPush(BinaryTrunc(a, RawVal(b)), vm);
   } else {
     return invalidType;
   }
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpSkip(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   if (!IsInt(b)) return invalidType;
   if (IsPair(a)) {
     StackPush(ListSkip(a, RawVal(b)), vm);
   } else if (IsTuple(a)) {
+    if (MemFree() < TupleLength(a) - RawVal(b) + 1) {
+      StackPush(a, vm);
+      RunGC(vm);
+      a = StackPop(vm);
+    }
     StackPush(TupleSkip(a, RawVal(b)), vm);
   } else if (IsBinary(a)) {
+    if (MemFree() < BinSpace(BinaryLength(a)) - RawVal(b) + 1) {
+      StackPush(a, vm);
+      RunGC(vm);
+      a = StackPop(vm);
+    }
     StackPush(BinarySkip(a, RawVal(b)), vm);
   } else {
     return invalidType;
   }
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpJmp(VM *vm)
@@ -451,18 +533,19 @@ static VMStatus OpJmp(VM *vm)
   i32 n = ReadInt(&vm->pc, vm->mod);
   CheckBounds(vm->pc + n);
   vm->pc += n;
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpBr(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
-  OneArg();
+  val a;
+  OneArg(a);
   if (RawVal(a)) {
     CheckBounds(vm->pc + n);
     vm->pc += n;
   }
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpTrap(VM *vm)
@@ -478,91 +561,97 @@ static VMStatus OpPos(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
   StackPush(IntVal(vm->pc + n), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpGoto(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   if (!IsInt(a)) return invalidType;
   CheckBounds(RawVal(a));
   vm->pc = RawVal(a);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpHalt(VM *vm)
 {
   vm->pc = VecCount(vm->mod->code);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpDup(VM *vm)
 {
-  OneArg();
+  val a;
+  OneArg(a);
   StackPush(a, vm);
   StackPush(a, vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpDrop(VM *vm)
 {
   if (VecCount(vm->stack) < 1) return stackUnderflow;
   VecPop(vm->stack);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpSwap(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   StackPush(b, vm);
   StackPush(a, vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpOver(VM *vm)
 {
-  TwoArgs();
+  val a, b;
+  TwoArgs(a, b);
   StackPush(a, vm);
   StackPush(b, vm);
   StackPush(a, vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpRot(VM *vm)
 {
-  ThreeArgs();
+  val a, b, c;
+  ThreeArgs(a, b, c);
   StackPush(b, vm);
   StackPush(c, vm);
   StackPush(a, vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpGetEnv(VM *vm)
 {
   StackPush(vm->env, vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpSetEnv(VM *vm)
 {
   if (VecCount(vm->stack) < 1) return stackUnderflow;
   vm->env = StackPop(vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpLookup(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
   StackPush(Lookup(n, vm->env), vm);
-  return ok;
+  return vmOk;
 }
 
 static VMStatus OpDefine(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
-  OneArg();
+  val a;
+  OneArg(a);
   if (!Define(a, n, vm->env)) return outOfBounds;
-  return ok;
+  return vmOk;
 }
 
 void TraceInst(VM *vm)
@@ -570,8 +659,8 @@ void TraceInst(VM *vm)
   u32 index = vm->pc;
   char *op = DisassembleOp(&index, 0, vm->mod);
   u32 i, len = strlen(op);
-  printf("%s ", op);
-  for (i = 0; i < 20 - len; i++) printf(" ");
+  debug("%s ", op);
+  for (i = 0; i < 20 - len; i++) debug(" ");
 }
 
 u32 PrintStack(VM *vm)
@@ -581,11 +670,11 @@ u32 PrintStack(VM *vm)
   for (i = 0; i < 3; i++) {
     if (i >= VecCount(vm->stack)) break;
     str = ValStr(vm->stack[VecCount(vm->stack) - i - 1]);
-    printed += printf("%s ", str);
+    printed += debug("%s ", str);
     free(str);
   }
-  if (VecCount(vm->stack) > 3) printed += printf("...");
-  for (i = 0; (i32)i < 30 - (i32)printed; i++) printf(" ");
+  if (VecCount(vm->stack) > 3) printed += debug("...");
+  for (i = 0; (i32)i < 30 - (i32)printed; i++) debug(" ");
   return printed;
 }
 
@@ -608,4 +697,3 @@ val VMError(VM *vm)
     return nil;
   }
 }
-

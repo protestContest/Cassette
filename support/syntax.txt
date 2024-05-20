@@ -17,7 +17,7 @@ Product     <- Unary ([*/] vsp Unary)*
 Unary       <- [-~#] Call / "not" sp Call / Call
 Call        <- Access ("(" vsp Args* vsp ")")* sp
 Access      <- Primary ("." ID)*
-Primary     <- Group / List / Tuple / Do / If / Cond / Num / Str / Sym / "nil" / ID
+Primary     <- Group / List / Tuple / Do / If / Cond / Num / Byte / Str / Sym / Literal / ID
 Group       <- "(" vsp Expr vsp ")" sp
 Do          <- "do" vsp Stmts "end" sp
 If          <- "if" sp Expr "do" vsp Stmts ("else" vsp Stmts)? "end" sp
@@ -26,9 +26,11 @@ Clause      <- Expr "->" vsp Expr
 List        <- "[" vsp Args* vsp "]" sp
 Tuple       <- "{" vsp Args* vsp "}" sp
 Num         <- [0-9]+ sp
+Byte        <- "$" . sp
 Sym         <- ":" ID sp
 Str         <- "\"" StrChar* "\""
 StrChar     <- "\\" . / .
+Literal     <- ("nil" / "true" / "false") sp
 ID          <- [a-zA-Z_][a-zA-Z0-9_!?]* sp
 IDList      <- ID ("," vsp ID)*
 Args        <- Expr ("," vsp Expr)*

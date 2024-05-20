@@ -1,4 +1,5 @@
 #include "parse.h"
+#include "debug.h"
 #include <univ.h>
 
 #define IsIDStart(c)  (IsAlpha(c) || (c) == '_')
@@ -95,6 +96,7 @@ val ParseClauses(Parser *p);
 val ParseList(Parser *p);
 val ParseTuple(Parser *p);
 val ParseNum(Parser *p);
+val ParseByte(Parser *p);
 val ParseHex(Parser *p);
 val ParseSymbol(Parser *p);
 val ParseString(Parser *p);
@@ -110,7 +112,6 @@ val Parse(char *text, i32 length)
   p.text = text;
   p.length = length;
   p.pos = 0;
-  InitMem();
   return ParseModule(&p);
 }
 
@@ -574,10 +575,16 @@ val ParsePrimary(Parser *p)
     return ParseNum(p);
   } else if (Peek(p) == ':') {
     return ParseSymbol(p);
+  } else if (Peek(p) == '$') {
+    return ParseByte(p);
   } else if (Peek(p) == '"') {
     return ParseString(p);
   } else if (MatchKeyword("nil", p)) {
     return MakeNode(nilNode, pos, 0);
+  } else if (MatchKeyword("true", p)) {
+    return MakeNode(intNode, pos, IntVal(1));
+  } else if (MatchKeyword("false", p)) {
+    return MakeNode(intNode, pos, IntVal(0));
   } else if (IsIDStart(Peek(p))) {
     return ParseID(p);
   } else {
@@ -709,6 +716,18 @@ val ParseNum(Parser *p)
   }
   Spacing(p);
   return MakeNode(intNode, pos, IntVal(n));
+}
+
+val ParseByte(Parser *p)
+{
+  u8 byte;
+  i32 pos = p->pos;
+  if (!Match("$", p)) return ParseError("Expected \"$\"", p);
+  if (AtEnd(p) || IsSpace(Peek(p)) || !IsPrintable(Peek(p))) return ParseError("Expected character", p);
+  byte = Peek(p);
+  Adv(p);
+  Spacing(p);
+  return MakeNode(intNode, pos, IntVal(byte));
 }
 
 val ParseHex(Parser *p)
@@ -882,41 +901,41 @@ void PrintNode(val node, i32 level, u32 lines)
   i32 i, subnodes;
 
   if (!type) {
-    printf("nil:%d\n", NodePos(node));
+    debug("nil:%d\n", NodePos(node));
     return;
   }
 
-  printf("%s:%d", NodeName(type), NodePos(node));
+  debug("%s:%d", NodeName(type), NodePos(node));
   switch (type) {
   case idNode:
-    printf(" %s\n", SymbolName(RawVal(NodeValue(node))));
+    debug(" %s\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case strNode:
-    printf(" \"%s\"\n", SymbolName(RawVal(NodeValue(node))));
+    debug(" \"%s\"\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case symNode:
-    printf(" :%s\n", SymbolName(RawVal(NodeValue(node))));
+    debug(" :%s\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case intNode:
-    printf(" %d\n", RawVal(NodeValue(node)));
+    debug(" %d\n", RawVal(NodeValue(node)));
     break;
   default:
     subnodes = NodeValue(node);
-    printf("\n");
+    debug("\n");
     lines |= Bit(level);
     while (subnodes && IsPair(subnodes)) {
       for (i = 0; i < level; i++) {
         if (lines & Bit(i)) {
-          printf("│ ");
+          debug("│ ");
         } else {
-          printf("  ");
+          debug("  ");
         }
       }
       if (Tail(subnodes)) {
-        printf("├ ");
+        debug("├ ");
       } else {
         lines &= ~Bit(level);
-        printf("└ ");
+        debug("└ ");
       }
       PrintNode(Head(subnodes), level+1, lines);
       subnodes = Tail(subnodes);
@@ -935,7 +954,7 @@ void PrintError(val node, char *source)
   i32 col = 0, i;
   i32 line = 0;
   if (!node) return;
-  printf("%sError: %s\n", ANSIRed, ErrorMsg(node));
+  fprintf(stderr, "%sError: %s\n", ANSIRed, ErrorMsg(node));
   if (source) {
     char *start = source + pos;
     char *end = source + pos;
@@ -947,10 +966,10 @@ void PrintError(val node, char *source)
     for (i = 0; i < pos; i++) {
       if (IsNewline(source[i])) line++;
     }
-    printf("%3d| %*.*s\n", line+1, (i32)(end-start), (i32)(end-start), start);
-    printf("     ");
-    for (i = 0; i < col; i++) printf(" ");
-    printf("^\n");
+    fprintf(stderr, "%3d| %*.*s\n", line+1, (i32)(end-start), (i32)(end-start), start);
+    fprintf(stderr, "     ");
+    for (i = 0; i < col; i++) fprintf(stderr, " ");
+    fprintf(stderr, "^\n");
   }
-  printf("%s", ANSINormal);
+  fprintf(stderr, "%s", ANSINormal);
 }

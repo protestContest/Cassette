@@ -8,7 +8,7 @@ VMStatus VMHead(VM *vm)
   a = StackPop(vm);
   if (!IsPair(a)) return invalidType;
   StackPush(Head(a), vm);
-  return ok;
+  return vmOk;
 }
 
 VMStatus VMTail(VM *vm)
@@ -18,7 +18,7 @@ VMStatus VMTail(VM *vm)
   a = StackPop(vm);
   if (!IsPair(a)) return invalidType;
   StackPush(Tail(a), vm);
-  return ok;
+  return vmOk;
 }
 
 VMStatus VMPrint(VM *vm)
@@ -30,8 +30,8 @@ VMStatus VMPrint(VM *vm)
   str = ValStr(a);
   printf("%s\n", str);
   free(str);
-  StackPush(0, vm);
-  return ok;
+  StackPush(SymVal(Symbol("ok")), vm);
+  return vmOk;
 }
 
 typedef struct {

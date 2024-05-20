@@ -17,21 +17,21 @@ enum {pairType, objType, intType, symType, tupleHdr, binHdr};
 #define BinHeader(x)    Val(binHdr, x)
 #define IsType(v,t)     (ValType(v) == (t))
 #define IsPair(v)       IsType(v, pairType)
+#define IsObj(v)        IsType(v, objType)
 #define IsInt(v)        IsType(v, intType)
 #define IsSym(v)        IsType(v, symType)
 #define IsTupleHdr(v)   IsType(v, tupleHdr)
 #define IsBinHdr(v)     IsType(v, binHdr)
-#define IsTuple(v)      (IsType(v, objType) && IsTupleHdr(MemGet(RawVal(v))))
-#define IsBinary(v)     (IsType(v, objType) && IsBinHdr(MemGet(RawVal(v))))
+#define IsTuple(v)      (IsObj(v)  && IsTupleHdr(Head(v)))
+#define IsBinary(v)     (IsObj(v) && IsBinHdr(Head(v)))
 #define MaxIntVal       (MaxInt >> typeBits)
 #define nil             0
 
-void InitMem(void);
-u32 MemAlloc(u32 count);
+void InitMem(u32 size);
+void DestroyMem(void);
 u32 MemSize(void);
 u32 MemFree(void);
-val MemGet(u32 index);
-void MemSet(u32 index, val value);
+void CollectGarbage(val *roots);
 
 val Pair(val head, val tail);
 val Head(val pair);
@@ -51,6 +51,7 @@ val TupleJoin(val left, val right);
 val TupleTrunc(val list, u32 index);
 val TupleSkip(val list, u32 index);
 
+#define BinSpace(length)  (Align(length, 4) / 4)
 val Binary(u32 length);
 val BinaryFrom(char *data, u32 length);
 u32 BinaryLength(val bin);
@@ -63,3 +64,4 @@ val BinarySkip(val list, u32 index);
 bool BinIsPrintable(val bin);
 
 char *ValStr(val value);
+void DumpMem(void);

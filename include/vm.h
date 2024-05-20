@@ -3,15 +3,13 @@
 #include <univ.h>
 
 typedef enum {
-  ok,
+  vmOk,
   stackUnderflow,
   invalidType,
   divideByZero,
   outOfBounds,
   unhandledTrap
 } VMStatus;
-
-enum {pc, env};
 
 typedef enum {
   opNoop,
@@ -64,13 +62,13 @@ struct VM;
 typedef VMStatus (*PrimFn)(struct VM *vm);
 
 typedef struct VM {
-  Module *mod;
-  i32 *stack;
+  VMStatus status;
   u32 pc;
-  i32 env;
-  i32 status;
-  HashMap primMap;
+  val env;
+  val *stack;
+  Module *mod;
   PrimFn *primitives;
+  HashMap primMap;
 } VM;
 
 #define CheckStack(vm, n)   if (VecCount((vm)->stack) < (n)) return stackUnderflow

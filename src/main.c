@@ -12,6 +12,8 @@ int main(int argc, char *argv[])
   char *asm;
   i32 length, result;
 
+  InitMem(16);
+
   printf("%sSource%s\n", ANSIUnderline, ANSINormal);
   printf("%s\n", source);
   length = strlen(source);
@@ -42,10 +44,12 @@ int main(int argc, char *argv[])
   printf("%s\n", asm);
 
   printf("%sRuntime%s\n", ANSIUnderline, ANSINormal);
+  InitMem(2);
+
   InitVM(&vm, &module);
   DefinePrimitives(&vm);
   VMRun(&vm, source);
-  if (vm.status != ok) {
+  if (vm.status != vmOk) {
     PrintError(VMError(&vm), source);
   }
 }

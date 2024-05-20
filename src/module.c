@@ -143,152 +143,154 @@ char *DisassembleOp(u32 *index, char *text, Module *mod)
   text = WriteInt(*index, text);
   text = Write("  ", text);
 
-  switch (mod->code[(*index)++]) {
-  case opNoop:
-    text = Write("noop", text);
-    break;
-  case opConst:
-    text = Write("const ", text);
-    n = ReadInt(index, mod);
-    str = ValStr(mod->constants[n]);
-    text = Write(str, text);
-    free(str);
-    break;
-  case opAdd:
-    text = Write("add", text);
-    break;
-  case opSub:
-    text = Write("sub", text);
-    break;
-  case opMul:
-    text = Write("mul", text);
-    break;
-  case opDiv:
-    text = Write("div", text);
-    break;
-  case opRem:
-    text = Write("rem", text);
-    break;
-  case opAnd:
-    text = Write("and", text);
-    break;
-  case opOr:
-    text = Write("or", text);
-    break;
-  case opComp:
-    text = Write("comp", text);
-    break;
-  case opLt:
-    text = Write("lt", text);
-    break;
-  case opGt:
-    text = Write("gt", text);
-    break;
-  case opEq:
-    text = Write("eq", text);
-    break;
-  case opNeg:
-    text = Write("neg", text);
-    break;
-  case opNot:
-    text = Write("not", text);
-    break;
-  case opShift:
-    text = Write("shift", text);
-    break;
-  case opNil:
-    text = Write("nil", text);
-    break;
-  case opPair:
-    text = Write("pair", text);
-    break;
-  case opHead:
-    text = Write("head", text);
-    break;
-  case opTail:
-    text = Write("tail", text);
-    break;
-  case opTuple:
-    text = Write("tuple ", text);
-    text = WriteInt(ReadInt(index, mod), text);
-    break;
-  case opLen:
-    text = Write("len", text);
-    break;
-  case opGet:
-    text = Write("get", text);
-    break;
-  case opSet:
-    text = Write("set", text);
-    break;
-  case opStr:
-    text = Write("str", text);
-    break;
-  case opBin:
-    text = Write("bin ", text);
-    text = WriteInt(ReadInt(index, mod), text);
-    break;
-  case opJoin:
-    text = Write("join", text);
-    break;
-  case opTrunc:
-    text = Write("trunc", text);
-    break;
-  case opSkip:
-    text = Write("skip", text);
-    break;
-  case opJmp:
-    text = Write("jmp ", text);
-    text = WriteInt(ReadInt(index, mod), text);
-    break;
-  case opBr:
-    text = Write("br ", text);
-    text = WriteInt(ReadInt(index, mod), text);
-    break;
-  case opTrap:
-    text = Write("trap ", text);
-    n = ReadInt(index, mod);
-    text = Write(SymbolName(n), text);
-    break;
-  case opPos:
-    text = Write("pos ", text);
-    text = WriteInt(ReadInt(index, mod), text);
-    break;
-  case opGoto:
-    text = Write("goto", text);
-    break;
-  case opHalt:
-    text = Write("halt", text);
-    break;
-  case opDup:
-    text = Write("dup", text);
-    break;
-  case opDrop:
-    text = Write("drop", text);
-    break;
-  case opSwap:
-    text = Write("swap", text);
-    break;
-  case opOver:
-    text = Write("over", text);
-    break;
-  case opRot:
-    text = Write("rot", text);
-    break;
-  case opGetEnv:
-    text = Write("getenv", text);
-    break;
-  case opSetEnv:
-    text = Write("setenv", text);
-    break;
-  case opLookup:
-    text = Write("lookup ", text);
-    text = WriteInt(ReadInt(index, mod), text);
-    break;
-  case opDefine:
-    text = Write("define ", text);
-    text = WriteInt(ReadInt(index, mod), text);
-    break;
+  if (*index < VecCount(mod->code)) {
+    switch (mod->code[(*index)++]) {
+    case opNoop:
+      text = Write("noop", text);
+      break;
+    case opConst:
+      text = Write("const ", text);
+      n = ReadInt(index, mod);
+      str = ValStr(mod->constants[n]);
+      text = Write(str, text);
+      free(str);
+      break;
+    case opAdd:
+      text = Write("add", text);
+      break;
+    case opSub:
+      text = Write("sub", text);
+      break;
+    case opMul:
+      text = Write("mul", text);
+      break;
+    case opDiv:
+      text = Write("div", text);
+      break;
+    case opRem:
+      text = Write("rem", text);
+      break;
+    case opAnd:
+      text = Write("and", text);
+      break;
+    case opOr:
+      text = Write("or", text);
+      break;
+    case opComp:
+      text = Write("comp", text);
+      break;
+    case opLt:
+      text = Write("lt", text);
+      break;
+    case opGt:
+      text = Write("gt", text);
+      break;
+    case opEq:
+      text = Write("eq", text);
+      break;
+    case opNeg:
+      text = Write("neg", text);
+      break;
+    case opNot:
+      text = Write("not", text);
+      break;
+    case opShift:
+      text = Write("shift", text);
+      break;
+    case opNil:
+      text = Write("nil", text);
+      break;
+    case opPair:
+      text = Write("pair", text);
+      break;
+    case opHead:
+      text = Write("head", text);
+      break;
+    case opTail:
+      text = Write("tail", text);
+      break;
+    case opTuple:
+      text = Write("tuple ", text);
+      text = WriteInt(ReadInt(index, mod), text);
+      break;
+    case opLen:
+      text = Write("len", text);
+      break;
+    case opGet:
+      text = Write("get", text);
+      break;
+    case opSet:
+      text = Write("set", text);
+      break;
+    case opStr:
+      text = Write("str", text);
+      break;
+    case opBin:
+      text = Write("bin ", text);
+      text = WriteInt(ReadInt(index, mod), text);
+      break;
+    case opJoin:
+      text = Write("join", text);
+      break;
+    case opTrunc:
+      text = Write("trunc", text);
+      break;
+    case opSkip:
+      text = Write("skip", text);
+      break;
+    case opJmp:
+      text = Write("jmp ", text);
+      text = WriteInt(ReadInt(index, mod), text);
+      break;
+    case opBr:
+      text = Write("br ", text);
+      text = WriteInt(ReadInt(index, mod), text);
+      break;
+    case opTrap:
+      text = Write("trap ", text);
+      n = ReadInt(index, mod);
+      text = Write(SymbolName(n), text);
+      break;
+    case opPos:
+      text = Write("pos ", text);
+      text = WriteInt(ReadInt(index, mod), text);
+      break;
+    case opGoto:
+      text = Write("goto", text);
+      break;
+    case opHalt:
+      text = Write("halt", text);
+      break;
+    case opDup:
+      text = Write("dup", text);
+      break;
+    case opDrop:
+      text = Write("drop", text);
+      break;
+    case opSwap:
+      text = Write("swap", text);
+      break;
+    case opOver:
+      text = Write("over", text);
+      break;
+    case opRot:
+      text = Write("rot", text);
+      break;
+    case opGetEnv:
+      text = Write("getenv", text);
+      break;
+    case opSetEnv:
+      text = Write("setenv", text);
+      break;
+    case opLookup:
+      text = Write("lookup ", text);
+      text = WriteInt(ReadInt(index, mod), text);
+      break;
+    case opDefine:
+      text = Write("define ", text);
+      text = WriteInt(ReadInt(index, mod), text);
+      break;
+    }
   }
   VecPush(text, 0);
   return text;
