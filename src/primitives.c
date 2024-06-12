@@ -1,5 +1,7 @@
 #include "primitives.h"
 #include "env.h"
+#include <univ/vec.h>
+#include <univ/symbol.h>
 
 VMStatus VMHead(VM *vm)
 {

@@ -2,7 +2,8 @@
 #include "parse.h"
 #include "vm.h"
 #include "env.h"
-#include <univ.h>
+#include <univ/symbol.h>
+#include <univ/vec.h>
 
 typedef struct {
   val env;
@@ -379,6 +380,19 @@ val CompileLambda(val node, Compiler *c)
   return 0;
 }
 
+val CompileSlice(val node, Compiler *c)
+{
+  val error;
+  error = CompileExpr(NodeChild(node, 0), c);
+  if (error) return error;
+  error = CompileExpr(NodeChild(node, 1), c);
+  if (error) return error;
+  error = CompileExpr(NodeChild(node, 2), c);
+  if (error) return error;
+  PushByte(opSlice, NodePos(node), c->mod);
+  return 0;
+}
+
 val CompileExpr(val node, Compiler *c)
 {
   switch (NodeType(node)) {
@@ -389,8 +403,7 @@ val CompileExpr(val node, Compiler *c)
   case strNode:     return CompileStr(node, c);
   case pairNode:    return CompileBinOp(opPair, node, c);
   case joinNode:    return CompileBinOp(opJoin, node, c);
-  case truncNode:   return CompileBinOp(opTrunc, node, c);
-  case skipNode:    return CompileBinOp(opSkip, node, c);
+  case sliceNode:   return CompileSlice(node, c);
   case listNode:    return CompileList(node, c);
   case tupleNode:   return CompileTuple(node, c);
   case doNode:      return CompileDo(node, c);

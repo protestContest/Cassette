@@ -1,5 +1,8 @@
 #include "mem.h"
-#include <univ.h>
+#include <univ/vec.h>
+#include <univ/symbol.h>
+#include <univ/math.h>
+#include <univ/str.h>
 
 static val *mem = 0;
 
@@ -52,7 +55,7 @@ val CopyObj(val value, val *oldmem)
     if (IsBinHdr(oldmem[index])) {
       len = RawVal(oldmem[index]);
       value = Binary(len);
-      Copy(oldmem+index+1, BinaryData(value), len*sizeof(val));
+      Copy(oldmem+index+1, BinaryData(value), len);
     } else if (IsTupleHdr(oldmem[index])) {
       len = RawVal(oldmem[index]);
       value = Tuple(len);
@@ -73,7 +76,7 @@ void CollectGarbage(val *roots)
   u32 i, scan;
   val *oldmem = mem;
 
-  /*printf("GARBAGE DAY!!!\n");*/
+  printf("GARBAGE DAY!!!\n");
 
   mem = NewVec(val, VecCapacity(mem));
   VecPush(mem, 0);
@@ -208,26 +211,15 @@ val TupleJoin(val left, val right)
   return tuple;
 }
 
-val TupleTrunc(val tuple, u32 index)
+val TupleSlice(val tuple, u32 start, u32 end)
 {
   u32 i;
-  val trunc = Tuple(Min(index, TupleLength(tuple)));
-  for (i = 0; i < TupleLength(trunc); i++) {
-    TupleSet(trunc, i, TupleGet(tuple, i));
+  u32 len = (end > start) ? end - start : 0;
+  val slice = Tuple(Min(len, TupleLength(tuple)));
+  for (i = 0; i < TupleLength(slice); i++) {
+    TupleSet(slice, i, TupleGet(tuple, i + start));
   }
-  return trunc;
-}
-
-val TupleSkip(val tuple, u32 index)
-{
-  u32 i;
-  val skip;
-  index = index < TupleLength(tuple) ? index : TupleLength(tuple);
-  skip = Tuple(TupleLength(tuple) - index);
-  for (i = 0; i < TupleLength(skip); i++) {
-    TupleSet(skip, i, TupleGet(tuple, i + index));
-  }
-  return skip;
+  return slice;
 }
 
 val Binary(u32 length)
@@ -275,20 +267,12 @@ val BinaryJoin(val left, val right)
   return bin;
 }
 
-val BinaryTrunc(val bin, u32 index)
+val BinarySlice(val bin, u32 start, u32 end)
 {
-  val trunc = Binary(Min(index, TupleLength(bin)));
-  Copy(BinaryData(bin), BinaryData(trunc), BinaryLength(trunc));
-  return trunc;
-}
-
-val BinarySkip(val bin, u32 index)
-{
-  val skip;
-  index = index < BinaryLength(bin) ? index : BinaryLength(bin);
-  skip = Binary(BinaryLength(bin) - index);
-  Copy(BinaryData(bin)+index, BinaryData(skip), BinaryLength(skip));
-  return skip;
+  u32 len = (end > start) ? end - start : 0;
+  val slice = Binary(Min(len, TupleLength(bin)));
+  Copy(BinaryData(bin)+start, BinaryData(slice), BinaryLength(slice));
+  return slice;
 }
 
 bool BinIsPrintable(val bin)

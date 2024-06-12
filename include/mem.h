@@ -48,8 +48,7 @@ u32 TupleLength(val tuple);
 val TupleGet(val tuple, u32 index);
 void TupleSet(val tuple, u32 index, val value);
 val TupleJoin(val left, val right);
-val TupleTrunc(val list, u32 index);
-val TupleSkip(val list, u32 index);
+val TupleSlice(val list, u32 start, u32 end);
 
 #define BinSpace(length)  (Align(length, 4) / 4)
 val Binary(u32 length);
@@ -59,8 +58,7 @@ char *BinaryData(val bin);
 val BinaryGet(val bin, u32 index);
 void BinarySet(val bin, u32 index, val value);
 val BinaryJoin(val left, val right);
-val BinaryTrunc(val list, u32 index);
-val BinarySkip(val list, u32 index);
+val BinarySlice(val list, u32 start, u32 end);
 bool BinIsPrintable(val bin);
 
 char *ValStr(val value, char *str);

@@ -2,12 +2,12 @@
 #include "mem.h"
 
 enum {nilNode, errNode, intNode, idNode, symNode, strNode, pairNode, joinNode,
-  truncNode, skipNode, listNode, tupleNode, doNode, ifNode, andNode, orNode,
+  sliceNode, listNode, tupleNode, doNode, ifNode, andNode, orNode,
   eqNode, ltNode, gtNode, shiftNode, addNode, subNode, borNode, mulNode,
   divNode, remNode, bandNode, negNode, notNode, lenNode, compNode, callNode,
   accessNode, lambdaNode, letNode, defNode, importNode, exportNode, moduleNode};
 
-val Parse(char *text, i32 length);
+val Parse(char *text);
 void PrintAST(val node);
 void PrintError(val node, char *source);
 

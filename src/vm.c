@@ -2,7 +2,10 @@
 #include "mem.h"
 #include "env.h"
 #include "parse.h"
-#include <univ.h>
+#include <univ/symbol.h>
+#include <univ/vec.h>
+#include <univ/str.h>
+#include <univ/math.h>
 
 typedef VMStatus (*OpFn)(VM *vm);
 
@@ -33,8 +36,7 @@ static VMStatus OpSet(VM *vm);
 static VMStatus OpStr(VM *vm);
 static VMStatus OpBin(VM *vm);
 static VMStatus OpJoin(VM *vm);
-static VMStatus OpTrunc(VM *vm);
-static VMStatus OpSkip(VM *vm);
+static VMStatus OpSlice(VM *vm);
 static VMStatus OpJmp(VM *vm);
 static VMStatus OpBr(VM *vm);
 static VMStatus OpTrap(VM *vm);
@@ -79,8 +81,7 @@ static OpFn ops[] = {
   [opStr]     = OpStr,
   [opBin]     = OpBin,
   [opJoin]    = OpJoin,
-  [opTrunc]   = OpTrunc,
-  [opSkip]    = OpSkip,
+  [opSlice]   = OpSlice,
   [opJmp]     = OpJmp,
   [opBr]      = OpBr,
   [opTrap]    = OpTrap,
@@ -466,59 +467,46 @@ static VMStatus OpJoin(VM *vm)
   return vmOk;
 }
 
-static VMStatus OpTrunc(VM *vm)
+static VMStatus OpSlice(VM *vm)
 {
-  val a, b;
-  TwoArgs(a, b);
+  val a, b, c;
+  ThreeArgs(a, b, c);
   if (!IsInt(b)) return invalidType;
-  if (IsPair(a)) {
-    if (MemFree() < 4*RawVal(b)) {
-      StackPush(a, vm);
-      RunGC(vm);
-      a = StackPop(vm);
-    }
-    StackPush(ListTrunc(a, RawVal(b)), vm);
-  } else if (IsTuple(a)) {
-    if (MemFree() < RawVal(b)+1) {
-      StackPush(a, vm);
-      RunGC(vm);
-      a = StackPop(vm);
-    }
-    StackPush(TupleTrunc(a, RawVal(b)), vm);
-  } else if (IsBinary(a)) {
-    if (MemFree() < BinSpace(RawVal(b))+1) {
-      StackPush(a, vm);
-      RunGC(vm);
-      a = StackPop(vm);
-    }
-    StackPush(BinaryTrunc(a, RawVal(b)), vm);
-  } else {
-    return invalidType;
-  }
-  return vmOk;
-}
+  if (c && !IsInt(c)) return invalidType;
 
-static VMStatus OpSkip(VM *vm)
-{
-  val a, b;
-  TwoArgs(a, b);
-  if (!IsInt(b)) return invalidType;
   if (IsPair(a)) {
-    StackPush(ListSkip(a, RawVal(b)), vm);
+    val list = ListSkip(a, RawVal(b));
+    if (c) {
+      if (RawVal(c) < ListLength(a)) {
+        if (MemFree() < 4*RawVal(b)) {
+          StackPush(list, vm);
+          RunGC(vm);
+          list = StackPop(vm);
+        }
+        list = ListTrunc(list, RawVal(c) - RawVal(b));
+      }
+    }
+    StackPush(list, vm);
   } else if (IsTuple(a)) {
-    if (MemFree() < TupleLength(a) - RawVal(b) + 1) {
+    u32 len;
+    if (!c) c = IntVal(TupleLength(a));
+    len = RawVal(c) - RawVal(b);
+    if (MemFree() < len+1) {
       StackPush(a, vm);
       RunGC(vm);
       a = StackPop(vm);
     }
-    StackPush(TupleSkip(a, RawVal(b)), vm);
+    StackPush(TupleSlice(a, RawVal(b), RawVal(c)), vm);
   } else if (IsBinary(a)) {
-    if (MemFree() < BinSpace(BinaryLength(a)) - RawVal(b) + 1) {
+    u32 len;
+    if (!c) c = IntVal(BinaryLength(a));
+    len = RawVal(c) - RawVal(b);
+    if (MemFree() < BinSpace(len)+1) {
       StackPush(a, vm);
       RunGC(vm);
       a = StackPop(vm);
     }
-    StackPush(BinarySkip(a, RawVal(b)), vm);
+    StackPush(BinarySlice(a, RawVal(b), RawVal(c)), vm);
   } else {
     return invalidType;
   }
@@ -671,15 +659,15 @@ void TraceInst(VM *vm)
 
 u32 PrintStack(VM *vm)
 {
-  u32 i, printed = 0;
+  u32 i, printed = 0, max = 6;
   char *str;
-  for (i = 0; i < 3; i++) {
+  for (i = 0; i < max; i++) {
     if (i >= VecCount(vm->stack)) break;
     str = ValStr(vm->stack[VecCount(vm->stack) - i - 1], 0);
     printed += fprintf(stderr, "%s ", str);
     free(str);
   }
-  if (VecCount(vm->stack) > 3) printed += fprintf(stderr, "...");
+  if (VecCount(vm->stack) > max) printed += fprintf(stderr, "...");
   for (i = 0; (i32)i < 30 - (i32)printed; i++) fprintf(stderr, " ");
   return printed;
 }

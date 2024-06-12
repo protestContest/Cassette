@@ -1,6 +1,9 @@
 #include "module.h"
 #include "vm.h"
-#include <univ.h>
+#include <univ/vec.h>
+#include <univ/symbol.h>
+#include <univ/str.h>
+#include <univ/math.h>
 
 void InitModule(Module *mod)
 {
@@ -204,11 +207,8 @@ char *DisassembleOp(u32 *index, char *text, Module *mod)
     case opJoin:
       text = BufWrite("join", text);
       break;
-    case opTrunc:
-      text = BufWrite("trunc", text);
-      break;
-    case opSkip:
-      text = BufWrite("skip", text);
+    case opSlice:
+      text = BufWrite("slice", text);
       break;
     case opJmp:
       text = BufWrite("jmp ", text);

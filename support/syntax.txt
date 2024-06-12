@@ -10,12 +10,17 @@ Assign      <- ID sp "=" vsp Expr
 Expr        <- Lambda / Logic
 Lambda      <- "\\" sp IDList? "->" vsp Expr
 Logic       <- Equal (("and" / "or") vsp Equal)*
-Equal       <- Compare (("==" / "!=") vsp Compare)?
-Compare     <- Sum ([<>] vsp Sum)?
+Equal       <- Pair (("==" / "!=") vsp Pair)?
+Pair        <- Join ("|" vsp Pair)?
+Join        <- Compare ("<>" vsp Compare)*
+Compare     <- Shift ([<>] vsp Shift)?
+Shift       <- Sum (("<<" | ">>") Sum)*
 Sum         <- Product ([+-] vsp Product)*
 Product     <- Unary ([*/] vsp Unary)*
 Unary       <- [-~#] Call / "not" sp Call / Call
-Call        <- Access ("(" vsp Args* vsp ")")* sp
+Call        <- Access (Args / Slice)* sp
+Args        <- "(" vsp Items ")"
+Slice       <- "[" vsp Expr (vsp ":" vsp Expr)? vsp "]"
 Access      <- Primary ("." ID)*
 Primary     <- Group / List / Tuple / Do / If / Cond / Num / Byte / Str / Sym / Literal / ID
 Group       <- "(" vsp Expr vsp ")" sp
@@ -23,8 +28,8 @@ Do          <- "do" vsp Stmts "end" sp
 If          <- "if" sp Expr "do" vsp Stmts ("else" vsp Stmts)? "end" sp
 Cond        <- "cond" vsp Clause (NL vsp Clause)* "end"
 Clause      <- Expr "->" vsp Expr
-List        <- "[" vsp Args* vsp "]" sp
-Tuple       <- "{" vsp Args* vsp "}" sp
+List        <- "[" vsp Items* vsp "]" sp
+Tuple       <- "{" vsp Items* vsp "}" sp
 Num         <- [0-9]+ sp
 Byte        <- "$" . sp
 Sym         <- ":" ID sp
@@ -33,7 +38,7 @@ StrChar     <- "\\" . / .
 Literal     <- ("nil" / "true" / "false") sp
 ID          <- [a-zA-Z_][a-zA-Z0-9_!?]* sp
 IDList      <- ID ("," vsp ID)*
-Args        <- Expr ("," vsp Expr)*
+Items       <- Expr ("," vsp Expr)*
 sp          <- (Space / Comment)*
 Space       <- " " / "\t"
 Comment     <- ";" (!NL .)*

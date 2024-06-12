@@ -1,24 +1,36 @@
-TARGET = cassette
+NAME = cassette
 
 BIN = bin
 BUILD = build
 INCLUDE = include
 LIB = lib
 SRC = src
+INSTALL = $(HOME)/.local
 
-SRCS := $(shell find $(SRC) -name '*.c' -print)
+EXECTARGET = $(BIN)/$(NAME)
+LIBTARGET = $(BIN)/lib$(NAME).dylib
+
+MAIN := main
+TESTFILE = test/test.ct
+SRCS := $(shell find $(SRC) -name '*.c' -not -name '$(MAIN).c' -print)
 OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
+MAIN_OBJ := $(BUILD)/$(MAIN).o
 
 CC = clang
-INCLUDE_FLAGS = -I$(INCLUDE) -include base.h
+INCLUDE_FLAGS = -I$(INCLUDE) -include univ/base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
 CFLAGS = -g -O2 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
-LDFLAGS = -L$(LIB) -luniv
+LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
-$(BIN)/$(TARGET): $(OBJS)
+$(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)
 	@echo $@
-	@$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
+	$(CC) $(CFLAGS) -luniv $(LIBTARGET) $(MAIN_OBJ) -o $@
+
+$(LIBTARGET): $(OBJS)
+	@mkdir -p $(dir $@)
+	@echo $<
+	$(CC) $(LIBLDFLAGS) -o $@ $(OBJS)
 
 $(BUILD)/%.o: $(SRC)/%.c
 	@mkdir -p $(dir $@)
@@ -31,10 +43,10 @@ clean:
 	rm -rf $(BIN)
 
 .PHONY: test
-test: $(BIN)/$(TARGET)
-	$(BIN)/$(TARGET) test/test.ct
+test: $(EXECTARGET)
+	@$(EXECTARGET) $(TESTFILE)
 
 .PHONY: entitlements
-entitlements: $(BIN)/$(TARGET)
-	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(BIN)/$(TARGET)
+entitlements: $(EXECTARGET)
+	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(EXECTARGET)
 

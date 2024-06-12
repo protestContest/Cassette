@@ -1,6 +1,6 @@
 #pragma once
 #include "module.h"
-#include <univ.h>
+#include <univ/hashmap.h>
 
 typedef enum {
   vmOk,
@@ -39,8 +39,7 @@ typedef enum {
   opStr,
   opBin,
   opJoin,
-  opTrunc,
-  opSkip,
+  opSlice,
   opJmp,
   opBr,
   opTrap,
