@@ -9,6 +9,7 @@ enum {pairType, objType, intType, symType, tupleHdr, binHdr};
 #define Val(type, x)    (((x) << typeBits) | (type & typeMask))
 #define ValType(x)      ((x) & typeMask)
 #define RawVal(v)       (((u32)(v)) >> typeBits)
+#define RawInt(v)       ((i32)((RawVal(v) ^ (1 << (valBits-1))) - (1 << (valBits-1))))
 #define PairVal(x)      Val(pairType, x)
 #define ObjVal(x)       Val(objType, x)
 #define IntVal(x)       Val(intType, x)

@@ -178,7 +178,7 @@ void RunGC(VM *vm)
 
 #define UnaryOp(op)     StackPush(IntVal(op RawVal(a)), vm)
 #define BinOp(op)       StackPush(IntVal(RawVal(a) op RawVal(b)), vm)
-#define CheckBounds(n)  if ((n) < 0 || (n) > VecCount(vm->mod->code)) return outOfBounds
+#define CheckBounds(n)  if ((n) < 0 || (n) > (i32)VecCount(vm->mod->code)) return outOfBounds
 
 static VMStatus OpNoop(VM *vm)
 {
@@ -381,14 +381,14 @@ static VMStatus OpGet(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(b)) return invalidType;
   if (IsPair(a)) {
-    if (RawVal(b) < 0 || RawVal(b) >= ListLength(a)) return outOfBounds;
-    StackPush(ListGet(a, RawVal(b)), vm);
+    if (RawInt(b) < 0 || RawInt(b) >= (i32)ListLength(a)) return outOfBounds;
+    StackPush(ListGet(a, RawInt(b)), vm);
   } else if (IsTuple(a)) {
-    if (RawVal(b) < 0 || RawVal(b) >= TupleLength(a)) return outOfBounds;
-    StackPush(TupleGet(a, RawVal(b)), vm);
+    if (RawInt(b) < 0 || RawInt(b) >= (i32)TupleLength(a)) return outOfBounds;
+    StackPush(TupleGet(a, RawInt(b)), vm);
   } else if (IsBinary(a)) {
-    if (RawVal(b) < 0 || RawVal(b) >= BinaryLength(a)) return outOfBounds;
-    StackPush(BinaryGet(a, RawVal(b)), vm);
+    if (RawInt(b) < 0 || RawInt(b) >= (i32)BinaryLength(a)) return outOfBounds;
+    StackPush(BinaryGet(a, RawInt(b)), vm);
   } else {
     return invalidType;
   }
@@ -400,6 +400,7 @@ static VMStatus OpSet(VM *vm)
   val a, b, c;
   ThreeArgs(a, b, c);
   if (!IsInt(b)) return invalidType;
+  if (RawInt(b) < 0) return outOfBounds;
   if (IsTuple(a)) {
     TupleSet(a, RawVal(b), c);
   } else if (IsBinary(a)) {
@@ -472,24 +473,27 @@ static VMStatus OpSlice(VM *vm)
   val a, b, c;
   ThreeArgs(a, b, c);
   if (!IsInt(b)) return invalidType;
+  if (RawInt(b) < 0) return outOfBounds;
   if (c && !IsInt(c)) return invalidType;
 
   if (IsPair(a)) {
     val list = ListSkip(a, RawVal(b));
     if (c) {
-      if (RawVal(c) < ListLength(a)) {
-        if (MemFree() < 4*RawVal(b)) {
-          StackPush(list, vm);
-          RunGC(vm);
-          list = StackPop(vm);
-        }
-        list = ListTrunc(list, RawVal(c) - RawVal(b));
+      u32 len;
+      if (RawInt(c) < 0 || RawInt(c) > (i32)ListLength(a)) return outOfBounds;
+      len = RawVal(c) - RawVal(b);
+      if (MemFree() < 4*len) {
+        StackPush(list, vm);
+        RunGC(vm);
+        list = StackPop(vm);
       }
+      list = ListTrunc(list, RawVal(c) - RawVal(b));
     }
     StackPush(list, vm);
   } else if (IsTuple(a)) {
     u32 len;
     if (!c) c = IntVal(TupleLength(a));
+    if (RawInt(c) < 0 || RawInt(c) > (i32)TupleLength(a)) return outOfBounds;
     len = RawVal(c) - RawVal(b);
     if (MemFree() < len+1) {
       StackPush(a, vm);
@@ -500,6 +504,7 @@ static VMStatus OpSlice(VM *vm)
   } else if (IsBinary(a)) {
     u32 len;
     if (!c) c = IntVal(BinaryLength(a));
+    if (RawInt(c) < 0 || RawInt(c) > (i32)BinaryLength(a)) return outOfBounds;
     len = RawVal(c) - RawVal(b);
     if (MemFree() < BinSpace(len)+1) {
       StackPush(a, vm);
@@ -516,7 +521,7 @@ static VMStatus OpSlice(VM *vm)
 static VMStatus OpJmp(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
-  CheckBounds(vm->pc + n);
+  CheckBounds((i32)vm->pc + n);
   vm->pc += n;
   return vmOk;
 }
@@ -527,7 +532,7 @@ static VMStatus OpBr(VM *vm)
   val a;
   OneArg(a);
   if (RawVal(a)) {
-    CheckBounds(vm->pc + n);
+    CheckBounds((i32)vm->pc + n);
     vm->pc += n;
   }
   return vmOk;
@@ -545,7 +550,7 @@ static VMStatus OpTrap(VM *vm)
 static VMStatus OpPos(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
-  StackPush(IntVal(vm->pc + n), vm);
+  StackPush(IntVal((i32)vm->pc + n), vm);
   return vmOk;
 }
 
@@ -554,7 +559,7 @@ static VMStatus OpGoto(VM *vm)
   val a;
   OneArg(a);
   if (!IsInt(a)) return invalidType;
-  CheckBounds(RawVal(a));
+  CheckBounds(RawInt(a));
   vm->pc = RawVal(a);
   return vmOk;
 }

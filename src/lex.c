@@ -12,7 +12,7 @@ static Token MakeToken(TokenType type, u32 pos, u32 length)
 
 static bool IsSymChar(char ch)
 {
-  return IsAlpha(ch) || IsDigit(ch) || ch == '_';
+  return IsAlpha(ch) || IsDigit(ch) || ch == '_' || ch == '!' || ch == '?';
 }
 
 static bool Match(char *test, char *str)

@@ -3,26 +3,6 @@
 #include <univ/vec.h>
 #include <univ/symbol.h>
 
-VMStatus VMHead(VM *vm)
-{
-  val a;
-  CheckStack(vm, 1);
-  a = StackPop(vm);
-  if (!IsPair(a)) return invalidType;
-  StackPush(Head(a), vm);
-  return vmOk;
-}
-
-VMStatus VMTail(VM *vm)
-{
-  val a;
-  CheckStack(vm, 1);
-  a = StackPop(vm);
-  if (!IsPair(a)) return invalidType;
-  StackPush(Tail(a), vm);
-  return vmOk;
-}
-
 VMStatus VMPrint(VM *vm)
 {
   val a;
@@ -42,8 +22,6 @@ typedef struct {
 } PrimDef;
 
 PrimDef primitives[] = {
-  {"head", VMHead},
-  {"tail", VMTail},
   {"print", VMPrint}
 };
 

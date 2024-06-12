@@ -9,6 +9,8 @@ def reduce(list, acc, fn) do
 end
 
 let sum = reduce([1, 2, 3, 4, 5, 6], 0, \n, sum -> do
-  print(n)
+  print(sum)
   n + sum
 end)
+
+print(sum)

@@ -330,7 +330,7 @@ val ParseJoin(Parser *p)
     VSpacing(p);
     arg = ParseCompare(p);
     if (IsError(arg)) return arg;
-    expr = MakeNode(joinNode, pos, Pair(arg, Pair(expr, 0)));
+    expr = MakeNode(joinNode, pos, Pair(expr, Pair(arg, 0)));
     pos = p->token.pos;
   }
   return expr;
@@ -860,7 +860,7 @@ void PrintNode(val node, i32 level, u32 lines)
     printf(" :%s\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case intNode:
-    printf(" %d\n", RawVal(NodeValue(node)));
+    printf(" %d\n", RawInt(NodeValue(node)));
     break;
   default:
     subnodes = NodeValue(node);

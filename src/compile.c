@@ -103,7 +103,9 @@ val CompileLet(val node, i32 n, Compiler *c)
     val expr = NodeChild(assign, 1);
     error = CompileExpr(expr, c);
     if (error) return error;
-    Define(var, --n, c->env);
+    PushByte(opDefine, NodePos(assign), c->mod);
+    PushInt(--n, NodePos(assign), c->mod);
+    Define(var, n, c->env);
     assigns = Tail(assigns);
   }
   return 0;
@@ -341,7 +343,7 @@ val CompileLambda(val node, Compiler *c)
   u32 *srcMap = c->mod->srcMap;
   u8 *lambdaCode = 0;
   u32 *lambdaMap = 0;
-  val params = NodeValue(NodeChild(node, 0));
+  val params = ReverseList(NodeValue(NodeChild(node, 0)), 0);
   val body = NodeChild(node, 1);
   i32 i, lambdaStart, numParams = ListLength(params);
 

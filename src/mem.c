@@ -321,9 +321,9 @@ char *ValStr(val value, char *str)
     }
     return str;
   } else if (IsInt(value)) {
-    len = NumDigits(RawVal(value), 10) + 1;
+    len = NumDigits(RawInt(value), 10) + 1;
     if (!str) str = malloc(len);
-    snprintf(str, len, "%d", RawVal(value));
+    snprintf(str, len, "%d", RawInt(value));
     return str;
   } else if (IsSym(value)) {
     char *name = SymbolName(RawVal(value));
