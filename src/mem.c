@@ -124,6 +124,18 @@ val Tail(val pair)
   return MemGet(RawVal(pair)+1);
 }
 
+void SetHead(val pair, val head)
+{
+  i32 index = RawVal(pair);
+  MemSet(index, head);
+}
+
+void SetTail(val pair, val tail)
+{
+  i32 index = RawVal(pair);
+  MemSet(index+1, tail);
+}
+
 u32 ListLength(val list)
 {
   u32 count = 0;

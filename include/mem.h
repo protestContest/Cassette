@@ -37,6 +37,8 @@ void CollectGarbage(val *roots);
 val Pair(val head, val tail);
 val Head(val pair);
 val Tail(val pair);
+void SetHead(val pair, val head);
+void SetTail(val pair, val tail);
 u32 ListLength(val list);
 val ListGet(val list, u32 index);
 val ReverseList(val list, val tail);

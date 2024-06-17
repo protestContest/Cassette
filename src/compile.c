@@ -12,7 +12,7 @@ typedef struct {
 
 static val CompileExpr(val node, Compiler *c);
 
-#define Fail(msg, node) MakeError(msg, NodePos(node))
+#define Fail(msg, node) MakeError(msg, NodeStart(node))
 
 static void ExtendEnv(i32 count, u32 pos, Compiler *c)
 {
@@ -45,8 +45,8 @@ val CompileConst(val value, u32 pos, Compiler *c)
 val CompileStr(val node, Compiler *c)
 {
   char *data = SymbolName(RawVal(NodeValue(node)));
-  CompileConst(NodeValue(node), NodePos(node), c);
-  PushByte(opStr, NodePos(node), c->mod);
+  CompileConst(NodeValue(node), NodeStart(node), c);
+  PushByte(opStr, NodeStart(node), c->mod);
   PushData(data, strlen(data), c->mod);
   return 0;
 }
@@ -55,8 +55,8 @@ val CompileVar(val node, Compiler *c)
 {
   i32 n = FindEnv(NodeValue(node), c->env);
   if (n < 0) return Fail("Undefined variable", node);
-  PushByte(opLookup, NodePos(node), c->mod);
-  PushInt(n, NodePos(node), c->mod);
+  PushByte(opLookup, NodeStart(node), c->mod);
+  PushInt(n, NodeStart(node), c->mod);
   return 0;
 }
 
@@ -64,13 +64,13 @@ val CompileList(val node, Compiler *c)
 {
   val error;
   val items = NodeValue(node);
-  CompileConst(0, NodePos(node), c);
+  CompileConst(0, NodeStart(node), c);
   while (items) {
     val item = Head(items);
     items = Tail(items);
     error = CompileExpr(item, c);
     if (error) return error;
-    PushByte(opPair, NodePos(node), c->mod);
+    PushByte(opPair, NodeStart(node), c->mod);
   }
   return 0;
 }
@@ -80,14 +80,14 @@ val CompileTuple(val node, Compiler *c)
   val error;
   val items = NodeValue(node);
   i32 numItems = ListLength(items), i;
-  PushByte(opTuple, NodePos(node), c->mod);
-  PushInt(numItems, NodePos(node), c->mod);
+  PushByte(opTuple, NodeStart(node), c->mod);
+  PushInt(numItems, NodeStart(node), c->mod);
   for (i = 0; i < numItems; i++) {
-    PushByte(opDup, NodePos(node), c->mod);
-    PushConst(IntVal(i), NodePos(node), c->mod);
+    PushByte(opDup, NodeStart(node), c->mod);
+    PushConst(IntVal(i), NodeStart(node), c->mod);
     error = CompileExpr(Head(items), c);
     if (error) return error;
-    PushByte(opSet, NodePos(node), c->mod);
+    PushByte(opSet, NodeStart(node), c->mod);
     items = Tail(items);
   }
   return 0;
@@ -103,8 +103,8 @@ val CompileLet(val node, i32 n, Compiler *c)
     val expr = NodeChild(assign, 1);
     error = CompileExpr(expr, c);
     if (error) return error;
-    PushByte(opDefine, NodePos(assign), c->mod);
-    PushInt(--n, NodePos(assign), c->mod);
+    PushByte(opDefine, NodeStart(assign), c->mod);
+    PushInt(--n, NodeStart(assign), c->mod);
     Define(var, n, c->env);
     assigns = Tail(assigns);
   }
@@ -119,8 +119,8 @@ val CompileDef(val node, i32 n, Compiler *c)
   Define(var, n, c->env);
   error = CompileExpr(value, c);
   if (error) return error;
-  PushByte(opDefine, NodePos(node), c->mod);
-  PushInt(n, NodePos(node), c->mod);
+  PushByte(opDefine, NodeStart(node), c->mod);
+  PushInt(n, NodeStart(node), c->mod);
   return 0;
 }
 
@@ -130,7 +130,7 @@ val CompileDo(val node, Compiler *c)
   i32 i, numAssigns = RawVal(NodeValue(NodeChild(node, 0)));
   val stmts = Tail(NodeValue(node));
 
-  if (numAssigns > 0) ExtendEnv(numAssigns, NodePos(node), c);
+  if (numAssigns > 0) ExtendEnv(numAssigns, NodeStart(node), c);
 
   i = numAssigns;
   while (stmts) {
@@ -139,19 +139,19 @@ val CompileDo(val node, Compiler *c)
     if (NodeType(stmt) == defNode) {
       error = CompileDef(stmt, --i, c);
       if (error) return error;
-      if (!stmts) CompileConst(0, NodePos(node), c);
+      if (!stmts) CompileConst(0, NodeStart(node), c);
     } else if (NodeType(stmt) == letNode) {
       error = CompileLet(stmt, i, c);
       if (error) return error;
-      if (!stmts) CompileConst(0, NodePos(node), c);
+      if (!stmts) CompileConst(0, NodeStart(node), c);
       i -= NodeCount(stmt);
     } else {
       error = CompileExpr(stmt, c);
       if (error) return error;
-      if (stmts) PushByte(opDrop, NodePos(node), c->mod);
+      if (stmts) PushByte(opDrop, NodeStart(node), c->mod);
     }
   }
-  if (numAssigns > 0) PopEnv(NodePos(node), c);
+  if (numAssigns > 0) PopEnv(NodeStart(node), c);
   return 0;
 }
 
@@ -179,8 +179,8 @@ val CompileIf(val node, Compiler *c)
   c->mod->srcMap = falseMap;
   error = CompileExpr(alt, c);
   if (error) return error;
-  PushByte(opJmp, NodePos(node), c->mod);
-  PushInt(VecCount(trueCode), NodePos(node), c->mod);
+  PushByte(opJmp, NodeStart(node), c->mod);
+  PushInt(VecCount(trueCode), NodeStart(node), c->mod);
   falseCode = c->mod->code;
   falseMap = c->mod->srcMap;
 
@@ -188,8 +188,8 @@ val CompileIf(val node, Compiler *c)
   c->mod->srcMap = srcMap;
   error = CompileExpr(pred, c);
   if (error) return error;
-  PushByte(opBr, NodePos(node), c->mod);
-  PushInt(VecCount(falseCode), NodePos(node), c->mod);
+  PushByte(opBr, NodeStart(node), c->mod);
+  PushInt(VecCount(falseCode), NodeStart(node), c->mod);
   AppendCode(falseCode, falseMap, c->mod);
   AppendCode(trueCode, trueMap, c->mod);
   return 0;
@@ -206,7 +206,7 @@ val CompileAnd(val node, Compiler *c)
   u32 *rightMap = 0;
   c->mod->code = rightCode;
   c->mod->srcMap = rightMap;
-  PushByte(opDrop, NodePos(node), c->mod);
+  PushByte(opDrop, NodeStart(node), c->mod);
   error = CompileExpr(right, c);
   if (error) return error;
   rightCode = c->mod->code;
@@ -215,9 +215,9 @@ val CompileAnd(val node, Compiler *c)
   c->mod->srcMap = srcMap;
   error = CompileExpr(left, c);
   if (error) return error;
-  PushByte(opDup, NodePos(node), c->mod);
-  PushByte(opBr, NodePos(node), c->mod);
-  PushInt(VecCount(rightCode), NodePos(node), c->mod);
+  PushByte(opDup, NodeStart(node), c->mod);
+  PushByte(opBr, NodeStart(node), c->mod);
+  PushInt(VecCount(rightCode), NodeStart(node), c->mod);
   AppendCode(rightCode, rightMap, c->mod);
   return 0;
 }
@@ -233,7 +233,7 @@ val CompileOr(val node, Compiler *c)
   u32 *rightMap = 0;
   c->mod->code = rightCode;
   c->mod->srcMap = rightMap;
-  PushByte(opDrop, NodePos(node), c->mod);
+  PushByte(opDrop, NodeStart(node), c->mod);
   error = CompileExpr(right, c);
   if (error) return error;
   rightCode = c->mod->code;
@@ -242,10 +242,10 @@ val CompileOr(val node, Compiler *c)
   c->mod->srcMap = srcMap;
   error = CompileExpr(left, c);
   if (error) return error;
-  PushByte(opDup, NodePos(node), c->mod);
-  PushByte(opNot, NodePos(node), c->mod);
-  PushByte(opBr, NodePos(node), c->mod);
-  PushInt(VecCount(rightCode), NodePos(node), c->mod);
+  PushByte(opDup, NodeStart(node), c->mod);
+  PushByte(opNot, NodeStart(node), c->mod);
+  PushByte(opBr, NodeStart(node), c->mod);
+  PushInt(VecCount(rightCode), NodeStart(node), c->mod);
   AppendCode(rightCode, rightMap, c->mod);
   return 0;
 }
@@ -257,7 +257,7 @@ val CompileBinOp(OpCode op, val node, Compiler *c)
   if (error) return error;
   error = CompileExpr(NodeChild(node, 1), c);
   if (error) return error;
-  PushByte(op, NodePos(node), c->mod);
+  PushByte(op, NodeStart(node), c->mod);
   return 0;
 }
 
@@ -266,7 +266,7 @@ val CompileUnaryOp(OpCode op, val node, Compiler *c)
   val error;
   error = CompileExpr(NodeChild(node, 0), c);
   if (error) return error;
-  PushByte(op, NodePos(node), c->mod);
+  PushByte(op, NodeStart(node), c->mod);
   return 0;
 }
 
@@ -286,8 +286,8 @@ val CompileTrap(val node, Compiler *c)
     args = Tail(args);
   }
   if (NodeType(id) != symNode) return Fail("Trap ID must be a symbol", node);
-  PushByte(opTrap, NodePos(node), c->mod);
-  PushInt(RawVal(NodeValue(id)), NodePos(node), c->mod);
+  PushByte(opTrap, NodeStart(node), c->mod);
+  PushInt(RawVal(NodeValue(id)), NodeStart(node), c->mod);
   return 0;
 }
 
@@ -312,22 +312,22 @@ val CompileCall(val node, Compiler *c)
   }
   error = CompileExpr(op, c);
   if (error) return error;
-  PushByte(opDup, NodePos(node), c->mod);
-  PushByte(opHead, NodePos(node), c->mod);
-  PushByte(opSetEnv, NodePos(node), c->mod);
-  PushByte(opTail, NodePos(node), c->mod);
-  PushByte(opGoto, NodePos(node), c->mod);
+  PushByte(opDup, NodeStart(node), c->mod);
+  PushByte(opHead, NodeStart(node), c->mod);
+  PushByte(opSetEnv, NodeStart(node), c->mod);
+  PushByte(opTail, NodeStart(node), c->mod);
+  PushByte(opGoto, NodeStart(node), c->mod);
   callCode = c->mod->code;
   callMap = c->mod->srcMap;
 
   c->mod->code = code;
   c->mod->srcMap = srcMap;
-  PushByte(opGetEnv, NodePos(node), c->mod);
-  PushByte(opPos, NodePos(node), c->mod);
-  PushInt(VecCount(callCode), NodePos(node), c->mod);
+  PushByte(opGetEnv, NodeStart(node), c->mod);
+  PushByte(opPos, NodeStart(node), c->mod);
+  PushInt(VecCount(callCode), NodeStart(node), c->mod);
   AppendCode(callCode, callMap, c->mod);
-  PushByte(opSwap, NodePos(node), c->mod);
-  PushByte(opSetEnv, NodePos(node), c->mod);
+  PushByte(opSwap, NodeStart(node), c->mod);
+  PushByte(opSetEnv, NodeStart(node), c->mod);
   return 0;
 }
 
@@ -350,10 +350,10 @@ val CompileLambda(val node, Compiler *c)
   c->mod->code = lambdaCode;
   c->mod->srcMap = lambdaMap;
   if (numParams > 0) {
-    ExtendEnv(numParams, NodePos(node), c);
+    ExtendEnv(numParams, NodeStart(node), c);
     for (i = 0; i < numParams; i++) {
-      PushByte(opDefine, NodePos(node), c->mod);
-      PushInt(numParams-i-1, NodePos(node), c->mod);
+      PushByte(opDefine, NodeStart(node), c->mod);
+      PushInt(numParams-i-1, NodeStart(node), c->mod);
       Define(NodeValue(Head(params)), numParams-i-1, c->env);
       params = Tail(params);
     }
@@ -364,21 +364,21 @@ val CompileLambda(val node, Compiler *c)
     return error;
   }
   if (numParams > 0) c->env = Tail(c->env);
-  PushByte(opSwap, NodePos(node), c->mod);
-  PushByte(opGoto, NodePos(node), c->mod);
+  PushByte(opSwap, NodeStart(node), c->mod);
+  PushByte(opGoto, NodeStart(node), c->mod);
   lambdaCode = c->mod->code;
   lambdaMap = c->mod->srcMap;
 
   c->mod->code = code;
   c->mod->srcMap = srcMap;
-  PushByte(opJmp, NodePos(node), c->mod);
-  PushInt(VecCount(lambdaCode), NodePos(node), c->mod);
+  PushByte(opJmp, NodeStart(node), c->mod);
+  PushInt(VecCount(lambdaCode), NodeStart(node), c->mod);
   lambdaStart = VecCount(c->mod->code);
   AppendCode(lambdaCode, lambdaMap, c->mod);
-  PushByte(opPos, NodePos(node), c->mod);
-  PushLabel(lambdaStart, NodePos(node), c->mod);
-  PushByte(opGetEnv, NodePos(node), c->mod);
-  PushByte(opPair, NodePos(node), c->mod);
+  PushByte(opPos, NodeStart(node), c->mod);
+  PushLabel(lambdaStart, NodeStart(node), c->mod);
+  PushByte(opGetEnv, NodeStart(node), c->mod);
+  PushByte(opPair, NodeStart(node), c->mod);
   return 0;
 }
 
@@ -391,17 +391,17 @@ val CompileSlice(val node, Compiler *c)
   if (error) return error;
   error = CompileExpr(NodeChild(node, 2), c);
   if (error) return error;
-  PushByte(opSlice, NodePos(node), c->mod);
+  PushByte(opSlice, NodeStart(node), c->mod);
   return 0;
 }
 
 val CompileExpr(val node, Compiler *c)
 {
   switch (NodeType(node)) {
-  case nilNode:     return CompileConst(nil, NodePos(node), c);
-  case intNode:     return CompileConst(NodeValue(node), NodePos(node), c);
+  case nilNode:     return CompileConst(nil, NodeStart(node), c);
+  case intNode:     return CompileConst(NodeValue(node), NodeStart(node), c);
   case idNode:      return CompileVar(node, c);
-  case symNode:     return CompileConst(NodeValue(node), NodePos(node), c);
+  case symNode:     return CompileConst(NodeValue(node), NodeStart(node), c);
   case strNode:     return CompileStr(node, c);
   case pairNode:    return CompileBinOp(opPair, node, c);
   case joinNode:    return CompileBinOp(opJoin, node, c);
