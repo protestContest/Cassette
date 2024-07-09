@@ -1,6 +1,7 @@
 #include "parse.h"
 #include "compile.h"
 #include "primitives.h"
+#include "types.h"
 #include "vm.h"
 #include <univ/file.h>
 #include <univ/str.h>
@@ -25,7 +26,13 @@ int main(int argc, char *argv[])
   result = Parse(source);
 
   if (IsError(result)) {
-    PrintError(result, source);
+    PrintError("Parse error", result, source);
+    return 1;
+  }
+
+  result = InferTypes(result);
+  if (IsError(result)) {
+    PrintError("Type error", result, source);
     return 1;
   }
 
@@ -38,7 +45,7 @@ int main(int argc, char *argv[])
   InitModule(&module);
   result = Compile(result, PrimitiveEnv(), &module);
   if (IsError(result)) {
-    PrintError(result, source);
+    PrintError("Compile error", result, source);
     return 1;
   }
 
@@ -70,7 +77,7 @@ int main(int argc, char *argv[])
 #endif
 
   if (vm.status != vmOk) {
-    PrintError(VMError(&vm), source);
+    PrintError("Runtime error", VMError(&vm), source);
   }
 
   DestroyVM(&vm);

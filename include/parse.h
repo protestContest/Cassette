@@ -9,7 +9,7 @@ enum {nilNode, errNode, intNode, idNode, symNode, strNode, pairNode, joinNode,
 
 val Parse(char *text);
 void PrintAST(val node);
-void PrintError(val node, char *source);
+void PrintError(char *prefix, val node, char *source);
 
 val MakeNode(i32 type, i32 start, i32 end, val value);
 #define MakeError(msg, node) MakeNode(errNode, NodeStart(node), NodeEnd(node), SymVal(Symbol(msg)))
@@ -19,6 +19,7 @@ enum {start, end, type};
 #define NodeType(node)      RawVal(TupleGet(node, 0))
 #define NodeValue(node)     TupleGet(node, 1)
 #define NodeProp(node,p)    TupleGet(node, (p)+2)
+#define SetNodeProp(n,p,v)  TupleSet(n, (p)+2, v)
 #define NodeStart(node)     RawVal(NodeProp(node, start))
 #define NodeEnd(node)       RawVal(NodeProp(node, end))
 #define NodeCount(node)     ListLength(NodeValue(node))

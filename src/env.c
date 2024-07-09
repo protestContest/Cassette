@@ -1,11 +1,30 @@
 #include "env.h"
 
-bool Define(val var, u32 index, val env)
+bool Define(val var, val value, val env)
 {
   val frame = Head(env);
-  if (index < 0 || index >= TupleLength(frame)) return false;
-  TupleSet(frame, index, var);
-  return true;
+  u32 i;
+  for (i = 0; i < TupleLength(frame); i++) {
+    if (TupleGet(frame, i) == 0) {
+      TupleSet(frame, i, Pair(var, value));
+      return true;
+    }
+  }
+  return false;
+}
+
+val Lookup(val var, val env)
+{
+  while (env) {
+    val frame = Head(env);
+    u32 i;
+    for (i = 0; i < TupleLength(frame); i++) {
+      val item = TupleGet(frame, i);
+      if (IsPair(item) && Head(item) == var) return Tail(item);
+    }
+    env = Tail(env);
+  }
+  return 0;
 }
 
 i32 FindEnv(val var, val env)
@@ -25,7 +44,15 @@ i32 FindEnv(val var, val env)
   return -1;
 }
 
-val Lookup(u32 index, val env)
+bool EnvSet(val value, u32 index, val env)
+{
+  val frame = Head(env);
+  if (index >= TupleLength(frame)) return false;
+  TupleSet(frame, index, value);
+  return true;
+}
+
+val EnvGet(u32 index, val env)
 {
   while (env) {
     val frame = Head(env);

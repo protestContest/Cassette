@@ -1,5 +1,6 @@
 #include "parse.h"
 #include "lex.h"
+#include "types.h"
 #include <univ/str.h>
 #include <univ/symbol.h>
 #include <univ/math.h>
@@ -139,7 +140,7 @@ val ParseModname(Parser *p)
 
 val ParseExports(Parser *p)
 {
-  i32 exports, pos = p->token.pos, end;
+  i32 exports, pos = p->token.pos, end = 0;
   if (!MatchToken(exportsToken, p)) {
     return ParseError("Expected \"exports\"", p);
   }
@@ -248,7 +249,7 @@ val ParseDef(Parser *p)
   if (IsError(body)) return body;
   lambda = MakeNode(lambdaNode, pos, NodeEnd(body),
       Pair(params, Pair(body, 0)));
-  return MakeNode(defNode, pos, NodeEnd(body), Pair(id, Pair(lambda, 0)));
+  return MakeNode(defNode, pos, NodeEnd(lambda), Pair(id, Pair(lambda, 0)));
 }
 
 val ParseAssign(Parser *p)
@@ -611,15 +612,16 @@ val ParseGroup(Parser *p)
 #define TrivialDoNode(node)   (RawVal(NodeValue(NodeChild(node, 0))) == 0 && NodeCount(node) == 2)
 val ParseDo(Parser *p)
 {
-  i32 stmts, pos = p->token.pos;
+  i32 stmts, pos = p->token.pos, endPos;
   if (!MatchToken(doToken, p)) return ParseError("Expected \"do\"", p);
   VSpacing(p);
   stmts = ParseStmts(p);
   if (IsError(stmts)) return stmts;
   if (!MatchToken(endToken, p)) return ParseError("Expected \"end\"", p);
+  endPos = p->token.pos;
   Spacing(p);
   if (TrivialDoNode(stmts)) return NodeChild(stmts, 1);
-  return MakeNode(doNode, pos, p->token.pos, NodeValue(stmts));
+  return MakeNode(doNode, pos, endPos, NodeValue(stmts));
 }
 
 val ParseIf(Parser *p)
@@ -883,13 +885,16 @@ void PrintNode(val node, i32 level, u32 lines)
 {
   i32 type = NodeType(node);
   i32 i, subnodes;
+  i32 valtype = NodeProp(node, type);
 
   if (!type) {
-    printf("nil:%d\n", NodeStart(node));
+    printf("nil[%d:%d]\n", NodeStart(node), NodeEnd(node));
     return;
   }
 
-  printf("%s:%d", NodeName(type), NodeStart(node));
+  printf("%s[%d:%d]", NodeName(type), NodeStart(node), NodeEnd(node));
+  if (valtype) PrintType(valtype);
+
   switch (type) {
   case idNode:
     printf(" %s\n", SymbolName(RawVal(NodeValue(node))));
@@ -932,14 +937,18 @@ void PrintAST(val node)
   PrintNode(node, 0, 0);
 }
 
-void PrintError(val node, char *source)
+void PrintError(char *prefix, val node, char *source)
 {
   i32 nodeStart = NodeStart(node);
   i32 nodeLen = NodeEnd(node) - nodeStart;
   i32 col = 0, i;
   i32 line = 0;
   if (!node) return;
-  fprintf(stderr, "%sError: %s\n", ANSIRed, ErrorMsg(node));
+  if (prefix) {
+    fprintf(stderr, "%s%s: %s\n", ANSIRed, prefix, ErrorMsg(node));
+  } else {
+    fprintf(stderr, "%s%s\n", ANSIRed, ErrorMsg(node));
+  }
   if (source) {
     char *start = source + nodeStart;
     char *end = source + nodeStart;

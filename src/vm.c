@@ -631,7 +631,7 @@ static VMStatus OpSetEnv(VM *vm)
 static VMStatus OpLookup(VM *vm)
 {
   i32 n = ReadInt(&vm->pc, vm->mod);
-  StackPush(Lookup(n, vm->env), vm);
+  StackPush(EnvGet(n, vm->env), vm);
   return vmOk;
 }
 

@@ -1,16 +1,1 @@
-def print(value) trap(:print, value)
-
-def reduce(list, acc, fn) do
-  if list do
-    reduce(list[1:], fn(list[0], acc), fn)
-  else
-    acc
-  end
-end
-
-let sum = reduce([1, 2, 3, 4, 5, 6], 0, \n, sum -> do
-  print(sum)
-  n + sum
-end)
-
-print(sum)
+print(3)

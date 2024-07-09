@@ -35,5 +35,10 @@ void DefinePrimitives(VM *vm)
 
 val PrimitiveEnv(void)
 {
-  return 0;
+  u32 i;
+  val frame = Tuple(ArrayCount(primitives));
+  for (i = 0; i < ArrayCount(primitives); i++) {
+    TupleSet(frame, i, SymVal(Symbol(primitives[i].name)));
+  }
+  return Pair(frame, 0);
 }
