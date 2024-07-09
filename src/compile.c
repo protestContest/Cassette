@@ -12,7 +12,7 @@ typedef struct {
 
 static val CompileExpr(val node, Compiler *c);
 
-#define Fail(msg, node) MakeError(msg, NodeStart(node))
+#define Fail(msg, node) MakeError(msg, NodeStart(node), NodeEnd(node))
 
 static void ExtendEnv(i32 count, u32 pos, Compiler *c)
 {
@@ -96,27 +96,20 @@ val CompileTuple(val node, Compiler *c)
 val CompileLet(val node, i32 n, Compiler *c)
 {
   val error;
-  val assigns = NodeValue(node);
-  while (assigns) {
-    val assign = Head(assigns);
-    val var = NodeValue(NodeChild(assign, 0));
-    val expr = NodeChild(assign, 1);
-    error = CompileExpr(expr, c);
-    if (error) return error;
-    PushByte(opDefine, NodeStart(assign), c->mod);
-    PushInt(--n, NodeStart(assign), c->mod);
-    Define(var, n, c->env);
-    assigns = Tail(assigns);
-  }
+  val var = NodeValue(NodeChild(node, 0));
+  val value = NodeChild(node, 1);
+  error = CompileExpr(value, c);
+  if (error) return error;
+  EnvSet(var, n, c->env);
+  PushByte(opDefine, NodeStart(node), c->mod);
+  PushInt(n, NodeStart(node), c->mod);
   return 0;
 }
 
 val CompileDef(val node, i32 n, Compiler *c)
 {
   val error;
-  val var = NodeValue(NodeChild(node, 0));
   val value = NodeChild(node, 1);
-  Define(var, n, c->env);
   error = CompileExpr(value, c);
   if (error) return error;
   PushByte(opDefine, NodeStart(node), c->mod);
@@ -132,6 +125,18 @@ val CompileDo(val node, Compiler *c)
 
   if (numAssigns > 0) ExtendEnv(numAssigns, NodeStart(node), c);
 
+  /* pre-define all defs */
+  i = numAssigns;
+  while (stmts) {
+    val stmt = Head(stmts);
+    val var;
+    stmts = Tail(stmts);
+    if (NodeType(stmt) != defNode) break;
+    var = NodeValue(NodeChild(stmt, 0));
+    EnvSet(var, --i, c->env);
+  }
+
+  stmts = Tail(NodeValue(node));
   i = numAssigns;
   while (stmts) {
     val stmt = Head(stmts);
@@ -141,10 +146,9 @@ val CompileDo(val node, Compiler *c)
       if (error) return error;
       if (!stmts) CompileConst(0, NodeStart(node), c);
     } else if (NodeType(stmt) == letNode) {
-      error = CompileLet(stmt, i, c);
+      error = CompileLet(stmt, --i, c);
       if (error) return error;
       if (!stmts) CompileConst(0, NodeStart(node), c);
-      i -= NodeCount(stmt);
     } else {
       error = CompileExpr(stmt, c);
       if (error) return error;
@@ -354,7 +358,7 @@ val CompileLambda(val node, Compiler *c)
     for (i = 0; i < numParams; i++) {
       PushByte(opDefine, NodeStart(node), c->mod);
       PushInt(numParams-i-1, NodeStart(node), c->mod);
-      Define(NodeValue(Head(params)), numParams-i-1, c->env);
+      EnvSet(NodeValue(Head(params)), numParams-i-1, c->env);
       params = Tail(params);
     }
   }
@@ -439,6 +443,9 @@ val Compile(i32 ast, val env, Module *mod)
   Compiler c;
   c.env = env;
   c.mod = mod;
-  if (NodeType(ast) != moduleNode) return Fail("Expected module", ast);
-  return CompileExpr(NodeChild(ast, 3), &c);
+  if (NodeType(ast) == moduleNode) {
+    return CompileExpr(NodeChild(ast, 3), &c);
+  } else {
+    return CompileExpr(ast, &c);
+  }
 }

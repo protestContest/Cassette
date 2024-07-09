@@ -44,7 +44,7 @@ val MakeNode(i32 type, i32 start, i32 end, val value)
   TupleSet(node, 4, 0);
   return node;
 }
-#define ParseError(msg, p)  MakeError(msg, (p)->token.pos)
+#define ParseError(msg, p)  MakeError(msg, (p)->token.pos, (p)->token.pos + (p)->token.length)
 #define TokenNode(type, token, value) \
   MakeNode(type, (token).pos, (token).pos+(token).length, value)
 
@@ -82,6 +82,7 @@ val ParseByte(Parser *p);
 val ParseHex(Parser *p);
 val ParseSymbol(Parser *p);
 val ParseString(Parser *p);
+val ParseVar(Parser *p);
 val ParseID(Parser *p);
 val ParseIDList(Parser *p);
 val ParseItems(Parser *p);
@@ -100,7 +101,8 @@ val Parse(char *text)
 
 val ParseModule(Parser *p)
 {
-  i32 pos = p->token.pos, modname, exports, imports, stmts;
+  i32 pos = p->token.pos;
+  val modname, exports, imports, stmts;
   VSpacing(p);
   if (p->token.type == moduleToken) {
     modname = ParseModname(p);
@@ -535,7 +537,7 @@ val ParseCall(Parser *p)
       } else {
         endPos = p->token.pos + p->token.length;
         if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
-        expr = MakeNode(accessNode, pos, endPos, Pair(expr, Pair(start, 0)));
+        expr = MakeNode(sliceNode, pos, endPos, Pair(expr, Pair(start, 0)));
       }
     }
   }
@@ -590,7 +592,7 @@ val ParsePrimary(Parser *p)
   } else if (MatchToken(falseToken, p)) {
     return MakeNode(intNode, pos, endPos, IntVal(0));
   } else if (CheckToken(idToken, p)) {
-    return ParseID(p);
+    return ParseVar(p);
   } else {
     return ParseError("Unexpected expression", p);
   }
@@ -759,9 +761,10 @@ val ParseHex(Parser *p)
 val ParseSymbol(Parser *p)
 {
   i32 sym;
-  Token token = p->token;
+  Token token;
   if (!MatchToken(colonToken, p)) return ParseError("Expected \":\"", p);
   if (!CheckToken(idToken, p))return ParseError("Expected identifier", p);
+  token = p->token;
   sym = SymbolFrom(p->text + token.pos, token.length);
   Adv(p);
   Spacing(p);
@@ -777,6 +780,11 @@ val ParseString(Parser *p)
   Adv(p);
   Spacing(p);
   return TokenNode(strNode, token, SymVal(sym));
+}
+
+val ParseVar(Parser *p)
+{
+  return ParseID(p);
 }
 
 val ParseID(Parser *p)
@@ -885,17 +893,19 @@ void PrintNode(val node, i32 level, u32 lines)
 {
   i32 type = NodeType(node);
   i32 i, subnodes;
-  i32 valtype = NodeProp(node, type);
-
-  if (!type) {
-    printf("nil[%d:%d]\n", NodeStart(node), NodeEnd(node));
-    return;
-  }
+  i32 valtype = NodeProp(node, typeProp);
 
   printf("%s[%d:%d]", NodeName(type), NodeStart(node), NodeEnd(node));
-  if (valtype) PrintType(valtype);
+  if (valtype) {
+    printf("<");
+    PrintType(valtype);
+    printf(">");
+  }
 
   switch (type) {
+  case nilNode:
+    printf("\n");
+    break;
   case idNode:
     printf(" %s\n", SymbolName(RawVal(NodeValue(node))));
     break;

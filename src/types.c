@@ -122,16 +122,6 @@ static val InferDo(val node, val context)
   return result;
 }
 
-static val InferCall(val node, val context)
-{
-  val fn = NodeChild(node, 0);
-  val arg = NodeChild(node, 1);
-  val result = InferType(fn, context);
-  if (IsTypeError(result)) return result;
-  result = InferType(arg, context);
-  if (IsTypeError(result)) return result;
-}
-
 static val InferType(val node, val context)
 {
   printf("---\n");
@@ -150,8 +140,6 @@ static val InferType(val node, val context)
     return InferVar(node, context);
   case doNode:
     return InferDo(node, context);
-  case callNode:
-    return InferCall(node, context);
   }
 
   return TypeError("Unimplemented", node);

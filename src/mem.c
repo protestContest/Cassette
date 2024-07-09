@@ -106,6 +106,37 @@ void CollectGarbage(val *roots)
   FreeVec(oldmem);
 }
 
+bool ValEq(val a, val b)
+{
+  if (!a && !b) {
+    return true;
+  } else if (IsPair(a) && IsPair(b)) {
+    return ValEq(Head(a), Head(b)) && ValEq(Tail(a), Tail(b));
+  } else if (IsTuple(a) && IsTuple(b)) {
+    u32 i;
+    if (TupleLength(a) != TupleLength(b)) return false;
+    for (i = 0; i < TupleLength(a); i++) {
+      if (!ValEq(TupleGet(a, i), TupleGet(b, i))) return false;
+    }
+    return true;
+  } else if (IsBinary(a) && IsBinary(b)) {
+    char *adata = BinaryData(a);
+    char *bdata = BinaryData(b);
+    u32 i;
+    if (BinaryLength(a) != BinaryLength(b)) return false;
+    for (i = 0; i < BinaryLength(a); i++) {
+      if (adata[i] != bdata[i]) return false;
+    }
+    return true;
+  } else if (IsInt(a) && IsInt(b)) {
+    return a == b;
+  } else if (IsSym(a) && IsSym(b)) {
+    return a == b;
+  } else {
+    return false;
+  }
+}
+
 val Pair(val head, val tail)
 {
   i32 index = MemAlloc(2);

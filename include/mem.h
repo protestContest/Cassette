@@ -34,6 +34,8 @@ u32 MemSize(void);
 u32 MemFree(void);
 void CollectGarbage(val *roots);
 
+bool ValEq(val a, val b);
+
 val Pair(val head, val tail);
 val Head(val pair);
 val Tail(val pair);

@@ -30,11 +30,13 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+/*
   result = InferTypes(result);
   if (IsError(result)) {
     PrintError("Type error", result, source);
     return 1;
   }
+*/
 
 #if DEBUG
   printf("%sAST%s\n", ANSIUnderline, ANSINormal);

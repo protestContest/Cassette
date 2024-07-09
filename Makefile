@@ -30,7 +30,7 @@ $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 $(LIBTARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	@echo $<
-	$(CC) $(LIBLDFLAGS) -o $@ $(OBJS)
+	$(CC) -luniv $(LIBLDFLAGS) -o $@ $(OBJS)
 
 $(BUILD)/%.o: $(SRC)/%.c
 	@mkdir -p $(dir $@)
@@ -44,9 +44,10 @@ clean:
 
 .PHONY: test
 test: $(EXECTARGET)
-	@$(EXECTARGET) $(TESTFILE)
+	$(EXECTARGET) $(TESTFILE)
 
 .PHONY: entitlements
 entitlements: $(EXECTARGET)
+	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(LIBTARGET)
 	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(EXECTARGET)
 

@@ -9,10 +9,39 @@ VMStatus VMPrint(VM *vm)
   char *str;
   CheckStack(vm, 1);
   a = StackPop(vm);
-  str = ValStr(a, 0);
-  printf("%s\n", str);
-  free(str);
+
+  if (a == 0 || IsInt(a) || IsSym(a)) {
+    str = ValStr(a, 0);
+    printf("%s\n", str);
+    free(str);
+  } else if (IsPair(a)) {
+    printf("[");
+    while (a && IsPair(a)) {
+      str = ValStr(Head(a), 0);
+      printf("%s", str);
+      free(str);
+      a = Tail(a);
+      if (a && IsPair(a)) {
+        printf(", ");
+      }
+    }
+    if (a) {
+      printf(" | ");
+      str = ValStr(a, 0);
+      printf("%s", str);
+      free(str);
+    }
+    printf("]\n");
+  }
+
   StackPush(SymVal(Symbol("ok")), vm);
+  return vmOk;
+}
+
+VMStatus VMDebug(VM *vm)
+{
+  getchar();
+  StackPush(0, vm);
   return vmOk;
 }
 
@@ -21,8 +50,9 @@ typedef struct {
   PrimFn fn;
 } PrimDef;
 
-PrimDef primitives[] = {
-  {"print", VMPrint}
+static PrimDef primitives[] = {
+  {"print", VMPrint},
+  {"debug", VMDebug}
 };
 
 void DefinePrimitives(VM *vm)

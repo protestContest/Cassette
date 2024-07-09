@@ -640,7 +640,7 @@ static VMStatus OpDefine(VM *vm)
   i32 n = ReadInt(&vm->pc, vm->mod);
   val a;
   OneArg(a);
-  if (!Define(a, n, vm->env)) return outOfBounds;
+  if (!EnvSet(a, n, vm->env)) return outOfBounds;
   return vmOk;
 }
 
@@ -683,15 +683,15 @@ val VMError(VM *vm)
 
   switch (vm->status) {
   case stackUnderflow:
-    return MakeError("Stack Underflow", srcPos);
+    return MakeError("Stack Underflow", srcPos, srcPos);
   case invalidType:
-    return MakeError("Invalid Type", srcPos);
+    return MakeError("Invalid Type", srcPos, srcPos);
   case divideByZero:
-    return MakeError("Divdie by Zero", srcPos);
+    return MakeError("Divdie by Zero", srcPos, srcPos);
   case outOfBounds:
-    return MakeError("Out of Bounds", srcPos);
+    return MakeError("Out of Bounds", srcPos, srcPos);
   case unhandledTrap:
-    return MakeError("Trap", srcPos);
+    return MakeError("Trap", srcPos, srcPos);
   default:
     return nil;
   }
