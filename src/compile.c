@@ -60,21 +60,6 @@ val CompileVar(val node, Compiler *c)
   return 0;
 }
 
-val CompileList(val node, Compiler *c)
-{
-  val error;
-  val items = NodeValue(node);
-  CompileConst(0, NodeStart(node), c);
-  while (items) {
-    val item = Head(items);
-    items = Tail(items);
-    error = CompileExpr(item, c);
-    if (error) return error;
-    PushByte(opPair, NodeStart(node), c->mod);
-  }
-  return 0;
-}
-
 val CompileTuple(val node, Compiler *c)
 {
   val error;
@@ -410,7 +395,6 @@ val CompileExpr(val node, Compiler *c)
   case pairNode:    return CompileBinOp(opPair, node, c);
   case joinNode:    return CompileBinOp(opJoin, node, c);
   case sliceNode:   return CompileSlice(node, c);
-  case listNode:    return CompileList(node, c);
   case tupleNode:   return CompileTuple(node, c);
   case doNode:      return CompileDo(node, c);
   case ifNode:      return CompileIf(node, c);

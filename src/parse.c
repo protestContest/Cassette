@@ -11,6 +11,8 @@ typedef struct {
 } Parser;
 #define Adv(p) \
   (p)->token = NextToken((p)->text, (p)->token.pos + (p)->token.length)
+#define ParseJump(p, i) \
+  (p)->token = NextToken((p)->text, i)
 #define AtEnd(p)            ((p)->token.type == eofToken)
 #define CheckToken(t, p)    ((p)->token.type == (t))
 
@@ -430,21 +432,22 @@ val ParseShift(Parser *p)
 
 val ParseSum(Parser *p)
 {
-  i32 expr = ParseProduct(p), arg, pos, op;
+  i32 pos = p->token.pos;
+  i32 expr = ParseProduct(p), arg, op;
   if (IsError(expr)) return expr;
-  pos = p->token.pos;
-  op = MatchToken(plusToken, p) ? addNode :
-       MatchToken(minusToken, p) ? subNode :
-       MatchToken(caretToken, p) ? borNode : 0;
+  op = CheckToken(plusToken, p) ? TokenNode(idNode, p->token, SymVal(Symbol("+"))) :
+       CheckToken(minusToken, p) ? subNode :
+       CheckToken(caretToken, p) ? borNode : 0;
   while (op) {
+    Adv(p);
     VSpacing(p);
     arg = ParseProduct(p);
     if (IsError(arg)) return arg;
-    expr = MakeNode(op, pos, NodeEnd(arg), Pair(expr, Pair(arg, 0)));
-    pos = p->token.pos;
-    op = MatchToken(plusToken, p) ? addNode :
-         MatchToken(minusToken, p) ? subNode :
-         MatchToken(caretToken, p) ? borNode : 0;
+    expr = MakeNode(callNode, pos, NodeEnd(arg), Pair(op, Pair(expr, Pair(arg, 0))));
+    pos = NodeStart(arg);
+    op = CheckToken(plusToken, p) ? SymVal(Symbol("+")) :
+         CheckToken(minusToken, p) ? subNode :
+         CheckToken(caretToken, p) ? borNode : 0;
   }
   return expr;
 }
@@ -499,12 +502,11 @@ val ParseUnary(Parser *p)
 
 val ParseCall(Parser *p)
 {
-  i32 pos, endPos;
+  i32 pos = p->token.pos;
   val expr = ParseAccess(p);
   if (IsError(expr)) return expr;
 
   while (CheckToken(lparenToken, p) || CheckToken(lbracketToken, p)) {
-    pos = p->token.pos;
     if (MatchToken(lparenToken, p)) {
       val args = 0;
       VSpacing(p);
@@ -514,7 +516,7 @@ val ParseCall(Parser *p)
         VSpacing(p);
         if (!MatchToken(rparenToken, p)) return ParseError("Expected \")\"", p);
       }
-      expr = MakeNode(callNode, pos, NodeEnd(Head(NodeValue(args))),
+      expr = MakeNode(callNode, pos, p->token.pos,
           Pair(expr, ReverseList(NodeValue(args), 0)));
     } else if (MatchToken(lbracketToken, p)) {
       val start;
@@ -530,14 +532,12 @@ val ParseCall(Parser *p)
           end = ParseExpr(p);
         }
         if (IsError(end)) return end;
-        endPos = p->token.pos + p->token.length;
         if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
-        expr = MakeNode(sliceNode, pos, endPos, Pair(expr, Pair(start, Pair(end, 0))));
+        expr = MakeNode(sliceNode, pos, p->token.pos, Pair(expr, Pair(start, Pair(end, 0))));
         VSpacing(p);
       } else {
-        endPos = p->token.pos + p->token.length;
         if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
-        expr = MakeNode(sliceNode, pos, endPos, Pair(expr, Pair(start, 0)));
+        expr = MakeNode(sliceNode, pos, p->token.pos, Pair(expr, Pair(start, 0)));
       }
     }
   }
@@ -547,9 +547,8 @@ val ParseCall(Parser *p)
 
 val ParseAccess(Parser *p)
 {
-  i32 pos, expr = ParsePrimary(p);
+  i32 pos = p->token.pos, expr = ParsePrimary(p);
   if (IsError(expr)) return expr;
-  pos = p->token.pos;
   while (MatchToken(dotToken, p)) {
     i32 arg = ParsePrimary(p);
     if (IsError(arg)) return arg;
@@ -684,18 +683,28 @@ val ParseClauses(Parser *p)
 
 val ParseList(Parser *p)
 {
-  i32 pos = p->token.pos, endPos;
+  i32 endPos;
   i32 items = 0;
+  val expr;
   if (!MatchToken(lbracketToken, p)) return ParseError("Expected \"[\"", p);
   VSpacing(p);
   if (!MatchToken(rbracketToken, p)) {
     items = ParseItems(p);
     if (IsError(items)) return items;
+    items = NodeValue(items);
     if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
   }
   endPos = p->token.pos;
   Spacing(p);
-  return MakeNode(listNode, pos, endPos, NodeValue(items));
+
+  expr = MakeNode(nilNode, endPos, endPos, 0);
+  while (items) {
+    val item = Head(items);
+    items = Tail(items);
+    expr = MakeNode(pairNode, NodeStart(item), NodeEnd(expr), Pair(item, Pair(expr, 0)));
+  }
+
+  return expr;
 }
 
 val ParseTuple(Parser *p)

@@ -217,6 +217,15 @@ val ListSkip(val list, u32 index)
   return list;
 }
 
+bool InList(val item, val list)
+{
+  while (list) {
+    if (item == Head(list)) return true;
+    list = Tail(list);
+  }
+  return false;
+}
+
 val Tuple(u32 length)
 {
   u32 index = MemAlloc(length+1);

@@ -47,6 +47,7 @@ val ReverseList(val list, val tail);
 val ListJoin(val left, val right);
 val ListTrunc(val list, u32 index);
 val ListSkip(val list, u32 index);
+bool InList(val item, val list);
 
 val Tuple(u32 length);
 u32 TupleLength(val tuple);
