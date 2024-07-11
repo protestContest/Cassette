@@ -65,3 +65,8 @@ typedef struct {
 } Token;
 
 Token NextToken(char *src, u32 pos);
+bool Match(char *test, char *str);
+bool MatchKeyword(char *test, char *str);
+bool AdvMatch(char *test, char **str);
+#define Lexeme(token, src)  SymVal(SymbolFrom((src)+(token).pos,(token).length))
+char *OpName(TokenType type);

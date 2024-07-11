@@ -15,7 +15,7 @@ static bool IsSymChar(char ch)
   return IsAlpha(ch) || IsDigit(ch) || ch == '_' || ch == '!' || ch == '?';
 }
 
-static bool Match(char *test, char *str)
+bool Match(char *test, char *str)
 {
   while (*test && *str) {
     if (*test != *str) return false;
@@ -25,7 +25,7 @@ static bool Match(char *test, char *str)
   return *test == 0;
 }
 
-static bool MatchKeyword(char *test, char *str)
+bool MatchKeyword(char *test, char *str)
 {
   while (*test && *str) {
     if (*test != *str) return false;
@@ -34,6 +34,15 @@ static bool MatchKeyword(char *test, char *str)
   }
   if (*test) return false;
   return !IsSymChar(*str);
+}
+
+bool AdvMatch(char *test, char **str)
+{
+  if (Match(test, *str)) {
+    *str += strlen(test);
+    return true;
+  }
+  return false;
 }
 
 Token NextToken(char *src, u32 pos)
@@ -103,6 +112,7 @@ Token NextToken(char *src, u32 pos)
   if (MatchKeyword("false", src+pos)) return MakeToken(falseToken, pos, 5);
   if (MatchKeyword("true", src+pos)) return MakeToken(trueToken, pos, 4);
   if (MatchKeyword("nil", src+pos)) return MakeToken(nilToken, pos, 3);
+  if (MatchKeyword("not", src+pos)) return MakeToken(notToken, pos, 3);
   if (MatchKeyword("cond", src+pos)) return MakeToken(condToken, pos, 4);
   if (MatchKeyword("else", src+pos)) return MakeToken(elseToken, pos, 4);
   if (MatchKeyword("if", src+pos)) return MakeToken(ifToken, pos, 2);
@@ -124,4 +134,27 @@ Token NextToken(char *src, u32 pos)
   }
 
   return MakeToken(errorToken, pos, 0);
+}
+
+char *OpName(TokenType type)
+{
+  switch (type) {
+  case notToken:      return "not";
+  case hashToken:     return "#";
+  case tildeToken:    return "~";
+  case slashToken:    return "/";
+  case starToken:     return "*";
+  case minusToken:    return "-";
+  case plusToken:     return "+";
+  case caretToken:    return "^";
+  case ampToken:      return "&";
+  case percentToken:  return "%";
+  case ltltToken:     return "<<";
+  case gtToken:       return ">";
+  case ltToken:       return "<";
+  case ltgtToken:     return "<>";
+  case barToken:      return "|";
+  case eqeqToken:     return "==";
+  default:            assert(false);
+  }
 }

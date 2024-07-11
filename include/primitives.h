@@ -3,3 +3,4 @@
 
 void DefinePrimitives(VM *vm);
 val PrimitiveEnv(void);
+val PrimitiveTypes(void);

@@ -1,6 +1,7 @@
 #pragma once
 #include "module.h"
 #include <univ/hashmap.h>
+#include <univ/vec.h>
 
 typedef enum {
   vmOk,

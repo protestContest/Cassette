@@ -1,3 +1,4 @@
-let id = \x -> x, inc = \x -> x + 1
+let id = \x -> x
+let inc = \x -> x + 1
 
 id(inc)(id(3))

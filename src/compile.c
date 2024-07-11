@@ -1,5 +1,6 @@
 #include "compile.h"
 #include "parse.h"
+#include "node.h"
 #include "vm.h"
 #include "env.h"
 #include <univ/symbol.h>
@@ -392,31 +393,11 @@ val CompileExpr(val node, Compiler *c)
   case idNode:      return CompileVar(node, c);
   case symNode:     return CompileConst(NodeValue(node), NodeStart(node), c);
   case strNode:     return CompileStr(node, c);
-  case pairNode:    return CompileBinOp(opPair, node, c);
-  case joinNode:    return CompileBinOp(opJoin, node, c);
-  case sliceNode:   return CompileSlice(node, c);
-  case tupleNode:   return CompileTuple(node, c);
   case doNode:      return CompileDo(node, c);
   case ifNode:      return CompileIf(node, c);
   case andNode:     return CompileAnd(node, c);
   case orNode:      return CompileOr(node, c);
-  case eqNode:      return CompileBinOp(opEq, node, c);
-  case ltNode:      return CompileBinOp(opLt, node, c);
-  case gtNode:      return CompileBinOp(opGt, node, c);
-  case shiftNode:   return CompileBinOp(opShift, node, c);
-  case addNode:     return CompileBinOp(opAdd, node, c);
-  case subNode:     return CompileBinOp(opSub, node, c);
-  case borNode:     return CompileBinOp(opOr, node, c);
-  case mulNode:     return CompileBinOp(opMul, node, c);
-  case divNode:     return CompileBinOp(opDiv, node, c);
-  case remNode:     return CompileBinOp(opRem, node, c);
-  case bandNode:    return CompileBinOp(opAnd, node, c);
-  case negNode:     return CompileUnaryOp(opNeg, node, c);
-  case notNode:     return CompileUnaryOp(opNot, node, c);
-  case compNode:    return CompileUnaryOp(opComp, node, c);
-  case lenNode:     return CompileUnaryOp(opLen, node, c);
   case callNode:    return CompileCall(node, c);
-  case accessNode:  return CompileAccess(node, c);
   case lambdaNode:  return CompileLambda(node, c);
   default:          return Fail("Unexpected expression", node);
   }
@@ -428,7 +409,7 @@ val Compile(i32 ast, val env, Module *mod)
   c.env = env;
   c.mod = mod;
   if (NodeType(ast) == moduleNode) {
-    return CompileExpr(NodeChild(ast, 3), &c);
+    return CompileExpr(ModNodeBody(ast), &c);
   } else {
     return CompileExpr(ast, &c);
   }

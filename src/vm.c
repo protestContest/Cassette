@@ -2,6 +2,7 @@
 #include "mem.h"
 #include "env.h"
 #include "parse.h"
+#include "node.h"
 #include <univ/symbol.h>
 #include <univ/vec.h>
 #include <univ/str.h>

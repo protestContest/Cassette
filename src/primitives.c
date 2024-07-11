@@ -1,5 +1,6 @@
 #include "primitives.h"
 #include "env.h"
+#include "types.h"
 #include <univ/vec.h>
 #include <univ/symbol.h>
 
@@ -48,11 +49,31 @@ VMStatus VMDebug(VM *vm)
 typedef struct {
   char *name;
   PrimFn fn;
+  char *type;
 } PrimDef;
 
 static PrimDef primitives[] = {
-  {"print", VMPrint},
-  {"debug", VMDebug}
+  {"print", VMPrint, "fn(a, sym)"},
+  {"debug", VMDebug, "fn(sym)"},
+  {"==", 0, "fn(a, a, int)"},
+  {"|", 0, "fn(a, b, pair(a, b))"},
+  {"<>", 0, "fn(a, a, a)"},
+  {"<", 0, "fn(a, a, int)"},
+  {">", 0, "fn(a, a, int)"},
+  {"<<", 0, "fn(int, int, int)"},
+  {"+", 0, "fn(int, int, int)"},
+  {"-", 0, "fn(int, int, int)"},
+  {"^", 0, "fn(int, int, int)"},
+  {"*", 0, "fn(int, int, int)"},
+  {"/", 0, "fn(int, int, int)"},
+  {"%", 0, "fn(int, int, int)"},
+  {"&", 0, "fn(int, int, int)"},
+  {"not", 0, "fn(a, int)"},
+  {"-", 0, "fn(int, int)"},
+  {"~", 0, "fn(int, int)"},
+  {"#", 0, "fn(a, int)"},
+  {"[]", 0, "fn(a, int, b)"},
+  {"[:]", 0, "fn(a, int, int, b)"},
 };
 
 void DefinePrimitives(VM *vm)
@@ -71,4 +92,19 @@ val PrimitiveEnv(void)
     TupleSet(frame, i, SymVal(Symbol(primitives[i].name)));
   }
   return Pair(frame, 0);
+}
+
+val PrimitiveTypes(void)
+{
+  u32 i;
+  val context = 0;
+  for (i = 0; i < ArrayCount(primitives); i++) {
+    char *spec = primitives[i].type;
+    val name = SymVal(Symbol(primitives[i].name));
+    val type = ParseType(spec);
+    assert(type);
+
+    context = Pair(Pair(name, Generalize(type, 0)), context);
+  }
+  return context;
 }
