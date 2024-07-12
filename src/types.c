@@ -82,7 +82,10 @@ void PrintType(val type)
   if (IsTypeConst(type)) {
     printf("%s", SymbolName(RawVal(type)));
   } else if (IsInt(type)) {
-    printf("%c", RawInt(type) + 'a');
+    i32 suffix = RawInt(type) / 26;
+    i32 letter = RawInt(type) % 26;
+    printf("%c", letter + 'a');
+    if (suffix) printf("%d", suffix);
   } else if (IsTuple(type)) {
     char *typefn = SymbolName(RawVal(TupleGet(type, 0)));
     u32 i;
@@ -406,7 +409,7 @@ val InferDo(val node, val context)
     stmt = Head(stmts);
     if (NodeType(stmt) == defNode) {
       val var = NodeValue(DefNodeVar(stmt));
-      context = Pair(Pair(var, Generalize(NewTypeVar(), 0)), context);
+      context = Pair(Pair(var, PolyType(NewTypeVar(), 0)), context);
     }
     result = InferType(stmt, context);
     if (IsError(result)) return result;
@@ -414,6 +417,10 @@ val InferDo(val node, val context)
       val var = NodeValue(LetNodeVar(stmt));
       val stmt_type = NodeValType(stmt);
       context = Pair(Pair(var, Generalize(stmt_type, context)), context);
+    }
+    if (NodeType(stmt) == defNode) {
+      SetTail(Head(context), Generalize(NodeValType(stmt), context));
+      PrintContext(context);
     }
     ApplySubsContext(result, context);
     ApplySubsNodes(result, prev_stmts);
@@ -437,13 +444,17 @@ val InferLet(val node, val context)
 
 val InferIf(val node, val context)
 {
-  /* TODO: do if/else branches need to be the same type? */
-  val type;
-  val result = InferNodes(NodeChildren(node), context);
-  if (IsError(result)) return result;
-  type = Either(NodeValType(IfNodeCons(node)), NodeValType(IfNodeAlt(node)));
-  SetNodeType(node, type);
-  return result;
+  val cons = IfNodeCons(node);
+  val alt = IfNodeAlt(node);
+  val result1, result2;
+  result1 = InferNodes(NodeChildren(node), context);
+  if (IsError(result1)) return result1;
+  SetNodeType(node, NodeValType(cons));
+  result2 = Unify(NodeValType(cons), NodeValType(alt), context);
+  if (IsError(result2)) return result2;
+  ApplySubsContext(result2, context);
+  ApplySubsNode(result2, node);
+  return CombineSubs(result1, result2);
 }
 
 val InferLambda(val node, val context)
@@ -475,7 +486,7 @@ val InferLambda(val node, val context)
   return result;
 }
 
-val UnaryOpType(i32 node_type)
+val OpType(i32 node_type)
 {
   val type;
   switch (node_type) {
@@ -495,7 +506,7 @@ val UnaryOpType(i32 node_type)
     type = TypeFunc("op", 3);
     TupleSet(type, 1, NewTypeVar());
     TupleSet(type, 2, ConstType("int"));
-    TupleSet(type, 2, NewTypeVar());
+    TupleSet(type, 3, NewTypeVar());
     return type;
   case sliceNode:
     type = TypeFunc("op", 4);
@@ -557,7 +568,7 @@ val InferOp(val node, val context)
   val args = NodeChildren(node);
   u32 nargs = NodeLength(node);
   u32 i;
-  val op_type = UnaryOpType(NodeType(node));
+  val op_type = OpType(NodeType(node));
   val call_type = TypeFunc("op", nargs+1);
   val return_type = NewTypeVar();
   val result1, result2;
@@ -632,6 +643,7 @@ val InferType(val node, val context)
   case shiftNode:   return InferOp(node, context);
   case ltNode:      return InferOp(node, context);
   case gtNode:      return InferOp(node, context);
+  case joinNode:    return InferOp(node, context);
   case pairNode:    return InferOp(node, context);
   case eqNode:      return InferOp(node, context);
   case andNode:     return InferOp(node, context);

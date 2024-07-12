@@ -1,9 +1,17 @@
-let id = \x -> x
-let inc = \x -> x + 1
+; def fact(n) do
+;   if n == 1 do
+;     1
+;   else
+;     n * fact(n - 1)
+;   end
+; end
 
-id(inc)(id(3))
-
-let n = if true do :one else 2 end
-if is_num(n) do
-  n + 1
+def reduce(list, acc, fn) do
+  if list do
+    reduce(list[1:0], fn(list[0], acc), fn)
+  else
+    acc
+  end
 end
+
+reduce([1, :x, "foo"], nil, \item, acc -> item | acc)
