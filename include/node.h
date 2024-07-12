@@ -1,9 +1,11 @@
 #pragma once
 #include "mem.h"
 
-enum {nilNode, errNode, intNode, idNode, symNode, strNode, doNode, ifNode,
-    listNode, andNode, orNode, callNode, lambdaNode, letNode, defNode,
-    importNode, moduleNode};
+enum {errNode, idNode, nilNode, intNode, symNode, strNode, listNode, tupleNode,
+  doNode, ifNode, lambdaNode, notNode, lenNode, compNode, negNode, accessNode,
+  sliceNode, mulNode, divNode, remNode, bitandNode, subNode, addNode, bitorNode,
+  shiftNode, ltNode, gtNode, joinNode, pairNode, eqNode, andNode, orNode,
+  callNode, letNode, defNode, importNode, moduleNode};
 
 val MakeNode(i32 type, i32 start, i32 end, val value);
 #define MakeError(msg, start, end) \
@@ -69,6 +71,9 @@ Nodes are tuples with these fields:
 #define DefNodeExpr(node)   NodeChild(node, 1)
 #define ImportNodeName(n)   NodeChild(n, 0)
 #define ImportNodeAlias(n)  NodeChild(n, 1)
+#define IfNodePred(node)    NodeChild(node, 0)
+#define IfNodeCons(node)    NodeChild(node, 1)
+#define IfNodeAlt(node)    NodeChild(node, 2)
 
 #define IsModNode(node)     (NodeType(node) == moduleNode)
 #define ModNodeName(node)   NodeValue(NodeChild(node, 0))

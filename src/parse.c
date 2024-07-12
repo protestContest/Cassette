@@ -29,6 +29,16 @@ static bool MatchToken(TokenType type, Parser *p)
 #define TokenNode(type, token, value) \
   MakeNode(type, (token).pos, (token).pos+(token).length, value)
 
+typedef val (*ParsePrefix)(Parser *p);
+typedef val (*ParseInfix)(val expr, Parser *p);
+typedef enum {precNone, precExpr, precLogic, precEqual, precPair, precJoin,
+  precCompare, precShift, precSum, precProduct, precCall} Precedence;
+typedef struct {
+  ParsePrefix prefix;
+  ParseInfix infix;
+  Precedence prec;
+} ParseRule;
+
 val ParseModule(Parser *p);
 val ParseModname(Parser *p);
 val ParseExports(Parser *p);
@@ -37,20 +47,15 @@ val ParseStmts(Parser *p);
 val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p);
 val ParseDef(Parser *p);
 val ParseAssign(Parser *p);
-val ParseExpr(Parser *p);
-val ParseLambda(Parser *p);
-val ParseLogic(Parser *p);
-val ParseEqual(Parser *p);
-val ParsePair(Parser *p);
-val ParseJoin(Parser *p);
-val ParseCompare(Parser *p);
-val ParseShift(Parser *p);
-val ParseSum(Parser *p);
-val ParseProduct(Parser *p);
+
+#define ParseExpr(p)  ParsePrec(precExpr, p)
+val ParsePrec(Precedence prec, Parser *p);
+val ParseOp(val expr, Parser *p);
+val ParsePair(val expr, Parser *p);
+val ParseCall(val expr, Parser *p);
+val ParseAccess(val expr, Parser *p);
 val ParseUnary(Parser *p);
-val ParseCall(Parser *p);
-val ParseAccess(Parser *p);
-val ParsePrimary(Parser *p);
+val ParseLambda(Parser *p);
 val ParseGroup(Parser *p);
 val ParseDo(Parser *p);
 val ParseIf(Parser *p);
@@ -58,17 +63,77 @@ val ParseCond(Parser *p);
 val ParseClauses(Parser *p);
 val ParseList(Parser *p);
 val ParseTuple(Parser *p);
+val ParseVar(Parser *p);
 val ParseNum(Parser *p);
 val ParseByte(Parser *p);
 val ParseHex(Parser *p);
 val ParseSymbol(Parser *p);
 val ParseString(Parser *p);
-val ParseVar(Parser *p);
+val ParseLiteral(Parser *p);
+
 val ParseID(Parser *p);
 val ParseIDList(Parser *p);
 val ParseItems(Parser *p);
 void Spacing(Parser *p);
 void VSpacing(Parser *p);
+
+static ParseRule rules[] = {
+  [eofToken]      = {0,             0,            precNone},
+  [spaceToken]    = {0,             0,            precNone},
+  [newlineToken]  = {0,             0,            precNone},
+  [idToken]       = {ParseVar,      0,            precNone},
+  [falseToken]    = {ParseLiteral,  0,            precNone},
+  [trueToken]     = {ParseLiteral,  0,            precNone},
+  [nilToken]      = {ParseLiteral,  0,            precNone},
+  [stringToken]   = {ParseString,   0,            precNone},
+  [byteToken]     = {ParseByte,     0,            precNone},
+  [numToken]      = {ParseNum,      0,            precNone},
+  [hexToken]      = {ParseHex,      0,            precNone},
+  [rbraceToken]   = {0,             0,            precNone},
+  [lbraceToken]   = {ParseTuple,    0,            precNone},
+  [condToken]     = {ParseCond,     0,            precNone},
+  [elseToken]     = {0,             0,            precNone},
+  [ifToken]       = {ParseIf,       0,            precNone},
+  [endToken]      = {0,             0,            precNone},
+  [doToken]       = {ParseDo,       0,            precNone},
+  [dotToken]      = {0,             0,            precNone},
+  [colonToken]    = {ParseSymbol,   0,            precNone},
+  [rbracketToken] = {0,             0,            precNone},
+  [lbracketToken] = {ParseList,     ParseAccess,  precCall},
+  [notToken]      = {ParseUnary,    0,            precNone},
+  [hashToken]     = {ParseUnary,    0,            precNone},
+  [tildeToken]    = {ParseUnary,    0,            precNone},
+  [slashToken]    = {0,             ParseOp,      precProduct},
+  [starToken]     = {0,             ParseOp,      precProduct},
+  [minusToken]    = {ParseUnary,    ParseOp,      precSum},
+  [plusToken]     = {0,             ParseOp,      precSum},
+  [caretToken]    = {0,             ParseOp,      precSum},
+  [ampToken]      = {0,             ParseOp,      precProduct},
+  [percentToken]  = {0,             ParseOp,      precProduct},
+  [gtgtToken]     = {0,             ParseOp,      precShift},
+  [ltltToken]     = {0,             ParseOp,      precShift},
+  [gtToken]       = {0,             ParseOp,      precCompare},
+  [ltToken]       = {0,             ParseOp,      precCompare},
+  [ltgtToken]     = {0,             ParseOp,      precJoin},
+  [barToken]      = {0,             ParsePair,    precPair},
+  [bangeqToken]   = {0,             ParseOp,      precEqual},
+  [eqeqToken]     = {0,             ParseOp,      precEqual},
+  [orToken]       = {0,             ParseOp,      precLogic},
+  [andToken]      = {0,             ParseOp,      precLogic},
+  [arrowToken]    = {0,             0,            precNone},
+  [bslashToken]   = {ParseLambda,   0,            precNone},
+  [eqToken]       = {0,             0,            precNone},
+  [commaToken]    = {0,             0,            precNone},
+  [letToken]      = {0,             0,            precNone},
+  [rparenToken]   = {0,             0,            precNone},
+  [lparenToken]   = {ParseGroup,    ParseCall,    precCall},
+  [defToken]      = {0,             0,            precNone},
+  [asToken]       = {0,             0,            precNone},
+  [importToken]   = {0,             0,            precNone},
+  [exportsToken]  = {0,             0,            precNone},
+  [moduleToken]   = {0,             0,            precNone},
+  [errorToken]    = {0,             0,            precNone}
+};
 
 val Parse(char *text)
 {
@@ -250,10 +315,144 @@ val ParseAssign(Parser *p)
       Pair(id, Pair(value, 0)));
 }
 
-val ParseExpr(Parser *p)
+val ParsePrec(Precedence prec, Parser *p)
 {
-  if (CheckToken(bslashToken, p)) return ParseLambda(p);
-  return ParseLogic(p);
+  val expr;
+  ParseRule rule = rules[p->token.type];
+  if (!rule.prefix) return ParseError("Unexpected token", p);
+  expr = rule.prefix(p);
+  if (IsError(expr)) return expr;
+  rule = rules[p->token.type];
+  while (rule.prec >= prec) {
+    expr = rule.infix(expr, p);
+    if (IsError(expr)) return expr;
+    rule = rules[p->token.type];
+  }
+  return expr;
+}
+
+i32 OpNodeType(TokenType type)
+{
+  switch (type) {
+  case lbracketToken: return sliceNode;
+  case starToken:     return mulNode;
+  case slashToken:    return divNode;
+  case percentToken:  return remNode;
+  case ampToken:      return bitandNode;
+  case minusToken:    return subNode;
+  case plusToken:     return addNode;
+  case caretToken:    return bitorNode;
+  case ltltToken:     return shiftNode;
+  case ltToken:       return ltNode;
+  case gtToken:       return gtNode;
+  case ltgtToken:     return joinNode;
+  case barToken:      return pairNode;
+  case eqeqToken:     return eqNode;
+  case andToken:      return andNode;
+  case orToken:       return orNode;
+  default:            assert(false);
+  }
+}
+
+val ParseOp(val expr, Parser *p)
+{
+  Token token = p->token;
+  val arg, value;
+  i32 start, end;
+  Adv(p);
+  VSpacing(p);
+  arg = ParsePrec(rules[token.type].prec + 1, p);
+  if (IsError(arg)) return arg;
+  start = NodeStart(expr);
+  end = NodeEnd(arg);
+  if (token.type == gtgtToken) {
+    arg = MakeNode(negNode, start, end, Pair(arg, 0));
+  }
+  value = Pair(expr, Pair(arg, 0));
+  if (token.type == bangeqToken) {
+    value = Pair(MakeNode(eqNode, start, end, value), 0);
+    return MakeNode(notNode, start, end, value);
+  }
+  return MakeNode(OpNodeType(token.type), start, end, value);
+}
+
+val ParsePair(val expr, Parser *p)
+{
+  Token token = p->token;
+  val arg, value;
+  i32 start, end;
+  Adv(p);
+  VSpacing(p);
+  arg = ParsePrec(rules[token.type].prec, p);
+  if (IsError(arg)) return arg;
+  start = NodeStart(expr);
+  end = NodeEnd(arg);
+  value = Pair(expr, Pair(arg, 0));
+  return MakeNode(pairNode, start, end, value);
+}
+
+val ParseCall(val expr, Parser *p)
+{
+  val args;
+  i32 end;
+  Adv(p);
+  VSpacing(p);
+  args = ParseItems(p);
+  if (IsError(args)) return args;
+  if (!MatchToken(rparenToken, p)) return ParseError("Expected \")\"", p);
+  end = p->token.pos;
+  Spacing(p);
+  return MakeNode(callNode, NodeStart(expr), end,
+    Pair(expr, ReverseList(NodeChildren(args), 0)));
+}
+
+val ParseAccess(val expr, Parser *p)
+{
+  val startNode, endNode = 0;
+  i32 end;
+  Adv(p);
+  VSpacing(p);
+  startNode = ParseExpr(p);
+  if (IsError(startNode)) return startNode;
+  VSpacing(p);
+  if (MatchToken(colonToken, p)) {
+    VSpacing(p);
+    endNode = ParseExpr(p);
+    if (IsError(endNode)) return endNode;
+    VSpacing(p);
+  }
+  if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
+  end = p->token.pos;
+  if (endNode) {
+    return MakeNode(sliceNode, NodeStart(expr), end,
+      Pair(expr, Pair(startNode, Pair(endNode, 0))));
+  } else {
+    return MakeNode(accessNode, NodeStart(expr), end,
+      Pair(expr, Pair(startNode, 0)));
+  }
+}
+
+i32 UnaryOpNodeType(TokenType type)
+{
+  switch (type) {
+  case minusToken: return negNode;
+  case hashToken: return lenNode;
+  case tildeToken: return compNode;
+  case notToken: return notNode;
+  default: assert(false);
+  }
+}
+
+val ParseUnary(Parser *p)
+{
+  Token token = p->token;
+  val arg;
+  Adv(p);
+  if (token.type == notToken) VSpacing(p);
+  arg = ParsePrec(precCall, p);
+  if (IsError(arg)) return arg;
+  return MakeNode(UnaryOpNodeType(token.type), token.pos, NodeEnd(arg),
+    Pair(arg, 0));
 }
 
 val ParseLambda(Parser *p)
@@ -271,275 +470,6 @@ val ParseLambda(Parser *p)
   body = ParseExpr(p);
   if (IsError(body)) return body;
   return MakeNode(lambdaNode, pos, NodeEnd(body), Pair(params, Pair(body, 0)));
-}
-
-val ParseLogic(Parser *p)
-{
-  val expr = ParseEqual(p), arg;
-  i32 op;
-  if (IsError(expr)) return expr;
-  op = MatchToken(andToken, p) ? andNode : MatchToken(orToken, p) ? orNode : 0;
-  while (op) {
-    VSpacing(p);
-    arg = ParseEqual(p);
-    if (IsError(arg)) return arg;
-    expr = MakeNode(op, NodeStart(expr), NodeEnd(arg),
-        Pair(expr, Pair(arg, 0)));
-    op = MatchToken(andToken, p)
-      ? andNode
-      : MatchToken(orToken, p)
-        ? orNode
-        : 0;
-  }
-  return expr;
-}
-
-val UnaryOpNode(char *op, Token opToken, i32 pos, val arg)
-{
-  val opNode = TokenNode(idNode, opToken, SymVal(Symbol(op)));
-  return MakeNode(callNode, pos, NodeEnd(arg), Pair(opNode, Pair(arg, 0)));
-}
-
-val BinOpNode(char *op, Token opToken, val left, val right)
-{
-  val opNode = TokenNode(idNode, opToken, SymVal(Symbol(op)));
-  return MakeNode(callNode, NodeStart(left), NodeEnd(right),
-      Pair(opNode, Pair(left, Pair(right, 0))));
-}
-
-val ParseEqual(Parser *p)
-{
-  val expr = ParsePair(p);
-  Token op = p->token;
-  if (IsError(expr)) return expr;
-  if (MatchToken(eqeqToken, p) || MatchToken(bangeqToken, p)) {
-    i32 arg;
-    VSpacing(p);
-    arg = ParsePair(p);
-    if (IsError(arg)) return arg;
-    expr = BinOpNode("==", op, expr, arg);
-  }
-  if (op.type == bangeqToken) {
-    expr = UnaryOpNode("not", op, NodeStart(expr), expr);
-  }
-  return expr;
-}
-
-val ParsePair(Parser *p)
-{
-  val expr = ParseJoin(p), arg;
-  Token op = p->token;
-  if (IsError(expr)) return expr;
-  while (MatchToken(barToken, p)) {
-    VSpacing(p);
-    arg = ParseJoin(p);
-    if (IsError(arg)) return arg;
-    expr = BinOpNode(OpName(op.type), op, expr, arg);
-    op = p->token;
-  }
-  return expr;
-}
-
-val ParseJoin(Parser *p)
-{
-  val expr = ParseCompare(p), arg;
-  Token op = p->token;
-  if (IsError(expr)) return expr;
-  while (MatchToken(ltgtToken, p)) {
-    VSpacing(p);
-    arg = ParseCompare(p);
-    if (IsError(arg)) return arg;
-    expr = BinOpNode(OpName(op.type), op, expr, arg);
-    op = p->token;
-  }
-  return expr;
-}
-
-val ParseCompare(Parser *p)
-{
-  val expr = ParseShift(p), arg;
-  Token op = p->token;
-  if (IsError(expr)) return expr;
-  while (MatchToken(ltToken, p) || MatchToken(gtToken, p)) {
-    VSpacing(p);
-    arg = ParseShift(p);
-    if (IsError(arg)) return arg;
-    expr = BinOpNode(OpName(op.type), op, expr, arg);
-    op = p->token;
-  }
-  return expr;
-}
-
-val ParseShift(Parser *p)
-{
-  val expr = ParseSum(p), arg;
-  Token op = p->token;
-  if (IsError(expr)) return expr;
-  while (MatchToken(ltltToken, p) || MatchToken(gtgtToken, p)) {
-    VSpacing(p);
-    arg = ParseSum(p);
-    if (IsError(arg)) return arg;
-    if (op.type == gtgtToken) {
-      arg = UnaryOpNode("-", op, NodeStart(arg), arg);
-    }
-    expr = BinOpNode("<<", op, expr, arg);
-    op = p->token;
-  }
-  return expr;
-}
-
-val ParseSum(Parser *p)
-{
-  val expr = ParseProduct(p), arg;
-  Token op = p->token;
-  if (IsError(expr)) return expr;
-  while (MatchToken(plusToken, p) ||
-         MatchToken(minusToken, p) ||
-         MatchToken(caretToken, p)) {
-    VSpacing(p);
-    arg = ParseProduct(p);
-    if (IsError(arg)) return arg;
-    expr = BinOpNode(OpName(op.type), op, expr, arg);
-    op = p->token;
-  }
-  return expr;
-}
-
-val ParseProduct(Parser *p)
-{
-  val expr = ParseUnary(p), arg;
-  Token op = p->token;
-  if (IsError(expr)) return expr;
-  while (MatchToken(starToken, p) ||
-         MatchToken(slashToken, p) ||
-         MatchToken(percentToken, p) ||
-         MatchToken(ampToken, p)) {
-    VSpacing(p);
-    arg = ParseUnary(p);
-    if (IsError(arg)) return arg;
-    expr = BinOpNode(OpName(op.type), op, expr, arg);
-    op = p->token;
-  }
-  return expr;
-}
-
-val ParseUnary(Parser *p)
-{
-  val expr;
-  Token op = p->token;
-
-  if (MatchToken(minusToken, p) ||
-      MatchToken(tildeToken, p) ||
-      MatchToken(hashToken, p)) {
-    expr = ParseCall(p);
-    if (IsError(expr)) return expr;
-    return UnaryOpNode(OpName(op.type), op, op.pos, expr);
-  } else if (MatchToken(notToken, p)) {
-    Spacing(p);
-    expr = ParseCall(p);
-    if (IsError(expr)) return expr;
-    return UnaryOpNode(OpName(op.type), op, op.pos, expr);
-  } else {
-    return ParseCall(p);
-  }
-}
-
-val ParseCall(Parser *p)
-{
-  val expr = ParseAccess(p);
-  if (IsError(expr)) return expr;
-
-  while (CheckToken(lparenToken, p) || CheckToken(lbracketToken, p)) {
-    if (MatchToken(lparenToken, p)) {
-      val args = 0;
-      VSpacing(p);
-      if (!MatchToken(rparenToken, p)) {
-        args = ParseItems(p);
-        if (IsError(args)) return args;
-        VSpacing(p);
-        if (!MatchToken(rparenToken, p)) return ParseError("Expected \")\"", p);
-      }
-      expr = MakeNode(callNode, NodeStart(expr), p->token.pos,
-          Pair(expr, ReverseList(NodeValue(args), 0)));
-    } else if (MatchToken(lbracketToken, p)) {
-      val indexExpr;
-      VSpacing(p);
-      indexExpr = ParseExpr(p);
-      if (IsError(indexExpr)) return indexExpr;
-      VSpacing(p);
-      if (MatchToken(colonToken, p)) {
-        val endExpr;
-        if (CheckToken(rbracketToken, p)) {
-          endExpr = MakeNode(nilNode, p->token.pos, p->token.pos, 0);
-        } else {
-          endExpr = ParseExpr(p);
-        }
-        if (IsError(endExpr)) return endExpr;
-        if (!MatchToken(rbracketToken, p)) {
-          return ParseError("Expected \"]\"", p);
-        }
-        expr = MakeNode(callNode, NodeStart(expr), p->token.pos,
-          Pair(MakeNode(idNode, NodeStart(expr), NodeStart(expr)+1,
-                SymVal(Symbol("[:]"))),
-          Pair(expr, Pair(indexExpr, Pair(endExpr, 0)))));
-        VSpacing(p);
-      } else {
-        if (!MatchToken(rbracketToken, p)) {
-          return ParseError("Expected \"]\"", p);
-        }
-        expr = MakeNode(callNode, NodeStart(expr), p->token.pos,
-          Pair(MakeNode(idNode, NodeStart(expr), NodeStart(expr)+1,
-                SymVal(Symbol("[]"))),
-          Pair(expr, Pair(indexExpr, 0))));
-      }
-    }
-  }
-  Spacing(p);
-  return expr;
-}
-
-val ParseAccess(Parser *p)
-{
-  return ParsePrimary(p);
-}
-
-val ParsePrimary(Parser *p)
-{
-  i32 pos = p->token.pos;
-  i32 endPos = pos + p->token.length;
-  if (CheckToken(lparenToken, p)) {
-    return ParseGroup(p);
-  } else if (CheckToken(lbracketToken, p)) {
-    return ParseList(p);
-  } else if (CheckToken(lbraceToken, p)) {
-    return ParseTuple(p);
-  } else if (CheckToken(doToken, p)) {
-    return ParseDo(p);
-  } else if (CheckToken(ifToken, p)) {
-    return ParseIf(p);
-  } else if (CheckToken(condToken, p)) {
-    return ParseCond(p);
-  } else if (CheckToken(numToken, p)) {
-    return ParseNum(p);
-  } else if (CheckToken(hexToken, p)) {
-    return ParseHex(p);
-  } else if (CheckToken(colonToken, p)) {
-    return ParseSymbol(p);
-  } else if (CheckToken(byteToken, p)) {
-    return ParseByte(p);
-  } else if (CheckToken(stringToken, p)) {
-    return ParseString(p);
-  } else if (MatchToken(nilToken, p)) {
-    return MakeNode(nilNode, pos, endPos, 0);
-  } else if (MatchToken(trueToken, p)) {
-    return MakeNode(intNode, pos, endPos, IntVal(1));
-  } else if (MatchToken(falseToken, p)) {
-    return MakeNode(intNode, pos, endPos, IntVal(0));
-  } else if (CheckToken(idToken, p)) {
-    return ParseVar(p);
-  } else {
-    return ParseError("Unexpected expression", p);
-  }
 }
 
 val ParseGroup(Parser *p)
@@ -629,10 +559,9 @@ val ParseClauses(Parser *p)
 
 val ParseList(Parser *p)
 {
-  i32 endPos;
+  i32 startPos = p->token.pos, endPos;
   i32 items = 0;
   val expr;
-  Token op = p->token;
   if (!MatchToken(lbracketToken, p)) return ParseError("Expected \"[\"", p);
   VSpacing(p);
   if (!MatchToken(rbracketToken, p)) {
@@ -648,7 +577,7 @@ val ParseList(Parser *p)
   while (items) {
     val item = Head(items);
     items = Tail(items);
-    expr = BinOpNode("|", op, expr, item);
+    expr = MakeNode(pairNode, startPos, endPos, Pair(item, Pair(expr, 0)));
   }
 
   return expr;
@@ -672,6 +601,12 @@ val ParseTuple(Parser *p)
          ReverseList(NodeValue(items), 0)));
 }
 
+val ParseVar(Parser *p)
+{
+  return ParseID(p);
+}
+
+
 val ParseNum(Parser *p)
 {
   i32 n = 0;
@@ -689,18 +624,6 @@ val ParseNum(Parser *p)
   return TokenNode(intNode, token, IntVal(n));
 }
 
-val ParseByte(Parser *p)
-{
-  u8 byte;
-  i32 pos = p->token.pos, endPos = p->token.pos + p->token.length;
-  char *lexeme = p->text + p->token.pos;
-  if (IsSpace(lexeme[1]) || !IsPrintable(lexeme[1])) return ParseError("Expected character", p);
-  byte = *lexeme;
-  Adv(p);
-  Spacing(p);
-  return MakeNode(intNode, pos, endPos, IntVal(byte));
-}
-
 val ParseHex(Parser *p)
 {
   i32 n = 0;
@@ -715,6 +638,18 @@ val ParseHex(Parser *p)
   Adv(p);
   Spacing(p);
   return TokenNode(intNode, token, IntVal(n));
+}
+
+val ParseByte(Parser *p)
+{
+  u8 byte;
+  i32 pos = p->token.pos, endPos = p->token.pos + p->token.length;
+  char *lexeme = p->text + p->token.pos;
+  if (IsSpace(lexeme[1]) || !IsPrintable(lexeme[1])) return ParseError("Expected character", p);
+  byte = *lexeme;
+  Adv(p);
+  Spacing(p);
+  return MakeNode(intNode, pos, endPos, IntVal(byte));
 }
 
 val ParseSymbol(Parser *p)
@@ -741,9 +676,21 @@ val ParseString(Parser *p)
   return TokenNode(strNode, token, SymVal(sym));
 }
 
-val ParseVar(Parser *p)
+val ParseLiteral(Parser *p)
 {
-  return ParseID(p);
+  Token token = p->token;
+  if (MatchToken(nilToken, p)) {
+    Spacing(p);
+    return TokenNode(nilNode, token, 0);
+  } else if (MatchToken(trueToken, p)) {
+    Spacing(p);
+    return TokenNode(intNode, token, IntVal(1));
+  } else if (MatchToken(falseToken, p)) {
+    Spacing(p);
+    return TokenNode(intNode, token, IntVal(0));
+  } else {
+    return ParseError("Unexpected expression", p);
+  }
 }
 
 val ParseID(Parser *p)

@@ -15,7 +15,7 @@ Imports:    Imports Import | ;
 Import:     "import" sp ID Alias NL vsp ;
 Alias:      "as" sp ID | ;
 Stmts:      vsp Stmt | Stmts NL Stmt ;
-Stmt:       Def | Let | Struct | Expr ;
+Stmt:       Def | Let | Expr ;
 Def:        "def" sp ID "(" vsp Params ")" vsp Expr ;
 Params:     IDList | ;
 Let:        "let" sp Assigns ;

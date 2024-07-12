@@ -2,3 +2,8 @@ let id = \x -> x
 let inc = \x -> x + 1
 
 id(inc)(id(3))
+
+let n = if true do :one else 2 end
+if is_num(n) do
+  n + 1
+end

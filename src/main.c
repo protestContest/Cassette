@@ -11,6 +11,7 @@
 
 int main(int argc, char *argv[])
 {
+  /*VM vm;*/
   i32 i;
   i32 num_sources = argc-1;
   Module *modules = malloc(sizeof(Module)*num_sources);
@@ -41,7 +42,7 @@ int main(int argc, char *argv[])
     }
     result = InferTypes(result, PrimitiveTypes());
     if (IsError(result)) {
-      PrintError("Parse error", result, source);
+      PrintError("Type error", result, source);
       return 1;
     }
     PrintNode(result);
@@ -53,19 +54,19 @@ int main(int argc, char *argv[])
       return 1;
     }
 
+    /*
+    InitMem(256);
+    InitVM(&vm, module);
+    DefinePrimitives(&vm);
+    while (!VMDone(&vm)) {
+      VMTrace(&vm, source);
+      VMStep(&vm);
+    }
+    if (vm.status != vmOk) {
+      PrintError("Runtime error", VMError(&vm), source);
+    }
+    */
+
     free(source);
   }
-
-/*
-  InitMem(256);
-  InitVM(&vm, module);
-  DefinePrimitives(&vm);
-  while (!VMDone(&vm)) {
-    VMTrace(&vm, source);
-    VMStep(&vm);
-  }
-  if (vm.status != vmOk) {
-    PrintError("Runtime error", VMError(&vm), source);
-  }
-*/
 }

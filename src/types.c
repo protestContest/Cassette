@@ -45,6 +45,14 @@ val TypeFunc(char *name, i32 nparams)
   return t;
 }
 
+val Either(val t1, val t2)
+{
+  val type = TypeFunc("either", 2);
+  TupleSet(type, 1, t1);
+  TupleSet(type, 2, t2);
+  return type;
+}
+
 /* returns the type of a variable in the context */
 val TypeOfVar(val var, val context)
 {
@@ -344,10 +352,21 @@ creates are applied to the context and node. The substitution is returned. */
 
 val InferType(val node, val context);
 
-val InferConst(val node, char *t)
+val InferNodes(val nodes, val context)
 {
-  SetNodeType(node, ConstType(t));
-  return 0;
+  val sub = 0;
+  val prev_nodes = 0;
+  while (nodes) {
+    val node = Head(nodes);
+    val result = InferType(node, context);
+    if (IsError(result)) return result;
+    ApplySubsContext(result, context);
+    ApplySubsNodes(result, prev_nodes);
+    sub = CombineSubs(sub, result);
+    prev_nodes = Pair(node, prev_nodes);
+    nodes = Tail(nodes);
+  }
+  return sub;
 }
 
 val InferVar(val node, val context)
@@ -358,12 +377,37 @@ val InferVar(val node, val context)
   return 0;
 }
 
+val InferConst(val node, char *t)
+{
+  SetNodeType(node, ConstType(t));
+  return 0;
+}
+
+val InferTuple(val node, val context)
+{
+  val type = TypeFunc("tuple", NodeLength(node));
+  val items = NodeChildren(node);
+  val result = InferNodes(items, context);
+  u32 i;
+  if (IsError(result)) return result;
+  for (i = 0; i < TupleLength(type) - 1; i++) {
+    TupleSet(type, i+1, NodeValType(Head(items)));
+    items = Tail(items);
+  }
+  SetNodeType(node, type);
+  return result;
+}
+
 val InferDo(val node, val context)
 {
   val stmts = DoNodeStmts(node);
-  val stmt, result;
+  val stmt, result, prev_stmts = 0;
   while (stmts) {
     stmt = Head(stmts);
+    if (NodeType(stmt) == defNode) {
+      val var = NodeValue(DefNodeVar(stmt));
+      context = Pair(Pair(var, Generalize(NewTypeVar(), 0)), context);
+    }
     result = InferType(stmt, context);
     if (IsError(result)) return result;
     if (NodeType(stmt) == letNode) {
@@ -371,6 +415,9 @@ val InferDo(val node, val context)
       val stmt_type = NodeValType(stmt);
       context = Pair(Pair(var, Generalize(stmt_type, context)), context);
     }
+    ApplySubsContext(result, context);
+    ApplySubsNodes(result, prev_stmts);
+    prev_stmts = Pair(stmt, prev_stmts);
     stmts = Tail(stmts);
   }
   SetNodeType(node, NodeValType(stmt));
@@ -386,6 +433,17 @@ val InferLet(val node, val context)
   SetNodeType(var, NodeValType(expr));
   SetNodeType(node, NodeValType(expr));
   return 0;
+}
+
+val InferIf(val node, val context)
+{
+  /* TODO: do if/else branches need to be the same type? */
+  val type;
+  val result = InferNodes(NodeChildren(node), context);
+  if (IsError(result)) return result;
+  type = Either(NodeValType(IfNodeCons(node)), NodeValType(IfNodeAlt(node)));
+  SetNodeType(node, type);
+  return result;
 }
 
 val InferLambda(val node, val context)
@@ -417,21 +475,106 @@ val InferLambda(val node, val context)
   return result;
 }
 
-val InferNodes(val nodes, val context)
+val UnaryOpType(i32 node_type)
 {
-  val sub = 0;
-  val prev_nodes = 0;
-  while (nodes) {
-    val node = Head(nodes);
-    val result = InferType(node, context);
-    if (IsError(result)) return result;
-    ApplySubsContext(result, context);
-    ApplySubsNodes(result, prev_nodes);
-    sub = CombineSubs(sub, result);
-    prev_nodes = Pair(node, prev_nodes);
-    nodes = Tail(nodes);
+  val type;
+  switch (node_type) {
+  case negNode:
+  case compNode:
+    type = TypeFunc("op", 2);
+    TupleSet(type, 1, ConstType("int"));
+    TupleSet(type, 2, ConstType("int"));
+    return type;
+  case lenNode:
+  case notNode:
+    type = TypeFunc("op", 2);
+    TupleSet(type, 1, NewTypeVar());
+    TupleSet(type, 2, ConstType("int"));
+    return type;
+  case accessNode:
+    type = TypeFunc("op", 3);
+    TupleSet(type, 1, NewTypeVar());
+    TupleSet(type, 2, ConstType("int"));
+    TupleSet(type, 2, NewTypeVar());
+    return type;
+  case sliceNode:
+    type = TypeFunc("op", 4);
+    TupleSet(type, 1, NewTypeVar());
+    TupleSet(type, 2, ConstType("int"));
+    TupleSet(type, 3, ConstType("int"));
+    TupleSet(type, 4, NewTypeVar());
+    return type;
+  case mulNode:
+  case divNode:
+  case remNode:
+  case bitandNode:
+  case subNode:
+  case addNode:
+  case bitorNode:
+  case shiftNode:
+  case ltNode:
+  case gtNode:
+    type = TypeFunc("op", 3);
+    TupleSet(type, 1, ConstType("int"));
+    TupleSet(type, 2, ConstType("int"));
+    TupleSet(type, 3, ConstType("int"));
+    return type;
+  case pairNode: {
+    val a = NewTypeVar();
+    val b = NewTypeVar();
+    val pair_type = TypeFunc("pair", 2);
+    TupleSet(pair_type, 1, a);
+    TupleSet(pair_type, 2, b);
+    type = TypeFunc("op", 3);
+    TupleSet(type, 1, a);
+    TupleSet(type, 2, b);
+    TupleSet(type, 3, pair_type);
+    return type;
   }
-  return sub;
+  case eqNode:
+    type = TypeFunc("op", 3);
+    TupleSet(type, 1, NewTypeVar());
+    TupleSet(type, 2, NewTypeVar());
+    TupleSet(type, 3, ConstType("int"));
+    return type;
+  case andNode:
+  case orNode: {
+    val a = NewTypeVar();
+    val b = NewTypeVar();
+    type = TypeFunc("op", 3);
+    TupleSet(type, 1, a);
+    TupleSet(type, 2, b);
+    TupleSet(type, 3, Either(ConstType("int"), Either(a, b)));
+    return type;
+  }
+  default:
+    assert(false);
+  }
+}
+
+val InferOp(val node, val context)
+{
+  val args = NodeChildren(node);
+  u32 nargs = NodeLength(node);
+  u32 i;
+  val op_type = UnaryOpType(NodeType(node));
+  val call_type = TypeFunc("op", nargs+1);
+  val return_type = NewTypeVar();
+  val result1, result2;
+  result1 = InferNodes(args, context);
+  if (IsError(result1)) return result1;
+  for (i = 0; i < nargs; i++) {
+    val arg = Head(args);
+    TupleSet(call_type, i+1, NodeValType(arg));
+    args = Tail(args);
+  }
+  TupleSet(call_type, nargs+1, return_type);
+  SetNodeType(node, return_type);
+  result2 = Unify(op_type, call_type, node);
+  if (IsError(result2)) return result2;
+  ApplySubsContext(result2, context);
+  ApplySubsNode(result2, node);
+  return CombineSubs(result1, result2);
 }
 
 val InferCall(val node, val context)
@@ -463,17 +606,41 @@ val InferCall(val node, val context)
 val InferType(val node, val context)
 {
   switch (NodeType(node)) {
+  case errNode:     return node;
+  case idNode:      return InferVar(node, context);
   case nilNode:     return InferConst(node, "nil");
   case intNode:     return InferConst(node, "int");
   case symNode:     return InferConst(node, "sym");
   case strNode:     return InferConst(node, "str");
-  case idNode:      return InferVar(node, context);
+  case tupleNode:   return InferTuple(node, context);
   case doNode:      return InferDo(node, context);
-  case letNode:     return InferLet(node, context);
+  case ifNode:      return InferIf(node, context);
   case lambdaNode:  return InferLambda(node, context);
+  case notNode:     return InferOp(node, context);
+  case lenNode:     return InferOp(node, context);
+  case compNode:    return InferOp(node, context);
+  case negNode:     return InferOp(node, context);
+  case accessNode:  return InferOp(node, context);
+  case sliceNode:   return InferOp(node, context);
+  case mulNode:     return InferOp(node, context);
+  case divNode:     return InferOp(node, context);
+  case remNode:     return InferOp(node, context);
+  case bitandNode:  return InferOp(node, context);
+  case subNode:     return InferOp(node, context);
+  case addNode:     return InferOp(node, context);
+  case bitorNode:   return InferOp(node, context);
+  case shiftNode:   return InferOp(node, context);
+  case ltNode:      return InferOp(node, context);
+  case gtNode:      return InferOp(node, context);
+  case pairNode:    return InferOp(node, context);
+  case eqNode:      return InferOp(node, context);
+  case andNode:     return InferOp(node, context);
+  case orNode:      return InferOp(node, context);
   case callNode:    return InferCall(node, context);
+  case defNode:     return InferLet(node, context);
+  case letNode:     return InferLet(node, context);
   case moduleNode:  return InferType(ModNodeBody(node), context);
-  default:          return 0;
+  default:          return TypeError("Unknown expression", node);
   }
 }
 
