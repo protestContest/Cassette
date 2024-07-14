@@ -54,7 +54,7 @@ val CopyObj(val value, val *oldmem)
   if (IsObj(value)) {
     if (IsBinHdr(oldmem[index])) {
       len = RawVal(oldmem[index]);
-      value = Binary(len);
+      value = NewBinary(len);
       Copy(oldmem+index+1, BinaryData(value), len);
     } else if (IsTupleHdr(oldmem[index])) {
       len = RawVal(oldmem[index]);
@@ -104,37 +104,6 @@ void CollectGarbage(val *roots)
   }
 
   FreeVec(oldmem);
-}
-
-bool ValEq(val a, val b)
-{
-  if (!a && !b) {
-    return true;
-  } else if (IsPair(a) && IsPair(b)) {
-    return ValEq(Head(a), Head(b)) && ValEq(Tail(a), Tail(b));
-  } else if (IsTuple(a) && IsTuple(b)) {
-    u32 i;
-    if (TupleLength(a) != TupleLength(b)) return false;
-    for (i = 0; i < TupleLength(a); i++) {
-      if (!ValEq(TupleGet(a, i), TupleGet(b, i))) return false;
-    }
-    return true;
-  } else if (IsBinary(a) && IsBinary(b)) {
-    char *adata = BinaryData(a);
-    char *bdata = BinaryData(b);
-    u32 i;
-    if (BinaryLength(a) != BinaryLength(b)) return false;
-    for (i = 0; i < BinaryLength(a); i++) {
-      if (adata[i] != bdata[i]) return false;
-    }
-    return true;
-  } else if (IsInt(a) && IsInt(b)) {
-    return a == b;
-  } else if (IsSym(a) && IsSym(b)) {
-    return a == b;
-  } else {
-    return false;
-  }
 }
 
 val Pair(val head, val tail)
@@ -274,16 +243,21 @@ val TupleSlice(val tuple, u32 start, u32 end)
   return slice;
 }
 
-val Binary(u32 length)
+val NewBinary(u32 length)
 {
   u32 index = MemAlloc(BinSpace(length) + 1);
   MemSet(index, BinHeader(length));
   return ObjVal(index);
 }
 
+val Binary(char *str)
+{
+  return BinaryFrom(str, strlen(str));
+}
+
 val BinaryFrom(char *data, u32 length)
 {
-  val bin = Binary(length);
+  val bin = NewBinary(length);
   char *binData = BinaryData(bin);
   Copy(data, binData, length);
   return bin;
@@ -313,7 +287,7 @@ void BinarySet(val bin, u32 index, val value)
 
 val BinaryJoin(val left, val right)
 {
-  val bin = Binary(BinaryLength(left) + BinaryLength(right));
+  val bin = NewBinary(BinaryLength(left) + BinaryLength(right));
   Copy(BinaryData(left), BinaryData(bin), BinaryLength(left));
   Copy(BinaryData(right), BinaryData(bin)+BinaryLength(left), BinaryLength(right));
   return bin;
@@ -322,7 +296,7 @@ val BinaryJoin(val left, val right)
 val BinarySlice(val bin, u32 start, u32 end)
 {
   u32 len = (end > start) ? end - start : 0;
-  val slice = Binary(Min(len, TupleLength(bin)));
+  val slice = NewBinary(Min(len, TupleLength(bin)));
   Copy(BinaryData(bin)+start, BinaryData(slice), BinaryLength(slice));
   return slice;
 }
@@ -402,6 +376,66 @@ char *ValStr(val value, char *str)
     snprintf(str, 9, "%08X", value);
     return str;
   }
+}
+
+bool ValEq(val a, val b)
+{
+  if (!a && !b) {
+    return true;
+  } else if (IsPair(a) && IsPair(b)) {
+    return ValEq(Head(a), Head(b)) && ValEq(Tail(a), Tail(b));
+  } else if (IsTuple(a) && IsTuple(b)) {
+    u32 i;
+    if (TupleLength(a) != TupleLength(b)) return false;
+    for (i = 0; i < TupleLength(a); i++) {
+      if (!ValEq(TupleGet(a, i), TupleGet(b, i))) return false;
+    }
+    return true;
+  } else if (IsBinary(a) && IsBinary(b)) {
+    char *adata = BinaryData(a);
+    char *bdata = BinaryData(b);
+    u32 i;
+    if (BinaryLength(a) != BinaryLength(b)) return false;
+    for (i = 0; i < BinaryLength(a); i++) {
+      if (adata[i] != bdata[i]) return false;
+    }
+    return true;
+  } else if (IsInt(a) && IsInt(b)) {
+    return a == b;
+  } else if (IsSym(a) && IsSym(b)) {
+    return a == b;
+  } else {
+    return false;
+  }
+}
+
+u32 ValStrLen(val value)
+{
+  if (IsInt(value)) return NumDigits(RawInt(value), 10);
+  if (IsBinary(value)) return BinaryLength(value);
+  if (IsPair(value) && value) {
+    return ValStrLen(Head(value)) + ValStrLen(Tail(value));
+  }
+  return 0;
+}
+
+char *FormatVal(val value, char *buf)
+{
+  if (!buf) {
+    u32 len = ValStrLen(value);
+    buf = malloc(len+1);
+    buf[len] = 0;
+  }
+  if (IsInt(value)) return ValStr(value, buf);
+  if (IsBinary(value)) {
+    Copy(BinaryData(value), buf, BinaryLength(value));
+  }
+  if (IsPair(value) && value) {
+    u32 head_len = ValStrLen(Head(value));
+    FormatVal(Head(value), buf);
+    FormatVal(Tail(value), buf+head_len);
+  }
+  return buf;
 }
 
 void DumpMem(void)

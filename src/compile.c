@@ -3,6 +3,7 @@
 #include "node.h"
 #include "vm.h"
 #include "env.h"
+#include "error.h"
 #include <univ/symbol.h>
 #include <univ/vec.h>
 
@@ -13,7 +14,8 @@ typedef struct {
 
 static val CompileExpr(val node, Compiler *c);
 
-#define Fail(msg, node) MakeError(msg, NodeStart(node), NodeEnd(node))
+#define Fail(msg, node) \
+  MakeError(Binary(msg), Pair(NodeStart(node), NodeEnd(node)))
 
 static void ExtendEnv(i32 count, u32 pos, Compiler *c)
 {

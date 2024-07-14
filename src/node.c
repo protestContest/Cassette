@@ -1,7 +1,7 @@
 #include "node.h"
 #include "types.h"
-#include "univ/math.h"
-#include "univ/str.h"
+#include <univ/math.h>
+#include <univ/str.h>
 
 val MakeNode(i32 type, i32 start, i32 end, val value)
 {
@@ -113,37 +113,4 @@ void PrintNodeLevel(val node, i32 level, u32 lines)
 void PrintNode(val node)
 {
   PrintNodeLevel(node, 0, 0);
-}
-
-void PrintError(char *prefix, val node, char *source)
-{
-  i32 nodeStart = NodeStart(node);
-  i32 nodeLen = NodeEnd(node) - nodeStart;
-  i32 col = 0, i;
-  i32 line = 0;
-  if (!node) return;
-  if (prefix) {
-    fprintf(stderr, "%s%s: %s\n", ANSIRed, prefix, ErrorMsg(node));
-  } else {
-    fprintf(stderr, "%s%s\n", ANSIRed, ErrorMsg(node));
-  }
-  if (source) {
-    char *start = source + nodeStart;
-    char *end = source + nodeStart;
-    while (start > source && !IsNewline(start[-1])) {
-      col++;
-      start--;
-    }
-    while (*end && !IsNewline(*end)) end++;
-    for (i = 0; i < nodeStart; i++) {
-      if (IsNewline(source[i])) line++;
-    }
-    fprintf(stderr, "%3d| %*.*s\n",
-        line+1, (i32)(end-start), (i32)(end-start), start);
-    fprintf(stderr, "     ");
-    for (i = 0; i < col; i++) fprintf(stderr, " ");
-    for (i = 0; i < nodeLen; i++) fprintf(stderr, "^");
-    fprintf(stderr, "\n");
-  }
-  fprintf(stderr, "%s", ANSINormal);
 }

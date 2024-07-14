@@ -1,17 +1,5 @@
-; def fact(n) do
-;   if n == 1 do
-;     1
-;   else
-;     n * fact(n - 1)
-;   end
-; end
-
-def reduce(list, acc, fn) do
-  if list do
-    reduce(list[1:0], fn(list[0], acc), fn)
-  else
-    acc
-  end
+if true do
+  :ok
+else
+  3
 end
-
-reduce([1, :x, "foo"], nil, \item, acc -> item | acc)

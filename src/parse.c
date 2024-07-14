@@ -2,6 +2,7 @@
 #include "node.h"
 #include "lex.h"
 #include "types.h"
+#include "error.h"
 #include <univ/str.h>
 #include <univ/symbol.h>
 #include <univ/math.h>
@@ -25,7 +26,7 @@ static bool MatchToken(TokenType type, Parser *p)
 }
 
 #define ParseError(msg, p) \
-  MakeError(msg, (p)->token.pos, (p)->token.pos + (p)->token.length)
+  MakeError(Binary(msg), Pair((p)->token.pos, (p)->token.pos + (p)->token.length))
 #define TokenNode(type, token, value) \
   MakeNode(type, (token).pos, (token).pos+(token).length, value)
 

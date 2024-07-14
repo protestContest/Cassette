@@ -3,8 +3,9 @@
 #include "lex.h"
 #include "primitives.h"
 #include "node.h"
-#include "univ/symbol.h"
-#include "univ/str.h"
+#include "error.h"
+#include <univ/symbol.h>
+#include <univ/str.h>
 
 /*
 Types can be:
@@ -25,7 +26,8 @@ A context is a list of (var, type) pairs
 #define IsTypeVar(t)          IsInt(t)
 #define IsTypeFunc(t)         IsTuple(t)
 #define IsPolytype(t)         IsPair(t)
-#define TypeError(msg, node)  MakeError(msg, NodeStart(node), NodeEnd(node))
+#define TypeError(msg, node)  \
+  MakeError(Binary(msg), Pair(NodeStart(node), NodeEnd(node)))
 
 #define ConstType(name)       SymVal(Symbol(name))
 #define PolyType(type, tvars) Pair(type, tvars)

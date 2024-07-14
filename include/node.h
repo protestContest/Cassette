@@ -8,12 +8,8 @@ enum {errNode, idNode, nilNode, intNode, symNode, strNode, listNode, tupleNode,
   callNode, letNode, defNode, importNode, moduleNode};
 
 val MakeNode(i32 type, i32 start, i32 end, val value);
-#define MakeError(msg, start, end) \
-  MakeNode(errNode, start, end, SymVal(Symbol(msg)))
-
 void PrintNodeLevel(val node, i32 level, u32 lines);
 void PrintNode(val node);
-void PrintError(char *prefix, val node, char *source);
 
 /*
 Nodes are tuples with these fields:
@@ -52,9 +48,6 @@ Nodes are tuples with these fields:
 #define NodeChildren(node)  NodeValue(node)
 #define NodeLength(node)    ListLength(NodeChildren(node))
 #define NodeChild(node, i)  ListGet(NodeChildren(node), i)
-
-#define IsError(node)       (IsTuple(node) && NodeType(node) == errNode)
-#define ErrorMsg(node)      NodeText(node)
 
 #define NodeText(node)      SymbolName(RawVal(NodeValue(node)))
 #define NodeInt(node)       RawInt(NodeValue(node))

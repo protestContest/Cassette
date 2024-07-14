@@ -1,5 +1,5 @@
 #include "lex.h"
-#include "univ/str.h"
+#include <univ/str.h>
 
 static Token MakeToken(TokenType type, u32 pos, u32 length)
 {

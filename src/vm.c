@@ -3,6 +3,7 @@
 #include "env.h"
 #include "parse.h"
 #include "node.h"
+#include "error.h"
 #include <univ/symbol.h>
 #include <univ/vec.h>
 #include <univ/str.h>
@@ -134,7 +135,7 @@ VMStatus VMStep(VM *vm)
 void PrintSourceFrom(u32 index, char *src)
 {
   char *start = src+index;
-  char *end = LineEnd(start);
+  char *end = LineEnd(index, src);
   fprintf(stderr, "%*.*s", (i32)(end-start), (i32)(end-start), start);
 }
 
@@ -430,7 +431,7 @@ static VMStatus OpBin(VM *vm)
 {
   u32 count = ReadInt(&vm->pc, vm->mod);
   if (MemFree() < BinSpace(count) + 1) RunGC(vm);
-  StackPush(Binary(count), vm);
+  StackPush(NewBinary(count), vm);
   return vmOk;
 }
 
@@ -678,21 +679,23 @@ u32 PrintStack(VM *vm)
   return printed;
 }
 
+#define RuntimeError(msg, pos) MakeError(Binary(msg), Pair(pos, pos))
+
 val VMError(VM *vm)
 {
   u32 srcPos = GetSourcePos(vm->pc-1, vm->mod);
 
   switch (vm->status) {
   case stackUnderflow:
-    return MakeError("Stack Underflow", srcPos, srcPos);
+    return RuntimeError("Stack Underflow", srcPos);
   case invalidType:
-    return MakeError("Invalid Type", srcPos, srcPos);
+    return RuntimeError("Invalid Type", srcPos);
   case divideByZero:
-    return MakeError("Divdie by Zero", srcPos, srcPos);
+    return RuntimeError("Divdie by Zero", srcPos);
   case outOfBounds:
-    return MakeError("Out of Bounds", srcPos, srcPos);
+    return RuntimeError("Out of Bounds", srcPos);
   case unhandledTrap:
-    return MakeError("Trap", srcPos, srcPos);
+    return RuntimeError("Trap", srcPos);
   default:
     return nil;
   }

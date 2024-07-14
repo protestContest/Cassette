@@ -5,6 +5,7 @@
 #include "primitives.h"
 #include "compile.h"
 #include "vm.h"
+#include "error.h"
 #include <univ/file.h>
 #include <univ/str.h>
 #include <univ/symbol.h>
@@ -15,6 +16,7 @@ int main(int argc, char *argv[])
   i32 i;
   i32 num_sources = argc-1;
   Module *modules = malloc(sizeof(Module)*num_sources);
+  val result;
   InitMem(0);
 
   if (num_sources < 1) {
@@ -25,7 +27,6 @@ int main(int argc, char *argv[])
   for (i = 0; i < num_sources; i++) {
     char *source = ReadFile(argv[i+1]);
     Module *module = &modules[i];
-    val result;
     if (!source) {
       printf("%sCould not read file \"%s\"%s\n", ANSIRed, argv[i+1], ANSINormal);
       return 1;
@@ -37,12 +38,12 @@ int main(int argc, char *argv[])
 
     result = Parse(source);
     if (IsError(result)) {
-      PrintError("Parse error", result, source);
+      PrintError(PrefixError(result, "Parse error: "), source);
       return 1;
     }
     result = InferTypes(result, PrimitiveTypes());
     if (IsError(result)) {
-      PrintError("Type error", result, source);
+      PrintError(PrefixError(result, "Type error: "), source);
       return 1;
     }
     PrintNode(result);
@@ -50,7 +51,7 @@ int main(int argc, char *argv[])
     InitModule(module);
     result = Compile(result, PrimitiveEnv(), module);
     if (IsError(result)) {
-      PrintError("Compile error", result, source);
+      PrintError(PrefixError(result, "Compile error: "), source);
       return 1;
     }
 

@@ -34,8 +34,6 @@ u32 MemSize(void);
 u32 MemFree(void);
 void CollectGarbage(val *roots);
 
-bool ValEq(val a, val b);
-
 val Pair(val head, val tail);
 val Head(val pair);
 val Tail(val pair);
@@ -57,7 +55,8 @@ val TupleJoin(val left, val right);
 val TupleSlice(val list, u32 start, u32 end);
 
 #define BinSpace(length)  (Align(length, 4) / 4)
-val Binary(u32 length);
+val NewBinary(u32 length);
+val Binary(char *str);
 val BinaryFrom(char *data, u32 length);
 u32 BinaryLength(val bin);
 char *BinaryData(val bin);
@@ -68,4 +67,6 @@ val BinarySlice(val list, u32 start, u32 end);
 bool BinIsPrintable(val bin);
 
 char *ValStr(val value, char *str);
+bool ValEq(val a, val b);
+char *FormatVal(val value, char *buf);
 void DumpMem(void);
