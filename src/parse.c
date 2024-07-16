@@ -1,11 +1,9 @@
 #include "parse.h"
-#include "node.h"
-#include "lex.h"
-#include "types.h"
 #include "error.h"
+#include "lex.h"
+#include <univ/math.h>
 #include <univ/str.h>
 #include <univ/symbol.h>
-#include <univ/math.h>
 
 typedef struct {
   char *text;

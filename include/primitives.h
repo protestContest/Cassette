@@ -1,16 +1,5 @@
 #pragma once
-
-typedef enum {
-  vmOk,
-  stackUnderflow,
-  invalidType,
-  divideByZero,
-  outOfBounds,
-  unhandledTrap
-} VMStatus;
-
-struct VM;
-typedef VMStatus (*PrimFn)(struct VM *vm);
+#include "vm.h"
 
 typedef struct {
   char *name;

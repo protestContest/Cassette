@@ -1,10 +1,15 @@
 #pragma once
-#include "mem.h"
-#include "parse.h"
-#include <univ/symbol.h>
 
-val InferTypes(val node);
-val Generalize(val type, val context);
-void PrintType(val type);
-val ParseType(char *spec);
-val TypeStr(val type);
+/*
+The type checker infers types using the Hindley-Milner type system.
+*/
+
+#include "mem.h"
+#include "node.h"
+
+typedef val Type;
+
+Node InferTypes(Node node);
+void PrintType(Type type);
+Type ParseType(char *spec);
+val TypeStr(Type type);

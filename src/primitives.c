@@ -1,20 +1,17 @@
 #include "primitives.h"
-#include "env.h"
-#include "types.h"
-#include "vm.h"
-#include <univ/vec.h>
 #include <univ/symbol.h>
+#include <univ/vec.h>
 
 VMStatus VMPrint(VM *vm)
 {
   val a, str;
   CheckStack(vm, 1);
-  a = StackPop(vm);
+  a = VMStackPop(vm);
 
   str = InspectVal(a);
   printf("%*.*s\n", BinaryLength(str), BinaryLength(str), BinaryData(str));
 
-  StackPush(SymVal(Symbol("ok")), vm);
+  VMStackPush(SymVal(Symbol("ok")), vm);
   return vmOk;
 }
 
@@ -22,8 +19,8 @@ VMStatus VMFormat(VM *vm)
 {
   val a;
   CheckStack(vm, 1);
-  a = StackPop(vm);
-  StackPush(FormatVal(a), vm);
+  a = VMStackPop(vm);
+  VMStackPush(FormatVal(a), vm);
   return vmOk;
 }
 

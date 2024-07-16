@@ -1,9 +1,16 @@
 #pragma once
+
+/* A chunk abstractly represents a sequence of VM instructions. Each chunk also
+records which registers it needs and which it modifies. This allows the compiler
+to correctly generate code that preserves registers. */
+
 #include "mem.h"
 
-typedef enum {regEnv = 1, regCont = 2} Regs;
+typedef val Chunk;
 
-val MakeChunk(Regs needs, Regs modifies, val code);
+typedef enum {regEnv = 1} Regs;
+
+Chunk MakeChunk(Regs needs, Regs modifies, val code);
 #define EmptyChunk()          MakeChunk(0, 0, 0)
 #define ChunkNeeds(chunk)     RawInt(TupleGet(chunk, 1))
 #define ChunkModifies(chunk)  RawInt(TupleGet(chunk, 2))
@@ -11,11 +18,10 @@ val MakeChunk(Regs needs, Regs modifies, val code);
 
 #define Op(name)        SymVal(Symbol(name))
 
-val AppendChunk(val a, val b);
-val AppendChunks(val chunks);
-val Preserving(i32 regs, val a, val b);
-val AppendCode(val a, val code);
-val ParallelChunks(val a, val b);
-val TackOnChunk(val a, val b);
-val LabelChunk(val label, val chunk);
-void PrintChunk(val chunk);
+Chunk AppendChunk(Chunk a, Chunk b);
+Chunk Preserving(Regs regs, Chunk a, Chunk b);
+Chunk AppendCode(Chunk a, val code);
+Chunk ParallelChunks(Chunk a, Chunk b);
+Chunk TackOnChunk(Chunk a, Chunk b);
+Chunk LabelChunk(val label, Chunk chunk);
+void PrintChunk(Chunk chunk);

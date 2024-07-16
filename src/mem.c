@@ -1,8 +1,8 @@
 #include "mem.h"
-#include <univ/vec.h>
-#include <univ/symbol.h>
 #include <univ/math.h>
 #include <univ/str.h>
+#include <univ/symbol.h>
+#include <univ/vec.h>
 
 static val *mem = 0;
 

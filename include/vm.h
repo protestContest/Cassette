@@ -1,8 +1,5 @@
 #pragma once
-#include "module.h"
-#include "primitives.h"
-#include <univ/hashmap.h>
-#include <univ/vec.h>
+#include "mem.h"
 
 typedef enum {
   opNoop,   /* */
@@ -34,7 +31,7 @@ typedef enum {
   opJoin,   /* b a -> (a <> b) */
   opSlice,  /* c b a -> (a[b:c]) */
   opJmp,    /* n; pc <- pc + n */
-  opBr,     /* n; a -> ; pc <- pc + n */
+  opBranch, /* n; a -> ; pc <- pc + n */
   opTrap,   /* n; ?? */
   opPos,    /* n; -> (pc + n) */
   opGoto,   /* a -> ; pc <- pc + a */
@@ -46,35 +43,46 @@ typedef enum {
   opRot,    /* c b a -> a c b */
   opGetEnv, /* -> env */
   opSetEnv, /* a -> ; env <- a */
-  opGetCont,
-  opSetCont,
   opLookup, /* n; -> (env[n]) */
   opDefine  /* n; a -> ; env[n] <- a */
 } OpCode;
+
+typedef enum {
+  vmOk,
+  stackUnderflow,
+  invalidType,
+  divideByZero,
+  outOfBounds,
+  unhandledTrap
+} VMStatus;
+
+struct VM;
+typedef VMStatus (*PrimFn)(struct VM *vm);
+
+typedef struct {
+  u8 *code;
+  char *symbols;
+} Program;
 
 typedef struct VM {
   VMStatus status;
   u32 pc;
   val env;
-  val cont;
   val *stack;
-  Module *mod;
   PrimFn *primitives;
-  HashMap primMap;
+  Program *program;
 } VM;
 
-#define CheckStack(vm, n)   if (VecCount((vm)->stack) < (n)) return stackUnderflow
-#define VMDone(vm)          ((vm)->status != vmOk || (vm)->pc >= VecCount((vm)->mod->code))
+#define CheckStack(vm, n) \
+  if (VecCount((vm)->stack) < (n)) return stackUnderflow
+#define VMDone(vm) \
+  ((vm)->status != vmOk || (vm)->pc >= VecCount((vm)->program->code))
 
-void InitVM(VM *vm, Module *mod);
+void InitVM(VM *vm, Program *program);
 void DestroyVM(VM *vm);
-void DefinePrimitive(val id, PrimFn fn, VM *vm);
+void VMRun(Program *program, VM *vm);
 VMStatus VMStep(VM *vm);
-void VMRun(VM *vm);
-val StackPop(VM *vm);
-void StackPush(val value, VM *vm);
+void VMStackPush(val value, VM *vm);
+val VMStackPop(VM *vm);
 
 void VMTrace(VM *vm, char *src);
-void TraceInst(VM *vm);
-u32 PrintStack(VM *vm);
-val VMError(VM *vm);

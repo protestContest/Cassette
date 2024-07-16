@@ -1,12 +1,10 @@
 #include "types.h"
-#include "parse.h"
+#include "error.h"
 #include "lex.h"
 #include "primitives.h"
-#include "node.h"
-#include "error.h"
-#include <univ/symbol.h>
-#include <univ/str.h>
 #include <univ/math.h>
+#include <univ/str.h>
+#include <univ/symbol.h>
 
 /*
 Types can be:

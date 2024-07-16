@@ -1,12 +1,8 @@
 #include "compile.h"
-#include "parse.h"
-#include "node.h"
-#include "vm.h"
 #include "env.h"
 #include "error.h"
-#include "chunk.h"
+#include "primitives.h"
 #include <univ/symbol.h>
-#include <univ/vec.h>
 
 #define Fail(msg, node) \
   MakeError(Binary(msg), Pair(NodeStart(node), NodeEnd(node)))

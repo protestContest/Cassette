@@ -1,18 +1,8 @@
 #pragma once
-#include "mem.h"
-
-enum {errNode, idNode, nilNode, intNode, symNode, strNode, listNode, tupleNode,
-  doNode, ifNode, lambdaNode, notNode, lenNode, compNode, negNode, accessNode,
-  sliceNode, mulNode, divNode, remNode, bitandNode, subNode, addNode, bitorNode,
-  shiftNode, ltNode, gtNode, joinNode, pairNode, eqNode, andNode, orNode,
-  callNode, letNode, defNode, importNode, moduleNode};
-
-val MakeNode(i32 type, i32 start, i32 end, val value);
-void PrintNodeLevel(val node, i32 level, u32 lines);
-void PrintNode(val node);
 
 /*
-Nodes are tuples with these fields:
+A node is an element in an abstract syntax tree. Nodes are represented as tuples
+with these fields:
 - node type
 - node value (varies by node type):
   - nilNode: nothing
@@ -35,6 +25,20 @@ Nodes are tuples with these fields:
 - end pos
 - inferred type
 */
+
+#include "mem.h"
+
+enum {errNode, idNode, nilNode, intNode, symNode, strNode, listNode, tupleNode,
+  doNode, ifNode, lambdaNode, notNode, lenNode, compNode, negNode, accessNode,
+  sliceNode, mulNode, divNode, remNode, bitandNode, subNode, addNode, bitorNode,
+  shiftNode, ltNode, gtNode, joinNode, pairNode, eqNode, andNode, orNode,
+  callNode, letNode, defNode, importNode, moduleNode};
+
+typedef val Node;
+
+Node MakeNode(i32 type, i32 start, i32 end, val value);
+void PrintNodeLevel(Node node, i32 level, u32 lines);
+void PrintNode(Node node);
 
 #define NodeType(node)      RawVal(TupleGet(node, 0))
 #define NodeValue(node)     TupleGet(node, 1)

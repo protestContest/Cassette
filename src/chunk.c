@@ -1,5 +1,4 @@
 #include "chunk.h"
-#include "vm.h"
 #include <univ/symbol.h>
 
 val MakeChunk(Regs needs, Regs modifies, val code)
@@ -28,7 +27,7 @@ val AppendChunks(val chunks)
 }
 
 /* ensures a doesn't mangle regs for use in b */
-val Preserving(i32 regs, val a, val b)
+Chunk Preserving(Regs regs, Chunk a, Chunk b)
 {
   val code = ChunkCode(a);
   i32 modifies = ChunkModifies(a);
@@ -43,16 +42,6 @@ val Preserving(i32 regs, val a, val b)
       Pair(code,
       Pair(Op("swap"),
       Pair(Op("setEnv"), 0))));
-  }
-
-  if ((ChunkNeeds(b) & regCont) && (ChunkModifies(a) & regCont)) {
-    modifies &= ~regCont;
-    needs |= regCont;
-    code =
-      Pair(Op("getCont"),
-      Pair(code,
-      Pair(Op("swap"),
-      Pair(Op("setCont"), 0))));
   }
 
   return AppendChunk(MakeChunk(needs, modifies, code), b);

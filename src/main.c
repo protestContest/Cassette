@@ -1,11 +1,8 @@
-#include "parse.h"
-#include "node.h"
-#include "types.h"
-#include "primitives.h"
+#include "mem.h"
 #include "compile.h"
-#include "chunk.h"
-#include "vm.h"
 #include "error.h"
+#include "parse.h"
+#include "types.h"
 #include <univ/file.h>
 #include <univ/str.h>
 #include <univ/symbol.h>

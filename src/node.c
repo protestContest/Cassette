@@ -1,7 +1,7 @@
 #include "node.h"
 #include "types.h"
 #include <univ/math.h>
-#include <univ/str.h>
+#include <univ/symbol.h>
 
 val MakeNode(i32 type, i32 start, i32 end, val value)
 {

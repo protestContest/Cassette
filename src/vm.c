@@ -1,15 +1,18 @@
 #include "vm.h"
-#include "mem.h"
 #include "env.h"
-#include "parse.h"
-#include "node.h"
 #include "error.h"
+#include "leb.h"
+#include "primitives.h"
+#include <univ/math.h>
+#include <univ/str.h>
 #include <univ/symbol.h>
 #include <univ/vec.h>
-#include <univ/str.h>
-#include <univ/math.h>
 
 typedef VMStatus (*OpFn)(VM *vm);
+
+static void TraceInst(VM *vm);
+static u32 PrintStack(VM *vm);
+static PrimFn *InitPrimitives(void);
 
 static VMStatus OpNoop(VM *vm);
 static VMStatus OpConst(VM *vm);
@@ -40,7 +43,7 @@ static VMStatus OpBin(VM *vm);
 static VMStatus OpJoin(VM *vm);
 static VMStatus OpSlice(VM *vm);
 static VMStatus OpJmp(VM *vm);
-static VMStatus OpBr(VM *vm);
+static VMStatus OpBranch(VM *vm);
 static VMStatus OpTrap(VM *vm);
 static VMStatus OpPos(VM *vm);
 static VMStatus OpGoto(VM *vm);
@@ -85,7 +88,7 @@ static OpFn ops[] = {
   [opJoin]    = OpJoin,
   [opSlice]   = OpSlice,
   [opJmp]     = OpJmp,
-  [opBr]      = OpBr,
+  [opBranch]  = OpBranch,
   [opTrap]    = OpTrap,
   [opPos]     = OpPos,
   [opGoto]    = OpGoto,
@@ -101,43 +104,26 @@ static OpFn ops[] = {
   [opDefine]  = OpDefine,
 };
 
-void DefinePrimitives(VM *vm);
-
-void InitVM(VM *vm, Module *mod)
+void InitVM(VM *vm, Program *program)
 {
-  vm->mod = mod;
   vm->status = vmOk;
   vm->pc = 0;
   vm->env = 0;
-  vm->primitives = 0;
   vm->stack = 0;
-  ImportSymbols(mod->data, VecCount(mod->data));
-  InitHashMap(&vm->primMap);
-  DefinePrimitives(vm);
+  vm->program = program;
+  if (program) ImportSymbols(program->symbols, VecCount(program->symbols));
+  vm->primitives = InitPrimitives();
 }
 
 void DestroyVM(VM *vm)
 {
   FreeVec(vm->stack);
-  FreeVec(vm->primitives);
-  DestroyHashMap(&vm->primMap);
-}
-
-void DefinePrimitives(VM *vm)
-{
-  u32 i, num_prims = NumPrimitives();
-  PrimDef *primitives = Primitives();
-  for (i = 0; i < num_prims; i++) {
-    val id = Symbol(primitives[i].name);
-    PrimFn fn = primitives[i].fn;
-    HashMapSet(&vm->primMap, id, VecCount(vm->primitives));
-    VecPush(vm->primitives, fn);
-  }
+  free(vm->primitives);
 }
 
 VMStatus VMStep(VM *vm)
 {
-  vm->status = ops[vm->mod->code[vm->pc++]](vm);
+  vm->status = ops[vm->program->code[vm->pc++]](vm);
   return vm->status;
 }
 
@@ -149,14 +135,15 @@ void PrintSourceFrom(u32 index, char *src)
   fprintf(stderr, "%*.*s", (i32)(end-start), (i32)(end-start), start);
 }
 
-void VMRun(VM *vm)
+void VMRun(Program *program, VM *vm)
 {
+  InitVM(vm, program);
   while (!VMDone(vm)) {
     VMStep(vm);
   }
 }
 
-val StackPop(VM *vm)
+val VMStackPop(VM *vm)
 {
   return VecPop(vm->stack);
 }
@@ -170,27 +157,28 @@ void RunGC(VM *vm)
 {
   StackPush(vm->env, vm);
   CollectGarbage(vm->stack);
-  vm->env = StackPop(vm);
+  vm->env = VMStackPop(vm);
 }
 
 #define OneArg(a) \
   CheckStack(vm, 1);\
-  a = StackPop(vm)
+  a = VMStackPop(vm)
 
 #define TwoArgs(a, b) \
   CheckStack(vm, 2);\
-  b = StackPop(vm);\
-  a = StackPop(vm)
+  b = VMStackPop(vm);\
+  a = VMStackPop(vm)
 
 #define ThreeArgs(a, b, c) \
   CheckStack(vm, 3);\
-  c = StackPop(vm);\
-  b = StackPop(vm);\
-  a = StackPop(vm)
+  c = VMStackPop(vm);\
+  b = VMStackPop(vm);\
+  a = VMStackPop(vm)
 
 #define UnaryOp(op)     StackPush(IntVal(op RawVal(a)), vm)
 #define BinOp(op)       StackPush(IntVal(RawVal(a) op RawVal(b)), vm)
-#define CheckBounds(n)  if ((n) < 0 || (n) > (i32)VecCount(vm->mod->code)) return outOfBounds
+#define CheckBounds(n) \
+  if ((n) < 0 || (n) > (i32)VecCount(vm->program->code)) return outOfBounds
 
 static VMStatus OpNoop(VM *vm)
 {
@@ -199,8 +187,9 @@ static VMStatus OpNoop(VM *vm)
 
 static VMStatus OpConst(VM *vm)
 {
-  i32 num = ReadInt(&vm->pc, vm->mod);
-  StackPush(vm->mod->constants[num], vm);
+  val value = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(value);
+  VMStackPush(value, vm);
   return vmOk;
 }
 
@@ -365,7 +354,8 @@ static VMStatus OpTail(VM *vm)
 
 static VMStatus OpTuple(VM *vm)
 {
-  u32 count = ReadInt(&vm->pc, vm->mod);
+  u32 count = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(count);
   if (MemFree() < count+1) RunGC(vm);
   StackPush(Tuple(count), vm);
   return vmOk;
@@ -439,7 +429,8 @@ static VMStatus OpStr(VM *vm)
 
 static VMStatus OpBin(VM *vm)
 {
-  u32 count = ReadInt(&vm->pc, vm->mod);
+  u32 count = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(count);
   if (MemFree() < BinSpace(count) + 1) RunGC(vm);
   StackPush(NewBinary(count), vm);
   return vmOk;
@@ -497,7 +488,7 @@ static VMStatus OpSlice(VM *vm)
       if (MemFree() < 4*len) {
         StackPush(list, vm);
         RunGC(vm);
-        list = StackPop(vm);
+        list = VMStackPop(vm);
       }
       list = ListTrunc(list, RawVal(c) - RawVal(b));
     }
@@ -510,7 +501,7 @@ static VMStatus OpSlice(VM *vm)
     if (MemFree() < len+1) {
       StackPush(a, vm);
       RunGC(vm);
-      a = StackPop(vm);
+      a = VMStackPop(vm);
     }
     StackPush(TupleSlice(a, RawVal(b), RawVal(c)), vm);
   } else if (IsBinary(a)) {
@@ -521,7 +512,7 @@ static VMStatus OpSlice(VM *vm)
     if (MemFree() < BinSpace(len)+1) {
       StackPush(a, vm);
       RunGC(vm);
-      a = StackPop(vm);
+      a = VMStackPop(vm);
     }
     StackPush(BinarySlice(a, RawVal(b), RawVal(c)), vm);
   } else {
@@ -532,16 +523,18 @@ static VMStatus OpSlice(VM *vm)
 
 static VMStatus OpJmp(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->mod);
+  i32 n = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
   CheckBounds((i32)vm->pc + n);
   vm->pc += n;
   return vmOk;
 }
 
-static VMStatus OpBr(VM *vm)
+static VMStatus OpBranch(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->mod);
   val a;
+  i32 n = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
   OneArg(a);
   if (RawVal(a)) {
     CheckBounds((i32)vm->pc + n);
@@ -552,16 +545,15 @@ static VMStatus OpBr(VM *vm)
 
 static VMStatus OpTrap(VM *vm)
 {
-  u32 id = ReadInt(&vm->pc, vm->mod);
-  if (HashMapContains(&vm->primMap, id)) {
-    return vm->primitives[HashMapGet(&vm->primMap, id)](vm);
-  }
-  return unhandledTrap;
+  u32 id = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(id);
+  return vm->primitives[id](vm);
 }
 
 static VMStatus OpPos(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->mod);
+  i32 n = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
   StackPush(IntVal((i32)vm->pc + n), vm);
   return vmOk;
 }
@@ -578,7 +570,7 @@ static VMStatus OpGoto(VM *vm)
 
 static VMStatus OpHalt(VM *vm)
 {
-  vm->pc = VecCount(vm->mod->code);
+  vm->pc = VecCount(vm->program->code);
   return vmOk;
 }
 
@@ -636,21 +628,23 @@ static VMStatus OpGetEnv(VM *vm)
 static VMStatus OpSetEnv(VM *vm)
 {
   if (VecCount(vm->stack) < 1) return stackUnderflow;
-  vm->env = StackPop(vm);
+  vm->env = VMStackPop(vm);
   return vmOk;
 }
 
 static VMStatus OpLookup(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->mod);
-  StackPush(EnvGet(n, vm->env), vm);
+  i32 n = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
+  VMStackPush(EnvGet(n, vm->env), vm);
   return vmOk;
 }
 
 static VMStatus OpDefine(VM *vm)
 {
-  i32 n = ReadInt(&vm->pc, vm->mod);
   val a;
+  i32 n = ReadLEB(vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
   OneArg(a);
   if (!EnvSet(a, n, vm->env)) return outOfBounds;
   return vmOk;
@@ -660,21 +654,22 @@ void VMTrace(VM *vm, char *src)
 {
   TraceInst(vm);
   PrintStack(vm);
-  PrintSourceFrom(GetSourcePos(vm->pc, vm->mod), src);
   printf("\n");
 }
 
-void TraceInst(VM *vm)
+static void TraceInst(VM *vm)
 {
+  /*
   u32 index = vm->pc;
   char *op = DisassembleOp(&index, 0, vm->mod);
   u32 i, len = strlen(op);
   fprintf(stderr, "%s ", op);
   for (i = 0; i < 20 - len; i++) fprintf(stderr, " ");
   FreeVec(op);
+  */
 }
 
-u32 PrintStack(VM *vm)
+static u32 PrintStack(VM *vm)
 {
   u32 i, printed = 0, max = 6;
   char *str;
@@ -693,20 +688,29 @@ u32 PrintStack(VM *vm)
 
 val VMError(VM *vm)
 {
-  u32 srcPos = GetSourcePos(vm->pc-1, vm->mod);
-
   switch (vm->status) {
   case stackUnderflow:
-    return RuntimeError("Stack Underflow", srcPos);
+    return RuntimeError("Stack Underflow", 0);
   case invalidType:
-    return RuntimeError("Invalid Type", srcPos);
+    return RuntimeError("Invalid Type", 0);
   case divideByZero:
-    return RuntimeError("Divdie by Zero", srcPos);
+    return RuntimeError("Divdie by Zero", 0);
   case outOfBounds:
-    return RuntimeError("Out of Bounds", srcPos);
+    return RuntimeError("Out of Bounds", 0);
   case unhandledTrap:
-    return RuntimeError("Trap", srcPos);
+    return RuntimeError("Trap", 0);
   default:
     return nil;
   }
+}
+
+static PrimFn *InitPrimitives(void)
+{
+  PrimDef *primitives = Primitives();
+  PrimFn *fns = malloc(sizeof(PrimFn)*NumPrimitives());
+  u32 i;
+  for (i = 0; i < NumPrimitives(); i++) {
+    fns[i] = primitives[i].fn;
+  }
+  return fns;
 }
