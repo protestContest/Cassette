@@ -6,6 +6,7 @@
 #include "error.h"
 #include <univ/symbol.h>
 #include <univ/str.h>
+#include <univ/math.h>
 
 /*
 Types can be:
@@ -77,6 +78,48 @@ bool TypeInType(val needle, val haystack)
     }
   }
   return false;
+}
+
+val TypeStr(val type)
+{
+  if (IsTypeConst(type)) {
+    return Binary(SymbolName(RawVal(type)));
+  } else if (IsInt(type)) {
+    char str[256] = {0};
+    i32 suffix = RawInt(type) / 26;
+    i32 suffix_len = NumDigits(suffix, 10);
+    i32 letter = RawInt(type) % 26;
+    str[0] = letter + 'a';
+    while (suffix) {
+      char d = (suffix % 10) + '0';
+      str[suffix_len--] = d;
+      suffix /= 10;
+    }
+    return Binary(str);
+  } else if (IsTuple(type)) {
+    char *typefn = SymbolName(RawVal(TupleGet(type, 0)));
+    u32 i;
+    val str = Pair(Binary("("), Pair(Binary(typefn), 0));
+    for (i = 0; i < TupleLength(type)-1; i++) {
+      str = Pair(TypeStr(TupleGet(type, i+1)), str);
+      if (i < TupleLength(type)-2) str = Pair(Binary(", "), str);
+    }
+    str = Pair(Binary(")"), str);
+    return ReverseList(str, 0);
+  } else if (IsPair(type) && type != 0) {
+    val tvars = Tail(type);
+    val str = Pair(Binary("V"), 0);
+    while (tvars) {
+      str = Pair(TypeStr(Head(tvars)), str);
+      tvars = Tail(tvars);
+      if (tvars) str = Pair(Binary(", "), str);
+    }
+    str = Pair(Binary(". "), str);
+    str = Pair(TypeStr(Head(type)), str);
+    return str;
+  } else {
+    return Binary("??");
+  }
 }
 
 void PrintType(val type)
@@ -295,7 +338,12 @@ val Unify(val t1, val t2, val node)
     }
     return subs;
   }
-  return TypeError("Type mismatch", node);
+
+  return MakeError(
+    Pair(Binary("Type mismatch: "),
+    Pair(TypeStr(t1),
+    Pair(Binary(" != "),
+    Pair(TypeStr(t2), 0)))), 0);
 }
 
 void PrintSubs(val subs)
@@ -422,7 +470,6 @@ val InferDo(val node, val context)
     }
     if (NodeType(stmt) == defNode) {
       SetTail(Head(context), Generalize(NodeValType(stmt), context));
-      PrintContext(context);
     }
     ApplySubsContext(result, context);
     ApplySubsNodes(result, prev_stmts);
@@ -658,9 +705,55 @@ val InferType(val node, val context)
   }
 }
 
-val InferTypes(val node, val context)
+static PrimDef op_types[] = {
+  {"==", 0, "fn(a, a, int)"},
+  {"|", 0, "fn(a, b, pair(a, b))"},
+  {"<>", 0, "fn(a, a, a)"},
+  {"<", 0, "fn(a, a, int)"},
+  {">", 0, "fn(a, a, int)"},
+  {"<<", 0, "fn(int, int, int)"},
+  {"+", 0, "fn(int, int, int)"},
+  {"-", 0, "fn(int, int, int)"},
+  {"^", 0, "fn(int, int, int)"},
+  {"*", 0, "fn(int, int, int)"},
+  {"/", 0, "fn(int, int, int)"},
+  {"%", 0, "fn(int, int, int)"},
+  {"&", 0, "fn(int, int, int)"},
+  {"not", 0, "fn(a, int)"},
+  {"-", 0, "fn(int, int)"},
+  {"~", 0, "fn(int, int)"},
+  {"#", 0, "fn(a, int)"},
+  {"[]", 0, "fn(a, int, b)"},
+  {"[:]", 0, "fn(a, int, int, b)"},
+};
+
+val PrimitiveTypes(void)
 {
-  val result = InferType(node, context);
+  u32 i, num_primitives = NumPrimitives();
+  PrimDef *primitives = Primitives();
+  val context = 0;
+  for (i = 0; i < ArrayCount(op_types); i++) {
+    val name = SymVal(Symbol(op_types[i].name));
+    val type = ParseType(op_types[i].type);
+    assert(type);
+
+    context = Pair(Pair(name, Generalize(type, 0)), context);
+  }
+
+  for (i = 0; i < num_primitives; i++) {
+    val name = SymVal(Symbol(primitives[i].name));
+    val type = ParseType(primitives[i].type);
+    assert(type);
+
+    context = Pair(Pair(name, Generalize(type, 0)), context);
+  }
+
+  return context;
+}
+
+val InferTypes(val node)
+{
+  val result = InferType(node, PrimitiveTypes());
   if (IsError(result)) return result;
   return node;
 }

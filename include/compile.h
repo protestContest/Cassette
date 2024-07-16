@@ -1,4 +1,4 @@
 #pragma once
-#include "module.h"
+#include "mem.h"
 
-val Compile(i32 ast, val env, Module *mod);
+val Compile(val node);

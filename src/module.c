@@ -79,17 +79,6 @@ void PushLabel(u32 index, u32 pos, Module *mod)
   PushInt(offset, pos, mod);
 }
 
-void AppendCode(u8 *code, u32 *srcMap, Module *mod)
-{
-  i32 index = VecCount(mod->code);
-  GrowVec(mod->code, VecCount(code));
-  Copy(code, mod->code + index, VecCount(code));
-  index = VecCount(mod->srcMap);
-  GrowVec(mod->srcMap, VecCount(srcMap));
-  Copy(srcMap, mod->srcMap + index, sizeof(u32)*VecCount(srcMap));
-  FreeVec(code);
-  FreeVec(srcMap);
-}
 
 void PushConst(val c, u32 pos, Module *mod)
 {
@@ -126,7 +115,7 @@ char *DisassembleOp(u32 *index, char *text, Module *mod)
     case opConst:
       text = BufWrite("const ", text);
       n = ReadInt(index, mod);
-      str = ValStr(mod->constants[n], 0);
+      str = MemValStr(mod->constants[n]);
       text = BufWrite(str, text);
       free(str);
       break;

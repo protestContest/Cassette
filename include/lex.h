@@ -1,61 +1,15 @@
 #pragma once
 
 typedef enum {
-  eofToken,
-  spaceToken,
-  newlineToken,
-  idToken,
-  falseToken,
-  trueToken,
-  nilToken,
-  stringToken,
-  byteToken,
-  numToken,
-  hexToken,
-  rbraceToken,
-  lbraceToken,
-  condToken,
-  elseToken,
-  ifToken,
-  endToken,
-  doToken,
-  dotToken,
-  colonToken,
-  rbracketToken,
-  lbracketToken,
-  notToken,
-  hashToken,
-  tildeToken,
-  slashToken,
-  starToken,
-  minusToken,
-  plusToken,
-  caretToken,
-  ampToken,
-  percentToken,
-  gtgtToken,
-  ltltToken,
-  gtToken,
-  ltToken,
-  ltgtToken,
-  barToken,
-  bangeqToken,
-  eqeqToken,
-  orToken,
-  andToken,
-  arrowToken,
-  bslashToken,
-  eqToken,
-  commaToken,
-  letToken,
-  rparenToken,
-  lparenToken,
-  defToken,
-  asToken,
-  importToken,
-  exportsToken,
-  moduleToken,
-  errorToken
+  eofToken, newlineToken, spaceToken, bangeqToken, stringToken, hashToken,
+  byteToken, percentToken, ampToken, lparenToken, rparenToken, starToken,
+  plusToken, commaToken, minusToken, arrowToken, dotToken, slashToken, numToken,
+  hexToken, colonToken, ltToken, ltltToken, lteqToken, ltgtToken, eqToken,
+  eqeqToken, gtToken, gteqToken, gtgtToken, idToken, andToken, asToken,
+  condToken, defToken, doToken, elseToken, endToken, exportsToken, falseToken,
+  ifToken, importToken, letToken, moduleToken, nilToken, notToken, orToken,
+  trueToken, lbraceToken, bslashToken, rbraceToken, caretToken, lbracketToken,
+  barToken, rbracketToken, tildeToken, errorToken
 } TokenType;
 
 typedef struct {
@@ -68,5 +22,3 @@ Token NextToken(char *src, u32 pos);
 bool Match(char *test, char *str);
 bool MatchKeyword(char *test, char *str);
 bool AdvMatch(char *test, char **str);
-#define Lexeme(token, src)  SymVal(SymbolFrom((src)+(token).pos,(token).length))
-char *OpName(TokenType type);

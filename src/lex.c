@@ -1,49 +1,8 @@
 #include "lex.h"
 #include <univ/str.h>
 
-static Token MakeToken(TokenType type, u32 pos, u32 length)
-{
-  Token token;
-  token.type = type;
-  token.pos = pos;
-  token.length = length;
-  return token;
-}
-
-static bool IsSymChar(char ch)
-{
-  return IsAlpha(ch) || IsDigit(ch) || ch == '_' || ch == '!' || ch == '?';
-}
-
-bool Match(char *test, char *str)
-{
-  while (*test && *str) {
-    if (*test != *str) return false;
-    str++;
-    test++;
-  }
-  return *test == 0;
-}
-
-bool MatchKeyword(char *test, char *str)
-{
-  while (*test && *str) {
-    if (*test != *str) return false;
-    str++;
-    test++;
-  }
-  if (*test) return false;
-  return !IsSymChar(*str);
-}
-
-bool AdvMatch(char *test, char **str)
-{
-  if (Match(test, *str)) {
-    *str += strlen(test);
-    return true;
-  }
-  return false;
-}
+static Token MakeToken(TokenType type, u32 pos, u32 length);
+static bool IsSymChar(char ch);
 
 Token NextToken(char *src, u32 pos)
 {
@@ -85,6 +44,8 @@ Token NextToken(char *src, u32 pos)
   if (Match("<>", src+pos)) return MakeToken(ltgtToken, pos, 2);
   if (Match("!=", src+pos)) return MakeToken(bangeqToken, pos, 2);
   if (Match("==", src+pos)) return MakeToken(eqeqToken, pos, 2);
+  if (Match("<=", src+pos)) return MakeToken(lteqToken, pos, 2);
+  if (Match(">=", src+pos)) return MakeToken(gteqToken, pos, 2);
   if (src[pos] == '[') return MakeToken(lbracketToken, pos, 1);
   if (src[pos] == ']') return MakeToken(rbracketToken, pos, 1);
   if (src[pos] == '{') return MakeToken(lbraceToken, pos, 1);
@@ -136,25 +97,46 @@ Token NextToken(char *src, u32 pos)
   return MakeToken(errorToken, pos, 0);
 }
 
-char *OpName(TokenType type)
+bool Match(char *test, char *str)
 {
-  switch (type) {
-  case notToken:      return "not";
-  case hashToken:     return "#";
-  case tildeToken:    return "~";
-  case slashToken:    return "/";
-  case starToken:     return "*";
-  case minusToken:    return "-";
-  case plusToken:     return "+";
-  case caretToken:    return "^";
-  case ampToken:      return "&";
-  case percentToken:  return "%";
-  case ltltToken:     return "<<";
-  case gtToken:       return ">";
-  case ltToken:       return "<";
-  case ltgtToken:     return "<>";
-  case barToken:      return "|";
-  case eqeqToken:     return "==";
-  default:            assert(false);
+  while (*test && *str) {
+    if (*test != *str) return false;
+    str++;
+    test++;
   }
+  return *test == 0;
+}
+
+bool MatchKeyword(char *test, char *str)
+{
+  while (*test && *str) {
+    if (*test != *str) return false;
+    str++;
+    test++;
+  }
+  if (*test) return false;
+  return !IsSymChar(*str);
+}
+
+bool AdvMatch(char *test, char **str)
+{
+  if (Match(test, *str)) {
+    *str += strlen(test);
+    return true;
+  }
+  return false;
+}
+
+static Token MakeToken(TokenType type, u32 pos, u32 length)
+{
+  Token token;
+  token.type = type;
+  token.pos = pos;
+  token.length = length;
+  return token;
+}
+
+static bool IsSymChar(char ch)
+{
+  return IsAlpha(ch) || IsDigit(ch) || ch == '_' || ch == '!' || ch == '?';
 }

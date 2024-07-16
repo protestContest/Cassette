@@ -66,7 +66,8 @@ val BinaryJoin(val left, val right);
 val BinarySlice(val list, u32 start, u32 end);
 bool BinIsPrintable(val bin);
 
-char *ValStr(val value, char *str);
 bool ValEq(val a, val b);
-char *FormatVal(val value, char *buf);
+val FormatVal(val value);
+val InspectVal(val value);
+char *MemValStr(val value);
 void DumpMem(void);

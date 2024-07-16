@@ -26,7 +26,8 @@ static bool MatchToken(TokenType type, Parser *p)
 }
 
 #define ParseError(msg, p) \
-  MakeError(Binary(msg), Pair((p)->token.pos, (p)->token.pos + (p)->token.length))
+  MakeError(Binary(msg), \
+            Pair((p)->token.pos, (p)->token.pos + (p)->token.length))
 #define TokenNode(type, token, value) \
   MakeNode(type, (token).pos, (token).pos+(token).length, value)
 
@@ -40,99 +41,101 @@ typedef struct {
   Precedence prec;
 } ParseRule;
 
-val ParseModule(Parser *p);
-val ParseModname(Parser *p);
-val ParseExports(Parser *p);
-val ParseImports(Parser *p);
-val ParseStmts(Parser *p);
-val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p);
-val ParseDef(Parser *p);
-val ParseAssign(Parser *p);
+static val ParseModule(Parser *p);
+static val ParseModname(Parser *p);
+static val ParseExports(Parser *p);
+static val ParseImports(Parser *p);
+static val ParseStmts(Parser *p);
+static val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p);
+static val ParseDef(Parser *p);
+static val ParseAssign(Parser *p);
 
 #define ParseExpr(p)  ParsePrec(precExpr, p)
-val ParsePrec(Precedence prec, Parser *p);
-val ParseOp(val expr, Parser *p);
-val ParsePair(val expr, Parser *p);
-val ParseCall(val expr, Parser *p);
-val ParseAccess(val expr, Parser *p);
-val ParseUnary(Parser *p);
-val ParseLambda(Parser *p);
-val ParseGroup(Parser *p);
-val ParseDo(Parser *p);
-val ParseIf(Parser *p);
-val ParseCond(Parser *p);
-val ParseClauses(Parser *p);
-val ParseList(Parser *p);
-val ParseTuple(Parser *p);
-val ParseVar(Parser *p);
-val ParseNum(Parser *p);
-val ParseByte(Parser *p);
-val ParseHex(Parser *p);
-val ParseSymbol(Parser *p);
-val ParseString(Parser *p);
-val ParseLiteral(Parser *p);
+static val ParsePrec(Precedence prec, Parser *p);
+static val ParseOp(val expr, Parser *p);
+static val ParsePair(val expr, Parser *p);
+static val ParseCall(val expr, Parser *p);
+static val ParseAccess(val expr, Parser *p);
+static val ParseUnary(Parser *p);
+static val ParseLambda(Parser *p);
+static val ParseGroup(Parser *p);
+static val ParseDo(Parser *p);
+static val ParseIf(Parser *p);
+static val ParseCond(Parser *p);
+static val ParseClauses(Parser *p);
+static val ParseList(Parser *p);
+static val ParseTuple(Parser *p);
+static val ParseVar(Parser *p);
+static val ParseNum(Parser *p);
+static val ParseByte(Parser *p);
+static val ParseHex(Parser *p);
+static val ParseSymbol(Parser *p);
+static val ParseString(Parser *p);
+static val ParseLiteral(Parser *p);
 
-val ParseID(Parser *p);
-val ParseIDList(Parser *p);
-val ParseItems(Parser *p);
-void Spacing(Parser *p);
-void VSpacing(Parser *p);
+static val ParseID(Parser *p);
+static val ParseIDList(Parser *p);
+static val ParseItems(Parser *p);
+static void Spacing(Parser *p);
+static void VSpacing(Parser *p);
 
 static ParseRule rules[] = {
   [eofToken]      = {0,             0,            precNone},
-  [spaceToken]    = {0,             0,            precNone},
   [newlineToken]  = {0,             0,            precNone},
-  [idToken]       = {ParseVar,      0,            precNone},
-  [falseToken]    = {ParseLiteral,  0,            precNone},
-  [trueToken]     = {ParseLiteral,  0,            precNone},
-  [nilToken]      = {ParseLiteral,  0,            precNone},
+  [spaceToken]    = {0,             0,            precNone},
+  [bangeqToken]   = {0,             ParseOp,      precEqual},
   [stringToken]   = {ParseString,   0,            precNone},
+  [hashToken]     = {ParseUnary,    0,            precNone},
   [byteToken]     = {ParseByte,     0,            precNone},
+  [percentToken]  = {0,             ParseOp,      precProduct},
+  [ampToken]      = {0,             ParseOp,      precProduct},
+  [lparenToken]   = {ParseGroup,    ParseCall,    precCall},
+  [rparenToken]   = {0,             0,            precNone},
+  [starToken]     = {0,             ParseOp,      precProduct},
+  [plusToken]     = {0,             ParseOp,      precSum},
+  [commaToken]    = {0,             0,            precNone},
+  [minusToken]    = {ParseUnary,    ParseOp,      precSum},
+  [arrowToken]    = {0,             0,            precNone},
+  [dotToken]      = {0,             0,            precNone},
+  [slashToken]    = {0,             ParseOp,      precProduct},
   [numToken]      = {ParseNum,      0,            precNone},
   [hexToken]      = {ParseHex,      0,            precNone},
-  [rbraceToken]   = {0,             0,            precNone},
-  [lbraceToken]   = {ParseTuple,    0,            precNone},
-  [condToken]     = {ParseCond,     0,            precNone},
-  [elseToken]     = {0,             0,            precNone},
-  [ifToken]       = {ParseIf,       0,            precNone},
-  [endToken]      = {0,             0,            precNone},
-  [doToken]       = {ParseDo,       0,            precNone},
-  [dotToken]      = {0,             0,            precNone},
   [colonToken]    = {ParseSymbol,   0,            precNone},
-  [rbracketToken] = {0,             0,            precNone},
-  [lbracketToken] = {ParseList,     ParseAccess,  precCall},
-  [notToken]      = {ParseUnary,    0,            precNone},
-  [hashToken]     = {ParseUnary,    0,            precNone},
-  [tildeToken]    = {ParseUnary,    0,            precNone},
-  [slashToken]    = {0,             ParseOp,      precProduct},
-  [starToken]     = {0,             ParseOp,      precProduct},
-  [minusToken]    = {ParseUnary,    ParseOp,      precSum},
-  [plusToken]     = {0,             ParseOp,      precSum},
-  [caretToken]    = {0,             ParseOp,      precSum},
-  [ampToken]      = {0,             ParseOp,      precProduct},
-  [percentToken]  = {0,             ParseOp,      precProduct},
-  [gtgtToken]     = {0,             ParseOp,      precShift},
-  [ltltToken]     = {0,             ParseOp,      precShift},
-  [gtToken]       = {0,             ParseOp,      precCompare},
   [ltToken]       = {0,             ParseOp,      precCompare},
+  [ltltToken]     = {0,             ParseOp,      precShift},
+  [lteqToken]     = {0,             ParseOp,      precCompare},
   [ltgtToken]     = {0,             ParseOp,      precJoin},
-  [barToken]      = {0,             ParsePair,    precPair},
-  [bangeqToken]   = {0,             ParseOp,      precEqual},
-  [eqeqToken]     = {0,             ParseOp,      precEqual},
-  [orToken]       = {0,             ParseOp,      precLogic},
-  [andToken]      = {0,             ParseOp,      precLogic},
-  [arrowToken]    = {0,             0,            precNone},
-  [bslashToken]   = {ParseLambda,   0,            precNone},
   [eqToken]       = {0,             0,            precNone},
-  [commaToken]    = {0,             0,            precNone},
-  [letToken]      = {0,             0,            precNone},
-  [rparenToken]   = {0,             0,            precNone},
-  [lparenToken]   = {ParseGroup,    ParseCall,    precCall},
-  [defToken]      = {0,             0,            precNone},
+  [eqeqToken]     = {0,             ParseOp,      precEqual},
+  [gtToken]       = {0,             ParseOp,      precCompare},
+  [gteqToken]     = {0,             ParseOp,      precCompare},
+  [gtgtToken]     = {0,             ParseOp,      precShift},
+  [idToken]       = {ParseVar,      0,            precNone},
+  [andToken]      = {0,             ParseOp,      precLogic},
   [asToken]       = {0,             0,            precNone},
-  [importToken]   = {0,             0,            precNone},
+  [condToken]     = {ParseCond,     0,            precNone},
+  [defToken]      = {0,             0,            precNone},
+  [doToken]       = {ParseDo,       0,            precNone},
+  [elseToken]     = {0,             0,            precNone},
+  [endToken]      = {0,             0,            precNone},
   [exportsToken]  = {0,             0,            precNone},
+  [falseToken]    = {ParseLiteral,  0,            precNone},
+  [ifToken]       = {ParseIf,       0,            precNone},
+  [importToken]   = {0,             0,            precNone},
+  [letToken]      = {0,             0,            precNone},
   [moduleToken]   = {0,             0,            precNone},
+  [nilToken]      = {ParseLiteral,  0,            precNone},
+  [notToken]      = {ParseUnary,    0,            precNone},
+  [orToken]       = {0,             ParseOp,      precLogic},
+  [trueToken]     = {ParseLiteral,  0,            precNone},
+  [lbraceToken]   = {ParseTuple,    0,            precNone},
+  [bslashToken]   = {ParseLambda,   0,            precNone},
+  [rbraceToken]   = {0,             0,            precNone},
+  [caretToken]    = {0,             ParseOp,      precSum},
+  [lbracketToken] = {ParseList,     ParseAccess,  precCall},
+  [barToken]      = {0,             ParsePair,    precPair},
+  [rbracketToken] = {0,             0,            precNone},
+  [tildeToken]    = {ParseUnary,    0,            precNone},
   [errorToken]    = {0,             0,            precNone}
 };
 
@@ -146,7 +149,7 @@ val Parse(char *text)
   return ParseModule(&p);
 }
 
-val ParseModule(Parser *p)
+static val ParseModule(Parser *p)
 {
   i32 pos = p->token.pos;
   val modname, exports, imports, stmts;
@@ -173,7 +176,7 @@ val ParseModule(Parser *p)
       Pair(modname, Pair(exports, Pair(imports, Pair(stmts, 0)))));
 }
 
-val ParseModname(Parser *p)
+static val ParseModname(Parser *p)
 {
   i32 id;
   if (!MatchToken(moduleToken, p)) return ParseError("Expected \"module\"", p);
@@ -187,7 +190,7 @@ val ParseModname(Parser *p)
   return id;
 }
 
-val ParseExports(Parser *p)
+static val ParseExports(Parser *p)
 {
   i32 exports, pos = p->token.pos;
   if (!MatchToken(exportsToken, p)) {
@@ -197,13 +200,13 @@ val ParseExports(Parser *p)
   exports = ParseIDList(p);
   if (IsError(exports)) return exports;
   if (!AtEnd(p) && !MatchToken(newlineToken, p)) {
-    return ParseError("Expected newline", p);
+    return ParseError("Missing comma or newline", p);
   }
   VSpacing(p);
   return MakeNode(listNode, pos, NodeEnd(exports), NodeValue(exports));
 }
 
-val ParseImports(Parser *p)
+static val ParseImports(Parser *p)
 {
   i32 imports = 0, start = p->token.pos, pos = p->token.pos;
   while (MatchToken(importToken, p)) {
@@ -211,6 +214,7 @@ val ParseImports(Parser *p)
     Spacing(p);
     id = ParseID(p);
     if (IsError(id)) return id;
+    Spacing(p);
     if (MatchToken(asToken, p)) {
       Spacing(p);
       alias = ParseID(p);
@@ -231,7 +235,7 @@ val ParseImports(Parser *p)
       ReverseList(imports, 0));
 }
 
-val ParseStmts(Parser *p)
+static val ParseStmts(Parser *p)
 {
   val stmts = 0, defs = 0, result;
   i32 pos = p->token.pos, numAssigns = 0;
@@ -243,6 +247,9 @@ val ParseStmts(Parser *p)
     result = ParseStmt(&stmts, &defs, &numAssigns, p);
     if (IsError(result)) return result;
   }
+  if (!stmts || NodeType(Head(stmts)) == letNode || NodeType(Head(stmts)) == defNode) {
+    stmts = Pair(MakeNode(nilNode, p->token.pos, p->token.pos, 0), stmts);
+  }
   VSpacing(p);
   stmts = ReverseList(stmts, 0);
   stmts = ReverseList(defs, stmts);
@@ -250,7 +257,7 @@ val ParseStmts(Parser *p)
       Pair(MakeNode(intNode, pos, pos, IntVal(numAssigns)), stmts));
 }
 
-val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p)
+static val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p)
 {
   val stmt, assign;
   if (CheckToken(defToken, p)) {
@@ -279,7 +286,7 @@ val ParseStmt(val *stmts, val *defs, i32 *numAssigns, Parser *p)
   return 0;
 }
 
-val ParseDef(Parser *p)
+static val ParseDef(Parser *p)
 {
   val id, lambda, params = 0, body;
   i32 pos = p->token.pos;
@@ -302,7 +309,7 @@ val ParseDef(Parser *p)
   return MakeNode(defNode, pos, NodeEnd(lambda), Pair(id, Pair(lambda, 0)));
 }
 
-val ParseAssign(Parser *p)
+static val ParseAssign(Parser *p)
 {
   val id, value;
   id = ParseID(p);
@@ -316,7 +323,7 @@ val ParseAssign(Parser *p)
       Pair(id, Pair(value, 0)));
 }
 
-val ParsePrec(Precedence prec, Parser *p)
+static val ParsePrec(Precedence prec, Parser *p)
 {
   val expr;
   ParseRule rule = rules[p->token.type];
@@ -335,27 +342,30 @@ val ParsePrec(Precedence prec, Parser *p)
 i32 OpNodeType(TokenType type)
 {
   switch (type) {
-  case lbracketToken: return sliceNode;
-  case starToken:     return mulNode;
-  case slashToken:    return divNode;
+  case bangeqToken:   return eqNode;
   case percentToken:  return remNode;
   case ampToken:      return bitandNode;
-  case minusToken:    return subNode;
+  case starToken:     return mulNode;
   case plusToken:     return addNode;
-  case caretToken:    return bitorNode;
-  case ltltToken:     return shiftNode;
+  case minusToken:    return subNode;
+  case slashToken:    return divNode;
   case ltToken:       return ltNode;
-  case gtToken:       return gtNode;
+  case ltltToken:     return shiftNode;
+  case lteqToken:     return gtNode;
   case ltgtToken:     return joinNode;
-  case barToken:      return pairNode;
   case eqeqToken:     return eqNode;
+  case gtToken:       return gtNode;
+  case gteqToken:     return ltNode;
   case andToken:      return andNode;
   case orToken:       return orNode;
+  case lbracketToken: return sliceNode;
+  case caretToken:    return bitorNode;
+  case barToken:      return pairNode;
   default:            assert(false);
   }
 }
 
-val ParseOp(val expr, Parser *p)
+static val ParseOp(val expr, Parser *p)
 {
   Token token = p->token;
   val arg, value;
@@ -370,14 +380,16 @@ val ParseOp(val expr, Parser *p)
     arg = MakeNode(negNode, start, end, Pair(arg, 0));
   }
   value = Pair(expr, Pair(arg, 0));
-  if (token.type == bangeqToken) {
-    value = Pair(MakeNode(eqNode, start, end, value), 0);
+  if (token.type == bangeqToken ||
+      token.type == lteqToken ||
+      token.type == gteqToken) {
+    value = Pair(MakeNode(OpNodeType(token.type), start, end, value), 0);
     return MakeNode(notNode, start, end, value);
   }
   return MakeNode(OpNodeType(token.type), start, end, value);
 }
 
-val ParsePair(val expr, Parser *p)
+static val ParsePair(val expr, Parser *p)
 {
   Token token = p->token;
   val arg, value;
@@ -392,7 +404,7 @@ val ParsePair(val expr, Parser *p)
   return MakeNode(pairNode, start, end, value);
 }
 
-val ParseCall(val expr, Parser *p)
+static val ParseCall(val expr, Parser *p)
 {
   val args;
   i32 end;
@@ -407,7 +419,7 @@ val ParseCall(val expr, Parser *p)
     Pair(expr, ReverseList(NodeChildren(args), 0)));
 }
 
-val ParseAccess(val expr, Parser *p)
+static val ParseAccess(val expr, Parser *p)
 {
   val startNode, endNode = 0;
   i32 end;
@@ -418,9 +430,13 @@ val ParseAccess(val expr, Parser *p)
   VSpacing(p);
   if (MatchToken(colonToken, p)) {
     VSpacing(p);
-    endNode = ParseExpr(p);
-    if (IsError(endNode)) return endNode;
-    VSpacing(p);
+    if (CheckToken(rbracketToken, p)) {
+      endNode = MakeNode(lenNode, p->token.pos, p->token.pos, Pair(expr, 0));
+    } else {
+      endNode = ParseExpr(p);
+      if (IsError(endNode)) return endNode;
+      VSpacing(p);
+    }
   }
   if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
   end = p->token.pos;
@@ -444,7 +460,7 @@ i32 UnaryOpNodeType(TokenType type)
   }
 }
 
-val ParseUnary(Parser *p)
+static val ParseUnary(Parser *p)
 {
   Token token = p->token;
   val arg;
@@ -456,7 +472,7 @@ val ParseUnary(Parser *p)
     Pair(arg, 0));
 }
 
-val ParseLambda(Parser *p)
+static val ParseLambda(Parser *p)
 {
   val params = 0, body;
   i32 pos = p->token.pos;
@@ -473,7 +489,7 @@ val ParseLambda(Parser *p)
   return MakeNode(lambdaNode, pos, NodeEnd(body), Pair(params, Pair(body, 0)));
 }
 
-val ParseGroup(Parser *p)
+static val ParseGroup(Parser *p)
 {
   i32 expr;
   if (!MatchToken(lparenToken, p)) return ParseError("Expected \"(\"", p);
@@ -488,7 +504,7 @@ val ParseGroup(Parser *p)
 
 #define TrivialDoNode(node) \
     (RawVal(NodeValue(NodeChild(node, 0))) == 0 && NodeLength(node) == 2)
-val ParseDo(Parser *p)
+static val ParseDo(Parser *p)
 {
   i32 stmts, pos = p->token.pos, endPos;
   if (!MatchToken(doToken, p)) return ParseError("Expected \"do\"", p);
@@ -502,7 +518,7 @@ val ParseDo(Parser *p)
   return MakeNode(doNode, pos, endPos, NodeValue(stmts));
 }
 
-val ParseIf(Parser *p)
+static val ParseIf(Parser *p)
 {
   i32 pred, cons, alt;
   i32 start = p->token.pos, pos, endPos;
@@ -531,7 +547,7 @@ val ParseIf(Parser *p)
   return MakeNode(ifNode, start, endPos, Pair(pred, Pair(cons, Pair(alt, 0))));
 }
 
-val ParseCond(Parser *p)
+static val ParseCond(Parser *p)
 {
   i32 expr;
   if (!MatchToken(condToken, p)) return ParseError("Expected \"cond\"", p);
@@ -542,7 +558,7 @@ val ParseCond(Parser *p)
   return expr;
 }
 
-val ParseClauses(Parser *p)
+static val ParseClauses(Parser *p)
 {
   i32 pred, cons, alt;
   VSpacing(p);
@@ -558,7 +574,7 @@ val ParseClauses(Parser *p)
   return MakeNode(ifNode, NodeStart(pred), NodeEnd(cons), Pair(pred, Pair(cons, Pair(alt, 0))));
 }
 
-val ParseList(Parser *p)
+static val ParseList(Parser *p)
 {
   i32 startPos = p->token.pos, endPos;
   i32 items = 0;
@@ -584,7 +600,7 @@ val ParseList(Parser *p)
   return expr;
 }
 
-val ParseTuple(Parser *p)
+static val ParseTuple(Parser *p)
 {
   i32 pos = p->token.pos, items = 0, endPos;
   if (!MatchToken(lbraceToken, p)) return ParseError("Expected \"{\"", p);
@@ -602,13 +618,13 @@ val ParseTuple(Parser *p)
          ReverseList(NodeValue(items), 0)));
 }
 
-val ParseVar(Parser *p)
+static val ParseVar(Parser *p)
 {
   return ParseID(p);
 }
 
 
-val ParseNum(Parser *p)
+static val ParseNum(Parser *p)
 {
   i32 n = 0;
   u32 i;
@@ -625,7 +641,7 @@ val ParseNum(Parser *p)
   return TokenNode(intNode, token, IntVal(n));
 }
 
-val ParseHex(Parser *p)
+static val ParseHex(Parser *p)
 {
   i32 n = 0;
   u32 i;
@@ -641,7 +657,7 @@ val ParseHex(Parser *p)
   return TokenNode(intNode, token, IntVal(n));
 }
 
-val ParseByte(Parser *p)
+static val ParseByte(Parser *p)
 {
   u8 byte;
   i32 pos = p->token.pos, endPos = p->token.pos + p->token.length;
@@ -653,7 +669,7 @@ val ParseByte(Parser *p)
   return MakeNode(intNode, pos, endPos, IntVal(byte));
 }
 
-val ParseSymbol(Parser *p)
+static val ParseSymbol(Parser *p)
 {
   i32 sym;
   Token token;
@@ -666,7 +682,7 @@ val ParseSymbol(Parser *p)
   return TokenNode(symNode, token, SymVal(sym));
 }
 
-val ParseString(Parser *p)
+static val ParseString(Parser *p)
 {
   i32 sym;
   Token token = p->token;
@@ -677,7 +693,7 @@ val ParseString(Parser *p)
   return TokenNode(strNode, token, SymVal(sym));
 }
 
-val ParseLiteral(Parser *p)
+static val ParseLiteral(Parser *p)
 {
   Token token = p->token;
   if (MatchToken(nilToken, p)) {
@@ -694,7 +710,7 @@ val ParseLiteral(Parser *p)
   }
 }
 
-val ParseID(Parser *p)
+static val ParseID(Parser *p)
 {
   i32 sym;
   Token token = p->token;
@@ -705,7 +721,7 @@ val ParseID(Parser *p)
   return TokenNode(idNode, token, SymVal(sym));
 }
 
-val ParseIDList(Parser *p)
+static val ParseIDList(Parser *p)
 {
   i32 items = 0;
   i32 pos = p->token.pos;
@@ -721,7 +737,7 @@ val ParseIDList(Parser *p)
   return MakeNode(listNode, pos, NodeEnd(Head(items)), ReverseList(items, 0));
 }
 
-val ParseItems(Parser *p)
+static val ParseItems(Parser *p)
 {
   i32 items = 0;
   i32 item = ParseExpr(p);
@@ -737,12 +753,12 @@ val ParseItems(Parser *p)
   return MakeNode(listNode, pos, NodeEnd(Head(items)), items);
 }
 
-void Spacing(Parser *p)
+static void Spacing(Parser *p)
 {
   MatchToken(spaceToken, p);
 }
 
-void VSpacing(Parser *p)
+static void VSpacing(Parser *p)
 {
   Spacing(p);
   if (MatchToken(newlineToken, p)) {

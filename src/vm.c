@@ -101,6 +101,8 @@ static OpFn ops[] = {
   [opDefine]  = OpDefine,
 };
 
+void DefinePrimitives(VM *vm);
+
 void InitVM(VM *vm, Module *mod)
 {
   vm->mod = mod;
@@ -111,6 +113,7 @@ void InitVM(VM *vm, Module *mod)
   vm->stack = 0;
   ImportSymbols(mod->data, VecCount(mod->data));
   InitHashMap(&vm->primMap);
+  DefinePrimitives(vm);
 }
 
 void DestroyVM(VM *vm)
@@ -120,10 +123,16 @@ void DestroyVM(VM *vm)
   DestroyHashMap(&vm->primMap);
 }
 
-void DefinePrimitive(val id, PrimFn fn, VM *vm)
+void DefinePrimitives(VM *vm)
 {
-  HashMapSet(&vm->primMap, id, VecCount(vm->primitives));
-  VecPush(vm->primitives, fn);
+  u32 i, num_prims = NumPrimitives();
+  PrimDef *primitives = Primitives();
+  for (i = 0; i < num_prims; i++) {
+    val id = Symbol(primitives[i].name);
+    PrimFn fn = primitives[i].fn;
+    HashMapSet(&vm->primMap, id, VecCount(vm->primitives));
+    VecPush(vm->primitives, fn);
+  }
 }
 
 VMStatus VMStep(VM *vm)
@@ -136,6 +145,7 @@ void PrintSourceFrom(u32 index, char *src)
 {
   char *start = src+index;
   char *end = LineEnd(index, src);
+  if (end > start && end[-1] == '\n') end--;
   fprintf(stderr, "%*.*s", (i32)(end-start), (i32)(end-start), start);
 }
 
@@ -670,7 +680,7 @@ u32 PrintStack(VM *vm)
   char *str;
   for (i = 0; i < max; i++) {
     if (i >= VecCount(vm->stack)) break;
-    str = ValStr(vm->stack[VecCount(vm->stack) - i - 1], 0);
+    str = MemValStr(vm->stack[VecCount(vm->stack) - i - 1]);
     printed += fprintf(stderr, "%s ", str);
     free(str);
   }

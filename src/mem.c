@@ -255,11 +255,11 @@ val Binary(char *str)
   return BinaryFrom(str, strlen(str));
 }
 
-val BinaryFrom(char *data, u32 length)
+val BinaryFrom(char *str, u32 length)
 {
   val bin = NewBinary(length);
   char *binData = BinaryData(bin);
-  Copy(data, binData, length);
+  Copy(str, binData, length);
   return bin;
 }
 
@@ -289,7 +289,9 @@ val BinaryJoin(val left, val right)
 {
   val bin = NewBinary(BinaryLength(left) + BinaryLength(right));
   Copy(BinaryData(left), BinaryData(bin), BinaryLength(left));
-  Copy(BinaryData(right), BinaryData(bin)+BinaryLength(left), BinaryLength(right));
+  Copy(BinaryData(right),
+       BinaryData(bin) + BinaryLength(left),
+       BinaryLength(right));
   return bin;
 }
 
@@ -308,74 +310,6 @@ bool BinIsPrintable(val bin)
     if (!IsPrintable(BinaryGet(bin, i))) return false;
   }
   return true;
-}
-
-char *ValStr(val value, char *str)
-{
-  i32 len;
-
-  if (value == 0) {
-    if (!str) str = malloc(4);
-    strcpy(str, "nil");
-    str[3] = 0;
-    return str;
-  } else if (IsPair(value)) {
-    len = NumDigits(RawVal(value), 10) + 2;
-    if (!str) str = malloc(len);
-    str[0] = 'p';
-    snprintf(str+1, len-1, "%d", RawVal(value));
-    return str;
-  } else if (IsTuple(value)) {
-    len = NumDigits(RawVal(value), 10) + 2;
-    if (!str) str = malloc(len);
-    str[0] = 't';
-    snprintf(str+1, len-1, "%d", RawVal(value));
-    return str;
-  } else if (IsBinary(value)) {
-    len = BinaryLength(value);
-    if (len <= 8 && BinIsPrintable(value)) {
-      if (!str) str = malloc(len+3);
-      str[0] = '"';
-      Copy(BinaryData(value), str+1, BinaryLength(value));
-      str[len+1] = '"';
-      str[len+2] = 0;
-    } else {
-      len = NumDigits(RawVal(value), 10) + 2;
-      if (!str) str = malloc(len);
-      str[0] = 'b';
-      snprintf(str+1, len-1, "%d", RawVal(value));
-    }
-    return str;
-  } else if (IsInt(value)) {
-    len = NumDigits(RawInt(value), 10) + 1;
-    if (!str) str = malloc(len);
-    snprintf(str, len, "%d", RawInt(value));
-    return str;
-  } else if (IsSym(value)) {
-    char *name = SymbolName(RawVal(value));
-    len = strlen(name) + 1;
-    if (!str) str = malloc(len+1);
-    str[0] = ':';
-    Copy(name, str+1, len-1);
-    str[len] = 0;
-    return str;
-  } else if (IsTupleHdr(value)) {
-    len = NumDigits(RawVal(value), 10) + 2;
-    if (!str) str = malloc(len);
-    str[0] = '#';
-    snprintf(str+1, len-1, "%d", RawVal(value));
-    return str;
-  } else if (IsBinHdr(value)) {
-    len = NumDigits(RawVal(value), 10) + 2;
-    if (!str) str = malloc(len);
-    str[0] = '$';
-    snprintf(str+1, len-1, "%d", RawVal(value));
-    return str;
-  } else {
-    if (!str) str = malloc(9);
-    snprintf(str, 9, "%08X", value);
-    return str;
-  }
 }
 
 bool ValEq(val a, val b)
@@ -409,33 +343,139 @@ bool ValEq(val a, val b)
   }
 }
 
-u32 ValStrLen(val value)
+u32 FormatValInto(val value, val bin, u32 index)
 {
-  if (IsInt(value)) return NumDigits(RawInt(value), 10);
-  if (IsBinary(value)) return BinaryLength(value);
+  char *str = bin ? BinaryData(bin) + index : 0;
+
+  if (IsInt(value)) return WriteNum(RawInt(value), str);
+  if (IsBinary(value)) {
+    u32 len = WriteStr(BinaryData(value), BinaryLength(value), str);
+    return len;
+  }
   if (IsPair(value) && value) {
-    return ValStrLen(Head(value)) + ValStrLen(Tail(value));
+    u32 head_len = FormatValInto(Head(value), bin, index);
+    u32 tail_len = FormatValInto(Tail(value), bin, index + head_len);
+    return head_len + tail_len;
   }
   return 0;
 }
 
-char *FormatVal(val value, char *buf)
+val FormatVal(val value)
 {
-  if (!buf) {
-    u32 len = ValStrLen(value);
-    buf = malloc(len+1);
-    buf[len] = 0;
-  }
-  if (IsInt(value)) return ValStr(value, buf);
+  u32 len = FormatValInto(value, 0, 0) + 1;
+  val bin = NewBinary(len);
+  FormatValInto(value, bin, 0);
+  return bin;
+}
+
+u32 InspectValInto(val value, val bin, u32 index)
+{
+  char *str = bin ? BinaryData(bin) + index : 0;
+
+  if (value == 0) return WriteStr("nil", 3, str);
+  if (IsInt(value)) return WriteNum(RawInt(value), str);
   if (IsBinary(value)) {
-    Copy(BinaryData(value), buf, BinaryLength(value));
+    char *data = BinaryData(value);
+    u32 len = BinaryLength(value);
+    return WriteStr("\"", 1, str) +
+           WriteStr(data, len, str ? str + 1 : 0) +
+           WriteStr("\"", 1, str ? str + 1 + len : 0);
   }
-  if (IsPair(value) && value) {
-    u32 head_len = ValStrLen(Head(value));
-    FormatVal(Head(value), buf);
-    FormatVal(Tail(value), buf+head_len);
+  if (IsSym(value)) {
+    char *data = SymbolName(RawVal(value));
+    u32 len = strlen(data);
+    return WriteStr(":", 1, str) +
+           WriteStr(data, len, str ? str + 1 : 0);
   }
-  return buf;
+  if (IsTuple(value)) {
+    u32 i;
+    u32 len = WriteStr("{", 1, str);
+    for (i = 0; i < TupleLength(value); i++) {
+      len += InspectValInto(TupleGet(value, i), bin, index + len);
+      if (i < TupleLength(value) - 1) {
+        len += WriteStr(", ", 2, str ? str + len : 0);
+      }
+    }
+    len += WriteStr("}", 1, str ? str + len : 0);
+    return len;
+  }
+  if (IsPair(value)) {
+    u32 len = WriteStr("[", 1, str);
+    while (value) {
+      len += InspectValInto(Head(value), bin, index + len);
+      value = Tail(value);
+      if (!IsPair(value)) {
+        len += WriteStr(" | ", 3, str ? str + len : 0);
+        len += InspectValInto(value, bin, index + len);
+        break;
+      }
+      if (value) len += WriteStr(", ", 2, str ? str + len : 0);
+    }
+    len += WriteStr("]", 1, str ? str + len : 0);
+    return len;
+  }
+  return 0;
+}
+
+val InspectVal(val value)
+{
+  u32 len = InspectValInto(value, 0, 0);
+  val str = NewBinary(len);
+  InspectValInto(value, str, 0);
+  return str;
+}
+
+char *MemValStr(val value)
+{
+  char *str;
+  if (value == 0) {
+    str = malloc(4);
+    str[0] = 'n';
+    str[1] = 'i';
+    str[2] = 'l';
+    str[3] = 0;
+    return str;
+  }
+  if (IsInt(value)) {
+    str = malloc(NumDigits(value, 10) + 1);
+    WriteNum(RawInt(value), str);
+    return str;
+  }
+  if (IsSym(value)) {
+    char *data = SymbolName(RawVal(value));
+    str = malloc(strlen(data) + 2);
+    str[0] = ':';
+    WriteStr(data, strlen(data)+1, str+1);
+    return str;
+  }
+  if (IsBinary(value) && BinaryLength(value) < 8 && BinIsPrintable(value)) {
+    u32 len = BinaryLength(value);
+    char *data = BinaryData(value);
+    str = malloc(len + 3);
+    str[0] = '"';
+    WriteStr(data, len+1, str+1);
+    str[len + 1] = '"';
+    str[len + 2] = 0;
+    return str;
+  }
+
+  str = malloc(NumDigits(RawVal(value), 10) + 2);
+  if (IsBinary(value)) {
+    str[0] = 'b';
+  } else if (IsTuple(value)) {
+    str[0] = 't';
+  } else if (IsPair(value)) {
+    str[0] = 'p';
+  } else if (IsTupleHdr(value)) {
+    str[0] = '#';
+  } else if (IsBinHdr(value)) {
+    str[0] = '$';
+  } else {
+    str[0] = '?';
+  }
+  WriteNum(RawVal(value), str + 1);
+  str[NumDigits(RawVal(value), 10) + 1] = 0;
+  return str;
 }
 
 void DumpMem(void)
@@ -446,7 +486,7 @@ void DumpMem(void)
 
   printf("%*d|", colWidth, 0);
   for (i = 0; i < VecCount(mem); i++) {
-    char *str = ValStr(MemGet(i), 0);
+    char *str = MemValStr(MemGet(i));
     printf("%*s|", colWidth, str);
     free(str);
 
@@ -458,4 +498,3 @@ void DumpMem(void)
   printf("\n");
   printf("%d / %d\n", VecCount(mem), VecCapacity(mem));
 }
-
