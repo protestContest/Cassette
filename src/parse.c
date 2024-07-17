@@ -11,8 +11,6 @@ typedef struct {
 } Parser;
 #define Adv(p) \
   (p)->token = NextToken((p)->text, (p)->token.pos + (p)->token.length)
-#define ParseJump(p, i) \
-  (p)->token = NextToken((p)->text, i)
 #define AtEnd(p)            ((p)->token.type == eofToken)
 #define CheckToken(t, p)    ((p)->token.type == (t))
 
@@ -31,8 +29,10 @@ static bool MatchToken(TokenType type, Parser *p)
 
 typedef val (*ParsePrefix)(Parser *p);
 typedef val (*ParseInfix)(val expr, Parser *p);
-typedef enum {precNone, precExpr, precLogic, precEqual, precPair, precJoin,
-  precCompare, precShift, precSum, precProduct, precCall} Precedence;
+typedef enum {
+  precNone, precExpr, precLogic, precEqual, precPair, precJoin,
+  precCompare, precShift, precSum, precProduct, precCall, precQualify
+} Precedence;
 typedef struct {
   ParsePrefix prefix;
   ParseInfix infix;
@@ -94,7 +94,7 @@ static ParseRule rules[] = {
   [commaToken]    = {0,             0,            precNone},
   [minusToken]    = {ParseUnary,    ParseOp,      precSum},
   [arrowToken]    = {0,             0,            precNone},
-  [dotToken]      = {0,             0,            precNone},
+  [dotToken]      = {0,             ParseOp,      precQualify},
   [slashToken]    = {0,             ParseOp,      precProduct},
   [numToken]      = {ParseNum,      0,            precNone},
   [hexToken]      = {ParseHex,      0,            precNone},
@@ -116,7 +116,7 @@ static ParseRule rules[] = {
   [doToken]       = {ParseDo,       0,            precNone},
   [elseToken]     = {0,             0,            precNone},
   [endToken]      = {0,             0,            precNone},
-  [exportsToken]  = {0,             0,            precNone},
+  [exportToken]   = {0,             0,            precNone},
   [falseToken]    = {ParseLiteral,  0,            precNone},
   [ifToken]       = {ParseIf,       0,            precNone},
   [importToken]   = {0,             0,            precNone},
@@ -152,21 +152,13 @@ static val ParseModule(Parser *p)
   i32 pos = p->token.pos;
   val modname, exports, imports, stmts;
   VSpacing(p);
-  if (p->token.type == moduleToken) {
-    modname = ParseModname(p);
-    if (IsError(modname)) return modname;
-    if (p->token.type == exportsToken) {
-      exports = ParseExports(p);
-      if (IsError(exports)) return exports;
-    } else {
-      exports = TokenNode(listNode, p->token, 0);
-    }
-  } else {
-    modname = TokenNode(idNode, p->token, SymVal(Symbol("*main*")));
-    exports = TokenNode(listNode, p->token, 0);
-  }
+
+  modname = ParseModname(p);
+  if (IsError(modname)) return modname;
   imports = ParseImports(p);
-  if IsError(imports) return imports;
+  if (IsError(imports)) return imports;
+  exports = ParseExports(p);
+  if (IsError(exports)) return exports;
   stmts = ParseStmts(p);
   if (IsError(stmts)) return stmts;
   if (!AtEnd(p)) return ParseError("Expected end of file", p);
@@ -177,7 +169,9 @@ static val ParseModule(Parser *p)
 static val ParseModname(Parser *p)
 {
   i32 id;
-  if (!MatchToken(moduleToken, p)) return ParseError("Expected \"module\"", p);
+  if (!MatchToken(moduleToken, p)) {
+    return MakeNode(idNode, 0, 0, SymVal(Symbol("*main*")));
+  }
   Spacing(p);
   id = ParseID(p);
   if (IsError(id)) return id;
@@ -191,10 +185,8 @@ static val ParseModname(Parser *p)
 static val ParseExports(Parser *p)
 {
   i32 exports, pos = p->token.pos;
-  if (!MatchToken(exportsToken, p)) {
-    return ParseError("Expected \"exports\"", p);
-  }
-  Spacing(p);
+  if (!MatchToken(exportToken, p)) return MakeNode(nilNode, 0, 0, 0);
+  VSpacing(p);
   exports = ParseIDList(p);
   if (IsError(exports)) return exports;
   if (!AtEnd(p) && !MatchToken(newlineToken, p)) {
@@ -206,13 +198,15 @@ static val ParseExports(Parser *p)
 
 static val ParseImports(Parser *p)
 {
-  i32 imports = 0, start = p->token.pos, pos = p->token.pos;
-  while (MatchToken(importToken, p)) {
-    i32 import, id, alias;
-    Spacing(p);
+  val imports = 0, id, alias;
+  i32 start = p->token.pos;
+
+  if (!MatchToken(importToken, p)) return MakeNode(nilNode, 0, 0, 0);
+
+  do {
+    VSpacing(p);
     id = ParseID(p);
     if (IsError(id)) return id;
-    Spacing(p);
     if (MatchToken(asToken, p)) {
       Spacing(p);
       alias = ParseID(p);
@@ -220,15 +214,15 @@ static val ParseImports(Parser *p)
     } else {
       alias = id;
     }
-    if (!AtEnd(p) && !MatchToken(newlineToken, p)) {
-      return ParseError("Expected newline", p);
-    }
-    VSpacing(p);
-    import = MakeNode(importNode, pos, NodeEnd(alias),
-        Pair(id, Pair(alias, 0)));
-    imports = Pair(import, imports);
-    pos = p->token.pos;
+    imports = Pair(MakeNode(importNode, NodeStart(id), NodeEnd(alias),
+        Pair(id, Pair(alias, 0))), imports);
+  } while (MatchToken(commaToken, p));
+
+  if (!AtEnd(p) && !MatchToken(newlineToken, p)) {
+    return ParseError("Missing comma or newline", p);
   }
+  VSpacing(p);
+
   return MakeNode(listNode, start, NodeEnd(Head(imports)),
       ReverseList(imports, 0));
 }
@@ -346,6 +340,7 @@ i32 OpNodeType(TokenType type)
   case starToken:     return mulNode;
   case plusToken:     return addNode;
   case minusToken:    return subNode;
+  case dotToken:      return qualifyNode;
   case slashToken:    return divNode;
   case ltToken:       return ltNode;
   case ltltToken:     return shiftNode;

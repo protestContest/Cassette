@@ -13,7 +13,6 @@ val MakeError(val msg, val positions)
 
 val PrefixError(val error, char *prefix)
 {
-  PrintError(error, 0);
   TupleSet(error, 1, Pair(Binary(prefix), Pair(ErrorMsg(error), 0)));
   return error;
 }

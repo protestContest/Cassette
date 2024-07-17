@@ -32,7 +32,7 @@ enum {errNode, idNode, nilNode, intNode, symNode, strNode, listNode, tupleNode,
   doNode, ifNode, lambdaNode, notNode, lenNode, compNode, negNode, accessNode,
   sliceNode, mulNode, divNode, remNode, bitandNode, subNode, addNode, bitorNode,
   shiftNode, ltNode, gtNode, joinNode, pairNode, eqNode, andNode, orNode,
-  callNode, letNode, defNode, importNode, moduleNode};
+  callNode, qualifyNode, letNode, defNode, importNode, moduleNode};
 
 typedef val Node;
 

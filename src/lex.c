@@ -85,7 +85,7 @@ Token NextToken(char *src, u32 pos)
   if (MatchKeyword("def", src+pos)) return MakeToken(defToken, pos, 3);
   if (MatchKeyword("as", src+pos)) return MakeToken(asToken, pos, 2);
   if (MatchKeyword("import", src+pos)) return MakeToken(importToken, pos, 6);
-  if (MatchKeyword("exports", src+pos)) return MakeToken(exportsToken, pos, 7);
+  if (MatchKeyword("export", src+pos)) return MakeToken(exportToken, pos, 7);
   if (MatchKeyword("module", src+pos)) return MakeToken(moduleToken, pos, 6);
 
   if (IsSymChar(src[pos])) {

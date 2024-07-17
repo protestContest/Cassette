@@ -49,11 +49,7 @@ val PrimitiveEnv(void)
 val Compile(val node)
 {
   val env = PrimitiveEnv();
-  if (NodeType(node) == moduleNode) {
-    return CompileExpr(ModNodeBody(node), env, linkNext);
-  } else {
-    return CompileExpr(node, env, linkNext);
-  }
+  return CompileExpr(node, env, linkNext);
 }
 
 val CompileExpr(val node, val env, val linkage)
@@ -90,6 +86,7 @@ val CompileExpr(val node, val env, val linkage)
   case sliceNode:   return CompileSlice(node, env, linkage);
   case andNode:     return CompileAnd(node, env, linkage);
   case orNode:      return CompileOr(node, env, linkage);
+  case moduleNode:  return CompileExpr(ModNodeBody(node), env, linkage);
   default:          return Fail("Unexpected expression", node);
   }
 }

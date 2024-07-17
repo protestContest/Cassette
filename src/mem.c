@@ -343,18 +343,16 @@ bool ValEq(val a, val b)
   }
 }
 
-u32 FormatValInto(val value, val bin, u32 index)
+u32 FormatValInto(val value, char *str, u32 index)
 {
-  char *str = bin ? BinaryData(bin) + index : 0;
-
-  if (IsInt(value)) return WriteNum(RawInt(value), str);
+  char *dst = str ? str + index : 0;
+  if (IsInt(value)) return WriteNum(RawInt(value), dst);
   if (IsBinary(value)) {
-    u32 len = WriteStr(BinaryData(value), BinaryLength(value), str);
-    return len;
+    return WriteStr(BinaryData(value), BinaryLength(value), dst);
   }
   if (IsPair(value) && value) {
-    u32 head_len = FormatValInto(Head(value), bin, index);
-    u32 tail_len = FormatValInto(Tail(value), bin, index + head_len);
+    u32 head_len = FormatValInto(Head(value), str, index);
+    u32 tail_len = FormatValInto(Tail(value), str, index + head_len);
     return head_len + tail_len;
   }
   return 0;
@@ -362,9 +360,12 @@ u32 FormatValInto(val value, val bin, u32 index)
 
 val FormatVal(val value)
 {
-  u32 len = FormatValInto(value, 0, 0) + 1;
-  val bin = NewBinary(len);
-  FormatValInto(value, bin, 0);
+  u32 len = FormatValInto(value, 0, 0);
+  char *str = malloc(len + 1);
+  val bin;
+  FormatValInto(value, str, 0);
+  bin = Binary(str);
+  free(str);
   return bin;
 }
 

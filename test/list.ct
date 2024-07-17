@@ -1,7 +1,5 @@
 module List
-exports reduce, map, reverse
-
-def print(n) trap(:print, n)
+export reduce, map, reverse
 
 def reduce(list, acc, fn) do
   if list do

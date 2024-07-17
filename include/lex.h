@@ -10,7 +10,7 @@ typedef enum {
   plusToken, commaToken, minusToken, arrowToken, dotToken, slashToken, numToken,
   hexToken, colonToken, ltToken, ltltToken, lteqToken, ltgtToken, eqToken,
   eqeqToken, gtToken, gteqToken, gtgtToken, idToken, andToken, asToken,
-  condToken, defToken, doToken, elseToken, endToken, exportsToken, falseToken,
+  condToken, defToken, doToken, elseToken, endToken, exportToken, falseToken,
   ifToken, importToken, letToken, moduleToken, nilToken, notToken, orToken,
   trueToken, lbraceToken, bslashToken, rbraceToken, caretToken, lbracketToken,
   barToken, rbracketToken, tildeToken, errorToken

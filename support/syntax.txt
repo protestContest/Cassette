@@ -8,17 +8,18 @@
 
 %%
 
-Program:    vsp ModName Imports Stmts EOF ;
-ModName:    "module" sp ID NL vsp Exports | ;
-Exports:    "exports" sp IDList NL vsp | ;
-Imports:    Imports Import | ;
-Import:     "import" sp ID Alias NL vsp ;
+Module:     vsp ModName Imports Exports Stmts EOF ;
+ModName:    "module" sp ID NL vsp | ;
+Imports:    "import" vsp ImportList NL vsp | ;
+ImportList: Import | ImportList "," vsp Import ;
+Import:     ID sp Alias ;
 Alias:      "as" sp ID | ;
+Exports:    "export" vsp IDList NL vsp | ;
 Stmts:      vsp Stmt | Stmts NL Stmt ;
 Stmt:       Def | Let | Expr ;
 Def:        "def" sp ID "(" vsp Params ")" vsp Expr ;
 Params:     IDList | ;
-Let:        "let" sp Assigns ;
+Let:        "let" vsp Assigns ;
 Assigns:    Assign | Assigns "," vsp Assign ;
 Assign:     ID sp "=" vsp Expr ;
 Expr:       Lambda | Logic ;
@@ -32,11 +33,11 @@ Shift:      Sum | Shift "<<" vsp Sum | Shift ">>" vsp Sum ;
 Sum:        Product | Sum "+" vsp Product | Sum "-" vsp Product | Sum "^" vsp Product ;
 Product:    Unary | Product "*" vsp Unary | Product "/" vsp Unary | Product "%" vsp Unary | Product "&" vsp Unary ;
 Unary:      "-" Call | "~" Call | "#" Call | "not" vsp Call | Call ;
-Call:       Access | Call Args | Call Slice ;
+Call:       Qualifier | Call Args | Call Slice ;
 Args:       "(" vsp Items ")" ;
 Slice:      "[" vsp Expr vsp SliceEnd "]" ;
 SliceEnd:   ":" vsp Expr vsp | ;
-Access:     Primary | ID "." ID ;
+Qualifier:  Primary | ID "." ID ;
 Primary:    Group | Do | If | Cond | List | Tuple | NUM | STR | SYM | Literal | ID ;
 Group:      "(" vsp Expr vsp ")" sp ;
 Do:         "do" vsp Stmts "end" sp ;
