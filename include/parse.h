@@ -1,9 +1,9 @@
 #pragma once
 
-/*
-The parser produces an AST from some input text.
-*/
+/* The parser produces an ASTNode from some input text. */
 
-#include "node.h"
+#include "result.h"
+#include "module.h"
 
-Node Parse(char *text);
+Result ParseModule(Module *module);
+Result ParseModuleHeader(Module *module);

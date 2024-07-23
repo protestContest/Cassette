@@ -1,682 +1,814 @@
 #include "compile.h"
-#include "error.h"
-#include "primitives.h"
-#include <univ/symbol.h>
+#include "ops.h"
+#include "chunk.h"
+#include "mem.h"
+#include "univ/hashmap.h"
+#include "univ/symbol.h"
+#include <univ/vec.h>
 
-#define Fail(msg, node) \
-  MakeError(Binary(msg), 0, NodeStart(node), NodeEnd(node))
+typedef struct {
+  Module *modules;
+  HashMap map;
+} ImportMap;
 
-#define linkNext    0
-#define linkReturn  SymVal(Symbol("return"))
+static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool returns);
 
-Chunk CompileExpr(Node node, Env env, val modules, val linkage);
-Chunk CompileModule(Node node, Env env, val modules, val linkage);
-Chunk CompileImports(Node node, u32 num_imports, Env env);
-Chunk CompileExports(Node node, Env env, val modules, val linkage);
-
-Chunk CompileConst(val value, val linkage);
-Chunk CompileStr(Node node, val linkage);
-Chunk CompileVar(Node node, Env env, val modules, val linkage);
-Chunk CompileTuple(Node node, Env env, val modules, val linkage);
-Chunk CompileUnaryOp(OpCode op, Node node, Env env, val modules, val linkage);
-Chunk CompileBinOp(OpCode op, Node node, Env env, val modules, val linkage);
-Chunk CompilePair(Node node, Env env, val modules, val linkage);
-Chunk CompileSlice(Node node, Env env, val modules, val linkage);
-
-Chunk CompileAnd(Node node, Env env, val modules, val linkage);
-Chunk CompileOr(Node node, Env env, val modules, val linkage);
-Chunk CompileIf(Node node, Env env, val modules, val linkage);
-
-Chunk CompileDo(Node node, Env env, val modules, val linkage);
-Chunk CompileStmts(val stmts, u32 num_assigns, Env env, val modules, val linkage);
-
-Chunk CompileLambda(Node node, Env env, val modules, val linkage);
-Chunk CompileCall(Node node, Env env, val modules, val linkage);
-
-Chunk CompileQualify(Node node, Env env, val modules, val linkage);
-
-Chunk CompileLinkage(val linkage, val code);
-Chunk CompileExtendEnv(u32 num_assigns);
-Chunk CompilePopEnv(void);
-
-val NewLabel(void)
+static void WriteReturn(Chunk *chunk)
 {
-  static i32 nextLabel = 0;
-  return IntVal(nextLabel++);
+  ChunkWrite(opSwap, chunk);
+  ChunkWrite(opGoto, chunk);
 }
 
-val PrimitiveEnv(void)
+static void WriteExtendEnv(u32 num_assigns, Chunk *chunk)
 {
-  u32 i, num_primitives = NumPrimitives();
-  PrimDef *primitives = Primitives();
-  Env env = ExtendEnv(num_primitives, 0);
+  chunk->needs_env = true;
+  chunk->modifies_env = true;
+  ChunkWrite(opGetEnv, chunk);
+  ChunkWrite(opTuple, chunk);
+  ChunkWriteInt(num_assigns, chunk);
+  ChunkWrite(opPair, chunk);
+  ChunkWrite(opSetEnv, chunk);
+}
 
-  for (i = 0; i < num_primitives; i++) {
-    EnvSet(SymVal(Symbol(primitives[i].name)), i, env);
+static Result CompileConst(ASTNode *node, bool returns)
+{
+  /*
+  const <value>
+  */
+
+  Chunk *chunk;
+  assert(node->type == constNode);
+  chunk = NewChunk();
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(node->data.value, chunk);
+  if (returns) WriteReturn(chunk);
+  return Ok(chunk);
+}
+
+static Result CompileString(ASTNode *node, bool returns)
+{
+  /*
+  const <value>
+  str
+  */
+
+  Chunk *chunk;
+  assert(node->type == strNode);
+  chunk = NewChunk();
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(node->data.value, chunk);
+  ChunkWrite(opStr, chunk);
+  if (returns) WriteReturn(chunk);
+  return Ok(chunk);
+}
+
+static void WriteLookup(u32 frame, u32 index, Chunk *chunk)
+{
+  /*
+  getEnv
+  ; frame num times:
+    tail
+  head
+  const <index>
+  get
+  */
+
+  u32 i;
+  ChunkWrite(opGetEnv, chunk);
+  for (i = 0; i < frame; i++) {
+    ChunkWrite(opTail, chunk);
+  }
+  ChunkWrite(opHead, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(index), chunk);
+}
+
+static Result CompileVar(ASTNode *node, Env *env, bool returns)
+{
+  /*
+  lookup <i>  ; environment index
+  */
+
+  Chunk *chunk;
+  EnvPosition pos;
+  assert(node->type == varNode);
+  pos = EnvFind(node->data.value, env);
+  if (pos.frame < 0) return Error(undefinedVariable, 0);
+  chunk = NewChunk();
+  WriteLookup(pos.frame, pos.index, chunk);
+  if (returns) WriteReturn(chunk);
+  return Ok(chunk);
+}
+
+static Result CompileTuple(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  tuple <n>     ; tuple length
+  ; for each item:
+    const <i>   ; item index
+    <item code>
+    set
+  */
+
+  Chunk *chunk, *items_chunk = 0;
+  u32 i, num_items;
+  assert(node->type == tupleNode);
+  num_items = VecCount(node->data.children);
+  for (i = 0; i < num_items; i++) {
+    Chunk *index_chunk, *item_chunk;
+    ASTNode *item = node->data.children[num_items - 1 - i];
+    Result result = CompileExpr(item, env, imports, false);
+    if (result.status != ok) return result;
+    item_chunk = NewChunk();
+    ChunkWrite(opSet, item_chunk);
+    items_chunk = AppendChunk(item_chunk, items_chunk);
+    items_chunk = PreservingEnv(result.data.p, items_chunk);
+    index_chunk = NewChunk();
+    ChunkWrite(opConst, index_chunk);
+    ChunkWriteInt(IntVal(i), index_chunk);
+    items_chunk = AppendChunk(index_chunk, items_chunk);
+  }
+  chunk = NewChunk();
+  ChunkWrite(opTuple, chunk);
+  ChunkWriteInt(num_items, chunk);
+  chunk = AppendChunk(chunk, items_chunk);
+  if (returns) WriteReturn(chunk);
+  return Ok(chunk);
+}
+
+static Result CompileOp(OpCode op, ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  <operands code>
+  <op>
+  */
+
+  Chunk *chunk = 0;
+  u32 num_items, i;
+  num_items = VecCount(node->data.children);
+  assert(num_items > 1);
+  for (i = 0; i < num_items; i++) {
+    ASTNode *item = node->data.children[num_items - 1 - i];
+    Result result = CompileExpr(item, env, imports, false);
+    if (result.status != ok) return result;
+    chunk = PreservingEnv(result.data.p, chunk);
+  }
+  ChunkWrite(op, chunk);
+  if (returns) WriteReturn(chunk);
+  return Ok(chunk);
+}
+
+static Result CompileLogic(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  <left code>
+  dup
+  ; if orNode:
+    not
+  branch <after>
+  drop
+  <right code>
+after:
+  */
+
+  Chunk *chunk, *left_chunk, *right_chunk;
+  Result result;
+  assert(node->type == andNode || node->type == orNode);
+
+  chunk = NewChunk();
+  ChunkWrite(opDrop, chunk);
+
+  result = CompileExpr(node->data.children[1], env, imports, false);
+  if (result.status != ok) return result;
+  right_chunk = AppendChunk(chunk, result.data.p);
+
+  chunk = NewChunk();
+  ChunkWrite(opDup, chunk);
+  ChunkWrite(opBranch, chunk);
+  ChunkWriteInt(ChunkSize(right_chunk), chunk);
+
+  result = CompileExpr(node->data.children[0], env, imports, false);
+  if (result.status != ok) return result;
+  left_chunk = result.data.p;
+
+  chunk = PreservingEnv(left_chunk, right_chunk);
+  if (returns) WriteReturn(chunk);
+  return Ok(chunk);
+}
+
+static Result CompileIf(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  <predicate code>
+  branch <ifTrue>
+  <false code>
+  jump <after>
+ifTrue:
+  <true code>
+after:
+  */
+
+  Chunk *chunk, *pred_code, *true_code, *false_code;
+  Result result;
+  assert(node->type == ifNode);
+
+  result = CompileExpr(node->data.children[0], env, imports, returns);
+  if (result.status != ok) return result;
+  pred_code = result.data.p;
+
+  result = CompileExpr(node->data.children[1], env, imports, returns);
+  if (result.status != ok) return result;
+  true_code = result.data.p;
+
+  result = CompileExpr(node->data.children[2], env, imports, returns);
+  if (result.status != ok) return result;
+  false_code = result.data.p;
+
+  if (!returns) {
+    ChunkWrite(opBranch, false_code);
+    ChunkWriteInt(ChunkSize(true_code), false_code);
+  }
+
+  ChunkWrite(opBranch, pred_code);
+  ChunkWriteInt(ChunkSize(false_code), pred_code);
+
+  false_code->next = true_code;
+  false_code->modifies_env |= true_code->modifies_env;
+  false_code->needs_env |= true_code->needs_env;
+
+  chunk = AppendChunk(pred_code, false_code);
+  return Ok(chunk);
+}
+
+static void WriteDefine(u32 index, Chunk *chunk)
+{
+  ChunkWrite(opGetEnv, chunk);
+  ChunkWrite(opHead, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(index), chunk);
+  ChunkWrite(opRot, chunk);
+  ChunkWrite(opSet, chunk);
+}
+
+static Result CompileLet(ASTNode *node, u32 assign_num, Env *env, ImportMap *imports)
+{
+  /*
+  <value code>
+  define <i>    ; env index
+  */
+
+  Result result;
+  ASTNode *var_node, *value;
+  Chunk *chunk;
+  assert(node->type == letNode || node->type == defNode);
+  var_node = node->data.children[0];
+  value = node->data.children[1];
+  result = CompileExpr(value, env, imports, false);
+  if (result.status != ok) return result;
+  chunk = result.data.p;
+  EnvSet(var_node->data.value, assign_num, env);
+  WriteDefine(assign_num, chunk);
+  return result;
+}
+
+static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  ; for each statement, except the last:
+    <stmt code>
+    ; if statement isn't a letNode:
+      drop
+  <last stmt code>
+  ; if statement is a letNode:
+    const 0
+  */
+
+  u32 num_stmts, i, assign_num = 0;
+  Chunk *chunk = 0;
+  ASTNode *last;
+  Result result;
+  assert(node->type == doNode);
+  num_stmts = VecCount(node->data.children);
+  assert(num_stmts > 0);
+
+  last = node->data.children[num_stmts-1];
+  if (last->type == letNode || last->type == defNode) {
+    result = CompileLet(last, assign_num++, env, imports);
+    if (result.status != ok) return result;
+    chunk = result.data.p;
+    ChunkWrite(opConst, chunk);
+    ChunkWriteInt(0, chunk);
+    if (returns) WriteReturn(chunk);
+  } else {
+    result = CompileExpr(last, env, imports, returns);
+    if (result.status != ok) return result;
+    chunk = result.data.p;
+  }
+
+  for (i = 0; i < num_stmts - 1; i++) {
+    Chunk *drop_chunk;
+    ASTNode *stmt = node->data.children[num_stmts - 1 - i];
+
+    if (stmt->type == letNode || stmt->type == defNode) {
+      result = CompileLet(stmt, assign_num++, env, imports);
+      if (result.status != ok) return result;
+    } else {
+      result = CompileExpr(stmt, env, imports, false);
+      if (result.status != ok) return result;
+      drop_chunk = NewChunk();
+      ChunkWrite(opDrop, drop_chunk);
+      chunk = AppendChunk(drop_chunk, chunk);
+    }
+
+    chunk = PreservingEnv(result.data.p, chunk);
+  }
+
+  return Ok(chunk);
+}
+
+static u32 CountAssigns(ASTNode *node)
+{
+  u32 num_assigns = 0, i;
+  for (i = 0; i < VecCount(node->data.children); i++) {
+    ASTNode *item = node->data.children[i];
+    if (item->type == letNode || item->type == defNode) num_assigns++;
+  }
+  return num_assigns;
+}
+
+static Result CompileDo(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  ; if any assigns:
+    <extend_env(num_assigns)>
+  <stmts code>
+  */
+  Chunk *chunk;
+  Result result;
+  u32 i, j;
+  u32 num_assigns = CountAssigns(node);
+  assert(node->type == doNode);
+
+  if (num_assigns == 0) return CompileStmts(node, env, imports, returns);
+
+  env = ExtendEnv(num_assigns, env);
+  for (i = 0, j = 0; i < VecCount(node->data.children); i++) {
+    ASTNode *item = node->data.children[i];
+    if (item->type == defNode) {
+      ASTNode *var_node = item->data.children[0];
+      EnvSet(var_node->data.value, num_assigns - j - 1, env);
+      j++;
+    }
+  }
+  chunk = NewChunk();
+  WriteExtendEnv(num_assigns, chunk);
+  result = CompileStmts(node, env, imports, returns);
+  if (result.status != ok) return result;
+  chunk = AppendChunk(chunk, result.data.p);
+  env = PopEnv(env);
+  return Ok(chunk);
+}
+
+static Chunk *CompilePos(Chunk *chunk)
+{
+  Chunk *pos_chunk = NewChunk();
+  ChunkWrite(opPos, pos_chunk);
+  ChunkWriteInt(ChunkSize(chunk), pos_chunk);
+  return AppendChunk(pos_chunk, chunk);
+}
+
+static Chunk *CompileMakeLambda(Chunk *body, bool returns)
+{
+  Chunk *chunk = NewChunk();
+  chunk->needs_env = true;
+  ChunkWrite(opGetEnv, chunk);
+  ChunkWrite(opPair, chunk);
+  if (returns) {
+    WriteReturn(chunk);
+  } else {
+    ChunkWrite(opJump, chunk);
+    ChunkWriteInt(ChunkSize(body), chunk);
+  }
+
+  chunk = CompilePos(chunk);
+  TackOnChunk(chunk, body);
+
+  return chunk;
+}
+
+static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
+{
+  Chunk *chunk;
+  ASTNode *params, *body;
+  u32 num_params;
+  Result result;
+  assert(node->type == lambdaNode);
+  assert(VecCount(node->data.children) > 1);
+  params = node->data.children[0];
+  num_params = VecCount(params->data.children);
+  body = node->data.children[1];
+
+  chunk = NewChunk();
+  if (num_params > 0) {
+    u32 i;
+    chunk = NewChunk();
+    WriteExtendEnv(num_params, chunk);
+    env = ExtendEnv(num_params, env);
+    for (i = 0; i < num_params; i++) {
+      u32 index = num_params - i - 1;
+      ASTNode *param = params->data.children[index];
+      EnvSet(param->data.value, index, env);
+      WriteDefine(index, chunk);
+    }
+  }
+
+  result = CompileExpr(body, env, imports, true);
+  if (result.status != ok) return result;
+
+  chunk = AppendChunk(chunk, result.data.p);
+  return Ok(chunk);
+}
+
+static Result CompileLambda(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  pos <body>
+  getEnv
+  pair
+  ; if returning after:
+    <return>
+  ; else:
+    jump <after>
+body:
+  ; if any params:
+    <extend env(num_params)>
+    ; for reach param:
+      define <i>
+  <body code>   ; return after
+after:
+  */
+
+  Chunk *chunk;
+  Result result;
+  assert(node->type == lambdaNode);
+  result = CompileLambdaBody(node, env, imports);
+  if (result.status != ok) return result;
+  chunk = CompileMakeLambda(result.data.p, returns);
+  return Ok(chunk);
+}
+
+static void CompileMakeCall(Chunk *chunk)
+{
+  chunk->modifies_env = true;
+  ChunkWrite(opDup, chunk);
+  ChunkWrite(opHead, chunk);
+  ChunkWrite(opSetEnv, chunk);
+  ChunkWrite(opTail, chunk);
+  ChunkWrite(opGoto, chunk);
+}
+
+static Result CompileCall(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  ; if not returning after:
+    pos <after>
+  ; for each argument:
+    <arg code>
+  <func code>
+  dup
+  head
+  setEnv
+  tail
+  goto
+after:
+  */
+
+  u32 i, num_items;
+  Chunk *chunk, *args_chunk;
+  Result result;
+  assert(node->type == callNode);
+  num_items = VecCount(node->data.children);
+  assert(num_items > 0);
+
+  chunk = NewChunk();
+
+  result = CompileExpr(node->data.children[0], env, imports, false);
+  if (result.status != ok) return result;
+  args_chunk = result.data.p;
+
+  for (i = 0; i < num_items - 1; i++) {
+    result = CompileExpr(node->data.children[num_items - 1 - i], env, imports, false);
+    if (result.status != ok) return result;
+    args_chunk = PreservingEnv(result.data.p, args_chunk);
+  }
+
+  chunk = AppendChunk(chunk, args_chunk);
+  CompileMakeCall(chunk);
+
+  if (!returns) {
+    chunk = CompilePos(chunk);
+  }
+
+  return Ok(chunk);
+}
+
+static Result CompileRef(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+{
+  /*
+  <lookup mod alias>
+  const <symbol index>
+  get
+  */
+  ASTNode *mod = node->data.children[0];
+  ASTNode *sym = node->data.children[1];
+  Result result;
+  Chunk *chunk;
+  u32 symindex, modnum;
+
+  if (!HashMapContains(&imports->map, mod->data.value)) {
+    return Error(compileError, "Module not found");
+  }
+  modnum = HashMapGet(&imports->map, mod->data.value);
+  for (symindex = 0; symindex < VecCount(imports->modules[modnum].exports); symindex++) {
+    if (imports->modules[modnum].exports[symindex] == sym->data.value) break;
+  }
+  if (symindex == VecCount(imports->modules[modnum].exports)) {
+    return Error(compileError, "Symbol not found");
+  }
+
+  result = CompileVar(mod, env, false);
+  if (IsError(result)) return result;
+  chunk = result.data.p;
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(symindex), chunk);
+  ChunkWrite(opGet, chunk);
+
+  return Ok(chunk);
+}
+
+static u32 FindModule(u32 name, Module *modules)
+{
+  u32 modnum;
+  for (modnum = 0; modnum < VecCount(modules); modnum++) {
+    if (modules[modnum].name == name) break;
+  }
+  return modnum;
+}
+
+static ImportMap *IndexImports(Module *module, Module *modules)
+{
+  u32 i;
+  ImportMap *imports = malloc(sizeof(ImportMap));
+  InitHashMap(&imports->map);
+  imports->modules = modules;
+  for (i = 0; i < VecCount(module->imports); i++) {
+    u32 alias = module->imports[i].alias;
+    u32 modnum = FindModule(module->imports[i].module, modules);
+    if (modnum < VecCount(modules)) {
+      HashMapSet(&imports->map, alias, modnum);
+    }
+  }
+  return imports;
+}
+
+static Result CompileImports(Module *module, ImportMap *imports)
+{
+  /*
+  getEnv
+  tuple <num imports>
+  ; for each import:
+    const <i>
+    getMod
+    const <m>
+    get
+    <call>
+    set
+  pair
+  setEnv
+  */
+  Chunk *chunk = NewChunk();
+  u32 i, modnum;
+  ChunkWrite(opGetEnv, chunk);
+  ChunkWrite(opTuple, chunk);
+  ChunkWriteInt(VecCount(module->imports), chunk);
+
+  for (i = 0; i < VecCount(module->imports); i++) {
+    if (!HashMapContains(&imports->map, module->imports[i].module)) {
+      return Error(compileError, "Module not found");
+    }
+    modnum = HashMapGet(&imports->map, module->imports[i].module);
+    ChunkWrite(opConst, chunk);
+    ChunkWriteInt(IntVal(i), chunk);
+
+    ChunkWrite(opGetEnv, chunk);
+    chunk = AppendChunk(chunk, CompileCallMod(modnum));
+    ChunkWrite(opSetEnv, chunk);
+
+    ChunkWrite(opSet, chunk);
+  }
+  ChunkWrite(opPair, chunk);
+  ChunkWrite(opSetEnv, chunk);
+  return Ok(chunk);
+}
+
+static Env *DefineImports(Module *module, Env *env)
+{
+  u32 i;
+  env = ExtendEnv(VecCount(module->imports), env);
+  for (i = 0; i < VecCount(module->imports); i++) {
+    EnvSet(module->imports[i].alias, i, env);
   }
   return env;
 }
 
-val Compile(Node node, Env env, val modules)
-{
-  return CompileExpr(node, env, modules, linkNext);
-}
-
-val CompileExpr(Node node, Env env, val modules, val linkage)
-{
-  switch (NodeType(node)) {
-  case nilNode:     return CompileConst(0, linkage);
-  case intNode:     return CompileConst(NodeValue(node), linkage);
-  case symNode:     return CompileConst(NodeValue(node), linkage);
-  case strNode:     return CompileStr(node, linkage);
-  case tupleNode:   return CompileTuple(node, env, modules, linkage);
-  case idNode:      return CompileVar(node, env, modules, linkage);
-  case ifNode:      return CompileIf(node, env, modules, linkage);
-  case lambdaNode:  return CompileLambda(node, env, modules, linkage);
-  case doNode:      return CompileDo(node, env, modules, linkage);
-  case callNode:    return CompileCall(node, env, modules, linkage);
-  case eqNode:      return CompileBinOp(opEq, node, env, modules, linkage);
-  case ltNode:      return CompileBinOp(opLt, node, env, modules, linkage);
-  case gtNode:      return CompileBinOp(opGt, node, env, modules, linkage);
-  case shiftNode:   return CompileBinOp(opShift, node, env, modules, linkage);
-  case addNode:     return CompileBinOp(opAdd, node, env, modules, linkage);
-  case subNode:     return CompileBinOp(opSub, node, env, modules, linkage);
-  case bitorNode:   return CompileBinOp(opOr, node, env, modules, linkage);
-  case mulNode:     return CompileBinOp(opMul, node, env, modules, linkage);
-  case divNode:     return CompileBinOp(opDiv, node, env, modules, linkage);
-  case remNode:     return CompileBinOp(opRem, node, env, modules, linkage);
-  case bitandNode:  return CompileBinOp(opAnd, node, env, modules, linkage);
-  case joinNode:    return CompileBinOp(opJoin, node, env, modules, linkage);
-  case accessNode:  return CompileBinOp(opGet, node, env, modules, linkage);
-  case qualifyNode: return CompileQualify(node, env, modules, linkage);
-  case pairNode:    return CompilePair(node, env, modules, linkage);
-  case negNode:     return CompileUnaryOp(opNeg, node, env, modules, linkage);
-  case notNode:     return CompileUnaryOp(opNot, node, env, modules, linkage);
-  case compNode:    return CompileUnaryOp(opComp, node, env, modules, linkage);
-  case lenNode:     return CompileUnaryOp(opLen, node, env, modules, linkage);
-  case sliceNode:   return CompileSlice(node, env, modules, linkage);
-  case andNode:     return CompileAnd(node, env, modules, linkage);
-  case orNode:      return CompileOr(node, env, modules, linkage);
-  case moduleNode:  return CompileModule(node, env, modules, linkage);
-  default:          return Fail("Unexpected expression", node);
-  }
-}
-
-Chunk CompileModule(Node node, Env env, val modules, val linkage)
+static Result CompileModuleBody(Module *module, u32 id, Module *modules, Env *env)
 {
   /*
-  - compile imports:
-    - extend env for aliased imports
-    - for each import:
-      - look up module name in env
-      - redefine as alias in env
-  - compile body:
-    - extend env for any assigns
-    - pre-define each def node variable
-    - compile each statement, preserving regEnv
-    - drop each statement result
-  - compile exports:
-    - make a tuple to hold exports
-    - for each export:
-      - lookup export in env (should have been defined)
-      - set exported value in exports
-    - pop assigns env
-    - pop aliased imports env
-    - define exports in module env
+  <imports>
+
+  <body code>
+  drop          ; discard body result
+  tuple <n>     ; create exports using body env
+  ; for each export:
+    const <i>
+    lookup <f>
+    set
+  <extend_env(1)>
+  dup
+  define 0
+  pos <cache_body>
+  getEnv
+  pair
+  jump <after_cache>
+cache_body:
+  lookup 0
+  <return>
+after_cache:
+  getMod
+  const <m>
+  rot
+  set
+  <return>
   */
 
-  val import_chunk, body_chunk;
-  Node imports = ModNodeImports(node);
-  Node body = ModNodeBody(node);
-  u32 num_imports = NodeLength(imports);
-  u32 num_assigns = DoNodeNumAssigns(body);
-  val stmts = DoNodeStmts(body);
+  u32 i, j;
+  Result result;
+  Chunk *chunk, *cache;
+  u32 num_assigns = CountAssigns(module->ast);
+  ImportMap *imports = IndexImports(module, modules);
 
-  if (num_imports > 0) {
-    env = ExtendEnv(num_imports, env);
-    import_chunk = CompileImports(imports, num_imports, env);
-    if (IsError(import_chunk)) return import_chunk;
-    import_chunk = AppendChunk(CompileExtendEnv(num_imports), import_chunk);
-  } else {
-    import_chunk = EmptyChunk();
-  }
+  result = CompileImports(module, imports);
+  if (IsError(result)) return result;
+  chunk = result.data.p;
+  env = DefineImports(module, env);
 
   if (num_assigns > 0) {
-    u32 i = num_assigns;
     env = ExtendEnv(num_assigns, env);
-    while (stmts && NodeType(Head(stmts)) == defNode) {
-      val stmt = Head(stmts);
-      val var = NodeValue(DefNodeVar(stmt));
-      EnvSet(var, --i, env);
-      stmts = Tail(stmts);
+    for (i = 0, j = 0; i < VecCount(module->ast->data.children); i++) {
+      ASTNode *item = module->ast->data.children[i];
+      if (item->type == defNode) {
+        ASTNode *var_node = item->data.children[0];
+        EnvSet(var_node->data.value, num_assigns - j - 1, env);
+        j++;
+      }
     }
+
+    WriteExtendEnv(num_assigns, chunk);
+  }
+  result = CompileStmts(module->ast, env, imports, false);
+  if (result.status != ok) return result;
+  chunk = AppendChunk(chunk, result.data.p);
+  ChunkWrite(opDrop, chunk);
+
+  ChunkWrite(opTuple, chunk);
+  ChunkWriteInt(VecCount(module->exports), chunk);
+  for (i = 0; i < VecCount(module->exports); i++) {
+    EnvPosition pos = EnvFind(module->exports[i], env);
+    if (pos.frame == -1) return Error(undefinedVariable, 0);
+    ChunkWrite(opConst, chunk);
+    ChunkWriteInt(IntVal(i), chunk);
+    WriteLookup(pos.frame, pos.index, chunk);
+    ChunkWrite(opSet, chunk);
   }
 
-  body_chunk = CompileStmts(DoNodeStmts(body), num_assigns, env, modules, linkage);
-  if (IsError(body_chunk)) return body_chunk;
-  body_chunk = Preserving(regEnv,
-    body_chunk,
-    MakeChunk(regEnv, 0, Pair(Op(opDrop), 0)));
+  WriteExtendEnv(1, chunk);
+  ChunkWrite(opDup, chunk);
+  WriteDefine(0, chunk);
 
-  if (num_assigns > 0) {
-    body_chunk = AppendChunk(CompileExtendEnv(num_assigns), body_chunk);
-  }
+  cache = NewChunk();
+  ChunkWrite(opGetEnv, cache);
+  ChunkWrite(opHead, cache);
+  ChunkWrite(opConst, cache);
+  ChunkWriteInt(IntVal(0), cache);
+  ChunkWrite(opGet, cache);
+  WriteReturn(cache);
+  cache = CompileMakeLambda(cache, false);
 
-  return
-    AppendChunk(import_chunk,
-    AppendChunk(body_chunk,
-      CompileExports(node, env, modules, linkNext)));
+  chunk = AppendChunk(chunk, cache);
+  ChunkWrite(opGetMod, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(id), chunk);
+  ChunkWrite(opRot, chunk);
+  ChunkWrite(opSet, chunk);
+  WriteReturn(chunk);
+
+  return Ok(chunk);
 }
 
-Chunk CompileImports(Node node, u32 num_imports, Env env)
+Result CompileModule(Module *module, u32 id, Module *modules, Env *env)
 {
-  Node imports = NodeValue(node);
-  Chunk chunk = EmptyChunk();
-  u32 importnum = 0;
+  /*
+  pos <body>
+  getEnv
+  pair
+  jump <after>
+body:
+  <module body>
+after:
+  getMod
+  const <m>
+  rot
+  set
+  */
 
-  while (imports) {
-    val import = Head(imports);
-    val mod = ImportNodeName(import);
-    val alias = ImportNodeAlias(import);
-    i32 n = FindEnv(mod, env);
-    if (n < 0) return Fail("Module not found", node);
-    chunk = AppendChunk(chunk,
-      MakeChunk(regEnv, 0,
-        Pair(Op(opLookup),
-        Pair(IntVal(n),
-        Pair(Op(opDefine),
-        Pair(IntVal(importnum), 0))))));
-    EnvSet(alias, importnum, env);
-    importnum++;
-    imports = Tail(imports);
-  }
+  Chunk *chunk;
+  Result result;
+  chunk = NewChunk();
+  ChunkWrite(opGetMod, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(id), chunk);
+  result = CompileModuleBody(module, id, modules, env);
+  if (result.status != ok) return result;
+  chunk = AppendChunk(chunk, CompileMakeLambda(result.data.p, false));
+  ChunkWrite(opSet, chunk);
+  module->code = chunk;
 
+  return Ok(chunk);
+}
+
+Chunk *CompileIntro(Module *modules)
+{
+  /*
+  tuple <num_modules>
+  setMod
+  */
+  Chunk *chunk = NewChunk();
+  ChunkWrite(opTuple, chunk);
+  ChunkWriteInt(VecCount(modules), chunk);
+  ChunkWrite(opSetMod, chunk);
   return chunk;
 }
 
-Chunk CompileExports(Node node, Env env, val modules, val linkage)
+Chunk *CompileCallMod(u32 id)
 {
-  val chunk;
-  val exports = NodeValue(ModNodeExports(node));
-  u32 num_exports = ListLength(exports);
-  u32 num_imports = NodeLength(ModNodeImports(node));
-  u32 num_assigns = DoNodeNumAssigns(ModNodeBody(node));
-  u32 i;
-
-  chunk = MakeChunk(0, 0,
-    Pair(Op(opTuple),
-    Pair(IntVal(num_exports), 0)));
-
-  i = 0;
-  while (exports) {
-    val export = Head(exports);
-    chunk =
-      AppendChunk(chunk,
-      AppendChunk(MakeChunk(0, 0, Pair(Op(opConst), Pair(IntVal(i), 0))),
-      AppendChunk(CompileVar(export, env, modules, linkNext),
-        MakeChunk(0, 0, Pair(Op(opSet), 0)))));
-    exports = Tail(exports);
-    i++;
-  }
-
-  if (num_assigns > 0) chunk = AppendChunk(chunk, CompilePopEnv());
-  if (num_imports > 0) chunk = AppendChunk(chunk, CompilePopEnv());
-
-  return chunk;
+  /*
+  getMod
+  const <entry mod>
+  get
+  <call>
+  */
+  Chunk *chunk = NewChunk();
+  ChunkWrite(opGetMod, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(id), chunk);
+  ChunkWrite(opGet, chunk);
+  CompileMakeCall(chunk);
+  return CompilePos(chunk);
 }
 
-Chunk CompileDefModule(u32 modnum)
+static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool returns)
 {
-  return MakeChunk(regEnv, 0, Pair(Op(opDefine), Pair(IntVal(modnum), 0)));
-}
-
-val CompileConst(val value, val linkage)
-{
-  val chunk;
-  if (value) {
-    chunk = MakeChunk(0, 0, Pair(Op(opConst), Pair(value, 0)));
-  } else {
-    chunk = MakeChunk(0, 0, Pair(Op(opNil), 0));
-  }
-  return CompileLinkage(linkage, chunk);
-}
-
-val CompileStr(Node node, val linkage)
-{
-  return
-    CompileLinkage(linkage,
-      MakeChunk(0, 0,
-        Pair(Op(opConst),
-        Pair(NodeValue(node),
-        Pair(Op(opStr), 0)))));
-}
-
-val CompileTuple(Node node, Env env, val modules, val linkage)
-{
-  val items = NodeChildren(node);
-  u32 num_items = NodeLength(node);
-  val items_chunk = EmptyChunk();
-  u32 i;
-
-  for (i = 0; i < num_items; i++) {
-    val result = CompileExpr(Head(items), env, modules, linkNext);
-    if (IsError(result)) return result;
-    items_chunk =
-      AppendChunk(
-        MakeChunk(0, 0, Pair(Op(opConst), Pair(IntVal(i), 0))),
-        AppendCode(Preserving(regEnv, items_chunk, result),
-        Pair(Op(opSet), 0)));
-    items = Tail(items);
-  }
-
-  return
-    AppendChunk(
-      MakeChunk(0, 0, Pair(Op(opTuple), Pair(IntVal(num_items), 0))),
-      items_chunk);
-}
-
-val CompileVar(Node node, Env env, val modules, val linkage)
-{
-  val code;
-  i32 n = FindEnv(NodeValue(node), env);
-  if (n < 0) return Fail("Undefined variable", node);
-  code = Pair(Op(opLookup), Pair(IntVal(n), 0));
-  return CompileLinkage(linkage, MakeChunk(regEnv, 0, code));
-}
-
-val CompileIf(Node node, Env env, val modules, val linkage)
-{
-  val pred, cons, alt;
-  val true_label = NewLabel();
-  val after_label = NewLabel();
-  val alt_linkage = linkage == linkNext ? after_label : linkage;
-  pred = CompileExpr(IfNodePred(node), env, modules, linkNext);
-  if (IsError(pred)) return pred;
-  cons = CompileExpr(IfNodeCons(node), env, modules, linkage);
-  if (IsError(cons)) return cons;
-  alt = CompileExpr(IfNodeAlt(node), env, modules, alt_linkage);
-  if (IsError(alt)) return alt;
-  pred = AppendCode(pred, Pair(Op(opBranch), Pair(true_label, 0)));
-  return AppendChunk(
-    pred,
-    AppendCode(
-      ParallelChunks(
-        alt,
-        LabelChunk(true_label, cons)),
-      Pair(Op(opLabel), Pair(after_label, 0))));
-}
-
-Chunk CompileExtendEnv(u32 num_assigns)
-{
-  return MakeChunk(regEnv, regEnv,
-    Pair(Op(opGetEnv),
-    Pair(Op(opTuple),
-    Pair(IntVal(num_assigns),
-    Pair(Op(opPair),
-    Pair(Op(opSetEnv), 0))))));
-}
-
-Chunk CompilePopEnv(void)
-{
-  return
-    MakeChunk(regEnv, regEnv,
-      Pair(Op(opGetEnv),
-      Pair(Op(opTail),
-      Pair(Op(opSetEnv), 0))));
-}
-
-val CompileAssign(Node node, i32 n, Env env, val modules)
-{
-  val result, assign_code;
-  val var = NodeValue(LetNodeVar(node));
-  val value = LetNodeExpr(node);
-  result = CompileExpr(value, env, modules, linkNext);
-  if (IsError(result)) return result;
-  assign_code = Pair(Op(opDefine), Pair(IntVal(n), 0));
-  EnvSet(var, n, env);
-  return Preserving(regEnv, result, MakeChunk(regEnv, 0, assign_code));
-}
-
-val CompileStmts(val stmts, u32 num_assigns, Env env, val modules, val linkage)
-{
-  val stmt = Head(stmts);
-  val rest = Tail(stmts);
-  val result;
-
-  if (NodeType(stmt) == defNode || NodeType(stmt) == letNode) {
-    result = CompileAssign(stmt, --num_assigns, env, modules);
-    if (IsError(result)) return result;
-    assert(rest);
-  } else {
-    val stmt_linkage = rest ? linkNext : linkage;
-    result = CompileExpr(stmt, env, modules, stmt_linkage);
-    if (IsError(result)) return result;
-    if (rest) result = AppendCode(result, Pair(Op(opDrop), 0));
-  }
-
-  if (rest) {
-    return Preserving(regEnv,
-      result,
-      CompileStmts(rest, num_assigns, env, modules, linkage));
-  } else {
-    return result;
-  }
-}
-
-val CompileDo(Node node, Env env, val modules, val linkage)
-{
-  val result;
-  u32 i;
-  u32 num_assigns = DoNodeNumAssigns(node);
-  val stmts = DoNodeStmts(node);
-
-  if (num_assigns == 0) return CompileStmts(stmts, 0, env, modules, linkage);
-
-  env = ExtendEnv(num_assigns, env);
-
-  /* pre-define all def statements */
-  i = num_assigns;
-  while (stmts && NodeType(Head(stmts)) == defNode) {
-    val stmt = Head(stmts);
-    val var = NodeValue(DefNodeVar(stmt));
-    EnvSet(var, --i, env);
-    stmts = Tail(stmts);
-  }
-
-  result = CompileStmts(DoNodeStmts(node), num_assigns, env, modules, linkNext);
-  if (IsError(result)) return result;
-
-  return
-    CompileLinkage(linkage,
-      AppendChunk(
-        CompileExtendEnv(num_assigns),
-        Preserving(regEnv, result,
-          CompilePopEnv())));
-}
-
-val CompileMakeLambda(val label)
-{
-  return MakeChunk(regEnv, 0,
-    Pair(Op(opPos),
-    Pair(label,
-    Pair(Op(opGetEnv),
-    Pair(Op(opPair), 0)))));
-}
-
-val CompileLambdaBody(Node node, Env env, val modules)
-{
-  val params = LambdaNodeParams(node);
-  u32 num_params = ListLength(params);
-  val body = LambdaNodeBody(node);
-  Chunk params_code = EmptyChunk();
-  val result;
-
-  if (num_params > 0) {
-    u32 i;
-    params_code = CompileExtendEnv(num_params);
-    env = ExtendEnv(num_params, env);
-    for (i = 0; i < num_params; i++) {
-      val param = NodeValue(Head(params));
-      EnvSet(param, i, env);
-      params_code = AppendCode(params_code, Pair(Op(opDefine), Pair(IntVal(num_params - i - 1), 0)));
-      params = Tail(params);
-    }
-  }
-
-  result = CompileExpr(body, env, modules, linkReturn);
-  if (IsError(result)) return result;
-
-  if (num_params > 0) {
-    return AppendChunk(params_code, result);
-  } else {
-    return result;
-  }
-}
-
-val CompileLambda(Node node, Env env, val modules, val linkage)
-{
-  val body_label = NewLabel();
-  val after_label = NewLabel();
-  val lambda_linkage = linkage == linkNext ? after_label : linkage;
-  val body = CompileLambdaBody(node, env, modules);
-  if (IsError(body)) return body;
-  return
-    AppendCode(
-      TackOnChunk(
-        CompileLinkage(lambda_linkage, CompileMakeLambda(body_label)),
-        LabelChunk(body_label, body)),
-      Pair(Op(opLabel), Pair(after_label, 0)));
-}
-
-bool IsPrimitive(Node node, Env env)
-{
-  if (NodeType(node) != idNode) return false;
-  return FindFrame(NodeValue(node), env) == 0;
-}
-
-val CompileCallCode(void)
-{
-  return
-    MakeChunk(0, regEnv,
-      Pair(Op(opDup),
-      Pair(Op(opHead),
-      Pair(Op(opSetEnv),
-      Pair(Op(opTail),
-      Pair(Op(opGoto), 0))))));
-}
-
-val CompileCall(Node node, Env env, val modules, val linkage)
-{
-  val after_label = NewLabel();
-  val op = CallNodeFun(node);
-  val args = ReverseList(CallNodeArgs(node), 0);
-  val args_chunk = EmptyChunk();
-  val result;
-
-  while (args) {
-    val arg = Head(args);
-    args = Tail(args);
-    result = CompileExpr(arg, env, modules, linkNext);
-    if (IsError(result)) return result;
-    args_chunk = Preserving(regEnv, result, args_chunk);
-  }
-
-  if (IsPrimitive(op, env)) {
-    return AppendCode(args_chunk, Pair(Op(opTrap), Pair(NodeValue(op), 0)));
-  }
-
-  result = CompileExpr(op, env, modules, linkNext);
-  if (IsError(result)) return result;
-
-  result = AppendChunk(
-    Preserving(regEnv, args_chunk, result),
-    CompileCallCode());
-
-  if (linkage == linkNext) linkage = after_label;
-  if (linkage == linkReturn) return result;
-
-  return
-    AppendCode(
-      AppendChunk(
-        MakeChunk(0, 0, Pair(Op(opPos), Pair(linkage, 0))),
-        result),
-      Pair(Op(opLabel), Pair(after_label, 0)));
-
-}
-
-val CompileUnaryOp(OpCode op, Node node, Env env, val modules, val linkage)
-{
-  val result = CompileExpr(NodeChild(node, 0), env, modules, linkNext);
-  if (IsError(result)) return result;
-  return CompileLinkage(linkage, AppendCode(result, Pair(Op(op), 0)));
-}
-
-val CompileBinOp(OpCode op, Node node, Env env, val modules, val linkage)
-{
-  val left, right;
-  left = CompileExpr(NodeChild(node, 0), env, modules, linkNext);
-  if (IsError(left)) return left;
-  right = CompileExpr(NodeChild(node, 1), env, modules, linkNext);
-  if (IsError(right)) return right;
-
-  return
-    CompileLinkage(linkage,
-      AppendCode(
-        Preserving(regEnv, left, right),
-        Pair(Op(op), 0)));
-}
-
-val CompileQualify(Node node, Env env, val modules, val linkage)
-{
-  val code, module, fn;
-  Node modname = NodeChild(node, 0);
-  u32 i;
-  i32 n = FindEnv(NodeValue(modname), env);
-  if (n < 0) return Fail("Module not imported", modname);
-  code = MakeChunk(regEnv, 0, Pair(Op(opLookup), Pair(IntVal(n), 0)));
-
-  module = TupleGet(modules, n);
-  fn = NodeValue(NodeChild(node, 1));
-  assert(module);
-  for (i = 0; i < TupleLength(module); i++) {
-    printf("m%d: %s\n", i, MemValStr(TupleGet(module, i)));
-    if (TupleGet(module, i) == fn) break;
-  }
-  if (i == TupleLength(module)) {
-    return Fail("Module not found", node);
-  }
-  code = AppendCode(code, Pair(Op(opConst), Pair(IntVal(i), Pair(Op(opGet), 0))));
-  return CompileLinkage(linkage, code);
-}
-
-val CompilePair(Node node, Env env, val modules, val linkage)
-{
-  val head, tail;
-  head = CompileExpr(NodeChild(node, 0), env, modules, linkNext);
-  if (IsError(head)) return head;
-  tail = CompileExpr(NodeChild(node, 1), env, modules, linkNext);
-  if (IsError(tail)) return tail;
-
-  return
-    CompileLinkage(linkage,
-      AppendCode(
-        Preserving(regEnv, tail, head),
-        Pair(Op(opPair), 0)));
-}
-
-val CompileSlice(Node node, Env env, val modules, val linkage)
-{
-  val a, b, c;
-  a = CompileExpr(NodeChild(node, 0), env, modules, linkNext);
-  if (IsError(a)) return a;
-  b = CompileExpr(NodeChild(node, 1), env, modules, linkNext);
-  if (IsError(b)) return b;
-  c = CompileExpr(NodeChild(node, 2), env, modules, linkNext);
-  if (IsError(c)) return c;
-
-  return CompileLinkage(linkage,
-    AppendCode(
-      Preserving(regEnv, a, Preserving(regEnv, b, c)),
-      Pair(Op(opSlice), 0)));
-}
-
-val CompileLinkage(val linkage, val chunk)
-{
-  if (linkage == linkNext) return chunk;
-  if (linkage == linkReturn) {
-    return AppendCode(chunk, Pair(Op(opSwap), Pair(Op(opGoto), 0)));
-  }
-
-  return
-    AppendChunk(
-      MakeChunk(0, 0, Pair(Op(opPos), Pair(linkage, 0))),
-      AppendCode(chunk, Pair(Op(opGoto),  0)));
-}
-
-/*
-  <expr1>
-  dup
-  not
-  branch :after
-  drop
-  <expr2>
-after:
-*/
-
-val CompileAnd(Node node, Env env, val modules, val linkage)
-{
-  val left, right, after_label, left_linkage;
-  left = CompileExpr(NodeChild(node, 0), env, modules, linkNext);
-  if (IsError(left)) return left;
-  right = CompileExpr(NodeChild(node, 1), env, modules, linkNext);
-  if (IsError(right)) return right;
-
-  after_label = NewLabel();
-
-  if (linkage == linkNext || linkage == linkReturn) {
-    left_linkage = after_label;
-  } else {
-    left_linkage = linkage;
-  }
-
-  left =
-    AppendCode(left,
-      Pair(Op(opDup),
-      Pair(Op(opNot),
-      Pair(Op(opBranch), Pair(left_linkage,
-      Pair(Op(opDrop), 0))))));
-
-  right = AppendCode(right, Pair(Op(opLabel), Pair(after_label, 0)));
-
-  return CompileLinkage(linkage, Preserving(regEnv, left, right));
-}
-
-/*
-  <expr1>
-  dup
-  branch :after
-  drop
-  <expr2>
-after:
-*/
-
-val CompileOr(Node node, Env env, val modules, val linkage)
-{
-  val left, right, after_label, left_linkage;
-  left = CompileExpr(NodeChild(node, 0), env, modules, linkNext);
-  if (IsError(left)) return left;
-  right = CompileExpr(NodeChild(node, 1), env, modules, linkNext);
-  if (IsError(right)) return right;
-
-  after_label = NewLabel();
-
-  if (linkage == linkNext || linkage == linkReturn) {
-    left_linkage = after_label;
-  } else {
-    left_linkage = linkage;
-  }
-
-  left =
-    AppendCode(left,
-      Pair(Op(opDup),
-      Pair(Op(opBranch), Pair(left_linkage,
-      Pair(Op(opDrop), 0)))));
-
-  right = AppendCode(right, Pair(Op(opLabel), Pair(after_label, 0)));
-
-  return CompileLinkage(linkage, Preserving(regEnv, left, right));
-}
-
-void PrintModules(val modules)
-{
-  u32 i;
-  for (i = 0; i < TupleLength(modules); i++) {
-    u32 j;
-    val mod = TupleGet(modules, i);
-    printf("%d: ", i);
-    for (j = 0; j < TupleLength(mod); j++) {
-      printf("%s ", SymbolName(RawVal(TupleGet(mod, j))));
-    }
-    printf("\n");
+  switch (node->type) {
+  case constNode:   return CompileConst(node, returns);
+  case varNode:     return CompileVar(node, env, returns);
+  case strNode:     return CompileString(node, returns);
+  case tupleNode:   return CompileTuple(node, env, imports, returns);
+  case negNode:     return CompileOp(opNeg, node, env, imports, returns);
+  case notNode:     return CompileOp(opNot, node, env, imports, returns);
+  case lenNode:     return CompileOp(opLen, node, env, imports, returns);
+  case accessNode:  return CompileOp(opGet, node, env, imports, returns);
+  case compNode:    return CompileOp(opComp, node, env, imports, returns);
+  case eqNode:      return CompileOp(opEq, node, env, imports, returns);
+  case remNode:     return CompileOp(opRem, node, env, imports, returns);
+  case bitandNode:  return CompileOp(opAnd, node, env, imports, returns);
+  case mulNode:     return CompileOp(opMul, node, env, imports, returns);
+  case addNode:     return CompileOp(opAdd, node, env, imports, returns);
+  case subNode:     return CompileOp(opSub, node, env, imports, returns);
+  case divNode:     return CompileOp(opDiv, node, env, imports, returns);
+  case ltNode:      return CompileOp(opLt, node, env, imports, returns);
+  case shiftNode:   return CompileOp(opShift, node, env, imports, returns);
+  case gtNode:      return CompileOp(opGt, node, env, imports, returns);
+  case joinNode:    return CompileOp(opJoin, node, env, imports, returns);
+  case sliceNode:   return CompileOp(opSlice, node, env, imports, returns);
+  case bitorNode:   return CompileOp(opOr, node, env, imports, returns);
+  case pairNode:    return CompileOp(opPair, node, env, imports, returns);
+  case andNode:     return CompileLogic(node, env, imports, returns);
+  case orNode:      return CompileLogic(node, env, imports, returns);
+  case ifNode:      return CompileIf(node, env, imports, returns);
+  case doNode:      return CompileDo(node, env, imports, returns);
+  case lambdaNode:  return CompileLambda(node, env, imports, returns);
+  case callNode:    return CompileCall(node, env, imports, returns);
+  case refNode:     return CompileRef(node, env, imports, returns);
+  default:          return Error(compileError, 0);
   }
 }

@@ -1,8 +1,6 @@
 #pragma once
 
-/*
-The lexer produces tokens by scanning some source input.
-*/
+/* The lexer produces tokens by scanning some source input. */
 
 typedef enum {
   eofToken, newlineToken, spaceToken, bangeqToken, stringToken, hashToken,

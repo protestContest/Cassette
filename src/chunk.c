@@ -1,127 +1,97 @@
 #include "chunk.h"
-#include <univ/symbol.h>
+#include "ops.h"
+#include "leb.h"
+#include "univ/str.h"
+#include <univ/vec.h>
 
-val MakeChunk(Regs needs, Regs modifies, val code)
+Chunk *NewChunk(void)
 {
-  val chunk = Tuple(4);
-  TupleSet(chunk, 0, SymVal(Symbol("chunk")));
-  TupleSet(chunk, 1, IntVal(needs));
-  TupleSet(chunk, 2, IntVal(modifies));
-  TupleSet(chunk, 3, code);
+  Chunk *chunk = malloc(sizeof(Chunk));
+  chunk->data = 0;
+  chunk->needs_env = false;
+  chunk->modifies_env = false;
+  chunk->next = 0;
   return chunk;
 }
 
-val AppendChunk(val a, val b)
+void FreeChunk(Chunk *chunk)
 {
-  Regs modifies = ChunkModifies(a) | ChunkModifies(b);
-  Regs needs = ChunkNeeds(a) | (ChunkNeeds(b) & ~ChunkModifies(a));
-  if (!ChunkCode(a)) return b;
-  if (!ChunkCode(b)) return a;
-  return MakeChunk(needs, modifies, Pair(ChunkCode(a), Pair(ChunkCode(b), 0)));
+  if (chunk->data) FreeVec(chunk->data);
+  if (chunk->next) FreeChunk(chunk->next);
 }
 
-val AppendChunks(val chunks)
+void ChunkWrite(u8 byte, Chunk *chunk)
 {
-  if (!chunks) return EmptyChunk();
-  return AppendChunk(Head(chunks), AppendChunks(Tail(chunks)));
+  while (chunk->next) chunk = chunk->next;
+  VecPush(chunk->data, byte);
 }
 
-/* ensures a doesn't mangle regs for use in b */
-Chunk Preserving(Regs regs, Chunk a, Chunk b)
+void ChunkWriteInt(u32 num, Chunk *chunk)
 {
-  val code = ChunkCode(a);
-  i32 modifies = ChunkModifies(a);
-  i32 needs = ChunkNeeds(a);
-  if (!regs) return AppendChunk(a, b);
+  u32 size = LEBSize(num);
+  u32 index;
+  while (chunk->next) chunk = chunk->next;
+  index = VecCount(chunk->data);
+  GrowVec(chunk->data, size);
+  WriteLEB(num, index, chunk->data);
+}
 
-  if ((ChunkNeeds(b) & regEnv) && (ChunkModifies(a) & regEnv)) {
-    modifies &= ~regEnv;
-    needs |= regEnv;
-    code =
-      Pair(Op("getEnv"),
-      Pair(code,
-      Pair(Op("swap"),
-      Pair(Op("setEnv"), 0))));
+u32 ChunkSize(Chunk *chunk)
+{
+  u32 size = 0;
+  while (chunk) {
+    size += VecCount(chunk->data);
+    chunk = chunk->next;
+  }
+  return size;
+}
+
+Chunk *AppendChunk(Chunk *first, Chunk *second)
+{
+  Chunk *last;
+  if (!second) return first;
+  if (!first) return second;
+  last = first;
+  while (last->next) last = last->next;
+  last->next = second;
+  first->needs_env =
+      first->needs_env | (second->needs_env & ~first->modifies_env);
+  first->modifies_env = first->modifies_env | second->modifies_env;
+  return first;
+}
+
+void TackOnChunk(Chunk *first, Chunk *second)
+{
+  Chunk *last = first;
+  while (last->next) last = last->next;
+  last->next = second;
+}
+
+Chunk *PreservingEnv(Chunk *first, Chunk *second)
+{
+  if (!second) return first;
+  if (!first) return second;
+  if (second->needs_env && first->modifies_env) {
+    Chunk *save_env = NewChunk();
+    save_env->needs_env = true;
+    save_env->modifies_env = false;
+    ChunkWrite(opGetEnv, save_env);
+    save_env->next = first;
+    ChunkWrite(opSwap, first);
+    ChunkWrite(opSetEnv, first);
+    first = save_env;
+  }
+  return AppendChunk(first, second);
+}
+
+u8 *SerializeChunk(Chunk *chunk, u8 *dst)
+{
+  if (!dst) dst = NewVec(u8, ChunkSize(chunk));
+  while (chunk) {
+    Copy(chunk->data, dst, VecCount(chunk->data));
+    dst += VecCount(chunk->data);
+    chunk = chunk->next;
   }
 
-  return AppendChunk(MakeChunk(needs, modifies, code), b);
-}
-
-val AppendCode(val a, val code)
-{
-  code = Pair(ChunkCode(a), Pair(code, 0));
-  return MakeChunk(ChunkNeeds(a), ChunkModifies(a), code);
-}
-
-val ParallelChunks(val a, val b)
-{
-  i32 needs = ChunkNeeds(a) | ChunkNeeds(b);
-  i32 modifies = ChunkModifies(a) | ChunkModifies(b);
-  val code = Pair(ChunkCode(a), Pair(ChunkCode(b), 0));
-  return MakeChunk(needs, modifies, code);
-}
-
-val TackOnChunk(val a, val b)
-{
-  return MakeChunk(ChunkNeeds(a), ChunkModifies(a),
-    Pair(ChunkCode(a), Pair(ChunkCode(b), 0)));
-}
-
-val LabelChunk(val label, val chunk)
-{
-  val code = Pair(SymVal(Symbol("label")), Pair(label, ChunkCode(chunk)));
-  return MakeChunk(ChunkNeeds(chunk), ChunkModifies(chunk), code);
-}
-
-val PrintStmt(val code)
-{
-  val op = Head(code);
-  code = Tail(code);
-
-  if (!IsSym(op)) {
-    printf("%s\n", MemValStr(op));
-  }
-
-  assert(IsSym(op));
-
-  if (op == Op("label")) {
-    printf("lbl%d:", RawInt(Head(code)));
-    code = Tail(code);
-  } else {
-    printf("  %s", SymbolName(RawVal(op)));
-  }
-
-  if (op == Op("const") || op == Op("trap")) {
-    printf(" %s", MemValStr(Head(code)));
-    code = Tail(code);
-  }
-  if (op == Op("lookup") || op == Op("tuple") || op == Op("define")) {
-    printf(" %d", RawInt(Head(code)));
-    code = Tail(code);
-  }
-  if (op == Op("branch") || op == Op("pos")) {
-    printf(" lbl%d", RawInt(Head(code)));
-    code = Tail(code);
-  }
-
-  printf("\n");
-  return code;
-}
-
-void PrintChunkCode(val code)
-{
-  if (!code) return;
-
-  if (IsPair(Head(code))) {
-    PrintChunkCode(Head(code));
-    PrintChunkCode(Tail(code));
-  } else {
-    PrintChunkCode(PrintStmt(code));
-  }
-}
-
-void PrintChunk(val chunk)
-{
-  printf("Needs: %d, Modifies: %d\n", ChunkNeeds(chunk), ChunkModifies(chunk));
-  PrintChunkCode(ChunkCode(chunk));
+  return dst;
 }

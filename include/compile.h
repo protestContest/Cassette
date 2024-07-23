@@ -1,12 +1,13 @@
 #pragma once
 
-/* The compiler takes an AST node and compiles it into a chunk. */
+/* Functions for compiling ASTNodes into bytecode */
 
-#include "chunk.h"
-#include "node.h"
+#include "result.h"
+#include "parse.h"
 #include "env.h"
+#include "module.h"
 
-val PrimitiveEnv(void);
-Chunk Compile(Node node, Env env, val modules);
-Chunk CompileDefModule(u32 modnum);
-void PrintModules(val modules);
+/* Compiles a module's AST into bytecode (storing it in the module) */
+Result CompileModule(Module *module, u32 id, Module *modules, Env *env);
+Chunk *CompileIntro(Module *modules);
+Chunk *CompileCallMod(u32 id);

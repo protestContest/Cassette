@@ -1,57 +1,41 @@
-#include "mem.h"
-#include "compile.h"
-#include "error.h"
-#include "parse.h"
-#include "types.h"
-#include <univ/file.h>
+#include "result.h"
+#include "project.h"
+#include "program.h"
+#include "vm.h"
 #include <univ/str.h>
-#include <univ/symbol.h>
+#include <univ/debug.h>
 
 int main(int argc, char *argv[])
 {
-  val result;
-  char *source;
+  Project *project;
+  Program *program;
+  u8 *bytes = 0;
+  u32 size;
+  char *searchpath = 0;
+  Result result;
 
   if (argc < 2) {
-    printf("%sSource files required%s\n", ANSIRed, ANSINormal);
+    fprintf(stderr, "%sSource file required%s\n", ANSIRed, ANSINormal);
     return 1;
   }
-
-  InitMem(0);
-
-  source = ReadFile(argv[1]);
-  if (!source) {
-    printf("%sCould not read file \"%s\"%s\n", ANSIRed, argv[1], ANSINormal);
-    return 1;
+  if (argc >= 2) {
+    searchpath = argv[2];
   }
 
-  printf("%s\n", argv[1]);
-
-  printf("%s", source);
-  if (source[strlen(source)-1] != '\n') printf("\n");
-  printf("────────────────────────────────────────────────────────────\n");
-
-  result = Parse(source);
+  project = NewProject(argv[1], searchpath);
+  result = BuildProject(project);
   if (IsError(result)) {
-    PrintError(PrefixError(result, "Parse error: "), source);
+    PrintError(result);
     return 1;
   }
+  program = result.data.p;
 
-  result = InferTypes(result);
-  if (IsError(result)) {
-    PrintError(PrefixError(result, "Type error: "), source);
-    return 1;
-  }
-  PrintNode(result);
+  Disassemble(program->code);
+  fprintf(stderr, "\n");
 
-  result = Compile(result);
-  if (IsError(result)) {
-    PrintError(PrefixError(result, "Compile error: "), source);
-    return 1;
-  }
+  size = SerializeProgram(program, &bytes);
+  HexDump(bytes, size);
+  fprintf(stderr, "\n");
 
-  PrintChunk(result);
-
-  DestroyMem();
-  free(source);
+  VMDebug(program);
 }

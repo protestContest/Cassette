@@ -1,6 +1,6 @@
 #include "vm.h"
 #include "env.h"
-#include "error.h"
+#include "result.h"
 #include "leb.h"
 #include "primitives.h"
 #include <univ/math.h>
@@ -8,55 +8,53 @@
 #include <univ/symbol.h>
 #include <univ/vec.h>
 
-typedef VMStatus (*OpFn)(VM *vm);
+typedef StatusCode (*OpFn)(VM *vm);
 
 static void TraceInst(VM *vm);
 static u32 PrintStack(VM *vm);
 static PrimFn *InitPrimitives(void);
 
-static VMStatus OpNoop(VM *vm);
-static VMStatus OpConst(VM *vm);
-static VMStatus OpAdd(VM *vm);
-static VMStatus OpSub(VM *vm);
-static VMStatus OpMul(VM *vm);
-static VMStatus OpDiv(VM *vm);
-static VMStatus OpRem(VM *vm);
-static VMStatus OpAnd(VM *vm);
-static VMStatus OpOr(VM *vm);
-static VMStatus OpComp(VM *vm);
-static VMStatus OpLt(VM *vm);
-static VMStatus OpGt(VM *vm);
-static VMStatus OpEq(VM *vm);
-static VMStatus OpNeg(VM *vm);
-static VMStatus OpNot(VM *vm);
-static VMStatus OpShift(VM *vm);
-static VMStatus OpNil(VM *vm);
-static VMStatus OpPair(VM *vm);
-static VMStatus OpHead(VM *vm);
-static VMStatus OpTail(VM *vm);
-static VMStatus OpTuple(VM *vm);
-static VMStatus OpLen(VM *vm);
-static VMStatus OpGet(VM *vm);
-static VMStatus OpSet(VM *vm);
-static VMStatus OpStr(VM *vm);
-static VMStatus OpBin(VM *vm);
-static VMStatus OpJoin(VM *vm);
-static VMStatus OpSlice(VM *vm);
-static VMStatus OpJmp(VM *vm);
-static VMStatus OpBranch(VM *vm);
-static VMStatus OpTrap(VM *vm);
-static VMStatus OpPos(VM *vm);
-static VMStatus OpGoto(VM *vm);
-static VMStatus OpHalt(VM *vm);
-static VMStatus OpDup(VM *vm);
-static VMStatus OpDrop(VM *vm);
-static VMStatus OpSwap(VM *vm);
-static VMStatus OpOver(VM *vm);
-static VMStatus OpRot(VM *vm);
-static VMStatus OpGetEnv(VM *vm);
-static VMStatus OpSetEnv(VM *vm);
-static VMStatus OpLookup(VM *vm);
-static VMStatus OpDefine(VM *vm);
+static StatusCode OpNoop(VM *vm);
+static StatusCode OpConst(VM *vm);
+static StatusCode OpAdd(VM *vm);
+static StatusCode OpSub(VM *vm);
+static StatusCode OpMul(VM *vm);
+static StatusCode OpDiv(VM *vm);
+static StatusCode OpRem(VM *vm);
+static StatusCode OpAnd(VM *vm);
+static StatusCode OpOr(VM *vm);
+static StatusCode OpComp(VM *vm);
+static StatusCode OpLt(VM *vm);
+static StatusCode OpGt(VM *vm);
+static StatusCode OpEq(VM *vm);
+static StatusCode OpNeg(VM *vm);
+static StatusCode OpNot(VM *vm);
+static StatusCode OpShift(VM *vm);
+static StatusCode OpPair(VM *vm);
+static StatusCode OpHead(VM *vm);
+static StatusCode OpTail(VM *vm);
+static StatusCode OpTuple(VM *vm);
+static StatusCode OpLen(VM *vm);
+static StatusCode OpGet(VM *vm);
+static StatusCode OpSet(VM *vm);
+static StatusCode OpStr(VM *vm);
+static StatusCode OpJoin(VM *vm);
+static StatusCode OpSlice(VM *vm);
+static StatusCode OpJmp(VM *vm);
+static StatusCode OpBranch(VM *vm);
+static StatusCode OpTrap(VM *vm);
+static StatusCode OpPos(VM *vm);
+static StatusCode OpGoto(VM *vm);
+static StatusCode OpHalt(VM *vm);
+static StatusCode OpDup(VM *vm);
+static StatusCode OpDrop(VM *vm);
+static StatusCode OpSwap(VM *vm);
+static StatusCode OpOver(VM *vm);
+static StatusCode OpRot(VM *vm);
+static StatusCode OpGetEnv(VM *vm);
+static StatusCode OpSetEnv(VM *vm);
+static StatusCode OpGetMod(VM *vm);
+static StatusCode OpSetMod(VM *vm);
 
 static OpFn ops[] = {
   [opNoop]    = OpNoop,
@@ -75,7 +73,6 @@ static OpFn ops[] = {
   [opNeg]     = OpNeg,
   [opNot]     = OpNot,
   [opShift]   = OpShift,
-  [opNil]     = OpNil,
   [opPair]    = OpPair,
   [opHead]    = OpHead,
   [opTail]    = OpTail,
@@ -84,10 +81,9 @@ static OpFn ops[] = {
   [opGet]     = OpGet,
   [opSet]     = OpSet,
   [opStr]     = OpStr,
-  [opBin]     = OpBin,
   [opJoin]    = OpJoin,
   [opSlice]   = OpSlice,
-  [opJmp]     = OpJmp,
+  [opJump]    = OpJmp,
   [opBranch]  = OpBranch,
   [opTrap]    = OpTrap,
   [opPos]     = OpPos,
@@ -100,13 +96,13 @@ static OpFn ops[] = {
   [opRot]     = OpRot,
   [opGetEnv]  = OpGetEnv,
   [opSetEnv]  = OpSetEnv,
-  [opLookup]  = OpLookup,
-  [opDefine]  = OpDefine,
+  [opGetMod]  = OpGetMod,
+  [opSetMod]  = OpSetMod,
 };
 
 void InitVM(VM *vm, Program *program)
 {
-  vm->status = vmOk;
+  vm->status = ok;
   vm->pc = 0;
   vm->env = 0;
   vm->stack = 0;
@@ -121,7 +117,7 @@ void DestroyVM(VM *vm)
   free(vm->primitives);
 }
 
-VMStatus VMStep(VM *vm)
+StatusCode VMStep(VM *vm)
 {
   vm->status = ops[vm->program->code[vm->pc++]](vm);
   return vm->status;
@@ -135,11 +131,32 @@ void PrintSourceFrom(u32 index, char *src)
   fprintf(stderr, "%*.*s", (i32)(end-start), (i32)(end-start), start);
 }
 
-void VMRun(Program *program, VM *vm)
+void VMRun(Program *program)
 {
-  InitVM(vm, program);
-  while (!VMDone(vm)) {
-    VMStep(vm);
+  VM vm;
+  InitVM(&vm, program);
+  while (!VMDone(&vm)) {
+    VMStep(&vm);
+  }
+  if (vm.status != ok) {
+    fprintf(stderr, "Error!\n");
+  }
+}
+
+void VMDebug(Program *program)
+{
+  VM vm;
+  InitVM(&vm, program);
+  InitMem(1024);
+
+  fprintf(stderr, "───┬─inst─────────stack───────────────\n");
+
+  while (!VMDone(&vm)) {
+    VMTrace(&vm, 0);
+    VMStep(&vm);
+  }
+  if (vm.status != ok) {
+    fprintf(stderr, "Error!\n");
   }
 }
 
@@ -148,14 +165,14 @@ val VMStackPop(VM *vm)
   return VecPop(vm->stack);
 }
 
-void StackPush(val value, VM *vm)
+void VMStackPush(val value, VM *vm)
 {
   VecPush(vm->stack, value);
 }
 
 void RunGC(VM *vm)
 {
-  StackPush(vm->env, vm);
+  VMStackPush(vm->env, vm);
   CollectGarbage(vm->stack);
   vm->env = VMStackPop(vm);
 }
@@ -175,229 +192,223 @@ void RunGC(VM *vm)
   b = VMStackPop(vm);\
   a = VMStackPop(vm)
 
-#define UnaryOp(op)     StackPush(IntVal(op RawVal(a)), vm)
-#define BinOp(op)       StackPush(IntVal(RawVal(a) op RawVal(b)), vm)
+#define UnaryOp(op)     VMStackPush(IntVal(op RawVal(a)), vm)
+#define BinOp(op)       VMStackPush(IntVal(RawVal(a) op RawVal(b)), vm)
 #define CheckBounds(n) \
   if ((n) < 0 || (n) > (i32)VecCount(vm->program->code)) return outOfBounds
 
-static VMStatus OpNoop(VM *vm)
+static StatusCode OpNoop(VM *vm)
 {
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpConst(VM *vm)
+static StatusCode OpConst(VM *vm)
 {
   val value = ReadLEB(vm->pc, vm->program->code);
   vm->pc += LEBSize(value);
   VMStackPush(value, vm);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpAdd(VM *vm)
+static StatusCode OpAdd(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(+);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpSub(VM *vm)
+static StatusCode OpSub(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(-);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpMul(VM *vm)
+static StatusCode OpMul(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(*);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpDiv(VM *vm)
+static StatusCode OpDiv(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   if (RawVal(b) == 0) return divideByZero;
   BinOp(/);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpRem(VM *vm)
+static StatusCode OpRem(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   if (RawVal(b) == 0) return divideByZero;
   BinOp(%);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpAnd(VM *vm)
+static StatusCode OpAnd(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(&);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpOr(VM *vm)
+static StatusCode OpOr(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(|);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpComp(VM *vm)
+static StatusCode OpComp(VM *vm)
 {
   val a;
   OneArg(a);
   if (!IsInt(a)) return invalidType;
   UnaryOp(~);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpLt(VM *vm)
+static StatusCode OpLt(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(<);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpGt(VM *vm)
+static StatusCode OpGt(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(>);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpEq(VM *vm)
+static StatusCode OpEq(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  StackPush(IntVal(a == b), vm);
-  return vmOk;
+  VMStackPush(IntVal(a == b), vm);
+  return ok;
 }
 
-static VMStatus OpNeg(VM *vm)
+static StatusCode OpNeg(VM *vm)
 {
   val a;
   OneArg(a);
   if (!IsInt(a)) return invalidType;
   UnaryOp(-);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpNot(VM *vm)
+static StatusCode OpNot(VM *vm)
 {
   val a;
   OneArg(a);
-  StackPush(IntVal(RawVal(a) != 0), vm);
-  return vmOk;
+  VMStackPush(IntVal(RawVal(a) != 0), vm);
+  return ok;
 }
 
-static VMStatus OpShift(VM *vm)
+static StatusCode OpShift(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return invalidType;
   BinOp(<<);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpNil(VM *vm)
-{
-  StackPush(0, vm);
-  return vmOk;
-}
-
-static VMStatus OpPair(VM *vm)
+static StatusCode OpPair(VM *vm)
 {
   val a, b;
   if (MemFree() < 2) RunGC(vm);
   TwoArgs(a, b);
-  StackPush(Pair(b, a), vm);
-  return vmOk;
+  VMStackPush(Pair(b, a), vm);
+  return ok;
 }
 
-static VMStatus OpHead(VM *vm)
+static StatusCode OpHead(VM *vm)
 {
   val a;
   OneArg(a);
   if (!IsPair(a)) return invalidType;
-  StackPush(Head(a), vm);
-  return vmOk;
+  VMStackPush(Head(a), vm);
+  return ok;
 }
 
-static VMStatus OpTail(VM *vm)
+static StatusCode OpTail(VM *vm)
 {
   val a;
   OneArg(a);
   if (!IsPair(a)) return invalidType;
-  StackPush(Tail(a), vm);
-  return vmOk;
+  VMStackPush(Tail(a), vm);
+  return ok;
 }
 
-static VMStatus OpTuple(VM *vm)
+static StatusCode OpTuple(VM *vm)
 {
   u32 count = ReadLEB(vm->pc, vm->program->code);
   vm->pc += LEBSize(count);
   if (MemFree() < count+1) RunGC(vm);
-  StackPush(Tuple(count), vm);
-  return vmOk;
+  VMStackPush(Tuple(count), vm);
+  return ok;
 }
 
-static VMStatus OpLen(VM *vm)
+static StatusCode OpLen(VM *vm)
 {
   val a;
   OneArg(a);
   if (IsPair(a)) {
-    StackPush(IntVal(ListLength(a)), vm);
+    VMStackPush(IntVal(ListLength(a)), vm);
   } else if (IsTuple(a)) {
-    StackPush(IntVal(TupleLength(a)), vm);
+    VMStackPush(IntVal(TupleLength(a)), vm);
   } else if (IsBinary(a)) {
-    StackPush(IntVal(BinaryLength(a)), vm);
+    VMStackPush(IntVal(BinaryLength(a)), vm);
   } else {
     return invalidType;
   }
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpGet(VM *vm)
+static StatusCode OpGet(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(b)) return invalidType;
   if (IsPair(a)) {
     if (RawInt(b) < 0 || RawInt(b) >= (i32)ListLength(a)) return outOfBounds;
-    StackPush(ListGet(a, RawInt(b)), vm);
+    VMStackPush(ListGet(a, RawInt(b)), vm);
   } else if (IsTuple(a)) {
     if (RawInt(b) < 0 || RawInt(b) >= (i32)TupleLength(a)) return outOfBounds;
-    StackPush(TupleGet(a, RawInt(b)), vm);
+    VMStackPush(TupleGet(a, RawInt(b)), vm);
   } else if (IsBinary(a)) {
     if (RawInt(b) < 0 || RawInt(b) >= (i32)BinaryLength(a)) return outOfBounds;
-    StackPush(BinaryGet(a, RawInt(b)), vm);
+    VMStackPush(BinaryGet(a, RawInt(b)), vm);
   } else {
     return invalidType;
   }
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpSet(VM *vm)
+static StatusCode OpSet(VM *vm)
 {
   val a, b, c;
   ThreeArgs(a, b, c);
@@ -410,10 +421,10 @@ static VMStatus OpSet(VM *vm)
   } else {
     return invalidType;
   }
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpStr(VM *vm)
+static StatusCode OpStr(VM *vm)
 {
   char *name;
   u32 len;
@@ -423,55 +434,46 @@ static VMStatus OpStr(VM *vm)
   name = SymbolName(RawVal(a));
   len = strlen(name);
   if (MemFree() < BinSpace(len) + 1) RunGC(vm);
-  StackPush(BinaryFrom(name, len), vm);
-  return vmOk;
+  VMStackPush(BinaryFrom(name, len), vm);
+  return ok;
 }
 
-static VMStatus OpBin(VM *vm)
-{
-  u32 count = ReadLEB(vm->pc, vm->program->code);
-  vm->pc += LEBSize(count);
-  if (MemFree() < BinSpace(count) + 1) RunGC(vm);
-  StackPush(NewBinary(count), vm);
-  return vmOk;
-}
-
-static VMStatus OpJoin(VM *vm)
+static StatusCode OpJoin(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
   if (ValType(a) != ValType(b)) return invalidType;
   if (IsPair(a)) {
     if (MemFree() < 2*(ListLength(a) + ListLength(b))) {
-      StackPush(a, vm);
-      StackPush(b, vm);
+      VMStackPush(a, vm);
+      VMStackPush(b, vm);
       RunGC(vm);
       TwoArgs(a, b);
     }
-    StackPush(ListJoin(a, b), vm);
+    VMStackPush(ListJoin(a, b), vm);
   } else if (IsTuple(a)) {
     if (MemFree() < 1 + TupleLength(a) + TupleLength(b)) {
-      StackPush(a, vm);
-      StackPush(b, vm);
+      VMStackPush(a, vm);
+      VMStackPush(b, vm);
       RunGC(vm);
       TwoArgs(a, b);
     }
-    StackPush(TupleJoin(a, b), vm);
+    VMStackPush(TupleJoin(a, b), vm);
   } else if (IsBinary(a)) {
     if (MemFree() < 1 + BinSpace(BinaryLength(a)) + BinSpace(BinaryLength(b))) {
-      StackPush(a, vm);
-      StackPush(b, vm);
+      VMStackPush(a, vm);
+      VMStackPush(b, vm);
       RunGC(vm);
       TwoArgs(a, b);
     }
-    StackPush(BinaryJoin(a, b), vm);
+    VMStackPush(BinaryJoin(a, b), vm);
   } else {
     return invalidType;
   }
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpSlice(VM *vm)
+static StatusCode OpSlice(VM *vm)
 {
   val a, b, c;
   ThreeArgs(a, b, c);
@@ -486,51 +488,51 @@ static VMStatus OpSlice(VM *vm)
       if (RawInt(c) < 0 || RawInt(c) > (i32)ListLength(a)) return outOfBounds;
       len = RawVal(c) - RawVal(b);
       if (MemFree() < 4*len) {
-        StackPush(list, vm);
+        VMStackPush(list, vm);
         RunGC(vm);
         list = VMStackPop(vm);
       }
       list = ListTrunc(list, RawVal(c) - RawVal(b));
     }
-    StackPush(list, vm);
+    VMStackPush(list, vm);
   } else if (IsTuple(a)) {
     u32 len;
     if (!c) c = IntVal(TupleLength(a));
     if (RawInt(c) < 0 || RawInt(c) > (i32)TupleLength(a)) return outOfBounds;
     len = RawVal(c) - RawVal(b);
     if (MemFree() < len+1) {
-      StackPush(a, vm);
+      VMStackPush(a, vm);
       RunGC(vm);
       a = VMStackPop(vm);
     }
-    StackPush(TupleSlice(a, RawVal(b), RawVal(c)), vm);
+    VMStackPush(TupleSlice(a, RawVal(b), RawVal(c)), vm);
   } else if (IsBinary(a)) {
     u32 len;
     if (!c) c = IntVal(BinaryLength(a));
     if (RawInt(c) < 0 || RawInt(c) > (i32)BinaryLength(a)) return outOfBounds;
     len = RawVal(c) - RawVal(b);
     if (MemFree() < BinSpace(len)+1) {
-      StackPush(a, vm);
+      VMStackPush(a, vm);
       RunGC(vm);
       a = VMStackPop(vm);
     }
-    StackPush(BinarySlice(a, RawVal(b), RawVal(c)), vm);
+    VMStackPush(BinarySlice(a, RawVal(b), RawVal(c)), vm);
   } else {
     return invalidType;
   }
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpJmp(VM *vm)
+static StatusCode OpJmp(VM *vm)
 {
   i32 n = ReadLEB(vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
   CheckBounds((i32)vm->pc + n);
   vm->pc += n;
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpBranch(VM *vm)
+static StatusCode OpBranch(VM *vm)
 {
   val a;
   i32 n = ReadLEB(vm->pc, vm->program->code);
@@ -540,114 +542,115 @@ static VMStatus OpBranch(VM *vm)
     CheckBounds((i32)vm->pc + n);
     vm->pc += n;
   }
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpTrap(VM *vm)
+static StatusCode OpTrap(VM *vm)
 {
+  Result result;
   u32 id = ReadLEB(vm->pc, vm->program->code);
   vm->pc += LEBSize(id);
-  return vm->primitives[id](vm);
+  result = vm->primitives[id](vm);
+  vm->status = result.status;
+  if (!IsError(result)) VMStackPush(result.data.v, vm);
+  VMStackPush(result.data.v, vm);
+  return vm->status;
 }
 
-static VMStatus OpPos(VM *vm)
+static StatusCode OpPos(VM *vm)
 {
   i32 n = ReadLEB(vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
-  StackPush(IntVal((i32)vm->pc + n), vm);
-  return vmOk;
+  VMStackPush(IntVal((i32)vm->pc + n), vm);
+  return ok;
 }
 
-static VMStatus OpGoto(VM *vm)
+static StatusCode OpGoto(VM *vm)
 {
   val a;
   OneArg(a);
   if (!IsInt(a)) return invalidType;
   CheckBounds(RawInt(a));
   vm->pc = RawVal(a);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpHalt(VM *vm)
+static StatusCode OpHalt(VM *vm)
 {
   vm->pc = VecCount(vm->program->code);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpDup(VM *vm)
+static StatusCode OpDup(VM *vm)
 {
   val a;
   OneArg(a);
-  StackPush(a, vm);
-  StackPush(a, vm);
-  return vmOk;
+  VMStackPush(a, vm);
+  VMStackPush(a, vm);
+  return ok;
 }
 
-static VMStatus OpDrop(VM *vm)
+static StatusCode OpDrop(VM *vm)
 {
   if (VecCount(vm->stack) < 1) return stackUnderflow;
   VecPop(vm->stack);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpSwap(VM *vm)
+static StatusCode OpSwap(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  StackPush(b, vm);
-  StackPush(a, vm);
-  return vmOk;
+  VMStackPush(b, vm);
+  VMStackPush(a, vm);
+  return ok;
 }
 
-static VMStatus OpOver(VM *vm)
+static StatusCode OpOver(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  StackPush(a, vm);
-  StackPush(b, vm);
-  StackPush(a, vm);
-  return vmOk;
+  VMStackPush(a, vm);
+  VMStackPush(b, vm);
+  VMStackPush(a, vm);
+  return ok;
 }
 
-static VMStatus OpRot(VM *vm)
+static StatusCode OpRot(VM *vm)
 {
   val a, b, c;
   ThreeArgs(a, b, c);
-  StackPush(b, vm);
-  StackPush(c, vm);
-  StackPush(a, vm);
-  return vmOk;
+  VMStackPush(b, vm);
+  VMStackPush(c, vm);
+  VMStackPush(a, vm);
+  return ok;
 }
 
-static VMStatus OpGetEnv(VM *vm)
+static StatusCode OpGetEnv(VM *vm)
 {
-  StackPush(vm->env, vm);
-  return vmOk;
+  VMStackPush(vm->env, vm);
+  return ok;
 }
 
-static VMStatus OpSetEnv(VM *vm)
+static StatusCode OpSetEnv(VM *vm)
 {
   if (VecCount(vm->stack) < 1) return stackUnderflow;
   vm->env = VMStackPop(vm);
-  return vmOk;
+  return ok;
 }
 
-static VMStatus OpLookup(VM *vm)
+static StatusCode OpGetMod(VM *vm)
 {
-  i32 n = ReadLEB(vm->pc, vm->program->code);
-  vm->pc += LEBSize(n);
-  VMStackPush(EnvGet(n, vm->env), vm);
-  return vmOk;
+  VMStackPush(vm->mod, vm);
+  return ok;
 }
 
-static VMStatus OpDefine(VM *vm)
+static StatusCode OpSetMod(VM *vm)
 {
   val a;
-  i32 n = ReadLEB(vm->pc, vm->program->code);
-  vm->pc += LEBSize(n);
   OneArg(a);
-  if (!EnvSet(a, n, vm->env)) return outOfBounds;
-  return vmOk;
+  vm->mod = a;
+  return ok;
 }
 
 void VMTrace(VM *vm, char *src)
@@ -659,14 +662,10 @@ void VMTrace(VM *vm, char *src)
 
 static void TraceInst(VM *vm)
 {
-  /*
   u32 index = vm->pc;
-  char *op = DisassembleOp(&index, 0, vm->mod);
-  u32 i, len = strlen(op);
-  fprintf(stderr, "%s ", op);
+  u32 i, len;
+  len = DisassembleInst(vm->program->code, &index);
   for (i = 0; i < 20 - len; i++) fprintf(stderr, " ");
-  FreeVec(op);
-  */
 }
 
 static u32 PrintStack(VM *vm)
@@ -684,25 +683,7 @@ static u32 PrintStack(VM *vm)
   return printed;
 }
 
-#define RuntimeError(msg, pos) MakeError(Binary(msg), Pair(pos, pos))
-
-val VMError(VM *vm)
-{
-  switch (vm->status) {
-  case stackUnderflow:
-    return RuntimeError("Stack Underflow", 0);
-  case invalidType:
-    return RuntimeError("Invalid Type", 0);
-  case divideByZero:
-    return RuntimeError("Divdie by Zero", 0);
-  case outOfBounds:
-    return RuntimeError("Out of Bounds", 0);
-  case unhandledTrap:
-    return RuntimeError("Trap", 0);
-  default:
-    return nil;
-  }
-}
+#define RuntimeError(msg, pos) Error(Binary(msg), 0, 0, 0)
 
 static PrimFn *InitPrimitives(void)
 {

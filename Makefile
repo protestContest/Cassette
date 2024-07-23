@@ -25,7 +25,7 @@ LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)
 	@echo $@
-	$(CC) $(CFLAGS) -luniv $(LIBTARGET) $(MAIN_OBJ) -o $@
+	$(CC) -luniv $(CFLAGS) $(LIBTARGET) $(MAIN_OBJ) -o $@
 
 $(LIBTARGET): $(OBJS)
 	@mkdir -p $(dir $@)

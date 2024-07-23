@@ -1,13 +1,2 @@
-module Test
-import List as L
-export fact
-
-def fact(n, total) do
-  if n <= 1 do
-    total
-  else
-    fact(n - 1, total*n)
-  end
-end
-
-fact(5, 1)
+import Foo
+Foo.foo()

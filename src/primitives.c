@@ -2,26 +2,23 @@
 #include <univ/symbol.h>
 #include <univ/vec.h>
 
-VMStatus VMPrint(VM *vm)
+Result VMPrint(VM *vm)
 {
   val a, str;
-  CheckStack(vm, 1);
   a = VMStackPop(vm);
 
   str = InspectVal(a);
   printf("%*.*s\n", BinaryLength(str), BinaryLength(str), BinaryData(str));
 
-  VMStackPush(SymVal(Symbol("ok")), vm);
-  return vmOk;
+  return OkVal(SymVal(Symbol("ok")));
 }
 
-VMStatus VMFormat(VM *vm)
+Result VMFormat(VM *vm)
 {
   val a;
-  CheckStack(vm, 1);
   a = VMStackPop(vm);
   VMStackPush(FormatVal(a), vm);
-  return vmOk;
+  return OkVal(FormatVal(a));
 }
 
 static PrimDef primitives[] = {

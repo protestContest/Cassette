@@ -12,7 +12,6 @@ void InitMem(u32 size)
   mem = NewVec(val, size);
   VecPush(mem, 0);
   VecPush(mem, 0);
-  SetSymbolSize(valBits);
 }
 
 void DestroyMem(void)
@@ -186,6 +185,18 @@ val ListSkip(val list, u32 index)
   return list;
 }
 
+val ListFlatten(val list)
+{
+  val item;
+  if (!list) return list;
+  item = Head(list);
+  if (item && IsPair(item)) {
+    return ListJoin(ListFlatten(item), ListFlatten(Tail(list)));
+  } else {
+    return Pair(item, ListFlatten(Tail(list)));
+  }
+}
+
 bool InList(val item, val list)
 {
   while (list) {
@@ -310,6 +321,14 @@ bool BinIsPrintable(val bin)
     if (!IsPrintable(BinaryGet(bin, i))) return false;
   }
   return true;
+}
+
+char *BinToStr(val bin)
+{
+  char *str = malloc(BinaryLength(bin) + 1);
+  Copy(BinaryData(bin), str, BinaryLength(bin));
+  str[BinaryLength(bin)] = 0;
+  return str;
 }
 
 bool ValEq(val a, val b)

@@ -1,5 +1,7 @@
 #pragma once
 
+/* The runtime dynamic memory system. */
+
 typedef u32 val;
 enum {pairType, objType, intType, symType, tupleHdr, binHdr};
 
@@ -45,6 +47,7 @@ val ReverseList(val list, val tail);
 val ListJoin(val left, val right);
 val ListTrunc(val list, u32 index);
 val ListSkip(val list, u32 index);
+val ListFlatten(val list);
 bool InList(val item, val list);
 
 val Tuple(u32 length);
@@ -65,6 +68,7 @@ void BinarySet(val bin, u32 index, val value);
 val BinaryJoin(val left, val right);
 val BinarySlice(val list, u32 start, u32 end);
 bool BinIsPrintable(val bin);
+char *BinToStr(val bin);
 
 bool ValEq(val a, val b);
 val FormatVal(val value);

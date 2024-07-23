@@ -1,27 +1,24 @@
 #pragma once
 
-/* A chunk abstractly represents a sequence of VM instructions. Each chunk also
-records which registers it needs and which it modifies. This allows the compiler
-to correctly generate code that preserves registers. */
+/* A chunk is a linked list, where each node has a snippet of bytecode. A chunk
+ * also keeps track of whether it (or any chunk after it) needs or modifies the
+ * env register.
+ */
 
-#include "mem.h"
+typedef struct Chunk {
+  u8 *data;
+  bool needs_env;
+  bool modifies_env;
+  struct Chunk *next;
+} Chunk;
 
-typedef val Chunk;
-
-typedef enum {regEnv = 1} Regs;
-
-Chunk MakeChunk(Regs needs, Regs modifies, val code);
-#define EmptyChunk()          MakeChunk(0, 0, 0)
-#define ChunkNeeds(chunk)     RawInt(TupleGet(chunk, 1))
-#define ChunkModifies(chunk)  RawInt(TupleGet(chunk, 2))
-#define ChunkCode(chunk)      TupleGet(chunk, 3)
-
-#define Op(name)        SymVal(Symbol(name))
-
-Chunk AppendChunk(Chunk a, Chunk b);
-Chunk Preserving(Regs regs, Chunk a, Chunk b);
-Chunk AppendCode(Chunk a, val code);
-Chunk ParallelChunks(Chunk a, Chunk b);
-Chunk TackOnChunk(Chunk a, Chunk b);
-Chunk LabelChunk(val label, Chunk chunk);
-void PrintChunk(Chunk chunk);
+Chunk *NewChunk(void);
+void FreeChunk(Chunk *chunk);
+void ChunkMakeRoom(u32 size, Chunk *chunk);
+void ChunkWrite(u8 byte, Chunk *chunk);
+void ChunkWriteInt(u32 num, Chunk *chunk);
+u32 ChunkSize(Chunk *chunk);
+Chunk *AppendChunk(Chunk *first, Chunk *second);
+void TackOnChunk(Chunk *first, Chunk *second);
+Chunk *PreservingEnv(Chunk *first, Chunk *second);
+u8 *SerializeChunk(Chunk *chunk, u8 *dst);
