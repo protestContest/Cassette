@@ -4,5 +4,9 @@
 
 #include "chunk.h"
 #include "node.h"
+#include "env.h"
 
-Chunk Compile(Node node);
+val PrimitiveEnv(void);
+Chunk Compile(Node node, Env env, val modules);
+Chunk CompileDefModule(u32 modnum);
+void PrintModules(val modules);
