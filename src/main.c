@@ -18,8 +18,10 @@ int main(int argc, char *argv[])
     fprintf(stderr, "%sSource file required%s\n", ANSIRed, ANSINormal);
     return 1;
   }
-  if (argc >= 2) {
+  if (argc >= 3) {
     searchpath = argv[2];
+  } else {
+    searchpath = getenv("CASSETTE_PATH");
   }
 
   project = NewProject(argv[1], searchpath);

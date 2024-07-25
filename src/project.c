@@ -31,7 +31,7 @@ Project *NewProject(char *entryfile, char *searchpath)
   FileList *files;
   Project *project = malloc(sizeof(Project));
   files = ListProjectFiles(entryfile, searchpath);
-  InitHashMap(&project->file_map);
+  InitHashMap(&project->mod_map);
   project->modules = 0;
   project->build_list = 0;
   for (i = 0; i < files->count; i++) {
@@ -52,7 +52,7 @@ void FreeProject(Project *project)
   }
   FreeVec(project->modules);
   if (project->build_list) FreeVec(project->build_list);
-  DestroyHashMap(&project->file_map);
+  DestroyHashMap(&project->mod_map);
   free(project);
 }
 
@@ -66,10 +66,10 @@ Result ScanProjectDeps(Project *project)
   for (i = 0; i < VecCount(project->modules); i++) {
     result = ParseModuleHeader(&project->modules[i]);
     if (IsError(result)) return result;
-    if (HashMapContains(&project->file_map, project->modules[i].name)) {
+    if (HashMapContains(&project->mod_map, project->modules[i].name)) {
       return Error(duplicateModule, 0);
     }
-    HashMapSet(&project->file_map, project->modules[i].name, i);
+    HashMapSet(&project->mod_map, project->modules[i].name, i);
   }
 
   VecPush(scan_list, project->modules[0].name);
@@ -79,10 +79,10 @@ Result ScanProjectDeps(Project *project)
     u32 modnum;
     Module *module;
 
-    if (!HashMapContains(&project->file_map, modname)) {
+    if (!HashMapContains(&project->mod_map, modname)) {
       return Error(moduleNotFound, 0);
     }
-    modnum = HashMapGet(&project->file_map, modname);
+    modnum = HashMapGet(&project->mod_map, modname);
     module = &project->modules[modnum];
 
     VecPush(project->build_list, modnum);
@@ -96,21 +96,16 @@ Result ScanProjectDeps(Project *project)
     }
   }
 
+  for (i = 0; i < VecCount(project->build_list); i++) {
+    u32 modnum = project->build_list[i];
+    Module *module = &project->modules[modnum];
+    module->id = i;
+  }
+
   DestroyHashMap(&scan_set);
   FreeVec(scan_list);
 
   return Ok(project);
-}
-
-Env *PrimitiveEnv(void)
-{
-  PrimDef *primitives = Primitives();
-  u32 i;
-  Env *env = ExtendEnv(NumPrimitives(), 0);
-  for (i = 0; i < NumPrimitives(); i++) {
-    EnvSet(Symbol(primitives[i].name), i, env);
-  }
-  return env;
 }
 
 u8 *LinkModules(Project *project)
@@ -118,9 +113,12 @@ u8 *LinkModules(Project *project)
   u32 i;
   u32 size = 0;
   u8 *data, *cur;
+  u32 num_modules = VecCount(project->build_list);
 
-  Chunk *intro = CompileIntro(project->modules);
-  Chunk *outro = CompileCallMod(VecCount(project->modules)-1);
+  Chunk *intro = CompileIntro(num_modules);
+  Chunk *outro = CompileCallMod(num_modules-1);
+  ChunkWrite(opDrop, outro);
+  ChunkWrite(opNoop, outro);
   size = ChunkSize(intro) + ChunkSize(outro);
   for (i = 0; i < VecCount(project->modules); i++) {
     size += ChunkSize(project->modules[i].code);
@@ -130,7 +128,8 @@ u8 *LinkModules(Project *project)
   cur = data;
   cur = SerializeChunk(intro, cur);
   for (i = 0; i < VecCount(project->build_list); i++) {
-    Module *mod = &project->modules[project->build_list[i]];
+    u32 modnum = project->build_list[num_modules - 1 - i];
+    Module *mod = &project->modules[project->build_list[modnum]];
     cur = SerializeChunk(mod->code, cur);
   }
   SerializeChunk(outro, cur);
@@ -142,25 +141,25 @@ Result BuildProject(Project *project)
 {
   Result result;
   u32 i;
-  Env *env = PrimitiveEnv();
+  Env *env = 0;
   Program *program = NewProgram();
   char *symbols;
   u32 sym_size;
 
   DestroySymbols();
+  SetSymbolSize(valBits);
 
   result = ScanProjectDeps(project);
   if (IsError(result)) return result;
 
   for (i = 0; i < VecCount(project->build_list); i++) {
-    Module *module = &project->modules[project->build_list[i]];
+    u32 modnum = project->build_list[i];
+    Module *module = &project->modules[modnum];
 
-    result = ParseModule(module);
+    result = ParseModuleBody(module);
     if (IsError(result)) return result;
 
-    PrintNode(module->ast);
-
-    result = CompileModule(module, i, project->modules, env);
+    result = CompileModule(module, project->modules, env);
     if (IsError(result)) return result;
   }
 

@@ -52,8 +52,8 @@ typedef struct {
 } ParseRule;
 
 static Result ParseModname(Module *module, Parser *p);
-static Result ParseImports(Module *module, Parser *p);
-static Result ParseExports(Module *module, Parser *p);
+static Result ParseImports(ModuleImport **imports, Parser *p);
+static Result ParseExports(u32 **, Parser *p);
 static Result ParseStmts(Parser *p);
 static Result ParseStmt(ASTNode ***stmts, ASTNode ***defs, Parser *p);
 static Result ParseDef(Parser *p);
@@ -147,7 +147,7 @@ static ParseRule rules[] = {
   [errorToken]    = {0,             0,            precNone}
 };
 
-Result ParseModule(Module *module)
+Result ParseModuleBody(Module *module)
 {
   Parser p;
   Result result;
@@ -157,9 +157,9 @@ Result ParseModule(Module *module)
 
   result = ParseModname(module, &p);
   if (IsError(result)) return result;
-  result = ParseImports(module, &p);
+  result = ParseImports(0, &p);
   if (IsError(result)) return result;
-  result = ParseExports(module, &p);
+  result = ParseExports(0, &p);
   if (IsError(result)) return result;
   result = ParseStmts(&p);
   if (IsError(result)) return result;
@@ -179,9 +179,9 @@ Result ParseModuleHeader(Module *module)
 
   result = ParseModname(module, &p);
   if (IsError(result)) return result;
-  result = ParseImports(module, &p);
+  result = ParseImports(&module->imports, &p);
   if (IsError(result)) return result;
-  result = ParseExports(module, &p);
+  result = ParseExports(&module->exports, &p);
   if (IsError(result)) return result;
 
   return Ok(module);
@@ -205,9 +205,9 @@ static Result ParseModname(Module *module, Parser *p)
   return Ok(module);
 }
 
-static Result ParseExports(Module *module, Parser *p)
+static Result ParseExports(u32 **exports, Parser *p)
 {
-  if (!MatchToken(exportToken, p)) return Ok(module);
+  if (!MatchToken(exportToken, p)) return Ok(0);
   VSpacing(p);
   if (!CheckToken(idToken, p)) return ParseError("Expected exports", p);
   do {
@@ -217,7 +217,7 @@ static Result ParseExports(Module *module, Parser *p)
     export = Lexeme(p->token, p);
     Adv(p);
     Spacing(p);
-    VecPush(module->exports, export);
+    if (exports) VecPush(*exports, export);
   } while (MatchToken(commaToken, p));
 
 
@@ -225,12 +225,12 @@ static Result ParseExports(Module *module, Parser *p)
     return ParseError("Missing comma or newline", p);
   }
   VSpacing(p);
-  return Ok(module);
+  return Ok(0);
 }
 
-static Result ParseImports(Module *module, Parser *p)
+static Result ParseImports(ModuleImport **imports, Parser *p)
 {
-  if (!MatchToken(importToken, p)) return Ok(module);
+  if (!MatchToken(importToken, p)) return Ok(0);
   VSpacing(p);
   do {
     u32 mod, alias;
@@ -251,7 +251,7 @@ static Result ParseImports(Module *module, Parser *p)
     }
     import.module = mod;
     import.alias = alias;
-    VecPush(module->imports, import);
+    if (imports) VecPush(*imports, import);
   } while (MatchToken(commaToken, p));
 
 
@@ -259,7 +259,7 @@ static Result ParseImports(Module *module, Parser *p)
     return ParseError("Missing comma or newline", p);
   }
   VSpacing(p);
-  return Ok(module);
+  return Ok(0);
 }
 
 static Result ParseStmts(Parser *p)

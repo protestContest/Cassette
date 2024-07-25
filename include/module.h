@@ -11,6 +11,7 @@ typedef struct {
 
 typedef struct Module {
   u32 name;
+  u32 id;
   char *filename;
   char *source;
   ModuleImport *imports;

@@ -2,6 +2,7 @@
 #include "ops.h"
 #include "chunk.h"
 #include "mem.h"
+#include "primitives.h"
 #include "univ/hashmap.h"
 #include "univ/symbol.h"
 #include <univ/vec.h>
@@ -81,6 +82,7 @@ static void WriteLookup(u32 frame, u32 index, Chunk *chunk)
   ChunkWrite(opHead, chunk);
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(IntVal(index), chunk);
+  ChunkWrite(opGet, chunk);
 }
 
 static Result CompileVar(ASTNode *node, Env *env, bool returns)
@@ -248,6 +250,7 @@ static void WriteDefine(u32 index, Chunk *chunk)
   ChunkWriteInt(IntVal(index), chunk);
   ChunkWrite(opRot, chunk);
   ChunkWrite(opSet, chunk);
+  ChunkWrite(opDrop, chunk);
 }
 
 static Result CompileLet(ASTNode *node, u32 assign_num, Env *env, ImportMap *imports)
@@ -292,23 +295,14 @@ static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool ret
   assert(num_stmts > 0);
 
   last = node->data.children[num_stmts-1];
-  if (last->type == letNode || last->type == defNode) {
-    result = CompileLet(last, assign_num++, env, imports);
-    if (result.status != ok) return result;
-    chunk = result.data.p;
-    ChunkWrite(opConst, chunk);
-    ChunkWriteInt(0, chunk);
-    if (returns) WriteReturn(chunk);
-  } else {
-    result = CompileExpr(last, env, imports, returns);
-    if (result.status != ok) return result;
-    chunk = result.data.p;
-  }
+  assert (last->type != letNode && last->type != defNode);
+  result = CompileExpr(last, env, imports, returns);
+  if (result.status != ok) return result;
+  chunk = result.data.p;
 
-  for (i = 0; i < num_stmts - 1; i++) {
+  for (i = 1; i < num_stmts; i++) {
     Chunk *drop_chunk;
     ASTNode *stmt = node->data.children[num_stmts - 1 - i];
-
     if (stmt->type == letNode || stmt->type == defNode) {
       result = CompileLet(stmt, assign_num++, env, imports);
       if (result.status != ok) return result;
@@ -484,29 +478,39 @@ after:
   */
 
   u32 i, num_items;
-  Chunk *chunk, *args_chunk;
+  Chunk *chunk;
   Result result;
+  i32 primitive_num = -1;
   assert(node->type == callNode);
   num_items = VecCount(node->data.children);
   assert(num_items > 0);
 
-  chunk = NewChunk();
+  PrintNode(node);
 
-  result = CompileExpr(node->data.children[0], env, imports, false);
-  if (result.status != ok) return result;
-  args_chunk = result.data.p;
+  if (node->data.children[0]->type == varNode) {
+    primitive_num = PrimitiveID(node->data.children[0]->data.value);
+  }
+
+  if (primitive_num >= 0) {
+    chunk = NewChunk();
+  } else {
+    result = CompileExpr(node->data.children[0], env, imports, false);
+    if (result.status != ok) return result;
+    chunk = result.data.p;
+  }
 
   for (i = 0; i < num_items - 1; i++) {
     result = CompileExpr(node->data.children[num_items - 1 - i], env, imports, false);
     if (result.status != ok) return result;
-    args_chunk = PreservingEnv(result.data.p, args_chunk);
+    chunk = PreservingEnv(result.data.p, chunk);
   }
 
-  chunk = AppendChunk(chunk, args_chunk);
-  CompileMakeCall(chunk);
-
-  if (!returns) {
-    chunk = CompilePos(chunk);
+  if (primitive_num >= 0) {
+    ChunkWrite(opTrap, chunk);
+    ChunkWriteInt(primitive_num, chunk);
+  } else {
+    CompileMakeCall(chunk);
+    if (!returns) chunk = CompilePos(chunk);
   }
 
   return Ok(chunk);
@@ -523,16 +527,16 @@ static Result CompileRef(ASTNode *node, Env *env, ImportMap *imports, bool retur
   ASTNode *sym = node->data.children[1];
   Result result;
   Chunk *chunk;
-  u32 symindex, modnum;
+  u32 symindex, mod_id;
 
   if (!HashMapContains(&imports->map, mod->data.value)) {
     return Error(compileError, "Module not found");
   }
-  modnum = HashMapGet(&imports->map, mod->data.value);
-  for (symindex = 0; symindex < VecCount(imports->modules[modnum].exports); symindex++) {
-    if (imports->modules[modnum].exports[symindex] == sym->data.value) break;
+  mod_id = HashMapGet(&imports->map, mod->data.value);
+  for (symindex = 0; symindex < VecCount(imports->modules[mod_id].exports); symindex++) {
+    if (imports->modules[mod_id].exports[symindex] == sym->data.value) break;
   }
-  if (symindex == VecCount(imports->modules[modnum].exports)) {
+  if (symindex == VecCount(imports->modules[mod_id].exports)) {
     return Error(compileError, "Symbol not found");
   }
 
@@ -546,13 +550,13 @@ static Result CompileRef(ASTNode *node, Env *env, ImportMap *imports, bool retur
   return Ok(chunk);
 }
 
-static u32 FindModule(u32 name, Module *modules)
+static i32 FindModuleID(u32 name, Module *modules)
 {
-  u32 modnum;
-  for (modnum = 0; modnum < VecCount(modules); modnum++) {
-    if (modules[modnum].name == name) break;
+  u32 i;
+  for (i = 0; i < VecCount(modules); i++) {
+    if (modules[i].name == name) return modules[i].id;
   }
-  return modnum;
+  return -1;
 }
 
 static ImportMap *IndexImports(Module *module, Module *modules)
@@ -563,9 +567,10 @@ static ImportMap *IndexImports(Module *module, Module *modules)
   imports->modules = modules;
   for (i = 0; i < VecCount(module->imports); i++) {
     u32 alias = module->imports[i].alias;
-    u32 modnum = FindModule(module->imports[i].module, modules);
-    if (modnum < VecCount(modules)) {
-      HashMapSet(&imports->map, alias, modnum);
+    i32 mod_id = FindModuleID(module->imports[i].module, modules);
+    assert(mod_id >= 0);
+    if ((u32)mod_id < VecCount(modules)) {
+      HashMapSet(&imports->map, alias, mod_id);
     }
   }
   return imports;
@@ -587,7 +592,10 @@ static Result CompileImports(Module *module, ImportMap *imports)
   setEnv
   */
   Chunk *chunk = NewChunk();
-  u32 i, modnum;
+  u32 i, import_id;
+
+  if (VecCount(module->imports) == 0) return Ok(chunk);
+
   ChunkWrite(opGetEnv, chunk);
   ChunkWrite(opTuple, chunk);
   ChunkWriteInt(VecCount(module->imports), chunk);
@@ -596,12 +604,12 @@ static Result CompileImports(Module *module, ImportMap *imports)
     if (!HashMapContains(&imports->map, module->imports[i].module)) {
       return Error(compileError, "Module not found");
     }
-    modnum = HashMapGet(&imports->map, module->imports[i].module);
+    import_id = HashMapGet(&imports->map, module->imports[i].module);
     ChunkWrite(opConst, chunk);
     ChunkWriteInt(IntVal(i), chunk);
 
     ChunkWrite(opGetEnv, chunk);
-    chunk = AppendChunk(chunk, CompileCallMod(modnum));
+    chunk = AppendChunk(chunk, CompileCallMod(import_id));
     ChunkWrite(opSetEnv, chunk);
 
     ChunkWrite(opSet, chunk);
@@ -614,14 +622,16 @@ static Result CompileImports(Module *module, ImportMap *imports)
 static Env *DefineImports(Module *module, Env *env)
 {
   u32 i;
-  env = ExtendEnv(VecCount(module->imports), env);
-  for (i = 0; i < VecCount(module->imports); i++) {
-    EnvSet(module->imports[i].alias, i, env);
+  if (VecCount(module->imports) > 0) {
+    env = ExtendEnv(VecCount(module->imports), env);
+    for (i = 0; i < VecCount(module->imports); i++) {
+      EnvSet(module->imports[i].alias, i, env);
+    }
   }
   return env;
 }
 
-static Result CompileModuleBody(Module *module, u32 id, Module *modules, Env *env)
+static Result CompileModuleBody(Module *module, Module *modules, Env *env)
 {
   /*
   <imports>
@@ -682,6 +692,7 @@ after_cache:
 
   ChunkWrite(opTuple, chunk);
   ChunkWriteInt(VecCount(module->exports), chunk);
+
   for (i = 0; i < VecCount(module->exports); i++) {
     EnvPosition pos = EnvFind(module->exports[i], env);
     if (pos.frame == -1) return Error(undefinedVariable, 0);
@@ -689,6 +700,7 @@ after_cache:
     ChunkWriteInt(IntVal(i), chunk);
     WriteLookup(pos.frame, pos.index, chunk);
     ChunkWrite(opSet, chunk);
+    ChunkWrite(opNoop, chunk);
   }
 
   WriteExtendEnv(1, chunk);
@@ -707,15 +719,16 @@ after_cache:
   chunk = AppendChunk(chunk, cache);
   ChunkWrite(opGetMod, chunk);
   ChunkWrite(opConst, chunk);
-  ChunkWriteInt(IntVal(id), chunk);
+  ChunkWriteInt(IntVal(module->id), chunk);
   ChunkWrite(opRot, chunk);
   ChunkWrite(opSet, chunk);
+  ChunkWrite(opDrop, chunk);
   WriteReturn(chunk);
 
   return Ok(chunk);
 }
 
-Result CompileModule(Module *module, u32 id, Module *modules, Env *env)
+Result CompileModule(Module *module, Module *modules, Env *env)
 {
   /*
   pos <body>
@@ -729,6 +742,7 @@ after:
   const <m>
   rot
   set
+  drop
   */
 
   Chunk *chunk;
@@ -736,17 +750,18 @@ after:
   chunk = NewChunk();
   ChunkWrite(opGetMod, chunk);
   ChunkWrite(opConst, chunk);
-  ChunkWriteInt(IntVal(id), chunk);
-  result = CompileModuleBody(module, id, modules, env);
+  ChunkWriteInt(IntVal(module->id), chunk);
+  result = CompileModuleBody(module, modules, env);
   if (result.status != ok) return result;
   chunk = AppendChunk(chunk, CompileMakeLambda(result.data.p, false));
   ChunkWrite(opSet, chunk);
+  ChunkWrite(opDrop, chunk);
   module->code = chunk;
 
   return Ok(chunk);
 }
 
-Chunk *CompileIntro(Module *modules)
+Chunk *CompileIntro(u32 num_modules)
 {
   /*
   tuple <num_modules>
@@ -754,7 +769,7 @@ Chunk *CompileIntro(Module *modules)
   */
   Chunk *chunk = NewChunk();
   ChunkWrite(opTuple, chunk);
-  ChunkWriteInt(VecCount(modules), chunk);
+  ChunkWriteInt(num_modules, chunk);
   ChunkWrite(opSetMod, chunk);
   return chunk;
 }

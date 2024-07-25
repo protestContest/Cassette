@@ -17,7 +17,6 @@ Result VMFormat(VM *vm)
 {
   val a;
   a = VMStackPop(vm);
-  VMStackPush(FormatVal(a), vm);
   return OkVal(FormatVal(a));
 }
 
@@ -34,4 +33,13 @@ PrimDef *Primitives(void)
 u32 NumPrimitives(void)
 {
   return ArrayCount(primitives);
+}
+
+i32 PrimitiveID(u32 name)
+{
+  u32 i;
+  for (i = 0; i < ArrayCount(primitives); i++) {
+    if (Symbol(primitives[i].name) == name) return i;
+  }
+  return -1;
 }

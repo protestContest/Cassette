@@ -421,6 +421,7 @@ static StatusCode OpSet(VM *vm)
   } else {
     return invalidType;
   }
+  VMStackPush(a, vm);
   return ok;
 }
 
@@ -553,7 +554,6 @@ static StatusCode OpTrap(VM *vm)
   result = vm->primitives[id](vm);
   vm->status = result.status;
   if (!IsError(result)) VMStackPush(result.data.v, vm);
-  VMStackPush(result.data.v, vm);
   return vm->status;
 }
 
@@ -682,8 +682,6 @@ static u32 PrintStack(VM *vm)
   for (i = 0; (i32)i < 30 - (i32)printed; i++) fprintf(stderr, " ");
   return printed;
 }
-
-#define RuntimeError(msg, pos) Error(Binary(msg), 0, 0, 0)
 
 static PrimFn *InitPrimitives(void)
 {

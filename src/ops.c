@@ -70,6 +70,7 @@ u32 DisassembleInst(u8 *code, u32 *index)
   case opBranch:
   case opJump:
   case opPos:
+  case opTrap:
     arg = ReadLEB(*index, code);
     len += fprintf(stderr, " %d", arg);
     (*index) += LEBSize(arg);

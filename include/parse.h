@@ -5,5 +5,5 @@
 #include "result.h"
 #include "module.h"
 
-Result ParseModule(Module *module);
+Result ParseModuleBody(Module *module);
 Result ParseModuleHeader(Module *module);

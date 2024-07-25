@@ -18,6 +18,7 @@ void FreeChunk(Chunk *chunk)
 {
   if (chunk->data) FreeVec(chunk->data);
   if (chunk->next) FreeChunk(chunk->next);
+  free(chunk);
 }
 
 void ChunkWrite(u8 byte, Chunk *chunk)

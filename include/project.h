@@ -8,7 +8,7 @@
 typedef struct {
   Module *modules;
   u32 *build_list;
-  HashMap file_map;
+  HashMap mod_map;
 } Project;
 
 Project *NewProject(char *entryfile, char *searchpath);

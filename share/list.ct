@@ -1,5 +1,5 @@
 module List
-export reverse
+export reduce, reverse
 
 def reduce(list, acc, fn) do
   if list do

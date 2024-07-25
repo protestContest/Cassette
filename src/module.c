@@ -5,6 +5,7 @@
 void InitModule(Module *module)
 {
   module->name = 0;
+  module->id = 0;
   module->filename = 0;
   module->source = 0;
   module->imports = 0;

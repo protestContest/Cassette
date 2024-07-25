@@ -465,7 +465,7 @@ char *MemValStr(val value)
     char *data = SymbolName(RawVal(value));
     str = malloc(strlen(data) + 2);
     str[0] = ':';
-    WriteStr(data, strlen(data)+1, str+1);
+    WriteStr(data, strlen(data), str+1);
     return str;
   }
   if (IsBinary(value) && BinaryLength(value) < 8 && BinIsPrintable(value)) {
