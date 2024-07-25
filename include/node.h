@@ -12,6 +12,7 @@ typedef enum {
 
 typedef struct ASTNode {
   NodeType type;
+  char *file;
   u32 start;
   u32 end;
   union {
@@ -20,8 +21,8 @@ typedef struct ASTNode {
   } data;
 } ASTNode;
 
-ASTNode *MakeNode(NodeType type, u32 start, u32 end);
-ASTNode *MakeTerminal(NodeType type, u32 start, u32 end, u32 value);
+ASTNode *MakeNode(NodeType type, char *file, u32 start, u32 end);
+ASTNode *MakeTerminal(NodeType type, char *file, u32 start, u32 end, u32 value);
 void FreeNode(ASTNode *node);
 bool IsTerminal(ASTNode *node);
 void NodePush(ASTNode *child, ASTNode *node);

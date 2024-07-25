@@ -7,7 +7,13 @@
 typedef struct {
   u32 module;
   u32 alias;
+  u32 pos;
 } ModuleImport;
+
+typedef struct {
+  u32 name;
+  u32 pos;
+} ModuleExport;
 
 typedef struct Module {
   u32 name;
@@ -15,7 +21,7 @@ typedef struct Module {
   char *filename;
   char *source;
   ModuleImport *imports;
-  u32 *exports;
+  ModuleExport *exports;
   ASTNode *ast;
   Chunk *code;
 } Module;

@@ -9,7 +9,26 @@
 #include <univ/symbol.h>
 #include <univ/vec.h>
 
-FileList *ListProjectFiles(char *entryfile, char *searchpath)
+static Result ModuleNotFound(char *name, char *file, u32 pos)
+{
+  u32 len = strlen(name);
+  Error *error = NewError(0, file, pos, len);
+  error->message = StrCat(error->message, "Module \"");
+  error->message = StrCat(error->message, name);
+  error->message = StrCat(error->message, "\" not found");
+  return Err(error);
+}
+
+static Result DuplicateModule(char *name, char *file)
+{
+  Error *error = NewError(0, file, 0, 0);
+  error->message = StrCat(error->message, "Duplicate module \"");
+  error->message = StrCat(error->message, name);
+  error->message = StrCat(error->message, "\"");
+  return Err(error);
+}
+
+static FileList *ListProjectFiles(char *entryfile, char *searchpath)
 {
   u32 i;
   FileList *list = ListFiles(DirName(entryfile), ".ct", 0);
@@ -56,7 +75,7 @@ void FreeProject(Project *project)
   free(project);
 }
 
-Result ScanProjectDeps(Project *project)
+static Result ScanProjectDeps(Project *project)
 {
   u32 i;
   Result result;
@@ -67,7 +86,8 @@ Result ScanProjectDeps(Project *project)
     result = ParseModuleHeader(&project->modules[i]);
     if (IsError(result)) return result;
     if (HashMapContains(&project->mod_map, project->modules[i].name)) {
-      return Error(duplicateModule, 0);
+      result = DuplicateModule(SymbolName(project->modules[i].name), project->modules[i].filename);
+      return result;
     }
     HashMapSet(&project->mod_map, project->modules[i].name, i);
   }
@@ -79,9 +99,6 @@ Result ScanProjectDeps(Project *project)
     u32 modnum;
     Module *module;
 
-    if (!HashMapContains(&project->mod_map, modname)) {
-      return Error(moduleNotFound, 0);
-    }
     modnum = HashMapGet(&project->mod_map, modname);
     module = &project->modules[modnum];
 
@@ -90,6 +107,10 @@ Result ScanProjectDeps(Project *project)
     for (i = 0; i < VecCount(module->imports); i++) {
       u32 import = module->imports[i].module;
       if (!HashMapContains(&scan_set, import)) {
+        if (!HashMapContains(&project->mod_map, import)) {
+          return ModuleNotFound(SymbolName(import), module->filename, module->imports[i].pos);
+        }
+
         HashMapSet(&scan_set, import, 1);
         VecPush(scan_list, import);
       }
@@ -108,7 +129,7 @@ Result ScanProjectDeps(Project *project)
   return Ok(project);
 }
 
-u8 *LinkModules(Project *project)
+static u8 *LinkModules(Project *project)
 {
   u32 i;
   u32 size = 0;

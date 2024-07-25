@@ -39,5 +39,8 @@ int main(int argc, char *argv[])
   HexDump(bytes, size);
   fprintf(stderr, "\n");
 
-  VMDebug(program);
+  result = VMDebug(program);
+  if (!result.ok) {
+    PrintError(result);
+  }
 }

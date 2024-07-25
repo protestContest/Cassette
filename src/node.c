@@ -4,20 +4,22 @@
 #include <univ/symbol.h>
 #include <univ/vec.h>
 
-ASTNode *MakeTerminal(NodeType type, u32 start, u32 end, u32 value)
+ASTNode *MakeTerminal(NodeType type, char *file, u32 start, u32 end, u32 value)
 {
   ASTNode *node = malloc(sizeof(ASTNode));
   node->type = type;
+  node->file = file;
   node->start = start;
   node->end = end;
   node->data.value = value;
   return node;
 }
 
-ASTNode *MakeNode(NodeType type, u32 start, u32 end)
+ASTNode *MakeNode(NodeType type, char *file, u32 start, u32 end)
 {
   ASTNode *node = malloc(sizeof(ASTNode));
   node->type = type;
+  node->file = file;
   node->start = start;
   node->end = end;
   node->data.children = 0;

@@ -1,3 +1,2 @@
 import Foo
 Foo.foo()
-print(3)
