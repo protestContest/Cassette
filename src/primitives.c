@@ -21,8 +21,8 @@ Result VMFormat(VM *vm)
 }
 
 static PrimDef primitives[] = {
-  {"print", VMPrint, "fn(a, sym)"},
-  {"format", VMFormat, "fn(a, str)"}
+  {"print", VMPrint},
+  {"format", VMFormat},
 };
 
 PrimDef *Primitives(void)

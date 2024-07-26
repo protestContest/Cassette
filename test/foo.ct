@@ -1,4 +1,0 @@
-module Foo
-export foo
-def foo() 200
-:foo

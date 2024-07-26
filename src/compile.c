@@ -123,6 +123,7 @@ static Result CompileVar(ASTNode *node, Env *env, bool returns)
   pos = EnvFind(node->data.value, env);
   if (pos.frame < 0) return UndefinedVariable(node);
   chunk = NewChunk();
+  chunk->needs_env = true;
   WriteLookup(pos.frame, pos.index, chunk);
   if (returns) WriteReturn(chunk);
   return Ok(chunk);
@@ -153,7 +154,7 @@ static Result CompileTuple(ASTNode *node, Env *env, ImportMap *imports, bool ret
     items_chunk = PreservingEnv(result.data.p, items_chunk);
     index_chunk = NewChunk();
     ChunkWrite(opConst, index_chunk);
-    ChunkWriteInt(IntVal(i), index_chunk);
+    ChunkWriteInt(IntVal(num_items - 1 - i), index_chunk);
     items_chunk = AppendChunk(index_chunk, items_chunk);
   }
   chunk = NewChunk();
@@ -174,7 +175,7 @@ static Result CompileOp(OpCode op, ASTNode *node, Env *env, ImportMap *imports, 
   Chunk *chunk = 0;
   u32 num_items, i;
   num_items = VecCount(node->data.children);
-  assert(num_items > 1);
+  assert(num_items > 0);
   for (i = 0; i < num_items; i++) {
     ASTNode *item = node->data.children[num_items - 1 - i];
     Result result = CompileExpr(item, env, imports, false);
@@ -240,7 +241,7 @@ after:
   Result result;
   assert(node->type == ifNode);
 
-  result = CompileExpr(node->data.children[0], env, imports, returns);
+  result = CompileExpr(node->data.children[0], env, imports, false);
   if (IsError(result)) return result;
   pred_code = result.data.p;
 
@@ -257,14 +258,12 @@ after:
     ChunkWriteInt(ChunkSize(true_code), false_code);
   }
 
-  ChunkWrite(opBranch, pred_code);
-  ChunkWriteInt(ChunkSize(false_code), pred_code);
+  chunk = NewChunk();
+  ChunkWrite(opBranch, chunk);
+  ChunkWrite(ChunkSize(false_code), chunk);
 
-  false_code->next = true_code;
-  false_code->modifies_env |= true_code->modifies_env;
-  false_code->needs_env |= true_code->needs_env;
-
-  chunk = AppendChunk(pred_code, false_code);
+  chunk = AppendChunk(chunk, ParallelChunks(false_code, true_code));
+  chunk = PreservingEnv(pred_code, chunk);
   return Ok(chunk);
 }
 
@@ -288,16 +287,25 @@ static Result CompileLet(ASTNode *node, u32 assign_num, Env *env, ImportMap *imp
 
   Result result;
   ASTNode *var_node, *value;
-  Chunk *chunk;
+  Chunk *chunk = NewChunk();
   assert(node->type == letNode || node->type == defNode);
   var_node = node->data.children[0];
   value = node->data.children[1];
+
+  ChunkWrite(opGetEnv, chunk);
+  ChunkWrite(opHead, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(assign_num), chunk);
+
   result = CompileExpr(value, env, imports, false);
   if (IsError(result)) return result;
-  chunk = result.data.p;
+  chunk = AppendChunk(chunk, result.data.p);
   EnvSet(var_node->data.value, assign_num, env);
-  WriteDefine(assign_num, chunk);
-  return result;
+
+  ChunkWrite(opSet, chunk);
+  ChunkWrite(opDrop, chunk);
+
+  return Ok(chunk);
 }
 
 static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool returns)
@@ -313,12 +321,24 @@ static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool ret
   */
 
   u32 num_stmts, i, assign_num = 0;
-  Chunk *chunk = 0;
+  Chunk **chunks = 0, *chunk;
   ASTNode *last;
   Result result;
   assert(node->type == doNode);
   num_stmts = VecCount(node->data.children);
   assert(num_stmts > 0);
+
+  for (i = 0; i < num_stmts-1; i++) {
+    ASTNode *stmt = node->data.children[i];
+    if (stmt->type == letNode || stmt->type == defNode) {
+      result = CompileLet(stmt, assign_num++, env, imports);
+      if (IsError(result)) return result;
+    } else {
+      result = CompileExpr(stmt, env, imports, false);
+      if (IsError(result)) return result;
+    }
+    VecPush(chunks, result.data.p);
+  }
 
   last = node->data.children[num_stmts-1];
   assert (last->type != letNode && last->type != defNode);
@@ -326,22 +346,18 @@ static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool ret
   if (IsError(result)) return result;
   chunk = result.data.p;
 
-  for (i = 1; i < num_stmts; i++) {
-    Chunk *drop_chunk;
-    ASTNode *stmt = node->data.children[num_stmts - 1 - i];
-    if (stmt->type == letNode || stmt->type == defNode) {
-      result = CompileLet(stmt, assign_num++, env, imports);
-      if (IsError(result)) return result;
-    } else {
-      result = CompileExpr(stmt, env, imports, false);
-      if (IsError(result)) return result;
-      drop_chunk = NewChunk();
+  for (i = 0; i < VecCount(chunks); i++) {
+    Chunk *stmt_chunk = chunks[VecCount(chunks) - i - 1];
+    ASTNode *stmt = node->data.children[VecCount(chunks) - i - 1];
+    if (stmt->type != letNode && stmt->type != defNode) {
+      Chunk *drop_chunk = NewChunk();
       ChunkWrite(opDrop, drop_chunk);
       chunk = AppendChunk(drop_chunk, chunk);
     }
-
-    chunk = PreservingEnv(result.data.p, chunk);
+    chunk = PreservingEnv(stmt_chunk, chunk);
   }
+
+  FreeVec(chunks);
 
   return Ok(chunk);
 }
@@ -432,14 +448,22 @@ static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
   if (num_params > 0) {
     u32 i;
     chunk = NewChunk();
-    WriteExtendEnv(num_params, chunk);
+    ChunkWrite(opTuple, chunk);
+    ChunkWriteInt(num_params, chunk);
     env = ExtendEnv(num_params, env);
     for (i = 0; i < num_params; i++) {
       u32 index = num_params - i - 1;
       ASTNode *param = params->data.children[index];
       EnvSet(param->data.value, index, env);
-      WriteDefine(index, chunk);
+      ChunkWrite(opConst, chunk);
+      ChunkWriteInt(IntVal(index), chunk);
+      ChunkWrite(opRot, chunk);
+      ChunkWrite(opSet, chunk);
     }
+    ChunkWrite(opGetEnv, chunk);
+    ChunkWrite(opSwap, chunk);
+    ChunkWrite(opPair, chunk);
+    ChunkWrite(opSetEnv, chunk);
   }
 
   result = CompileExpr(body, env, imports, true);
@@ -474,6 +498,9 @@ after:
   result = CompileLambdaBody(node, env, imports);
   if (IsError(result)) return result;
   chunk = CompileMakeLambda(result.data.p, returns);
+
+  if (returns) WriteReturn(chunk);
+
   return Ok(chunk);
 }
 
@@ -511,8 +538,6 @@ after:
   num_items = VecCount(node->data.children);
   assert(num_items > 0);
 
-  PrintNode(node);
-
   if (node->data.children[0]->type == varNode) {
     primitive_num = PrimitiveID(node->data.children[0]->data.value);
   }
@@ -534,6 +559,7 @@ after:
   if (primitive_num >= 0) {
     ChunkWrite(opTrap, chunk);
     ChunkWriteInt(primitive_num, chunk);
+    if (returns) WriteReturn(chunk);
   } else {
     CompileMakeCall(chunk);
     if (!returns) chunk = CompilePos(chunk);
@@ -573,6 +599,8 @@ static Result CompileRef(ASTNode *node, Env *env, ImportMap *imports, bool retur
   ChunkWriteInt(IntVal(symindex), chunk);
   ChunkWrite(opGet, chunk);
 
+  if (returns) WriteReturn(chunk);
+
   return Ok(chunk);
 }
 
@@ -580,7 +608,7 @@ static i32 FindModuleID(u32 name, Module *modules)
 {
   u32 i;
   for (i = 0; i < VecCount(modules); i++) {
-    if (modules[i].name == name) return modules[i].id;
+    if (modules[i].name == name) return i;
   }
   return -1;
 }
@@ -633,7 +661,8 @@ static Result CompileImports(Module *module, ImportMap *imports)
     ChunkWriteInt(IntVal(i), chunk);
 
     ChunkWrite(opGetEnv, chunk);
-    chunk = AppendChunk(chunk, CompileCallMod(import_id));
+    chunk = AppendChunk(chunk, CompileCallMod(imports->modules[import_id].id));
+    ChunkWrite(opSwap, chunk);
     ChunkWrite(opSetEnv, chunk);
 
     ChunkWrite(opSet, chunk);
@@ -724,7 +753,6 @@ after_cache:
     ChunkWriteInt(IntVal(i), chunk);
     WriteLookup(pos.frame, pos.index, chunk);
     ChunkWrite(opSet, chunk);
-    ChunkWrite(opNoop, chunk);
   }
 
   WriteExtendEnv(1, chunk);
@@ -772,14 +800,12 @@ after:
   Chunk *chunk;
   Result result;
   chunk = NewChunk();
-  ChunkWrite(opGetMod, chunk);
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(IntVal(module->id), chunk);
   result = CompileModuleBody(module, modules, env);
   if (IsError(result)) return result;
   chunk = AppendChunk(chunk, CompileMakeLambda(result.data.p, false));
   ChunkWrite(opSet, chunk);
-  ChunkWrite(opDrop, chunk);
   module->code = chunk;
 
   return Ok(chunk);
@@ -789,12 +815,10 @@ Chunk *CompileIntro(u32 num_modules)
 {
   /*
   tuple <num_modules>
-  setMod
   */
   Chunk *chunk = NewChunk();
   ChunkWrite(opTuple, chunk);
   ChunkWriteInt(num_modules, chunk);
-  ChunkWrite(opSetMod, chunk);
   return chunk;
 }
 
@@ -807,6 +831,7 @@ Chunk *CompileCallMod(u32 id)
   <call>
   */
   Chunk *chunk = NewChunk();
+
   ChunkWrite(opGetMod, chunk);
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(IntVal(id), chunk);
@@ -817,37 +842,48 @@ Chunk *CompileCallMod(u32 id)
 
 static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool returns)
 {
+  Result result;
+
   switch (node->type) {
-  case constNode:   return CompileConst(node, returns);
-  case varNode:     return CompileVar(node, env, returns);
-  case strNode:     return CompileString(node, returns);
-  case tupleNode:   return CompileTuple(node, env, imports, returns);
-  case negNode:     return CompileOp(opNeg, node, env, imports, returns);
-  case notNode:     return CompileOp(opNot, node, env, imports, returns);
-  case lenNode:     return CompileOp(opLen, node, env, imports, returns);
-  case accessNode:  return CompileOp(opGet, node, env, imports, returns);
-  case compNode:    return CompileOp(opComp, node, env, imports, returns);
-  case eqNode:      return CompileOp(opEq, node, env, imports, returns);
-  case remNode:     return CompileOp(opRem, node, env, imports, returns);
-  case bitandNode:  return CompileOp(opAnd, node, env, imports, returns);
-  case mulNode:     return CompileOp(opMul, node, env, imports, returns);
-  case addNode:     return CompileOp(opAdd, node, env, imports, returns);
-  case subNode:     return CompileOp(opSub, node, env, imports, returns);
-  case divNode:     return CompileOp(opDiv, node, env, imports, returns);
-  case ltNode:      return CompileOp(opLt, node, env, imports, returns);
-  case shiftNode:   return CompileOp(opShift, node, env, imports, returns);
-  case gtNode:      return CompileOp(opGt, node, env, imports, returns);
-  case joinNode:    return CompileOp(opJoin, node, env, imports, returns);
-  case sliceNode:   return CompileOp(opSlice, node, env, imports, returns);
-  case bitorNode:   return CompileOp(opOr, node, env, imports, returns);
-  case pairNode:    return CompileOp(opPair, node, env, imports, returns);
-  case andNode:     return CompileLogic(node, env, imports, returns);
-  case orNode:      return CompileLogic(node, env, imports, returns);
-  case ifNode:      return CompileIf(node, env, imports, returns);
-  case doNode:      return CompileDo(node, env, imports, returns);
-  case lambdaNode:  return CompileLambda(node, env, imports, returns);
-  case callNode:    return CompileCall(node, env, imports, returns);
-  case refNode:     return CompileRef(node, env, imports, returns);
+  case constNode:   result = CompileConst(node, returns); break;
+  case varNode:     result = CompileVar(node, env, returns); break;
+  case strNode:     result = CompileString(node, returns); break;
+  case tupleNode:   result = CompileTuple(node, env, imports, returns); break;
+  case negNode:     result = CompileOp(opNeg, node, env, imports, returns); break;
+  case notNode:     result = CompileOp(opNot, node, env, imports, returns); break;
+  case lenNode:     result = CompileOp(opLen, node, env, imports, returns); break;
+  case accessNode:  result = CompileOp(opGet, node, env, imports, returns); break;
+  case compNode:    result = CompileOp(opComp, node, env, imports, returns); break;
+  case eqNode:      result = CompileOp(opEq, node, env, imports, returns); break;
+  case remNode:     result = CompileOp(opRem, node, env, imports, returns); break;
+  case bitandNode:  result = CompileOp(opAnd, node, env, imports, returns); break;
+  case mulNode:     result = CompileOp(opMul, node, env, imports, returns); break;
+  case addNode:     result = CompileOp(opAdd, node, env, imports, returns); break;
+  case subNode:     result = CompileOp(opSub, node, env, imports, returns); break;
+  case divNode:     result = CompileOp(opDiv, node, env, imports, returns); break;
+  case ltNode:      result = CompileOp(opLt, node, env, imports, returns); break;
+  case shiftNode:   result = CompileOp(opShift, node, env, imports, returns); break;
+  case gtNode:      result = CompileOp(opGt, node, env, imports, returns); break;
+  case joinNode:    result = CompileOp(opJoin, node, env, imports, returns); break;
+  case sliceNode:   result = CompileOp(opSlice, node, env, imports, returns); break;
+  case bitorNode:   result = CompileOp(opOr, node, env, imports, returns); break;
+  case pairNode:    result = CompileOp(opPair, node, env, imports, returns); break;
+  case andNode:     result = CompileLogic(node, env, imports, returns); break;
+  case orNode:      result = CompileLogic(node, env, imports, returns); break;
+  case ifNode:      result = CompileIf(node, env, imports, returns); break;
+  case doNode:      result = CompileDo(node, env, imports, returns); break;
+  case lambdaNode:  result = CompileLambda(node, env, imports, returns); break;
+  case callNode:    result = CompileCall(node, env, imports, returns); break;
+  case refNode:     result = CompileRef(node, env, imports, returns); break;
   default:          return UnknownExpr(node);
   }
+
+#if 0
+  if (!IsError(result)) {
+    PrintNode(node);
+    DisassembleChunk(result.data.p);
+  }
+#endif
+
+  return result;
 }

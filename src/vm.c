@@ -154,7 +154,6 @@ Result VMDebug(Program *program)
 {
   VM vm;
   InitVM(&vm, program);
-  InitMem(1024);
 
   fprintf(stderr, "───┬─inst─────────stack───────────────\n");
 
@@ -178,7 +177,9 @@ void VMStackPush(val value, VM *vm)
 void RunGC(VM *vm)
 {
   VMStackPush(vm->env, vm);
+  VMStackPush(vm->mod, vm);
   CollectGarbage(vm->stack);
+  vm->mod = VMStackPop(vm);
   vm->env = VMStackPop(vm);
 }
 
@@ -329,7 +330,7 @@ static Result OpNot(VM *vm)
 {
   val a;
   OneArg(a);
-  VMStackPush(IntVal(RawVal(a) != 0), vm);
+  VMStackPush(IntVal(RawVal(a) == 0), vm);
   return vm->status;
 }
 
@@ -407,7 +408,7 @@ static Result OpGet(VM *vm)
     VMStackPush(TupleGet(a, RawInt(b)), vm);
   } else if (IsBinary(a)) {
     if (RawInt(b) < 0 || RawInt(b) >= (i32)BinaryLength(a)) return RuntimeError("Out of bounds", vm);
-    VMStackPush(BinaryGet(a, RawInt(b)), vm);
+    VMStackPush(IntVal(BinaryGet(a, RawInt(b))), vm);
   } else {
     return RuntimeError("Invalid type", vm);
   }
@@ -557,6 +558,7 @@ static Result OpTrap(VM *vm)
   u32 id = ReadLEB(vm->pc, vm->program->code);
   vm->pc += LEBSize(id);
   vm->status = vm->primitives[id](vm);
+  if (!IsError(vm->status)) VMStackPush(vm->status.data.v, vm);
   return vm->status;
 }
 
@@ -668,12 +670,16 @@ static void TraceInst(VM *vm)
   u32 index = vm->pc;
   u32 i, len;
   len = DisassembleInst(vm->program->code, &index);
+  if (len >= 20) {
+    fprintf(stderr, "\n");
+    len = 0;
+  }
   for (i = 0; i < 20 - len; i++) fprintf(stderr, " ");
 }
 
 static u32 PrintStack(VM *vm)
 {
-  u32 i, printed = 0, max = 6;
+  u32 i, printed = 0, max = 20;
   char *str;
   for (i = 0; i < max; i++) {
     if (i >= VecCount(vm->stack)) break;

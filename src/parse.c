@@ -170,10 +170,17 @@ Result ParseModuleBody(Module *module)
   if (IsError(result)) return result;
   result = ParseExports(0, &p);
   if (IsError(result)) return result;
-  result = ParseStmts(&p);
-  if (IsError(result)) return result;
+
+  if (AtEnd(&p)) {
+    ASTNode *stmt = MakeTerminal(constNode, p.filename, p.token.pos, p.token.pos, 0);
+    module->ast = MakeNode(doNode, p.filename, p.token.pos, p.token.pos);
+    NodePush(stmt, module->ast);
+  } else {
+    result = ParseStmts(&p);
+    if (IsError(result)) return result;
+    module->ast = result.data.p;
+  }
   if (!AtEnd(&p)) return ParseError("Expected end of file", &p);
-  module->ast = result.data.p;
 
   return Ok(module);
 }
@@ -199,7 +206,7 @@ Result ParseModuleHeader(Module *module)
 static Result ParseModname(Module *module, Parser *p)
 {
   if (!MatchToken(moduleToken, p)) {
-    module->name = Symbol("*main*");
+    module->name = 0;
     return Ok(module);
   }
   Spacing(p);
@@ -379,8 +386,8 @@ static Result ParseAssign(Parser *p)
   if (IsError(result)) return result;
   value = result.data.p;
   node = MakeNode(letNode, p->filename, id->start, value->end);
-  NodePush(node, id);
-  NodePush(node, value);
+  NodePush(id, node);
+  NodePush(value, node);
   return Ok(node);
 }
 
@@ -478,8 +485,8 @@ static Result ParsePair(ASTNode *expr, Parser *p)
   start = expr->start;
   end = arg->end;
   node = MakeNode(OpNodeType(token.type), p->filename, start, end);
-  NodePush(expr, node);
   NodePush(arg, node);
+  NodePush(expr, node);
   return Ok(node);
 }
 
@@ -701,10 +708,36 @@ static Result ParseClauses(Parser *p)
   return Ok(node);
 }
 
+static Result ParseListTail(Parser *p)
+{
+  Result result;
+  ASTNode *node, *item, *tail;
+
+  node = MakeNode(pairNode, p->filename, p->token.pos, p->token.pos);
+
+  result = ParseExpr(p);
+  if (IsError(result)) return result;
+  item = result.data.p;
+
+  if (MatchToken(commaToken, p)) {
+    VSpacing(p);
+    result = ParseListTail(p);
+    if (IsError(result)) return result;
+    tail = result.data.p;
+  } else {
+    tail = MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos, 0);
+  }
+
+  NodePush(tail, node);
+  NodePush(item, node);
+  node->end = tail->end;
+  return Ok(node);
+}
+
 static Result ParseList(Parser *p)
 {
   Result result;
-  ASTNode *node, *tail;
+  ASTNode *node;
   u32 start = p->token.pos;
   if (!MatchToken(lbracketToken, p)) return ParseError("Expected \"[\"", p);
   VSpacing(p);
@@ -714,22 +747,10 @@ static Result ParseList(Parser *p)
     return Ok(node);
   }
 
-  node = MakeTerminal(constNode, p->filename, start, p->token.pos, 0);
-  tail = node;
-
-  do {
-    ASTNode *item;
-    VSpacing(p);
-    result = ParseExpr(p);
-    if (IsError(result)) return result;
-    item = result.data.p;
-    tail->type = pairNode;
-    tail->start = item->start;
-    tail->end = p->token.pos;
-    NodePush(item, tail);
-    NodePush(MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos, 0), tail);
-    tail = tail->data.children[1];
-  } while (MatchToken(commaToken, p));
+  result = ParseListTail(p);
+  if (IsError(result)) return result;
+  node = result.data.p;
+  VSpacing(p);
 
   if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
   Spacing(p);
@@ -837,7 +858,7 @@ static Result ParseString(Parser *p)
   sym = SymbolFrom(p->text + token.pos + 1, token.length - 2);
   Adv(p);
   Spacing(p);
-  return Ok(TokenNode(strNode, token, sym, p->filename));
+  return Ok(TokenNode(strNode, token, SymVal(sym), p->filename));
 }
 
 static Result ParseLiteral(Parser *p)

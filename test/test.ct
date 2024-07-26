@@ -1,2 +1,3 @@
-import Foo
-Foo.foo()
+import List
+
+print(List.with_index([:a, :b, :c]))

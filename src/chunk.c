@@ -85,9 +85,17 @@ Chunk *PreservingEnv(Chunk *first, Chunk *second)
   return AppendChunk(first, second);
 }
 
+Chunk *ParallelChunks(Chunk *first, Chunk *second)
+{
+  TackOnChunk(first, second);
+  first->needs_env |= second->needs_env;
+  first->modifies_env |= second->modifies_env;
+  return first;
+}
+
 u8 *SerializeChunk(Chunk *chunk, u8 *dst)
 {
-  if (!dst) dst = NewVec(u8, ChunkSize(chunk));
+  assert(dst);
   while (chunk) {
     Copy(chunk->data, dst, VecCount(chunk->data));
     dst += VecCount(chunk->data);
@@ -95,4 +103,14 @@ u8 *SerializeChunk(Chunk *chunk, u8 *dst)
   }
 
   return dst;
+}
+
+void DisassembleChunk(Chunk *chunk)
+{
+  u8 *data = NewVec(u8, ChunkSize(chunk));
+  RawVecCount(data) = ChunkSize(chunk);
+  SerializeChunk(chunk, data);
+  Disassemble(data);
+  printf("%c%c\n", chunk->needs_env ? 'e' : ' ',
+                    chunk->modifies_env ? 'E' : ' ');
 }

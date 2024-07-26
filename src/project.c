@@ -86,6 +86,7 @@ static Result ScanProjectDeps(Project *project)
     result = ParseModuleHeader(&project->modules[i]);
     if (IsError(result)) return result;
     if (HashMapContains(&project->mod_map, project->modules[i].name)) {
+      if (project->modules[i].name == 0) continue;
       result = DuplicateModule(SymbolName(project->modules[i].name), project->modules[i].filename);
       return result;
     }
@@ -137,12 +138,15 @@ static u8 *LinkModules(Project *project)
   u32 num_modules = VecCount(project->build_list);
 
   Chunk *intro = CompileIntro(num_modules);
-  Chunk *outro = CompileCallMod(num_modules-1);
+  Chunk *outro = NewChunk();
+  ChunkWrite(opSetMod, outro);
+  outro = AppendChunk(outro, CompileCallMod(0));
   ChunkWrite(opDrop, outro);
-  ChunkWrite(opNoop, outro);
+  ChunkWrite(opHalt, outro);
   size = ChunkSize(intro) + ChunkSize(outro);
-  for (i = 0; i < VecCount(project->modules); i++) {
-    size += ChunkSize(project->modules[i].code);
+  for (i = 0; i < VecCount(project->build_list); i++) {
+    u32 idx = project->build_list[i];
+    size += ChunkSize(project->modules[idx].code);
   }
   data = NewVec(u8, size);
   RawVecCount(data) = size;
@@ -150,7 +154,7 @@ static u8 *LinkModules(Project *project)
   cur = SerializeChunk(intro, cur);
   for (i = 0; i < VecCount(project->build_list); i++) {
     u32 modnum = project->build_list[num_modules - 1 - i];
-    Module *mod = &project->modules[project->build_list[modnum]];
+    Module *mod = &project->modules[modnum];
     cur = SerializeChunk(mod->code, cur);
   }
   SerializeChunk(outro, cur);
@@ -179,6 +183,8 @@ Result BuildProject(Project *project)
 
     result = ParseModuleBody(module);
     if (IsError(result)) return result;
+
+    PrintNode(module->ast);
 
     result = CompileModule(module, project->modules, env);
     if (IsError(result)) return result;

@@ -108,7 +108,7 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
     } else if (IsInt(node->data.value)) {
       printf(" %d\n", RawInt(node->data.value));
     } else if (IsSym(node->data.value)) {
-      printf(" :%s\n", SymbolName(node->data.value));
+      printf(" :%s\n", SymbolName(RawVal(node->data.value)));
     } else {
       assert(false);
     }
@@ -117,7 +117,7 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
     printf(" %s\n", SymbolName(node->data.value));
     break;
   case strNode:
-    printf(" \"%s\"\n", SymbolName(node->data.value));
+    printf(" \"%s\"\n", SymbolName(RawVal(node->data.value)));
     break;
   default:
     printf("\n");

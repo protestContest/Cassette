@@ -75,6 +75,11 @@ void CollectGarbage(val *roots)
   u32 i, scan;
   val *oldmem = mem;
 
+  if (!mem) {
+    InitMem(256);
+    return;
+  }
+
   printf("GARBAGE DAY!!!\n");
 
   mem = NewVec(val, VecCapacity(mem));
@@ -473,7 +478,7 @@ char *MemValStr(val value)
     char *data = BinaryData(value);
     str = malloc(len + 3);
     str[0] = '"';
-    WriteStr(data, len+1, str+1);
+    WriteStr(data, len, str+1);
     str[len + 1] = '"';
     str[len + 2] = 0;
     return str;

@@ -6,7 +6,6 @@
 typedef struct {
   char *name;
   PrimFn fn;
-  char *type;
 } PrimDef;
 
 PrimDef *Primitives(void);

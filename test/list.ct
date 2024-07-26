@@ -1,0 +1,64 @@
+module List
+export reverse, reduce, map, filter, iota, zip, with_index
+
+def reverse(list) do
+  def reverse_onto(list, tail) do
+    if list do
+      reverse_onto(list[1:], list[0] | tail)
+    else
+      tail
+    end
+  end
+
+  reverse_onto(list, nil)
+end
+
+def reduce(list, acc, fn) do
+  if list do
+    reduce(list[1:], fn(list[0], acc), fn)
+  else
+    acc
+  end
+end
+
+def map(list, fn) do
+  reverse(reduce(list, nil, \item, acc -> fn(item) | acc))
+end
+
+def filter(list, fn) do
+  reverse(
+    reduce(list, nil, \item, acc ->
+      if fn(item) do
+        item | acc
+      else
+        acc
+      end))
+end
+
+def iota(n) do
+  def build_iota(n, list) do
+    if n do
+      build_iota(n-1, n-1 | list)
+    else
+      list
+    end
+  end
+
+  build_iota(n, nil)
+end
+
+def zip(a, b) do
+  def build_zip(a, b, zipped) do
+    if a and b do
+      build_zip(a[1:], b[1:], {a[0], b[0]} | zipped)
+    else
+      reverse(zipped)
+    end
+  end
+
+  build_zip(a, b, nil)
+end
+
+def with_index(list) do
+  zip(iota(#list), list)
+end

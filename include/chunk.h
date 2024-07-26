@@ -21,4 +21,6 @@ u32 ChunkSize(Chunk *chunk);
 Chunk *AppendChunk(Chunk *first, Chunk *second);
 void TackOnChunk(Chunk *first, Chunk *second);
 Chunk *PreservingEnv(Chunk *first, Chunk *second);
+Chunk *ParallelChunks(Chunk *first, Chunk *second);
 u8 *SerializeChunk(Chunk *chunk, u8 *dst);
+void DisassembleChunk(Chunk *chunk);
