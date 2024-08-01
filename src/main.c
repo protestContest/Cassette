@@ -2,6 +2,7 @@
 #include "project.h"
 #include "program.h"
 #include "vm.h"
+#include <univ/file.h>
 #include <univ/str.h>
 #include <univ/debug.h>
 
@@ -9,8 +10,6 @@ int main(int argc, char *argv[])
 {
   Project *project;
   Program *program;
-  u8 *bytes = 0;
-  u32 size;
   char *searchpath = 0;
   Result result;
 
@@ -35,15 +34,22 @@ int main(int argc, char *argv[])
   program = result.data.p;
   FreeProject(project);
 
+#if DEBUG
   Disassemble(program->code);
   fprintf(stderr, "\n");
 
-  size = SerializeProgram(program, &bytes);
-  HexDump(bytes, size);
-  fprintf(stderr, "\n");
-  free(bytes);
+  {
+    u8 *bytes = 0;
+    u32 size;
+    size = SerializeProgram(program, &bytes);
+    HexDump(bytes, size);
+    fprintf(stderr, "\n");
+    WriteFile(bytes, size, "test.csst");
+    free(bytes);
+  }
+#endif
 
-  result = VMDebug(program);
+  result = VMRun(program);
   if (!result.ok) {
     PrintError(result);
     FreeError(result.data.p);

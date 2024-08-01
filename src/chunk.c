@@ -112,6 +112,4 @@ void DisassembleChunk(Chunk *chunk)
   RawVecCount(data) = ChunkSize(chunk);
   SerializeChunk(chunk, data);
   Disassemble(data);
-  printf("%c%c\n", chunk->needs_env ? 'e' : ' ',
-                    chunk->modifies_env ? 'E' : ' ');
 }

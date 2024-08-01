@@ -80,7 +80,9 @@ void CollectGarbage(val *roots)
     return;
   }
 
+#if DEBUG
   fprintf(stderr, "GARBAGE DAY!!!\n");
+#endif
 
   mem = NewVec(val, VecCapacity(mem));
   VecPush(mem, 0);
@@ -514,16 +516,16 @@ void DumpMem(void)
   u32 bin_cells = 0;
   char *bin_data = 0;
 
-  printf("%*d│", numWidth, 0);
+  fprintf(stderr, "%*d│", numWidth, 0);
   for (i = 0; i < VecCount(mem); i++) {
     if (bin_cells > 0) {
-      printf("    \"%*.*s\"│", 4, 4, bin_data);
+      fprintf(stderr, "    \"%*.*s\"│", 4, 4, bin_data);
       bin_data += 4;
       bin_cells--;
     } else {
       val value = mem[i];
       char *str = MemValStr(value);
-      printf("%*s│", colWidth, str);
+      fprintf(stderr, "%*s│", colWidth, str);
       free(str);
       if (IsBinHdr(value)) {
         bin_cells = BinSpace(RawVal(value));
@@ -532,10 +534,10 @@ void DumpMem(void)
     }
 
     if (i % numCols == numCols - 1) {
-      printf("\n");
-      printf("%*d│", numWidth, i+1);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "%*d│", numWidth, i+1);
     }
   }
-  printf("\n");
-  printf("%d / %d\n", VecCount(mem), VecCapacity(mem));
+  fprintf(stderr, "\n");
+  fprintf(stderr, "%d / %d\n", VecCount(mem), VecCapacity(mem));
 }

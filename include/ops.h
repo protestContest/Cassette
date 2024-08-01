@@ -7,9 +7,20 @@
 */
 
 typedef enum {
-  opNoop,   /* */
+  opNoop = 0x00,   /* */
+  opHalt,   /* */
   opConst,  /* (a) -> a           pushes a tagged value */
-  opAdd,    /* a b -> a+b */
+
+  opJump = 0x10,   /* (n) pc <- pc + n */
+  opBranch, /* (n) a -> ; pc <- pc + n */
+  opPos,    /* (n) -> pc + n */
+  opGoto,   /* a -> ; pc <- pc + a */
+  opGetEnv, /* -> env */
+  opSetEnv, /* a -> ; env <- a */
+  opGetMod, /* -> mods */
+  opSetMod, /* a -> ; mods <- a */
+
+  opAdd = 0x20,    /* a b -> a+b */
   opSub,    /* a b -> a-b */
   opMul,    /* a b -> a*b */
   opDiv,    /* a b -> a/b */
@@ -23,7 +34,14 @@ typedef enum {
   opNeg,    /* a -> -a */
   opNot,    /* a -> !a */
   opShift,  /* a b -> a<<b */
-  opPair,   /* t h -> pair(h,t)   creates a pair (may GC) */
+
+  opDup = 0x30,    /* a -> a a */
+  opDrop,   /* a -> */
+  opSwap,   /* a b -> b a */
+  opOver,   /* a b -> a b a */
+  opRot,    /* a b c -> b c a */
+
+  opPair = 0x40,   /* t h -> pair(h,t)   creates a pair (may GC) */
   opHead,   /* p -> head(p) */
   opTail,   /* p -> tail(p) */
   opTuple,  /* (n) -> tuple(n)    creates a tuple of length n (may GC) */
@@ -33,21 +51,8 @@ typedef enum {
   opStr,    /* a -> str(a)        must be a symbol (may GC) */
   opJoin,   /* a b -> a<>b        (may GC) */
   opSlice,  /* a b c -> a[b:c]    (may GC) */
-  opJump,   /* (n) pc <- pc + n */
-  opBranch, /* (n) a -> ; pc <- pc + n */
-  opTrap,   /* (n) ?? -> a        calls a native trap function (may GC) */
-  opPos,    /* (n) -> pc + n */
-  opGoto,   /* a -> ; pc <- pc + a */
-  opHalt,   /* */
-  opDup,    /* a -> a a */
-  opDrop,   /* a -> */
-  opSwap,   /* a b -> b a */
-  opOver,   /* a b -> a b a */
-  opRot,    /* a b c -> b c a */
-  opGetEnv, /* -> env */
-  opSetEnv, /* a -> ; env <- a */
-  opGetMod, /* -> mods */
-  opSetMod  /* a -> ; mods <- a */
+
+  opTrap = 0x7F    /* (n) ?? -> a        calls a native trap function (may GC) */
 } OpCode;
 
 char *OpName(OpCode op);

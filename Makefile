@@ -17,9 +17,10 @@ OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 MAIN_OBJ := $(BUILD)/$(MAIN).o
 
 CC = clang
+DEFS = -DDEBUG=1
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
-CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
+CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFS)
 LDFLAGS = -luniv -lsdl2
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup -luniv
 
@@ -46,6 +47,10 @@ clean:
 .PHONY: test
 test: $(EXECTARGET)
 	$(EXECTARGET) $(TESTFILE)
+
+.PHONY: leaks
+leaks: $(EXECTARGET)
+	leaks -atExit -- $(EXECTARGET) $(TESTFILE)
 
 .PHONY: entitlements
 entitlements: $(EXECTARGET)

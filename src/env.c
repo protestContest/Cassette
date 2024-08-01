@@ -58,9 +58,9 @@ void PrintEnv(Env *env)
   while (env) {
     u32 i;
     for (i = 0; i < env->size; i++) {
-      printf("%s ", SymbolName(env->items[i]));
+      fprintf(stderr, "%s ", SymbolName(env->items[i]));
     }
-    printf("\n");
+    fprintf(stderr, "\n");
     env = env->parent;
   }
 }

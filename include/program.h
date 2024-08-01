@@ -5,7 +5,7 @@
 
 typedef struct {
   u8 *code;
-  char *symbols;
+  char *strings;
 } Program;
 
 Program *NewProgram(void);

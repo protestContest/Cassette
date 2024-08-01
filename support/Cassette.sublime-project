@@ -30,7 +30,7 @@
 			"variants": [
 				{
 					"name": "Run",
-					"cmd": ["./cassette", "$file"],
+					"cmd": ["make", "test"],
 				},
 				{
 					"name": "Clean",

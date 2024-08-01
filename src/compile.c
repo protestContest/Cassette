@@ -198,7 +198,7 @@ static Result CompileLogic(ASTNode *node, Env *env, ImportMap *imports, bool ret
   /*
   <left code>
   dup
-  ; if orNode:
+  ; if andNode:
     not
   branch <after>
   drop
@@ -219,6 +219,7 @@ after:
 
   chunk = NewChunk();
   ChunkWrite(opDup, chunk);
+  if (node->type == andNode) ChunkWrite(opNot, chunk);
   ChunkWrite(opBranch, chunk);
   ChunkWriteInt(ChunkSize(right_chunk), chunk);
   right_chunk = AppendChunk(chunk, right_chunk);

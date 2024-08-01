@@ -116,7 +116,7 @@ void InitVM(VM *vm, Program *program)
   vm->env = 0;
   vm->stack = 0;
   vm->program = program;
-  if (program) ImportSymbols(program->symbols, VecCount(program->symbols));
+  if (program) ImportSymbols(program->strings, VecCount(program->strings));
   vm->primitives = InitPrimitives();
   vm->refs = 0;
 
@@ -149,27 +149,22 @@ void PrintSourceFrom(u32 index, char *src)
 Result VMRun(Program *program)
 {
   VM vm;
+
   InitVM(&vm, program);
-  while (!VMDone(&vm)) {
-    VMStep(&vm);
+
+#if DEBUG
+  {
+    u32 num_width = NumDigits(VecCount(program->code), 10);
+    u32 i;
+    for (i = 0; i < num_width; i++) fprintf(stderr, "─");
+    fprintf(stderr, "┬─inst─────────stack───────────────\n");
   }
-  DestroyVM(&vm);
-  return vm.status;
-}
-
-Result VMDebug(Program *program)
-{
-  VM vm;
-  u32 num_width = NumDigits(VecCount(program->code), 10);
-  u32 i;
-
-  InitVM(&vm, program);
-
-  for (i = 0; i < num_width; i++) fprintf(stderr, "─");
-  fprintf(stderr, "┬─inst─────────stack───────────────\n");
+#endif
 
   while (!VMDone(&vm)) {
+#if DEBUG
     VMTrace(&vm, 0);
+#endif
     VMStep(&vm);
   }
 
@@ -246,7 +241,7 @@ static Result OpAdd(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be added", vm);
   BinOp(+);
   return vm->status;
 }
@@ -255,7 +250,7 @@ static Result OpSub(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be subtracted", vm);
   BinOp(-);
   return vm->status;
 }
@@ -264,7 +259,7 @@ static Result OpMul(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be multiplied", vm);
   BinOp(*);
   return vm->status;
 }
@@ -273,7 +268,7 @@ static Result OpDiv(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be divided", vm);
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
   BinOp(/);
   return vm->status;
@@ -283,7 +278,7 @@ static Result OpRem(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be remaindered", vm);
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
   BinOp(%);
   return vm->status;
@@ -293,7 +288,7 @@ static Result OpAnd(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be and-ed", vm);
   BinOp(&);
   return vm->status;
 }
@@ -302,7 +297,7 @@ static Result OpOr(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be or-ed", vm);
   BinOp(|);
   return vm->status;
 }
@@ -311,7 +306,7 @@ static Result OpComp(VM *vm)
 {
   val a;
   OneArg(a);
-  if (!IsInt(a)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a)) return RuntimeError("Only integers can be ", vm);
   UnaryOp(~);
   return vm->status;
 }
@@ -320,7 +315,7 @@ static Result OpLt(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
   BinOp(<);
   return vm->status;
 }
@@ -329,7 +324,7 @@ static Result OpGt(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
   BinOp(>);
   return vm->status;
 }
@@ -346,7 +341,7 @@ static Result OpNeg(VM *vm)
 {
   val a;
   OneArg(a);
-  if (!IsInt(a)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a)) return RuntimeError("Only integers can be negated", vm);
   UnaryOp(-);
   return vm->status;
 }
@@ -363,7 +358,7 @@ static Result OpShift(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be shifted", vm);
   BinOp(<<);
   return vm->status;
 }
@@ -381,7 +376,7 @@ static Result OpHead(VM *vm)
 {
   val a;
   OneArg(a);
-  if (!IsPair(a)) return RuntimeError("Invalid type", vm);
+  if (!IsPair(a)) return RuntimeError("Only pairs have heads", vm);
   VMStackPush(Head(a), vm);
   return vm->status;
 }
@@ -390,7 +385,7 @@ static Result OpTail(VM *vm)
 {
   val a;
   OneArg(a);
-  if (!IsPair(a)) return RuntimeError("Invalid type", vm);
+  if (!IsPair(a)) return RuntimeError("Only pairs have tails", vm);
   VMStackPush(Tail(a), vm);
   return vm->status;
 }
@@ -424,7 +419,7 @@ static Result OpGet(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (!IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(b)) return RuntimeError("Only integers can be indexes", vm);
   if (IsPair(a)) {
     if (RawInt(b) < 0 || RawInt(b) >= (i32)ListLength(a)) return RuntimeError("Out of bounds", vm);
     VMStackPush(ListGet(a, RawInt(b)), vm);
@@ -444,7 +439,7 @@ static Result OpSet(VM *vm)
 {
   val a, b, c;
   ThreeArgs(a, b, c);
-  if (!IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(b)) return RuntimeError("Only integers can be indexes", vm);
   if (RawInt(b) < 0) return RuntimeError("Out of bounds", vm);
   if (IsTuple(a)) {
     TupleSet(a, RawVal(b), c);
@@ -463,7 +458,7 @@ static Result OpStr(VM *vm)
   u32 len;
   val a;
   OneArg(a);
-  if (!IsSym(a)) return RuntimeError("Invalid type", vm);
+  if (!IsSym(a)) return RuntimeError("Only symbols can become strings", vm);
   name = SymbolName(RawVal(a));
   len = strlen(name);
   if (MemFree() < BinSpace(len) + 1) RunGC(vm);
@@ -475,7 +470,7 @@ static Result OpJoin(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  if (ValType(a) != ValType(b)) return RuntimeError("Invalid type", vm);
+  if (ValType(a) != ValType(b)) return RuntimeError("Only values of the same type can be joined", vm);
   if (IsPair(a)) {
     if (MemFree() < 2*(ListLength(a) + ListLength(b))) {
       VMStackPush(a, vm);
@@ -501,7 +496,7 @@ static Result OpJoin(VM *vm)
     }
     VMStackPush(BinaryJoin(a, b), vm);
   } else {
-    return RuntimeError("Invalid type", vm);
+    return RuntimeError("Only lists, tuples, and binaries can be joined", vm);
   }
   return vm->status;
 }
@@ -510,9 +505,9 @@ static Result OpSlice(VM *vm)
 {
   val a, b, c;
   ThreeArgs(a, b, c);
-  if (!IsInt(b)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(b)) return RuntimeError("Only integers can be slice indexes", vm);
   if (RawInt(b) < 0) return RuntimeError("Out of bounds", vm);
-  if (c && !IsInt(c)) return RuntimeError("Invalid type", vm);
+  if (c && !IsInt(c)) return RuntimeError("Only integers can be slice indexes", vm);
 
   if (IsPair(a)) {
     val list = ListSkip(a, RawVal(b));
@@ -687,7 +682,7 @@ void VMTrace(VM *vm, char *src)
 {
   TraceInst(vm);
   PrintStack(vm);
-  printf("\n");
+  fprintf(stderr, "\n");
 }
 
 static void TraceInst(VM *vm)

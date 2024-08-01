@@ -49,6 +49,7 @@ char *OpName(OpCode op)
   case opSetEnv:  return "setEnv";
   case opSetMod:  return "setMod";
   case opGetMod:  return "getMod";
+  default:        return "???";
   }
 }
 
@@ -101,6 +102,6 @@ void Disassemble(u8 *code)
   fprintf(stderr, "┬─disassembly─────\n");
   while (index < end) {
     DisassembleInst(code, &index);
-    printf("\n");
+    fprintf(stderr, "\n");
   }
 }

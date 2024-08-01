@@ -113,42 +113,42 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
 {
   u32 i, j;
 
-  printf("%s[%d:%d]", NodeTypeName(node->type), node->start, node->end);
+  fprintf(stderr, "%s[%d:%d]", NodeTypeName(node->type), node->start, node->end);
 
   switch (node->type) {
   case constNode:
     if (node->data.value == 0) {
-      printf(" nil\n");
+      fprintf(stderr, " nil\n");
     } else if (IsInt(node->data.value)) {
-      printf(" %d\n", RawInt(node->data.value));
+      fprintf(stderr, " %d\n", RawInt(node->data.value));
     } else if (IsSym(node->data.value)) {
-      printf(" :%s\n", SymbolName(RawVal(node->data.value)));
+      fprintf(stderr, " :%s\n", SymbolName(RawVal(node->data.value)));
     } else {
       assert(false);
     }
     break;
   case varNode:
-    printf(" %s\n", SymbolName(node->data.value));
+    fprintf(stderr, " %s\n", SymbolName(node->data.value));
     break;
   case strNode:
-    printf(" \"%s\"\n", SymbolName(RawVal(node->data.value)));
+    fprintf(stderr, " \"%s\"\n", SymbolName(RawVal(node->data.value)));
     break;
   default:
-    printf("\n");
+    fprintf(stderr, "\n");
     lines |= Bit(level);
     for (i = 0; i < VecCount(node->data.children); i++) {
       for (j = 0; j < level; j++) {
         if (lines & Bit(j)) {
-          printf("│ ");
+          fprintf(stderr, "│ ");
         } else {
-          printf("  ");
+          fprintf(stderr, "  ");
         }
       }
       if (i < VecCount(node->data.children) - 1) {
-        printf("├ ");
+        fprintf(stderr, "├ ");
       } else {
         lines &= ~Bit(level);
-        printf("└ ");
+        fprintf(stderr, "└ ");
       }
       PrintNodeLevel(node->data.children[i], level+1, lines);
     }

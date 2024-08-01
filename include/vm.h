@@ -28,7 +28,6 @@ typedef struct VM {
 void InitVM(VM *vm, Program *program);
 void DestroyVM(VM *vm);
 Result VMRun(Program *program);
-Result VMDebug(Program *program);
 Result VMStep(VM *vm);
 void VMStackPush(val value, VM *vm);
 val VMStackPop(VM *vm);

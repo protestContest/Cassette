@@ -9,18 +9,36 @@ Result SDLNewWindow(VM *vm)
   val width = VMStackPop(vm);
   SDL_Window *window;
   SDL_Renderer *renderer;
-  u32 ref;
+  u32 ref, winref;
+  val result;
 
   if (!IsInt(width) || !IsInt(height)) return RuntimeError("Width and height must be integers", vm);
 
   SDL_CreateWindowAndRenderer(RawInt(width), RawInt(height), 0, &window, &renderer);
   ref = VMPushRef(renderer, vm);
-  return OkVal(IntVal(ref));
+  winref = VMPushRef(window, vm);
+  result = Tuple(2);
+  TupleSet(result, 0, ref);
+  TupleSet(result, 1, winref);
+  return OkVal(result);
+}
+
+Result SDLDestroyWindow(VM *vm)
+{
+  val refs = VMStackPop(vm);
+  val ref = TupleGet(refs, 0);
+  val winref = TupleGet(refs, 1);
+  SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
+  SDL_Window *window = VMGetRef(RawVal(winref), vm);
+  SDL_DestroyRenderer(renderer);
+  SDL_DestroyWindow(window);
+  return OkVal(0);
 }
 
 Result SDLPresent(VM *vm)
 {
-  val ref = VMStackPop(vm);
+  val refs = VMStackPop(vm);
+  val ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_RenderPresent(renderer);
   return OkVal(0);
@@ -28,7 +46,8 @@ Result SDLPresent(VM *vm)
 
 Result SDLClear(VM *vm)
 {
-  val ref = VMStackPop(vm);
+  val refs = VMStackPop(vm);
+  val ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_RenderClear(renderer);
   return OkVal(0);
@@ -36,7 +55,8 @@ Result SDLClear(VM *vm)
 
 Result SDLLine(VM *vm)
 {
-  val ref = VMStackPop(vm);
+  val refs = VMStackPop(vm);
+  val ref = TupleGet(refs, 0);
   val y2 = VMStackPop(vm);
   val x2 = VMStackPop(vm);
   val y1 = VMStackPop(vm);
@@ -54,7 +74,8 @@ Result SDLLine(VM *vm)
 
 Result SDLSetColor(VM *vm)
 {
-  val ref = VMStackPop(vm);
+  val refs = VMStackPop(vm);
+  val ref = TupleGet(refs, 0);
   val b = VMStackPop(vm);
   val g = VMStackPop(vm);
   val r = VMStackPop(vm);

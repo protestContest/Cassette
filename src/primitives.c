@@ -25,6 +25,7 @@ static PrimDef primitives[] = {
   {"print", VMPrint},
   {"format", VMFormat},
   {"sdl_new_window", SDLNewWindow},
+  {"sdl_destroy_window", SDLDestroyWindow},
   {"sdl_present", SDLPresent},
   {"sdl_clear", SDLClear},
   {"sdl_line", SDLLine},

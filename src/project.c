@@ -4,6 +4,7 @@
 #include "env.h"
 #include "parse.h"
 #include "primitives.h"
+#include <univ/math.h>
 #include <univ/file.h>
 #include <univ/str.h>
 #include <univ/symbol.h>
@@ -140,6 +141,7 @@ static u8 *LinkModules(Project *project)
   u32 size = 0;
   u8 *data, *cur;
   u32 num_modules = VecCount(project->build_list);
+  u32 trailing_bytes;
 
   Chunk *intro = CompileIntro(num_modules);
   Chunk *outro = NewChunk();
@@ -152,6 +154,8 @@ static u8 *LinkModules(Project *project)
     u32 idx = project->build_list[i];
     size += ChunkSize(project->modules[idx].code);
   }
+  trailing_bytes = sizeof(u32) - (size % sizeof(u32));
+  size = Align(size, sizeof(u32));
   data = NewVec(u8, size);
   RawVecCount(data) = size;
   cur = data;
@@ -166,6 +170,42 @@ static u8 *LinkModules(Project *project)
   FreeChunk(intro);
   FreeChunk(outro);
 
+  for (i = 0; i < trailing_bytes; i++) {
+    data[VecCount(data) - trailing_bytes + i] = opNoop;
+  }
+
+  return data;
+}
+
+void CollectSymbols(ASTNode *node, HashMap *symbols)
+{
+  if (node->type == strNode) {
+    HashMapSet(symbols, RawVal(node->data.value), 1);
+  }
+
+  if (!IsTerminal(node)) {
+    u32 i;
+    for (i = 0; i < VecCount(node->data.children); i++) {
+      CollectSymbols(node->data.children[i], symbols);
+    }
+  }
+}
+
+char *SerializeSymbols(HashMap *symbols)
+{
+  char *data = 0;
+  u32 i;
+  for (i = 0; i < symbols->count; i++) {
+    u32 sym = HashMapKey(symbols, i);
+    char *name = SymbolName(sym);
+    u32 len = strlen(name);
+    GrowVec(data, len);
+    Copy(name, VecEnd(data) - len, len);
+    VecPush(data, 0);
+  }
+  for (i = 0; i < VecCount(data) % sizeof(u32); i++) {
+    VecPush(data, 0);
+  }
   return data;
 }
 
@@ -175,8 +215,8 @@ Result BuildProject(Project *project)
   u32 i;
   Env *env = 0;
   Program *program;
-  char *symbols = 0;
-  u32 sym_size;
+  HashMap symbols = EmptyHashMap;
+
   DestroySymbols();
   SetSymbolSize(valBits);
 
@@ -190,7 +230,11 @@ Result BuildProject(Project *project)
     result = ParseModuleBody(module);
     if (IsError(result)) return result;
 
+    CollectSymbols(module->ast, &symbols);
+
+#if DEBUG
     PrintNode(module->ast);
+#endif
 
     result = CompileModule(module, project->modules, env);
     if (IsError(result)) return result;
@@ -198,10 +242,7 @@ Result BuildProject(Project *project)
 
   program = NewProgram();
   program->code = LinkModules(project);
-  sym_size = ExportSymbols(&symbols);
-  program->symbols = NewVec(char, sym_size);
-  Copy(symbols, program->symbols, sym_size);
-  RawVecCount(program->symbols) = sym_size;
-  free(symbols);
+  program->strings = SerializeSymbols(&symbols);
+  DestroyHashMap(&symbols);
   return Ok(program);
 }

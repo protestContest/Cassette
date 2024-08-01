@@ -3,6 +3,7 @@
 #include "vm.h"
 
 Result SDLNewWindow(VM *vm);
+Result SDLDestroyWindow(VM *vm);
 Result SDLPresent(VM *vm);
 Result SDLClear(VM *vm);
 Result SDLLine(VM *vm);
