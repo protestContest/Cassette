@@ -20,17 +20,18 @@ CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
 CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
-LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
+LDFLAGS = -luniv -lsdl2
+LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup -luniv
 
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)
 	@echo $@
-	$(CC) -luniv $(CFLAGS) $(LIBTARGET) $(MAIN_OBJ) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LIBTARGET) $(MAIN_OBJ) -o $@
 
 $(LIBTARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	@echo $<
-	$(CC) -luniv $(LIBLDFLAGS) -o $@ $(OBJS)
+	$(CC) $(LIBLDFLAGS) -o $@ $(OBJS)
 
 $(BUILD)/%.o: $(SRC)/%.c
 	@mkdir -p $(dir $@)

@@ -1,6 +1,7 @@
 #include "primitives.h"
 #include <univ/symbol.h>
 #include <univ/vec.h>
+#include "sdl.h"
 
 Result VMPrint(VM *vm)
 {
@@ -23,6 +24,12 @@ Result VMFormat(VM *vm)
 static PrimDef primitives[] = {
   {"print", VMPrint},
   {"format", VMFormat},
+  {"sdl_new_window", SDLNewWindow},
+  {"sdl_present", SDLPresent},
+  {"sdl_clear", SDLClear},
+  {"sdl_line", SDLLine},
+  {"sdl_set_color", SDLSetColor},
+  {"sdl_poll_event", SDLPollEvent}
 };
 
 PrimDef *Primitives(void)

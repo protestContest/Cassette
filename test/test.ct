@@ -1,3 +1,25 @@
-import List
+let win = sdl_new_window(500, 300)
+sdl_set_color(255, 255, 255, win)
+sdl_clear(win)
+sdl_set_color(0, 0, 0, win)
+sdl_line(10, 10, 100, 100, win)
+sdl_present(win)
 
-print(List.with_index([:a, :b, :c]))
+def handle_event(event) do
+  cond
+    event[0] == :keydown and event[2] == :escape -> nil
+    event[0] == :quit -> nil
+    true -> loop()
+  end
+end
+
+def loop() do
+  let event = sdl_poll_event()
+  if event do
+    handle_event(event)
+  else
+    loop()
+  end
+end
+
+loop()

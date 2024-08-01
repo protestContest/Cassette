@@ -17,6 +17,7 @@ typedef struct VM {
   val *stack;
   PrimFn *primitives;
   Program *program;
+  void **refs;
 } VM;
 
 #define CheckStack(vm, n) \
@@ -32,3 +33,6 @@ Result VMStep(VM *vm);
 void VMStackPush(val value, VM *vm);
 val VMStackPop(VM *vm);
 void VMTrace(VM *vm, char *src);
+u32 VMPushRef(void *ref, VM *vm);
+void *VMGetRef(u32 ref, VM *vm);
+Result RuntimeError(char *message, struct VM *vm);

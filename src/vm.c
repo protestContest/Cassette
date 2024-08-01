@@ -7,6 +7,7 @@
 #include <univ/str.h>
 #include <univ/symbol.h>
 #include <univ/vec.h>
+#include <SDL2/SDL.h>
 
 typedef Result (*OpFn)(VM *vm);
 
@@ -117,12 +118,18 @@ void InitVM(VM *vm, Program *program)
   vm->program = program;
   if (program) ImportSymbols(program->symbols, VecCount(program->symbols));
   vm->primitives = InitPrimitives();
+  vm->refs = 0;
+
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 }
 
 void DestroyVM(VM *vm)
 {
   FreeVec(vm->stack);
+  FreeVec(vm->refs);
   free(vm->primitives);
+
+  SDL_Quit();
 }
 
 Result VMStep(VM *vm)
@@ -178,6 +185,18 @@ val VMStackPop(VM *vm)
 void VMStackPush(val value, VM *vm)
 {
   VecPush(vm->stack, value);
+}
+
+u32 VMPushRef(void *ref, VM *vm)
+{
+  u32 index = VecCount(vm->refs);
+  VecPush(vm->refs, ref);
+  return index;
+}
+
+void *VMGetRef(u32 ref, VM *vm)
+{
+  return vm->refs[ref];
 }
 
 void RunGC(VM *vm)
