@@ -65,11 +65,11 @@ void PrintSourceContext(char *text, u32 pos, u32 length, u32 context)
   for (i = start; i < line; i++) {
     end = LineEnd(cur-text, text);
     len = end - cur;
-    fprintf(stderr, " % *d│ %*.*s", linecol, i+1, len, len, cur);
+    fprintf(stderr, " %*d│ %*.*s", linecol, i+1, len, len, cur);
     cur = end;
   }
   end = LineEnd(cur-text, text);
-  fprintf(stderr, ">% *d│ %*.*s", linecol, line+1, col, col, cur);
+  fprintf(stderr, ">%*d│ %*.*s", linecol, line+1, col, col, cur);
   cur += col;
 
   fprintf(stderr, "%s%*.*s%s", ANSIUnderline, length, length, cur, ANSINoUnderline);
@@ -81,7 +81,7 @@ void PrintSourceContext(char *text, u32 pos, u32 length, u32 context)
   for (i = 0; i < context && *end; i++) {
     end = LineEnd(cur-text, text);
     len = end - cur;
-    fprintf(stderr, " % *d│ %*.*s", linecol, line+i+2, len, len, cur);
+    fprintf(stderr, " %*d│ %*.*s", linecol, line+i+2, len, len, cur);
     cur = end;
   }
 }

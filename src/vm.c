@@ -100,7 +100,6 @@ static OpFn ops[] = {
   [opSetMod]  = OpSetMod,
 };
 
-
 Result RuntimeError(char *message, struct VM *vm)
 {
   Error *error = NewError(0, 0, 0, 0);
@@ -154,9 +153,13 @@ Result VMRun(Program *program)
 Result VMDebug(Program *program)
 {
   VM vm;
+  u32 num_width = NumDigits(VecCount(program->code), 10);
+  u32 i;
+
   InitVM(&vm, program);
 
-  fprintf(stderr, "───┬─inst─────────stack───────────────\n");
+  for (i = 0; i < num_width; i++) fprintf(stderr, "─");
+  fprintf(stderr, "┬─inst─────────stack───────────────\n");
 
   while (!VMDone(&vm)) {
     VMTrace(&vm, 0);

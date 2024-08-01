@@ -1,6 +1,7 @@
 #include "ops.h"
 #include "mem.h"
 #include "leb.h"
+#include "univ/math.h"
 #include <univ/symbol.h>
 #include <univ/vec.h>
 
@@ -57,8 +58,9 @@ u32 DisassembleInst(u8 *code, u32 *index)
   u32 arg;
   u32 len = 0;
   char *arg_str;
+  u32 num_width = NumDigits(VecCount(code), 10);
 
-  len += fprintf(stderr, "%3d│ %s", *index, OpName(op));
+  len += fprintf(stderr, "%*d│ %s", num_width, *index, OpName(op));
   (*index)++;
 
   switch (op) {
@@ -87,12 +89,16 @@ void Disassemble(u8 *code)
 {
   u32 end = VecCount(code);
   u32 index = 0;
+  u32 num_width = NumDigits(VecCount(code), 10);
+  u32 i;
+
   if (!code) {
     fprintf(stderr, "--Empty--\n");
     return;
   }
 
-  fprintf(stderr, "───┬─disassembly─────\n");
+  for (i = 0; i < num_width; i++) fprintf(stderr, "─");
+  fprintf(stderr, "┬─disassembly─────\n");
   while (index < end) {
     DisassembleInst(code, &index);
     printf("\n");

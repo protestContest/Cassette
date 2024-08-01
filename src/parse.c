@@ -70,7 +70,7 @@ static Result ParseModname(Module *module, Parser *p);
 static Result ParseImports(ModuleImport **imports, Parser *p);
 static Result ParseExports(ModuleExport **exports, Parser *p);
 static Result ParseStmts(Parser *p);
-static Result ParseStmt(ASTNode ***stmts, ASTNode ***defs, Parser *p);
+static Result ParseStmt(ASTNode *node, Parser *p);
 static Result ParseDef(Parser *p);
 static Result ParseAssign(Parser *p);
 
@@ -286,68 +286,52 @@ static Result ParseImports(ModuleImport **imports, Parser *p)
 static Result ParseStmts(Parser *p)
 {
   Result result;
-  ASTNode **stmts = 0;
-  ASTNode **defs = 0;
   ASTNode *node;
   i32 pos = p->token.pos;
-  u32 i;
 
-  result = ParseStmt(&stmts, &defs, p);
-  if (IsError(result)) return result;
+  node = MakeNode(doNode, p->filename, pos, p->token.pos);
+
+  result = ParseStmt(node, p);
+  if (IsError(result)) return ParseFail(node, result);
 
   while (!AtEnd(p) && CheckToken(newlineToken, p)) {
     VSpacing(p);
     if (AtEnd(p) || CheckToken(endToken, p) || CheckToken(elseToken, p)) break;
-    result = ParseStmt(&stmts, &defs, p);
-    if (IsError(result)) {
-      for (i = 0; i < VecCount(stmts); i++) FreeNode(stmts[i]);
-      FreeVec(stmts);
-      for (i = 0; i < VecCount(defs); i++) FreeNode(defs[i]);
-      FreeVec(defs);
-      return result;
-    }
+    result = ParseStmt(node, p);
+    if (IsError(result)) ParseFail(node, result);
   }
 
-  if (!stmts || VecLast(stmts)->type == letNode || VecLast(stmts)->type == defNode) {
-    VecPush(stmts, MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos, 0));
+  if (!node->data.children ||
+      VecLast(node->data.children)->type == letNode ||
+      VecLast(node->data.children)->type == defNode) {
+    NodePush(MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos, 0), node);
   }
   VSpacing(p);
-  node = MakeNode(doNode, p->filename, pos, p->token.pos);
-  if (defs) {
-    u32 i;
-    for (i = 0; i < VecCount(stmts); i++) {
-      VecPush(defs, stmts[i]);
-    }
-    node->data.children = defs;
-    FreeVec(stmts);
-  } else {
-    node->data.children = stmts;
-  }
   return Ok(node);
 }
 
-static Result ParseStmt(ASTNode ***stmts, ASTNode ***defs, Parser *p)
+static Result ParseStmt(ASTNode *node, Parser *p)
 {
   Result result;
   if (CheckToken(defToken, p)) {
     result = ParseDef(p);
     if (IsError(result)) return result;
-    VecPush(*defs, result.data.p);
+    NodePush(result.data.p, node);
   } else if (MatchToken(letToken, p)) {
     Spacing(p);
     result = ParseAssign(p);
     if (IsError(result)) return result;
-    VecPush(*stmts, result.data.p);
+    NodePush(result.data.p, node);
     while (MatchToken(commaToken, p)) {
       VSpacing(p);
       result = ParseAssign(p);
       if (IsError(result)) return result;
-      VecPush(*stmts, result.data.p);
+      NodePush(result.data.p, node);
     }
   } else {
     result = ParseExpr(p);
     if (IsError(result)) return result;
-    VecPush(*stmts, result.data.p);
+    NodePush(result.data.p, node);
   }
   return Ok(0);
 }
@@ -360,7 +344,6 @@ static Result ParseDef(Parser *p)
 
   if (!MatchToken(defToken, p)) return ParseError("Expected \"def\"", p);
   Spacing(p);
-
 
   result = ParseID(p);
   if (IsError(result)) return result;

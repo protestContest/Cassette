@@ -1,4 +1,5 @@
 #include "env.h"
+#include "univ/symbol.h"
 
 Env *ExtendEnv(u32 size, Env *parent)
 {
@@ -50,4 +51,16 @@ u32 EnvGet(u32 index, Env *env)
     env = env->parent;
   }
   return 0;
+}
+
+void PrintEnv(Env *env)
+{
+  while (env) {
+    u32 i;
+    for (i = 0; i < env->size; i++) {
+      printf("%s ", SymbolName(env->items[i]));
+    }
+    printf("\n");
+    env = env->parent;
+  }
 }

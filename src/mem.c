@@ -80,7 +80,7 @@ void CollectGarbage(val *roots)
     return;
   }
 
-  printf("GARBAGE DAY!!!\n");
+  fprintf(stderr, "GARBAGE DAY!!!\n");
 
   mem = NewVec(val, VecCapacity(mem));
   VecPush(mem, 0);
@@ -213,8 +213,10 @@ bool InList(val item, val list)
 
 val Tuple(u32 length)
 {
+  u32 i;
   u32 index = MemAlloc(length+1);
   MemSet(index, TupleHeader(length));
+  for (i = 0; i < length; i++) mem[index + i + 1] = 0;
   return ObjVal(index);
 }
 
@@ -506,18 +508,32 @@ char *MemValStr(val value)
 void DumpMem(void)
 {
   u32 i;
-  u32 numCols = 6;
+  u32 numCols = 8;
   u32 colWidth = 10;
+  u32 numWidth = NumDigits(VecCount(mem), 10);
+  u32 bin_cells = 0;
+  char *bin_data = 0;
 
-  printf("%*d|", colWidth, 0);
+  printf("%*d│", numWidth, 0);
   for (i = 0; i < VecCount(mem); i++) {
-    char *str = MemValStr(MemGet(i));
-    printf("%*s|", colWidth, str);
-    free(str);
+    if (bin_cells > 0) {
+      printf("    \"%*.*s\"│", 4, 4, bin_data);
+      bin_data += 4;
+      bin_cells--;
+    } else {
+      val value = mem[i];
+      char *str = MemValStr(value);
+      printf("%*s│", colWidth, str);
+      free(str);
+      if (IsBinHdr(value)) {
+        bin_cells = BinSpace(RawVal(value));
+        bin_data = (char*)(mem + i + 1);
+      }
+    }
 
     if (i % numCols == numCols - 1) {
       printf("\n");
-      printf("%*d|", colWidth, i);
+      printf("%*d│", numWidth, i+1);
     }
   }
   printf("\n");

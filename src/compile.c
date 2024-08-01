@@ -316,7 +316,7 @@ static Result CompileLet(ASTNode *node, u32 assign_num, Env *env, ImportMap *imp
   return Ok(chunk);
 }
 
-static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool returns)
+static Result CompileStmts(ASTNode *node, u32 num_assigns, Env *env, ImportMap *imports, bool returns)
 {
   /*
   ; for each statement, except the last:
@@ -339,7 +339,8 @@ static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool ret
   for (i = 0; i < num_stmts-1; i++) {
     ASTNode *stmt = node->data.children[i];
     if (stmt->type == letNode || stmt->type == defNode) {
-      result = CompileLet(stmt, assign_num++, env, imports);
+      result = CompileLet(stmt, num_assigns - 1 - assign_num, env, imports);
+      assign_num++;
     } else {
       result = CompileExpr(stmt, env, imports, false);
     }
@@ -387,6 +388,23 @@ static u32 CountAssigns(ASTNode *node)
   return num_assigns;
 }
 
+static Env *DefineDefs(ASTNode *node, u32 num_assigns, Env *env)
+{
+  u32 i, j;
+  env = ExtendEnv(num_assigns, env);
+  for (i = 0, j = 0; i < VecCount(node->data.children); i++) {
+    ASTNode *item = node->data.children[i];
+    if (item->type == defNode) {
+      ASTNode *var_node = item->data.children[0];
+      EnvSet(var_node->data.value, num_assigns - j - 1, env);
+      j++;
+    } else if (item->type == letNode) {
+      j++;
+    }
+  }
+  return env;
+}
+
 static Result CompileDo(ASTNode *node, Env *env, ImportMap *imports, bool returns)
 {
   /*
@@ -396,24 +414,15 @@ static Result CompileDo(ASTNode *node, Env *env, ImportMap *imports, bool return
   */
   Chunk *chunk;
   Result result;
-  u32 i, j;
   u32 num_assigns = CountAssigns(node);
   assert(node->type == doNode);
 
-  if (num_assigns == 0) return CompileStmts(node, env, imports, returns);
+  if (num_assigns == 0) return CompileStmts(node, 0, env, imports, returns);
 
-  env = ExtendEnv(num_assigns, env);
-  for (i = 0, j = 0; i < VecCount(node->data.children); i++) {
-    ASTNode *item = node->data.children[i];
-    if (item->type == defNode) {
-      ASTNode *var_node = item->data.children[0];
-      EnvSet(var_node->data.value, num_assigns - j - 1, env);
-      j++;
-    }
-  }
+  env = DefineDefs(node, num_assigns, env);
   chunk = NewChunk();
   WriteExtendEnv(num_assigns, chunk);
-  result = CompileStmts(node, env, imports, returns);
+  result = CompileStmts(node, num_assigns, env, imports, returns);
   env = PopEnv(env);
   if (IsError(result)) return Fail(chunk, result);
   chunk = AppendChunk(chunk, result.data.p);
@@ -481,7 +490,7 @@ static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
   }
 
   result = CompileExpr(body, env, imports, true);
-  if (num_params > 0) PopEnv(env);
+  if (num_params > 0) env = PopEnv(env);
   if (IsError(result)) return Fail(chunk, result);
 
   chunk = AppendChunk(chunk, result.data.p);
@@ -729,7 +738,7 @@ after_cache:
   <return>
   */
 
-  u32 i, j;
+  u32 i;
   Result result;
   Chunk *chunk, *cache;
   u32 num_assigns = CountAssigns(module->ast);
@@ -739,22 +748,13 @@ after_cache:
   env = DefineImports(module, env);
 
   if (num_assigns > 0) {
-    env = ExtendEnv(num_assigns, env);
-    for (i = 0, j = 0; i < VecCount(module->ast->data.children); i++) {
-      ASTNode *item = module->ast->data.children[i];
-      if (item->type == defNode) {
-        ASTNode *var_node = item->data.children[0];
-        EnvSet(var_node->data.value, num_assigns - j - 1, env);
-        j++;
-      }
-    }
-
+    env = DefineDefs(module->ast, num_assigns, env);
     WriteExtendEnv(num_assigns, chunk);
   }
-  result = CompileStmts(module->ast, env, imports, false);
+  result = CompileStmts(module->ast, num_assigns, env, imports, false);
   if (IsError(result)) {
-    if (num_assigns > 0) PopEnv(env);
-    if (VecCount(module->imports) > 0) PopEnv(env);
+    if (num_assigns > 0) env = PopEnv(env);
+    if (VecCount(module->imports) > 0) env = PopEnv(env);
     DestroyHashMap(&imports->map);
     free(imports);
     return Fail(chunk, result);
@@ -768,8 +768,8 @@ after_cache:
   for (i = 0; i < VecCount(module->exports); i++) {
     EnvPosition pos = EnvFind(module->exports[i].name, env);
     if (pos.frame == -1) {
-      if (num_assigns > 0) PopEnv(env);
-      if (VecCount(module->imports) > 0) PopEnv(env);
+      if (num_assigns > 0) env = PopEnv(env);
+      if (VecCount(module->imports) > 0) env = PopEnv(env);
       DestroyHashMap(&imports->map);
       free(imports);
       return Fail(chunk, UndefinedExport(module->filename, &module->exports[i]));
@@ -802,8 +802,8 @@ after_cache:
   ChunkWrite(opDrop, chunk);
   WriteReturn(chunk);
 
-  if (num_assigns > 0) PopEnv(env);
-  if (VecCount(module->imports) > 0) PopEnv(env);
+  if (num_assigns > 0) env = PopEnv(env);
+  if (VecCount(module->imports) > 0) env = PopEnv(env);
   DestroyHashMap(&imports->map);
   free(imports);
 
