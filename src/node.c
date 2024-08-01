@@ -38,6 +38,20 @@ bool IsTerminal(ASTNode *node)
   }
 }
 
+ASTNode *CloneNode(ASTNode *node)
+{
+  ASTNode *clone = MakeNode(node->type, node->file, node->start, node->end);
+  if (IsTerminal(node)) {
+    clone->data.value = node->data.value;
+  } else {
+    u32 i;
+    for (i = 0; i < VecCount(node->data.children); i++) {
+      NodePush(CloneNode(node->data.children[i]), clone);
+    }
+  }
+  return clone;
+}
+
 void FreeNode(ASTNode *node)
 {
   if (!IsTerminal(node)) {

@@ -28,9 +28,12 @@ int main(int argc, char *argv[])
   result = BuildProject(project);
   if (IsError(result)) {
     PrintError(result);
+    FreeError(result.data.p);
+    FreeProject(project);
     return 1;
   }
   program = result.data.p;
+  FreeProject(project);
 
   Disassemble(program->code);
   fprintf(stderr, "\n");
@@ -38,9 +41,14 @@ int main(int argc, char *argv[])
   size = SerializeProgram(program, &bytes);
   HexDump(bytes, size);
   fprintf(stderr, "\n");
+  free(bytes);
 
   result = VMDebug(program);
   if (!result.ok) {
     PrintError(result);
+    FreeError(result.data.p);
   }
+
+  FreeProgram(program);
+  return 0;
 }

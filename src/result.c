@@ -37,6 +37,12 @@ Error *NewError(char *message, char *file, u32 pos, u32 length)
   return error;
 }
 
+void FreeError(Error *error)
+{
+  free(error->message);
+  free(error);
+}
+
 void PrintSourceContext(char *text, u32 pos, u32 length, u32 context)
 {
   u32 line = LineNum(text, pos);

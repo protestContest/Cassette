@@ -23,6 +23,7 @@ typedef struct ASTNode {
 
 ASTNode *MakeNode(NodeType type, char *file, u32 start, u32 end);
 ASTNode *MakeTerminal(NodeType type, char *file, u32 start, u32 end, u32 value);
+ASTNode *CloneNode(ASTNode *node);
 void FreeNode(ASTNode *node);
 bool IsTerminal(ASTNode *node);
 void NodePush(ASTNode *child, ASTNode *node);

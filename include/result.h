@@ -22,4 +22,5 @@ Result Ok(void *data);
 Result OkVal(u32 value);
 Result Err(Error *error);
 Error *NewError(char *message, char *file, u32 pos, u32 length);
+void FreeError(Error *error);
 void PrintError(Result result);

@@ -147,6 +147,7 @@ Result VMRun(Program *program)
   while (!VMDone(&vm)) {
     VMStep(&vm);
   }
+  DestroyVM(&vm);
   return vm.status;
 }
 
@@ -161,6 +162,8 @@ Result VMDebug(Program *program)
     VMTrace(&vm, 0);
     VMStep(&vm);
   }
+
+  DestroyVM(&vm);
   return vm.status;
 }
 

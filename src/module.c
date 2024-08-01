@@ -21,5 +21,5 @@ void DestroyModule(Module *module)
   if (module->imports) FreeVec(module->imports);
   if (module->exports) FreeVec(module->exports);
   if (module->ast) FreeNode(module->ast);
-  if (module->code) free(module->code);
+  if (module->code) FreeChunk(module->code);
 }

@@ -56,6 +56,7 @@ u32 DisassembleInst(u8 *code, u32 *index)
   OpCode op = code[*index];
   u32 arg;
   u32 len = 0;
+  char *arg_str;
 
   len += fprintf(stderr, "%3d│ %s", *index, OpName(op));
   (*index)++;
@@ -63,7 +64,9 @@ u32 DisassembleInst(u8 *code, u32 *index)
   switch (op) {
   case opConst:
     arg = ReadLEB(*index, code);
-    len += fprintf(stderr, " %s", MemValStr(arg));
+    arg_str = MemValStr(arg);
+    len += fprintf(stderr, " %s", arg_str);
+    free(arg_str);
     (*index) += LEBSize(arg);
     return len;
   case opTuple:

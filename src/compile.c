@@ -40,6 +40,12 @@ static Result UnknownExpr(ASTNode *node)
   return Err(error);
 }
 
+static Result Fail(Chunk *chunk, Result result)
+{
+  FreeChunk(chunk);
+  return result;
+}
+
 static void WriteReturn(Chunk *chunk)
 {
   ChunkWrite(opSwap, chunk);
@@ -147,7 +153,7 @@ static Result CompileTuple(ASTNode *node, Env *env, ImportMap *imports, bool ret
     Chunk *index_chunk, *item_chunk;
     ASTNode *item = node->data.children[num_items - 1 - i];
     Result result = CompileExpr(item, env, imports, false);
-    if (IsError(result)) return result;
+    if (IsError(result)) return Fail(items_chunk, result);
     item_chunk = NewChunk();
     ChunkWrite(opSet, item_chunk);
     items_chunk = AppendChunk(item_chunk, items_chunk);
@@ -179,7 +185,7 @@ static Result CompileOp(OpCode op, ASTNode *node, Env *env, ImportMap *imports, 
   for (i = 0; i < num_items; i++) {
     ASTNode *item = node->data.children[num_items - 1 - i];
     Result result = CompileExpr(item, env, imports, false);
-    if (IsError(result)) return result;
+    if (IsError(result)) return Fail(chunk, result);
     chunk = PreservingEnv(result.data.p, chunk);
   }
   ChunkWrite(op, chunk);
@@ -204,20 +210,21 @@ after:
   Result result;
   assert(node->type == andNode || node->type == orNode);
 
-  chunk = NewChunk();
-  ChunkWrite(opDrop, chunk);
-
   result = CompileExpr(node->data.children[1], env, imports, false);
   if (IsError(result)) return result;
+
+  chunk = NewChunk();
+  ChunkWrite(opDrop, chunk);
   right_chunk = AppendChunk(chunk, result.data.p);
 
   chunk = NewChunk();
   ChunkWrite(opDup, chunk);
   ChunkWrite(opBranch, chunk);
   ChunkWriteInt(ChunkSize(right_chunk), chunk);
+  right_chunk = AppendChunk(chunk, right_chunk);
 
   result = CompileExpr(node->data.children[0], env, imports, false);
-  if (IsError(result)) return result;
+  if (IsError(result)) return Fail(right_chunk, result);
   left_chunk = result.data.p;
 
   chunk = PreservingEnv(left_chunk, right_chunk);
@@ -246,11 +253,11 @@ after:
   pred_code = result.data.p;
 
   result = CompileExpr(node->data.children[1], env, imports, returns);
-  if (IsError(result)) return result;
+  if (IsError(result)) return Fail(pred_code, result);
   true_code = result.data.p;
 
   result = CompileExpr(node->data.children[2], env, imports, returns);
-  if (IsError(result)) return result;
+  if (IsError(result)) return Fail(AppendChunk(pred_code, true_code), result);
   false_code = result.data.p;
 
   if (!returns) {
@@ -287,18 +294,19 @@ static Result CompileLet(ASTNode *node, u32 assign_num, Env *env, ImportMap *imp
 
   Result result;
   ASTNode *var_node, *value;
-  Chunk *chunk = NewChunk();
+  Chunk *chunk;
   assert(node->type == letNode || node->type == defNode);
   var_node = node->data.children[0];
   value = node->data.children[1];
 
+  chunk = NewChunk();
   ChunkWrite(opGetEnv, chunk);
   ChunkWrite(opHead, chunk);
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(IntVal(assign_num), chunk);
 
   result = CompileExpr(value, env, imports, false);
-  if (IsError(result)) return result;
+  if (IsError(result)) return Fail(chunk, result);
   chunk = AppendChunk(chunk, result.data.p);
   EnvSet(var_node->data.value, assign_num, env);
 
@@ -332,10 +340,13 @@ static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool ret
     ASTNode *stmt = node->data.children[i];
     if (stmt->type == letNode || stmt->type == defNode) {
       result = CompileLet(stmt, assign_num++, env, imports);
-      if (IsError(result)) return result;
     } else {
       result = CompileExpr(stmt, env, imports, false);
-      if (IsError(result)) return result;
+    }
+    if (IsError(result)) {
+      for (i = 0; i < VecCount(chunks); i++) FreeChunk(chunks[i]);
+      FreeVec(chunks);
+      return result;
     }
     VecPush(chunks, result.data.p);
   }
@@ -343,7 +354,11 @@ static Result CompileStmts(ASTNode *node, Env *env, ImportMap *imports, bool ret
   last = node->data.children[num_stmts-1];
   assert (last->type != letNode && last->type != defNode);
   result = CompileExpr(last, env, imports, returns);
-  if (IsError(result)) return result;
+  if (IsError(result)) {
+    for (i = 0; i < VecCount(chunks); i++) FreeChunk(chunks[i]);
+    FreeVec(chunks);
+    return result;
+  }
   chunk = result.data.p;
 
   for (i = 0; i < VecCount(chunks); i++) {
@@ -399,9 +414,9 @@ static Result CompileDo(ASTNode *node, Env *env, ImportMap *imports, bool return
   chunk = NewChunk();
   WriteExtendEnv(num_assigns, chunk);
   result = CompileStmts(node, env, imports, returns);
-  if (IsError(result)) return result;
-  chunk = AppendChunk(chunk, result.data.p);
   env = PopEnv(env);
+  if (IsError(result)) return Fail(chunk, result);
+  chunk = AppendChunk(chunk, result.data.p);
   return Ok(chunk);
 }
 
@@ -434,7 +449,7 @@ static Chunk *CompileMakeLambda(Chunk *body, bool returns)
 
 static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
 {
-  Chunk *chunk;
+  Chunk *chunk = 0;
   ASTNode *params, *body;
   u32 num_params;
   Result result;
@@ -444,7 +459,6 @@ static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
   num_params = VecCount(params->data.children);
   body = node->data.children[1];
 
-  chunk = NewChunk();
   if (num_params > 0) {
     u32 i;
     chunk = NewChunk();
@@ -467,7 +481,8 @@ static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
   }
 
   result = CompileExpr(body, env, imports, true);
-  if (IsError(result)) return result;
+  if (num_params > 0) PopEnv(env);
+  if (IsError(result)) return Fail(chunk, result);
 
   chunk = AppendChunk(chunk, result.data.p);
   return Ok(chunk);
@@ -552,7 +567,7 @@ after:
 
   for (i = 0; i < num_items - 1; i++) {
     result = CompileExpr(node->data.children[num_items - 1 - i], env, imports, false);
-    if (IsError(result)) return result;
+    if (IsError(result)) return Fail(chunk, result);
     chunk = PreservingEnv(result.data.p, chunk);
   }
 
@@ -630,7 +645,7 @@ static ImportMap *IndexImports(Module *module, Module *modules)
   return imports;
 }
 
-static Result CompileImports(Module *module, ImportMap *imports)
+static Chunk *CompileImports(Module *module, ImportMap *imports)
 {
   /*
   getEnv
@@ -648,7 +663,7 @@ static Result CompileImports(Module *module, ImportMap *imports)
   Chunk *chunk = NewChunk();
   u32 i, import_id;
 
-  if (VecCount(module->imports) == 0) return Ok(chunk);
+  if (VecCount(module->imports) == 0) return chunk;
 
   ChunkWrite(opGetEnv, chunk);
   ChunkWrite(opTuple, chunk);
@@ -669,7 +684,7 @@ static Result CompileImports(Module *module, ImportMap *imports)
   }
   ChunkWrite(opPair, chunk);
   ChunkWrite(opSetEnv, chunk);
-  return Ok(chunk);
+  return chunk;
 }
 
 static Env *DefineImports(Module *module, Env *env)
@@ -720,9 +735,7 @@ after_cache:
   u32 num_assigns = CountAssigns(module->ast);
   ImportMap *imports = IndexImports(module, modules);
 
-  result = CompileImports(module, imports);
-  if (IsError(result)) return result;
-  chunk = result.data.p;
+  chunk = CompileImports(module, imports);
   env = DefineImports(module, env);
 
   if (num_assigns > 0) {
@@ -739,7 +752,13 @@ after_cache:
     WriteExtendEnv(num_assigns, chunk);
   }
   result = CompileStmts(module->ast, env, imports, false);
-  if (IsError(result)) return result;
+  if (IsError(result)) {
+    if (num_assigns > 0) PopEnv(env);
+    if (VecCount(module->imports) > 0) PopEnv(env);
+    DestroyHashMap(&imports->map);
+    free(imports);
+    return Fail(chunk, result);
+  }
   chunk = AppendChunk(chunk, result.data.p);
   ChunkWrite(opDrop, chunk);
 
@@ -748,7 +767,13 @@ after_cache:
 
   for (i = 0; i < VecCount(module->exports); i++) {
     EnvPosition pos = EnvFind(module->exports[i].name, env);
-    if (pos.frame == -1) return UndefinedExport(module->filename, &module->exports[i]);
+    if (pos.frame == -1) {
+      if (num_assigns > 0) PopEnv(env);
+      if (VecCount(module->imports) > 0) PopEnv(env);
+      DestroyHashMap(&imports->map);
+      free(imports);
+      return Fail(chunk, UndefinedExport(module->filename, &module->exports[i]));
+    }
     ChunkWrite(opConst, chunk);
     ChunkWriteInt(IntVal(i), chunk);
     WriteLookup(pos.frame, pos.index, chunk);
@@ -777,6 +802,11 @@ after_cache:
   ChunkWrite(opDrop, chunk);
   WriteReturn(chunk);
 
+  if (num_assigns > 0) PopEnv(env);
+  if (VecCount(module->imports) > 0) PopEnv(env);
+  DestroyHashMap(&imports->map);
+  free(imports);
+
   return Ok(chunk);
 }
 
@@ -803,7 +833,7 @@ after:
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(IntVal(module->id), chunk);
   result = CompileModuleBody(module, modules, env);
-  if (IsError(result)) return result;
+  if (IsError(result)) return Fail(chunk, result);
   chunk = AppendChunk(chunk, CompileMakeLambda(result.data.p, false));
   ChunkWrite(opSet, chunk);
   module->code = chunk;

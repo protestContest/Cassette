@@ -29,6 +29,12 @@ Result ParseError(char *msg, Parser *p)
   return Err(error);
 }
 
+Result ParseFail(ASTNode *node, Result result)
+{
+  FreeNode(node);
+  return result;
+}
+
 static void InitParser(Parser *p, char *text, char *filename)
 {
   p->filename = filename;
@@ -180,7 +186,7 @@ Result ParseModuleBody(Module *module)
     if (IsError(result)) return result;
     module->ast = result.data.p;
   }
-  if (!AtEnd(&p)) return ParseError("Expected end of file", &p);
+  if (!AtEnd(&p)) return ParseFail(module->ast, ParseError("Expected end of file", &p));
 
   return Ok(module);
 }
@@ -284,13 +290,22 @@ static Result ParseStmts(Parser *p)
   ASTNode **defs = 0;
   ASTNode *node;
   i32 pos = p->token.pos;
+  u32 i;
+
   result = ParseStmt(&stmts, &defs, p);
   if (IsError(result)) return result;
+
   while (!AtEnd(p) && CheckToken(newlineToken, p)) {
     VSpacing(p);
     if (AtEnd(p) || CheckToken(endToken, p) || CheckToken(elseToken, p)) break;
     result = ParseStmt(&stmts, &defs, p);
-    if (IsError(result)) return result;
+    if (IsError(result)) {
+      for (i = 0; i < VecCount(stmts); i++) FreeNode(stmts[i]);
+      FreeVec(stmts);
+      for (i = 0; i < VecCount(defs); i++) FreeNode(defs[i]);
+      FreeVec(defs);
+      return result;
+    }
   }
 
   if (!stmts || VecLast(stmts)->type == letNode || VecLast(stmts)->type == defNode) {
@@ -339,55 +354,56 @@ static Result ParseStmt(ASTNode ***stmts, ASTNode ***defs, Parser *p)
 
 static Result ParseDef(Parser *p)
 {
-  ASTNode *id, *lambda, *params, *body, *node;
+  ASTNode *lambda, *node;
   Result result;
   i32 pos = p->token.pos;
+
   if (!MatchToken(defToken, p)) return ParseError("Expected \"def\"", p);
   Spacing(p);
+
+
   result = ParseID(p);
   if (IsError(result)) return result;
-  id = result.data.p;
-  if (!MatchToken(lparenToken, p)) return ParseError("Expected \"(\"", p);
+  node = MakeNode(defNode, p->filename, pos, pos);
+  NodePush(result.data.p, node);
+  lambda = MakeNode(lambdaNode, p->filename, pos, pos);
+  NodePush(lambda, node);
+
+  if (!MatchToken(lparenToken, p)) return ParseFail(node, ParseError("Expected \"(\"", p));
   VSpacing(p);
   if (MatchToken(rparenToken, p)) {
-    params = MakeNode(paramsNode, p->filename, p->token.pos, p->token.pos);
+    ASTNode *params = MakeNode(paramsNode, p->filename, p->token.pos, p->token.pos);
+    NodePush(params, lambda);
   } else {
     result = ParseParams(p);
-    if (IsError(result)) return result;
-    params = result.data.p;
-    if (!MatchToken(rparenToken, p)) return ParseError("Expected \")\"", p);
+    if (IsError(result)) return ParseFail(node, result);
+    NodePush(result.data.p, lambda);
+    if (!MatchToken(rparenToken, p)) return ParseFail(node, ParseError("Expected \")\"", p));
   }
   VSpacing(p);
   result = ParseExpr(p);
-  if (IsError(result)) return result;
-  body = result.data.p;
+  if (IsError(result)) return ParseFail(node, result);
+  NodePush(result.data.p, lambda);
 
-  lambda = MakeNode(lambdaNode, p->filename, pos, body->end);
-  NodePush(params, lambda);
-  NodePush(body, lambda);
-
-  node = MakeNode(defNode, p->filename, pos, lambda->end);
-  NodePush(id, node);
-  NodePush(lambda, node);
   return Ok(node);
 }
 
 static Result ParseAssign(Parser *p)
 {
-  ASTNode *id, *value, *node;
+  ASTNode *node;
   Result result;
   result = ParseID(p);
   if (IsError(result)) return result;
-  id = result.data.p;
+
+  node = MakeNode(letNode, p->filename, p->token.pos, p->token.pos);
+  NodePush(result.data.p, node);
+
   Spacing(p);
-  if (!MatchToken(eqToken, p)) return ParseError("Expected \"=\"", p);
+  if (!MatchToken(eqToken, p)) return ParseFail(node, ParseError("Expected \"=\"", p));
   VSpacing(p);
   result = ParseExpr(p);
-  if (IsError(result)) return result;
-  value = result.data.p;
-  node = MakeNode(letNode, p->filename, id->start, value->end);
-  NodePush(id, node);
-  NodePush(value, node);
+  if (IsError(result)) return ParseFail(node, result);
+  NodePush(result.data.p, node);
   return Ok(node);
 }
 
@@ -446,7 +462,7 @@ static Result ParseOp(ASTNode *expr, Parser *p)
   Adv(p);
   VSpacing(p);
   result = ParsePrec(rules[token.type].prec + 1, p);
-  if (IsError(result)) return result;
+  if (IsError(result)) return ParseFail(expr, result);
   arg = result.data.p;
   start = expr->start;
   end = arg->end;
@@ -480,7 +496,7 @@ static Result ParsePair(ASTNode *expr, Parser *p)
   Adv(p);
   VSpacing(p);
   result = ParsePrec(rules[token.type].prec, p);
-  if (IsError(result)) return result;
+  if (IsError(result)) return ParseFail(expr, result);
   arg = result.data.p;
   start = expr->start;
   end = arg->end;
@@ -508,7 +524,7 @@ static Result ParseCall(ASTNode *expr, Parser *p)
   do {
     VSpacing(p);
     result = ParseExpr(p);
-    if (IsError(result)) return result;
+    if (IsError(result)) return ParseFail(node, result);
     NodePush(result.data.p, node);
   } while (MatchToken(commaToken, p));
 
@@ -520,43 +536,35 @@ static Result ParseCall(ASTNode *expr, Parser *p)
 
 static Result ParseAccess(ASTNode *expr, Parser *p)
 {
-  ASTNode *node, *start_node, *end_node = 0;
-  u32 end;
+  ASTNode *node, *end_node = 0;
   Result result;
   Adv(p);
   VSpacing(p);
 
   result = ParseExpr(p);
-  if (IsError(result)) return result;
-  start_node = result.data.p;
+  if (IsError(result)) return ParseFail(expr, result);
+  node = MakeNode(accessNode, p->filename, expr->start, expr->end);
+  NodePush(expr, node);
+  NodePush(result.data.p, node);
 
   VSpacing(p);
   if (MatchToken(colonToken, p)) {
+    node->type = sliceNode;
     VSpacing(p);
     if (CheckToken(rbracketToken, p)) {
       end_node = MakeNode(lenNode, p->filename, p->token.pos, p->token.pos);
-      NodePush(expr, end_node);
+      NodePush(CloneNode(expr), end_node);
     } else {
       result = ParseExpr(p);
-      if (IsError(result)) return result;
+      if (IsError(result)) return ParseFail(node, result);
       end_node = result.data.p;
       VSpacing(p);
     }
-  }
-  if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
-  end = p->token.pos;
-  Spacing(p);
-
-  if (end_node) {
-    node = MakeNode(sliceNode, p->filename, expr->start, end);
-    NodePush(expr, node);
-    NodePush(start_node, node);
     NodePush(end_node, node);
-  } else {
-    node = MakeNode(accessNode, p->filename, expr->start, end);
-    NodePush(expr, node);
-    NodePush(start_node, node);
   }
+  if (!MatchToken(rbracketToken, p)) return ParseFail(node, ParseError("Expected \"]\"", p));
+  node->end = p->token.pos;
+  Spacing(p);
   return Ok(node);
 }
 
@@ -593,20 +601,23 @@ static Result ParseLambda(Parser *p)
   i32 pos = p->token.pos;
   if (!MatchToken(bslashToken, p)) return ParseError("Expected \"\\\"", p);
   Spacing(p);
+
+  node = MakeNode(lambdaNode, p->filename, pos, pos);
+
   if (MatchToken(arrowToken, p)) {
     params = MakeNode(paramsNode, p->filename, p->token.pos, p->token.pos);
+    NodePush(params, node);
   } else {
     result = ParseParams(p);
-    if (IsError(result)) return result;
+    if (IsError(result)) return ParseFail(node, result);
     params = result.data.p;
-    if (!MatchToken(arrowToken, p)) return ParseError("Expected \"->\"", p);
+    NodePush(params, node);
+    if (!MatchToken(arrowToken, p)) return ParseFail(node, ParseError("Expected \"->\"", p));
   }
   VSpacing(p);
   result = ParseExpr(p);
-  if (IsError(result)) return result;
+  if (IsError(result)) return ParseFail(node, result);
   body = result.data.p;
-  node = MakeNode(lambdaNode, p->filename, pos, body->end);
-  NodePush(params, node);
   NodePush(body, node);
   return Ok(node);
 }
@@ -634,7 +645,7 @@ static Result ParseDo(Parser *p)
   result = ParseStmts(p);
   if (IsError(result)) return result;
   node = result.data.p;
-  if (!MatchToken(endToken, p)) return ParseError("Expected \"end\"", p);
+  if (!MatchToken(endToken, p)) return ParseFail(node, ParseError("Expected \"end\"", p));
   end = p->token.pos;
   Spacing(p);
   node->start = start;
@@ -646,27 +657,27 @@ static Result ParseIf(Parser *p)
 {
   Result result;
   ASTNode *node;
-  node = MakeNode(ifNode, p->filename, p->token.pos, p->token.pos);
   if (!MatchToken(ifToken, p)) return ParseError("Expected \"if\"", p);
   Spacing(p);
   result = ParseExpr(p);
   if (IsError(result)) return result;
+  node = MakeNode(ifNode, p->filename, p->token.pos, p->token.pos);
   NodePush(result.data.p, node);
-  if (!MatchToken(doToken, p)) return ParseError("Expected \"do\"", p);
+  if (!MatchToken(doToken, p)) return ParseFail(node, ParseError("Expected \"do\"", p));
   VSpacing(p);
   result = ParseStmts(p);
-  if (IsError(result)) return result;
+  if (IsError(result)) return ParseFail(node, result);
   NodePush(result.data.p, node);
   if (MatchToken(elseToken, p)) {
     VSpacing(p);
     result = ParseStmts(p);
-    if (IsError(result)) return result;
+    if (IsError(result)) return ParseFail(node, result);
     NodePush(result.data.p, node);
   } else {
     ASTNode *alt = MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos, 0);
     NodePush(alt, node);
   }
-  if (!MatchToken(endToken, p)) return ParseError("Expected \"end\"", p);
+  if (!MatchToken(endToken, p)) return ParseFail(node, ParseError("Expected \"end\"", p));
   node->end = p->token.pos;
   Spacing(p);
   return Ok(node);
@@ -680,7 +691,7 @@ static Result ParseCond(Parser *p)
   result = ParseClauses(p);
   if (IsError(result)) return result;
   expr = result.data.p;
-  if (!MatchToken(endToken, p)) return ParseError("Expected \"end\"", p);
+  if (!MatchToken(endToken, p)) return ParseFail(expr, ParseError("Expected \"end\"", p));
   Spacing(p);
   return Ok(expr);
 }
@@ -694,16 +705,16 @@ static Result ParseClauses(Parser *p)
 
   node = MakeNode(ifNode, p->filename, p->token.pos, p->token.pos);
   result = ParseExpr(p);
-  if (IsError(result)) return result;
+  if (IsError(result)) return ParseFail(node, result);
   NodePush(result.data.p, node);
-  if (!MatchToken(arrowToken, p)) return ParseError("Expected \"->\"", p);
+  if (!MatchToken(arrowToken, p)) return ParseFail(node, ParseError("Expected \"->\"", p));
   VSpacing(p);
   result = ParseExpr(p);
-  if (IsError(result)) return result;
+  if (IsError(result)) return ParseFail(node, result);
   NodePush(result.data.p, node);
   node->end = p->token.pos;
   result = ParseClauses(p);
-  if (IsError(result)) return result;
+  if (IsError(result)) return ParseFail(node, result);
   NodePush(result.data.p, node);
   return Ok(node);
 }
@@ -713,21 +724,21 @@ static Result ParseListTail(Parser *p)
   Result result;
   ASTNode *node, *item, *tail;
 
-  node = MakeNode(pairNode, p->filename, p->token.pos, p->token.pos);
-
   result = ParseExpr(p);
   if (IsError(result)) return result;
+
   item = result.data.p;
 
   if (MatchToken(commaToken, p)) {
     VSpacing(p);
     result = ParseListTail(p);
-    if (IsError(result)) return result;
+    if (IsError(result)) return ParseFail(item, result);
     tail = result.data.p;
   } else {
     tail = MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos, 0);
   }
 
+  node = MakeNode(pairNode, p->filename, p->token.pos, p->token.pos);
   NodePush(tail, node);
   NodePush(item, node);
   node->end = tail->end;
@@ -752,7 +763,7 @@ static Result ParseList(Parser *p)
   node = result.data.p;
   VSpacing(p);
 
-  if (!MatchToken(rbracketToken, p)) return ParseError("Expected \"]\"", p);
+  if (!MatchToken(rbracketToken, p)) return ParseFail(node, ParseError("Expected \"]\"", p));
   Spacing(p);
 
   return Ok(node);
@@ -776,11 +787,11 @@ static Result ParseTuple(Parser *p)
   do {
     VSpacing(p);
     result = ParseExpr(p);
-    if (IsError(result)) return result;
+    if (IsError(result)) return ParseFail(node, result);
     NodePush(result.data.p, node);
   } while (MatchToken(commaToken, p));
 
-  if (!MatchToken(rbraceToken, p)) return ParseError("Expected \"}\"", p);
+  if (!MatchToken(rbraceToken, p)) return ParseFail(node, ParseError("Expected \"}\"", p));
   node->end = p->token.pos;
   Spacing(p);
   return Ok(node);
@@ -790,7 +801,6 @@ static Result ParseVar(Parser *p)
 {
   return ParseID(p);
 }
-
 
 static Result ParseNum(Parser *p)
 {
@@ -899,7 +909,7 @@ static Result ParseParams(Parser *p)
     ASTNode *item;
     VSpacing(p);
     result = ParseID(p);
-    if (IsError(result)) return result;
+    if (IsError(result)) return ParseFail(node, result);
     item = result.data.p;
     NodePush(item, node);
     node->end = item->end;

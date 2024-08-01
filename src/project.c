@@ -33,8 +33,8 @@ static FileList *ListProjectFiles(char *entryfile, char *searchpath)
   u32 i;
   FileList *list = ListFiles(DirName(entryfile), ".ct", 0);
   if (searchpath) list = ListFiles(searchpath, ".ct", list);
-  for (i = 0; i < list->count; i++) {
-    if (i > 0 && StrEq(entryfile, list->filenames[i])) {
+  for (i = 1; i < list->count; i++) {
+    if (StrEq(entryfile, list->filenames[i])) {
       char *tmp = list->filenames[i];
       list->filenames[i] = list->filenames[0];
       list->filenames[0] = tmp;
@@ -60,6 +60,8 @@ Project *NewProject(char *entryfile, char *searchpath)
     mod.source = ReadFile(files->filenames[i]);
     VecPush(project->modules, mod);
   }
+  free(files->filenames);
+  free(files);
   return project;
 }
 
@@ -109,6 +111,8 @@ static Result ScanProjectDeps(Project *project)
       u32 import = module->imports[i].module;
       if (!HashMapContains(&scan_set, import)) {
         if (!HashMapContains(&project->mod_map, import)) {
+          DestroyHashMap(&scan_set);
+          FreeVec(scan_list);
           return ModuleNotFound(SymbolName(import), module->filename, module->imports[i].pos);
         }
 
@@ -159,6 +163,9 @@ static u8 *LinkModules(Project *project)
   }
   SerializeChunk(outro, cur);
 
+  FreeChunk(intro);
+  FreeChunk(outro);
+
   return data;
 }
 
@@ -167,10 +174,9 @@ Result BuildProject(Project *project)
   Result result;
   u32 i;
   Env *env = 0;
-  Program *program = NewProgram();
-  char *symbols;
+  Program *program;
+  char *symbols = 0;
   u32 sym_size;
-
   DestroySymbols();
   SetSymbolSize(valBits);
 
@@ -190,12 +196,12 @@ Result BuildProject(Project *project)
     if (IsError(result)) return result;
   }
 
+  program = NewProgram();
   program->code = LinkModules(project);
   sym_size = ExportSymbols(&symbols);
   program->symbols = NewVec(char, sym_size);
   Copy(symbols, program->symbols, sym_size);
   RawVecCount(program->symbols) = sym_size;
   free(symbols);
-
   return Ok(program);
 }
