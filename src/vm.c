@@ -103,7 +103,9 @@ static OpFn ops[] = {
 
 Result RuntimeError(char *message, struct VM *vm)
 {
-  Error *error = NewError(0, 0, 0, 0);
+  char *file = GetSourceFile(vm->pc, &vm->program->srcmap);
+  u32 pos = GetSourcePos(vm->pc, &vm->program->srcmap);
+  Error *error = NewError(0, file, pos, 0);
   error->message = StrCat(error->message, "Runtime error: ");
   error->message = StrCat(error->message, message);
   return Err(error);

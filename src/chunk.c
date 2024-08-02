@@ -4,12 +4,13 @@
 #include "univ/str.h"
 #include <univ/vec.h>
 
-Chunk *NewChunk(void)
+Chunk *NewChunk(u32 src)
 {
   Chunk *chunk = malloc(sizeof(Chunk));
   chunk->data = 0;
   chunk->needs_env = false;
   chunk->modifies_env = false;
+  chunk->src = src;
   chunk->next = 0;
   return chunk;
 }
@@ -74,7 +75,7 @@ Chunk *PreservingEnv(Chunk *first, Chunk *second)
   if (!second) return first;
   if (!first) return second;
   if (second->needs_env && first->modifies_env) {
-    Chunk *save_env = NewChunk();
+    Chunk *save_env = NewChunk(first->src);
     save_env->needs_env = true;
     save_env->modifies_env = false;
     ChunkWrite(opGetEnv, save_env);

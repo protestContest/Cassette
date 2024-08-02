@@ -9,10 +9,11 @@ typedef struct Chunk {
   u8 *data;
   bool needs_env;
   bool modifies_env;
+  u32 src;
   struct Chunk *next;
 } Chunk;
 
-Chunk *NewChunk(void);
+Chunk *NewChunk(u32 src);
 void FreeChunk(Chunk *chunk);
 void ChunkMakeRoom(u32 size, Chunk *chunk);
 void ChunkWrite(u8 byte, Chunk *chunk);

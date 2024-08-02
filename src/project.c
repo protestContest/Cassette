@@ -135,16 +135,15 @@ static Result ScanProjectDeps(Project *project)
   return Ok(project);
 }
 
-static u8 *LinkModules(Project *project)
+static void LinkModules(Project *project, Program *program)
 {
   u32 i;
   u32 size = 0;
   u8 *data, *cur;
   u32 num_modules = VecCount(project->build_list);
-  u32 trailing_bytes;
 
   Chunk *intro = CompileIntro(num_modules);
-  Chunk *outro = NewChunk();
+  Chunk *outro = NewChunk(0);
   ChunkWrite(opSetMod, outro);
   outro = AppendChunk(outro, CompileCallMod(0));
   ChunkWrite(opDrop, outro);
@@ -154,27 +153,25 @@ static u8 *LinkModules(Project *project)
     u32 idx = project->build_list[i];
     size += ChunkSize(project->modules[idx].code);
   }
-  trailing_bytes = sizeof(u32) - (size % sizeof(u32));
-  size = Align(size, sizeof(u32));
   data = NewVec(u8, size);
   RawVecCount(data) = size;
   cur = data;
+
+  AddChunkSource(intro, 0, &program->srcmap);
   cur = SerializeChunk(intro, cur);
   for (i = 0; i < VecCount(project->build_list); i++) {
     u32 modnum = project->build_list[num_modules - 1 - i];
     Module *mod = &project->modules[modnum];
+    AddChunkSource(mod->code, mod->filename, &program->srcmap);
     cur = SerializeChunk(mod->code, cur);
   }
+  AddChunkSource(outro, 0, &program->srcmap);
   SerializeChunk(outro, cur);
 
   FreeChunk(intro);
   FreeChunk(outro);
 
-  for (i = 0; i < trailing_bytes; i++) {
-    data[VecCount(data) - trailing_bytes + i] = opNoop;
-  }
-
-  return data;
+  program->code = data;
 }
 
 void CollectSymbols(ASTNode *node, HashMap *symbols)
@@ -203,9 +200,7 @@ char *SerializeSymbols(HashMap *symbols)
     Copy(name, VecEnd(data) - len, len);
     VecPush(data, 0);
   }
-  for (i = 0; i < VecCount(data) % sizeof(u32); i++) {
-    VecPush(data, 0);
-  }
+
   return data;
 }
 
@@ -241,7 +236,7 @@ Result BuildProject(Project *project)
   }
 
   program = NewProgram();
-  program->code = LinkModules(project);
+  LinkModules(project, program);
   program->strings = SerializeSymbols(&symbols);
   DestroyHashMap(&symbols);
   return Ok(program);

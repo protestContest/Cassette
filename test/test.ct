@@ -1,6 +1,6 @@
 import Canvas
 
-let canvas = Canvas.new(500, 500)
+let size = 500, canvas = Canvas.new(size, size)
 
-Canvas.line(10, 10, 100, 100, canvas)
+Canvas.bezier(100, 300, 200, 100, 400, 400)
 Canvas.present(canvas)

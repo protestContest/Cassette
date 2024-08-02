@@ -35,14 +35,14 @@ int main(int argc, char *argv[])
   FreeProject(project);
 
 #if DEBUG
-  Disassemble(program->code);
+  DisassembleProgram(program);
   fprintf(stderr, "\n");
 
   {
     u8 *bytes = 0;
     u32 size;
     size = SerializeProgram(program, &bytes);
-    HexDump(bytes, size);
+    HexDump(bytes, size, 0);
     fprintf(stderr, "\n");
     WriteFile(bytes, size, "test.csst");
     free(bytes);

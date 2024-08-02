@@ -1,10 +1,10 @@
 module Canvas
-export new, clear, present, line
+export new, clear, present, line, bezier
 
 def new(width, height) do
   let canvas = sdl_new_window(width, height)
   clear(canvas)
-  sdl_present(canvas)
+  canvas
 end
 
 def clear(canvas) do
@@ -27,8 +27,29 @@ def present(canvas) do
       loop()
     end
   end
+  sdl_present(canvas)
   loop()
   sdl_destroy_window(canvas)
 end
 
-def line(x1, y1, x2, y2, canvas) sdl_line(10, 10, 100, 100, canvas)
+def line(x1, y1, x2, y2, canvas) sdl_line(x1, y1, x2, y2, canvas)
+
+def midpoint(p1, p2) do
+  {(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2}
+end
+
+def bezier(x1, y1, x2, y2, x3, y3) do
+  def loop(a, b, c, n) do
+    if n == 0 do
+      line(a[0], a[1], b[0], b[1])
+    else
+      let m12 = midpoint(a, b),
+          m23 = midpoint(b, c),
+          m = midpoint(m12, m23)
+      loop(a, m12, m)
+      loop(m, m23, c)
+    end
+  end
+
+  loop({x1, y1}, {x2, y2}, {x3, y3}, 5)
+end
