@@ -166,6 +166,7 @@ Result ParseModuleBody(Module *module)
 {
   Parser p;
   Result result;
+  ASTNode *ast;
 
   InitParser(&p, module->source, module->filename);
   VSpacing(&p);
@@ -179,15 +180,16 @@ Result ParseModuleBody(Module *module)
 
   if (AtEnd(&p)) {
     ASTNode *stmt = MakeTerminal(constNode, p.filename, p.token.pos, p.token.pos, 0);
-    module->ast = MakeNode(doNode, p.filename, p.token.pos, p.token.pos);
+    ast = MakeNode(doNode, p.filename, p.token.pos, p.token.pos);
     NodePush(stmt, module->ast);
   } else {
     result = ParseStmts(&p);
     if (IsError(result)) return result;
-    module->ast = result.data.p;
+    ast = result.data.p;
   }
-  if (!AtEnd(&p)) return ParseFail(module->ast, ParseError("Expected end of file", &p));
+  if (!AtEnd(&p)) return ParseFail(ast, ParseError("Expected end of file", &p));
 
+  module->ast = ast;
   return Ok(module);
 }
 

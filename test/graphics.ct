@@ -1,0 +1,31 @@
+module Graphics
+export line, midpoint, bezier, rect
+
+def line(x1, y1, x2, y2, window) trap(:sdl_line, x1, y1, x2, y2, window)
+
+def midpoint(p1, p2) do
+  {(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2}
+end
+
+def bezier(x1, y1, x2, y2, x3, y3, window) do
+  def loop(a, b, c, n) do
+    if n == 0 do
+      line(a[0], a[1], c[0], c[1], window)
+    else
+      let m12 = midpoint(a, b),
+          m23 = midpoint(b, c),
+          m = midpoint(m12, m23)
+      loop(a, m12, m, n - 1)
+      loop(m, m23, c, n - 1)
+    end
+  end
+
+  loop({x1, y1}, {x2, y2}, {x3, y3}, 5)
+end
+
+def rect(x1, y1, x2, y2, window) do
+  line(x1, y1, x1, y2, window)
+  line(x2, y1, x2, y2, window)
+  line(x1, y1, x2, y1, window)
+  line(x1, y2, x2, y2, window)
+end

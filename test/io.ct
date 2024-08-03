@@ -1,0 +1,5 @@
+module IO
+export print, format
+
+def print(value) trap(:print, value)
+def format(value) trap(:format, value)

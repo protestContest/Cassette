@@ -90,6 +90,18 @@ Result SDLSetColor(VM *vm)
   return OkVal(0);
 }
 
+static val EventType(SDL_Event *event)
+{
+  switch (event->type) {
+  case SDL_QUIT:            return SymVal(Symbol("quit"));
+  case SDL_KEYDOWN:         return SymVal(Symbol("keydown"));
+  case SDL_KEYUP:           return SymVal(Symbol("keyup"));
+  case SDL_MOUSEBUTTONDOWN: return SymVal(Symbol("mousedown"));
+  case SDL_MOUSEBUTTONUP:   return SymVal(Symbol("mouseup"));
+  default:                  return 0;
+  }
+}
+
 static val KeySymbol(SDL_Keycode keycode)
 {
   switch (keycode) {
@@ -195,25 +207,29 @@ static val KeySymbol(SDL_Keycode keycode)
 Result SDLPollEvent(VM *vm)
 {
   SDL_Event event;
+  val event_val = Tuple(5);
+  i32 x, y;
+  val where = Tuple(2);
+  TupleSet(event_val, 0, EventType(&event));
+  TupleSet(event_val, 1, IntVal(event.quit.timestamp));
+  SDL_GetMouseState(&x, &y);
+  TupleSet(where, 0, IntVal(x));
+  TupleSet(where, 1, IntVal(y));
+  TupleSet(event_val, 2, where);
+
   if (SDL_PollEvent(&event)) {
-    val event_val;
     switch (event.type) {
-    case SDL_QUIT:
-      event_val = Tuple(2);
-      TupleSet(event_val, 0, SymVal(Symbol("quit")));
-      TupleSet(event_val, 1, IntVal(event.quit.timestamp));
-      break;
     case SDL_KEYDOWN:
-      event_val = Tuple(3);
-      TupleSet(event_val, 0, SymVal(Symbol("keydown")));
-      TupleSet(event_val, 1, IntVal(event.key.timestamp));
-      TupleSet(event_val, 2, KeySymbol(event.key.keysym.sym));
+    case SDL_KEYUP:
+      TupleSet(event_val, 3, KeySymbol(event.key.keysym.sym));
+      TupleSet(event_val, 4, IntVal(event.key.keysym.mod));
       break;
-    default:
-      return OkVal(0);
+    case SDL_MOUSEBUTTONDOWN:
+    case SDL_MOUSEBUTTONUP:
+      TupleSet(where, 0, IntVal(event.button.x));
+      TupleSet(where, 1, IntVal(event.button.y));
+      break;
     }
-    return OkVal(event_val);
-  } else {
-    return OkVal(0);
   }
+  return OkVal(event_val);
 }

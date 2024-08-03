@@ -18,14 +18,15 @@ Token NextToken(char *src, u32 pos)
   }
   if (IsNewline(src[pos])) return MakeToken(newlineToken, pos, 1);
   if (IsDigit(src[pos])) {
-    u32 len = 1;
-    TokenType type = numToken;
-    if (src[pos+len] == 'x') {
-      len++;
-      type = hexToken;
+    if (src[pos+1] == 'x') {
+      u32 len = 2;
+      while (IsHexDigit(src[pos+len])) len++;
+      return MakeToken(hexToken, pos, len);
+    } else {
+      u32 len = 1;
+      while (IsDigit(src[pos+len])) len++;
+      return MakeToken(numToken, pos, len);
     }
-    while (IsDigit(src[pos+len])) len++;
-    return MakeToken(type, pos, len);
   }
   if (src[pos] == '"') {
     u32 len = 1;

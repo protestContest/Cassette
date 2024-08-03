@@ -1,0 +1,8 @@
+module File
+export open, close, read, write, seek
+
+def open(path, flags, mode) trap(:open, path, flags, mode)
+def close(file) trap(:close, file)
+def read(file, size) trap(:read, file, size)
+def write(file, data, size) trap(:write, file, data, size)
+def seek(file, offset, whence) trap(:seek, file, offset, whence)

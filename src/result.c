@@ -75,13 +75,17 @@ void PrintSourceContext(char *text, u32 pos, u32 length, u32 context)
   fprintf(stderr, "\n");
 
   line = LineEnd(line-text, text);
-  while (line <= endline) {
+  while (line < endline) {
     linenum = LineNum(text, line-text);
     lineend = LineEnd(line-text, text);
     len = lineend - line;
     fprintf(stderr, " %*d│ %*.*s", linenum_width, linenum+1, len, len, line);
     line = lineend;
   }
+  linenum = LineNum(text, line-text);
+  lineend = LineEnd(line-text, text);
+  len = lineend - line;
+  fprintf(stderr, " %*d│ %*.*s", linenum_width, linenum+1, len, len, line);
 }
 
 void PrintError(Result result)

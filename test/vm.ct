@@ -1,0 +1,5 @@
+module VM
+export typeof, panic!
+
+def typeof(value) trap(:typeof, value)
+def panic!(message) trap(:panic!, message)

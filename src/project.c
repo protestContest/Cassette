@@ -157,7 +157,7 @@ static void LinkModules(Project *project, Program *program)
   RawVecCount(data) = size;
   cur = data;
 
-  AddChunkSource(intro, 0, &program->srcmap);
+  AddChunkSource(intro, "(system)", &program->srcmap);
   cur = SerializeChunk(intro, cur);
   for (i = 0; i < VecCount(project->build_list); i++) {
     u32 modnum = project->build_list[num_modules - 1 - i];
@@ -165,7 +165,7 @@ static void LinkModules(Project *project, Program *program)
     AddChunkSource(mod->code, mod->filename, &program->srcmap);
     cur = SerializeChunk(mod->code, cur);
   }
-  AddChunkSource(outro, 0, &program->srcmap);
+  AddChunkSource(outro, "(system)", &program->srcmap);
   SerializeChunk(outro, cur);
 
   FreeChunk(intro);
@@ -174,7 +174,7 @@ static void LinkModules(Project *project, Program *program)
   program->code = data;
 }
 
-void CollectSymbols(ASTNode *node, HashMap *symbols)
+static void CollectSymbols(ASTNode *node, HashMap *symbols)
 {
   if (node->type == strNode) {
     HashMapSet(symbols, RawVal(node->data.value), 1);
@@ -188,7 +188,12 @@ void CollectSymbols(ASTNode *node, HashMap *symbols)
   }
 }
 
-char *SerializeSymbols(HashMap *symbols)
+static void AddSymbol(u32 symbol, HashMap *symbols)
+{
+  HashMapSet(symbols, symbol, 1);
+}
+
+static char *SerializeSymbols(HashMap *symbols)
 {
   char *data = 0;
   u32 i;
@@ -226,6 +231,7 @@ Result BuildProject(Project *project)
     if (IsError(result)) return result;
 
     CollectSymbols(module->ast, &symbols);
+    AddSymbol(Symbol(module->filename), &symbols);
 
 #if DEBUG
     PrintNode(module->ast);

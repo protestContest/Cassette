@@ -1,6 +1,14 @@
-import Canvas
+import Window, Graphics, Event, IO
 
-let size = 500, canvas = Canvas.new(size, size)
+let size = 500, canvas = Window.new(size, size)
 
-Canvas.bezier(100, 300, 200, 100, 400, 400, canvas)
-Canvas.present(canvas)
+Window.set_color({255, 255, 255}, canvas)
+Window.clear(canvas)
+Window.set_color({0, 0, 0}, canvas)
+Graphics.bezier(100, 300, 200, 100, 400, 400, canvas)
+Graphics.rect(100, 300, 400, 400, canvas)
+Window.present(canvas)
+Event.loop(\event -> do
+  IO.print(Event.type(event))
+  Event.type(event) == :keydown and Event.message(event) == :q
+end)

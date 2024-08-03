@@ -1,0 +1,10 @@
+module Window
+export new, set_color, clear, present
+
+def white() {255, 255, 255}
+def black() {0, 0, 0}
+
+def new(width, height) trap(:sdl_new_window, width, height)
+def set_color(color, window) trap(:sdl_set_color, color[0], color[1], color[2], window)
+def clear(window) trap(:sdl_clear, window)
+def present(window) trap(:sdl_present, window)

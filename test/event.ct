@@ -1,0 +1,24 @@
+module Event
+import IO
+export poll, loop, type, when, where, message, modifiers
+
+def poll() trap(:sdl_poll_event)
+
+def type(event) event[0]
+def when(event) event[1]
+def where(event) event[2]
+def message(event) event[3]
+def modifiers(event) event[4]
+
+def loop(on_event) do
+  let event = poll()
+  if event do
+    cond
+      type(event) == :quit -> nil
+      on_event and on_event(event) -> nil
+      true -> loop(on_event)
+    end
+  else
+    loop(on_event)
+  end
+end

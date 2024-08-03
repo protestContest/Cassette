@@ -3,7 +3,7 @@
 #include "chunk.h"
 
 typedef struct {
-  char **filenames;
+  u32 *filenames;
   u32 *file_map;
   u32 *pos_map;
 } SourceMap;

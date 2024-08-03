@@ -35,6 +35,7 @@ u32 SerializeProgram(Program *program, u8 **dst)
   char csst[4] = {'C', 'S', 'S', 'T'};
   char code[4] = {'C', 'O', 'D', 'E'};
   char strs[4] = {'S', 'T', 'R', 'S'};
+
   u32 trailing_bytes, i;
   u32 code_size = Align(VecCount(program->code), sizeof(u32));
   u32 strs_size = Align(VecCount(program->strings), sizeof(u32));

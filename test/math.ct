@@ -1,0 +1,5 @@
+module Math
+export random, seed
+
+def random() trap(:random)
+def seed(s) trap(:seed, s)

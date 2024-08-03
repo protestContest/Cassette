@@ -22,4 +22,5 @@ void DestroyModule(Module *module)
   if (module->exports) FreeVec(module->exports);
   if (module->ast) FreeNode(module->ast);
   if (module->code) FreeChunk(module->code);
+  InitModule(module);
 }

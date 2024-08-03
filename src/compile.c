@@ -36,7 +36,13 @@ static Result UndefinedExport(char *file, ModuleExport *export)
 
 static Result UnknownExpr(ASTNode *node)
 {
-  Error *error = NewError("Unknown expression", node->file, node->start, node->end-node->start);
+  Error *error = NewError("Unknown expression", node->file, node->start, node->end - node->start);
+  return Err(error);
+}
+
+static Result UndefinedTrap(ASTNode *node)
+{
+  Error *error = NewError("Undefined trap", node->file, node->start, node->end - node->start);
   return Err(error);
 }
 
@@ -535,6 +541,8 @@ static void CompileMakeCall(Chunk *chunk)
   ChunkWrite(opGoto, chunk);
 }
 
+#define IsTrap(node) ((node)->type == varNode && (node)->data.value == Symbol("trap"))
+
 static Result CompileCall(ASTNode *node, Env *env, ImportMap *imports, bool returns)
 {
   /*
@@ -555,12 +563,17 @@ after:
   Chunk *chunk;
   Result result;
   i32 primitive_num = -1;
+  ASTNode **children = node->data.children;
   assert(node->type == callNode);
-  num_items = VecCount(node->data.children);
+  num_items = VecCount(children);
   assert(num_items > 0);
 
-  if (node->data.children[0]->type == varNode) {
-    primitive_num = PrimitiveID(node->data.children[0]->data.value);
+  if (IsTrap(node->data.children[0])) {
+    if (num_items < 1) return UndefinedTrap(node);
+    primitive_num = PrimitiveID(RawVal(node->data.children[1]->data.value));
+    if (primitive_num < 0) return UndefinedTrap(node);
+    num_items--;
+    children++;
   }
 
   if (primitive_num >= 0) {
@@ -572,7 +585,7 @@ after:
   }
 
   for (i = 0; i < num_items - 1; i++) {
-    result = CompileExpr(node->data.children[num_items - 1 - i], env, imports, false);
+    result = CompileExpr(children[num_items - 1 - i], env, imports, false);
     if (IsError(result)) return Fail(chunk, result);
     chunk = PreservingEnv(result.data.p, chunk);
   }
