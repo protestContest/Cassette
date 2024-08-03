@@ -136,7 +136,7 @@ void DestroyVM(VM *vm)
 
 Result VMStep(VM *vm)
 {
-  vm->status = ops[vm->program->code[vm->pc++]](vm);
+  vm->status = ops[vm->program->code[vm->pc]](vm);
   return vm->status;
 }
 
@@ -228,12 +228,13 @@ void RunGC(VM *vm)
 
 static Result OpNoop(VM *vm)
 {
+  vm->pc++;
   return vm->status;
 }
 
 static Result OpConst(VM *vm)
 {
-  val value = ReadLEB(vm->pc, vm->program->code);
+  val value = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(value);
   VMStackPush(value, vm);
   return vm->status;
@@ -245,6 +246,7 @@ static Result OpAdd(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be added", vm);
   BinOp(+);
+  vm->pc++;
   return vm->status;
 }
 
@@ -254,6 +256,7 @@ static Result OpSub(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be subtracted", vm);
   BinOp(-);
+  vm->pc++;
   return vm->status;
 }
 
@@ -263,6 +266,7 @@ static Result OpMul(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be multiplied", vm);
   BinOp(*);
+  vm->pc++;
   return vm->status;
 }
 
@@ -273,6 +277,7 @@ static Result OpDiv(VM *vm)
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be divided", vm);
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
   BinOp(/);
+  vm->pc++;
   return vm->status;
 }
 
@@ -283,6 +288,7 @@ static Result OpRem(VM *vm)
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be remaindered", vm);
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
   BinOp(%);
+  vm->pc++;
   return vm->status;
 }
 
@@ -292,6 +298,7 @@ static Result OpAnd(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be and-ed", vm);
   BinOp(&);
+  vm->pc++;
   return vm->status;
 }
 
@@ -301,6 +308,7 @@ static Result OpOr(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be or-ed", vm);
   BinOp(|);
+  vm->pc++;
   return vm->status;
 }
 
@@ -310,6 +318,7 @@ static Result OpComp(VM *vm)
   OneArg(a);
   if (!IsInt(a)) return RuntimeError("Only integers can be ", vm);
   UnaryOp(~);
+  vm->pc++;
   return vm->status;
 }
 
@@ -319,6 +328,7 @@ static Result OpLt(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
   BinOp(<);
+  vm->pc++;
   return vm->status;
 }
 
@@ -328,6 +338,7 @@ static Result OpGt(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
   BinOp(>);
+  vm->pc++;
   return vm->status;
 }
 
@@ -336,6 +347,7 @@ static Result OpEq(VM *vm)
   val a, b;
   TwoArgs(a, b);
   VMStackPush(IntVal(a == b), vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -345,6 +357,7 @@ static Result OpNeg(VM *vm)
   OneArg(a);
   if (!IsInt(a)) return RuntimeError("Only integers can be negated", vm);
   UnaryOp(-);
+  vm->pc++;
   return vm->status;
 }
 
@@ -353,6 +366,7 @@ static Result OpNot(VM *vm)
   val a;
   OneArg(a);
   VMStackPush(IntVal(RawVal(a) == 0), vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -362,6 +376,7 @@ static Result OpShift(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be shifted", vm);
   BinOp(<<);
+  vm->pc++;
   return vm->status;
 }
 
@@ -371,6 +386,7 @@ static Result OpPair(VM *vm)
   if (MemFree() < 2) RunGC(vm);
   TwoArgs(a, b);
   VMStackPush(Pair(b, a), vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -380,6 +396,7 @@ static Result OpHead(VM *vm)
   OneArg(a);
   if (!IsPair(a)) return RuntimeError("Only pairs have heads", vm);
   VMStackPush(Head(a), vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -389,12 +406,13 @@ static Result OpTail(VM *vm)
   OneArg(a);
   if (!IsPair(a)) return RuntimeError("Only pairs have tails", vm);
   VMStackPush(Tail(a), vm);
+  vm->pc++;
   return vm->status;
 }
 
 static Result OpTuple(VM *vm)
 {
-  u32 count = ReadLEB(vm->pc, vm->program->code);
+  u32 count = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(count);
   if (MemFree() < count+1) RunGC(vm);
   VMStackPush(Tuple(count), vm);
@@ -414,6 +432,7 @@ static Result OpLen(VM *vm)
   } else {
     return RuntimeError("Invalid type", vm);
   }
+  vm->pc++;
   return vm->status;
 }
 
@@ -434,6 +453,7 @@ static Result OpGet(VM *vm)
   } else {
     return RuntimeError("Invalid type", vm);
   }
+  vm->pc++;
   return vm->status;
 }
 
@@ -451,6 +471,7 @@ static Result OpSet(VM *vm)
     return RuntimeError("Invalid type", vm);
   }
   VMStackPush(a, vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -465,6 +486,7 @@ static Result OpStr(VM *vm)
   len = strlen(name);
   if (MemFree() < BinSpace(len) + 1) RunGC(vm);
   VMStackPush(BinaryFrom(name, len), vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -500,6 +522,7 @@ static Result OpJoin(VM *vm)
   } else {
     return RuntimeError("Only lists, tuples, and binaries can be joined", vm);
   }
+  vm->pc++;
   return vm->status;
 }
 
@@ -550,12 +573,13 @@ static Result OpSlice(VM *vm)
   } else {
     return RuntimeError("Invalid type", vm);
   }
+  vm->pc++;
   return vm->status;
 }
 
 static Result OpJmp(VM *vm)
 {
-  i32 n = ReadLEB(vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
   CheckBounds((i32)vm->pc + n);
   vm->pc += n;
@@ -565,7 +589,7 @@ static Result OpJmp(VM *vm)
 static Result OpBranch(VM *vm)
 {
   val a;
-  i32 n = ReadLEB(vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
   OneArg(a);
   if (RawVal(a)) {
@@ -577,16 +601,16 @@ static Result OpBranch(VM *vm)
 
 static Result OpTrap(VM *vm)
 {
-  u32 id = ReadLEB(vm->pc, vm->program->code);
-  vm->pc += LEBSize(id);
+  u32 id = ReadLEB(vm->pc+1, vm->program->code);
   vm->status = vm->primitives[id](vm);
   if (!IsError(vm->status)) VMStackPush(vm->status.data.v, vm);
+  vm->pc += LEBSize(id) + 1;
   return vm->status;
 }
 
 static Result OpPos(VM *vm)
 {
-  i32 n = ReadLEB(vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
   VMStackPush(IntVal((i32)vm->pc + n), vm);
   return vm->status;
@@ -614,6 +638,7 @@ static Result OpDup(VM *vm)
   OneArg(a);
   VMStackPush(a, vm);
   VMStackPush(a, vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -621,6 +646,7 @@ static Result OpDrop(VM *vm)
 {
   if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
   VecPop(vm->stack);
+  vm->pc++;
   return vm->status;
 }
 
@@ -630,6 +656,7 @@ static Result OpSwap(VM *vm)
   TwoArgs(a, b);
   VMStackPush(b, vm);
   VMStackPush(a, vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -640,6 +667,7 @@ static Result OpOver(VM *vm)
   VMStackPush(a, vm);
   VMStackPush(b, vm);
   VMStackPush(a, vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -650,12 +678,14 @@ static Result OpRot(VM *vm)
   VMStackPush(b, vm);
   VMStackPush(c, vm);
   VMStackPush(a, vm);
+  vm->pc++;
   return vm->status;
 }
 
 static Result OpGetEnv(VM *vm)
 {
   VMStackPush(vm->env, vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -663,12 +693,14 @@ static Result OpSetEnv(VM *vm)
 {
   if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
   vm->env = VMStackPop(vm);
+  vm->pc++;
   return vm->status;
 }
 
 static Result OpGetMod(VM *vm)
 {
   VMStackPush(vm->mod, vm);
+  vm->pc++;
   return vm->status;
 }
 
@@ -677,6 +709,7 @@ static Result OpSetMod(VM *vm)
   val a;
   OneArg(a);
   vm->mod = a;
+  vm->pc++;
   return vm->status;
 }
 

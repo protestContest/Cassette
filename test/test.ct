@@ -2,5 +2,5 @@ import Canvas
 
 let size = 500, canvas = Canvas.new(size, size)
 
-Canvas.bezier(100, 300, 200, 100, 400, 400)
+Canvas.bezier(100, 300, 200, 100, 400, 400, canvas)
 Canvas.present(canvas)

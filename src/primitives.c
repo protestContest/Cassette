@@ -21,9 +21,17 @@ Result VMFormat(VM *vm)
   return OkVal(FormatVal(a));
 }
 
+Result VMPanic(VM *vm)
+{
+  val a = VMStackPop(vm);
+  char *str = BinToStr(InspectVal(a));
+  return RuntimeError(str, vm);
+}
+
 static PrimDef primitives[] = {
   {"print", VMPrint},
   {"format", VMFormat},
+  {"panic!", VMPanic},
   {"sdl_new_window", SDLNewWindow},
   {"sdl_destroy_window", SDLDestroyWindow},
   {"sdl_present", SDLPresent},
