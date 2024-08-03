@@ -2,6 +2,24 @@
 #include "univ/str.h"
 #include <univ/vec.h>
 
+void InitSourceMap(SourceMap *map)
+{
+  map->filenames = 0;
+  map->file_map = 0;
+  map->pos_map = 0;
+}
+
+void DestorySourceMap(SourceMap *map)
+{
+  u32 i;
+  for (i = 0; i < VecCount(map->filenames); i++) {
+    free(map->filenames[i]);
+  }
+  FreeVec(map->filenames);
+  FreeVec(map->file_map);
+  FreeVec(map->pos_map);
+}
+
 static u32 SerializeChunkSource(Chunk *chunk, SourceMap *map)
 {
   u32 start = VecCount(map->pos_map);

@@ -8,9 +8,7 @@ Program *NewProgram(void)
 {
   Program *program = malloc(sizeof(Program));
   program->code = 0;
-  program->srcmap.filenames = 0;
-  program->srcmap.file_map = 0;
-  program->srcmap.pos_map = 0;
+  InitSourceMap(&program->srcmap);
   program->strings = 0;
   return program;
 }
@@ -18,9 +16,7 @@ Program *NewProgram(void)
 void FreeProgram(Program *program)
 {
   if (program->code) FreeVec(program->code);
-  if (program->srcmap.filenames) FreeVec(program->srcmap.filenames);
-  if (program->srcmap.file_map) FreeVec(program->srcmap.file_map);
-  if (program->srcmap.pos_map) FreeVec(program->srcmap.pos_map);
+  DestorySourceMap(&program->srcmap);
   if (program->strings) FreeVec(program->strings);
   free(program);
 }
