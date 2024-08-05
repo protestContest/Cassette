@@ -268,7 +268,7 @@ after:
   false_code = result.data.p;
 
   if (!returns) {
-    ChunkWrite(opBranch, false_code);
+    ChunkWrite(opJump, false_code);
     ChunkWriteInt(ChunkSize(true_code), false_code);
   }
 
@@ -461,7 +461,7 @@ static Chunk *CompileMakeLambda(Chunk *body, bool returns)
 
 static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
 {
-  Chunk *chunk = 0;
+  Chunk *chunk, *error_chunk;
   ASTNode *params, *body;
   u32 num_params;
   Result result;
@@ -471,9 +471,20 @@ static Result CompileLambdaBody(ASTNode *node, Env *env, ImportMap *imports)
   num_params = VecCount(params->data.children);
   body = node->data.children[1];
 
+  error_chunk = NewChunk(node->start);
+  ChunkWrite(opTrap, error_chunk);
+  ChunkWriteInt(0, error_chunk);
+
+  chunk = NewChunk(node->start);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(num_params), chunk);
+  ChunkWrite(opEq, chunk);
+  ChunkWrite(opBranch, chunk);
+  ChunkWriteInt(ChunkSize(error_chunk), chunk);
+  chunk = AppendChunk(chunk, error_chunk);
+
   if (num_params > 0) {
     u32 i;
-    chunk = NewChunk(node->start);
     ChunkWrite(opTuple, chunk);
     ChunkWriteInt(num_params, chunk);
     env = ExtendEnv(num_params, env);
@@ -579,9 +590,12 @@ after:
   if (primitive_num >= 0) {
     chunk = NewChunk(node->start);
   } else {
+    chunk = NewChunk(node->start);
+    ChunkWrite(opConst, chunk);
+    ChunkWriteInt(IntVal(num_items-1), chunk);
     result = CompileExpr(node->data.children[0], env, imports, false);
     if (IsError(result)) return result;
-    chunk = result.data.p;
+    chunk = AppendChunk(chunk, result.data.p);
   }
 
   for (i = 0; i < num_items - 1; i++) {

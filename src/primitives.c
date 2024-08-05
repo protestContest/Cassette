@@ -4,9 +4,15 @@
 #include <univ/vec.h>
 #include <univ/str.h>
 #include <univ/math.h>
+#include <univ/time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+
+Result VMArityError(VM *vm)
+{
+  return RuntimeError("Wrong number of arguments", vm);
+}
 
 Result VMPrint(VM *vm)
 {
@@ -146,7 +152,13 @@ Result VMSeed(VM *vm)
   return OkVal(0);
 }
 
+Result VMTime(VM *vm)
+{
+  return OkVal(IntVal(Time()));
+}
+
 static PrimDef primitives[] = {
+  {"arity_error", VMArityError},
   {"print", VMPrint},
   {"format", VMFormat},
   {"panic!", VMPanic},
@@ -158,6 +170,7 @@ static PrimDef primitives[] = {
   {"seek", VMSeek},
   {"random", VMRandom},
   {"seed", VMSeed},
+  {"time", VMTime},
   {"sdl_new_window", SDLNewWindow},
   {"sdl_destroy_window", SDLDestroyWindow},
   {"sdl_present", SDLPresent},

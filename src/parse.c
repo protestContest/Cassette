@@ -525,12 +525,17 @@ static Result ParseAccess(ASTNode *expr, Parser *p)
   Result result;
   Adv(p);
   VSpacing(p);
-
-  result = ParseExpr(p);
-  if (IsError(result)) return ParseFail(expr, result);
   node = MakeNode(accessNode, p->filename, expr->start, expr->end);
   NodePush(expr, node);
-  NodePush(result.data.p, node);
+
+  if (CheckToken(colonToken, p)) {
+    ASTNode *start_node = MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos + p->token.length, IntVal(0));
+    NodePush(start_node, node);
+  } else {
+    result = ParseExpr(p);
+    if (IsError(result)) return ParseFail(node, result);
+    NodePush(result.data.p, node);
+  }
 
   VSpacing(p);
   if (MatchToken(colonToken, p)) {
