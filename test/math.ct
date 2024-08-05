@@ -1,5 +1,6 @@
 module Math
-export random, seed
+export random, random_between, seed
 
 def random() trap(:random)
+def random_between(min, max) trap(:random_between, min, max)
 def seed(s) trap(:seed, s)

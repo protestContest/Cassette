@@ -1,0 +1,4 @@
+module Time
+export now
+
+def now() trap(:time)

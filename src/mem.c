@@ -39,8 +39,17 @@ static u32 MemAlloc(u32 count)
   return index;
 }
 
-#define MemGet(index)       (mem[index])
-#define MemSet(index, val)  (mem[index] = val)
+val MemGet(u32 index)
+{
+  assert(index < VecCount(mem));
+  return mem[index];
+}
+
+void MemSet(u32 index, val value)
+{
+  assert(index < VecCount(mem));
+  mem[index] = value;
+}
 
 val CopyObj(val value, val *oldmem)
 {
@@ -218,7 +227,7 @@ val Tuple(u32 length)
   u32 i;
   u32 index = MemAlloc(length+1);
   MemSet(index, TupleHeader(length));
-  for (i = 0; i < length; i++) mem[index + i + 1] = 0;
+  for (i = 0; i < length; i++) MemSet(index + i + 1, 0);
   return ObjVal(index);
 }
 

@@ -9,5 +9,5 @@ Graphics.bezier(100, 300, 200, 100, 400, 400, canvas)
 Graphics.rect(100, 200, 400, 400, canvas)
 Window.present(canvas)
 Event.loop(\event -> do
-  Event.type(event) == :keydown and Event.message(event) == :q
+  Event.type(event) == :keydown and Event.message(event) == :escape
 end)

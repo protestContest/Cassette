@@ -1,5 +1,5 @@
 module List
-export reverse, reduce, map, filter, iota, zip, with_index
+export reverse, reduce, map, filter, range, zip, with_index
 
 def reverse(list) do
   def reverse_onto(list, tail) do
@@ -35,16 +35,20 @@ def filter(list, fn) do
       end))
 end
 
-def iota(n) do
-  def build_iota(n, list) do
-    if n do
-      build_iota(n-1, n-1 | list)
+def range(min, max) do
+  def build_range(n, list) do
+    if n > min do
+      build_range(n-1, n-1 | list)
     else
       list
     end
   end
 
-  build_iota(n, nil)
+  if max < min do
+    reverse(range(max, min))
+  else
+    build_range(max, nil)
+  end
 end
 
 def zip(a, b) do

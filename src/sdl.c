@@ -102,79 +102,78 @@ static val EventType(SDL_Event *event)
   }
 }
 
-static val KeySymbol(SDL_Keycode keycode)
+static val KeyVal(SDL_Keycode keycode)
 {
   switch (keycode) {
   case SDLK_RETURN:       return SymVal(Symbol("return"));
   case SDLK_ESCAPE:       return SymVal(Symbol("escape"));
   case SDLK_BACKSPACE:    return SymVal(Symbol("backspace"));
   case SDLK_TAB:          return SymVal(Symbol("tab"));
-  case SDLK_SPACE:        return SymVal(Symbol("space"));
-  case SDLK_EXCLAIM:      return SymVal(Symbol("exclaim"));
-  case SDLK_QUOTEDBL:     return SymVal(Symbol("quotedbl"));
-  case SDLK_HASH:         return SymVal(Symbol("hash"));
-  case SDLK_PERCENT:      return SymVal(Symbol("percent"));
-  case SDLK_DOLLAR:       return SymVal(Symbol("dollar"));
-  case SDLK_AMPERSAND:    return SymVal(Symbol("ampersand"));
-  case SDLK_QUOTE:        return SymVal(Symbol("quote"));
-  case SDLK_LEFTPAREN:    return SymVal(Symbol("leftparen"));
-  case SDLK_RIGHTPAREN:   return SymVal(Symbol("rightparen"));
-  case SDLK_ASTERISK:     return SymVal(Symbol("asterisk"));
-  case SDLK_PLUS:         return SymVal(Symbol("plus"));
-  case SDLK_COMMA:        return SymVal(Symbol("comma"));
-  case SDLK_MINUS:        return SymVal(Symbol("minus"));
-  case SDLK_PERIOD:       return SymVal(Symbol("period"));
-  case SDLK_SLASH:        return SymVal(Symbol("slash"));
-  case SDLK_0:            return SymVal(Symbol("0"));
-  case SDLK_1:            return SymVal(Symbol("1"));
-  case SDLK_2:            return SymVal(Symbol("2"));
-  case SDLK_3:            return SymVal(Symbol("3"));
-  case SDLK_4:            return SymVal(Symbol("4"));
-  case SDLK_5:            return SymVal(Symbol("5"));
-  case SDLK_6:            return SymVal(Symbol("6"));
-  case SDLK_7:            return SymVal(Symbol("7"));
-  case SDLK_8:            return SymVal(Symbol("8"));
-  case SDLK_9:            return SymVal(Symbol("9"));
-  case SDLK_COLON:        return SymVal(Symbol("colon"));
-  case SDLK_SEMICOLON:    return SymVal(Symbol("semicolon"));
-  case SDLK_LESS:         return SymVal(Symbol("less"));
-  case SDLK_EQUALS:       return SymVal(Symbol("equals"));
-  case SDLK_GREATER:      return SymVal(Symbol("greater"));
-  case SDLK_QUESTION:     return SymVal(Symbol("question"));
-  case SDLK_AT:           return SymVal(Symbol("at"));
-  case SDLK_LEFTBRACKET:  return SymVal(Symbol("leftbracket"));
-  case SDLK_BACKSLASH:    return SymVal(Symbol("backslash"));
-  case SDLK_RIGHTBRACKET: return SymVal(Symbol("rightbracket"));
-  case SDLK_CARET:        return SymVal(Symbol("caret"));
-  case SDLK_UNDERSCORE:   return SymVal(Symbol("underscore"));
-  case SDLK_BACKQUOTE:    return SymVal(Symbol("backquote"));
-  case SDLK_a:            return SymVal(Symbol("a"));
-  case SDLK_b:            return SymVal(Symbol("b"));
-  case SDLK_c:            return SymVal(Symbol("c"));
-  case SDLK_d:            return SymVal(Symbol("d"));
-  case SDLK_e:            return SymVal(Symbol("e"));
-  case SDLK_f:            return SymVal(Symbol("f"));
-  case SDLK_g:            return SymVal(Symbol("g"));
-  case SDLK_h:            return SymVal(Symbol("h"));
-  case SDLK_i:            return SymVal(Symbol("i"));
-  case SDLK_j:            return SymVal(Symbol("j"));
-  case SDLK_k:            return SymVal(Symbol("k"));
-  case SDLK_l:            return SymVal(Symbol("l"));
-  case SDLK_m:            return SymVal(Symbol("m"));
-  case SDLK_n:            return SymVal(Symbol("n"));
-  case SDLK_o:            return SymVal(Symbol("o"));
-  case SDLK_p:            return SymVal(Symbol("p"));
-  case SDLK_q:            return SymVal(Symbol("q"));
-  case SDLK_r:            return SymVal(Symbol("r"));
-  case SDLK_s:            return SymVal(Symbol("s"));
-  case SDLK_t:            return SymVal(Symbol("t"));
-  case SDLK_u:            return SymVal(Symbol("u"));
-  case SDLK_v:            return SymVal(Symbol("v"));
-  case SDLK_w:            return SymVal(Symbol("w"));
-  case SDLK_x:            return SymVal(Symbol("x"));
-  case SDLK_y:            return SymVal(Symbol("y"));
-  case SDLK_z:            return SymVal(Symbol("z"));
-  case SDLK_CAPSLOCK:     return SymVal(Symbol("capslock"));
+  case SDLK_SPACE:        return IntVal(' ');
+  case SDLK_EXCLAIM:      return IntVal('!');
+  case SDLK_QUOTEDBL:     return IntVal('"');
+  case SDLK_HASH:         return IntVal('#');
+  case SDLK_PERCENT:      return IntVal('%');
+  case SDLK_DOLLAR:       return IntVal('$');
+  case SDLK_AMPERSAND:    return IntVal('&');
+  case SDLK_QUOTE:        return IntVal('\'');
+  case SDLK_LEFTPAREN:    return IntVal('(');
+  case SDLK_RIGHTPAREN:   return IntVal(')');
+  case SDLK_ASTERISK:     return IntVal('*');
+  case SDLK_PLUS:         return IntVal('+');
+  case SDLK_COMMA:        return IntVal(',');
+  case SDLK_MINUS:        return IntVal('-');
+  case SDLK_PERIOD:       return IntVal('.');
+  case SDLK_SLASH:        return IntVal('/');
+  case SDLK_0:            return IntVal('0');
+  case SDLK_1:            return IntVal('1');
+  case SDLK_2:            return IntVal('2');
+  case SDLK_3:            return IntVal('3');
+  case SDLK_4:            return IntVal('4');
+  case SDLK_5:            return IntVal('5');
+  case SDLK_6:            return IntVal('6');
+  case SDLK_7:            return IntVal('7');
+  case SDLK_8:            return IntVal('8');
+  case SDLK_9:            return IntVal('9');
+  case SDLK_COLON:        return IntVal(':');
+  case SDLK_SEMICOLON:    return IntVal(';');
+  case SDLK_LESS:         return IntVal('<');
+  case SDLK_EQUALS:       return IntVal('=');
+  case SDLK_GREATER:      return IntVal('>');
+  case SDLK_QUESTION:     return IntVal('?');
+  case SDLK_AT:           return IntVal('@');
+  case SDLK_LEFTBRACKET:  return IntVal('[');
+  case SDLK_BACKSLASH:    return IntVal('\\');
+  case SDLK_RIGHTBRACKET: return IntVal(']');
+  case SDLK_CARET:        return IntVal('^');
+  case SDLK_UNDERSCORE:   return IntVal('_');
+  case SDLK_BACKQUOTE:    return IntVal('`');
+  case SDLK_a:            return IntVal('a');
+  case SDLK_b:            return IntVal('b');
+  case SDLK_c:            return IntVal('c');
+  case SDLK_d:            return IntVal('d');
+  case SDLK_e:            return IntVal('e');
+  case SDLK_f:            return IntVal('f');
+  case SDLK_g:            return IntVal('g');
+  case SDLK_h:            return IntVal('h');
+  case SDLK_i:            return IntVal('i');
+  case SDLK_j:            return IntVal('j');
+  case SDLK_k:            return IntVal('k');
+  case SDLK_l:            return IntVal('l');
+  case SDLK_m:            return IntVal('m');
+  case SDLK_n:            return IntVal('n');
+  case SDLK_o:            return IntVal('o');
+  case SDLK_p:            return IntVal('p');
+  case SDLK_q:            return IntVal('q');
+  case SDLK_r:            return IntVal('r');
+  case SDLK_s:            return IntVal('s');
+  case SDLK_t:            return IntVal('t');
+  case SDLK_u:            return IntVal('u');
+  case SDLK_v:            return IntVal('v');
+  case SDLK_w:            return IntVal('w');
+  case SDLK_x:            return IntVal('x');
+  case SDLK_y:            return IntVal('y');
+  case SDLK_z:            return IntVal('z');
   case SDLK_F1:           return SymVal(Symbol("f1"));
   case SDLK_F2:           return SymVal(Symbol("f2"));
   case SDLK_F3:           return SymVal(Symbol("f3"));
@@ -200,7 +199,7 @@ static val KeySymbol(SDL_Keycode keycode)
   case SDLK_LEFT:         return SymVal(Symbol("left"));
   case SDLK_DOWN:         return SymVal(Symbol("down"));
   case SDLK_UP:           return SymVal(Symbol("up"));
-  default:                return SymVal(Symbol("unknown"));
+  default:                return 0;
   }
 }
 
@@ -210,7 +209,7 @@ Result SDLPollEvent(VM *vm)
   val event_val = Tuple(5);
   i32 x, y;
   val where = Tuple(2);
-  TupleSet(event_val, 0, EventType(&event));
+
   TupleSet(event_val, 1, IntVal(event.quit.timestamp));
   SDL_GetMouseState(&x, &y);
   TupleSet(where, 0, IntVal(x));
@@ -218,10 +217,11 @@ Result SDLPollEvent(VM *vm)
   TupleSet(event_val, 2, where);
 
   if (SDL_PollEvent(&event)) {
+    TupleSet(event_val, 0, EventType(&event));
     switch (event.type) {
     case SDL_KEYDOWN:
     case SDL_KEYUP:
-      TupleSet(event_val, 3, KeySymbol(event.key.keysym.sym));
+      TupleSet(event_val, 3, KeyVal(event.key.keysym.sym));
       TupleSet(event_val, 4, IntVal(event.key.keysym.mod));
       break;
     case SDL_MOUSEBUTTONDOWN:

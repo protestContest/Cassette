@@ -40,6 +40,8 @@ typedef enum {
   opSwap,   /* a b -> b a */
   opOver,   /* a b -> a b a */
   opRot,    /* a b c -> b c a */
+  opPick,   /* n; a ... z -> a ... z a */
+  opRoll,   /* n; a b ... z -> a ... z b */
 
   opPair = 0x40,   /* t h -> pair(h,t)   creates a pair (may GC) */
   opHead,   /* p -> head(p) */

@@ -16,7 +16,16 @@ static u32 PrintStack(VM *vm);
 static PrimFn *InitPrimitives(void);
 
 static Result OpNoop(VM *vm);
+static Result OpHalt(VM *vm);
 static Result OpConst(VM *vm);
+static Result OpJump(VM *vm);
+static Result OpBranch(VM *vm);
+static Result OpPos(VM *vm);
+static Result OpGoto(VM *vm);
+static Result OpGetEnv(VM *vm);
+static Result OpSetEnv(VM *vm);
+static Result OpGetMod(VM *vm);
+static Result OpSetMod(VM *vm);
 static Result OpAdd(VM *vm);
 static Result OpSub(VM *vm);
 static Result OpMul(VM *vm);
@@ -31,6 +40,13 @@ static Result OpEq(VM *vm);
 static Result OpNeg(VM *vm);
 static Result OpNot(VM *vm);
 static Result OpShift(VM *vm);
+static Result OpDup(VM *vm);
+static Result OpDrop(VM *vm);
+static Result OpSwap(VM *vm);
+static Result OpOver(VM *vm);
+static Result OpRot(VM *vm);
+static Result OpPick(VM *vm);
+static Result OpRoll(VM *vm);
 static Result OpPair(VM *vm);
 static Result OpHead(VM *vm);
 static Result OpTail(VM *vm);
@@ -41,25 +57,20 @@ static Result OpSet(VM *vm);
 static Result OpStr(VM *vm);
 static Result OpJoin(VM *vm);
 static Result OpSlice(VM *vm);
-static Result OpJmp(VM *vm);
-static Result OpBranch(VM *vm);
 static Result OpTrap(VM *vm);
-static Result OpPos(VM *vm);
-static Result OpGoto(VM *vm);
-static Result OpHalt(VM *vm);
-static Result OpDup(VM *vm);
-static Result OpDrop(VM *vm);
-static Result OpSwap(VM *vm);
-static Result OpOver(VM *vm);
-static Result OpRot(VM *vm);
-static Result OpGetEnv(VM *vm);
-static Result OpSetEnv(VM *vm);
-static Result OpGetMod(VM *vm);
-static Result OpSetMod(VM *vm);
 
 static OpFn ops[] = {
   [opNoop]    = OpNoop,
+  [opHalt]    = OpHalt,
   [opConst]   = OpConst,
+  [opJump]    = OpJump,
+  [opBranch]  = OpBranch,
+  [opPos]     = OpPos,
+  [opGoto]    = OpGoto,
+  [opGetEnv]  = OpGetEnv,
+  [opSetEnv]  = OpSetEnv,
+  [opGetMod]  = OpGetMod,
+  [opSetMod]  = OpSetMod,
   [opAdd]     = OpAdd,
   [opSub]     = OpSub,
   [opMul]     = OpMul,
@@ -74,6 +85,13 @@ static OpFn ops[] = {
   [opNeg]     = OpNeg,
   [opNot]     = OpNot,
   [opShift]   = OpShift,
+  [opDup]     = OpDup,
+  [opDrop]    = OpDrop,
+  [opSwap]    = OpSwap,
+  [opOver]    = OpOver,
+  [opRot]     = OpRot,
+  [opPick]    = OpPick,
+  [opRoll]    = OpRoll,
   [opPair]    = OpPair,
   [opHead]    = OpHead,
   [opTail]    = OpTail,
@@ -84,21 +102,7 @@ static OpFn ops[] = {
   [opStr]     = OpStr,
   [opJoin]    = OpJoin,
   [opSlice]   = OpSlice,
-  [opJump]    = OpJmp,
-  [opBranch]  = OpBranch,
   [opTrap]    = OpTrap,
-  [opPos]     = OpPos,
-  [opGoto]    = OpGoto,
-  [opHalt]    = OpHalt,
-  [opDup]     = OpDup,
-  [opDrop]    = OpDrop,
-  [opSwap]    = OpSwap,
-  [opOver]    = OpOver,
-  [opRot]     = OpRot,
-  [opGetEnv]  = OpGetEnv,
-  [opSetEnv]  = OpSetEnv,
-  [opGetMod]  = OpGetMod,
-  [opSetMod]  = OpSetMod,
 };
 
 Result RuntimeError(char *message, struct VM *vm)
@@ -232,11 +236,104 @@ static Result OpNoop(VM *vm)
   return vm->status;
 }
 
+static Result OpHalt(VM *vm)
+{
+  vm->pc = VecCount(vm->program->code);
+  return vm->status;
+}
+
 static Result OpConst(VM *vm)
 {
   val value = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(value);
   VMStackPush(value, vm);
+  return vm->status;
+}
+
+static Result OpPos(VM *vm)
+{
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
+  VMStackPush(IntVal((i32)vm->pc + n), vm);
+  return vm->status;
+}
+
+static Result OpGoto(VM *vm)
+{
+  val a;
+  OneArg(a);
+  if (!IsInt(a)) return RuntimeError("Invalid type", vm);
+  CheckBounds(RawInt(a));
+  vm->pc = RawVal(a);
+  return vm->status;
+}
+
+static Result OpJump(VM *vm)
+{
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
+  CheckBounds((i32)vm->pc + n);
+  vm->pc += n;
+  return vm->status;
+}
+
+static Result OpBranch(VM *vm)
+{
+  val a;
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  vm->pc += LEBSize(n);
+  OneArg(a);
+  if (RawVal(a)) {
+    CheckBounds((i32)vm->pc + n);
+    vm->pc += n;
+  }
+  return vm->status;
+}
+
+static Result OpGetEnv(VM *vm)
+{
+  VMStackPush(vm->env, vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpSetEnv(VM *vm)
+{
+  if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
+  vm->env = VMStackPop(vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpGetMod(VM *vm)
+{
+  VMStackPush(vm->mod, vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpSetMod(VM *vm)
+{
+  val a;
+  OneArg(a);
+  vm->mod = a;
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpGetA(VM *vm)
+{
+  VMStackPush(vm->mod, vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpSetA(VM *vm)
+{
+  val a;
+  OneArg(a);
+  vm->mod = a;
+  vm->pc++;
   return vm->status;
 }
 
@@ -377,6 +474,87 @@ static Result OpShift(VM *vm)
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be shifted", vm);
   BinOp(<<);
   vm->pc++;
+  return vm->status;
+}
+
+static Result OpDup(VM *vm)
+{
+  val a;
+  OneArg(a);
+  VMStackPush(a, vm);
+  VMStackPush(a, vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpDrop(VM *vm)
+{
+  if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
+  VecPop(vm->stack);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpSwap(VM *vm)
+{
+  val a, b;
+  TwoArgs(a, b);
+  VMStackPush(b, vm);
+  VMStackPush(a, vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpOver(VM *vm)
+{
+  val a, b;
+  TwoArgs(a, b);
+  VMStackPush(a, vm);
+  VMStackPush(b, vm);
+  VMStackPush(a, vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpRot(VM *vm)
+{
+  val a, b, c;
+  ThreeArgs(a, b, c);
+  VMStackPush(b, vm);
+  VMStackPush(c, vm);
+  VMStackPush(a, vm);
+  vm->pc++;
+  return vm->status;
+}
+
+static Result OpPick(VM *vm)
+{
+  u32 n = ReadLEB(++vm->pc, vm->program->code);
+  val v;
+  vm->pc += LEBSize(n);
+  CheckStack(vm, n);
+  if (n < 0) return RuntimeError("Invalid stack index", vm);
+
+  v = vm->stack[VecCount(vm->stack) - 1 - n];
+  VMStackPush(v, vm);
+  return vm->status;
+}
+
+static Result OpRoll(VM *vm)
+{
+  u32 n = ReadLEB(++vm->pc, vm->program->code);
+  u32 i;
+  val v;
+  vm->pc += LEBSize(n);
+  CheckStack(vm, n);
+  if (n < 0) return RuntimeError("Invalid stack index", vm);
+
+  v = vm->stack[VecCount(vm->stack) - 1 - n];
+  for (i = n; i > 0; i--) {
+    vm->stack[VecCount(vm->stack) - 1 - i] = vm->stack[VecCount(vm->stack - i)];
+  }
+  vm->stack[VecCount(vm->stack - 1)] = v;
+
   return vm->status;
 }
 
@@ -577,139 +755,12 @@ static Result OpSlice(VM *vm)
   return vm->status;
 }
 
-static Result OpJmp(VM *vm)
-{
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
-  vm->pc += LEBSize(n);
-  CheckBounds((i32)vm->pc + n);
-  vm->pc += n;
-  return vm->status;
-}
-
-static Result OpBranch(VM *vm)
-{
-  val a;
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
-  vm->pc += LEBSize(n);
-  OneArg(a);
-  if (RawVal(a)) {
-    CheckBounds((i32)vm->pc + n);
-    vm->pc += n;
-  }
-  return vm->status;
-}
-
 static Result OpTrap(VM *vm)
 {
   u32 id = ReadLEB(vm->pc+1, vm->program->code);
   vm->status = vm->primitives[id](vm);
   if (!IsError(vm->status)) VMStackPush(vm->status.data.v, vm);
   vm->pc += LEBSize(id) + 1;
-  return vm->status;
-}
-
-static Result OpPos(VM *vm)
-{
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
-  vm->pc += LEBSize(n);
-  VMStackPush(IntVal((i32)vm->pc + n), vm);
-  return vm->status;
-}
-
-static Result OpGoto(VM *vm)
-{
-  val a;
-  OneArg(a);
-  if (!IsInt(a)) return RuntimeError("Invalid type", vm);
-  CheckBounds(RawInt(a));
-  vm->pc = RawVal(a);
-  return vm->status;
-}
-
-static Result OpHalt(VM *vm)
-{
-  vm->pc = VecCount(vm->program->code);
-  return vm->status;
-}
-
-static Result OpDup(VM *vm)
-{
-  val a;
-  OneArg(a);
-  VMStackPush(a, vm);
-  VMStackPush(a, vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpDrop(VM *vm)
-{
-  if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
-  VecPop(vm->stack);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpSwap(VM *vm)
-{
-  val a, b;
-  TwoArgs(a, b);
-  VMStackPush(b, vm);
-  VMStackPush(a, vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpOver(VM *vm)
-{
-  val a, b;
-  TwoArgs(a, b);
-  VMStackPush(a, vm);
-  VMStackPush(b, vm);
-  VMStackPush(a, vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpRot(VM *vm)
-{
-  val a, b, c;
-  ThreeArgs(a, b, c);
-  VMStackPush(b, vm);
-  VMStackPush(c, vm);
-  VMStackPush(a, vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpGetEnv(VM *vm)
-{
-  VMStackPush(vm->env, vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpSetEnv(VM *vm)
-{
-  if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
-  vm->env = VMStackPop(vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpGetMod(VM *vm)
-{
-  VMStackPush(vm->mod, vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpSetMod(VM *vm)
-{
-  val a;
-  OneArg(a);
-  vm->mod = a;
-  vm->pc++;
   return vm->status;
 }
 

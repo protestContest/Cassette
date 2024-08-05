@@ -19,7 +19,11 @@ Result VMPrint(VM *vm)
   val a, str;
   a = VMStackPop(vm);
 
-  str = InspectVal(a);
+  if (IsBinary(a)) {
+    str = a;
+  } else {
+    str = InspectVal(a);
+  }
   printf("%*.*s\n", BinaryLength(str), BinaryLength(str), BinaryData(str));
 
   return OkVal(SymVal(Symbol("ok")));
@@ -144,6 +148,14 @@ Result VMRandom(VM *vm)
   return OkVal(IntVal(r));
 }
 
+Result VMRandomBetween(VM *vm)
+{
+  val max = VMStackPop(vm);
+  val min = VMStackPop(vm);
+  if (!IsInt(min) || !IsInt(max)) return RuntimeError("Range must be integers", vm);
+  return OkVal(RandomBetween(RawInt(min), RawInt(max)));
+}
+
 Result VMSeed(VM *vm)
 {
   val seed = VMStackPop(vm);
@@ -155,6 +167,11 @@ Result VMSeed(VM *vm)
 Result VMTime(VM *vm)
 {
   return OkVal(IntVal(Time()));
+}
+
+Result VMMicrotime(VM *vm)
+{
+  return OkVal(IntVal(Microtime()));
 }
 
 static PrimDef primitives[] = {
@@ -169,8 +186,10 @@ static PrimDef primitives[] = {
   {"write", VMWrite},
   {"seek", VMSeek},
   {"random", VMRandom},
+  {"random_between", VMRandomBetween},
   {"seed", VMSeed},
   {"time", VMTime},
+  {"microtime", VMMicrotime},
   {"sdl_new_window", SDLNewWindow},
   {"sdl_destroy_window", SDLDestroyWindow},
   {"sdl_present", SDLPresent},
