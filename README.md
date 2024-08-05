@@ -3,52 +3,36 @@
 [Cassette](https://cassette-lang.com) is a small, Lisp-like programming language. It looks like this:
 
 ```cassette
-import List
-import Math
-import Canvas
-import System
+import List, Math, Canvas, Time
 
 let width = 800,
     height = 480,
     canvas = Canvas.new(width, height)
 
-canvas.text("Lines!", {200, 2})
+Math.seed(Time.now())
 
-System.seed(System.time())
-
-def rand-line(i) do
-  let x0 = Math.floor(i * width / 100),
-      y0 = Math.rand-int(20, height / 10),
-      x1 = Math.rand-int(0, width),
-      y1 = Math.rand-int(20, height)
-  canvas.line({x0, y0}, {x1, y1})
+def rand_line(i) do
+  let x0 = i * width / 100,
+      y0 = Math.random_between(20, height / 10),
+      x1 = Math.random_between(0, width),
+      y1 = Math.random_between(20, height)
+  Canvas.line({x0, y0}, {x1, y1}, canvas)
 end
 
-List.map(\i -> rand-line(i), List.range(0, 100))
+List.map(\i -> rand_line(i), List.range(0, 100))
 ```
 
 ## Press _Play_
 
-I made Cassette as a simple language for "playful programming". Playful programming is writing something for the sake of writing it. It's making a software 3D renderer or a GIF reader, even though better implementations of those already exist. It's making generative art programs and drawing them with a pen plotter. Cassette itself is playful programming—there are certainly other scripting languages that may be better for personal projects like these, but this one is mine.
+I made Cassette as a simple language for personal programming. It's designed for solo programmers working on non-enterprise projects. It's DIY, roll your own, batteries-not-included. It's for fun. Try writing a generative art program or a hash-array-mapped trie.
 
-Here are some of the design goals of Cassette:
+Cassette aspires to be as simple as possible while still including the features I want. These are the primary features I included:
 
 - Functional
-- Immutable types
-- Simplicity over efficiency
-- Small implementation
-- Few dependencies
-
-In particular, I wanted Cassette to feel "essential", where each aspect of the language reflects some fundamental aspect of computing (from a functional language perspective, at least). For example, I consider garbage collection, lexical scopes, and immutable types essential. The result is a little boring, but I hope it's a good platform to play with other programming concepts.
-
-Here's some future work for Cassette:
-
-- Bignum support
-- Generational garbage collection
-- Compiler & VM optimization
-- Support other backends (WebAssembly, LLVM)
-- Destructuring assignment (v2?)
-- Pattern-based function dispatch (v2?)
+- Immutable values
+- Efficient tail-call recursion
+- Garbage collected
+- Modules
 
 ## Getting Started
 
@@ -57,11 +41,14 @@ This project requires a C build toolchain and SDL2.
 1. Get the project's dependencies
   - On macOS with Homebrew, run `brew install llvm git sdl2 sdl2_ttf`
   - On Debian, run `apt install build-essential clang git libsdl2-dev libsdl2-ttf-dev libfontconfig-dev`
-2. Clone the repo with `git clone https://git.sr.ht/~zjm/Cassette`.
-3. Run `make` to build the project. This creates the executable `cassette`.
-4. Optionally, run `make install` to install the Cassette executable. You can set the install folder in the Makefile.
-5. Try the example with `./cassette test/test.ct`.
-6. Write a little script and run it with `./cassette script.ct`.
+2. Build the utility library, Univ
+  - Clone with `git clone https://github.com/protestContest/Univ` (and then `cd Univ`)
+  - Run `make` to build the library
+  - Run `make install` to install the library to `~/.local/`. (You can change this in the makefile.) Make sure the install location is somewhere your build system can find it.
+3. Build Cassette
+  - Clone Cassette with `git clone https://git.sr.ht/~zjm/Cassette` (and then `cd Cassette`)
+  - Run `make` to build the project. This creates the executable `cassette`.
+4. Try the example with `./bin/cassette test/test.ct`.
 
 ## Syntax
 
@@ -74,7 +61,6 @@ Cassette has two number types, integers and floats. Integers can be written in d
 1                 ; decimal integer
 0x1F              ; hex integer
 $a                ; => 0x61
-1.0               ; float
 
 -4                ; => -4
 1 + 2             ; => 3
@@ -91,7 +77,7 @@ $a                ; => 0x61
 </div>
 
 <div class="columns reverse">
-Cassette has symbols, which represent an arbitrary value. `true` and `false` are symbols. In boolean operations, all values are truthy except `false` and `nil`. Comparison operators only work on numbers, but equality operators work on any type. The `and` and `or` operators are short-circuiting.
+Cassette has symbols, which represent an arbitrary value. Comparison operators only work on numbers, but equality operators work on any type. The `and` and `or` operators are short-circuiting. Equality is tested by identity, not structurally!
 
 ```cassette
 :ok
@@ -103,6 +89,13 @@ Cassette has symbols, which represent an arbitrary value. `true` and `false` are
 5 >= 4 + 1        ; => true
 :ok == :ok        ; => true
 :ok != :ok        ; => false
+```
+</div>
+
+<div class="columns">
+Cassette has three keyword values: `true`, `false`, and `nil`. `true` and `false` are `1` and `0`, respectively, while `nil` is the empty list, `[]`. In boolean operations, all values are truthy except `false` and `nil`. (This means `0` and `[]` are also falsey.)
+
+```cassette
 3 > 1 and 4 == 5  ; => false
 3 > 1 or 4 == 5   ; => true
 3 >= 0 and 3 < 5  ; => true
@@ -112,7 +105,7 @@ nil and :ok       ; => false
 </div>
 
 <div class="columns">
-Strings are UTF-8 encoded binaries. You can find the length of a string, concatenate two binaries, and test if one string or byte is present in another string. Binaries also represent other arbitrary byte sequences, such as the contents of a file.
+Strings are UTF-8 encoded binaries. You can find the length of a binary, concatenate two binaries, and slice a binary. Binaries also represent other arbitrary byte sequences, such as the contents of a file.
 
 ```cassette
 "Hello!"
@@ -122,20 +115,18 @@ Strings are UTF-8 encoded binaries. You can find the length of a string, concate
 "Hi " <> "there"  ; => "Hi there"
 "foo" <> "bar"    ; => "foobar"
 
-"ob" in "foobar"  ; => true
-$r in "foobar"    ; => true
-65 in "Alpha"     ; => true
-1000 in "foobar"  ; error: bytes must be between 0–255
+"ABCD"[1]         ; => 66 (ASCII "B")
+"ABCD"[1:2]       ; => "B"
 ```
 </div>
 
 <div class="columns reverse">
-Cassette has Lisp-style cons pairs, which form linked lists. Pairs are formed with the `|` operator, and can be used to easily prepend values to a list. `nil` is the empty list. You can find the length of a list, concatenate two lists, and test if a value is in a list. Lists can be accessed with an integer index.
+Cassette has Lisp-style cons pairs, which form linked lists. Pairs are formed with the `|` operator, and can be used to easily prepend values to a list. `nil` is the empty list. You can find the length of a list, concatenate two lists, and slice a list.
 
 ```cassette
 [1, 2, 3]         ; list
-[1, 2, 3].2       ; => 3
-[1, 2, 3].8       ; error: out of bounds
+[1, 2, 3][2]      ; => 3
+[1, 2, 3][8]      ; error: out of bounds
 [:a, x, 42]
 nil == []         ; => true
 
@@ -146,48 +137,29 @@ nil == []         ; => true
 #[1, 2, 3]        ; => 3
 #nil              ; => 0
 [1, 2] <> [3, 4]  ; => [1, 2, 3, 4]
-:ok in [:ok, 3]   ; => true
+[1, 2, 3][0:2]    ; => [1, 2]
 ```
 </div>
 
 <div class="columns">
-Cassette has tuples, which are fixed-length arrays of values. Tuples are less flexible than lists, but use less memory and are a little faster to access. You can find the length of a tuple, concatenate two tuples, and test if a value is in a tuple. Tuples can be accessed with an integer index.
+Cassette has tuples, which are fixed-length arrays of values. Tuples are less flexible than lists, but use less memory and are a little faster to access. You can find the length of a tuple, concatenate two tuples, and slice a tuple.
 
 ```cassette
 {1, 2, 3}         ; tuple
-{1, 2, 3}.2       ; => 3
-{1, 2, 3}.8       ; error: out of bounds
+{1, 2, 3}[2]      ; => 3
+{1, 2, 3}[8]      ; error: out of bounds
 #{1, 2, 3}        ; => 3
 #{}               ; => 0
 {1, 2} <> {3, 4}  ; => {1, 2, 3, 4}
-"x" in {"y", "z"} ; => false
-```
-</div>
-
-<div class="columns reverse">
-Cassette has maps (a.k.a. dictionaries), which can be written like tuples with symbol keys. Map literals can only have symbol keys, but other functions can get and set keys of other types. You can find the number of key/value pairs in a map, merge two maps, and test if a map contains a key.
-
-```cassette
-{x: 3, y: 4}      ; a map with keys `:x` and `:y`
-my_map.x          ; => 3
-my_map.z          ; => nil
-
-#{x: 1, y: 2}     ; => 2
-{x: 1, z: 4} <> {x: 2, y: 3}
-                  ; => {x: 2, y: 3, z: 4}
-:x in {x: 1, y: 2}  ; => true
+{1, 2, 3}[1:]     ; => {2, 3}
 ```
 </div>
 
 <div class="columns">
-Variables are defined with `let`. A `do` block can introduce a new scope, and can be used to combine a group of expressions into one. Cassette has lexical scoping. A variable must start with a letter or underscore, but may contain any characters afterward except for whitespace and these reserved characters: `;,.:()[]{}`. This means that if you want to write an infix expression, you must often include space around the operator to disambiguate it from its operands.
+Variables are defined with `let`. A `do` block can introduce a new scope, and can be used to combine a group of expressions into one. Cassette has lexical scoping.
 
 ```cassette
-let x = 1, y = 2, x-y = 3
-
-print(x - y)     ; prints "-1"
-print(x-y)       ; prints "3"
-print(x -y)      ; error: tries to call function "x" with argument "-y"
+let x = 1, y = 2
 
 do
   let y = 3, z = 4
@@ -244,14 +216,14 @@ def b(x) a(x / 2)
 </div>
 
 <div class="columns reverse">
-Cassette programs can be split up into different modules, one per file. A manifest file is used to list the files in a program, with the first file listed being the entry point. Modules can be imported directly into a file's scope, or aliased as a map.
+Cassette programs can be split up into different modules, one per file. Any top-level `def`-defined functions can be exported. Imported modules can be aliased.
 
 <div>
 ```cassette
 ; file "foo.ct"
 module Foo
+export bar
 
-let pi = 3.14
 def bar(x) x + 1
 ```
 
@@ -260,25 +232,16 @@ def bar(x) x + 1
 import Foo        ; imported as a map called `Foo`
 
 Foo.bar(3)        ; => 4
-Foo.pi            ; => 3.14
 ```
 
 ```cassette
 ; alternative "main.ct"
-import Foo as F   ; imported as a map called `F`
+import Foo as F   ; imported as `F`
 
 def bar(x) x + 8
 
 bar(3)            ; => 11
 F.bar(3)          ; => 4
-```
-
-```cassette
-; alternative "main.ct"
-import Foo as *   ; imported directly into current scope
-
-bar(3)            ; => 4
-pi                ; => 3.14
 ```
 </div>
 </div>
