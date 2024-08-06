@@ -1,8 +1,17 @@
 module File
 export open, close, read, write, seek
 
-def open(path, flags, mode) trap(:open, path, flags, mode)
+def open(path, mode) do
+  let flags =
+    cond
+      mode == :r or mode == :read -> 0
+      mode == :w or mode == :write -> 1
+      mode == :rw or mode == :read_write -> 2
+      true -> 0
+    end
+  trap(:open, path, flags, 0x1FF)
+end
 def close(file) trap(:close, file)
 def read(file, size) trap(:read, file, size)
-def write(file, data, size) trap(:write, file, data, size)
+def write(file, data) trap(:write, file, data, #data)
 def seek(file, offset, whence) trap(:seek, file, offset, whence)

@@ -1,35 +1,44 @@
-import Window, Graphics, Event, IO, Time, List, Math
+import Window, Graphics, IO, Time, List, Math
 
-let size = 500, canvas = Window.new(size, size)
-let seed = Time.now()
+; create a window and seed the RNG
+let size = 500,
+    canvas = Window.new(size, size),
+    seed = Time.now()
 Math.seed(seed)
-
 IO.print(IO.format(["Seed: ", seed]))
 
-def next(y) do
-  if y >= size do
-    \dt -> draw(0)
-  else
-    \dt -> draw(y+10)
-  end
+; this generates a new draw function by updating an anchor point
+def next_draw(x, y) do
+  let x = x + Math.random_between(-10, 10),
+      x = Math.wrap(x, 0, size),
+      y = y + Math.random_between(-10, 10),
+      y = Math.wrap(y, 0, size)
+  \dt -> draw(x, y)
 end
 
-let frame_time = 100
+; how long we want each frame to take (ms)
+let frame_time = 50
 
-def draw(y) do
+; our custom draw function takes a base y coord
+def draw(x, y) do
+  ; clear the canvas
   Window.set_color({255, 255, 255}, canvas)
   Window.clear(canvas)
   Window.set_color({0, 0, 0}, canvas)
 
+  ; draw 50 random lines anchored at our y coord
   List.map(List.range(0, 50), \i -> do
-    let x1 = Math.random_between(0, size),
-        x2 = Math.random_between(0, size),
+    let x2 = Math.random_between(0, size),
         y2 = Math.random_between(0, size)
-    Graphics.line(x1, y, x2, y2, canvas)
+    Graphics.line(x, y, x2, y2, canvas)
   end)
 
+  ; update the window
   Window.present(canvas)
-  Graphics.next_frame(next(y), frame_time)
+
+  ; request another frame with an incremented draw function
+  Graphics.next_frame(next_draw(x, y), frame_time)
 end
 
-Graphics.next_frame(next(0), frame_time)
+; request the first frame
+draw(size/2, size/2)

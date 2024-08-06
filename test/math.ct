@@ -1,6 +1,18 @@
 module Math
-export random, random_between, seed
+export random, random_between, seed, constrain, wrap
 
 def random() trap(:random)
 def random_between(min, max) trap(:random_between, min, max)
 def seed(s) trap(:seed, s)
+
+def constrain(n, min, max) cond
+  n < min -> min
+  n >= max -> max - 1
+  true -> n
+end
+
+def wrap(n, min, max) cond
+  n < min -> max - 1
+  n >= max -> min
+  true -> n
+end

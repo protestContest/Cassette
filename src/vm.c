@@ -229,8 +229,8 @@ void RunGC(VM *vm)
   b = VMStackPop(vm);\
   a = VMStackPop(vm)
 
-#define UnaryOp(op)     VMStackPush(IntVal(op RawVal(a)), vm)
-#define BinOp(op)       VMStackPush(IntVal(RawVal(a) op RawVal(b)), vm)
+#define UnaryOp(op, a)    VMStackPush(IntVal(op RawVal(a)), vm)
+#define BinOp(a, op, b)   VMStackPush(IntVal(RawInt(a) op RawInt(b)), vm)
 #define CheckBounds(n) \
   if ((n) < 0 || (n) > (i32)VecCount(vm->program->code)) \
     return RuntimeError("Out of bounds", vm)
@@ -347,7 +347,7 @@ static Result OpAdd(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be added", vm);
-  BinOp(+);
+  BinOp(a, +, b);
   vm->pc++;
   return vm->status;
 }
@@ -357,7 +357,7 @@ static Result OpSub(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be subtracted", vm);
-  BinOp(-);
+  BinOp(a, -, b);
   vm->pc++;
   return vm->status;
 }
@@ -367,7 +367,7 @@ static Result OpMul(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be multiplied", vm);
-  BinOp(*);
+  BinOp(a, *, b);
   vm->pc++;
   return vm->status;
 }
@@ -378,7 +378,7 @@ static Result OpDiv(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be divided", vm);
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
-  BinOp(/);
+  BinOp(a, /, b);
   vm->pc++;
   return vm->status;
 }
@@ -389,7 +389,7 @@ static Result OpRem(VM *vm)
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be remaindered", vm);
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
-  BinOp(%);
+  BinOp(a, %, b);
   vm->pc++;
   return vm->status;
 }
@@ -399,7 +399,7 @@ static Result OpAnd(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be and-ed", vm);
-  BinOp(&);
+  BinOp(a, &, b);
   vm->pc++;
   return vm->status;
 }
@@ -409,7 +409,7 @@ static Result OpOr(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be or-ed", vm);
-  BinOp(|);
+  BinOp(a, |, b);
   vm->pc++;
   return vm->status;
 }
@@ -419,7 +419,7 @@ static Result OpComp(VM *vm)
   val a;
   OneArg(a);
   if (!IsInt(a)) return RuntimeError("Only integers can be ", vm);
-  UnaryOp(~);
+  UnaryOp(~, a);
   vm->pc++;
   return vm->status;
 }
@@ -429,7 +429,7 @@ static Result OpLt(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
-  BinOp(<);
+  BinOp(a, <, b);
   vm->pc++;
   return vm->status;
 }
@@ -439,7 +439,7 @@ static Result OpGt(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
-  BinOp(>);
+  BinOp(a, >, b);
   vm->pc++;
   return vm->status;
 }
@@ -458,7 +458,7 @@ static Result OpNeg(VM *vm)
   val a;
   OneArg(a);
   if (!IsInt(a)) return RuntimeError("Only integers can be negated", vm);
-  UnaryOp(-);
+  UnaryOp(-, a);
   vm->pc++;
   return vm->status;
 }
@@ -477,7 +477,7 @@ static Result OpShift(VM *vm)
   val a, b;
   TwoArgs(a, b);
   if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be shifted", vm);
-  BinOp(<<);
+  BinOp(a, <<, b);
   vm->pc++;
   return vm->status;
 }
