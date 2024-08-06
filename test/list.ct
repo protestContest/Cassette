@@ -64,5 +64,5 @@ def zip(a, b) do
 end
 
 def with_index(list) do
-  zip(iota(#list), list)
+  zip(range(0, #list), list)
 end

@@ -153,7 +153,7 @@ Result VMRandomBetween(VM *vm)
   val max = VMStackPop(vm);
   val min = VMStackPop(vm);
   if (!IsInt(min) || !IsInt(max)) return RuntimeError("Range must be integers", vm);
-  return OkVal(RandomBetween(RawInt(min), RawInt(max)));
+  return OkVal(IntVal(RandomBetween(RawInt(min), RawInt(max))));
 }
 
 Result VMSeed(VM *vm)

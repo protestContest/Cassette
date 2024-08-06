@@ -1,12 +1,26 @@
-import Window, Graphics, Event, IO
+import Window, Graphics, Event, IO, Time, List, Math
 
 let size = 500, canvas = Window.new(size, size)
+let seed = Time.now()
+Math.seed(seed)
+
+IO.print(IO.format(["Seed: ", seed]))
 
 Window.set_color({255, 255, 255}, canvas)
 Window.clear(canvas)
 Window.set_color({0, 0, 0}, canvas)
-Graphics.bezier(100, 300, 200, 100, 400, 400, canvas)
-Graphics.rect(100, 200, 400, 400, canvas)
+
+let mx = Math.random_between(0, size),
+    my = Math.random_between(0, size)
+
+List.map(List.range(0, 50), \i -> do
+  let x1 = Math.random_between(0, size),
+      y1 = Math.random_between(0, size),
+      x2 = Math.random_between(0, size),
+      y2 = Math.random_between(0, size)
+  Graphics.line(x1, y1, x2, y2, canvas)
+end)
+
 Window.present(canvas)
 Event.loop(\event -> do
   Event.type(event) == :keydown and Event.message(event) == :escape

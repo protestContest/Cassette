@@ -181,7 +181,7 @@ Result ParseModuleBody(Module *module)
   if (AtEnd(&p)) {
     ASTNode *stmt = MakeTerminal(constNode, p.filename, p.token.pos, p.token.pos, 0);
     ast = MakeNode(doNode, p.filename, p.token.pos, p.token.pos);
-    NodePush(stmt, module->ast);
+    NodePush(stmt, ast);
   } else {
     result = ParseStmts(&p);
     if (IsError(result)) return result;
