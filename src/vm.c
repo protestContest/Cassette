@@ -200,6 +200,11 @@ void *VMGetRef(u32 ref, VM *vm)
   return vm->refs[ref];
 }
 
+void MaybeGC(u32 size, VM *vm)
+{
+  if (MemFree() < size) RunGC(vm);
+}
+
 void RunGC(VM *vm)
 {
   VMStackPush(vm->env, vm);
@@ -561,7 +566,7 @@ static Result OpRoll(VM *vm)
 static Result OpPair(VM *vm)
 {
   val a, b;
-  if (MemFree() < 2) RunGC(vm);
+  MaybeGC(2, vm);
   TwoArgs(a, b);
   VMStackPush(Pair(b, a), vm);
   vm->pc++;
@@ -592,7 +597,7 @@ static Result OpTuple(VM *vm)
 {
   u32 count = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(count);
-  if (MemFree() < count+1) RunGC(vm);
+  MaybeGC(count+1, vm);
   VMStackPush(Tuple(count), vm);
   return vm->status;
 }
@@ -662,7 +667,7 @@ static Result OpStr(VM *vm)
   if (!IsSym(a)) return RuntimeError("Only symbols can become strings", vm);
   name = SymbolName(RawVal(a));
   len = strlen(name);
-  if (MemFree() < BinSpace(len) + 1) RunGC(vm);
+  MaybeGC(BinSpace(len) + 1, vm);
   VMStackPush(BinaryFrom(name, len), vm);
   vm->pc++;
   return vm->status;

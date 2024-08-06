@@ -8,4 +8,6 @@ Result SDLPresent(VM *vm);
 Result SDLClear(VM *vm);
 Result SDLLine(VM *vm);
 Result SDLSetColor(VM *vm);
+Result SDLGetColor(VM *vm);
 Result SDLPollEvent(VM *vm);
+Result SDLGetTicks(VM *vm);

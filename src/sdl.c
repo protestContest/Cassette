@@ -17,6 +17,7 @@ Result SDLNewWindow(VM *vm)
   SDL_CreateWindowAndRenderer(RawInt(width), RawInt(height), 0, &window, &renderer);
   ref = VMPushRef(renderer, vm);
   winref = VMPushRef(window, vm);
+  MaybeGC(3, vm);
   result = Tuple(2);
   TupleSet(result, 0, ref);
   TupleSet(result, 1, winref);
@@ -88,6 +89,22 @@ Result SDLSetColor(VM *vm)
   renderer = VMGetRef(RawVal(ref), vm);
   SDL_SetRenderDrawColor(renderer, RawInt(r), RawInt(g), RawInt(b), SDL_ALPHA_OPAQUE);
   return OkVal(0);
+}
+
+Result SDLGetColor(VM *vm)
+{
+  val refs = VMStackPop(vm);
+  val ref = TupleGet(refs, 0);
+  SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
+  u8 r, g, b, a;
+  val color;
+  MaybeGC(4, vm);
+  color = Tuple(3);
+  SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+  TupleSet(color, 0, r);
+  TupleSet(color, 0, g);
+  TupleSet(color, 0, b);
+  return OkVal(color);
 }
 
 static val EventType(SDL_Event *event)
@@ -206,9 +223,12 @@ static val KeyVal(SDL_Keycode keycode)
 Result SDLPollEvent(VM *vm)
 {
   SDL_Event event;
-  val event_val = Tuple(5);
+  val event_val, where;
   i32 x, y;
-  val where = Tuple(2);
+
+  MaybeGC(9, vm);
+  event_val = Tuple(5);
+  where = Tuple(2);
 
   TupleSet(event_val, 1, IntVal(event.quit.timestamp));
   SDL_GetMouseState(&x, &y);
@@ -232,4 +252,9 @@ Result SDLPollEvent(VM *vm)
     }
   }
   return OkVal(event_val);
+}
+
+Result SDLGetTicks(VM *vm)
+{
+  return OkVal(IntVal(SDL_GetTicks()));
 }

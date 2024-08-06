@@ -6,22 +6,30 @@ Math.seed(seed)
 
 IO.print(IO.format(["Seed: ", seed]))
 
-Window.set_color({255, 255, 255}, canvas)
-Window.clear(canvas)
-Window.set_color({0, 0, 0}, canvas)
+def next(y) do
+  if y >= size do
+    \dt -> draw(0)
+  else
+    \dt -> draw(y+10)
+  end
+end
 
-let mx = Math.random_between(0, size),
-    my = Math.random_between(0, size)
+let frame_time = 100
 
-List.map(List.range(0, 50), \i -> do
-  let x1 = Math.random_between(0, size),
-      y1 = Math.random_between(0, size),
-      x2 = Math.random_between(0, size),
-      y2 = Math.random_between(0, size)
-  Graphics.line(x1, y1, x2, y2, canvas)
-end)
+def draw(y) do
+  Window.set_color({255, 255, 255}, canvas)
+  Window.clear(canvas)
+  Window.set_color({0, 0, 0}, canvas)
 
-Window.present(canvas)
-Event.loop(\event -> do
-  Event.type(event) == :keydown and Event.message(event) == :escape
-end)
+  List.map(List.range(0, 50), \i -> do
+    let x1 = Math.random_between(0, size),
+        x2 = Math.random_between(0, size),
+        y2 = Math.random_between(0, size)
+    Graphics.line(x1, y, x2, y2, canvas)
+  end)
+
+  Window.present(canvas)
+  Graphics.next_frame(next(y), frame_time)
+end
+
+Graphics.next_frame(next(0), frame_time)

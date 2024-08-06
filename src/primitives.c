@@ -196,7 +196,8 @@ static PrimDef primitives[] = {
   {"sdl_clear", SDLClear},
   {"sdl_line", SDLLine},
   {"sdl_set_color", SDLSetColor},
-  {"sdl_poll_event", SDLPollEvent}
+  {"sdl_poll_event", SDLPollEvent},
+  {"sdl_get_ticks", SDLGetTicks}
 };
 
 PrimDef *Primitives(void)

@@ -1,5 +1,6 @@
 module Graphics
-export line, midpoint, bezier, rect
+import Event
+export line, midpoint, bezier, rect, next_frame
 
 def line(x1, y1, x2, y2, window) trap(:sdl_line, x1, y1, x2, y2, window)
 
@@ -28,4 +29,19 @@ def rect(x1, y1, x2, y2, window) do
   line(x2, y1, x2, y2, window)
   line(x1, y1, x2, y1, window)
   line(x1, y2, x2, y2, window)
+end
+
+def next_frame(draw, frame_time) do
+  def loop(start) do
+    let now = Event.ticks(),
+        next = start + frame_time,
+        event = Event.poll()
+    cond
+      Event.type(event) == :quit -> :quit
+      Event.type(event) == :keydown and Event.message(event) == :escape -> :quit
+      now >= next -> draw(now - start)
+      true -> loop(start)
+    end
+  end
+  loop(Event.ticks())
 end

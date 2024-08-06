@@ -30,7 +30,7 @@ Result Err(Error *error)
 Error *NewError(char *message, char *file, u32 pos, u32 length)
 {
   Error *error = malloc(sizeof(Error));
-  error->message = message;
+  error->message = message ? strndup(message, strlen(message)) : 0;
   error->file = file;
   error->pos = pos;
   error->length = length;

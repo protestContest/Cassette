@@ -1,8 +1,9 @@
 module Event
 import IO
-export poll, loop, type, when, where, message, modifiers
+export poll, loop, type, when, where, message, modifiers, ticks
 
 def poll() trap(:sdl_poll_event)
+def ticks() trap(:sdl_get_ticks)
 
 def type(event) event[0]
 def when(event) event[1]
@@ -15,7 +16,7 @@ def loop(on_event) do
   if event do
     cond
       type(event) == :quit -> nil
-      on_event and on_event(event) -> nil
+      on_event and on_event(event) == :quit -> nil
       true -> loop(on_event)
     end
   else

@@ -34,4 +34,6 @@ val VMStackPop(VM *vm);
 void VMTrace(VM *vm, char *src);
 u32 VMPushRef(void *ref, VM *vm);
 void *VMGetRef(u32 ref, VM *vm);
+void MaybeGC(u32 size, VM *vm);
+void RunGC(VM *vm);
 Result RuntimeError(char *message, struct VM *vm);
