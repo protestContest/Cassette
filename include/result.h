@@ -16,6 +16,7 @@ typedef struct {
   char *file;
   u32 pos;
   u32 length;
+  void *data;
 } Error;
 
 Result Ok(void *data);
@@ -24,3 +25,4 @@ Result Err(Error *error);
 Error *NewError(char *message, char *file, u32 pos, u32 length);
 void FreeError(Error *error);
 void PrintError(Result result);
+void PrintSourceLine(char *text, u32 pos);

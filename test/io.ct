@@ -1,5 +1,30 @@
 module IO
-export print, format
+export print, format, open, close, read, write, seek, last_error
 
 def print(value) trap(:print, value)
 def format(value) trap(:format, value)
+def last_error() trap(:io_error)
+
+def open(path, mode) do
+  let flags =
+    cond
+      mode == :r or mode == :read -> 0
+      mode == :w or mode == :write -> 1
+      mode == :rw or mode == :read_write -> 2
+      true -> 0
+    end
+  trap(:open, path, flags, 0x1FF)
+end
+def close(file) trap(:close, file)
+def read(file, size) trap(:read, file, size)
+def write(file, data) trap(:write, file, data, #data)
+def seek(file, offset, whence) do
+  let whence =
+    cond
+      whence == :start -> 0
+      whence == :cur -> 1
+      whence == :end -> 2
+      true -> 0
+    end
+  trap(:seek, file, offset, whence)
+end

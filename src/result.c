@@ -34,6 +34,7 @@ Error *NewError(char *message, char *file, u32 pos, u32 length)
   error->file = file;
   error->pos = pos;
   error->length = length;
+  error->data = 0;
   return error;
 }
 
@@ -86,6 +87,14 @@ void PrintSourceContext(char *text, u32 pos, u32 length, u32 context)
   lineend = LineEnd(line-text, text);
   len = lineend - line;
   fprintf(stderr, " %*d│ %*.*s", linenum_width, linenum+1, len, len, line);
+}
+
+void PrintSourceLine(char *text, u32 pos)
+{
+  char *line = LineStart(pos, text);
+  char *end = LineEnd(pos, text);
+  u32 len = end - line;
+  fprintf(stderr, "%*.*s", len, len, line);
 }
 
 void PrintError(Result result)

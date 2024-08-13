@@ -19,6 +19,8 @@ typedef enum {
   opSetEnv, /* a -> ; env <- a */
   opGetMod, /* -> mods */
   opSetMod, /* a -> ; mods <- a */
+  opLink,   /* -> link; link <- #stack */
+  opUnlink, /* a -> ; link <- a */
 
   opAdd = 0x20,    /* a b -> a+b */
   opSub,    /* a b -> a-b */

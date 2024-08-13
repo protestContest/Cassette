@@ -49,6 +49,8 @@ char *OpName(OpCode op)
   case opSetEnv:  return "setEnv";
   case opSetMod:  return "setMod";
   case opGetMod:  return "getMod";
+  case opLink:    return "link";
+  case opUnlink:  return "unlink";
   default:        return "???";
   }
 }

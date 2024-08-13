@@ -14,6 +14,7 @@ typedef struct VM {
   u32 pc;
   val env;
   val mod;
+  u32 link;
   val *stack;
   PrimFn *primitives;
   Program *program;
@@ -37,3 +38,5 @@ void *VMGetRef(u32 ref, VM *vm);
 void MaybeGC(u32 size, VM *vm);
 void RunGC(VM *vm);
 Result RuntimeError(char *message, struct VM *vm);
+void PrintStackTrace(Result result);
+void FreeStackTrace(Result result);

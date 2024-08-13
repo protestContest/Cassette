@@ -52,6 +52,8 @@ int main(int argc, char *argv[])
   result = VMRun(program);
   if (!result.ok) {
     PrintError(result);
+    PrintStackTrace(result);
+    FreeStackTrace(result);
     FreeError(result.data.p);
   }
 

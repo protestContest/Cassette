@@ -3,6 +3,7 @@
 #include "result.h"
 #include "leb.h"
 #include "primitives.h"
+#include "univ/file.h"
 #include <univ/math.h>
 #include <univ/str.h>
 #include <univ/symbol.h>
@@ -15,6 +16,13 @@ static void TraceInst(VM *vm);
 static u32 PrintStack(VM *vm);
 static PrimFn *InitPrimitives(void);
 
+typedef struct {
+  char *filename;
+  u32 pos;
+} StackTrace;
+
+static StackTrace *BuildStackTrace(VM *vm);
+
 static Result OpNoop(VM *vm);
 static Result OpHalt(VM *vm);
 static Result OpConst(VM *vm);
@@ -26,6 +34,8 @@ static Result OpGetEnv(VM *vm);
 static Result OpSetEnv(VM *vm);
 static Result OpGetMod(VM *vm);
 static Result OpSetMod(VM *vm);
+static Result OpLink(VM *vm);
+static Result OpUnlink(VM *vm);
 static Result OpAdd(VM *vm);
 static Result OpSub(VM *vm);
 static Result OpMul(VM *vm);
@@ -71,6 +81,8 @@ static OpFn ops[] = {
   [opSetEnv]  = OpSetEnv,
   [opGetMod]  = OpGetMod,
   [opSetMod]  = OpSetMod,
+  [opLink]    = OpLink,
+  [opUnlink]  = OpUnlink,
   [opAdd]     = OpAdd,
   [opSub]     = OpSub,
   [opMul]     = OpMul,
@@ -112,6 +124,7 @@ Result RuntimeError(char *message, struct VM *vm)
   Error *error = NewError(0, file, pos, 0);
   error->message = StrCat(error->message, "Runtime error: ");
   error->message = StrCat(error->message, message);
+  error->data = BuildStackTrace(vm);
   return Err(error);
 }
 
@@ -326,18 +339,20 @@ static Result OpSetMod(VM *vm)
   return vm->status;
 }
 
-static Result OpGetA(VM *vm)
+static Result OpLink(VM *vm)
 {
-  VMStackPush(vm->mod, vm);
+  VMStackPush(IntVal(vm->link), vm);
+  vm->link = VecCount(vm->stack) - 1;
   vm->pc++;
   return vm->status;
 }
 
-static Result OpSetA(VM *vm)
+static Result OpUnlink(VM *vm)
 {
   val a;
   OneArg(a);
-  vm->mod = a;
+  if (!IsInt(a)) return RuntimeError("Link type error", vm);
+  vm->link = RawInt(a);
   vm->pc++;
   return vm->status;
 }
@@ -812,4 +827,69 @@ static PrimFn *InitPrimitives(void)
     fns[i] = primitives[i].fn;
   }
   return fns;
+}
+
+static StackTrace *BuildStackTrace(VM *vm)
+{
+  u32 link = vm->link;
+  StackTrace *trace = 0;
+  while (link > 0) {
+    StackTrace item;
+    u32 code_pos = RawInt(vm->stack[link-1]);
+    item.filename = GetSourceFile(code_pos, &vm->program->srcmap);
+    item.pos = GetSourcePos(code_pos, &vm->program->srcmap);
+    printf("%d %s\n", code_pos, item.filename);
+    VecPush(trace, item);
+    link = RawInt(vm->stack[link]);
+  }
+  return trace;
+}
+
+void FreeStackTrace(Result result)
+{
+  Error *error = result.data.p;
+  StackTrace *trace = error->data;
+  FreeVec(trace);
+}
+
+void PrintStackTrace(Result result)
+{
+  Error *error = result.data.p;
+  StackTrace *trace = error->data;
+  u32 i;
+  u32 colwidth = 0;
+
+  for (i = 0; i < VecCount(trace); i++) {
+    if (trace[i].filename) {
+      char *text = ReadFile(trace[i].filename);
+      if (text) {
+        u32 line_num = LineNum(text, trace[i].pos);
+        u32 col = ColNum(text, trace[i].pos);
+        u32 len = snprintf(0, 0, "  %s:%d:%d: ", trace[i].filename, line_num+1, col+1);
+        free(text);
+        colwidth = Max(colwidth, len);
+      }
+    }
+  }
+
+  fprintf(stderr, "%sStacktrace:\n", ANSIRed);
+  for (i = 0; i < VecCount(trace); i++) {
+    if (trace[i].filename) {
+      char *text = ReadFile(trace[i].filename);
+      if (text) {
+        u32 line = LineNum(text, trace[i].pos);
+        u32 col = ColNum(text, trace[i].pos);
+        u32 j, printed;
+        printed = fprintf(stderr, "  %s:%d:%d: ", trace[i].filename, line+1, col+1);
+        for (j = 0; j < colwidth - printed; j++) fprintf(stderr, " ");
+        PrintSourceLine(text, trace[i].pos);
+        free(text);
+      } else {
+        fprintf(stderr, "%s@%d\n", trace[i].filename, trace[i].pos);
+      }
+    } else {
+      fprintf(stderr, "(system)@%d\n", trace[i].pos);
+    }
+  }
+  fprintf(stderr, "%s", ANSINormal);
 }

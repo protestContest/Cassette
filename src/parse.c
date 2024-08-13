@@ -842,7 +842,6 @@ static Result ParseSymbol(Parser *p)
   i32 sym;
   Token token;
   if (!MatchToken(colonToken, p)) return ParseError("Expected \":\"", p);
-  if (!CheckToken(idToken, p))return ParseError("Expected identifier", p);
   token = p->token;
   sym = SymbolFrom(p->text + token.pos, token.length);
   Adv(p);

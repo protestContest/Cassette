@@ -156,13 +156,13 @@ static Result CompileTuple(ASTNode *node, Env *env, ImportMap *imports, bool ret
   assert(node->type == tupleNode);
   num_items = VecCount(node->data.children);
   for (i = 0; i < num_items; i++) {
-    Chunk *index_chunk, *item_chunk;
+    Chunk *index_chunk, *set_chunk;
     ASTNode *item = node->data.children[num_items - 1 - i];
     Result result = CompileExpr(item, env, imports, false);
     if (IsError(result)) return Fail(items_chunk, result);
-    item_chunk = NewChunk(node->start);
-    ChunkWrite(opSet, item_chunk);
-    items_chunk = AppendChunk(item_chunk, items_chunk);
+    set_chunk = NewChunk(node->start);
+    ChunkWrite(opSet, set_chunk);
+    items_chunk = AppendChunk(set_chunk, items_chunk);
     items_chunk = PreservingEnv(result.data.p, items_chunk);
     index_chunk = NewChunk(node->start);
     ChunkWrite(opConst, index_chunk);
@@ -558,6 +558,8 @@ static Result CompileCall(ASTNode *node, Env *env, ImportMap *imports, bool retu
 {
   /*
   ; if not returning after:
+    pos 0
+    link
     pos <after>
   ; for each argument:
     <arg code>
@@ -610,7 +612,18 @@ after:
     if (returns) WriteReturn(chunk);
   } else {
     CompileMakeCall(chunk);
-    if (!returns) chunk = CompilePos(chunk);
+    if (!returns) {
+      Chunk *link = NewChunk(node->start);
+      ChunkWrite(opPos, link);
+      ChunkWriteInt(0, link);
+      ChunkWrite(opLink, link);
+      chunk = AppendChunk(link, CompilePos(chunk));
+      /* unlink backtrace info */
+      ChunkWrite(opSwap, chunk);
+      ChunkWrite(opUnlink, chunk);
+      ChunkWrite(opSwap, chunk);
+      ChunkWrite(opDrop, chunk);
+    }
   }
 
   return Ok(chunk);
@@ -787,7 +800,7 @@ after_cache:
 
   exports = NewChunk(0);
   ChunkWrite(opDrop, exports);
-  AppendChunk(chunk, exports);
+  chunk = AppendChunk(chunk, exports);
 
   ChunkWrite(opTuple, chunk);
   ChunkWriteInt(VecCount(module->exports), chunk);

@@ -31,15 +31,15 @@ void WriteBE(u32 num, u8 *dst)
 
 u32 SerializeProgram(Program *program, u8 **dst)
 {
-  char form[4] = {'F', 'O', 'R', 'M'};
-  char csst[4] = {'C', 'S', 'S', 'T'};
-  char code[4] = {'C', 'O', 'D', 'E'};
-  char strs[4] = {'S', 'T', 'R', 'S'};
+  char form[4] = "FORM";
+  char tape[4] = "TAPE";
+  char code[4] = "CODE";
+  char strs[4] = "STRS";
 
   u32 trailing_bytes, i;
   u32 code_size = Align(VecCount(program->code), sizeof(u32));
   u32 strs_size = Align(VecCount(program->strings), sizeof(u32));
-  u32 form_size = sizeof(csst)
+  u32 form_size = sizeof(tape)
                 + sizeof(code) + sizeof(code_size) + code_size
                 + sizeof(strs) + sizeof(strs_size) + strs_size;
   u32 size = sizeof(form) + sizeof(form_size) + form_size;
@@ -51,8 +51,8 @@ u32 SerializeProgram(Program *program, u8 **dst)
   cur += sizeof(form);
   WriteBE(form_size, cur);
   cur += sizeof(form_size);
-  Copy(csst, cur, sizeof(csst));
-  cur += sizeof(csst);
+  Copy(tape, cur, sizeof(tape));
+  cur += sizeof(tape);
   Copy(code, cur, sizeof(code));
   cur += sizeof(code);
   WriteBE(code_size, cur);

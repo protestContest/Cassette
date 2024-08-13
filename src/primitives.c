@@ -40,7 +40,9 @@ Result VMPanic(VM *vm)
 {
   val a = VMStackPop(vm);
   char *str = BinToStr(InspectVal(a));
-  return RuntimeError(str, vm);
+  Result result = RuntimeError(str, vm);
+  free(str);
+  return result;
 }
 
 Result VMTypeOf(VM *vm)
@@ -69,6 +71,7 @@ Result VMOpen(VM *vm)
   str = BinToStr(path);
   file = open(str, flags, mode);
   free(str);
+  if (file == -1) return OkVal(SymVal(Symbol("error")));
   return OkVal(IntVal(file));
 }
 
@@ -79,11 +82,8 @@ Result VMClose(VM *vm)
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
 
   err = close(file);
-  if (err != 0) {
-    return OkVal(IntVal(errno));
-  } else {
-    return OkVal(SymVal(Symbol("ok")));
-  }
+  if (err != 0) return OkVal(SymVal(Symbol("error")));
+  return OkVal(SymVal(Symbol("ok")));
 }
 
 Result VMRead(VM *vm)
@@ -92,15 +92,20 @@ Result VMRead(VM *vm)
   val file = VMStackPop(vm);
   val bin;
   u8 *data;
-  u32 bytes_read;
+  i32 bytes_read;
 
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
   if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
 
   data = malloc(RawInt(size));
   bytes_read = read(RawInt(file), data, RawInt(size));
-  bin = NewBinary(bytes_read);
-  Copy(data, BinaryData(bin), bytes_read);
+  if (bytes_read >= 0) {
+    MaybeGC(BinSpace(bytes_read) + 1, vm);
+    bin = NewBinary(bytes_read);
+    Copy(data, BinaryData(bin), bytes_read);
+  } else {
+    bin = SymVal(Symbol("error"));
+  }
   free(data);
   return OkVal(bin);
 }
@@ -110,13 +115,15 @@ Result VMWrite(VM *vm)
   val size = VMStackPop(vm);
   val buf = VMStackPop(vm);
   val file = VMStackPop(vm);
+  i32 written;
 
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
   if (!IsBinary(buf)) return RuntimeError("Data must be binary", vm);
   if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
 
-  write(RawInt(file), BinaryData(buf), RawInt(size));
-  return OkVal(buf);
+  written = write(RawInt(file), BinaryData(buf), RawInt(size));
+  if (written < 0) return OkVal(SymVal(Symbol("error")));
+  return OkVal(IntVal(written));
 }
 
 Result VMSeek(VM *vm)
@@ -124,22 +131,25 @@ Result VMSeek(VM *vm)
   val whence = VMStackPop(vm);
   val offset = VMStackPop(vm);
   val file = VMStackPop(vm);
-  u32 pos;
+  i32 pos;
 
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
   if (!IsInt(offset)) return RuntimeError("Offset must be an integer", vm);
-  if (whence == SymVal(Symbol("set"))) {
-    whence = SEEK_SET;
-  } else if (whence == SymVal(Symbol("cur"))) {
-    whence = SEEK_CUR;
-  } else if (whence == SymVal(Symbol("end"))) {
-    whence = SEEK_END;
-  } else {
-    return RuntimeError("Whence must be :set, :cur, or :end", vm);
-  }
+  if (!IsInt(whence)) return RuntimeError("Whence must be an integer", vm);
 
-  pos = lseek(RawInt(file), RawInt(offset), whence);
+  pos = lseek(RawInt(file), RawInt(offset), RawInt(whence));
+  if (pos < 0) return OkVal(SymVal(Symbol("error")));
   return OkVal(IntVal(pos));
+}
+
+Result VMIOError(VM *vm)
+{
+  char *msg = strerror(errno);
+  u32 len = strlen(msg);
+  val bin;
+  MaybeGC(BinSpace(len) + 1, vm);
+  bin = BinaryFrom(msg, len);
+  return OkVal(bin);
 }
 
 Result VMRandom(VM *vm)
@@ -185,6 +195,7 @@ static PrimDef primitives[] = {
   {"read", VMRead},
   {"write", VMWrite},
   {"seek", VMSeek},
+  {"io_error", VMIOError},
   {"random", VMRandom},
   {"random_between", VMRandomBetween},
   {"seed", VMSeed},
