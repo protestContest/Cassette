@@ -11,3 +11,4 @@ Result SDLSetColor(VM *vm);
 Result SDLGetColor(VM *vm);
 Result SDLPollEvent(VM *vm);
 Result SDLGetTicks(VM *vm);
+Result SDLBlit(VM *vm);

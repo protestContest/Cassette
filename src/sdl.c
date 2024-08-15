@@ -1,5 +1,6 @@
 #include "sdl.h"
 #include "mem.h"
+#include "univ/str.h"
 #include <univ/symbol.h>
 #include <SDL2/SDL.h>
 
@@ -257,4 +258,41 @@ Result SDLPollEvent(VM *vm)
 Result SDLGetTicks(VM *vm)
 {
   return OkVal(IntVal(SDL_GetTicks()));
+}
+
+Result SDLBlit(VM *vm)
+{
+  val refs = VMStackPop(vm);
+  val img = VMStackPop(vm);
+  val width = VMStackPop(vm);
+  val y = VMStackPop(vm);
+  val x = VMStackPop(vm);
+  val ref = TupleGet(refs, 0);
+  SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
+  SDL_Texture *tex;
+  void *pixels;
+  u32 w, h;
+  int pitch;
+  SDL_Rect dst;
+
+  if (!IsInt(y)) return RuntimeError("Expected integer", vm);
+  if (!IsInt(x)) return RuntimeError("Expected integer", vm);
+  if (!IsInt(width)) return RuntimeError("Expected integer", vm);
+  if (!IsBinary(img)) return RuntimeError("Expected binary", vm);
+
+  w = RawInt(width);
+  h = (BinaryLength(img)*8) % w;
+
+  dst.x = RawInt(x);
+  dst.y = RawInt(y);
+  dst.w = w;
+  dst.h = h;
+
+  tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_INDEX1LSB, SDL_TEXTUREACCESS_STREAMING, w, h);
+  SDL_LockTexture(tex, 0, &pixels, &pitch);
+  Copy(BinaryData(img), pixels, BinaryLength(img));
+  SDL_UnlockTexture(tex);
+  SDL_RenderCopy(renderer, tex, 0, &dst);
+  SDL_DestroyTexture(tex);
+  return OkVal(0);
 }
