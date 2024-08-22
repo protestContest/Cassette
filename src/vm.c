@@ -679,8 +679,9 @@ static Result OpStr(VM *vm)
   u32 len;
   val a;
   OneArg(a);
-  if (!IsSym(a)) return RuntimeError("Only symbols can become strings", vm);
+  if (!IsInt(a)) return RuntimeError("Only symbols can become strings", vm);
   name = SymbolName(RawVal(a));
+  if (!name) return RuntimeError("Only symbols can become strings", vm);
   len = strlen(name);
   MaybeGC(BinSpace(len) + 1, vm);
   VMStackPush(BinaryFrom(name, len), vm);

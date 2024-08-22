@@ -846,7 +846,7 @@ static Result ParseSymbol(Parser *p)
   sym = SymbolFrom(p->text + token.pos, token.length);
   Adv(p);
   Spacing(p);
-  return Ok(TokenNode(constNode, token, SymVal(sym), p->filename));
+  return Ok(TokenNode(constNode, token, IntVal(sym), p->filename));
 }
 
 static Result ParseString(Parser *p)
@@ -857,7 +857,7 @@ static Result ParseString(Parser *p)
   sym = SymbolFrom(p->text + token.pos + 1, token.length - 2);
   Adv(p);
   Spacing(p);
-  return Ok(TokenNode(strNode, token, SymVal(sym), p->filename));
+  return Ok(TokenNode(strNode, token, IntVal(sym), p->filename));
 }
 
 static Result ParseLiteral(Parser *p)

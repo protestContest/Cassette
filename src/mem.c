@@ -54,27 +54,25 @@ void MemSet(u32 index, val value)
 val CopyObj(val value, val *oldmem)
 {
   u32 index, i, len;
-  if (value == 0 || !(IsPair(value) || IsObj(value))) return value;
+  if (value == 0 || !IsObj(value)) return value;
   index = RawVal(value);
-  if (oldmem[index] == SymVal(Symbol("*moved*"))) {
+  if (oldmem[index] == IntVal(Symbol("*moved*"))) {
     return oldmem[index+1];
   }
-  if (IsObj(value)) {
-    if (IsBinHdr(oldmem[index])) {
-      len = RawVal(oldmem[index]);
-      value = NewBinary(len);
-      Copy(oldmem+index+1, BinaryData(value), len);
-    } else if (IsTupleHdr(oldmem[index])) {
-      len = RawVal(oldmem[index]);
-      value = Tuple(len);
-      for (i = 0; i < len; i++) {
-        TupleSet(value, i, oldmem[index+i+1]);
-      }
+  if (IsBinHdr(oldmem[index])) {
+    len = RawVal(oldmem[index]);
+    value = NewBinary(len);
+    Copy(oldmem+index+1, BinaryData(value), len);
+  } else if (IsTupleHdr(oldmem[index])) {
+    len = RawVal(oldmem[index]);
+    value = Tuple(len);
+    for (i = 0; i < len; i++) {
+      TupleSet(value, i, oldmem[index+i+1]);
     }
   } else {
     value = Pair(oldmem[index], oldmem[index+1]);
   }
-  oldmem[index] = SymVal(Symbol("*moved*"));
+  oldmem[index] = IntVal(Symbol("*moved*"));
   oldmem[index+1] = value;
   return value;
 }
@@ -126,7 +124,7 @@ val Pair(val head, val tail)
   i32 index = MemAlloc(2);
   MemSet(index, head);
   MemSet(index+1, tail);
-  return PairVal(index);
+  return ObjVal(index);
 }
 
 val Head(val pair)
@@ -154,7 +152,7 @@ void SetTail(val pair, val tail)
 u32 ListLength(val list)
 {
   u32 count = 0;
-  while (list && ValType(list) == pairType) {
+  while (list && IsPair(list)) {
     count++;
     list = Tail(list);
   }
@@ -170,7 +168,7 @@ val ListGet(val list, u32 index)
 
 val ReverseList(val list, val tail)
 {
-  while (list && ValType(list) == pairType) {
+  while (list && IsPair(list)) {
     tail = Pair(Head(list), tail);
     list = Tail(list);
   }
@@ -373,8 +371,6 @@ bool ValEq(val a, val b)
     return true;
   } else if (IsInt(a) && IsInt(b)) {
     return a == b;
-  } else if (IsSym(a) && IsSym(b)) {
-    return a == b;
   } else {
     return false;
   }
@@ -411,7 +407,6 @@ u32 InspectValInto(val value, val bin, u32 index)
   char *str = bin ? BinaryData(bin) + index : 0;
 
   if (value == 0) return WriteStr("nil", 3, str);
-  if (IsInt(value)) return WriteNum(RawInt(value), str);
   if (IsBinary(value)) {
     char *data = BinaryData(value);
     u32 len = BinaryLength(value);
@@ -419,11 +414,15 @@ u32 InspectValInto(val value, val bin, u32 index)
            WriteStr(data, len, str ? str + 1 : 0) +
            WriteStr("\"", 1, str ? str + 1 + len : 0);
   }
-  if (IsSym(value)) {
+  if (IsInt(value)) {
     char *data = SymbolName(RawVal(value));
-    u32 len = strlen(data);
-    return WriteStr(":", 1, str) +
-           WriteStr(data, len, str ? str + 1 : 0);
+    if (data) {
+      u32 len = strlen(data);
+      return WriteStr(":", 1, str) +
+             WriteStr(data, len, str ? str + 1 : 0);
+    } else {
+      return WriteNum(RawInt(value), str);
+    }
   }
   if (IsTuple(value)) {
     u32 i;
@@ -475,16 +474,17 @@ char *MemValStr(val value)
     return str;
   }
   if (IsInt(value)) {
-    str = malloc(NumDigits(value, 10) + 1);
-    WriteNum(RawInt(value), str);
-    return str;
-  }
-  if (IsSym(value)) {
     char *data = SymbolName(RawVal(value));
-    str = malloc(strlen(data) + 2);
-    str[0] = ':';
-    WriteStr(data, strlen(data), str+1);
-    return str;
+    if (data) {
+      str = malloc(strlen(data) + 2);
+      str[0] = ':';
+      WriteStr(data, strlen(data), str+1);
+      return str;
+    } else {
+      str = malloc(NumDigits(value, 10) + 1);
+      WriteNum(RawInt(value), str);
+      return str;
+    }
   }
   if (IsBinary(value) && BinaryLength(value) < 8 && BinIsPrintable(value)) {
     u32 len = BinaryLength(value);

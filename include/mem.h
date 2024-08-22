@@ -3,28 +3,25 @@
 /* The runtime dynamic memory system. */
 
 typedef u32 val;
-enum {pairType, objType, intType, symType, tupleHdr, binHdr};
+enum {objType, intType, tupleHdr, binHdr};
 
-#define typeBits        3
+#define typeBits        2
 #define valBits         (32 - typeBits)
 #define typeMask        ((1 << typeBits)-1)
 #define Val(type, x)    (((x) << typeBits) | (type & typeMask))
 #define ValType(x)      ((x) & typeMask)
 #define RawVal(v)       (((u32)(v)) >> typeBits)
 #define RawInt(v)       ((i32)((RawVal(v) ^ (1 << (valBits-1))) - (1 << (valBits-1))))
-#define PairVal(x)      Val(pairType, x)
 #define ObjVal(x)       Val(objType, x)
 #define IntVal(x)       Val(intType, x)
-#define SymVal(x)       Val(symType, x)
 #define TupleHeader(x)  Val(tupleHdr, x)
 #define BinHeader(x)    Val(binHdr, x)
 #define IsType(v,t)     (ValType(v) == (t))
-#define IsPair(v)       IsType(v, pairType)
 #define IsObj(v)        IsType(v, objType)
 #define IsInt(v)        IsType(v, intType)
-#define IsSym(v)        IsType(v, symType)
 #define IsTupleHdr(v)   IsType(v, tupleHdr)
 #define IsBinHdr(v)     IsType(v, binHdr)
+#define IsPair(v)       (IsObj(v) && !IsTupleHdr(Head(v)) && !IsBinHdr(Head(v)))
 #define IsTuple(v)      (IsObj(v)  && IsTupleHdr(Head(v)))
 #define IsBinary(v)     (IsObj(v) && IsBinHdr(Head(v)))
 #define MaxIntVal       (MaxInt >> typeBits)
@@ -57,7 +54,7 @@ void TupleSet(val tuple, u32 index, val value);
 val TupleJoin(val left, val right);
 val TupleSlice(val list, u32 start, u32 end);
 
-#define BinSpace(length)  (Align(length, 4) / 4)
+#define BinSpace(length)  (Align(length, sizeof(val)) / sizeof(val))
 val NewBinary(u32 length);
 val Binary(char *str);
 val BinaryFrom(char *data, u32 length);

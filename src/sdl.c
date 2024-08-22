@@ -111,11 +111,11 @@ Result SDLGetColor(VM *vm)
 static val EventType(SDL_Event *event)
 {
   switch (event->type) {
-  case SDL_QUIT:            return SymVal(Symbol("quit"));
-  case SDL_KEYDOWN:         return SymVal(Symbol("keydown"));
-  case SDL_KEYUP:           return SymVal(Symbol("keyup"));
-  case SDL_MOUSEBUTTONDOWN: return SymVal(Symbol("mousedown"));
-  case SDL_MOUSEBUTTONUP:   return SymVal(Symbol("mouseup"));
+  case SDL_QUIT:            return IntVal(Symbol("quit"));
+  case SDL_KEYDOWN:         return IntVal(Symbol("keydown"));
+  case SDL_KEYUP:           return IntVal(Symbol("keyup"));
+  case SDL_MOUSEBUTTONDOWN: return IntVal(Symbol("mousedown"));
+  case SDL_MOUSEBUTTONUP:   return IntVal(Symbol("mouseup"));
   default:                  return 0;
   }
 }
@@ -123,10 +123,10 @@ static val EventType(SDL_Event *event)
 static val KeyVal(SDL_Keycode keycode)
 {
   switch (keycode) {
-  case SDLK_RETURN:       return SymVal(Symbol("return"));
-  case SDLK_ESCAPE:       return SymVal(Symbol("escape"));
-  case SDLK_BACKSPACE:    return SymVal(Symbol("backspace"));
-  case SDLK_TAB:          return SymVal(Symbol("tab"));
+  case SDLK_RETURN:       return IntVal(Symbol("return"));
+  case SDLK_ESCAPE:       return IntVal(Symbol("escape"));
+  case SDLK_BACKSPACE:    return IntVal(Symbol("backspace"));
+  case SDLK_TAB:          return IntVal(Symbol("tab"));
   case SDLK_SPACE:        return IntVal(' ');
   case SDLK_EXCLAIM:      return IntVal('!');
   case SDLK_QUOTEDBL:     return IntVal('"');
@@ -192,31 +192,31 @@ static val KeyVal(SDL_Keycode keycode)
   case SDLK_x:            return IntVal('x');
   case SDLK_y:            return IntVal('y');
   case SDLK_z:            return IntVal('z');
-  case SDLK_F1:           return SymVal(Symbol("f1"));
-  case SDLK_F2:           return SymVal(Symbol("f2"));
-  case SDLK_F3:           return SymVal(Symbol("f3"));
-  case SDLK_F4:           return SymVal(Symbol("f4"));
-  case SDLK_F5:           return SymVal(Symbol("f5"));
-  case SDLK_F6:           return SymVal(Symbol("f6"));
-  case SDLK_F7:           return SymVal(Symbol("f7"));
-  case SDLK_F8:           return SymVal(Symbol("f8"));
-  case SDLK_F9:           return SymVal(Symbol("f9"));
-  case SDLK_F10:          return SymVal(Symbol("f10"));
-  case SDLK_F11:          return SymVal(Symbol("f11"));
-  case SDLK_F12:          return SymVal(Symbol("f12"));
-  case SDLK_PRINTSCREEN:  return SymVal(Symbol("printscreen"));
-  case SDLK_SCROLLLOCK:   return SymVal(Symbol("scrolllock"));
-  case SDLK_PAUSE:        return SymVal(Symbol("pause"));
-  case SDLK_INSERT:       return SymVal(Symbol("insert"));
-  case SDLK_HOME:         return SymVal(Symbol("home"));
-  case SDLK_PAGEUP:       return SymVal(Symbol("pageup"));
-  case SDLK_DELETE:       return SymVal(Symbol("delete"));
-  case SDLK_END:          return SymVal(Symbol("end"));
-  case SDLK_PAGEDOWN:     return SymVal(Symbol("pagedown"));
-  case SDLK_RIGHT:        return SymVal(Symbol("right"));
-  case SDLK_LEFT:         return SymVal(Symbol("left"));
-  case SDLK_DOWN:         return SymVal(Symbol("down"));
-  case SDLK_UP:           return SymVal(Symbol("up"));
+  case SDLK_F1:           return IntVal(Symbol("f1"));
+  case SDLK_F2:           return IntVal(Symbol("f2"));
+  case SDLK_F3:           return IntVal(Symbol("f3"));
+  case SDLK_F4:           return IntVal(Symbol("f4"));
+  case SDLK_F5:           return IntVal(Symbol("f5"));
+  case SDLK_F6:           return IntVal(Symbol("f6"));
+  case SDLK_F7:           return IntVal(Symbol("f7"));
+  case SDLK_F8:           return IntVal(Symbol("f8"));
+  case SDLK_F9:           return IntVal(Symbol("f9"));
+  case SDLK_F10:          return IntVal(Symbol("f10"));
+  case SDLK_F11:          return IntVal(Symbol("f11"));
+  case SDLK_F12:          return IntVal(Symbol("f12"));
+  case SDLK_PRINTSCREEN:  return IntVal(Symbol("printscreen"));
+  case SDLK_SCROLLLOCK:   return IntVal(Symbol("scrolllock"));
+  case SDLK_PAUSE:        return IntVal(Symbol("pause"));
+  case SDLK_INSERT:       return IntVal(Symbol("insert"));
+  case SDLK_HOME:         return IntVal(Symbol("home"));
+  case SDLK_PAGEUP:       return IntVal(Symbol("pageup"));
+  case SDLK_DELETE:       return IntVal(Symbol("delete"));
+  case SDLK_END:          return IntVal(Symbol("end"));
+  case SDLK_PAGEDOWN:     return IntVal(Symbol("pagedown"));
+  case SDLK_RIGHT:        return IntVal(Symbol("right"));
+  case SDLK_LEFT:         return IntVal(Symbol("left"));
+  case SDLK_DOWN:         return IntVal(Symbol("down"));
+  case SDLK_UP:           return IntVal(Symbol("up"));
   default:                return 0;
   }
 }

@@ -26,7 +26,7 @@ Result VMPrint(VM *vm)
   }
   printf("%*.*s\n", BinaryLength(str), BinaryLength(str), BinaryData(str));
 
-  return OkVal(SymVal(Symbol("ok")));
+  return OkVal(IntVal(Symbol("ok")));
 }
 
 Result VMFormat(VM *vm)
@@ -48,12 +48,15 @@ Result VMPanic(VM *vm)
 Result VMTypeOf(VM *vm)
 {
   val a = VMStackPop(vm);
-  if (IsPair(a)) return OkVal(SymVal(Symbol("pair")));
-  if (IsTuple(a)) return OkVal(SymVal(Symbol("tuple")));
-  if (IsBinary(a)) return OkVal(SymVal(Symbol("binary")));
-  if (IsInt(a)) return OkVal(SymVal(Symbol("integer")));
-  if (IsSym(a)) return OkVal(SymVal(Symbol("symbol")));
-  return OkVal(SymVal(Symbol("unknown")));
+  if (IsPair(a)) return OkVal(IntVal(Symbol("pair")));
+  if (IsTuple(a)) return OkVal(IntVal(Symbol("tuple")));
+  if (IsBinary(a)) return OkVal(IntVal(Symbol("binary")));
+  if (IsInt(a)) {
+    char *name = SymbolName(RawVal(a));
+    if (name) return OkVal(IntVal(Symbol("symbol")));
+    return OkVal(IntVal(Symbol("integer")));
+  }
+  return OkVal(IntVal(Symbol("unknown")));
 }
 
 Result VMOpen(VM *vm)
@@ -71,7 +74,7 @@ Result VMOpen(VM *vm)
   str = BinToStr(path);
   file = open(str, flags, mode);
   free(str);
-  if (file == -1) return OkVal(SymVal(Symbol("error")));
+  if (file == -1) return OkVal(IntVal(Symbol("error")));
   return OkVal(IntVal(file));
 }
 
@@ -82,8 +85,8 @@ Result VMClose(VM *vm)
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
 
   err = close(file);
-  if (err != 0) return OkVal(SymVal(Symbol("error")));
-  return OkVal(SymVal(Symbol("ok")));
+  if (err != 0) return OkVal(IntVal(Symbol("error")));
+  return OkVal(IntVal(Symbol("ok")));
 }
 
 Result VMRead(VM *vm)
@@ -104,7 +107,7 @@ Result VMRead(VM *vm)
     bin = NewBinary(bytes_read);
     Copy(data, BinaryData(bin), bytes_read);
   } else {
-    bin = SymVal(Symbol("error"));
+    bin = IntVal(Symbol("error"));
   }
   free(data);
   return OkVal(bin);
@@ -122,7 +125,7 @@ Result VMWrite(VM *vm)
   if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
 
   written = write(RawInt(file), BinaryData(buf), RawInt(size));
-  if (written < 0) return OkVal(SymVal(Symbol("error")));
+  if (written < 0) return OkVal(IntVal(Symbol("error")));
   return OkVal(IntVal(written));
 }
 
@@ -138,7 +141,7 @@ Result VMSeek(VM *vm)
   if (!IsInt(whence)) return RuntimeError("Whence must be an integer", vm);
 
   pos = lseek(RawInt(file), RawInt(offset), RawInt(whence));
-  if (pos < 0) return OkVal(SymVal(Symbol("error")));
+  if (pos < 0) return OkVal(IntVal(Symbol("error")));
   return OkVal(IntVal(pos));
 }
 
