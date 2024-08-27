@@ -1,7 +1,7 @@
 #include "result.h"
 #include "univ/math.h"
-#include <univ/str.h>
-#include <univ/file.h>
+#include "univ/str.h"
+#include "univ/file.h"
 
 Result Ok(void *data)
 {
@@ -102,7 +102,6 @@ void PrintError(Result result)
   Error *error = result.data.p;
   char *text = 0;
   u32 line, col;
-  fprintf(stderr, "%s", ANSIRed);
   if (error->file) {
     text = ReadFile(error->file);
     if (text) {
@@ -115,6 +114,6 @@ void PrintError(Result result)
 
   if (text) PrintSourceContext(text, error->pos, error->length, 1);
 
-  fprintf(stderr, "%s\n", ANSINormal);
+  fprintf(stderr, "\n");
   if(text) free(text);
 }

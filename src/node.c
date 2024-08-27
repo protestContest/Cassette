@@ -1,8 +1,8 @@
 #include "node.h"
 #include "mem.h"
-#include <univ/math.h>
-#include <univ/symbol.h>
-#include <univ/vec.h>
+#include "univ/math.h"
+#include "univ/symbol.h"
+#include "univ/vec.h"
 
 ASTNode *MakeTerminal(NodeType type, char *file, u32 start, u32 end, u32 value)
 {

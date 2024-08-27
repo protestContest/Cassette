@@ -4,14 +4,14 @@ export read, write
 
 def read(path) do
   let file = IO.open(path, :read)
-  if file != :error do
+  if IO.is_error(file) do
+    file
+  else
     let size = IO.seek(file, 0, :end)
     IO.seek(file, 0, :start)
     let contents = IO.read(file, size)
     IO.close(file)
     contents
-  else
-    :error
   end
 end
 

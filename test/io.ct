@@ -1,8 +1,12 @@
 module IO
-export print, format, open, close, read, write, seek, last_error
+import VM
+export print, format, open, close, read, write, seek, is_error
 
 def print(value) trap(:print, value)
 def format(value) trap(:format, value)
+def is_error(value) do
+  VM.typeof(value) == :tuple and value[0] == :error
+end
 def last_error() trap(:io_error)
 
 def open(path, mode) do

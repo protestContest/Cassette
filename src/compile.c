@@ -5,8 +5,8 @@
 #include "primitives.h"
 #include "univ/hashmap.h"
 #include "univ/symbol.h"
-#include <univ/vec.h>
-#include <univ/str.h>
+#include "univ/vec.h"
+#include "univ/str.h"
 
 typedef struct {
   Module *modules;
@@ -17,20 +17,16 @@ static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool retu
 
 static Result UndefinedVariable(ASTNode *node)
 {
-  Error *error = NewError(0, node->file, node->start, node->end - node->start);
-  error->message = StrCat(error->message, "Undefined variable \"");
-  error->message = StrCat(error->message, SymbolName(node->data.value));
-  error->message = StrCat(error->message, "\"");
+  Error *error = NewError(NewString("Undefined variable \"^\""), node->file, node->start, node->end - node->start);
+  error->message = FormatString(error->message, SymbolName(node->data.value));
   return Err(error);
 }
 
 static Result UndefinedExport(char *file, ModuleExport *export)
 {
   char *name = SymbolName(export->name);
-  Error *error = NewError(0, file, export->pos, strlen(name));
-  error->message = StrCat(error->message, "Undefined variable \"");
-  error->message = StrCat(error->message, name);
-  error->message = StrCat(error->message, "\"");
+  Error *error = NewError(NewString("Undefined variable \"^\""), file, export->pos, strlen(name));
+  error->message = FormatString(error->message, name);
   return Err(error);
 }
 

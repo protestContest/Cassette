@@ -4,28 +4,24 @@
 #include "env.h"
 #include "parse.h"
 #include "primitives.h"
-#include <univ/math.h>
-#include <univ/file.h>
-#include <univ/str.h>
-#include <univ/symbol.h>
-#include <univ/vec.h>
+#include "univ/math.h"
+#include "univ/file.h"
+#include "univ/str.h"
+#include "univ/symbol.h"
+#include "univ/vec.h"
 
 static Result ModuleNotFound(char *name, char *file, u32 pos)
 {
   u32 len = strlen(name);
-  Error *error = NewError(0, file, pos, len);
-  error->message = StrCat(error->message, "Module \"");
-  error->message = StrCat(error->message, name);
-  error->message = StrCat(error->message, "\" not found");
+  Error *error = NewError(NewString("Modyule \"^\" not found"), file, pos, len);
+  error->message = FormatString(error->message, name);
   return Err(error);
 }
 
 static Result DuplicateModule(char *name, char *file)
 {
-  Error *error = NewError(0, file, 0, 0);
-  error->message = StrCat(error->message, "Duplicate module \"");
-  error->message = StrCat(error->message, name);
-  error->message = StrCat(error->message, "\"");
+  Error *error = NewError(NewString("Duplicate module \"^\""), file, 0, 0);
+  error->message = FormatString(error->message, name);
   return Err(error);
 }
 
@@ -157,7 +153,7 @@ static void LinkModules(Project *project, Program *program)
   RawVecCount(data) = size;
   cur = data;
 
-  AddChunkSource(intro, "(system)", &program->srcmap);
+  AddChunkSource(intro, 0, &program->srcmap);
   cur = SerializeChunk(intro, cur);
   for (i = 0; i < VecCount(project->build_list); i++) {
     u32 modnum = project->build_list[num_modules - 1 - i];
@@ -165,7 +161,7 @@ static void LinkModules(Project *project, Program *program)
     AddChunkSource(mod->code, mod->filename, &program->srcmap);
     cur = SerializeChunk(mod->code, cur);
   }
-  AddChunkSource(outro, "(system)", &program->srcmap);
+  AddChunkSource(outro, 0, &program->srcmap);
   SerializeChunk(outro, cur);
 
   FreeChunk(intro);
@@ -217,7 +213,6 @@ Result BuildProject(Project *project)
   Program *program;
   HashMap symbols = EmptyHashMap;
 
-  DestroySymbols();
   SetSymbolSize(valBits);
 
   result = ScanProjectDeps(project);

@@ -1,8 +1,8 @@
 #include "program.h"
 #include "ops.h"
-#include <univ/math.h>
-#include <univ/str.h>
-#include <univ/vec.h>
+#include "univ/math.h"
+#include "univ/str.h"
+#include "univ/vec.h"
 
 Program *NewProgram(void)
 {

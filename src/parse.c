@@ -4,10 +4,10 @@
 #include "lex.h"
 #include "module.h"
 #include "ops.h"
-#include <univ/math.h>
-#include <univ/str.h>
-#include <univ/symbol.h>
-#include <univ/vec.h>
+#include "univ/math.h"
+#include "univ/str.h"
+#include "univ/symbol.h"
+#include "univ/vec.h"
 
 typedef struct {
   char *filename;
@@ -23,9 +23,8 @@ typedef struct {
 
 Result ParseError(char *msg, Parser *p)
 {
-  Error *error = NewError(0, p->filename, p->token.pos, p->token.length);
-  error->message = StrCat(error->message, "Parse error: ");
-  error->message = StrCat(error->message, msg);
+  Error *error = NewError(NewString("Parse error: ^"), p->filename, p->token.pos, p->token.length);
+  error->message = FormatString(error->message, msg);
   return Err(error);
 }
 

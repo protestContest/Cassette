@@ -1,13 +1,15 @@
 #include "primitives.h"
 #include "sdl.h"
-#include <univ/symbol.h>
-#include <univ/vec.h>
-#include <univ/str.h>
-#include <univ/math.h>
-#include <univ/time.h>
-#include <unistd.h>
-#include <fcntl.h>
+#include "univ/symbol.h"
+#include "univ/vec.h"
+#include "univ/str.h"
+#include "univ/math.h"
+#include "univ/time.h"
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+static val IOError(VM *vm);
 
 Result VMArityError(VM *vm)
 {
@@ -72,9 +74,9 @@ Result VMOpen(VM *vm)
   if (!IsInt(mode)) return RuntimeError("Mode must be an integer", vm);
 
   str = BinToStr(path);
-  file = open(str, flags, mode);
+  file = open(str, RawInt(flags), RawInt(mode));
   free(str);
-  if (file == -1) return OkVal(IntVal(Symbol("error")));
+  if (file == -1) return OkVal(IOError(vm));
   return OkVal(IntVal(file));
 }
 
@@ -85,7 +87,7 @@ Result VMClose(VM *vm)
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
 
   err = close(file);
-  if (err != 0) return OkVal(IntVal(Symbol("error")));
+  if (err != 0) return OkVal(IOError(vm));
   return OkVal(IntVal(Symbol("ok")));
 }
 
@@ -93,7 +95,7 @@ Result VMRead(VM *vm)
 {
   val size = VMStackPop(vm);
   val file = VMStackPop(vm);
-  val bin;
+  val result;
   u8 *data;
   i32 bytes_read;
 
@@ -104,13 +106,13 @@ Result VMRead(VM *vm)
   bytes_read = read(RawInt(file), data, RawInt(size));
   if (bytes_read >= 0) {
     MaybeGC(BinSpace(bytes_read) + 1, vm);
-    bin = NewBinary(bytes_read);
-    Copy(data, BinaryData(bin), bytes_read);
+    result = NewBinary(bytes_read);
+    Copy(data, BinaryData(result), bytes_read);
   } else {
-    bin = IntVal(Symbol("error"));
+    result = IOError(vm);
   }
   free(data);
-  return OkVal(bin);
+  return OkVal(result);
 }
 
 Result VMWrite(VM *vm)
@@ -125,7 +127,7 @@ Result VMWrite(VM *vm)
   if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
 
   written = write(RawInt(file), BinaryData(buf), RawInt(size));
-  if (written < 0) return OkVal(IntVal(Symbol("error")));
+  if (written < 0) return OkVal(IOError(vm));
   return OkVal(IntVal(written));
 }
 
@@ -141,18 +143,25 @@ Result VMSeek(VM *vm)
   if (!IsInt(whence)) return RuntimeError("Whence must be an integer", vm);
 
   pos = lseek(RawInt(file), RawInt(offset), RawInt(whence));
-  if (pos < 0) return OkVal(IntVal(Symbol("error")));
+  if (pos < 0) return OkVal(IOError(vm));
   return OkVal(IntVal(pos));
+}
+
+static val IOError(VM *vm)
+{
+  val result;
+  char *msg = strerror(errno);
+  u32 len = strlen(msg);
+  MaybeGC(BinSpace(len) + 4, vm);
+  result = Tuple(2);
+  TupleSet(result, 0, IntVal(Symbol("error")));
+  TupleSet(result, 1, BinaryFrom(msg, len));
+  return result;
 }
 
 Result VMIOError(VM *vm)
 {
-  char *msg = strerror(errno);
-  u32 len = strlen(msg);
-  val bin;
-  MaybeGC(BinSpace(len) + 1, vm);
-  bin = BinaryFrom(msg, len);
-  return OkVal(bin);
+  return OkVal(IOError(vm));
 }
 
 Result VMRandom(VM *vm)

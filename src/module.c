@@ -1,6 +1,6 @@
 #include "module.h"
 #include "parse.h"
-#include <univ/vec.h>
+#include "univ/vec.h"
 
 void InitModule(Module *module)
 {

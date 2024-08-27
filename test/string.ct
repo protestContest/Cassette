@@ -1,0 +1,21 @@
+module String
+
+def substr(str, start, end) {str, start, end}
+
+def split(str, sep) do
+  def find_end(start, i) do
+    cond do
+      i == #str -> substr(str, start, i)
+
+    end
+  end
+
+  def loop(i, parts) do
+    if i == #str do
+      parts
+    else
+
+    end
+  end
+  loop(0, [])
+end

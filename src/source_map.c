@@ -1,7 +1,7 @@
 #include "source_map.h"
-#include <univ/str.h>
-#include <univ/vec.h>
-#include <univ/symbol.h>
+#include "univ/str.h"
+#include "univ/vec.h"
+#include "univ/symbol.h"
 
 void InitSourceMap(SourceMap *map)
 {
@@ -38,7 +38,7 @@ void AddChunkSource(Chunk *chunk, char *filename, SourceMap *map)
 {
   u32 filenum = VecCount(map->filenames);
   SerializeChunkSource(chunk, map);
-  VecPush(map->filenames, Symbol(filename));
+  VecPush(map->filenames, filename ? Symbol(filename) : 0);
   VecPush(map->file_map, filenum);
   VecPush(map->file_map, ChunkSize(chunk));
 }

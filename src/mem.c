@@ -1,8 +1,8 @@
 #include "mem.h"
-#include <univ/math.h>
-#include <univ/str.h>
-#include <univ/symbol.h>
-#include <univ/vec.h>
+#include "univ/math.h"
+#include "univ/str.h"
+#include "univ/symbol.h"
+#include "univ/vec.h"
 
 static val *mem = 0;
 
@@ -137,18 +137,6 @@ val Tail(val pair)
   return MemGet(RawVal(pair)+1);
 }
 
-void SetHead(val pair, val head)
-{
-  i32 index = RawVal(pair);
-  MemSet(index, head);
-}
-
-void SetTail(val pair, val tail)
-{
-  i32 index = RawVal(pair);
-  MemSet(index+1, tail);
-}
-
 u32 ListLength(val list)
 {
   u32 count = 0;
@@ -181,43 +169,21 @@ val ListJoin(val left, val right)
   return ReverseList(left, right);
 }
 
-val ListTrunc(val list, u32 index)
+val ListSlice(val list, u32 start, u32 end)
 {
   u32 i;
-  val truncated = 0;
-  for (i = 0; i < index; i++) {
-    truncated = Pair(Head(list), truncated);
-    list = Tail(list);
-  }
-  return ReverseList(truncated, 0);
-}
+  u32 len = end - start;
+  val sliced = 0;
 
-val ListSkip(val list, u32 index)
-{
-  u32 i;
-  for (i = 0; i < index; i++) list = Tail(list);
+  for (i = 0; i < start; i++) list = Tail(list);
+  if (end < ListLength(list)) {
+    for (i = 0; i < len; i++) {
+      sliced = Pair(Head(list), sliced);
+      list = Tail(list);
+    }
+    return ReverseList(sliced, 0);
+  }
   return list;
-}
-
-val ListFlatten(val list)
-{
-  val item;
-  if (!list) return list;
-  item = Head(list);
-  if (item && IsPair(item)) {
-    return ListJoin(ListFlatten(item), ListFlatten(Tail(list)));
-  } else {
-    return Pair(item, ListFlatten(Tail(list)));
-  }
-}
-
-bool InList(val item, val list)
-{
-  while (list) {
-    if (item == Head(list)) return true;
-    list = Tail(list);
-  }
-  return false;
 }
 
 val Tuple(u32 length)
@@ -376,10 +342,13 @@ bool ValEq(val a, val b)
   }
 }
 
-u32 FormatValInto(val value, char *str, u32 index)
+static u32 FormatValInto(val value, char *str, u32 index)
 {
   char *dst = str ? str + index : 0;
-  if (IsInt(value)) return WriteNum(RawInt(value), dst);
+  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < 256) {
+    *dst = (u8)RawInt(value);
+    return 1;
+  }
   if (IsBinary(value)) {
     return WriteStr(BinaryData(value), BinaryLength(value), dst);
   }
@@ -394,11 +363,9 @@ u32 FormatValInto(val value, char *str, u32 index)
 val FormatVal(val value)
 {
   u32 len = FormatValInto(value, 0, 0);
-  char *str = malloc(len + 1);
-  val bin;
+  val bin = NewBinary(len);
+  char *str = BinaryData(bin);
   FormatValInto(value, str, 0);
-  bin = Binary(str);
-  free(str);
   return bin;
 }
 

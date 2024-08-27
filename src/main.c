@@ -2,9 +2,8 @@
 #include "project.h"
 #include "program.h"
 #include "vm.h"
-#include <univ/file.h>
-#include <univ/str.h>
-#include <univ/debug.h>
+#include "univ/file.h"
+#include "univ/str.h"
 
 int main(int argc, char *argv[])
 {
@@ -14,7 +13,7 @@ int main(int argc, char *argv[])
   Result result;
 
   if (argc < 2) {
-    fprintf(stderr, "%sSource file required%s\n", ANSIRed, ANSINormal);
+    fprintf(stderr, "Source file required\n");
     return 1;
   }
   if (argc >= 3) {

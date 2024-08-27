@@ -1,6 +1,25 @@
 #pragma once
 
-/* The runtime dynamic memory system. */
+/* The runtime dynamic memory system.
+
+Cassette values are 32 bits long, using 2 bits as a type tag. The types are
+object, integer, tuple header, and binary header. An Object is a pointer to
+a pair, a tuple header, or a binary header. These headers should only appear in
+the heap.
+
+The value of an object is the index into the heap of its referent. A tuple
+header contains its length (the count of items), and is followed in memory by
+the contents of the tuple. A binary header contains its length (in bytes), and
+is followed in memory by its binary data. Since heap space is allocated in
+32-bit cells, a binary is padded to the next cell boundary.
+
+Some common operations are required for lists, tuples, and binaries:
+
+- Length: returns the length of the object
+- Get: returns an element of the object
+- Join: concatenates two objects, returning a new one
+- Slice: returns a subset of an object
+*/
 
 typedef u32 val;
 enum {objType, intType, tupleHdr, binHdr};
@@ -36,23 +55,18 @@ void CollectGarbage(val *roots);
 val Pair(val head, val tail);
 val Head(val pair);
 val Tail(val pair);
-void SetHead(val pair, val head);
-void SetTail(val pair, val tail);
 u32 ListLength(val list);
 val ListGet(val list, u32 index);
 val ReverseList(val list, val tail);
 val ListJoin(val left, val right);
-val ListTrunc(val list, u32 index);
-val ListSkip(val list, u32 index);
-val ListFlatten(val list);
-bool InList(val item, val list);
+val ListSlice(val list, u32 start, u32 end);
 
 val Tuple(u32 length);
 u32 TupleLength(val tuple);
 val TupleGet(val tuple, u32 index);
 void TupleSet(val tuple, u32 index, val value);
 val TupleJoin(val left, val right);
-val TupleSlice(val list, u32 start, u32 end);
+val TupleSlice(val tuple, u32 start, u32 end);
 
 #define BinSpace(length)  (Align(length, sizeof(val)) / sizeof(val))
 val NewBinary(u32 length);

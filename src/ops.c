@@ -2,8 +2,8 @@
 #include "mem.h"
 #include "leb.h"
 #include "univ/math.h"
-#include <univ/symbol.h>
-#include <univ/vec.h>
+#include "univ/symbol.h"
+#include "univ/vec.h"
 
 char *OpName(OpCode op)
 {

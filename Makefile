@@ -21,8 +21,8 @@ DEFS = -DDEBUG=0
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
 CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFS)
-LDFLAGS = -luniv -lsdl2
-LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup -luniv
+LDFLAGS = -lsdl2
+LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)

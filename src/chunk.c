@@ -2,7 +2,7 @@
 #include "ops.h"
 #include "leb.h"
 #include "univ/str.h"
-#include <univ/vec.h>
+#include "univ/vec.h"
 
 Chunk *NewChunk(u32 src)
 {

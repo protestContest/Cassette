@@ -1,7 +1,7 @@
 #include "sdl.h"
 #include "mem.h"
 #include "univ/str.h"
-#include <univ/symbol.h>
+#include "univ/symbol.h"
 #include <SDL2/SDL.h>
 
 Result SDLNewWindow(VM *vm)

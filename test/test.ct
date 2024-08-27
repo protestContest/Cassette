@@ -5,7 +5,6 @@ let size = 500,
     canvas = Window.new(size, size),
     seed = Time.now()
 Math.seed(seed)
-IO.print(IO.format(["Seed: ", seed]))
 
 ; this generates a new draw function by updating an anchor point
 def next_draw(x, y) do

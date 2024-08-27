@@ -4,10 +4,10 @@
 #include "leb.h"
 #include "primitives.h"
 #include "univ/file.h"
-#include <univ/math.h>
-#include <univ/str.h>
-#include <univ/symbol.h>
-#include <univ/vec.h>
+#include "univ/math.h"
+#include "univ/str.h"
+#include "univ/symbol.h"
+#include "univ/vec.h"
 #include <SDL2/SDL.h>
 
 typedef Result (*OpFn)(VM *vm);
@@ -121,9 +121,8 @@ Result RuntimeError(char *message, struct VM *vm)
 {
   char *file = GetSourceFile(vm->pc, &vm->program->srcmap);
   u32 pos = GetSourcePos(vm->pc, &vm->program->srcmap);
-  Error *error = NewError(0, file, pos, 0);
-  error->message = StrCat(error->message, "Runtime error: ");
-  error->message = StrCat(error->message, message);
+  Error *error = NewError(NewString("Runtime error: ^"), file, pos, 0);
+  error->message = FormatString(error->message, message);
   error->data = BuildStackTrace(vm);
   return Err(error);
 }
@@ -135,7 +134,16 @@ void InitVM(VM *vm, Program *program)
   vm->env = 0;
   vm->stack = 0;
   vm->program = program;
-  if (program) ImportSymbols(program->strings, VecCount(program->strings));
+  if (program) {
+    char *names = program->strings;
+    u32 len = VecCount(program->strings);
+    char *end = names + len;
+    while (names < end) {
+      len = strlen(names);
+      SymbolFrom(names, len);
+      names += len + 1;
+    }
+  }
   vm->primitives = InitPrimitives();
   vm->refs = 0;
 
@@ -463,7 +471,7 @@ static Result OpEq(VM *vm)
 {
   val a, b;
   TwoArgs(a, b);
-  VMStackPush(IntVal(a == b), vm);
+  VMStackPush(IntVal(ValEq(a, b)), vm);
   vm->pc++;
   return vm->status;
 }
@@ -734,18 +742,18 @@ static Result OpSlice(VM *vm)
   if (c && !IsInt(c)) return RuntimeError("Only integers can be slice indexes", vm);
 
   if (IsPair(a)) {
-    val list = ListSkip(a, RawVal(b));
+    val list;
+    u32 end = ListLength(a);
     if (c) {
       u32 len;
-      if (RawInt(c) < 0 || RawInt(c) > (i32)ListLength(a)) return RuntimeError("Out of bounds", vm);
-      len = RawVal(c) - RawVal(b);
-      if (MemFree() < 4*len) {
-        VMStackPush(list, vm);
+      if (RawInt(c) < 0 || RawInt(c) > (i32)end) return RuntimeError("Out of bounds", vm);
+      len = RawInt(c) - RawInt(b);
+      if (RawInt(c) < (i32)end && MemFree() < 4*len) {
         RunGC(vm);
-        list = VMStackPop(vm);
       }
-      list = ListTrunc(list, RawVal(c) - RawVal(b));
+      end = RawInt(c);
     }
+    list = ListSlice(a, RawVal(b), end);
     VMStackPush(list, vm);
   } else if (IsTuple(a)) {
     u32 len;
@@ -838,8 +846,11 @@ static StackTrace *BuildStackTrace(VM *vm)
     StackTrace item;
     u32 code_pos = RawInt(vm->stack[link-1]);
     item.filename = GetSourceFile(code_pos, &vm->program->srcmap);
-    item.pos = GetSourcePos(code_pos, &vm->program->srcmap);
-    printf("%d %s\n", code_pos, item.filename);
+    if (item.filename) {
+      item.pos = GetSourcePos(code_pos, &vm->program->srcmap);
+    } else {
+      item.pos = code_pos;
+    }
     VecPush(trace, item);
     link = RawInt(vm->stack[link]);
   }
@@ -873,7 +884,7 @@ void PrintStackTrace(Result result)
     }
   }
 
-  fprintf(stderr, "%sStacktrace:\n", ANSIRed);
+  fprintf(stderr, "Stacktrace:\n");
   for (i = 0; i < VecCount(trace); i++) {
     if (trace[i].filename) {
       char *text = ReadFile(trace[i].filename);
@@ -889,8 +900,7 @@ void PrintStackTrace(Result result)
         fprintf(stderr, "%s@%d\n", trace[i].filename, trace[i].pos);
       }
     } else {
-      fprintf(stderr, "(system)@%d\n", trace[i].pos);
+      fprintf(stderr, "  (system)@%d\n", trace[i].pos);
     }
   }
-  fprintf(stderr, "%s", ANSINormal);
 }

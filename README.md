@@ -41,14 +41,10 @@ This project requires a C build toolchain and SDL2.
 1. Get the project's dependencies
   - On macOS with Homebrew, run `brew install llvm git sdl2 sdl2_ttf`
   - On Debian, run `apt install build-essential clang git libsdl2-dev libsdl2-ttf-dev libfontconfig-dev`
-2. Build the utility library, Univ
-  - Clone with `git clone https://github.com/protestContest/Univ` (and then `cd Univ`)
-  - Run `make` to build the library
-  - Run `make install` to install the library to `~/.local/`. (You can change this in the makefile.) Make sure the install location is somewhere your build system can find it.
-3. Build Cassette
+2. Build Cassette
   - Clone Cassette with `git clone https://git.sr.ht/~zjm/Cassette` (and then `cd Cassette`)
   - Run `make` to build the project. This creates the executable `cassette`.
-4. Try the example with `./bin/cassette test/test.ct`.
+3. Try the example with `./bin/cassette test/test.ct`.
 
 ## Syntax
 
