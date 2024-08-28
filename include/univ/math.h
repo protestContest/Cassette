@@ -6,7 +6,7 @@
 #define Abs(n)            (((n) ^ ((n) >> 31)) - ((n) >> 31))
 #define Min(a, b)         ((a) ^ (((b) ^ (a)) & -((b) < (a))))
 #define Max(a, b)         ((b) ^ (((b) ^ (a)) & -((b) < (a))))
-#define Align(n, m)       ((((n) - 1) / (m) + 1) * (m))
+#define Align(n, m)       ((n) == 0 ? 0 : ((((n) - 1) / (m) + 1) * (m)))
 #define Bit(n)            ((i64)1 << (n))
 #define RightZeroBit(x)   (~(x) & ((x) + 1))
 

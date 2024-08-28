@@ -20,17 +20,20 @@ Token NextToken(char *src, u32 pos)
   if (IsDigit(src[pos])) {
     if (src[pos+1] == 'x') {
       u32 len = 2;
-      while (IsHexDigit(src[pos+len])) len++;
+      while (IsHexDigit(src[pos+len]) || src[pos+len] == '_') len++;
       return MakeToken(hexToken, pos, len);
     } else {
       u32 len = 1;
-      while (IsDigit(src[pos+len])) len++;
+      while (IsDigit(src[pos+len]) || src[pos+len] == '_') len++;
       return MakeToken(numToken, pos, len);
     }
   }
   if (src[pos] == '"') {
     u32 len = 1;
-    while (src[pos+len] && src[pos+len] != '"') len++;
+    while (src[pos+len] && src[pos+len] != '"') {
+      if (src[pos+len] == '\\') len++;
+      len++;
+    }
     if (src[pos+len] == 0) return MakeToken(errorToken, pos, len);
     return MakeToken(stringToken, pos, len+1);
   }

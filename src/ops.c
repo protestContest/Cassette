@@ -63,7 +63,7 @@ u32 DisassembleInst(u8 *code, u32 *index)
   char *arg_str;
   u32 num_width = NumDigits(VecCount(code), 10);
 
-  len += fprintf(stderr, "%*d│ %s", num_width, *index, OpName(op));
+  len += fprintf(stderr, "%*d│ %s", num_width, *index, OpName(op)) - 2;
   (*index)++;
 
   switch (op) {

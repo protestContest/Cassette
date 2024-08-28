@@ -17,10 +17,9 @@ OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 MAIN_OBJ := $(BUILD)/$(MAIN).o
 
 CC = clang
-DEFS = -DDEBUG=0
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/base.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
-CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) $(DEFS)
+CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
 LDFLAGS = -lsdl2
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 

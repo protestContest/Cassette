@@ -21,21 +21,22 @@ char *StringFrom(char *str, u32 len)
 
 char *FormatString(char *format, char *str)
 {
-  u32 start, end;
-  u32 len = strlen(str);
-  char *formatted;
+  u32 start;
+  u32 len_str = strlen(str);
+  u32 len_format = strlen(format);
+  u32 len_result;
   for (start = 0; format[start]; start++) {
     if (format[start] == '^') break;
   }
-  for (end = start; format[end]; end++) ;
-  if (start == end) return format;
+  if (start == len_format) return format;
+  len_result = len_format - 1 + len_str;
 
-  formatted = realloc(format, start + len + (end - start - 1) + 1);
-  Copy(format, formatted, start);
-  Copy(str, formatted+start, len);
-  Copy(format + start + 1, formatted + start + len, end - start - 1);
-  formatted[start + len + (end - start - 1) + 1] = 0;
-  return formatted;
+  format = realloc(format, len_result + 1);
+  format[len_result] = 0;
+
+  Copy(format + start + 1, format + start + len_str, len_format - start - 1);
+  Copy(str, format + start, len_str);
+  return format;
 }
 
 char *FormatInt(char *format, i32 num)

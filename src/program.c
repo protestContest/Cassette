@@ -10,6 +10,7 @@ Program *NewProgram(void)
   program->code = 0;
   InitSourceMap(&program->srcmap);
   program->strings = 0;
+  program->trace = false;
   return program;
 }
 

@@ -228,10 +228,6 @@ Result BuildProject(Project *project)
     CollectSymbols(module->ast, &symbols);
     AddSymbol(Symbol(module->filename), &symbols);
 
-#if DEBUG
-    PrintNode(module->ast);
-#endif
-
     result = CompileModule(module, project->modules, env);
     if (IsError(result)) return result;
   }

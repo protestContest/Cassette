@@ -8,6 +8,7 @@ typedef struct {
   u8 *code;
   char *strings;
   SourceMap srcmap;
+  bool trace;
 } Program;
 
 Program *NewProgram(void);

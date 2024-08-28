@@ -87,10 +87,6 @@ void CollectGarbage(val *roots)
     return;
   }
 
-#if DEBUG
-  fprintf(stderr, "GARBAGE DAY!!!\n");
-#endif
-
   mem = NewVec(val, VecCapacity(mem));
   VecPush(mem, 0);
   VecPush(mem, 0);
@@ -103,12 +99,12 @@ void CollectGarbage(val *roots)
   while (scan < MemSize()) {
     val next = MemGet(scan);
     if (IsBinHdr(next)) {
-      scan += BinSpace(RawVal(next)) + 1;
+      scan += Max(2, BinSpace(RawVal(next)) + 1);
     } else if (IsTupleHdr(next)) {
       for (i = 0; i < RawVal(next); i++) {
         MemSet(scan+1+i, CopyObj(MemGet(scan+1+i), oldmem));
       }
-      scan += RawVal(next) + 1;
+      scan += Max(2, RawVal(next) + 1);
     } else {
       MemSet(scan, CopyObj(MemGet(scan), oldmem));
       MemSet(scan+1, CopyObj(MemGet(scan+1), oldmem));

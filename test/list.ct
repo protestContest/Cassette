@@ -1,17 +1,5 @@
 module List
-export reverse, reduce, map, filter, range, zip, with_index
-
-def reverse(list) do
-  def reverse_onto(list, tail) do
-    if list do
-      reverse_onto(list[1:], list[0] | tail)
-    else
-      tail
-    end
-  end
-
-  reverse_onto(list, nil)
-end
+export reverse, reduce, map, filter, range, zip, with_index, contains?, intersperse
 
 def reduce(list, acc, fn) do
   if list do
@@ -19,6 +7,10 @@ def reduce(list, acc, fn) do
   else
     acc
   end
+end
+
+def reverse(list) do
+  reduce(list, nil, \item, acc -> item | acc)
 end
 
 def map(list, fn) do
@@ -65,4 +57,16 @@ end
 
 def with_index(list) do
   zip(range(0, #list), list)
+end
+
+def contains?(list, item) cond
+  list == nil -> false
+  list[0] == item -> true
+  true -> contains?(list[1:], item)
+end
+
+def intersperse(list, sep) cond
+  list == nil -> nil
+  list[1:] == nil -> list
+  true -> reverse(reduce(list[1:], [list[0]], \item, acc -> item | sep | acc))
 end

@@ -13,29 +13,8 @@ static val IOError(VM *vm);
 
 Result VMArityError(VM *vm)
 {
+  UnwindVM(vm);
   return RuntimeError("Wrong number of arguments", vm);
-}
-
-Result VMPrint(VM *vm)
-{
-  val a, str;
-  a = VMStackPop(vm);
-
-  if (IsBinary(a)) {
-    str = a;
-  } else {
-    str = InspectVal(a);
-  }
-  printf("%*.*s\n", BinaryLength(str), BinaryLength(str), BinaryData(str));
-
-  return OkVal(IntVal(Symbol("ok")));
-}
-
-Result VMFormat(VM *vm)
-{
-  val a;
-  a = VMStackPop(vm);
-  return OkVal(FormatVal(a));
 }
 
 Result VMPanic(VM *vm)
@@ -61,9 +40,33 @@ Result VMTypeOf(VM *vm)
   return OkVal(IntVal(Symbol("unknown")));
 }
 
+Result VMByte(VM *vm)
+{
+  val a = VMStackPop(vm);
+  u32 num;
+  val bin;
+  if (!IsInt(a)) return RuntimeError("Bad byte value", vm);
+  num = RawInt(a);
+  if (num < 0 || num > 255) return RuntimeError("Bad byte value", vm);
+  MaybeGC(2, vm);
+  bin = NewBinary(1);
+  BinaryData(bin)[0] = num;
+  return OkVal(bin);
+}
+
+Result VMSymbolName(VM *vm)
+{
+  val a = VMStackPop(vm);
+  char *name = SymbolName(RawVal(a));
+  val bin;
+  if (!name) return OkVal(0);
+  MaybeGC(BinSpace(strlen(name)) + 1, vm);
+  bin = BinaryFrom(name, strlen(name));
+  return OkVal(bin);
+}
+
 Result VMOpen(VM *vm)
 {
-  val mode = VMStackPop(vm);
   val flags = VMStackPop(vm);
   val path = VMStackPop(vm);
   char *str;
@@ -71,10 +74,9 @@ Result VMOpen(VM *vm)
 
   if (!IsBinary(path)) return RuntimeError("Path must be a string", vm);
   if (!IsInt(flags)) return RuntimeError("Flags must be an integer", vm);
-  if (!IsInt(mode)) return RuntimeError("Mode must be an integer", vm);
 
   str = BinToStr(path);
-  file = open(str, RawInt(flags), RawInt(mode));
+  file = open(str, RawInt(flags), 0x1FF);
   free(str);
   if (file == -1) return OkVal(IOError(vm));
   return OkVal(IntVal(file));
@@ -159,11 +161,6 @@ static val IOError(VM *vm)
   return result;
 }
 
-Result VMIOError(VM *vm)
-{
-  return OkVal(IOError(vm));
-}
-
 Result VMRandom(VM *vm)
 {
   u32 r = RandomBetween(0, MaxIntVal);
@@ -198,21 +195,20 @@ Result VMMicrotime(VM *vm)
 
 static PrimDef primitives[] = {
   {"arity_error", VMArityError},
-  {"print", VMPrint},
-  {"format", VMFormat},
   {"panic!", VMPanic},
   {"typeof", VMTypeOf},
+  {"byte", VMByte},
+  {"symbol_name", VMSymbolName},
+  {"time", VMTime},
+  {"microtime", VMMicrotime},
+  {"random", VMRandom},
+  {"random_between", VMRandomBetween},
+  {"seed", VMSeed},
   {"open", VMOpen},
   {"close", VMClose},
   {"read", VMRead},
   {"write", VMWrite},
   {"seek", VMSeek},
-  {"io_error", VMIOError},
-  {"random", VMRandom},
-  {"random_between", VMRandomBetween},
-  {"seed", VMSeed},
-  {"time", VMTime},
-  {"microtime", VMMicrotime},
   {"sdl_new_window", SDLNewWindow},
   {"sdl_destroy_window", SDLDestroyWindow},
   {"sdl_present", SDLPresent},

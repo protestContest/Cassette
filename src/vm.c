@@ -117,6 +117,13 @@ static OpFn ops[] = {
   [opTrap]    = OpTrap,
 };
 
+void UnwindVM(VM *vm)
+{
+
+  vm->pc = RawInt(vm->stack[vm->link-1]);
+  vm->link = RawInt(vm->stack[vm->link]);
+}
+
 Result RuntimeError(char *message, struct VM *vm)
 {
   char *file = GetSourceFile(vm->pc, &vm->program->srcmap);
@@ -179,25 +186,24 @@ Result VMRun(Program *program)
 
   InitVM(&vm, program);
 
-#if DEBUG
-  {
+  if (program->trace) {
     u32 num_width = NumDigits(VecCount(program->code), 10);
     u32 i;
     for (i = 0; i < num_width; i++) fprintf(stderr, "─");
     fprintf(stderr, "┬─inst─────────stack───────────────\n");
-  }
-#endif
-
-  while (!VMDone(&vm)) {
-#if DEBUG
-    VMTrace(&vm, 0);
-#endif
-    VMStep(&vm);
+    while (!VMDone(&vm)) {
+      VMTrace(&vm, 0);
+      VMStep(&vm);
+    }
+  } else {
+    while (!VMDone(&vm)) VMStep(&vm);
   }
 
   DestroyVM(&vm);
   return vm.status;
 }
+
+#define StackRef(i, vm) (vm)->stack[VecCount((vm)->stack) - 1 - (i)]
 
 val VMStackPop(VM *vm)
 {
@@ -228,6 +234,7 @@ void MaybeGC(u32 size, VM *vm)
 
 void RunGC(VM *vm)
 {
+  if (vm->program->trace) fprintf(stderr, "GARBAGE DAY!!!\n");
   VMStackPush(vm->env, vm);
   VMStackPush(vm->mod, vm);
   CollectGarbage(vm->stack);
@@ -686,12 +693,14 @@ static Result OpStr(VM *vm)
   char *name;
   u32 len;
   val a;
+  u32 x;
   OneArg(a);
   if (!IsInt(a)) return RuntimeError("Only symbols can become strings", vm);
   name = SymbolName(RawVal(a));
   if (!name) return RuntimeError("Only symbols can become strings", vm);
   len = strlen(name);
-  MaybeGC(BinSpace(len) + 1, vm);
+  x = BinSpace(len) + 1;
+  MaybeGC(x, vm);
   VMStackPush(BinaryFrom(name, len), vm);
   vm->pc++;
   return vm->status;
@@ -700,32 +709,46 @@ static Result OpStr(VM *vm)
 static Result OpJoin(VM *vm)
 {
   val a, b;
-  TwoArgs(a, b);
+  CheckStack(vm, 2);
+  b = StackRef(0, vm);
+  a = StackRef(1, vm);
   if (ValType(a) != ValType(b)) return RuntimeError("Only values of the same type can be joined", vm);
   if (IsPair(a)) {
-    if (MemFree() < 2*(ListLength(a) + ListLength(b))) {
-      VMStackPush(a, vm);
+    if (!a) {
+      VMStackPop(vm);
+      VMStackPop(vm);
       VMStackPush(b, vm);
-      RunGC(vm);
+    } else if (!b) {
+      VMStackPop(vm);
+    } else {
+      MaybeGC(2*(ListLength(a) + ListLength(b)), vm);
       TwoArgs(a, b);
+      VMStackPush(ListJoin(a, b), vm);
     }
-    VMStackPush(ListJoin(a, b), vm);
   } else if (IsTuple(a)) {
-    if (MemFree() < 1 + TupleLength(a) + TupleLength(b)) {
-      VMStackPush(a, vm);
+    if (TupleLength(a) == 0) {
+      VMStackPop(vm);
+      VMStackPop(vm);
       VMStackPush(b, vm);
-      RunGC(vm);
+    } else if (TupleLength(b) == 0) {
+      VMStackPop(vm);
+    } else {
+      MaybeGC(1 + TupleLength(a) + TupleLength(b), vm);
       TwoArgs(a, b);
+      VMStackPush(TupleJoin(a, b), vm);
     }
-    VMStackPush(TupleJoin(a, b), vm);
   } else if (IsBinary(a)) {
-    if (MemFree() < 1 + BinSpace(BinaryLength(a)) + BinSpace(BinaryLength(b))) {
-      VMStackPush(a, vm);
+    if (BinaryLength(a) == 0) {
+      VMStackPop(vm);
+      VMStackPop(vm);
       VMStackPush(b, vm);
-      RunGC(vm);
+    } else if (BinaryLength(b) == 0) {
+      VMStackPop(vm);
+    } else {
+      MaybeGC(1 + BinSpace(BinaryLength(a)) + BinSpace(BinaryLength(b)), vm);
       TwoArgs(a, b);
+      VMStackPush(BinaryJoin(a, b), vm);
     }
-    VMStackPush(BinaryJoin(a, b), vm);
   } else {
     return RuntimeError("Only lists, tuples, and binaries can be joined", vm);
   }
@@ -736,7 +759,9 @@ static Result OpJoin(VM *vm)
 static Result OpSlice(VM *vm)
 {
   val a, b, c;
-  ThreeArgs(a, b, c);
+  TwoArgs(b, c);
+  CheckStack(vm, 1);
+  a = StackRef(0, vm);
   if (!IsInt(b)) return RuntimeError("Only integers can be slice indexes", vm);
   if (RawInt(b) < 0) return RuntimeError("Out of bounds", vm);
   if (c && !IsInt(c)) return RuntimeError("Only integers can be slice indexes", vm);
@@ -748,11 +773,10 @@ static Result OpSlice(VM *vm)
       u32 len;
       if (RawInt(c) < 0 || RawInt(c) > (i32)end) return RuntimeError("Out of bounds", vm);
       len = RawInt(c) - RawInt(b);
-      if (RawInt(c) < (i32)end && MemFree() < 4*len) {
-        RunGC(vm);
-      }
+      if (RawInt(c) < (i32)end) MaybeGC(4*len, vm);
       end = RawInt(c);
     }
+    a = VMStackPop(vm);
     list = ListSlice(a, RawVal(b), end);
     VMStackPush(list, vm);
   } else if (IsTuple(a)) {
@@ -760,25 +784,19 @@ static Result OpSlice(VM *vm)
     if (!c) c = IntVal(TupleLength(a));
     if (RawInt(c) < 0 || RawInt(c) > (i32)TupleLength(a)) return RuntimeError("Out of bounds", vm);
     len = RawVal(c) - RawVal(b);
-    if (MemFree() < len+1) {
-      VMStackPush(a, vm);
-      RunGC(vm);
-      a = VMStackPop(vm);
-    }
+    MaybeGC(len+1, vm);
+    a = VMStackPop(vm);
     VMStackPush(TupleSlice(a, RawVal(b), RawVal(c)), vm);
   } else if (IsBinary(a)) {
     u32 len;
     if (!c) c = IntVal(BinaryLength(a));
     if (RawInt(c) < 0 || RawInt(c) > (i32)BinaryLength(a)) return RuntimeError("Out of bounds", vm);
     len = RawVal(c) - RawVal(b);
-    if (MemFree() < BinSpace(len)+1) {
-      VMStackPush(a, vm);
-      RunGC(vm);
-      a = VMStackPop(vm);
-    }
+    MaybeGC(BinSpace(len)+1, vm);
+    a = VMStackPop(vm);
     VMStackPush(BinarySlice(a, RawVal(b), RawVal(c)), vm);
   } else {
-    return RuntimeError("Invalid type", vm);
+    return RuntimeError("Only lists, tuples, and binaries can be sliced", vm);
   }
   vm->pc++;
   return vm->status;
@@ -842,8 +860,17 @@ static StackTrace *BuildStackTrace(VM *vm)
 {
   u32 link = vm->link;
   StackTrace *trace = 0;
+  StackTrace item;
+
+  item.filename = GetSourceFile(vm->pc, &vm->program->srcmap);
+  if (item.filename) {
+    item.pos = GetSourcePos(vm->pc, &vm->program->srcmap);
+  } else {
+    item.pos = vm->pc;
+  }
+  VecPush(trace, item);
+
   while (link > 0) {
-    StackTrace item;
     u32 code_pos = RawInt(vm->stack[link-1]);
     item.filename = GetSourceFile(code_pos, &vm->program->srcmap);
     if (item.filename) {

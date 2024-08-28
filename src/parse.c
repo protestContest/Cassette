@@ -741,7 +741,7 @@ static Result ParseList(Parser *p)
   u32 start = p->token.pos;
   if (!MatchToken(lbracketToken, p)) return ParseError("Expected \"[\"", p);
   VSpacing(p);
-  if (MatchToken(rbraceToken, p)) {\
+  if (MatchToken(rbracketToken, p)) {\
     node = MakeTerminal(constNode, p->filename, start, p->token.pos, 0);
     Spacing(p);
     return Ok(node);
@@ -799,7 +799,9 @@ static Result ParseNum(Parser *p)
   char *lexeme = p->text + token.pos;
   if (!CheckToken(numToken, p)) return ParseError("Expected number", p);
   for (i = 0; i < token.length; i++) {
-    i32 d = lexeme[i] - '0';
+    i32 d;
+    if (lexeme[i] == '_') continue;
+    d = lexeme[i] - '0';
     if (n > (MaxIntVal - d)/10) return ParseError("Integer overflow", p);
     n = n*10 + d;
   }
@@ -815,7 +817,9 @@ static Result ParseHex(Parser *p)
   Token token = p->token;
   char *lexeme = p->text + token.pos;
   for (i = 2; i < token.length; i++) {
-    i32 d = IsDigit(lexeme[i]) ? lexeme[i] - '0' : lexeme[i] - 'A' + 10;
+    i32 d;
+    if (lexeme[i] == '_') continue;
+    d = IsDigit(lexeme[i]) ? lexeme[i] - '0' : lexeme[i] - 'A' + 10;
     if (n > (MaxIntVal - d)/16) return ParseError("Integer overflow", p);
     n = n*16 + d;
   }
@@ -830,7 +834,7 @@ static Result ParseByte(Parser *p)
   i32 pos = p->token.pos, endPos = p->token.pos + p->token.length;
   char *lexeme = p->text + p->token.pos;
   if (IsSpace(lexeme[1]) || !IsPrintable(lexeme[1])) return ParseError("Expected character", p);
-  byte = *lexeme;
+  byte = lexeme[1];
   Adv(p);
   Spacing(p);
   return Ok(MakeTerminal(constNode, p->filename, pos, endPos, IntVal(byte)));
@@ -851,9 +855,24 @@ static Result ParseSymbol(Parser *p)
 static Result ParseString(Parser *p)
 {
   i32 sym;
+  u32 i, j, len;
+  char *str;
   Token token = p->token;
   if (!CheckToken(stringToken, p)) return ParseError("Expected string", p);
-  sym = SymbolFrom(p->text + token.pos + 1, token.length - 2);
+  for (i = 0, len = 0; i < token.length - 2; i++) {
+    char ch = p->text[token.pos + i + 1];
+    if (ch == '\\') continue;
+    len++;
+  }
+  str = malloc(len+1);
+  str[len] = 0;
+  for (i = 0, j = 0; i < token.length - 2; i++) {
+    char ch = p->text[token.pos + i + 1];
+    if (ch == '\\') continue;
+    str[j++] = ch;
+  }
+  sym = Symbol(str);
+  free(str);
   Adv(p);
   Spacing(p);
   return Ok(TokenNode(strNode, token, IntVal(sym), p->filename));

@@ -1,27 +1,40 @@
 module IO
-import VM
-export print, format, open, close, read, write, seek, is_error
+import List, Value
+export open, close, read, write, seek, print, inspect, read_file, write_file, error?, nl
 
-def print(value) trap(:print, value)
-def format(value) trap(:format, value)
-def is_error(value) do
-  VM.typeof(value) == :tuple and value[0] == :error
-end
-def last_error() trap(:io_error)
+let nl = 0x0A
 
-def open(path, mode) do
-  let flags =
-    cond
-      mode == :r or mode == :read -> 0
-      mode == :w or mode == :write -> 1
-      mode == :rw or mode == :read_write -> 2
-      true -> 0
-    end
-  trap(:open, path, flags, 0x1FF)
+def open(path, modes) do
+  def parse_modes(modes) do
+    let read = List.contains?(modes, :read),
+        write = List.contains?(modes, :write),
+        append = List.contains?(modes, :append),
+        excl = List.contains?(modes, :exclusive)
+
+    let flags =
+      cond
+        read and (write or append or excl) -> 2 ;read-write
+        write or append or excl -> 1 ;write
+        true -> 0 ;read
+      end
+
+    let flags = if write or append or excl do flags ^ 512 else flags end, ;create
+        flags = if append do flags ^ 8 else flags end, ;append
+        flags = if write and not read do flags ^ 1024 else flags end, ;trunc
+        flags = if excl do flags ^ 2048 else flags end ;excl
+
+    flags
+  end
+
+  trap(:open, path, parse_modes(modes))
 end
+
 def close(file) trap(:close, file)
+
 def read(file, size) trap(:read, file, size)
 def write(file, data) trap(:write, file, data, #data)
+def print(str) write(0, Value.format([str, nl]))
+def inspect(val) print(Value.inspect(val))
 def seek(file, offset, whence) do
   let whence =
     cond
@@ -31,4 +44,32 @@ def seek(file, offset, whence) do
       true -> 0
     end
   trap(:seek, file, offset, whence)
+end
+
+def read_file(path) do
+  let file = open(path, :read)
+  if error?(file) do
+    file
+  else
+    let size = seek(file, 0, :end)
+    seek(file, 0, :start)
+    let contents = read(file, size)
+    close(file)
+    contents
+  end
+end
+
+def write_file(path, data) do
+  let file = open(path, :write)
+  if file do
+    let written = write(file, data)
+    close(file)
+    written
+  else
+    0
+  end
+end
+
+def error?(result) do
+  Value.typeof(result) == :tuple and #result > 0 and result[0] == :error
 end
