@@ -28,6 +28,13 @@ Token NextToken(char *src, u32 pos)
       return MakeToken(numToken, pos, len);
     }
   }
+
+  if (Match("\"\"\"", src+pos)) {
+    u32 len = 3;
+    while (!Match("\"\"\"", src+pos+len)) len++;
+    return MakeToken(textToken, pos, len+3);
+  }
+
   if (src[pos] == '"') {
     u32 len = 1;
     while (src[pos+len] && src[pos+len] != '"') {

@@ -94,6 +94,7 @@ static Result ParseByte(Parser *p);
 static Result ParseHex(Parser *p);
 static Result ParseSymbol(Parser *p);
 static Result ParseString(Parser *p);
+static Result ParseText(Parser *p);
 static Result ParseLiteral(Parser *p);
 
 static Result ParseID(Parser *p);
@@ -107,6 +108,7 @@ static ParseRule rules[] = {
   [spaceToken]    = {0,             0,            precNone},
   [bangeqToken]   = {0,             ParseOp,      precEqual},
   [stringToken]   = {ParseString,   0,            precNone},
+  [textToken]     = {ParseText,     0,            precNone},
   [hashToken]     = {ParseUnary,    0,            precNone},
   [byteToken]     = {ParseByte,     0,            precNone},
   [percentToken]  = {0,             ParseOp,      precProduct},
@@ -873,6 +875,26 @@ static Result ParseString(Parser *p)
   }
   sym = Symbol(str);
   free(str);
+  Adv(p);
+  Spacing(p);
+  return Ok(TokenNode(strNode, token, IntVal(sym), p->filename));
+}
+
+static Result ParseText(Parser *p)
+{
+  Token token = p->token;
+  u32 start, end;
+  char *lexeme = p->text + token.pos;
+  u32 sym;
+  if (!CheckToken(textToken, p)) return ParseError("Expected text", p);
+  for (start = 3; start < token.length - 3; start++) {
+    if (!IsSpace(lexeme[start]) && !IsNewline(lexeme[start])) break;
+  }
+  for (end = token.length - 3; end > start; end--) {
+    if (!IsSpace(lexeme[end-1]) && !IsNewline(lexeme[end-1])) break;
+  }
+
+  sym = SymbolFrom(lexeme + start, end-start);
   Adv(p);
   Spacing(p);
   return Ok(TokenNode(strNode, token, IntVal(sym), p->filename));
