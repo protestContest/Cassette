@@ -1,10 +1,16 @@
 module Value
 import List
-export typeof, byte, symbol_name, format, inspect
+export typeof, byte, symbol_name, error?, format, inspect
 
 def typeof(value) trap(:typeof, value)
 def byte(value) trap(:byte, value)
 def symbol_name(sym) trap(:symbol_name, sym)
+
+def error?(result) cond
+  result == :error -> true
+  typeof(result) == :tuple and #result > 0 and result[0] == :error -> true
+  true -> false
+end
 
 def format(data) cond
   typeof(data) == :binary -> data
@@ -64,4 +70,4 @@ def inspect_depth(value, depth) cond
   true -> inspect_list(value, depth)
 end
 
-def inspect(value) inspect_depth(value, 5)
+def inspect(value) inspect_depth(value, 10)

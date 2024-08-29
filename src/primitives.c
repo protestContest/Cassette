@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <termios.h>
 
 static val IOError(VM *vm);
 
@@ -79,6 +80,35 @@ Result VMOpen(VM *vm)
   file = open(str, RawInt(flags), 0x1FF);
   free(str);
   if (file == -1) return OkVal(IOError(vm));
+  return OkVal(IntVal(file));
+}
+
+Result VMOpenSerial(VM *vm)
+{
+  val opts = VMStackPop(vm);
+  val speed = VMStackPop(vm);
+  val port = VMStackPop(vm);
+  i32 file;
+  char *str;
+  struct termios options;
+  if (!IsBinary(port)) return RuntimeError("Serial port must be a string", vm);
+  if (!IsInt(speed)) return RuntimeError("Speed must be an integer", vm);
+  if (!IsInt(opts)) return RuntimeError("Serial options must be an integer", vm);
+
+  str = BinToStr(port);
+  file = open(str, O_RDWR | O_NDELAY | O_NOCTTY);
+  free(str);
+  if (file == -1) return OkVal(IOError(vm));
+  fcntl(file, F_SETFL, FNDELAY);
+
+  tcgetattr(file, &options);
+  cfsetispeed(&options, RawInt(speed));
+  cfsetospeed(&options, RawInt(speed));
+  options.c_cflag |= RawInt(opts);
+  options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+  options.c_oflag &= ~OPOST;
+  tcsetattr(file, TCSANOW, &options);
+
   return OkVal(IntVal(file));
 }
 
@@ -205,6 +235,7 @@ static PrimDef primitives[] = {
   {"random_between", VMRandomBetween},
   {"seed", VMSeed},
   {"open", VMOpen},
+  {"open_serial", VMOpenSerial},
   {"close", VMClose},
   {"read", VMRead},
   {"write", VMWrite},

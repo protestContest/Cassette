@@ -1,6 +1,6 @@
 module IO
 import List, Value
-export open, close, read, write, seek, print, inspect, read_file, write_file, error?, nl
+export open, close, read, write, seek, print, inspect, read_file, write_file, nl
 
 let nl = 0x0A
 
@@ -18,10 +18,10 @@ def open(path, modes) do
         true -> 0 ;read
       end
 
-    let flags = if write or append or excl do flags ^ 512 else flags end, ;create
-        flags = if append do flags ^ 8 else flags end, ;append
-        flags = if write and not read do flags ^ 1024 else flags end, ;trunc
-        flags = if excl do flags ^ 2048 else flags end ;excl
+    let flags = if write or append or excl do flags ^ 512 else flags end, ; create
+        flags = if append do flags ^ 8 else flags end, ; append
+        flags = if write and not read do flags ^ 1024 else flags end, ; trunc
+        flags = if excl do flags ^ 2048 else flags end ; excl
 
     flags
   end
@@ -29,12 +29,45 @@ def open(path, modes) do
   trap(:open, path, parse_modes(modes))
 end
 
+; opts should be of the form "8N1" or {8, :none, 1}
+; data bits can be between 5-8
+; parity can be :even ("E"), :odd, ("O"), or :none ("N")
+; stop bits should be 1 or 2
+def open_serial(port, speed, opts) do
+  def parse_opts(opts) do
+    if Value.typeof(opts) == :binary do
+      let parity =
+        cond
+          opts[1] == $E -> :even
+          opts[1] == $O -> :odd
+          true -> :none
+        end
+      parse_opts({opts[0] - $5, parity, opts[1] - $2})
+    else
+      let flags = 0x100 * (opts[0] - $5),
+          flags = cond
+            opts[1] == :even -> flags ^ 0x1000
+            opts[1] == :odd -> flags ^ 0x1000 ^ 0x2000
+            true -> flags
+          end,
+          flags = if opts[2] == 2 do flags ^ 0x400 else flags end
+      flags
+    end
+  end
+
+  trap(:open_serial, speed, parse_opts(opts))
+end
+
 def close(file) trap(:close, file)
 
 def read(file, size) trap(:read, file, size)
+
 def write(file, data) trap(:write, file, data, #data)
+
 def print(str) write(0, Value.format([str, nl]))
+
 def inspect(val) print(Value.inspect(val))
+
 def seek(file, offset, whence) do
   let whence =
     cond
@@ -48,7 +81,7 @@ end
 
 def read_file(path) do
   let file = open(path, :read)
-  if error?(file) do
+  if Value.error?(file) do
     file
   else
     let size = seek(file, 0, :end)
@@ -68,8 +101,4 @@ def write_file(path, data) do
   else
     0
   end
-end
-
-def error?(result) do
-  Value.typeof(result) == :tuple and #result > 0 and result[0] == :error
 end

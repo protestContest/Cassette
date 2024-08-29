@@ -70,3 +70,15 @@ def intersperse(list, sep) cond
   list[1:] == nil -> list
   true -> reverse(reduce(list[1:], [list[0]], \item, acc -> item | sep | acc))
 end
+
+def all?(list) cond
+  list == nil -> true
+  list[0] -> all?(list[1:])
+  true -> false
+end
+
+def any?(list) cond
+  list == nil -> false
+  list[0] -> true
+  true -> any?(list[1:])
+end
