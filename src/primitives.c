@@ -9,8 +9,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <netdb.h>
 
-static val IOError(VM *vm);
+static val IOError(char *msg, VM *vm);
 
 Result VMArityError(VM *vm)
 {
@@ -79,7 +80,7 @@ Result VMOpen(VM *vm)
   str = BinToStr(path);
   file = open(str, RawInt(flags), 0x1FF);
   free(str);
-  if (file == -1) return OkVal(IOError(vm));
+  if (file == -1) return OkVal(IOError(strerror(errno), vm));
   return OkVal(IntVal(file));
 }
 
@@ -98,7 +99,7 @@ Result VMOpenSerial(VM *vm)
   str = BinToStr(port);
   file = open(str, O_RDWR | O_NDELAY | O_NOCTTY);
   free(str);
-  if (file == -1) return OkVal(IOError(vm));
+  if (file == -1) return OkVal(IOError(strerror(errno), vm));
   fcntl(file, F_SETFL, FNDELAY);
 
   tcgetattr(file, &options);
@@ -119,7 +120,7 @@ Result VMClose(VM *vm)
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
 
   err = close(file);
-  if (err != 0) return OkVal(IOError(vm));
+  if (err != 0) return OkVal(IOError(strerror(errno), vm));
   return OkVal(IntVal(Symbol("ok")));
 }
 
@@ -141,7 +142,7 @@ Result VMRead(VM *vm)
     result = NewBinary(bytes_read);
     Copy(data, BinaryData(result), bytes_read);
   } else {
-    result = IOError(vm);
+    result = IOError(strerror(errno), vm);
   }
   free(data);
   return OkVal(result);
@@ -159,7 +160,7 @@ Result VMWrite(VM *vm)
   if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
 
   written = write(RawInt(file), BinaryData(buf), RawInt(size));
-  if (written < 0) return OkVal(IOError(vm));
+  if (written < 0) return OkVal(IOError(strerror(errno), vm));
   return OkVal(IntVal(written));
 }
 
@@ -175,14 +176,125 @@ Result VMSeek(VM *vm)
   if (!IsInt(whence)) return RuntimeError("Whence must be an integer", vm);
 
   pos = lseek(RawInt(file), RawInt(offset), RawInt(whence));
-  if (pos < 0) return OkVal(IOError(vm));
+  if (pos < 0) return OkVal(IOError(strerror(errno), vm));
   return OkVal(IntVal(pos));
 }
 
-static val IOError(VM *vm)
+Result VMListen(VM *vm)
+{
+  val portVal = VMStackPop(vm);
+  i32 status, s;
+  char *port;
+  struct addrinfo hints = {0};
+  struct addrinfo *servinfo;
+
+  if (!IsBinary(portVal)) return RuntimeError("Port must be a string", vm);
+
+  port = BinToStr(portVal);
+
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+  status = getaddrinfo(0, port, &hints, &servinfo);
+  free(port);
+  if (status != 0) return OkVal(IOError((char*)gai_strerror(status), vm));
+
+  s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+  if (s < 0) {
+    freeaddrinfo(servinfo);
+    return OkVal(IOError(strerror(errno), vm));
+  }
+
+  status = bind(s, servinfo->ai_addr, servinfo->ai_addrlen);
+  freeaddrinfo(servinfo);
+  if (status < 0) return OkVal(IOError(strerror(errno), vm));
+
+  status = listen(s, 10);
+  if (status < 0) return OkVal(IOError(strerror(errno), vm));
+
+  return OkVal(IntVal(s));
+}
+
+Result VMAccept(VM *vm)
+{
+  val socketVal = VMStackPop(vm);
+  i32 s;
+  if (!IsInt(socketVal)) return RuntimeError("Socket must be an integer", vm);
+  s = accept(RawInt(socketVal), 0, 0);
+  if (s < 0) return OkVal(IOError(strerror(errno), vm));
+  return OkVal(IntVal(s));
+}
+
+Result VMConnect(VM *vm)
+{
+  val portVal = VMStackPop(vm);
+  val nodeVal = VMStackPop(vm);
+  i32 status, s;
+  char *node, *port;
+  struct addrinfo hints = {0};
+  struct addrinfo *servinfo;
+
+  if (nodeVal != 0 && !IsBinary(nodeVal)) return RuntimeError("Node must be a string", vm);
+  if (!IsBinary(portVal)) return RuntimeError("Port must be a string", vm);
+
+  node = nodeVal ? BinToStr(nodeVal) : 0;
+  port = BinToStr(portVal);
+
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  status = getaddrinfo(node, port, &hints, &servinfo);
+  if (nodeVal) free(node);
+  free(port);
+  if (status != 0) return OkVal(IOError((char*)gai_strerror(status), vm));
+
+  s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+  if (s < 0) {
+    freeaddrinfo(servinfo);
+    return OkVal(IOError(strerror(errno), vm));
+  }
+  status = connect(s, servinfo->ai_addr, servinfo->ai_addrlen);
+  freeaddrinfo(servinfo);
+
+  if (status < 0) return OkVal(IOError(strerror(errno), vm));
+
+  return OkVal(IntVal(s));
+}
+
+Result VMSend(VM *vm)
+{
+  val data = VMStackPop(vm);
+  val socketVal = VMStackPop(vm);
+  i32 sent;
+  if (!IsInt(socketVal)) return RuntimeError("Socket must be binary", vm);
+  if (!IsBinary(data)) return RuntimeError("Data must be binary", vm);
+  sent = send(RawInt(socketVal), BinaryData(data), BinaryLength(data), 0);
+  if (sent < 0) return OkVal(IOError(strerror(errno), vm));
+  return OkVal(IntVal(sent));
+}
+
+Result VMRecv(VM *vm)
+{
+  val size = VMStackPop(vm);
+  val socketVal = VMStackPop(vm);
+  val result;
+  char *data;
+  i32 bytes_read;
+
+  if (!IsInt(socketVal)) return RuntimeError("Socket must be an integer", vm);
+  if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
+
+  data = malloc(RawInt(size));
+  bytes_read = recv(RawInt(socketVal), data, RawInt(size), 0);
+  if (bytes_read < 0) return OkVal(IOError(strerror(errno), vm));
+  MaybeGC(BinSpace(bytes_read) + 1, vm);
+  result = BinaryFrom(data, bytes_read);
+  free(data);
+  return OkVal(result);
+}
+
+static val IOError(char *msg, VM *vm)
 {
   val result;
-  char *msg = strerror(errno);
   u32 len = strlen(msg);
   MaybeGC(BinSpace(len) + 4, vm);
   result = Tuple(2);
@@ -240,6 +352,11 @@ static PrimDef primitives[] = {
   {"read", VMRead},
   {"write", VMWrite},
   {"seek", VMSeek},
+  {"listen", VMListen},
+  {"accept", VMAccept},
+  {"connect", VMConnect},
+  {"send", VMSend},
+  {"recv", VMRecv},
   {"sdl_new_window", SDLNewWindow},
   {"sdl_destroy_window", SDLDestroyWindow},
   {"sdl_present", SDLPresent},

@@ -1,3 +1,21 @@
-import IO
+import IO, Net, Value
 
-IO.print("Hello, world!")
+let client = Net.connect("cassette-lang.com", "80")
+
+let req = """
+GET / HTTP/1.0
+Host: cassette-lang.com
+""" <> Net.nl <> Net.nl
+
+let resp = Net.send(client, req)
+
+def read_resp() do
+  let data = Net.recv(client, 1024)
+
+  if #data > 0 do
+    IO.write(0, data)
+    read_resp()
+  end
+end
+
+read_resp()
