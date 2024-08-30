@@ -1,11 +1,11 @@
-import IO, Net, Value
+import IO, Net, Value, String (crlf)
 
 let client = Net.connect("cassette-lang.com", "80")
 
 let req = """
 GET / HTTP/1.0
 Host: cassette-lang.com
-""" <> Net.nl <> Net.nl
+""" <> crlf <> crlf
 
 let resp = Net.send(client, req)
 

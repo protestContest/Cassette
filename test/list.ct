@@ -1,27 +1,30 @@
 module List
-export reverse, reduce, map, filter, range, zip, with_index, contains?, intersperse
+export reverse, reduce, map, filter, range, zip, with_index, contains?, intersperse, head, tail
+
+def head(list) list[0]
+def tail(list) list[1,#list]
 
 def reduce(list, acc, fn) do
   if list do
-    reduce(list[1:], fn(list[0], acc), fn)
+    reduce(tail(list), fn(head(list), acc), fn)
   else
     acc
   end
 end
 
 def reverse(list) do
-  reduce(list, nil, \item, acc -> item | acc)
+  reduce(list, nil, \item, acc -> item : acc)
 end
 
 def map(list, fn) do
-  reverse(reduce(list, nil, \item, acc -> fn(item) | acc))
+  reverse(reduce(list, nil, \item, acc -> fn(item) : acc))
 end
 
 def filter(list, fn) do
   reverse(
     reduce(list, nil, \item, acc ->
       if fn(item) do
-        item | acc
+        item : acc
       else
         acc
       end))
@@ -30,7 +33,7 @@ end
 def range(min, max) do
   def build_range(n, list) do
     if n > min do
-      build_range(n-1, n-1 | list)
+      build_range(n-1, n-1 : list)
     else
       list
     end
@@ -46,7 +49,7 @@ end
 def zip(a, b) do
   def build_zip(a, b, zipped) do
     if a and b do
-      build_zip(a[1:], b[1:], {a[0], b[0]} | zipped)
+      build_zip(tail(a), tail(b), {head(a), head(b)} : zipped)
     else
       reverse(zipped)
     end
@@ -61,24 +64,24 @@ end
 
 def contains?(list, item) cond
   list == nil -> false
-  list[0] == item -> true
-  true -> contains?(list[1:], item)
+  head(list) == item -> true
+  true -> contains?(tail(list), item)
 end
 
 def intersperse(list, sep) cond
   list == nil -> nil
-  list[1:] == nil -> list
-  true -> reverse(reduce(list[1:], [list[0]], \item, acc -> item | sep | acc))
+  tail(list) == nil -> list
+  true -> reverse(reduce(tail(list), [head(list)], \item, acc -> item : sep : acc))
 end
 
 def all?(list) cond
   list == nil -> true
-  list[0] -> all?(list[1:])
+  head(list) -> all?(tail(list))
   true -> false
 end
 
 def any?(list) cond
   list == nil -> false
-  list[0] -> true
-  true -> any?(list[1:])
+  head(list) -> true
+  true -> any?(tail(list))
 end

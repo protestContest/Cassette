@@ -22,9 +22,13 @@ char *StringFrom(char *str, u32 len)
 char *FormatString(char *format, char *str)
 {
   u32 start;
-  u32 len_str = strlen(str);
-  u32 len_format = strlen(format);
   u32 len_result;
+  u32 len_str;
+  u32 len_format;
+  if (!str) str = "";
+  len_str = strlen(str);
+  len_format = strlen(format);
+
   for (start = 0; format[start]; start++) {
     if (format[start] == '^') break;
   }

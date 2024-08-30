@@ -1,1 +1,58 @@
 module String
+import Value (format)
+export
+  newline,
+  carriage_return,
+  space,
+  tab,
+  crlf,
+  digit?,
+  lowercase?,
+  uppercase?,
+  alpha?,
+  space?,
+  newline?,
+  printable?,
+  match_at?,
+  parse_int
+
+let newline = 0x0A,
+    carriage_return = 0x0D,
+    space = 0x20,
+    tab = 0x09,
+    crlf = format([carriage_return, newline])
+
+def digit?(c) c >= $0 and c <= $9
+def lowercase?(c) c >= $a and c <= $z
+def uppercase?(c) c >= $A and c <= $Z
+def alpha?(c) lowercase?(c) or uppercase?(c)
+def space?(c) c == 0x20 or c == 0x09
+def newline?(c) c == 0x0A or c == 0x0D
+def printable?(c) c >= 0x20 and c < 0x7F
+
+def match_at?(test, str, index) do
+  def loop(i) cond
+    i == #test -> true
+    index + i == #str -> false
+    test[i] != str[index + i] -> false
+    true -> loop(i + 1)
+  end
+  loop(0)
+end
+
+def parse_int(str, start) do
+  def loop(i, n) do
+    if i == #str or not digit?(str[i]) do
+      {i, n}
+    else
+      let d = str[i] - $0
+      loop(i+1, n*10 + d)
+    end
+  end
+
+  cond
+    str[start] == $- and digit?(str[start+1]) -> -loop(start+1, 0)
+    digit?(str[start]) -> loop(start, 0)
+    true -> {start, nil}
+  end
+end

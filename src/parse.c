@@ -124,7 +124,7 @@ static ParseRule rules[] = {
   [slashToken]    = {0,             ParseOp,      precProduct},
   [numToken]      = {ParseNum,      0,            precNone},
   [hexToken]      = {ParseHex,      0,            precNone},
-  [colonToken]    = {ParseSymbol,   0,            precNone},
+  [colonToken]    = {ParseSymbol,   ParsePair,    precPair},
   [ltToken]       = {0,             ParseOp,      precCompare},
   [ltltToken]     = {0,             ParseOp,      precShift},
   [lteqToken]     = {0,             ParseOp,      precCompare},
@@ -155,9 +155,9 @@ static ParseRule rules[] = {
   [lbraceToken]   = {ParseTuple,    0,            precNone},
   [bslashToken]   = {ParseLambda,   0,            precNone},
   [rbraceToken]   = {0,             0,            precNone},
-  [caretToken]    = {0,             ParseOp,      precSum},
+  [caretToken]    = {0,             0,            precNone},
   [lbracketToken] = {ParseList,     ParseAccess,  precCall},
-  [barToken]      = {0,             ParsePair,    precPair},
+  [barToken]      = {0,             ParseOp,      precSum},
   [rbracketToken] = {0,             0,            precNone},
   [tildeToken]    = {ParseUnary,    0,            precNone},
   [errorToken]    = {0,             0,            precNone}
@@ -184,9 +184,32 @@ Result ParseModuleBody(Module *module)
     ast = MakeNode(doNode, p.filename, p.token.pos, p.token.pos);
     NodePush(stmt, ast);
   } else {
+    u32 i, j;
+    ast = MakeNode(doNode, module->filename, 0, 0);
+    for (i = 0; i < VecCount(module->imports); i++) {
+      u32 mod = module->imports[i].module;
+      if (!module->imports[i].names) continue;
+      for (j = 0; j < VecCount(module->imports[i].names); j++) {
+        u32 name = module->imports[i].names[j];
+        ASTNode *let = MakeNode(letNode, p.filename, 0, 0);
+        ASTNode *ref = MakeNode(refNode, p.filename, 0, 0);
+        NodePush(MakeTerminal(varNode, p.filename, 0, 0, mod), ref);
+        NodePush(MakeTerminal(varNode, p.filename, 0, 0, name), ref);
+        NodePush(MakeTerminal(varNode, p.filename, 0, 0, name), let);
+        NodePush(ref, let);
+        NodePush(let, ast);
+      }
+    }
+
     result = ParseStmts(&p);
-    if (IsError(result)) return result;
-    ast = result.data.p;
+    if (IsError(result)) return ParseFail(ast, result);
+
+    if (VecCount(ast->data.children) > 0) {
+      NodePush(result.data.p, ast);
+    } else {
+      FreeNode(ast);
+      ast = result.data.p;
+    }
   }
   if (!AtEnd(&p)) return ParseFail(ast, ParseError("Expected end of file", &p));
 
@@ -264,6 +287,7 @@ static Result ParseImports(ModuleImport **imports, Parser *p)
     if (!CheckToken(idToken, p)) return ParseError("Expected import", p);
     import.module = Lexeme(p->token, p);
     import.pos = p->token.pos;
+    import.names = 0;
     Adv(p);
     Spacing(p);
     if (MatchToken(asToken, p)) {
@@ -275,9 +299,20 @@ static Result ParseImports(ModuleImport **imports, Parser *p)
     } else {
       import.alias = import.module;
     }
+    if (MatchToken(lparenToken, p)) {
+      do {
+        VSpacing(p);
+        if (!CheckToken(idToken, p)) return ParseError("Expected function name", p);
+        VecPush(import.names, Lexeme(p->token, p));
+        Adv(p);
+        Spacing(p);
+      } while (MatchToken(commaToken, p));
+      VSpacing(p);
+      if (!MatchToken(rparenToken, p)) return ParseError("Missing close paren", p);
+      Spacing(p);
+    }
     if (imports) VecPush(*imports, import);
   } while (MatchToken(commaToken, p));
-
 
   if (!AtEnd(p) && !MatchToken(newlineToken, p)) {
     return ParseError("Missing comma or newline", p);
@@ -432,8 +467,8 @@ NodeType OpNodeType(TokenType type)
   case andToken:      return andNode;
   case orToken:       return orNode;
   case lbracketToken: return sliceNode;
-  case caretToken:    return bitorNode;
-  case barToken:      return pairNode;
+  case barToken:      return bitorNode;
+  case colonToken:    return pairNode;
   case dotToken:      return refNode;
   default:            assert(false);
   }
@@ -529,28 +564,18 @@ static Result ParseAccess(ASTNode *expr, Parser *p)
   node = MakeNode(accessNode, p->filename, expr->start, expr->end);
   NodePush(expr, node);
 
-  if (CheckToken(colonToken, p)) {
-    ASTNode *start_node = MakeTerminal(constNode, p->filename, p->token.pos, p->token.pos + p->token.length, IntVal(0));
-    NodePush(start_node, node);
-  } else {
-    result = ParseExpr(p);
-    if (IsError(result)) return ParseFail(node, result);
-    NodePush(result.data.p, node);
-  }
+  result = ParseExpr(p);
+  if (IsError(result)) return ParseFail(node, result);
+  NodePush(result.data.p, node);
 
   VSpacing(p);
-  if (MatchToken(colonToken, p)) {
+  if (MatchToken(commaToken, p)) {
     node->type = sliceNode;
     VSpacing(p);
-    if (CheckToken(rbracketToken, p)) {
-      end_node = MakeNode(lenNode, p->filename, p->token.pos, p->token.pos);
-      NodePush(CloneNode(expr), end_node);
-    } else {
-      result = ParseExpr(p);
-      if (IsError(result)) return ParseFail(node, result);
-      end_node = result.data.p;
-      VSpacing(p);
-    }
+    result = ParseExpr(p);
+    if (IsError(result)) return ParseFail(node, result);
+    end_node = result.data.p;
+    VSpacing(p);
     NodePush(end_node, node);
   }
   if (!MatchToken(rbracketToken, p)) return ParseFail(node, ParseError("Expected \"]\"", p));

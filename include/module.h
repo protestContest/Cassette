@@ -8,6 +8,7 @@ typedef struct {
   u32 module;
   u32 alias;
   u32 pos;
+  u32 *names;
 } ModuleImport;
 
 typedef struct {

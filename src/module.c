@@ -16,6 +16,10 @@ void InitModule(Module *module)
 
 void DestroyModule(Module *module)
 {
+  u32 i;
+  for (i = 0; i < VecCount(module->imports); i++) {
+    FreeVec(module->imports[i].names);
+  }
   if (module->filename) free(module->filename);
   if (module->source) free(module->source);
   if (module->imports) FreeVec(module->imports);

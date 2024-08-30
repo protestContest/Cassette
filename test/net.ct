@@ -1,8 +1,6 @@
 module Net
 import Value
-export listen, accept, connect, send, recv, nl
-
-let nl = Value.format([0x0A, 0x0D])
+export listen, accept, connect, send, recv
 
 def listen(port) trap(:listen, port)
 def accept(socket) trap(:accept, socket)
