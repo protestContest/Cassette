@@ -20,9 +20,19 @@ void DestroyMem(void)
   mem = 0;
 }
 
+void SizeMem(u32 size)
+{
+  mem = ResizeVec(mem, size, sizeof(val));
+}
+
 u32 MemSize(void)
 {
   return VecCount(mem);
+}
+
+u32 MemCapacity(void)
+{
+  return VecCapacity(mem);
 }
 
 u32 MemFree(void)
@@ -34,6 +44,7 @@ static u32 MemAlloc(u32 count)
 {
   u32 index;
   if (!mem) InitMem(256);
+  assert(VecCount(mem) + count <= VecCapacity(mem));
   index = VecCount(mem);
   GrowVec(mem, Max(2, count));
   return index;

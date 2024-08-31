@@ -48,7 +48,9 @@ enum {objType, intType, tupleHdr, binHdr};
 
 void InitMem(u32 size);
 void DestroyMem(void);
+void SizeMem(u32 size);
 u32 MemSize(void);
+u32 MemCapacity(void);
 u32 MemFree(void);
 void CollectGarbage(val *roots);
 

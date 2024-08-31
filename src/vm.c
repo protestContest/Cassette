@@ -119,7 +119,6 @@ static OpFn ops[] = {
 
 void UnwindVM(VM *vm)
 {
-
   vm->pc = RawInt(vm->stack[vm->link-1]);
   vm->link = RawInt(vm->stack[vm->link]);
 }
@@ -185,6 +184,7 @@ Result VMRun(Program *program)
   VM vm;
 
   InitVM(&vm, program);
+  InitMem(256);
 
   if (program->trace) {
     u32 num_width = NumDigits(VecCount(program->code), 10);
@@ -240,6 +240,11 @@ void RunGC(VM *vm)
   CollectGarbage(vm->stack);
   vm->mod = VMStackPop(vm);
   vm->env = VMStackPop(vm);
+  if (MemSize() > MemCapacity()/2 + MemCapacity()/4) {
+    SizeMem(2*MemSize());
+  } else if (MemSize() < MemCapacity()/4) {
+    SizeMem(Max(256, MemSize()/2));
+  }
 }
 
 #define OneArg(a) \
@@ -840,7 +845,7 @@ static u32 PrintStack(VM *vm)
     printed += fprintf(stderr, "%s ", str);
     free(str);
   }
-  if (VecCount(vm->stack) > max) printed += fprintf(stderr, "...");
+  if (VecCount(vm->stack) > max) printed += fprintf(stderr, "... [%d]", VecCount(vm->stack) - max);
   for (i = 0; (i32)i < 30 - (i32)printed; i++) fprintf(stderr, " ");
   return printed;
 }

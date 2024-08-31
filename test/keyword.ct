@@ -1,0 +1,27 @@
+module Keyword
+import List (head, tail)
+
+def contains?(list, key) cond
+  list == nil -> false
+  head(head(list)) == key -> true
+  true -> contains(tail(list), key)
+end
+
+def get(list, key) cond
+  list == nil -> nil
+  head(head(list)) == key -> tail(head(list))
+  true -> get(tail(list), key)
+end
+
+def put(list, key, value) do
+  def loop(prev, next) cond
+    next == nil ->
+      (key : value) : list
+    head(head(next)) == key ->
+      reduce(prev, (key : value) : tail(next), \item, list -> item : list)
+    true ->
+      loop(head(next) : prev, i + 1, tail(next))
+  end
+  loop([], list)
+end
+

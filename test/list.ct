@@ -1,5 +1,6 @@
 module List
-export reverse, reduce, map, filter, range, zip, with_index, contains?, intersperse, head, tail
+import Value
+export reverse, reduce, map, filter, range, zip, with_index, contains?, intersperse, head, tail, join
 
 def head(list) list[0]
 def tail(list) list[1,#list]
@@ -84,4 +85,19 @@ def any?(list) cond
   list == nil -> false
   head(list) -> true
   true -> any?(tail(list))
+end
+
+def insert(list, index, item) do
+  def loop(prev, i, next) do
+    if i == index do
+      reduce(prev, item : next, \item, list -> item : list)
+    else
+      loop(head(next) : prev, i + 1, tail(next))
+    end
+  end
+  loop([], 0, list)
+end
+
+def join(list, sep) do
+  Value.format(intersperse(list, sep))
 end
