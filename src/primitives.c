@@ -129,7 +129,7 @@ Result VMRead(VM *vm)
   val size = VMStackPop(vm);
   val file = VMStackPop(vm);
   val result;
-  u8 *data;
+  char *data;
   i32 bytes_read;
 
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
@@ -137,29 +137,21 @@ Result VMRead(VM *vm)
 
   data = malloc(RawInt(size));
   bytes_read = read(RawInt(file), data, RawInt(size));
-  if (bytes_read >= 0) {
-    MaybeGC(BinSpace(bytes_read) + 1, vm);
-    result = NewBinary(bytes_read);
-    Copy(data, BinaryData(result), bytes_read);
-  } else {
-    result = IOError(strerror(errno), vm);
-  }
+  if (bytes_read < 0) return OkVal(IOError(strerror(errno), vm));
+  MaybeGC(BinSpace(bytes_read) + 1, vm);
+  result = BinaryFrom(data, bytes_read);
   free(data);
   return OkVal(result);
 }
 
 Result VMWrite(VM *vm)
 {
-  val size = VMStackPop(vm);
   val buf = VMStackPop(vm);
   val file = VMStackPop(vm);
   i32 written;
-
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
   if (!IsBinary(buf)) return RuntimeError("Data must be binary", vm);
-  if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
-
-  written = write(RawInt(file), BinaryData(buf), RawInt(size));
+  written = write(RawInt(file), BinaryData(buf), BinaryLength(buf));
   if (written < 0) return OkVal(IOError(strerror(errno), vm));
   return OkVal(IntVal(written));
 }
@@ -260,38 +252,6 @@ Result VMConnect(VM *vm)
   return OkVal(IntVal(s));
 }
 
-Result VMSend(VM *vm)
-{
-  val data = VMStackPop(vm);
-  val socketVal = VMStackPop(vm);
-  i32 sent;
-  if (!IsInt(socketVal)) return RuntimeError("Socket must be binary", vm);
-  if (!IsBinary(data)) return RuntimeError("Data must be binary", vm);
-  sent = send(RawInt(socketVal), BinaryData(data), BinaryLength(data), 0);
-  if (sent < 0) return OkVal(IOError(strerror(errno), vm));
-  return OkVal(IntVal(sent));
-}
-
-Result VMRecv(VM *vm)
-{
-  val size = VMStackPop(vm);
-  val socketVal = VMStackPop(vm);
-  val result;
-  char *data;
-  i32 bytes_read;
-
-  if (!IsInt(socketVal)) return RuntimeError("Socket must be an integer", vm);
-  if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
-
-  data = malloc(RawInt(size));
-  bytes_read = recv(RawInt(socketVal), data, RawInt(size), 0);
-  if (bytes_read < 0) return OkVal(IOError(strerror(errno), vm));
-  MaybeGC(BinSpace(bytes_read) + 1, vm);
-  result = BinaryFrom(data, bytes_read);
-  free(data);
-  return OkVal(result);
-}
-
 static val IOError(char *msg, VM *vm)
 {
   val result;
@@ -355,8 +315,6 @@ static PrimDef primitives[] = {
   {"listen", VMListen},
   {"accept", VMAccept},
   {"connect", VMConnect},
-  {"send", VMSend},
-  {"recv", VMRecv},
   {"sdl_new_window", SDLNewWindow},
   {"sdl_destroy_window", SDLDestroyWindow},
   {"sdl_present", SDLPresent},

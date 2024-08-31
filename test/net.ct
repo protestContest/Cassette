@@ -1,9 +1,7 @@
 module Net
-import Value
-export listen, accept, connect, send, recv
+import Value (error?), List, IO (read, write)
+export listen, accept, connect
 
 def listen(port) trap(:listen, port)
 def accept(socket) trap(:accept, socket)
 def connect(host, port) trap(:connect, host, port)
-def send(socket, data) trap(:send, socket, data)
-def recv(socket, length) trap(:recv, socket, length)

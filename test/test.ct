@@ -4,7 +4,7 @@ import IO, Net, Value, String (crlf), List
 def read_resp(conn) do
   def loop(received) do
     ; get the next chunk
-    let data = Net.recv(conn, 1024)
+    let data = IO.read(conn)
 
     if #data == 0 do
       ; no more data - concatenate the chunks into a binary
@@ -30,7 +30,7 @@ let req = List.join([
 ], crlf)
 
 ; send the request
-Net.send(conn, req)
+IO.write(conn, req)
 
 ; read the response and print it
 IO.print(read_resp(conn))

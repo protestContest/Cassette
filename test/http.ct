@@ -1,0 +1,33 @@
+module HTTP
+import Net, String (crlf), List, Value (error?), IO
+export request, get, post
+
+def get(host, path) do
+  request("GET", host, path, nil, nil)
+end
+
+def post(host, path, body) do
+  request("POST", host, path, nil, body)
+end
+
+def request(method, host, path, headers, body) do
+  let req = List.join([
+    [method, " ", path, " HTTP/1.1"],
+    ["Host: ", host],
+    ["Connection: close"],
+    "",
+    body
+  ], crlf)
+
+  let conn = Net.connect(host, "80")
+  if not error?(conn) do
+    let result = IO.write(conn, req)
+    if not error?(result) do
+      IO.read(conn)
+    else
+      result
+    end
+  else
+    conn
+  end
+end
