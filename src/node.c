@@ -77,6 +77,8 @@ char *NodeTypeName(i32 type)
   case strNode:     return "str";
   case tupleNode:   return "tuple";
   case notNode:     return "not";
+  case headNode:    return "head";
+  case tailNode:    return "tail";
   case lenNode:     return "len";
   case compNode:    return "comp";
   case negNode:     return "neg";

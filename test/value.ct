@@ -1,5 +1,5 @@
 module Value
-import List (head, tail)
+import List
 export typeof, byte, symbol_name, error?, format, inspect
 
 def typeof(value) trap(:typeof, value)
@@ -15,7 +15,7 @@ end
 def format(data) cond
   typeof(data) == :binary -> data
   typeof(data) == :integer and data >= 0 and data <= 255 -> byte(data)
-  typeof(data) == :pair and data != nil -> format(data[0]) <> format(tail(data))
+  typeof(data) == :pair and data != nil -> format(data[0]) <> format(^data)
   true -> ""
 end
 
@@ -47,13 +47,13 @@ end
 def inspect_list(list, depth) do
   def loop(list, parts) cond
     list == nil -> List.reverse(parts)
-    typeof(tail(list)) != :pair ->
+    typeof(^list) != :pair ->
       List.reverse([
         inspect_depth(list[0], depth - 1),
         " : ",
-        inspect_depth(tail(list), depth - 1)
+        inspect_depth(^list, depth - 1)
       ] : parts)
-    true -> loop(tail(list), inspect_depth(list[0], depth - 1) : parts)
+    true -> loop(^list, inspect_depth(list[0], depth - 1) : parts)
   end
 
   ["[", List.intersperse(loop(list, []), ", "), "]"]
@@ -65,8 +65,8 @@ def inspect_depth(value, depth) cond
   typeof(value) == :binary -> ["\"", value, "\""]
   typeof(value) == :integer -> inspect_int(value)
   typeof(value) == :tuple -> inspect_tuple(value, depth)
-  typeof(value) == :pair and typeof(tail(value)) != :pair ->
-    [inspect_depth(head(value), depth - 1), " : ", inspect_depth(tail(value), depth - 1)]
+  typeof(value) == :pair and typeof(^value) != :pair ->
+    [inspect_depth(@value, depth - 1), " : ", inspect_depth(^value, depth - 1)]
   true -> inspect_list(value, depth)
 end
 

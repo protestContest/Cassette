@@ -10,6 +10,7 @@
 #define VecEnd(vec)           &(vec[RawVecCount(vec)])
 #define VecDel(vec, i)        VecDelete(vec, i, sizeof(*(vec)))
 #define VecLast(vec)          ((vec)[VecCount(vec)-1])
+#define VecCat(a, b)          DoVecCat(a, b, sizeof(*(a))) /* NOLINT */
 
 #define RawVec(vec)           (((u32 *)vec) - 2)
 #define RawVecCap(vec)        RawVec(vec)[0]
@@ -20,6 +21,7 @@
 
 void *ResizeVec(void *vec, u32 num_items, u32 item_size);
 void VecDelete(void *vec, u32 index, u32 item_size);
+void *DoVecCat(void *a, void *b, u32 item_size);
 
 #define InsertRoom(vec, i, n) \
   (VecMakeRoom(vec, n), \

@@ -9,7 +9,18 @@ char *OpName(OpCode op)
 {
   switch (op) {
   case opNoop:    return "noop";
+  case opHalt:    return "halt";
   case opConst:   return "const";
+  case opJump:    return "jump";
+  case opBranch:  return "branch";
+  case opPos:     return "pos";
+  case opGoto:    return "goto";
+  case opGetEnv:  return "getEnv";
+  case opSetEnv:  return "setEnv";
+  case opSetMod:  return "setMod";
+  case opGetMod:  return "getMod";
+  case opLink:    return "link";
+  case opUnlink:  return "unlink";
   case opAdd:     return "add";
   case opSub:     return "sub";
   case opMul:     return "mul";
@@ -24,6 +35,13 @@ char *OpName(OpCode op)
   case opNeg:     return "neg";
   case opNot:     return "not";
   case opShift:   return "shift";
+  case opDup:     return "dup";
+  case opDrop:    return "drop";
+  case opSwap:    return "swap";
+  case opOver:    return "over";
+  case opRot:     return "rot";
+  case opPick:    return "pick";
+  case opRoll:    return "roll";
   case opPair:    return "pair";
   case opHead:    return "head";
   case opTail:    return "tail";
@@ -34,23 +52,7 @@ char *OpName(OpCode op)
   case opStr:     return "str";
   case opJoin:    return "join";
   case opSlice:   return "slice";
-  case opJump:    return "jump";
-  case opBranch:  return "branch";
   case opTrap:    return "trap";
-  case opPos:     return "pos";
-  case opGoto:    return "goto";
-  case opHalt:    return "halt";
-  case opDup:     return "dup";
-  case opDrop:    return "drop";
-  case opSwap:    return "swap";
-  case opOver:    return "over";
-  case opRot:     return "rot";
-  case opGetEnv:  return "getEnv";
-  case opSetEnv:  return "setEnv";
-  case opSetMod:  return "setMod";
-  case opGetMod:  return "getMod";
-  case opLink:    return "link";
-  case opUnlink:  return "unlink";
   default:        return "???";
   }
 }
@@ -78,6 +80,8 @@ u32 DisassembleInst(u8 *code, u32 *index)
   case opBranch:
   case opJump:
   case opPos:
+  case opPick:
+  case opRoll:
   case opTrap:
     arg = ReadLEB(*index, code);
     len += fprintf(stderr, " %d", arg);

@@ -11,9 +11,7 @@ void *ResizeVec(void *vec, u32 num_items, u32 item_size)
   assert(new_raw_buffer != NULL);
 
   new_raw_buffer[0] = new_capacity;
-  if (!vec) {
-      new_raw_buffer[1] = 0;
-  }
+  if (!vec) new_raw_buffer[1] = 0;
 
   return new_raw_buffer + 2;
 }
@@ -26,3 +24,14 @@ void VecDelete(void *vec, u32 index, u32 item_size)
   Copy(data + (index+1)*item_size, data + index*item_size, size);
   RawVecCount(vec)--;
 }
+
+void *DoVecCat(void *a, void *b, u32 item_size)
+{
+  if (!a) return b;
+  if (!b) return a;
+  a = ResizeVec(a, VecCount(b), item_size);
+  Copy((u8*)b, (u8*)a + item_size*VecCount(a), item_size*VecCount(b));
+  RawVecCount(a) += VecCount(b);
+  return a;
+}
+

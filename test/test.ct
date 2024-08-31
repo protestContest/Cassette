@@ -1,21 +1,36 @@
-import IO, Net, Value, String (crlf)
+import IO, Net, Value, String (crlf), List
 
-let client = Net.connect("cassette-lang.com", "80")
+; keeps reading from a connection while there's any data
+def read_resp(conn) do
+  def loop(received) do
+    ; get the next chunk
+    let data = Net.recv(conn, 1024)
 
-let req = """
-GET / HTTP/1.0
-Host: cassette-lang.com
-""" <> crlf <> crlf
-
-let resp = Net.send(client, req)
-
-def read_resp() do
-  let data = Net.recv(client, 1024)
-
-  if #data > 0 do
-    IO.write(0, data)
-    read_resp()
+    if #data == 0 do
+      ; no more data - concatenate the chunks into a binary
+      Value.format(List.reverse(received))
+    else
+      ; add this chunk to received and keep going
+      loop(data : received)
+    end
   end
+
+  loop([])
 end
 
-read_resp()
+; open a network connection
+let conn = Net.connect("cassette-lang.com", "80")
+
+; form an HTTP request
+let req = List.join([
+  "GET / HTTP/1.0",
+  "Host: cassette-lang.com",
+  "",
+  ""
+], crlf)
+
+; send the request
+Net.send(conn, req)
+
+; read the response and print it
+IO.print(read_resp(conn))

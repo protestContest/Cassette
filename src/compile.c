@@ -741,50 +741,112 @@ static Env *DefineImports(Module *module, Env *env)
   return env;
 }
 
+static Chunk *CompileModuleInstance(Module *module)
+{
+  Chunk *exports = NewChunk(0);
+  Chunk *chunk = NewChunk(0);
+  Chunk *inst = NewChunk(0);
+
+  ChunkWrite(opTuple, exports);
+  ChunkWriteInt(VecCount(module->exports), exports);
+
+  ChunkWrite(opGetEnv, inst);
+  ChunkWrite(opHead, inst);
+  ChunkWrite(opConst, inst);
+  ChunkWriteInt(IntVal(0), inst);
+  ChunkWrite(opGet, inst);
+  WriteReturn(inst);
+
+  ChunkWrite(opGetEnv, chunk);
+  ChunkWrite(opTuple, chunk);
+  ChunkWriteInt(1, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(0), chunk);
+  ChunkWrite(opPick, chunk);
+  ChunkWriteInt(4, chunk);
+  ChunkWrite(opSet, chunk);
+  ChunkWrite(opPair, chunk);
+  ChunkWrite(opPair, chunk);
+  ChunkWrite(opJump, chunk);
+  ChunkWriteInt(ChunkSize(inst), chunk);
+
+  chunk = CompilePos(chunk);
+  TackOnChunk(chunk, inst);
+
+  ChunkWrite(opGetMod, chunk);
+  ChunkWrite(opConst, chunk);
+  ChunkWriteInt(IntVal(module->id), chunk);
+  ChunkWrite(opRot, chunk);
+  ChunkWrite(opSet, chunk);
+  ChunkWrite(opDrop, chunk);
+
+  return AppendChunk(exports, chunk);
+}
+
 static Result CompileModuleBody(Module *module, Module *modules, Env *env)
 {
   /*
-  <imports>
-
-  <body code>
-  drop          ; discard body result
-  tuple <n>     ; create exports using body env
-  ; for each export:
-    const <i>
-    lookup <f>
-    set
-  <extend_env(1)>
-  dup
-  define 0
-  pos <cache_body>
-  getEnv
-  pair
-  jump <after_cache>
-cache_body:
+  ; define exports (to prevent import loops)
+  tuple <n>         ; exports
+  pos <instance>    ; pos exports
+  getEnv            ; env pos exports
+  tuple 1           ; frame env pos exports
+  const 0           ; 0 frame env pos exports
+  pick 4            ; exports 0 frame env pos exports
+  set               ; frame env pos exports
+  pair              ; env pos exports
+  pair              ; lambda exports
+  jump <after_inst>
+instance:
   lookup 0
   <return>
-after_cache:
-  getMod
-  const <m>
-  rot
-  set
+after_inst:
+  getMod            ; mods lambda exports
+  const <m>         ; m mods lambda exports
+  rot               ; lambda m mods exports
+  set               ; mods exports
+  drop              ; exports
+
+  ; compile imports
+  getEnv            ; env exports
+  tuple <num imports> ; imports env exports
+  ; for each import:
+    const <i>       ; i imports env exports
+    getMod          ; mods i imports env exports
+    const <m>       ; m mods i imports env exports
+    get             ; mod i imports env exports
+    <call>          ; x i imports env exports
+    set             ; imports env exports
+  pair              ; env exports
+  setEnv            ; exports
+
+  <body code>       ; result exports
+  drop              ; exports
+
+  ; for each export:
+    const <i>       ; i exports
+    lookup <f>      ; f i exports
+    set             ; exports
   <return>
   */
 
   u32 i;
   Result result;
-  Chunk *chunk, *exports, *cache;
+  Chunk *chunk;
   u32 num_assigns = CountAssigns(module->ast);
   ImportMap *imports = IndexImports(module, modules);
 
-  chunk = CompileImports(module, imports);
+  chunk = CompileModuleInstance(module);
+  chunk = AppendChunk(chunk, CompileImports(module, imports));
   env = DefineImports(module, env);
 
   if (num_assigns > 0) {
     env = DefineDefs(module->ast, num_assigns, env);
     WriteExtendEnv(num_assigns, chunk);
   }
+
   result = CompileStmts(module->ast, num_assigns, env, imports, false);
+
   if (IsError(result)) {
     if (num_assigns > 0) env = PopEnv(env);
     if (VecCount(module->imports) > 0) env = PopEnv(env);
@@ -793,13 +855,7 @@ after_cache:
     return Fail(chunk, result);
   }
   chunk = AppendChunk(chunk, result.data.p);
-
-  exports = NewChunk(0);
-  ChunkWrite(opDrop, exports);
-  chunk = AppendChunk(chunk, exports);
-
-  ChunkWrite(opTuple, chunk);
-  ChunkWriteInt(VecCount(module->exports), chunk);
+  ChunkWrite(opDrop, chunk);
 
   for (i = 0; i < VecCount(module->exports); i++) {
     EnvPosition pos = EnvFind(module->exports[i].name, env);
@@ -816,26 +872,6 @@ after_cache:
     ChunkWrite(opSet, chunk);
   }
 
-  WriteExtendEnv(1, chunk);
-  ChunkWrite(opDup, chunk);
-  WriteDefine(0, chunk);
-
-  cache = NewChunk(0);
-  ChunkWrite(opGetEnv, cache);
-  ChunkWrite(opHead, cache);
-  ChunkWrite(opConst, cache);
-  ChunkWriteInt(IntVal(0), cache);
-  ChunkWrite(opGet, cache);
-  WriteReturn(cache);
-  cache = CompileMakeLambda(cache, false);
-
-  chunk = AppendChunk(chunk, cache);
-  ChunkWrite(opGetMod, chunk);
-  ChunkWrite(opConst, chunk);
-  ChunkWriteInt(IntVal(module->id), chunk);
-  ChunkWrite(opRot, chunk);
-  ChunkWrite(opSet, chunk);
-  ChunkWrite(opDrop, chunk);
   WriteReturn(chunk);
 
   if (num_assigns > 0) env = PopEnv(env);
@@ -918,6 +954,8 @@ static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool retu
   case negNode:     result = CompileOp(opNeg, node, env, imports, returns); break;
   case notNode:     result = CompileOp(opNot, node, env, imports, returns); break;
   case lenNode:     result = CompileOp(opLen, node, env, imports, returns); break;
+  case headNode:    result = CompileOp(opHead, node, env, imports, returns); break;
+  case tailNode:    result = CompileOp(opTail, node, env, imports, returns); break;
   case accessNode:  result = CompileOp(opGet, node, env, imports, returns); break;
   case compNode:    result = CompileOp(opComp, node, env, imports, returns); break;
   case eqNode:      result = CompileOp(opEq, node, env, imports, returns); break;

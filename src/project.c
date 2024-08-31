@@ -81,6 +81,7 @@ static Result ScanProjectDeps(Project *project)
   HashMap scan_set = EmptyHashMap;
   u32 *scan_list = 0;
 
+  /* build hash map of all modules */
   for (i = 0; i < VecCount(project->modules); i++) {
     result = ParseModuleHeader(&project->modules[i]);
     if (IsError(result)) return result;
@@ -92,15 +93,14 @@ static Result ScanProjectDeps(Project *project)
     HashMapSet(&project->mod_map, project->modules[i].name, i);
   }
 
+  /* start scanning with the entry module */
   VecPush(scan_list, project->modules[0].name);
+  HashMapSet(&scan_set, project->modules[0].name, 1);
 
   while (VecCount(scan_list) > 0) {
     u32 modname = VecPop(scan_list);
-    u32 modnum;
-    Module *module;
-
-    modnum = HashMapGet(&project->mod_map, modname);
-    module = &project->modules[modnum];
+    u32 modnum = HashMapGet(&project->mod_map, modname);
+    Module *module = &project->modules[modnum];
 
     VecPush(project->build_list, modnum);
 

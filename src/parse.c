@@ -134,6 +134,7 @@ static ParseRule rules[] = {
   [gtToken]       = {0,             ParseOp,      precCompare},
   [gteqToken]     = {0,             ParseOp,      precCompare},
   [gtgtToken]     = {0,             ParseOp,      precShift},
+  [atToken]       = {ParseUnary,    0,            precNone},
   [idToken]       = {ParseVar,      0,            precNone},
   [andToken]      = {0,             ParseOp,      precLogic},
   [asToken]       = {0,             0,            precNone},
@@ -155,7 +156,7 @@ static ParseRule rules[] = {
   [lbraceToken]   = {ParseTuple,    0,            precNone},
   [bslashToken]   = {ParseLambda,   0,            precNone},
   [rbraceToken]   = {0,             0,            precNone},
-  [caretToken]    = {0,             0,            precNone},
+  [caretToken]    = {ParseUnary,    0,            precNone},
   [lbracketToken] = {ParseList,     ParseAccess,  precCall},
   [barToken]      = {0,             ParseOp,      precSum},
   [rbracketToken] = {0,             0,            precNone},
@@ -205,7 +206,8 @@ Result ParseModuleBody(Module *module)
     if (IsError(result)) return ParseFail(ast, result);
 
     if (VecCount(ast->data.children) > 0) {
-      NodePush(result.data.p, ast);
+      ASTNode *body = result.data.p;
+      ast->data.children = VecCat(ast->data.children, body->data.children);
     } else {
       FreeNode(ast);
       ast = result.data.p;
@@ -590,6 +592,8 @@ i32 UnaryOpNodeType(TokenType type)
   case minusToken: return negNode;
   case hashToken: return lenNode;
   case tildeToken: return compNode;
+  case atToken: return headNode;
+  case caretToken: return tailNode;
   case notToken: return notNode;
   default: assert(false);
   }

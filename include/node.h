@@ -3,11 +3,11 @@
 /* An ASTNode is a node parsed from text. */
 
 typedef enum {
-  constNode, varNode, strNode, tupleNode, negNode, notNode, lenNode, accessNode,
-  compNode, eqNode, remNode, bitandNode, mulNode,
-  addNode, subNode, divNode, ltNode, shiftNode, gtNode, joinNode,
-  sliceNode, bitorNode, pairNode, andNode, orNode, ifNode, doNode, letNode,
-  defNode, lambdaNode, paramsNode, callNode, refNode
+  constNode, varNode, strNode, tupleNode, negNode, notNode, headNode, tailNode,
+  lenNode, accessNode, compNode, eqNode, remNode, bitandNode, mulNode, addNode,
+  subNode, divNode, ltNode, shiftNode, gtNode, joinNode, sliceNode, bitorNode,
+  pairNode, andNode, orNode, ifNode, doNode, letNode, defNode, lambdaNode,
+  paramsNode, callNode, refNode
 } NodeType;
 
 typedef struct ASTNode {

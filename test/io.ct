@@ -1,8 +1,9 @@
 module IO
-import List, Value (typeof, error?)
-export open, close, read, write, seek, print, inspect, read_file, write_file, nl
+import List, Value (typeof, error?), String (newline)
+export open, close, read, write, seek, print, inspect, read_file, write_file,
+stdin, stdout, stderr
 
-let nl = 0x0A
+let stdin = 0, stdout = 1, stderr = 2
 
 def open(path, modes) do
   def parse_modes(modes) do
@@ -64,7 +65,7 @@ def read(file, size) trap(:read, file, size)
 
 def write(file, data) trap(:write, file, data, #data)
 
-def print(str) write(0, Value.format([str, nl]))
+def print(str) write(0, Value.format([str, newline]))
 
 def inspect(val) print(Value.inspect(val))
 
