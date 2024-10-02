@@ -1,5 +1,5 @@
 module String
-import Value (format)
+import Value (format, tuple?, binary?, integer?), List, IO
 export
   newline,
   carriage_return,
@@ -14,12 +14,17 @@ export
   newline?,
   printable?,
   match_at?,
-  parse_int
+  parse_int,
+  split,
+  skip,
+  substring?,
+  substring,
+  from_substring
 
-let newline = 0x0A,
-    carriage_return = 0x0D,
-    space = 0x20,
-    tab = 0x09,
+let newline = format(0x0A),
+    carriage_return = format(0x0D),
+    space = format(0x20),
+    tab = format(0x09),
     crlf = format([carriage_return, newline])
 
 def digit?(c) c >= $0 and c <= $9
@@ -33,13 +38,15 @@ def printable?(c) c >= 0x20 and c < 0x7F
 def match_at?(test, str, index) do
   def loop(i) cond
     i == #test -> true
-    index + i == #str -> false
+    index + i >= #str -> false
     test[i] != str[index + i] -> false
     true -> loop(i + 1)
   end
   loop(0)
 end
 
+; returns {index, value} pair, where index is the byte index after the parsed
+; num and value is the integer, or nil
 def parse_int(str, start) do
   def loop(i, n) do
     if i == #str or not digit?(str[i]) do
@@ -55,4 +62,61 @@ def parse_int(str, start) do
     digit?(str[start]) -> loop(start, 0)
     true -> {start, nil}
   end
+end
+
+; returns the next index after all instances of "test"
+def skip(test, str, index) do
+  if match_at?(test, str, index) do
+    skip(test, str, index + #test)
+  else
+    index
+  end
+end
+
+def substring?(sub) cond
+  not tuple?(sub) -> false
+  #sub != 3 -> false
+  not binary?(sub[0]) -> false
+  not integer?(sub[1]) -> false
+  not integer?(sub[2]) -> false
+  sub[1] < 0 or sub[1] >= #sub[0] -> false
+  sub[2] < 0 or sub[2] >= #sub[0] -> false
+  true -> true
+end
+
+def substring(str, start, subend) {str, start, subend}
+
+def from_substring(sub) sub[0][sub[1],sub[2]]
+
+; returns a list of substrings
+def split(str, sep) do
+  def skip_one(index) do
+    if match_at?(sep, str, index) do
+      index + #sep
+    else
+      index
+    end
+  end
+
+  def part_end(index) cond
+    index >= #str -> #str
+    match_at?(sep, str, index) -> index
+    true -> part_end(index + 1)
+  end
+
+  def loop(start, parts) do
+    if start >= #str do
+      List.reverse(parts)
+    else
+      let next = part_end(start)
+      if next > start do
+        let part = substring(str, start, next)
+        loop(skip_one(next), part : parts)
+      else
+        loop(skip_one(start), parts)
+      end
+    end
+  end
+
+  loop(skip_one(0), nil)
 end

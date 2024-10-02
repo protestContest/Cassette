@@ -1,21 +1,27 @@
 module Value
 import List
-export typeof, byte, symbol_name, error?, format, inspect
+export typeof, nil?, integer?, pair?, tuple?, binary?, byte, symbol_name, error?, format, inspect
 
 def typeof(value) trap(:typeof, value)
 def byte(value) trap(:byte, value)
 def symbol_name(sym) trap(:symbol_name, sym)
 
+def nil?(v) v == nil
+def integer?(v) typeof(v) == :integer
+def pair?(v) typeof(v) == :pair
+def tuple?(v) typeof(v) == :tuple
+def binary?(v) typeof(v) == :binary
+
 def error?(result) cond
   result == :error -> true
-  typeof(result) == :tuple and #result > 0 and result[0] == :error -> true
+  tuple?(result) and #result > 0 and result[0] == :error -> true
   true -> false
 end
 
 def format(data) cond
-  typeof(data) == :binary -> data
-  typeof(data) == :integer and data >= 0 and data <= 255 -> byte(data)
-  typeof(data) == :pair and data != nil -> format(data[0]) <> format(^data)
+  binary?(data) -> data
+  integer?(data) and data >= 0 and data <= 255 -> byte(data)
+  pair?(data) and data != nil -> format(data[0]) <> format(^data)
   true -> ""
 end
 
@@ -47,7 +53,7 @@ end
 def inspect_list(list, depth) do
   def loop(list, parts) cond
     list == nil -> List.reverse(parts)
-    typeof(^list) != :pair ->
+    not pair?(^list) ->
       List.reverse([
         inspect_depth(list[0], depth - 1),
         " : ",
@@ -60,14 +66,14 @@ def inspect_list(list, depth) do
 end
 
 def inspect_depth(value, depth) cond
-  depth == 0 -> "..."
-  value == nil -> "nil"
-  typeof(value) == :binary -> ["\"", value, "\""]
-  typeof(value) == :integer -> inspect_int(value)
-  typeof(value) == :tuple -> inspect_tuple(value, depth)
-  typeof(value) == :pair and typeof(^value) != :pair ->
+  depth == 0      -> "..."
+  value == nil    -> "nil"
+  binary?(value)  -> ["\"", value, "\""]
+  integer?(value) -> inspect_int(value)
+  tuple?(value)   -> inspect_tuple(value, depth)
+  pair?(value) and typeof(^value) != :pair ->
     [inspect_depth(@value, depth - 1), " : ", inspect_depth(^value, depth - 1)]
-  true -> inspect_list(value, depth)
+  pair?(value)    -> inspect_list(value, depth)
 end
 
 def inspect(value) inspect_depth(value, 10)

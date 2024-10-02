@@ -1,36 +1,3 @@
-import IO, Net, Value, String (crlf), List
+import HTTP, IO
 
-; keeps reading from a connection while there's any data
-def read_resp(conn) do
-  def loop(received) do
-    ; get the next chunk
-    let data = IO.read(conn)
-
-    if #data == 0 do
-      ; no more data - concatenate the chunks into a binary
-      Value.format(List.reverse(received))
-    else
-      ; add this chunk to received and keep going
-      loop(data : received)
-    end
-  end
-
-  loop([])
-end
-
-; open a network connection
-let conn = Net.connect("cassette-lang.com", "80")
-
-; form an HTTP request
-let req = List.join([
-  "GET / HTTP/1.0",
-  "Host: cassette-lang.com",
-  "",
-  ""
-], crlf)
-
-; send the request
-IO.write(conn, req)
-
-; read the response and print it
-IO.print(read_resp(conn))
+IO.print(HTTP.get("cassette-lang.com", "/"))

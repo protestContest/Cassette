@@ -1,20 +1,28 @@
 module HTTP
-import Net, String (crlf), List, Value (error?), IO
-export request, get, post
+import Net, String (crlf), List, Value (tuple?, binary?, error?), IO
+export new, request, get, post
 
-def get(host, path) do
-  request("GET", host, path, nil, nil)
+def new(host, headers) {host, headers}
+
+def get(conn, path) cond
+  binary?(conn) -> request("GET", conn, path, nil, nil)
+  tuple?(conn) and #conn == 2 -> request("GET", conn[0], path, conn[1], nil)
+  true -> {:error, "Invalid conn type"}
 end
 
-def post(host, path, body) do
-  request("POST", host, path, nil, body)
+def post(conn, path, body) cond
+  binary?(conn) -> request("POST", conn, path, nil, body)
+  tuple?(conn) and #conn == 2 -> request("POST", conn[0], path, conn[1], body)
+  true -> {:error, "Invalid conn type"}
 end
 
 def request(method, host, path, headers, body) do
+  let headers = List.join(headers, crlf)
   let req = List.join([
     [method, " ", path, " HTTP/1.1"],
     ["Host: ", host],
     ["Connection: close"],
+    headers,
     "",
     body
   ], crlf)
