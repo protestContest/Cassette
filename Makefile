@@ -51,6 +51,10 @@ test: $(EXECTARGET)
 leaks: $(EXECTARGET)
 	leaks -atExit -- $(EXECTARGET) $(TESTFILE)
 
+.PHONY: syntax
+syntax:
+	bison -v support/syntax.txt -o support/syntax.tab && rm support/syntax.tab
+
 .PHONY: entitlements
 entitlements: $(EXECTARGET)
 	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(LIBTARGET)

@@ -1,249 +1,258 @@
 ![Cassette](https://cassette-lang.com/banner.png)
 
-[Cassette](https://cassette-lang.com) is a small, Lisp-like programming language. It looks like this:
+[Cassette](https://cassette-lang.com) is a small functional programming language. It looks like this:
 
-```cassette
-import List, Math, Canvas, Time
+```
+import IO, Net, String (crlf), List
 
-let width = 800,
-    height = 480,
-    canvas = Canvas.new(width, height)
+; keeps reading from a connection while there's any data
+def read_resp(conn) do
+  def loop(received)
+    let
+      chunk = IO.read_chunk(conn, 1024)   ; get the next chunk
+    in
+      if #chunk == 0, received    ; no more data
+      else loop(received <> chunk)
 
-Math.seed(Time.now())
-
-def rand_line(i) do
-  let x0 = i * width / 100,
-      y0 = Math.random_between(20, height / 10),
-      x1 = Math.random_between(0, width),
-      y1 = Math.random_between(20, height)
-  Canvas.line({x0, y0}, {x1, y1}, canvas)
+  loop("")
 end
 
-List.map(\i -> rand_line(i), List.range(0, 100))
+let
+  conn = Net.connect("cassette-lang.com", "80")   ; open a network connection
+  req = List.join([                               ; form an HTTP request
+    "GET / HTTP/1.0",
+    "Host: cassette-lang.com",
+    "",
+    ""
+  ], crlf)
+in
+  do
+    IO.write(conn, req)         ; send the request
+    IO.print(read_resp(conn))   ; read the response and print it
+  end
 ```
 
-## Press _Play_
+I made Cassette as a simple language for personal programming. It's designed for solo programmers working on non-enterprise projects. It's DIY, roll your own, batteries-not-included. It's for fun.
 
-I made Cassette as a simple language for personal programming. It's designed for solo programmers working on non-enterprise projects. It's DIY, roll your own, batteries-not-included. It's for fun. Try writing a generative art program or a hash-array-mapped trie.
-
-Cassette aspires to be as simple as possible while still including the features I want. These are the primary features I included:
+Here are some features of Cassette:
 
 - Functional
 - Immutable values
-- Efficient tail-call recursion
 - Garbage collected
-- Modules
+- Efficient tail-call recursion
+- Module based
 
 ## Getting Started
-
-This project requires a C build toolchain and SDL2.
+This project requires a C toolchain and SDL2.
 
 1. Get the project's dependencies
-  - On macOS with Homebrew, run `brew install llvm git sdl2 sdl2_ttf`
-  - On Debian, run `apt install build-essential clang git libsdl2-dev libsdl2-ttf-dev libfontconfig-dev`
+    - On macOS with Homebrew, run `brew install llvm git sdl2`
+    - On Debian, run `apt install build-essential clang git libsdl2-dev`
 2. Build Cassette
-  - Clone Cassette with `git clone https://git.sr.ht/~zjm/Cassette` (and then `cd Cassette`)
-  - Run `make` to build the project. This creates the executable `cassette`.
+    - Clone Cassette with `git clone https://github.com/protestContest/Cassette` (and then `cd Cassette`)
+    - Run `make` to build the project. This creates the executable `bin/cassette`.
 3. Try the example with `./bin/cassette test/test.ct`.
 
 ## Syntax
 
-<div class="columns">
-Cassette has two number types, integers and floats. Integers can be written in decimal, hexadecimal, or as a character. The normal infix arithmetic operations work on numbers, and bitwise operations work on integers.
+### Values
 
-```cassette
--1
+Cassette has only four value types: integers, pairs, tuples, and binaries.
 
+Integers are signed, 30-bit numbers (-536,870,912 to 536,870,911). Integers can be written in decimal, hexadecimal, or a literal byte value. The keyword `true` is shorthand for `1` and the keyword `false` is shorthand for `0`.
+
+```
 1                 ; decimal integer
 0x1F              ; hex integer
 $a                ; => 0x61
-
--4                ; => -4
-1 + 2             ; => 3
-5 * 5             ; => 25
-10 / 2            ; => 5.0
-12 % 10           ; => 2
-
-0xF0 >> 4         ; => 0x0F (shift right)
-0x55 << 1         ; => 0xAA (shift left)
-0x37 & 0x0F       ; => 0x07 (bitwise and)
-20 ^ 1            ; => 21   (bitwise or)
-~4                ; => 3    (bitwise not)
+true              ; => 1
+false             ; => 0
 ```
-</div>
 
-<div class="columns reverse">
-Cassette has symbols, which represent an arbitrary value. Comparison operators only work on numbers, but equality operators work on any type. The `and` and `or` operators are short-circuiting. Equality is tested by identity, not structurally!
+Symbols are arbitrary values. (Some languages call them atoms.) At runtime, these become the integer hash value of the symbol name.
 
-```cassette
+```
+:hello
 :ok
-:not_found
-
-3 > 1             ; => true
-3 < 3             ; => false
-5 <= 4 + 1        ; => true
-5 >= 4 + 1        ; => true
-:ok == :ok        ; => true
-:ok != :ok        ; => false
+:not_found_error
 ```
-</div>
 
-<div class="columns">
-Cassette has three keyword values: `true`, `false`, and `nil`. `true` and `false` are `1` and `0`, respectively, while `nil` is the empty list, `[]`. In boolean operations, all values are truthy except `false` and `nil`. (This means `0` and `[]` are also falsey.)
+Pairs are Lisp-style cons cells, which are used to create linked lists. The keyword `nil` is shorthand for a special pair, which is the empty list. The pair operator, `:`, is right-associative.
 
-```cassette
-3 > 1 and 4 == 5  ; => false
-3 > 1 or 4 == 5   ; => true
-3 >= 0 and 3 < 5  ; => true
-nil and :ok       ; => false
-:error and :ok    ; => true
 ```
-</div>
+100 : 200         ; pair
+nil               ; empty list
+[1, 2, 3]         ; list, same as 1 : 2 : 3 : nil
+```
 
-<div class="columns">
-Strings are UTF-8 encoded binaries. You can find the length of a binary, concatenate two binaries, and slice a binary. Binaries also represent other arbitrary byte sequences, such as the contents of a file.
+Tuples are fixed-size arrays. They're less flexible than lists, but they use less memory and are more efficient to access. The maximum size of a tuple is the maximum integer size.
 
-```cassette
+```
+{1, 2, 3}
+```
+
+Binaries are byte vectors. Strings are represented as UTF-8 encoded binaries. The maximum size of a binary is the maximum integer size.
+
+```
 "Hello!"
-#"Hello!"         ; => 6
-#""               ; => 0
-
-"Hi " <> "there"  ; => "Hi there"
-"foo" <> "bar"    ; => "foobar"
-
-"ABCD"[1]         ; => 66 (ASCII "B")
-"ABCD"[1:2]       ; => "B"
 ```
-</div>
 
-<div class="columns reverse">
-Cassette has Lisp-style cons pairs, which form linked lists. Pairs are formed with the `|` operator, and can be used to easily prepend values to a list. `nil` is the empty list. You can find the length of a list, concatenate two lists, and slice a list.
+### Operators
 
-```cassette
-[1, 2, 3]         ; list
-[1, 2, 3][2]      ; => 3
-[1, 2, 3][8]      ; error: out of bounds
-[:a, x, 42]
-nil == []         ; => true
+Cassette supports several built-in operators on values. Most operators only work on certain types.
 
-1 | [2, 3, 4]     ; => [1, 2, 3, 4]
-3 | nil           ; => [3]
-1 | 2 | 3 | nil   ; => [1, 2, 3]
+Basic arithmetic and comparison operators work on integers.
 
-#[1, 2, 3]        ; => 3
-#nil              ; => 0
-[1, 2] <> [3, 4]  ; => [1, 2, 3, 4]
-[1, 2, 3][0:2]    ; => [1, 2]
 ```
-</div>
+-24               ; unary negation
+73 + 4            ; addition
+87 - 41           ; subtraction
+43 * 12           ; multiplication
+17 / 4            ; division (truncating)
+400 % 12          ; modulus
+256 >> 3          ; bit shift
+1 << 27
+0xAA | 1          ; bitwise or
+1036 & 0xFF       ; bitwise and
+~7                ; bitwise not
+12 < 3            ; comparison
+12 <= 3
+12 > 3
+12 >= 3
+```
 
-<div class="columns">
-Cassette has tuples, which are fixed-length arrays of values. Tuples are less flexible than lists, but use less memory and are a little faster to access. You can find the length of a tuple, concatenate two tuples, and slice a tuple.
+Some operators only work with pairs, tuples, or binaries.
 
-```cassette
-{1, 2, 3}         ; tuple
-{1, 2, 3}[2]      ; => 3
-{1, 2, 3}[8]      ; error: out of bounds
-#{1, 2, 3}        ; => 3
-#{}               ; => 0
+```
+; get the head of a pair
+@(1 : 2)          ; => 1
+@[1, 2, 3]        ; => 1
+
+; get the tail of a pair
+^(1 : 2)          ; => 2
+^[1, 2, 3]        ; => [2, 3]
+
+; join two tuples or binaries
 {1, 2} <> {3, 4}  ; => {1, 2, 3, 4}
-{1, 2, 3}[1:]     ; => {2, 3}
+"ab" <> "cd"      ; => "abcd"
+
+; get the length of a tuple or binary
+#{:foo, :bar}     ; => 2
+#"hello"          ; => 5
+
+; get an element of a tuple or binary
+{1, 2, 3}[0]      ; => 1
+"test"[2]         ; => $s (an integer)
+
+; slice a tuple or binary
+{1, 2, 3, 4}[1,3] ; => {2, 3}
+"hello"[1,4]      ; => "ell"
 ```
-</div>
 
-<div class="columns">
-Variables are defined with `let`. A `do` block can introduce a new scope, and can be used to combine a group of expressions into one. Cassette has lexical scoping.
+Logic and equality operators work on any type. Only the values `0` (a.k.a. `false`) and `nil` evaluate as false. Logic operators short-circuit and evaluate to one of their operands. Equality is compared structurally, and returns `true` or `false`.
 
-```cassette
-let x = 1, y = 2
+```
+false or :ok      ; => :ok
+true and nil      ; => nil
+not nil           ; => true
+not {0, 0}        ; => false
+3 == 3            ; => true
+[1, 2] == [1, 2]  ; => true
+```
 
+### Conditionals
+
+An `if` expression is a list of predicate/consequent pairs. It tests each predicate until one is true, then evaluates that predicate's consequent. If none are true, the `else` expression is evaluated.
+
+```
+if true, :ok else :error
+
+if
+  x >= 10,  :ten_plus
+  x >= 1,   :one_plus
+  else      :less_than_one
+```
+
+### Variables
+
+A `let` expression is a list of assignments and a result expression. Each assigned variable is in scope in the subsequent assignments (but not in its own) and in the result expression.
+
+```
+let
+  x = 3
+  y = 2 + 1
+in
+  x - y
+
+let
+  result = try_this()
+  result = try_that(result)   ; the argument refers to the previous assignment
+in
+  done(result)
+```
+
+An assignment in a `let` expression can have an `except` clause. If the `except` test evaluates true, the clause's alternative expression becomes the result of the `let` expression, and the rest of the `let` expression is ignored.
+
+```
+let
+  conn = Net.connect(host, "80") except error?(result), result
+  result = IO.write(conn, req) except error?(result), result
+in
+  IO.read(conn)
+```
+
+### Functions
+
+Functions can be defined as lambdas. Function calls look similar to other languages.
+
+```
+let foo = \a, b -> a + b
+in foo(1, 2)
+```
+
+### Blocks
+
+A `do` block is a list of expressions. The result of the last expression is the result of the block.
+
+```
 do
-  let y = 3, z = 4
-
-  x       ; => 1 (from the parent scope)
-  y       ; => 3 (shadows the parent `y`)
-  z       ; => 4
-end
-
-x         ; => 1
-y         ; => 2
-z         ; error: undefined variable
-```
-</div>
-
-<div class="columns reverse">
-Cassette has `if`/`else` blocks and `cond` blocks for conditionals. A `cond` block will evaluate each predicate until one is true, then evaluate that clause.
-
-```cassette
-if x == 0 do
-  IO.print("Uh oh!")
-  :error
-else
-  :ok
-end
-
-cond do
-  x > 10    -> :ten
-  x > 1     -> :one
-  true      -> :less  ; default
+  some_work()   ; executed, but ignored
+  other_work()  ; block result
 end
 ```
-</div>
 
-<div class="columns">
-Lambdas can be created with a backslash, argument list, and an arrow. The `def` syntax is syntactic sugar for defining a lambda as a variable, with the distinction that `def`-declared functions have block scope, so they can be called recursively. Functions are called with parentheses.
+A `do` block also allows functions to be defined with `def`. `def` assigns a function to a variable, which is in scope for the whole block. Functions defined with `def` can refer to themselves recursively.
 
-```cassette
-let foo = \x -> x + 1
-foo(3)            ; => 4
-
-; equivalent, except for scope:
-let foo = \x -> x + 1
-def foo(x) x + 1
-
-; these produce an error, since `b` isn't defined when the body of `a` is compiled
-let a = \x -> (b x * 3),
-    b = \x -> (a x / 2)
-
-; these are ok, since `a` and `b` are in scope from the beginning of the block
-def a(x) b(x * 3)
-def b(x) a(x / 2)
 ```
-</div>
+do
+  inf_loop()    ; this is fine since the function is defined for the whole block
 
-<div class="columns reverse">
-Cassette programs can be split up into different modules, one per file. Any top-level `def`-defined functions can be exported. Imported modules can be aliased.
+  def bar(x) {:bar, x}
 
-<div>
-```cassette
-; file "foo.ct"
+  def inf_loop() do
+    inf_loop()
+  end
+end
+```
+
+### Modules
+
+Cassette programs are composed of modules. The body of the module is a `do` block, and can define functions with `def`. A module can export some of its defined functions and import other modules. A module can reference imported functions by qualifying them with the module name or alias. Module declaration, import, and export statements must appear first in a module (its "header").
+
+```
 module Foo
-export bar
+import Bar (bar_fn), LongModuleName as LMN
+export foo, foo2
 
-def bar(x) x + 1
+def foo(x)
+  let y = Bar.parse(x)
+  in LMN.run(y)
+
+def foo2(x) :unimplemented
+
+bar_fn(x)    ; no qualifier needed
 ```
 
-```cassette
-; file "main.ct"
-import Foo        ; imported as a map called `Foo`
+### Primitives
 
-Foo.bar(3)        ; => 4
-```
-
-```cassette
-; alternative "main.ct"
-import Foo as F   ; imported as `F`
-
-def bar(x) x + 8
-
-bar(3)            ; => 11
-F.bar(3)          ; => 4
-```
-</div>
-</div>
-
-## More Info
-
-For more information about Cassette, check out some of these other documents. Stay tuned for future articles.
-
-- [Function Reference](https://cassette-lang.com/reference.html): A reference of built-in modules and functions
+Built-in functions are executed via the `trap` pseudo-function. These trap calls should usually be wrapped in a module function at runtime for convenience. A reference of currently-implemented traps is available [here](https://cassette-lang.com/primitives.html).
