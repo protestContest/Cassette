@@ -1,15 +1,13 @@
 #include "primitives.h"
 #include "sdl.h"
-#include "univ/symbol.h"
-#include "univ/vec.h"
-#include "univ/str.h"
 #include "univ/math.h"
+#include "univ/symbol.h"
 #include "univ/time.h"
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <termios.h>
 #include <netdb.h>
+#include <termios.h>
+#include <unistd.h>
 
 static val IOError(char *msg, VM *vm);
 

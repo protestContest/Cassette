@@ -1,8 +1,8 @@
 #include "univ/file.h"
 #include "univ/str.h"
+#include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <dirent.h>
 
 FileList *NewFileList(u32 count)
 {

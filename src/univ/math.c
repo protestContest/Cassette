@@ -1,5 +1,4 @@
 #include "univ/math.h"
-#include "univ/hash.h"
 
 u32 NumDigits(i32 num, u32 base)
 {

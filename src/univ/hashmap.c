@@ -1,5 +1,4 @@
 #include "univ/hashmap.h"
-#include "univ/math.h"
 
 #define HashMapMinSize        8
 

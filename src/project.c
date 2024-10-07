@@ -2,18 +2,20 @@
 #include "compile.h"
 #include "chunk.h"
 #include "env.h"
+#include "mem.h"
+#include "ops.h"
 #include "parse.h"
-#include "primitives.h"
-#include "univ/math.h"
+#include "program.h"
 #include "univ/file.h"
 #include "univ/str.h"
 #include "univ/symbol.h"
 #include "univ/vec.h"
+#include <libgen.h>
 
 static Result ModuleNotFound(char *name, char *file, u32 pos)
 {
   u32 len = strlen(name);
-  Error *error = NewError(NewString("Modyule \"^\" not found"), file, pos, len);
+  Error *error = NewError(NewString("Module \"^\" not found"), file, pos, len);
   error->message = FormatString(error->message, name);
   return Err(error);
 }

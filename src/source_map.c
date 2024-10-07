@@ -1,7 +1,6 @@
 #include "source_map.h"
-#include "univ/str.h"
-#include "univ/vec.h"
 #include "univ/symbol.h"
+#include "univ/vec.h"
 
 void InitSourceMap(SourceMap *map)
 {

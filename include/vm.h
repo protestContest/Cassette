@@ -1,8 +1,7 @@
 #pragma once
-#include "result.h"
-#include "program.h"
-#include "ops.h"
 #include "mem.h"
+#include "program.h"
+#include "result.h"
 
 /* A VM can execute bytecode in a Program. */
 

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef uint8_t u8;
@@ -20,3 +20,8 @@ typedef i32 bool;
 #define true 1
 #define false 0
 #define ArrayCount(a)     (sizeof(a) / sizeof(a)[0])
+#define MinInt            ((i32)0x80000000)
+#define MaxInt            ((i32)0x7FFFFFFF)
+#define MaxUInt           ((u32)0xFFFFFFFF)
+#define Min(a, b)         ((a) > (b) ? (b) : (a))
+#define Max(a, b)         ((a) > (b) ? (a) : (b))

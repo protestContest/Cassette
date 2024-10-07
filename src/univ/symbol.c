@@ -1,9 +1,8 @@
 #include "univ/symbol.h"
 #include "univ/hash.h"
 #include "univ/hashmap.h"
-#include "univ/math.h"
-#include "univ/vec.h"
 #include "univ/str.h"
+#include "univ/vec.h"
 
 static i32 symSize = 32;
 static char *names = 0;

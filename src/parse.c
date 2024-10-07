@@ -1,10 +1,7 @@
 #include "parse.h"
+#include "lex.h"
 #include "mem.h"
 #include "node.h"
-#include "lex.h"
-#include "module.h"
-#include "ops.h"
-#include "univ/math.h"
 #include "univ/str.h"
 #include "univ/symbol.h"
 #include "univ/vec.h"
@@ -270,7 +267,6 @@ static Result ParseExports(ModuleExport **exports, Parser *p)
     Spacing(p);
     if (exports) VecPush(*exports, export);
   } while (MatchToken(commaToken, p));
-
 
   if (!AtEnd(p) && !MatchToken(newlineToken, p)) {
     return ParseError("Missing comma or newline", p);
@@ -892,15 +888,19 @@ static Result ParseString(Parser *p)
   if (!CheckToken(stringToken, p)) return ParseError("Expected string", p);
   for (i = 0, len = 0; i < token.length - 2; i++) {
     char ch = p->text[token.pos + i + 1];
-    if (ch == '\\') continue;
+    if (ch == '\\') i++;
     len++;
   }
   str = malloc(len+1);
   str[len] = 0;
-  for (i = 0, j = 0; i < token.length - 2; i++) {
+  for (i = 0, j = 0; j < len; j++) {
     char ch = p->text[token.pos + i + 1];
-    if (ch == '\\') continue;
-    str[j++] = ch;
+    if (ch == '\\') {
+      i++;
+      ch = p->text[token.pos + i + 1];
+    }
+    str[j] = ch;
+    i++;
   }
   sym = Symbol(str);
   free(str);

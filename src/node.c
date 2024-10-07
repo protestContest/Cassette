@@ -1,6 +1,5 @@
 #include "node.h"
 #include "mem.h"
-#include "univ/math.h"
 #include "univ/symbol.h"
 #include "univ/vec.h"
 
@@ -140,10 +139,10 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
     break;
   default:
     fprintf(stderr, "\n");
-    lines |= Bit(level);
+    lines |= 1 << level;
     for (i = 0; i < VecCount(node->data.children); i++) {
       for (j = 0; j < level; j++) {
-        if (lines & Bit(j)) {
+        if (lines & (1 << j)) {
           fprintf(stderr, "│ ");
         } else {
           fprintf(stderr, "  ");
@@ -152,7 +151,7 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
       if (i < VecCount(node->data.children) - 1) {
         fprintf(stderr, "├ ");
       } else {
-        lines &= ~Bit(level);
+        lines &= ~(1 << level);
         fprintf(stderr, "└ ");
       }
       PrintNodeLevel(node->data.children[i], level+1, lines);

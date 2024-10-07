@@ -1,12 +1,9 @@
 #include "result.h"
-#include "project.h"
 #include "program.h"
+#include "project.h"
 #include "vm.h"
-#include "univ/vec.h"
-#include "univ/file.h"
-#include "univ/str.h"
 #include "univ/symbol.h"
-#include "univ/math.h"
+#include "univ/vec.h"
 #include <unistd.h>
 
 #define VERSION "2.0.0-alpha"

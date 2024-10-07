@@ -1,7 +1,6 @@
 #include "vm.h"
-#include "env.h"
-#include "result.h"
 #include "leb.h"
+#include "ops.h"
 #include "primitives.h"
 #include "univ/file.h"
 #include "univ/math.h"
@@ -593,7 +592,7 @@ static Result OpRoll(VM *vm)
   for (i = n; i > 0; i--) {
     vm->stack[VecCount(vm->stack) - 1 - i] = vm->stack[VecCount(vm->stack - i)];
   }
-  vm->stack[VecCount(vm->stack - 1)] = v;
+  vm->stack[VecCount(vm->stack) - 1] = v;
 
   return vm->status;
 }

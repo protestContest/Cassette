@@ -1,6 +1,6 @@
 #include "chunk.h"
-#include "ops.h"
 #include "leb.h"
+#include "ops.h"
 #include "univ/str.h"
 #include "univ/vec.h"
 
@@ -51,12 +51,9 @@ u32 ChunkSize(Chunk *chunk)
 
 Chunk *AppendChunk(Chunk *first, Chunk *second)
 {
-  Chunk *last;
   if (!second) return first;
   if (!first) return second;
-  last = first;
-  while (last->next) last = last->next;
-  last->next = second;
+  TackOnChunk(first, second);
   first->needs_env =
       first->needs_env | (second->needs_env & ~first->modifies_env);
   first->modifies_env = first->modifies_env | second->modifies_env;

@@ -1,7 +1,5 @@
 #include "univ/str.h"
-#include "univ/hash.h"
 #include "univ/math.h"
-#include "univ/vec.h"
 
 char *NewString(char *str)
 {

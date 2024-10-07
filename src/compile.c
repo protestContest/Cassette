@@ -1,7 +1,7 @@
 #include "compile.h"
-#include "ops.h"
 #include "chunk.h"
 #include "mem.h"
+#include "ops.h"
 #include "primitives.h"
 #include "univ/hashmap.h"
 #include "univ/symbol.h"
