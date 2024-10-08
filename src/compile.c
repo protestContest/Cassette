@@ -17,7 +17,7 @@ static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool retu
 
 static Result UndefinedVariable(ASTNode *node)
 {
-  Error *error = NewError(NewString("Undefined variable \"^\""), node->file, node->start, node->end - node->start);
+  Error *error = NewError(NewString("Undefined variable \"^\""), 0, node->start, node->end - node->start);
   error->message = FormatString(error->message, SymbolName(node->data.value));
   return Err(error);
 }
@@ -32,13 +32,13 @@ static Result UndefinedExport(char *file, ModuleExport *export)
 
 static Result UnknownExpr(ASTNode *node)
 {
-  Error *error = NewError("Unknown expression", node->file, node->start, node->end - node->start);
+  Error *error = NewError("Unknown expression", 0, node->start, node->end - node->start);
   return Err(error);
 }
 
 static Result UndefinedTrap(ASTNode *node)
 {
-  Error *error = NewError("Undefined trap", node->file, node->start, node->end - node->start);
+  Error *error = NewError("Undefined trap", 0, node->start, node->end - node->start);
   return Err(error);
 }
 

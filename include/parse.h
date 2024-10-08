@@ -2,8 +2,6 @@
 
 /* The parser produces an ASTNode from some input text. */
 
-#include "module.h"
-#include "result.h"
+#include "node.h"
 
-Result ParseModuleBody(Module *module);
-Result ParseModuleHeader(Module *module);
+ASTNode *ParseModule(char *source);

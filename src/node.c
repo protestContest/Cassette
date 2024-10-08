@@ -3,25 +3,13 @@
 #include "univ/symbol.h"
 #include "univ/vec.h"
 
-ASTNode *MakeTerminal(NodeType type, char *file, u32 start, u32 end, u32 value)
+ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value)
 {
   ASTNode *node = malloc(sizeof(ASTNode));
   node->type = type;
-  node->file = file;
   node->start = start;
   node->end = end;
   node->data.value = value;
-  return node;
-}
-
-ASTNode *MakeNode(NodeType type, char *file, u32 start, u32 end)
-{
-  ASTNode *node = malloc(sizeof(ASTNode));
-  node->type = type;
-  node->file = file;
-  node->start = start;
-  node->end = end;
-  node->data.children = 0;
   return node;
 }
 
@@ -39,13 +27,13 @@ bool IsTerminal(ASTNode *node)
 
 ASTNode *CloneNode(ASTNode *node)
 {
-  ASTNode *clone = MakeNode(node->type, node->file, node->start, node->end);
+  ASTNode *clone = NewNode(node->type, node->start, node->end, 0);
   if (IsTerminal(node)) {
     clone->data.value = node->data.value;
   } else {
     u32 i;
     for (i = 0; i < VecCount(node->data.children); i++) {
-      NodePush(CloneNode(node->data.children[i]), clone);
+      NodePush(clone, CloneNode(node->data.children[i]));
     }
   }
   return clone;
@@ -63,7 +51,7 @@ void FreeNode(ASTNode *node)
   free(node);
 }
 
-void NodePush(ASTNode *child, ASTNode *node)
+void NodePush(ASTNode *node, ASTNode *child)
 {
   VecPush(node->data.children, child);
 }
