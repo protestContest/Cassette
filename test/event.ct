@@ -11,15 +11,10 @@ def where(event) event[2]
 def message(event) event[3]
 def modifiers(event) event[4]
 
-def loop(on_event) do
+def loop(on_event)
   let event = poll()
-  if event do
-    cond
-      type(event) == :quit -> nil
-      on_event and on_event(event) == :quit -> nil
-      true -> loop(on_event)
-    end
-  else
-    loop(on_event)
-  end
-end
+  in if
+    not event, loop(on_event)
+    type(event) == :quit, nil
+    on_event and on_event(event) == :quit, nil
+    else loop(on_event)

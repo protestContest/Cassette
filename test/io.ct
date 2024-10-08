@@ -3,91 +3,85 @@ import List, Value (typeof, error?), String (newline)
 export open, close, read, read_chunk, write, write_chunk, seek, print, inspect, read_file, write_file,
 stdin, stdout, stderr
 
-let stdin = 0, stdout = 1, stderr = 2
+; def stdin() 0
+; def stdout() 1
+; def stderr() 2
 
-def open(path, modes) do
-  def parse_modes(modes) do
-    let read = List.contains?(modes, :read),
-        write = List.contains?(modes, :write),
-        append = List.contains?(modes, :append),
-        excl = List.contains?(modes, :exclusive)
+; def open(path, modes) do
+;   def parse_modes(modes)
+;     let read = List.contains?(modes, :read)
+;         write = List.contains?(modes, :write)
+;         append = List.contains?(modes, :append)
+;         excl = List.contains?(modes, :exclusive)
+;         flags =
+;           if
+;             read and (write or append or excl), 2 ;read-write
+;             write or append or excl, 1 ;write
+;             else 0 ;read
+;         flags = if write or append or excl, flags | 512 else flags ; create
+;         flags = if append, flags | 8 else flags ; append
+;         flags = if write and not read, flags | 1024 else flags ; trunc
+;         flags = if excl, flags | 2048 else flags ; excl
+;       in
+;         flags
 
-    let flags =
-      cond
-        read and (write or append or excl) -> 2 ;read-write
-        write or append or excl -> 1 ;write
-        true -> 0 ;read
-      end
+;   trap(:open, path, parse_modes(modes))
+; end
 
-    let flags = if write or append or excl do flags | 512 else flags end, ; create
-        flags = if append do flags | 8 else flags end, ; append
-        flags = if write and not read do flags | 1024 else flags end, ; trunc
-        flags = if excl do flags | 2048 else flags end ; excl
+; ; opts should be of the form "8N1" or {8, :none, 1}
+; ; data bits can be between 5-8
+; ; parity can be :even ("E"), :odd, ("O"), or :none ("N")
+; ; stop bits should be 1 or 2
+; def open_serial(port, speed, opts) do
+;   def parse_opts(opts)
+;     if typeof(opts) == :binary,
+;       let parity =
+;         if
+;           opts[1] == $E, :even
+;           opts[1] == $O, :odd
+;           else :none
+;       in
+;         parse_opts({opts[0] - $5, parity, opts[1] - $2})
+;     else
+;       let flags = 0x100 * (opts[0] - $5)
+;           flags =
+;             if
+;               opts[1] == :even, flags | 0x1000
+;               opts[1] == :odd, flags | 0x1000 | 0x2000
+;               else flags
+;           flags = if opts[2] == 2, flags | 0x400 else flags
+;       in flags
 
-    flags
-  end
+;   trap(:open_serial, speed, parse_opts(opts))
+; end
 
-  trap(:open, path, parse_modes(modes))
-end
+; def close(file) trap(:close, file)
 
-; opts should be of the form "8N1" or {8, :none, 1}
-; data bits can be between 5-8
-; parity can be :even ("E"), :odd, ("O"), or :none ("N")
-; stop bits should be 1 or 2
-def open_serial(port, speed, opts) do
-  def parse_opts(opts) do
-    if typeof(opts) == :binary do
-      let parity =
-        cond
-          opts[1] == $E -> :even
-          opts[1] == $O -> :odd
-          true -> :none
-        end
-      parse_opts({opts[0] - $5, parity, opts[1] - $2})
-    else
-      let flags = 0x100 * (opts[0] - $5),
-          flags = cond
-            opts[1] == :even -> flags | 0x1000
-            opts[1] == :odd -> flags | 0x1000 | 0x2000
-            true -> flags
-          end,
-          flags = if opts[2] == 2 do flags | 0x400 else flags end
-      flags
-    end
-  end
+; def read_chunk(file, size) trap(:read, file, size)
 
-  trap(:open_serial, speed, parse_opts(opts))
-end
+; def read(file) do
+;   def loop(received)
+;     let data = read_chunk(file, 1024)
+;     in if
+;       error?(data), data
+;       #data == 0, Value.format(List.reverse(received))
+;       else loop(data : received)
 
-def close(file) trap(:close, file)
+;   loop([])
+; end
 
-def read_chunk(file, size) trap(:read, file, size)
+; def write_chunk(file, data) trap(:write, file, data)
 
-def read(file) do
-  def loop(received) do
-    let data = read_chunk(file, 1024)
-    cond
-      error?(data) -> data
-      #data == 0 -> Value.format(List.reverse(received))
-      true -> loop(data : received)
-    end
-  end
-  loop([])
-end
+; def write(file, data) do
+;   def loop(data)
+;     let sent = write_chunk(file, data)
+;     in if
+;       error?(sent), sent
+;       sent == #data, :ok
+;       else loop(data[sent:#data])
 
-def write_chunk(file, data) trap(:write, file, data)
-
-def write(file, data) do
-  def loop(data) do
-    let sent = write_chunk(file, data)
-    cond
-      error?(sent) -> sent
-      sent == #data -> :ok
-      true -> loop(data[sent:#data])
-    end
-  end
-  loop(data)
-end
+;   loop(data)
+; end
 
 def print(str) write(stdout, Value.format([str, newline]))
 
@@ -97,37 +91,31 @@ def inspect(val) do
   val
 end
 
-def seek(file, offset, whence) do
+def seek(file, offset, whence)
   let whence =
-    cond
-      whence == :start -> 0
-      whence == :cur -> 1
-      whence == :end -> 2
-      true -> 0
-    end
-  trap(:seek, file, offset, whence)
-end
+    if
+      whence == :start, 0
+      whence == :cur, 1
+      whence == :end, 2
+      else 0
+  in trap(:seek, file, offset, whence)
 
-def read_file(path) do
-  let file = open(path, :read)
-  if error?(file) do
-    file
-  else
-    let size = seek(file, 0, :end)
-    seek(file, 0, :start)
-    let contents = read(file)
+def read_file(path)
+  let
+    file = open(path, :read) except error?(file) else file
+    size = seek(file, 0, :end)
+    _ = seek(file, 0, :start)
+    contents = read(file)
+  in do
     close(file)
     contents
   end
-end
 
-def write_file(path, data) do
-  let file = open(path, :write)
-  if file do
-    let written = write(file, data)
+def write_file(path, data)
+  let
+    file = open(path, :write) except not file else 0
+    written = write(file, data)
+  in do
     close(file)
     written
-  else
-    0
   end
-end

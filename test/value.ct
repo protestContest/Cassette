@@ -12,68 +12,69 @@ def pair?(v) typeof(v) == :pair
 def tuple?(v) typeof(v) == :tuple
 def binary?(v) typeof(v) == :binary
 
-def error?(result) cond
-  result == :error -> true
-  tuple?(result) and #result > 0 and result[0] == :error -> true
-  true -> false
-end
+def error?(result)
+  if
+    result == :error, true
+    tuple?(result) and #result > 0 and result[0] == :error, true
+    else false
 
-def format(data) cond
-  binary?(data) -> data
-  integer?(data) and data >= 0 and data <= 255 -> byte(data)
-  pair?(data) and data != nil -> format(data[0]) <> format(^data)
-  true -> ""
-end
+def format(data)
+  if
+    binary?(data), data
+    integer?(data) and data >= 0 and data <= 255, byte(data)
+    pair?(data) and data != nil, format(data[0]) <> format(^data)
+    else ""
 
 def inspect_int(num) do
-  def loop(num, parts) cond
-    num == 0 -> parts
-    true -> do
-      let digit = num % 10 + $0
-      loop(num / 10, digit : parts)
-    end
-  end
+  def loop(num, parts)
+    if
+      num == 0, parts
+      else
+        let digit = num % 10 + $0
+        in loop(num / 10, digit : parts)
 
-  cond
-    num == 0 -> "0"
-    num < 0 -> "-" : loop(-num, [])
-    true -> loop(num, [])
-  end
+  if
+    num == 0, "0"
+    num < 0, "-" : loop(-num, [])
+    else loop(num, [])
 end
 
 def inspect_tuple(value, depth) do
-  def loop(i, parts) cond
-    i == #value -> List.reverse(parts)
-    true -> loop(i + 1, inspect_depth(value[i], depth - 1) : parts)
-  end
+  def loop(i, parts)
+    if
+      i == #value, List.reverse(parts)
+      else loop(i + 1, inspect_depth(value[i], depth - 1) : parts)
 
   ["{", List.intersperse(loop(0, []), ", "), "}"]
 end
 
 def inspect_list(list, depth) do
-  def loop(list, parts) cond
-    list == nil -> List.reverse(parts)
-    not pair?(^list) ->
-      List.reverse([
-        inspect_depth(list[0], depth - 1),
-        " : ",
-        inspect_depth(^list, depth - 1)
-      ] : parts)
-    true -> loop(^list, inspect_depth(list[0], depth - 1) : parts)
-  end
+  def loop(list, parts)
+    if
+      list == nil,
+        List.reverse(parts)
+      not pair?(^list),
+        List.reverse([
+          inspect_depth(list[0], depth - 1),
+          " : ",
+          inspect_depth(^list, depth - 1)
+        ] : parts)
+      else
+        loop(^list, inspect_depth(list[0], depth - 1) : parts)
 
   ["[", List.intersperse(loop(list, []), ", "), "]"]
 end
 
-def inspect_depth(value, depth) cond
-  depth == 0      -> "..."
-  value == nil    -> "nil"
-  binary?(value)  -> ["\"", value, "\""]
-  integer?(value) -> inspect_int(value)
-  tuple?(value)   -> inspect_tuple(value, depth)
-  pair?(value) and typeof(^value) != :pair ->
-    [inspect_depth(@value, depth - 1), " : ", inspect_depth(^value, depth - 1)]
-  pair?(value)    -> inspect_list(value, depth)
-end
+def inspect_depth(value, depth)
+  if
+    depth == 0,       "..."
+    value == nil,     "nil"
+    binary?(value),   ["\"", value, "\""]
+    integer?(value),  inspect_int(value)
+    tuple?(value),    inspect_tuple(value, depth)
+    pair?(value) and  typeof(^value) != :pair,
+      [inspect_depth(@value, depth - 1), " : ", inspect_depth(^value, depth - 1)]
+    pair?(value),     inspect_list(value, depth)
+    else              ""
 
 def inspect(value) inspect_depth(value, 10)

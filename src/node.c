@@ -3,25 +3,13 @@
 #include "univ/symbol.h"
 #include "univ/vec.h"
 
-ASTNode *MakeTerminal(NodeType type, char *file, u32 start, u32 end, u32 value)
+ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value)
 {
   ASTNode *node = malloc(sizeof(ASTNode));
   node->type = type;
-  node->file = file;
   node->start = start;
   node->end = end;
   node->data.value = value;
-  return node;
-}
-
-ASTNode *MakeNode(NodeType type, char *file, u32 start, u32 end)
-{
-  ASTNode *node = malloc(sizeof(ASTNode));
-  node->type = type;
-  node->file = file;
-  node->start = start;
-  node->end = end;
-  node->data.children = 0;
   return node;
 }
 
@@ -29,8 +17,9 @@ bool IsTerminal(ASTNode *node)
 {
   switch (node->type) {
   case constNode:
-  case varNode:
+  case idNode:
   case strNode:
+  case errorNode:
     return true;
   default:
     return false;
@@ -39,13 +28,13 @@ bool IsTerminal(ASTNode *node)
 
 ASTNode *CloneNode(ASTNode *node)
 {
-  ASTNode *clone = MakeNode(node->type, node->file, node->start, node->end);
+  ASTNode *clone = NewNode(node->type, node->start, node->end, 0);
   if (IsTerminal(node)) {
     clone->data.value = node->data.value;
   } else {
     u32 i;
     for (i = 0; i < VecCount(node->data.children); i++) {
-      NodePush(CloneNode(node->data.children[i]), clone);
+      NodePush(clone, CloneNode(node->data.children[i]));
     }
   }
   return clone;
@@ -63,7 +52,7 @@ void FreeNode(ASTNode *node)
   free(node);
 }
 
-void NodePush(ASTNode *child, ASTNode *node)
+void NodePush(ASTNode *node, ASTNode *child)
 {
   VecPush(node->data.children, child);
 }
@@ -72,7 +61,7 @@ char *NodeTypeName(i32 type)
 {
   switch (type) {
   case constNode:   return "const";
-  case varNode:     return "var";
+  case idNode:      return "id";
   case strNode:     return "str";
   case tupleNode:   return "tuple";
   case notNode:     return "not";
@@ -103,10 +92,14 @@ char *NodeTypeName(i32 type)
   case letNode:     return "let";
   case defNode:     return "def";
   case lambdaNode:  return "lambda";
-  case paramsNode:  return "params";
   case callNode:    return "call";
   case refNode:     return "ref";
-  default: assert(false);
+  case listNode:    return "list";
+  case moduleNode:  return "module";
+  case importNode:  return "import";
+  case assignNode:  return "assign";
+  case errorNode:   return "error";
+  default:          assert(false);
   }
 }
 
@@ -131,7 +124,7 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
       assert(false);
     }
     break;
-  case varNode:
+  case idNode:
     fprintf(stderr, " %s\n", SymbolName(node->data.value));
     break;
   case strNode:

@@ -4,38 +4,29 @@ export new, request, get, post
 
 def new(host, headers) {host, headers}
 
-def get(conn, path) cond
-  binary?(conn) -> request("GET", conn, path, nil, nil)
-  tuple?(conn) and #conn == 2 -> request("GET", conn[0], path, conn[1], nil)
-  true -> {:error, "Invalid conn type"}
-end
+def get(conn, path)
+  if
+    binary?(conn), request("GET", conn, path, nil, nil)
+    tuple?(conn) and #conn == 2, request("GET", conn[0], path, conn[1], nil)
+    else {:error, "Invalid conn type"}
 
-def post(conn, path, body) cond
-  binary?(conn) -> request("POST", conn, path, nil, body)
-  tuple?(conn) and #conn == 2 -> request("POST", conn[0], path, conn[1], body)
-  true -> {:error, "Invalid conn type"}
-end
+def post(conn, path, body)
+  if
+    binary?(conn), request("POST", conn, path, nil, body)
+    tuple?(conn) and #conn == 2, request("POST", conn[0], path, conn[1], body)
+    else {:error, "Invalid conn type"}
 
-def request(method, host, path, headers, body) do
-  let headers = List.join(headers, crlf)
-  let req = List.join([
-    [method, " ", path, " HTTP/1.1"],
-    ["Host: ", host],
-    ["Connection: close"],
-    headers,
-    "",
-    body
-  ], crlf)
-
-  let conn = Net.connect(host, "80")
-  if not error?(conn) do
-    let result = IO.write(conn, req)
-    if not error?(result) do
-      IO.read(conn)
-    else
-      result
-    end
-  else
-    conn
-  end
-end
+def request(method, host, path, headers, body)
+  let
+    headers = List.join(headers, crlf)
+    req = List.join([
+      [method, " ", path, " HTTP/1.1"],
+      ["Host: ", host],
+      ["Connection: close"],
+      headers,
+      "",
+      body
+    ], crlf)
+    conn = Net.connect(host, "80") except error?(conn) else conn
+    result = IO.write(conn, req) except error?(result) else result
+  in IO.read(conn)

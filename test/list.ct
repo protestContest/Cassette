@@ -2,102 +2,84 @@ module List
 import Value
 export reverse, reduce, map, filter, range, zip, with_index, contains?, intersperse, head, tail, join
 
+def insert(list, index, item) do
+  def loop(prev, i, next)
+    if i == index,
+      reduce(prev, item : next, \item, list -> item : list)
+    else
+      loop(head(next) : prev, i + 1, tail(next))
+
+  loop([], 0, list)
+end
+
 def head(list) list[0]
 def tail(list) list[1,#list]
 
-def reduce(list, acc, fn) do
-  if list do
-    reduce(tail(list), fn(head(list), acc), fn)
-  else
-    acc
-  end
-end
+def reduce(list, acc, fn)
+  if list, reduce(tail(list), fn(head(list), acc), fn)
+  else acc
 
-def reverse(list) do
+def reverse(list)
   reduce(list, nil, \item, acc -> item : acc)
-end
 
-def map(list, fn) do
+def map(list, fn)
   reverse(reduce(list, nil, \item, acc -> fn(item) : acc))
-end
 
-def filter(list, fn) do
-  reverse(
+def filter(list, fn)
+  let list =
     reduce(list, nil, \item, acc ->
-      if fn(item) do
-        item : acc
-      else
-        acc
-      end))
-end
+      if fn(item), item : acc
+      else acc)
+  in reverse(list)
 
 def range(min, max) do
-  def build_range(n, list) do
-    if n > min do
-      build_range(n-1, n-1 : list)
-    else
-      list
-    end
-  end
+  def build_range(n, list)
+    if n > min, build_range(n-1, n-1 : list)
+    else list
 
-  if max < min do
-    reverse(range(max, min))
-  else
-    build_range(max, nil)
-  end
+  if max < min, reverse(range(max, min))
+  else build_range(max, nil)
 end
 
 def zip(a, b) do
-  def build_zip(a, b, zipped) do
-    if a and b do
+  def build_zip(a, b, zipped)
+    if a and b,
       build_zip(tail(a), tail(b), {head(a), head(b)} : zipped)
     else
       reverse(zipped)
-    end
-  end
 
   build_zip(a, b, nil)
 end
 
-def with_index(list) do
+def with_index(list)
   zip(range(0, #list), list)
-end
 
-def contains?(list, item) cond
-  list == nil -> false
-  head(list) == item -> true
-  true -> contains?(tail(list), item)
-end
+def contains?(list, item)
+  if
+    list == nil, false
+    head(list) == item, true
+    else contains?(tail(list), item)
 
-def intersperse(list, sep) cond
-  list == nil -> nil
-  tail(list) == nil -> list
-  true -> reverse(reduce(tail(list), [head(list)], \item, acc -> item : sep : acc))
-end
+def intersperse(list, sep)
+  if
+    list == nil, nil
+    tail(list) == nil, list
+  else
+    reverse(reduce(tail(list), [head(list)], \item, acc -> item : sep : acc))
 
-def all?(list) cond
-  list == nil -> true
-  head(list) -> all?(tail(list))
-  true -> false
-end
+def all?(list)
+  if
+    list == nil, true
+    head(list), all?(tail(list))
+    else false
 
-def any?(list) cond
-  list == nil -> false
-  head(list) -> true
-  true -> any?(tail(list))
-end
+def any?(list)
+  if
+    list == nil, false
+    head(list), true
+    else any?(tail(list))
 
-def insert(list, index, item) do
-  def loop(prev, i, next) do
-    if i == index do
-      reduce(prev, item : next, \item, list -> item : list)
-    else
-      loop(head(next) : prev, i + 1, tail(next))
-    end
-  end
-  loop([], 0, list)
-end
 
-def join(list, sep) do
+
+def join(list, sep)
   Value.format(intersperse(list, sep))
-end

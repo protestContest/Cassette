@@ -17,7 +17,7 @@ static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool retu
 
 static Result UndefinedVariable(ASTNode *node)
 {
-  Error *error = NewError(NewString("Undefined variable \"^\""), node->file, node->start, node->end - node->start);
+  Error *error = NewError(NewString("Undefined variable \"^\""), 0, node->start, node->end - node->start);
   error->message = FormatString(error->message, SymbolName(node->data.value));
   return Err(error);
 }
@@ -32,13 +32,13 @@ static Result UndefinedExport(char *file, ModuleExport *export)
 
 static Result UnknownExpr(ASTNode *node)
 {
-  Error *error = NewError("Unknown expression", node->file, node->start, node->end - node->start);
+  Error *error = NewError("Unknown expression", 0, node->start, node->end - node->start);
   return Err(error);
 }
 
 static Result UndefinedTrap(ASTNode *node)
 {
-  Error *error = NewError("Undefined trap", node->file, node->start, node->end - node->start);
+  Error *error = NewError("Undefined trap", 0, node->start, node->end - node->start);
   return Err(error);
 }
 
@@ -127,7 +127,7 @@ static Result CompileVar(ASTNode *node, Env *env, bool returns)
 
   Chunk *chunk;
   EnvPosition pos;
-  assert(node->type == varNode);
+  assert(node->type == idNode);
   pos = EnvFind(node->data.value, env);
   if (pos.frame < 0) return UndefinedVariable(node);
   chunk = NewChunk(node->start);
@@ -548,7 +548,7 @@ static void CompileMakeCall(Chunk *chunk)
   ChunkWrite(opGoto, chunk);
 }
 
-#define IsTrap(node) ((node)->type == varNode && (node)->data.value == Symbol("trap"))
+#define IsTrap(node) ((node)->type == idNode && (node)->data.value == Symbol("trap"))
 
 static Result CompileCall(ASTNode *node, Env *env, ImportMap *imports, bool returns)
 {
@@ -948,7 +948,7 @@ static Result CompileExpr(ASTNode *node, Env *env, ImportMap *imports, bool retu
 
   switch (node->type) {
   case constNode:   result = CompileConst(node, returns); break;
-  case varNode:     result = CompileVar(node, env, returns); break;
+  case idNode:     result = CompileVar(node, env, returns); break;
   case strNode:     result = CompileString(node, returns); break;
   case tupleNode:   result = CompileTuple(node, env, imports, returns); break;
   case negNode:     result = CompileOp(opNeg, node, env, imports, returns); break;

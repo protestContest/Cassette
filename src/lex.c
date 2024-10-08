@@ -29,12 +29,6 @@ Token NextToken(char *src, u32 pos)
     }
   }
 
-  if (Match("\"\"\"", src+pos)) {
-    u32 len = 3;
-    while (!Match("\"\"\"", src+pos+len)) len++;
-    return MakeToken(textToken, pos, len+3);
-  }
-
   if (src[pos] == '"') {
     u32 len = 1;
     while (src[pos+len] && src[pos+len] != '"') {
@@ -82,23 +76,24 @@ Token NextToken(char *src, u32 pos)
   if (src[pos] == '}') return MakeToken(rbraceToken, pos, 1);
   if (src[pos] == '~') return MakeToken(tildeToken, pos, 1);
 
+  if (MatchKeyword("and", src+pos)) return MakeToken(andToken, pos, 3);
+  if (MatchKeyword("as", src+pos)) return MakeToken(asToken, pos, 2);
+  if (MatchKeyword("def", src+pos)) return MakeToken(defToken, pos, 3);
+  if (MatchKeyword("do", src+pos)) return MakeToken(doToken, pos, 2);
+  if (MatchKeyword("else", src+pos)) return MakeToken(elseToken, pos, 4);
+  if (MatchKeyword("end", src+pos)) return MakeToken(endToken, pos, 3);
+  if (MatchKeyword("except", src+pos)) return MakeToken(exceptToken, pos, 6);
+  if (MatchKeyword("export", src+pos)) return MakeToken(exportToken, pos, 7);
   if (MatchKeyword("false", src+pos)) return MakeToken(falseToken, pos, 5);
-  if (MatchKeyword("true", src+pos)) return MakeToken(trueToken, pos, 4);
+  if (MatchKeyword("if", src+pos)) return MakeToken(ifToken, pos, 2);
+  if (MatchKeyword("import", src+pos)) return MakeToken(importToken, pos, 6);
+  if (MatchKeyword("in", src+pos)) return MakeToken(inToken, pos, 2);
+  if (MatchKeyword("let", src+pos)) return MakeToken(letToken, pos, 3);
+  if (MatchKeyword("module", src+pos)) return MakeToken(moduleToken, pos, 6);
   if (MatchKeyword("nil", src+pos)) return MakeToken(nilToken, pos, 3);
   if (MatchKeyword("not", src+pos)) return MakeToken(notToken, pos, 3);
-  if (MatchKeyword("cond", src+pos)) return MakeToken(condToken, pos, 4);
-  if (MatchKeyword("else", src+pos)) return MakeToken(elseToken, pos, 4);
-  if (MatchKeyword("if", src+pos)) return MakeToken(ifToken, pos, 2);
-  if (MatchKeyword("end", src+pos)) return MakeToken(endToken, pos, 3);
-  if (MatchKeyword("do", src+pos)) return MakeToken(doToken, pos, 2);
   if (MatchKeyword("or", src+pos)) return MakeToken(orToken, pos, 2);
-  if (MatchKeyword("and", src+pos)) return MakeToken(andToken, pos, 3);
-  if (MatchKeyword("let", src+pos)) return MakeToken(letToken, pos, 3);
-  if (MatchKeyword("def", src+pos)) return MakeToken(defToken, pos, 3);
-  if (MatchKeyword("as", src+pos)) return MakeToken(asToken, pos, 2);
-  if (MatchKeyword("import", src+pos)) return MakeToken(importToken, pos, 6);
-  if (MatchKeyword("export", src+pos)) return MakeToken(exportToken, pos, 7);
-  if (MatchKeyword("module", src+pos)) return MakeToken(moduleToken, pos, 6);
+  if (MatchKeyword("true", src+pos)) return MakeToken(trueToken, pos, 4);
 
   if (IsSymChar(src[pos])) {
     u32 len = 0;
