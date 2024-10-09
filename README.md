@@ -121,7 +121,7 @@ Basic arithmetic and comparison operators work on integers.
 12 >= 3
 ```
 
-Some operators only work with pairs, tuples, or binaries.
+Some operators only work with pairs, tuples, or binaries. Joining or slicing tuples and binaries makes a copy of the contents.
 
 ```
 ; get the head of a pair
@@ -160,6 +160,16 @@ not {0, 0}        ; => false
 [1, 2] == [1, 2]  ; => true
 ```
 
+### Functions
+
+Functions can be defined as lambdas. Function calls look similar to other languages.
+
+```
+\a, b -> a + b
+
+join([1, 2, 3], ";")
+```
+
 ### Conditionals
 
 An `if` expression is a list of predicate/consequent pairs. It tests each predicate until one is true, then evaluates that predicate's consequent. If none are true, the `else` expression is evaluated.
@@ -177,6 +187,8 @@ if
 
 A `let` expression is a list of assignments and a result expression. Each assigned variable is in scope in the subsequent assignments (but not in its own) and in the result expression.
 
+Let expressions are useful for performing a sequence of operations updating a value, like a pipeline.
+
 ```
 let
   x = 3
@@ -185,29 +197,23 @@ in
   x - y
 
 let
-  result = try_this()
-  result = try_that(result)   ; the argument refers to the previous assignment
+  nums = [1, 2, 3, 4, 5]
+  nums = filter(nums, odd?)
+  nums = map(nums, \n -> n*2)
 in
-  done(result)
+  done(nums)
 ```
 
-An assignment in a `let` expression can have an `except` clause. If the `except` test evaluates true, the clause's alternative expression becomes the result of the `let` expression, and the rest of the `let` expression is ignored.
+An assignment in a `let` expression can have an `except` clause. If the `except` test evaluates true, the clause's `else` expression becomes the result of the `let` expression, and the rest of the `let` expression is ignored.
+
+This makes `let` expressions a useful construct for [railway-oriented programming](https://fsharpforfunandprofit.com/rop/). Each assignment can be tested and bail on an error.
 
 ```
 let
-  conn = Net.connect(host, "80") except error?(result), result
-  result = IO.write(conn, req) except error?(result), result
+  conn = Net.connect(host, "80") except error?(result) else result
+  result = IO.write(conn, req) except error?(result) else result
 in
   IO.read(conn)
-```
-
-### Functions
-
-Functions can be defined as lambdas. Function calls look similar to other languages.
-
-```
-let foo = \a, b -> a + b
-in foo(1, 2)
 ```
 
 ### Blocks
