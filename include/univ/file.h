@@ -1,4 +1,5 @@
 #pragma once
+#include <libgen.h>
 
 #define DirName(path)   dirname(path)
 

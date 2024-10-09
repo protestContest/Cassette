@@ -1,7 +1,6 @@
 #include "project.h"
 #include "compile.h"
 #include "chunk.h"
-#include "env.h"
 #include "mem.h"
 #include "ops.h"
 #include "parse.h"
@@ -10,57 +9,35 @@
 #include "univ/str.h"
 #include "univ/symbol.h"
 #include "univ/vec.h"
-#include <libgen.h>
 
-static Result ModuleNotFound(char *name, char *file, u32 pos)
+static Error *FileNotFound(char *filename)
+{
+  Error *error = NewError(NewString("File \"^\" not found"), filename, 0, 0);
+  error->message = FormatString(error->message, filename);
+  return error;
+}
+
+static Error *ModuleNotFound(char *name, char *file, u32 pos)
 {
   u32 len = strlen(name);
   Error *error = NewError(NewString("Module \"^\" not found"), file, pos, len);
   error->message = FormatString(error->message, name);
-  return Err(error);
+  return error;
 }
 
-static Result DuplicateModule(char *name, char *file)
+static Error *DuplicateModule(char *name, char *file)
 {
   Error *error = NewError(NewString("Duplicate module \"^\""), file, 0, 0);
   error->message = FormatString(error->message, name);
-  return Err(error);
+  return error;
 }
 
-static FileList *ListProjectFiles(char *entryfile, char *searchpath)
+Project *NewProject(void)
 {
-  u32 i;
-  FileList *list = ListFiles(DirName(entryfile), ".ct", 0);
-  if (searchpath) list = ListFiles(searchpath, ".ct", list);
-  for (i = 1; i < list->count; i++) {
-    if (StrEq(entryfile, list->filenames[i])) {
-      char *tmp = list->filenames[i];
-      list->filenames[i] = list->filenames[0];
-      list->filenames[0] = tmp;
-      break;
-    }
-  }
-  return list;
-}
-
-Project *NewProject(char *entryfile, char *searchpath)
-{
-  u32 i;
-  FileList *files;
   Project *project = malloc(sizeof(Project));
-  files = ListProjectFiles(entryfile, searchpath);
   InitHashMap(&project->mod_map);
   project->modules = 0;
   project->build_list = 0;
-  for (i = 0; i < files->count; i++) {
-    Module mod;
-    InitModule(&mod);
-    mod.filename = files->filenames[i];
-    mod.source = ReadFile(files->filenames[i]);
-    VecPush(project->modules, mod);
-  }
-  free(files->filenames);
-  free(files);
   return project;
 }
 
@@ -76,21 +53,46 @@ void FreeProject(Project *project)
   free(project);
 }
 
-static Result ScanProjectDeps(Project *project)
+Error *AddProjectFile(Project *project, char *filename)
 {
   u32 i;
-  Result result;
+  Module mod;
+  char *source;
+  for (i = 0; i < VecCount(project->modules); i++) {
+    if (StrEq(project->modules[i].filename, filename)) return 0;
+  }
+  source = ReadFile(filename);
+  if (!source) return FileNotFound(filename);
+  InitModule(&mod);
+  mod.filename = NewString(filename);
+  mod.source = source;
+  VecPush(project->modules, mod);
+  return 0;
+}
+
+void ScanProjectFolder(Project *project, char *path)
+{
+  u32 i;
+  FileList *list = ListFiles(path, ".ct", 0);
+
+  for (i = 0; i < list->count; i++) {
+    Error *error = AddProjectFile(project, list->filenames[i]);
+    if (error) FreeError(error);
+  }
+  FreeFileList(list);
+}
+
+static Error *ScanProjectDeps(Project *project)
+{
+  u32 i;
   HashMap scan_set = EmptyHashMap;
   u32 *scan_list = 0;
 
   /* build hash map of all modules */
   for (i = 0; i < VecCount(project->modules); i++) {
-    result = ParseModuleHeader(&project->modules[i]);
-    if (IsError(result)) return result;
     if (HashMapContains(&project->mod_map, project->modules[i].name)) {
       if (project->modules[i].name == 0) continue;
-      result = DuplicateModule(SymbolName(project->modules[i].name), project->modules[i].filename);
-      return result;
+      return DuplicateModule(SymbolName(project->modules[i].name), project->modules[i].filename);
     }
     HashMapSet(&project->mod_map, project->modules[i].name, i);
   }
@@ -130,7 +132,7 @@ static Result ScanProjectDeps(Project *project)
   DestroyHashMap(&scan_set);
   FreeVec(scan_list);
 
-  return Ok(project);
+  return 0;
 }
 
 static void LinkModules(Project *project, Program *program)
@@ -207,36 +209,23 @@ static char *SerializeSymbols(HashMap *symbols)
   return data;
 }
 
-Result BuildProject(Project *project)
+Error *BuildProject(Project *project)
 {
-  Result result;
   u32 i;
-  Env *env = 0;
-  Program *program;
-  HashMap symbols = EmptyHashMap;
 
   SetSymbolSize(valBits);
 
-  result = ScanProjectDeps(project);
-  if (IsError(result)) return result;
+  for (i = 0; i < VecCount(project->modules); i++) {
+    Module *mod = &project->modules[i];
+    mod->ast = ParseModule(mod->source);
+    if (IsErrorNode(mod->ast)) {
+      char *msg = SymbolName(mod->ast->data.value);
+      u32 len = mod->ast->end - mod->ast->start;
+      return NewError(msg, mod->filename, mod->ast->start, len);
+    }
 
-  for (i = 0; i < VecCount(project->build_list); i++) {
-    u32 modnum = project->build_list[i];
-    Module *module = &project->modules[modnum];
-
-    result = ParseModuleBody(module);
-    if (IsError(result)) return result;
-
-    CollectSymbols(module->ast, &symbols);
-    AddSymbol(Symbol(module->filename), &symbols);
-
-    result = CompileModule(module, project->modules, env);
-    if (IsError(result)) return result;
+    PrintNode(mod->ast);
   }
 
-  program = NewProgram();
-  LinkModules(project, program);
-  program->strings = SerializeSymbols(&symbols);
-  DestroyHashMap(&symbols);
-  return Ok(program);
+  return 0;
 }

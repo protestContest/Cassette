@@ -1,9 +1,5 @@
-#include "result.h"
-#include "program.h"
 #include "project.h"
-#include "vm.h"
-#include "univ/symbol.h"
-#include "univ/vec.h"
+#include "univ/file.h"
 #include <unistd.h>
 
 #define VERSION "2.0.0-alpha"
@@ -60,19 +56,22 @@ int main(int argc, char *argv[])
 {
   Opts opts = ParseOpts(argc, argv);
   Project *project;
-  Program *program;
-  Result result;
+  Error *error;
 
-  project = NewProject(opts.entry, opts.lib_path);
-  result = BuildProject(project);
-  if (IsError(result)) {
-    PrintError(result);
-    FreeError(result.data.p);
+  project = NewProject();
+  AddProjectFile(project, opts.entry);
+  ScanProjectFolder(project, DirName(opts.entry));
+  ScanProjectFolder(project, opts.lib_path);
+
+  error = BuildProject(project);
+  if (error) {
+    PrintError(error);
+    FreeError(error);
     FreeProject(project);
     return 1;
   }
-
-  program = result.data.p;
+/*
+  program = project->program;
   program->trace = opts.debug;
 
   if (opts.debug) {
@@ -100,5 +99,6 @@ int main(int argc, char *argv[])
   }
 
   FreeProgram(program);
+*/
   return 0;
 }
