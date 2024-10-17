@@ -2,9 +2,9 @@ module Value
 import List
 export typeof, nil?, integer?, pair?, tuple?, binary?, byte, symbol_name, error?, format, inspect
 
-def typeof(value) trap(:typeof, value)
-def byte(value) trap(:byte, value)
-def symbol_name(sym) trap(:symbol_name, sym)
+def typeof(value) trap typeof(value)
+def byte(value) trap byte(value)
+def symbol_name(sym) trap symbol_name(sym)
 
 def nil?(v) v == nil
 def integer?(v) typeof(v) == :integer
@@ -22,7 +22,7 @@ def format(data)
   if
     binary?(data), data
     integer?(data) and data >= 0 and data <= 255, byte(data)
-    pair?(data) and data != nil, format(data[0]) <> format(^data)
+    pair?(data) and data != nil, format(@data) <> format(^data)
     else ""
 
 def inspect_int(num) do
@@ -55,12 +55,12 @@ def inspect_list(list, depth) do
         List.reverse(parts)
       not pair?(^list),
         List.reverse([
-          inspect_depth(list[0], depth - 1),
+          inspect_depth(@list, depth - 1),
           " : ",
           inspect_depth(^list, depth - 1)
         ] : parts)
       else
-        loop(^list, inspect_depth(list[0], depth - 1) : parts)
+        loop(^list, inspect_depth(@list, depth - 1) : parts)
 
   ["[", List.intersperse(loop(list, []), ", "), "]"]
 end

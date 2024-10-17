@@ -3,10 +3,19 @@
 /* Functions for compiling ASTNodes into bytecode */
 
 #include "env.h"
+#include "error.h"
 #include "module.h"
-#include "result.h"
+#include "univ/hashmap.h"
 
-/* Compiles a module's AST into bytecode (storing it in the module) */
-Result CompileModule(Module *module, Module *modules, Env *env);
-Chunk *CompileIntro(u32 num_modules);
-Chunk *CompileCallMod(u32 id);
+typedef struct {
+  Env *env;
+  Error *error;
+  Module *modules;
+  HashMap *mod_map;
+  HashMap alias_map;
+  u32 mod_id;
+} Compiler;
+
+void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map);
+void DestroyCompiler(Compiler *c);
+Chunk *Compile(ASTNode *ast, Compiler *c);

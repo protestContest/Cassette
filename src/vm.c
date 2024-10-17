@@ -24,6 +24,7 @@ static StackTrace *BuildStackTrace(VM *vm);
 
 static Result OpNoop(VM *vm);
 static Result OpHalt(VM *vm);
+static Result OpPanic(VM *vm);
 static Result OpConst(VM *vm);
 static Result OpJump(VM *vm);
 static Result OpBranch(VM *vm);
@@ -71,6 +72,7 @@ static Result OpTrap(VM *vm);
 static OpFn ops[] = {
   [opNoop]    = OpNoop,
   [opHalt]    = OpHalt,
+  [opPanic]   = OpPanic,
   [opConst]   = OpConst,
   [opJump]    = OpJump,
   [opBranch]  = OpBranch,
@@ -137,6 +139,8 @@ void InitVM(VM *vm, Program *program)
   vm->status = Ok(0);
   vm->pc = 0;
   vm->env = 0;
+  vm->mod = 0;
+  vm->link = 0;
   vm->stack = 0;
   vm->program = program;
   if (program) {
@@ -172,8 +176,13 @@ Result VMStep(VM *vm)
 
 void PrintSourceFrom(u32 index, char *src)
 {
-  char *start = src+index;
-  char *end = LineEnd(index, src);
+  char *start, *end;
+  if (!src) {
+    fprintf(stderr, "(system)");
+    return;
+  }
+  start = src+index;
+  end = LineEnd(index, src);
   if (end > start && end[-1] == '\n') end--;
   fprintf(stderr, "%*.*s", (i32)(end-start), (i32)(end-start), start);
 }
@@ -229,6 +238,7 @@ void *VMGetRef(u32 ref, VM *vm)
 void MaybeGC(u32 size, VM *vm)
 {
   if (MemFree() < size) RunGC(vm);
+  if (MemFree() < size) SizeMem(size);
 }
 
 void RunGC(VM *vm)
@@ -277,6 +287,22 @@ static Result OpHalt(VM *vm)
 {
   vm->pc = VecCount(vm->program->code);
   return vm->status;
+}
+
+static Result OpPanic(VM *vm)
+{
+  Result result;
+  char *msg = 0;
+  if (VecCount((vm)->stack) > 0) {
+    val msgVal = VMStackPop(vm);
+    if (IsBinary(msgVal)) {
+      msg = StringFrom(BinaryData(msgVal), BinaryLength(msgVal));
+    }
+  }
+  if (!msg) msg = NewString("Panic!");
+  result = RuntimeError(msg, vm);
+  free(msg);
+  return result;
 }
 
 static Result OpConst(VM *vm)
@@ -361,7 +387,7 @@ static Result OpSetMod(VM *vm)
 static Result OpLink(VM *vm)
 {
   VMStackPush(IntVal(vm->link), vm);
-  vm->link = VecCount(vm->stack) - 1;
+  vm->link = VecCount(vm->stack);
   vm->pc++;
   return vm->status;
 }
@@ -749,7 +775,7 @@ static Result OpJoin(VM *vm)
     } else if (BinaryLength(b) == 0) {
       VMStackPop(vm);
     } else {
-      MaybeGC(1 + BinSpace(BinaryLength(a)) + BinSpace(BinaryLength(b)), vm);
+      MaybeGC(1 + BinSpace(BinaryLength(a) + BinaryLength(b)), vm);
       TwoArgs(a, b);
       VMStackPush(BinaryJoin(a, b), vm);
     }
@@ -875,7 +901,7 @@ static StackTrace *BuildStackTrace(VM *vm)
   VecPush(trace, item);
 
   while (link > 0) {
-    u32 code_pos = RawInt(vm->stack[link-1]);
+    u32 code_pos = RawInt(vm->stack[link]);
     item.filename = GetSourceFile(code_pos, &vm->program->srcmap);
     if (item.filename) {
       item.pos = GetSourcePos(code_pos, &vm->program->srcmap);
@@ -883,7 +909,7 @@ static StackTrace *BuildStackTrace(VM *vm)
       item.pos = code_pos;
     }
     VecPush(trace, item);
-    link = RawInt(vm->stack[link]);
+    link = RawInt(vm->stack[link - 1]);
   }
   return trace;
 }

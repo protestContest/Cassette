@@ -160,8 +160,6 @@ not {0, 0}        ; => false
 [1, 2] == [1, 2]  ; => true
 ```
 
-### Functions
-
 Functions can be defined as lambdas. Function calls look similar to other languages.
 
 ```
@@ -187,8 +185,6 @@ if
 
 A `let` expression is a list of assignments and a result expression. Each assigned variable is in scope in the subsequent assignments (but not in its own) and in the result expression.
 
-Let expressions are useful for performing a sequence of operations updating a value, like a pipeline.
-
 ```
 let
   x = 3
@@ -206,7 +202,7 @@ in
 
 An assignment in a `let` expression can have an `except` clause. If the `except` test evaluates true, the clause's `else` expression becomes the result of the `let` expression, and the rest of the `let` expression is ignored.
 
-This makes `let` expressions a useful construct for [railway-oriented programming](https://fsharpforfunandprofit.com/rop/). Each assignment can be tested and bail on an error.
+This makes `let` expressions useful for [railway-oriented programming](https://fsharpforfunandprofit.com/rop/). Each assignment can be tested and bail on an error.
 
 ```
 let
@@ -241,6 +237,16 @@ do
 end
 ```
 
+A function can be defined multiple times with `def`, and each can optionally include a guard clause. When called, each guard clause is tested until one is true, then that version of the function is evaluated. Every definition must have the same number of arguments.
+
+```
+def fact(n) when n <= 1
+  1
+
+def fact(n)
+  n * fact(n-1)
+```
+
 ### Modules
 
 Cassette programs are composed of modules. The body of the module is a `do` block, and can define functions with `def`. A module can export some of its defined functions and import other modules. A module can reference imported functions by qualifying them with the module name or alias. Module declaration, import, and export statements must appear first in a module (its "header").
@@ -261,4 +267,8 @@ bar_fn(x)    ; no qualifier needed
 
 ### Primitives
 
-Built-in functions are executed via the `trap` pseudo-function. These trap calls should usually be wrapped in a module function at runtime for convenience. A reference of currently-implemented traps is available [here](https://cassette-lang.com/primitives.html).
+Built-in functions are executed as pseudo-functions with the `trap` keyword. These transfer control of the VM to a native function. A reference of currently-implemented traps is available [here](https://cassette-lang.com/primitives.html).
+
+```
+trap write(file, data)
+```

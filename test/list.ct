@@ -1,26 +1,49 @@
 module List
-import Value
-export reverse, reduce, map, filter, range, zip, with_index, contains?, intersperse, head, tail, join
+export
+  head, tail, drop, take,
+  reduce, reverse, map, filter,
+  range, zip, with_index, contains?,
+  intersperse
 
+def take(list, n) when (n == 0) nil
+def take(list, n) reverse(@list : take(^list, n - 1))
+
+; takes n items from a list and adds them to the front of tail, in reverse order
+def take_onto(list, n, tail)
+  if n == 0, tail
+  else take_onto(^list, n - 1, @list : tail)
+
+; takes n items from a list
+def take(list, n) reverse(take_onto(list, n, nil))
+
+; drops n items from the front of a list
+def drop(list, n)
+  if
+    n == 0, list
+    list == nil, list
+    else drop(^list, n - 1)
+
+; inserts an item into a list at index
 def insert(list, index, item) do
-  def loop(prev, i, next)
-    if i == index,
-      reduce(prev, item : next, \item, list -> item : list)
-    else
-      loop(head(next) : prev, i + 1, tail(next))
-
-  loop([], 0, list)
+  def loop(list, index, prefix)
+    if not list or index == 0, reverse_onto(prefix, item : list)
+    else loop(^list, index - 1, @list : prefix)
+  loop(list, index, nil)
 end
 
-def head(list) list[0]
-def tail(list) list[1,#list]
+def head(list) @list
+def tail(list) ^list
 
 def reduce(list, acc, fn)
-  if list, reduce(tail(list), fn(head(list), acc), fn)
+  if list, reduce(^list, fn(@list, acc), fn)
   else acc
 
-def reverse(list)
-  reduce(list, nil, \item, acc -> item : acc)
+; adds list to the front of tail, in reverse order
+def reverse_onto(list, tail)
+  reduce(list, tail, \item, acc -> item : acc)
+
+; reverses a list
+def reverse(list) reverse_onto(list, nil)
 
 def map(list, fn)
   reverse(reduce(list, nil, \item, acc -> fn(item) : acc))
@@ -44,7 +67,7 @@ end
 def zip(a, b) do
   def build_zip(a, b, zipped)
     if a and b,
-      build_zip(tail(a), tail(b), {head(a), head(b)} : zipped)
+      build_zip(^a, ^b, {@a, @b} : zipped)
     else
       reverse(zipped)
 
@@ -57,29 +80,24 @@ def with_index(list)
 def contains?(list, item)
   if
     list == nil, false
-    head(list) == item, true
-    else contains?(tail(list), item)
+    @list == item, true
+    else contains?(^list, item)
 
 def intersperse(list, sep)
   if
     list == nil, nil
-    tail(list) == nil, list
+    ^list == nil, list
   else
-    reverse(reduce(tail(list), [head(list)], \item, acc -> item : sep : acc))
+    reverse(reduce(^list, [@list], \item, acc -> item : sep : acc))
 
 def all?(list)
   if
     list == nil, true
-    head(list), all?(tail(list))
+    @list, all?(^list)
     else false
 
 def any?(list)
   if
     list == nil, false
-    head(list), true
-    else any?(tail(list))
-
-
-
-def join(list, sep)
-  Value.format(intersperse(list, sep))
+    @list, true
+    else any?(^list)

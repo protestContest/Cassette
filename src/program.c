@@ -1,7 +1,9 @@
 #include "program.h"
+#include "mem.h"
 #include "ops.h"
 #include "univ/math.h"
 #include "univ/str.h"
+#include "univ/symbol.h"
 #include "univ/vec.h"
 
 Program *NewProgram(void)
@@ -17,9 +19,34 @@ Program *NewProgram(void)
 void FreeProgram(Program *program)
 {
   if (program->code) FreeVec(program->code);
-  DestorySourceMap(&program->srcmap);
+  DestroySourceMap(&program->srcmap);
   if (program->strings) FreeVec(program->strings);
   free(program);
+}
+
+void AddStrings(ASTNode *node, Program *program, HashMap *strings)
+{
+  u32 i;
+  if (node->type == strNode || node->type == symNode) {
+    u32 len, sym;
+    char *name;
+    sym = RawVal(NodeValue(node));
+    if (HashMapContains(strings, sym)) return;
+    HashMapSet(strings, sym, 1);
+    name = SymbolName(sym);
+    len = strlen(name);
+    if (!program->strings) {
+      program->strings = NewVec(u8, len);
+    }
+    GrowVec(program->strings, len);
+    Copy(name, VecEnd(program->strings) - len, len);
+    VecPush(program->strings, 0);
+    return;
+  }
+  if (IsTerminal(node)) return;
+  for (i = 0; i < NodeCount(node); i++) {
+    AddStrings(NodeChild(node, i), program, strings);
+  }
 }
 
 void WriteBE(u32 num, u8 *dst)

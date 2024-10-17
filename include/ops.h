@@ -9,6 +9,7 @@
 typedef enum {
   opNoop = 0x00,   /* */
   opHalt,   /* */
+  opPanic,  /* */
   opConst,  /* (a) -> a           pushes a tagged value */
 
   opJump = 0x10,   /* (n) pc <- pc + n */

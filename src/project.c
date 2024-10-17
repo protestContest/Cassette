@@ -1,10 +1,8 @@
 #include "project.h"
 #include "compile.h"
-#include "chunk.h"
 #include "mem.h"
 #include "ops.h"
 #include "parse.h"
-#include "program.h"
 #include "univ/file.h"
 #include "univ/str.h"
 #include "univ/symbol.h"
@@ -17,9 +15,8 @@ static Error *FileNotFound(char *filename)
   return error;
 }
 
-static Error *ModuleNotFound(char *name, char *file, u32 pos)
+static Error *ModuleNotFound(char *name, char *file, u32 pos, u32 len)
 {
-  u32 len = strlen(name);
   Error *error = NewError(NewString("Module \"^\" not found"), file, pos, len);
   error->message = FormatString(error->message, name);
   return error;
@@ -32,12 +29,19 @@ static Error *DuplicateModule(char *name, char *file)
   return error;
 }
 
+static Error *CircularDependency(char *mod1, char *mod2, char *file)
+{
+  Error *error = NewError(NewString("Circular dependency between ^ and ^"), file, 0, 0);
+  error->message = FormatString(error->message, mod1);
+  error->message = FormatString(error->message, mod2);
+  return error;
+}
+
 Project *NewProject(void)
 {
   Project *project = malloc(sizeof(Project));
   InitHashMap(&project->mod_map);
   project->modules = 0;
-  project->build_list = 0;
   return project;
 }
 
@@ -48,7 +52,6 @@ void FreeProject(Project *project)
     DestroyModule(&project->modules[i]);
   }
   FreeVec(project->modules);
-  if (project->build_list) FreeVec(project->build_list);
   DestroyHashMap(&project->mod_map);
   free(project);
 }
@@ -82,150 +85,141 @@ void ScanProjectFolder(Project *project, char *path)
   FreeFileList(list);
 }
 
-static Error *ScanProjectDeps(Project *project)
+static Error *ScanModuleDeps(
+  u32 mod_index,
+  u32 **scan_list,
+  HashMap *build_set,
+  HashMap *scan_set,
+  Project *project)
 {
   u32 i;
-  HashMap scan_set = EmptyHashMap;
-  u32 *scan_list = 0;
+  Error *error;
+  Module *mod = &project->modules[mod_index];
+  ASTNode *imports = ModuleImports(mod);
 
-  /* build hash map of all modules */
-  for (i = 0; i < VecCount(project->modules); i++) {
-    if (HashMapContains(&project->mod_map, project->modules[i].name)) {
-      if (project->modules[i].name == 0) continue;
-      return DuplicateModule(SymbolName(project->modules[i].name), project->modules[i].filename);
-    }
-    HashMapSet(&project->mod_map, project->modules[i].name, i);
-  }
+  mod->id = VecCount(project->build_list) + VecCount(*scan_list);
 
-  /* start scanning with the entry module */
-  VecPush(scan_list, project->modules[0].name);
-  HashMapSet(&scan_set, project->modules[0].name, 1);
-
-  while (VecCount(scan_list) > 0) {
-    u32 modname = VecPop(scan_list);
-    u32 modnum = HashMapGet(&project->mod_map, modname);
-    Module *module = &project->modules[modnum];
-
-    VecPush(project->build_list, modnum);
-
-    for (i = 0; i < VecCount(module->imports); i++) {
-      u32 import = module->imports[i].module;
-      if (!HashMapContains(&scan_set, import)) {
-        if (!HashMapContains(&project->mod_map, import)) {
-          DestroyHashMap(&scan_set);
-          FreeVec(scan_list);
-          return ModuleNotFound(SymbolName(import), module->filename, module->imports[i].pos);
-        }
-
-        HashMapSet(&scan_set, import, 1);
-        VecPush(scan_list, import);
+  if (NodeCount(imports) > 0) {
+    VecPush(*scan_list, mod_index);
+    HashMapSet(scan_set, mod_index, 1);
+    for (i = 0; i < NodeCount(imports); i++) {
+      ASTNode *import = NodeChild(imports, i);
+      u32 name = NodeValue(NodeChild(import, 0));
+      u32 index;
+      if (!HashMapContains(&project->mod_map, name)) {
+        return ModuleNotFound(SymbolName(name), mod->filename, import->start, import->end - import->start);
       }
+
+      index = HashMapGet(&project->mod_map, name);
+      if (HashMapContains(build_set, index)) continue;
+      if (HashMapContains(scan_set, index)) {
+        char *mod_name = SymbolName(NodeValue(ModuleName(mod)));
+        return CircularDependency(mod_name, SymbolName(name), mod->filename);
+      }
+
+      error = ScanModuleDeps(index, scan_list, build_set, scan_set, project);
+      if (error) return error;
     }
+    VecPop(*scan_list);
+    HashMapDelete(scan_set, mod_index);
   }
 
-  for (i = 0; i < VecCount(project->build_list); i++) {
-    u32 modnum = project->build_list[i];
-    Module *module = &project->modules[modnum];
-    module->id = i;
-  }
-
-  DestroyHashMap(&scan_set);
-  FreeVec(scan_list);
-
+  VecPush(project->build_list, mod_index);
+  HashMapSet(build_set, mod_index, 1);
   return 0;
 }
 
-static void LinkModules(Project *project, Program *program)
+static Error *ScanDeps(Project *project)
+{
+  u32 *scan_list = 0;
+  HashMap build_set = EmptyHashMap;
+  HashMap scan_set = EmptyHashMap;
+  Error *error = ScanModuleDeps(0, &scan_list, &build_set, &scan_set, project);
+  FreeVec(scan_list);
+  DestroyHashMap(&build_set);
+  DestroyHashMap(&scan_set);
+  return error;
+}
+
+static void LinkModules(Project *project)
 {
   u32 i;
-  u32 size = 0;
-  u8 *data, *cur;
-  u32 num_modules = VecCount(project->build_list);
+  Chunk *chunk = NewChunk(0);
+  u32 size;
+  Program *program = NewProgram();
+  HashMap strings = EmptyHashMap;
 
-  Chunk *intro = CompileIntro(num_modules);
-  Chunk *outro = NewChunk(0);
-  ChunkWrite(opSetMod, outro);
-  outro = AppendChunk(outro, CompileCallMod(0));
-  ChunkWrite(opDrop, outro);
-  ChunkWrite(opHalt, outro);
-  size = ChunkSize(intro) + ChunkSize(outro);
-  for (i = 0; i < VecCount(project->build_list); i++) {
-    u32 idx = project->build_list[i];
-    size += ChunkSize(project->modules[idx].code);
+  if (VecCount(project->build_list) > 1) {
+    ChunkWrite(opTuple, chunk);
+    ChunkWriteInt(VecCount(project->build_list) - 1, chunk);
+    ChunkWrite(opSetMod, chunk);
+    AddChunkSource(chunk, 0, &program->srcmap);
   }
-  data = NewVec(u8, size);
-  RawVecCount(data) = size;
-  cur = data;
 
-  AddChunkSource(intro, 0, &program->srcmap);
-  cur = SerializeChunk(intro, cur);
   for (i = 0; i < VecCount(project->build_list); i++) {
-    u32 modnum = project->build_list[num_modules - 1 - i];
-    Module *mod = &project->modules[modnum];
+    Module *mod = &project->modules[project->build_list[i]];
     AddChunkSource(mod->code, mod->filename, &program->srcmap);
-    cur = SerializeChunk(mod->code, cur);
+    AddStrings(mod->ast, program, &strings);
+    chunk = AppendChunk(chunk, mod->code);
   }
-  AddChunkSource(outro, 0, &program->srcmap);
-  SerializeChunk(outro, cur);
-
-  FreeChunk(intro);
-  FreeChunk(outro);
-
-  program->code = data;
-}
-
-static void CollectSymbols(ASTNode *node, HashMap *symbols)
-{
-  if (node->type == strNode) {
-    HashMapSet(symbols, RawVal(node->data.value), 1);
-  }
-
-  if (!IsTerminal(node)) {
-    u32 i;
-    for (i = 0; i < VecCount(node->data.children); i++) {
-      CollectSymbols(node->data.children[i], symbols);
-    }
-  }
-}
-
-static void AddSymbol(u32 symbol, HashMap *symbols)
-{
-  HashMapSet(symbols, symbol, 1);
-}
-
-static char *SerializeSymbols(HashMap *symbols)
-{
-  char *data = 0;
-  u32 i;
-  for (i = 0; i < symbols->count; i++) {
-    u32 sym = HashMapKey(symbols, i);
-    char *name = SymbolName(sym);
-    u32 len = strlen(name);
-    GrowVec(data, len);
-    Copy(name, VecEnd(data) - len, len);
-    VecPush(data, 0);
-  }
-
-  return data;
+  ChunkWrite(opHalt, chunk);
+  DestroyHashMap(&strings);
+  size = ChunkSize(chunk);
+  program->code = NewVec(u8, size);
+  SerializeChunk(chunk, program->code);
+  RawVecCount(program->code) = size;
+  project->program = program;
 }
 
 Error *BuildProject(Project *project)
 {
   u32 i;
+  Error *error;
+  Compiler c;
 
   SetSymbolSize(valBits);
 
   for (i = 0; i < VecCount(project->modules); i++) {
     Module *mod = &project->modules[i];
+    u32 name, j;
+    ASTNode *exports;
     mod->ast = ParseModule(mod->source);
     if (IsErrorNode(mod->ast)) {
       char *msg = SymbolName(mod->ast->data.value);
       u32 len = mod->ast->end - mod->ast->start;
       return NewError(msg, mod->filename, mod->ast->start, len);
     }
-
-    PrintNode(mod->ast);
+    name = NodeValue(ModuleName(mod));
+    if (name) HashMapSet(&project->mod_map, name, i);
+    exports = ModuleExports(mod);
+    for (j = 0; j < NodeCount(exports); j++) {
+      u32 export = NodeValue(NodeChild(exports, j));
+      HashMapSet(&mod->exports, export, j);
+    }
+    /* PrintNode(mod->ast); */
   }
+
+  error = ScanDeps(project);
+  if (error) return error;
+
+  InitCompiler(&c, project->modules, &project->mod_map);
+  for (i = 0; i < VecCount(project->build_list); i++) {
+    Module *mod = &project->modules[project->build_list[i]];
+    c.mod_id = mod->id;
+    mod->code = Compile(mod->ast, &c);
+    if (c.error) {
+      c.error->filename = NewString(mod->filename);
+      return c.error;
+    }
+
+    /*
+    printf("%s\n", SymbolName(NodeValue(ModuleName(mod))));
+    DisassembleChunk(mod->code);
+    */
+  }
+  DestroyCompiler(&c);
+
+  LinkModules(project);
 
   return 0;
 }

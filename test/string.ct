@@ -1,5 +1,5 @@
 module String
-import Value (format, tuple?, binary?, integer?), List, IO
+import Value (format, tuple?, binary?, integer?), List
 export
   newline,
   carriage_return,
@@ -19,13 +19,14 @@ export
   skip,
   substring?,
   substring,
-  from_substring
+  from_substring,
+  join
 
 def newline() format(0x0A)
 def carriage_return() format(0x0D)
 def space() format(0x20)
 def tab() format(0x09)
-def crlf() format([carriage_return, newline])
+def crlf() format([carriage_return(), newline()])
 
 def digit?(c) c >= $0 and c <= $9
 def lowercase?(c) c >= $a and c <= $z
@@ -109,3 +110,6 @@ def split(str, sep) do
 
   loop(skip_one(0), nil)
 end
+
+def join(list, sep)
+  Value.format(List.intersperse(list, sep))
