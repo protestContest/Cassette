@@ -1,0 +1,4 @@
+module Foo
+export bar
+
+def bar(x) x + 100

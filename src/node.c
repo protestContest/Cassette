@@ -1,7 +1,6 @@
 #include "node.h"
 #include "mem.h"
 #include "univ/symbol.h"
-#include "univ/vec.h"
 
 ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value)
 {
@@ -52,6 +51,14 @@ void FreeNode(ASTNode *node)
   free(node);
 }
 
+void FreeNodeShallow(ASTNode *node)
+{
+  if (!IsTerminal(node)) {
+    FreeVec(node->data.children);
+  }
+  free(node);
+}
+
 void NodePush(ASTNode *node, ASTNode *child)
 {
   VecPush(node->data.children, child);
@@ -60,44 +67,46 @@ void NodePush(ASTNode *node, ASTNode *child)
 char *NodeTypeName(i32 type)
 {
   switch (type) {
-  case constNode:   return "const";
   case idNode:      return "id";
+  case constNode:   return "const";
   case strNode:     return "str";
+  case listNode:    return "list";
   case tupleNode:   return "tuple";
+  case lambdaNode:  return "lambda";
+  case panicNode:   return "panic";
+  case negNode:     return "neg";
   case notNode:     return "not";
   case headNode:    return "head";
   case tailNode:    return "tail";
   case lenNode:     return "len";
   case compNode:    return "comp";
-  case negNode:     return "neg";
-  case accessNode:  return "access";
   case eqNode:      return "eq";
-  case mulNode:     return "mul";
-  case divNode:     return "div";
   case remNode:     return "rem";
   case bitandNode:  return "bitand";
-  case subNode:     return "sub";
+  case mulNode:     return "mul";
   case addNode:     return "add";
-  case shiftNode:   return "shift";
+  case subNode:     return "sub";
+  case divNode:     return "div";
   case ltNode:      return "lt";
+  case shiftNode:   return "shift";
   case gtNode:      return "gt";
+  case joinNode:    return "join";
   case sliceNode:   return "slice";
   case bitorNode:   return "bitor";
-  case joinNode:    return "join";
   case pairNode:    return "pair";
   case andNode:     return "and";
   case orNode:      return "or";
-  case ifNode:      return "if";
-  case doNode:      return "do";
-  case letNode:     return "let";
-  case defNode:     return "def";
-  case lambdaNode:  return "lambda";
+  case accessNode:  return "access";
   case callNode:    return "call";
+  case trapNode:    return "trap";
   case refNode:     return "ref";
-  case listNode:    return "list";
-  case moduleNode:  return "module";
-  case importNode:  return "import";
+  case ifNode:      return "if";
+  case letNode:     return "let";
   case assignNode:  return "assign";
+  case doNode:      return "do";
+  case defNode:     return "def";
+  case importNode:  return "import";
+  case moduleNode:  return "module";
   case errorNode:   return "error";
   default:          assert(false);
   }

@@ -295,7 +295,6 @@ Result VMMicrotime(VM *vm)
 
 static PrimDef primitives[] = {
   {"arity_error", VMArityError},
-  {"panic!", VMPanic},
   {"typeof", VMTypeOf},
   {"byte", VMByte},
   {"symbol_name", VMSymbolName},

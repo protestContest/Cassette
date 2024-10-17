@@ -6,7 +6,7 @@
 #define VecCount(vec)         ((vec) ? RawVecCount(vec) : 0)
 #define VecPush(vec, val)     (VecMakeRoom(vec, 1), (vec)[RawVecCount(vec)++] = val)
 #define VecPop(vec)           (VecCount(vec) > 0 ? (vec)[--RawVecCount(vec)] : 0)
-#define GrowVec(vec, num)     (VecMakeRoom(vec, num), RawVecCount(vec) += num)
+#define GrowVec(vec, num)     (VecMakeRoom(vec, Max(1, num)), RawVecCount(vec) += num)
 #define VecEnd(vec)           &(vec[RawVecCount(vec)])
 #define VecDel(vec, i)        VecDelete(vec, i, sizeof(*(vec)))
 #define VecLast(vec)          ((vec)[VecCount(vec)-1])

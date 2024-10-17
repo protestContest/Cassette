@@ -2,9 +2,9 @@ module Value
 import List
 export typeof, nil?, integer?, pair?, tuple?, binary?, byte, symbol_name, error?, format, inspect
 
-def typeof(value) trap(:typeof, value)
-def byte(value) trap(:byte, value)
-def symbol_name(sym) trap(:symbol_name, sym)
+def typeof(value) trap typeof(value)
+def byte(value) trap byte(value)
+def symbol_name(sym) trap symbol_name(sym)
 
 def nil?(v) v == nil
 def integer?(v) typeof(v) == :integer

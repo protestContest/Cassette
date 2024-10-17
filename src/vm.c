@@ -24,6 +24,7 @@ static StackTrace *BuildStackTrace(VM *vm);
 
 static Result OpNoop(VM *vm);
 static Result OpHalt(VM *vm);
+static Result OpPanic(VM *vm);
 static Result OpConst(VM *vm);
 static Result OpJump(VM *vm);
 static Result OpBranch(VM *vm);
@@ -71,6 +72,7 @@ static Result OpTrap(VM *vm);
 static OpFn ops[] = {
   [opNoop]    = OpNoop,
   [opHalt]    = OpHalt,
+  [opPanic]   = OpPanic,
   [opConst]   = OpConst,
   [opJump]    = OpJump,
   [opBranch]  = OpBranch,
@@ -137,6 +139,8 @@ void InitVM(VM *vm, Program *program)
   vm->status = Ok(0);
   vm->pc = 0;
   vm->env = 0;
+  vm->mod = 0;
+  vm->link = 0;
   vm->stack = 0;
   vm->program = program;
   if (program) {
@@ -277,6 +281,22 @@ static Result OpHalt(VM *vm)
 {
   vm->pc = VecCount(vm->program->code);
   return vm->status;
+}
+
+static Result OpPanic(VM *vm)
+{
+  Result result;
+  char *msg = 0;
+  if (VecCount((vm)->stack) > 0) {
+    val msgVal = VMStackPop(vm);
+    if (IsBinary(msgVal)) {
+      msg = StringFrom(BinaryData(msgVal), BinaryLength(msgVal));
+    }
+  }
+  if (!msg) msg = NewString("Panic!");
+  result = RuntimeError(msg, vm);
+  free(msg);
+  return result;
 }
 
 static Result OpConst(VM *vm)

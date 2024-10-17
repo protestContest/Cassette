@@ -1,31 +1,22 @@
 #pragma once
 #include "chunk.h"
 #include "node.h"
+#include "univ/hashmap.h"
 
 /* A Module keeps track of a module's various components. */
 
-typedef struct {
-  u32 module;
-  u32 alias;
-  u32 pos;
-  u32 *names;
-} ModuleImport;
-
-typedef struct {
-  u32 name;
-  u32 pos;
-} ModuleExport;
-
 typedef struct Module {
-  u32 name;
   u32 id;
   char *filename;
   char *source;
-  ModuleImport *imports;
-  ModuleExport *exports;
   ASTNode *ast;
   Chunk *code;
+  HashMap exports;
 } Module;
+#define ModuleName(mod) NodeChild((mod)->ast, 0)
+#define ModuleImports(mod) NodeChild((mod)->ast, 1)
+#define ModuleExports(mod) NodeChild((mod)->ast, 2)
+#define ModuleBody(mod) NodeChild((mod)->ast, 3)
 
 void InitModule(Module *module);
 void DestroyModule(Module *module);

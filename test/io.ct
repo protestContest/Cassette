@@ -25,7 +25,7 @@ def open(path, modes) do
       in
         flags
 
-  trap(:open, path, parse_modes(modes))
+  trap open(path, parse_modes(modes))
 end
 
 ; opts should be of the form "8N1" or {8, :none, 1}
@@ -52,12 +52,12 @@ def open_serial(port, speed, opts) do
           flags = if opts[2] == 2, flags | 0x400 else flags
       in flags
 
-  trap(:open_serial, speed, parse_opts(opts))
+  trap open_serial(speed, parse_opts(opts))
 end
 
-def close(file) trap(:close, file)
+def close(file) trap close(file)
 
-def read_chunk(file, size) trap(:read, file, size)
+def read_chunk(file, size) trap read(file, size)
 
 def read(file) do
   def loop(received)
@@ -70,7 +70,7 @@ def read(file) do
   loop([])
 end
 
-def write_chunk(file, data) trap(:write, file, data)
+def write_chunk(file, data) trap write(file, data)
 
 def write(file, data) do
   def loop(data)
@@ -98,7 +98,7 @@ def seek(file, offset, whence)
       whence == :cur, 1
       whence == :end, 2
       else 0
-  in trap(:seek, file, offset, whence)
+  in trap seek(file, offset, whence)
 
 def read_file(path)
   let
