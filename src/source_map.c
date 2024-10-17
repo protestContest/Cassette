@@ -9,7 +9,7 @@ void InitSourceMap(SourceMap *map)
   map->pos_map = 0;
 }
 
-void DestorySourceMap(SourceMap *map)
+void DestroySourceMap(SourceMap *map)
 {
   FreeVec(map->filenames);
   FreeVec(map->file_map);

@@ -9,6 +9,7 @@ char *OpName(OpCode op)
   switch (op) {
   case opNoop:    return "noop";
   case opHalt:    return "halt";
+  case opPanic:   return "panic";
   case opConst:   return "const";
   case opJump:    return "jump";
   case opBranch:  return "branch";

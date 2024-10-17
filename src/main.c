@@ -1,5 +1,6 @@
 #include "project.h"
 #include "univ/file.h"
+#include "vm.h"
 #include <unistd.h>
 
 #define VERSION "2.0.0-alpha"
@@ -57,6 +58,7 @@ int main(int argc, char *argv[])
   Opts opts = ParseOpts(argc, argv);
   Project *project;
   Error *error;
+  Result result;
 
   project = NewProject();
   AddProjectFile(project, opts.entry);
@@ -70,35 +72,15 @@ int main(int argc, char *argv[])
     FreeProject(project);
     return 1;
   }
-/*
-  program = project->program;
-  program->trace = opts.debug;
 
-  if (opts.debug) {
-    u32 i;
-    for (i = 0; i < VecCount(project->build_list); i++) {
-      u32 modnum = project->build_list[i];
-      Module *module = &project->modules[modnum];
-      char *name = module->name ? SymbolName(module->name) : "*main*";
-      fprintf(stderr, "%s\n", name);
-      PrintNode(module->ast);
-      fprintf(stderr, "\n");
-    }
-    DisassembleProgram(program);
-    fprintf(stderr, "\n");
-  }
-
-  FreeProject(project);
-
-  result = VMRun(program);
+  project->program->trace = opts.debug;;
+  result = VMRun(project->program);
   if (!result.ok) {
-    PrintError(result);
+    PrintError(result.data.p);
     PrintStackTrace(result);
     FreeStackTrace(result);
     FreeError(result.data.p);
   }
 
-  FreeProgram(program);
-*/
   return 0;
 }

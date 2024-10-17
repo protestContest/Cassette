@@ -2,6 +2,6 @@ module Net
 import Value (error?), List, IO (read, write)
 export listen, accept, connect
 
-def listen(port) trap(:listen, port)
-def accept(socket) trap(:accept, socket)
-def connect(host, port) trap(:connect, host, port)
+def listen(port) trap listen(port)
+def accept(socket) trap accept(socket)
+def connect(host, port) trap connect(host, port)

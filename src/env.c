@@ -3,10 +3,12 @@
 
 Env *ExtendEnv(u32 size, Env *parent)
 {
+  u32 i;
   Env *env = malloc(sizeof(Env));
   env->size = size;
   env->items = malloc(size*sizeof(*env->items));
   env->parent = parent;
+  for (i = 0; i < size; i++) env->items[i] = 0;
   return env;
 }
 

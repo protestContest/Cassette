@@ -27,6 +27,6 @@ def request(method, host, path, headers, body)
       "",
       body
     ], crlf)
-    conn = Net.connect(host, "80") except error?(conn) else conn
-    result = IO.write(conn, req) except error?(result) else result
+    conn = Net.connect(host, "80") except error?(conn), conn
+    result = IO.write(conn, req) except error?(result), result
   in IO.read(conn)

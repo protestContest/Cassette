@@ -11,13 +11,7 @@
 
 static val IOError(char *msg, VM *vm);
 
-Result VMArityError(VM *vm)
-{
-  UnwindVM(vm);
-  return RuntimeError("Wrong number of arguments", vm);
-}
-
-Result VMPanic(VM *vm)
+static Result VMPanic(VM *vm)
 {
   val a = VMStackPop(vm);
   char *str = BinToStr(InspectVal(a));
@@ -26,7 +20,7 @@ Result VMPanic(VM *vm)
   return result;
 }
 
-Result VMTypeOf(VM *vm)
+static Result VMTypeOf(VM *vm)
 {
   val a = VMStackPop(vm);
   if (IsPair(a)) return OkVal(IntVal(Symbol("pair")));
@@ -40,7 +34,7 @@ Result VMTypeOf(VM *vm)
   return OkVal(IntVal(Symbol("unknown")));
 }
 
-Result VMByte(VM *vm)
+static Result VMByte(VM *vm)
 {
   val a = VMStackPop(vm);
   u32 num;
@@ -54,7 +48,7 @@ Result VMByte(VM *vm)
   return OkVal(bin);
 }
 
-Result VMSymbolName(VM *vm)
+static Result VMSymbolName(VM *vm)
 {
   val a = VMStackPop(vm);
   char *name = SymbolName(RawVal(a));
@@ -65,7 +59,7 @@ Result VMSymbolName(VM *vm)
   return OkVal(bin);
 }
 
-Result VMOpen(VM *vm)
+static Result VMOpen(VM *vm)
 {
   val flags = VMStackPop(vm);
   val path = VMStackPop(vm);
@@ -82,7 +76,7 @@ Result VMOpen(VM *vm)
   return OkVal(IntVal(file));
 }
 
-Result VMOpenSerial(VM *vm)
+static Result VMOpenSerial(VM *vm)
 {
   val opts = VMStackPop(vm);
   val speed = VMStackPop(vm);
@@ -111,7 +105,7 @@ Result VMOpenSerial(VM *vm)
   return OkVal(IntVal(file));
 }
 
-Result VMClose(VM *vm)
+static Result VMClose(VM *vm)
 {
   val file = VMStackPop(vm);
   u32 err;
@@ -122,7 +116,7 @@ Result VMClose(VM *vm)
   return OkVal(IntVal(Symbol("ok")));
 }
 
-Result VMRead(VM *vm)
+static Result VMRead(VM *vm)
 {
   val size = VMStackPop(vm);
   val file = VMStackPop(vm);
@@ -142,7 +136,7 @@ Result VMRead(VM *vm)
   return OkVal(result);
 }
 
-Result VMWrite(VM *vm)
+static Result VMWrite(VM *vm)
 {
   val buf = VMStackPop(vm);
   val file = VMStackPop(vm);
@@ -154,7 +148,7 @@ Result VMWrite(VM *vm)
   return OkVal(IntVal(written));
 }
 
-Result VMSeek(VM *vm)
+static Result VMSeek(VM *vm)
 {
   val whence = VMStackPop(vm);
   val offset = VMStackPop(vm);
@@ -170,7 +164,7 @@ Result VMSeek(VM *vm)
   return OkVal(IntVal(pos));
 }
 
-Result VMListen(VM *vm)
+static Result VMListen(VM *vm)
 {
   val portVal = VMStackPop(vm);
   i32 status, s;
@@ -205,7 +199,7 @@ Result VMListen(VM *vm)
   return OkVal(IntVal(s));
 }
 
-Result VMAccept(VM *vm)
+static Result VMAccept(VM *vm)
 {
   val socketVal = VMStackPop(vm);
   i32 s;
@@ -215,7 +209,7 @@ Result VMAccept(VM *vm)
   return OkVal(IntVal(s));
 }
 
-Result VMConnect(VM *vm)
+static Result VMConnect(VM *vm)
 {
   val portVal = VMStackPop(vm);
   val nodeVal = VMStackPop(vm);
@@ -261,13 +255,13 @@ static val IOError(char *msg, VM *vm)
   return result;
 }
 
-Result VMRandom(VM *vm)
+static Result VMRandom(VM *vm)
 {
   u32 r = RandomBetween(0, MaxIntVal);
   return OkVal(IntVal(r));
 }
 
-Result VMRandomBetween(VM *vm)
+static Result VMRandomBetween(VM *vm)
 {
   val max = VMStackPop(vm);
   val min = VMStackPop(vm);
@@ -275,7 +269,7 @@ Result VMRandomBetween(VM *vm)
   return OkVal(IntVal(RandomBetween(RawInt(min), RawInt(max))));
 }
 
-Result VMSeed(VM *vm)
+static Result VMSeed(VM *vm)
 {
   val seed = VMStackPop(vm);
   if (!IsInt(seed)) return RuntimeError("Seed must be an integer", vm);
@@ -283,24 +277,17 @@ Result VMSeed(VM *vm)
   return OkVal(0);
 }
 
-Result VMTime(VM *vm)
+static Result VMTime(VM *vm)
 {
   return OkVal(IntVal(Time()));
 }
 
-Result VMMicrotime(VM *vm)
-{
-  return OkVal(IntVal(Microtime()));
-}
-
 static PrimDef primitives[] = {
-  {"arity_error", VMArityError},
   {"panic!", VMPanic},
   {"typeof", VMTypeOf},
   {"byte", VMByte},
   {"symbol_name", VMSymbolName},
   {"time", VMTime},
-  {"microtime", VMMicrotime},
   {"random", VMRandom},
   {"random_between", VMRandomBetween},
   {"seed", VMSeed},

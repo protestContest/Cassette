@@ -25,6 +25,8 @@ void FreeChunk(Chunk *chunk)
 
 void ChunkWrite(u8 byte, Chunk *chunk)
 {
+  if (byte == opGetEnv) chunk->needs_env = true;
+  if (byte == opSetEnv) chunk->modifies_env = true;
   while (chunk->next) chunk = chunk->next;
   VecPush(chunk->data, byte);
 }
@@ -47,6 +49,13 @@ u32 ChunkSize(Chunk *chunk)
     chunk = chunk->next;
   }
   return size;
+}
+
+Chunk *PrependChunk(u8 byte, Chunk *chunk)
+{
+  Chunk *byte_chunk = NewChunk(chunk->src);
+  ChunkWrite(byte, byte_chunk);
+  return AppendChunk(byte_chunk, chunk);
 }
 
 Chunk *AppendChunk(Chunk *first, Chunk *second)
@@ -73,12 +82,11 @@ Chunk *PreservingEnv(Chunk *first, Chunk *second)
   if (!first) return second;
   if (second->needs_env && first->modifies_env) {
     Chunk *save_env = NewChunk(first->src);
-    save_env->needs_env = true;
-    save_env->modifies_env = false;
     ChunkWrite(opGetEnv, save_env);
     save_env->next = first;
-    ChunkWrite(opSwap, first);
-    ChunkWrite(opSetEnv, first);
+    ChunkWrite(opSwap, save_env);
+    ChunkWrite(opSetEnv, save_env);
+    save_env->modifies_env = false;
     first = save_env;
   }
   return AppendChunk(first, second);

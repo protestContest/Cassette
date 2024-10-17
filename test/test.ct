@@ -1,3 +1,26 @@
-import HTTP, IO
+import IO, Net, String (crlf), List
 
-IO.print(HTTP.get("cassette-lang.com", "/"))
+; keeps reading from a connection while there's any data
+def read_resp(conn) do
+  def loop(received)
+    let
+      chunk = IO.read_chunk(conn, 1024)   ; get the next chunk
+    in
+      if #chunk == 0, received    ; no more data
+      else loop(received <> chunk)
+
+  loop("")
+end
+
+let
+  conn = Net.connect("cassette-lang.com", "80")   ; open a network connection
+  req = String.join([                               ; form an HTTP request
+    "GET / HTTP/1.0",
+    "Host: cassette-lang.com",
+    "",
+    ""
+  ], crlf())
+in do
+  IO.write(conn, req)         ; send the request
+  IO.print(read_resp(conn))   ; read the response and print it
+end

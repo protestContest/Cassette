@@ -1,4 +1,4 @@
 module VM
 export panic!
 
-def panic!(message) trap(:panic!, message)
+def panic!(message) trap panic!(message)

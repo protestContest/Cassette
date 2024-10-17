@@ -8,9 +8,9 @@
 
 typedef struct {
   Module *modules;
-  u32 *build_list;
   HashMap mod_map;
   Program *program;
+  u32 *build_list;
 } Project;
 
 Project *NewProject(void);
