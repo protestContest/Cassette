@@ -89,7 +89,8 @@ bool BinIsPrintable(u32 bin);
 char *BinToStr(u32 bin);
 
 bool ValEq(u32 a, u32 b);
-u32 FormatVal(u32 value);
 u32 InspectVal(u32 value);
 char *MemValStr(u32 value);
+#ifdef DEBUG
 void DumpMem(void);
+#endif

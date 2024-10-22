@@ -1,10 +1,12 @@
+#ifdef SDL
 #include "sdl.h"
 #include "mem.h"
+#include "primitives.h"
 #include "univ/str.h"
 #include "univ/symbol.h"
 #include <SDL2/SDL.h>
 
-Result SDLNewWindow(VM *vm)
+u32 SDLNewWindow(VM *vm)
 {
   u32 height = StackPop();
   u32 width = StackPop();
@@ -13,7 +15,7 @@ Result SDLNewWindow(VM *vm)
   u32 ref, winref;
   u32 result;
 
-  if (!IsInt(width) || !IsInt(height)) return RuntimeError("Width and height must be integers", vm);
+  if (!IsInt(width) || !IsInt(height)) return PrimitiveError("Width and height must be integers", vm);
 
   SDL_CreateWindowAndRenderer(RawInt(width), RawInt(height), 0, &window, &renderer);
   ref = VMPushRef(renderer, vm);
@@ -22,10 +24,10 @@ Result SDLNewWindow(VM *vm)
   result = Tuple(2);
   TupleSet(result, 0, ref);
   TupleSet(result, 1, winref);
-  return OkVal(result);
+  return result;
 }
 
-Result SDLDestroyWindow(VM *vm)
+u32 SDLDestroyWindow(VM *vm)
 {
   u32 refs = StackPop();
   u32 ref = TupleGet(refs, 0);
@@ -34,28 +36,28 @@ Result SDLDestroyWindow(VM *vm)
   SDL_Window *window = VMGetRef(RawVal(winref), vm);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
-  return OkVal(0);
+  return 0;
 }
 
-Result SDLPresent(VM *vm)
+u32 SDLPresent(VM *vm)
 {
   u32 refs = StackPop();
   u32 ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_RenderPresent(renderer);
-  return OkVal(0);
+  return 0;
 }
 
-Result SDLClear(VM *vm)
+u32 SDLClear(VM *vm)
 {
   u32 refs = StackPop();
   u32 ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_RenderClear(renderer);
-  return OkVal(0);
+  return 0;
 }
 
-Result SDLLine(VM *vm)
+u32 SDLLine(VM *vm)
 {
   u32 refs = StackPop();
   u32 ref = TupleGet(refs, 0);
@@ -66,15 +68,15 @@ Result SDLLine(VM *vm)
   SDL_Renderer *renderer;
 
   if (!IsInt(x1) || !IsInt(y1) || !IsInt(x2) || !IsInt(y2)) {
-    return RuntimeError("Line coords must be integers", vm);
+    return PrimitiveError("Line coords must be integers", vm);
   }
 
   renderer = VMGetRef(RawVal(ref), vm);
   SDL_RenderDrawLine(renderer, RawInt(x1), RawInt(y1), RawInt(x2), RawInt(y2));
-  return OkVal(0);
+  return 0;
 }
 
-Result SDLSetColor(VM *vm)
+u32 SDLSetColor(VM *vm)
 {
   u32 refs = StackPop();
   u32 ref = TupleGet(refs, 0);
@@ -84,15 +86,15 @@ Result SDLSetColor(VM *vm)
   SDL_Renderer *renderer;
 
   if (!IsInt(r) || !IsInt(g) || !IsInt(b)) {
-    return RuntimeError("Color components must be integers", vm);
+    return PrimitiveError("Color components must be integers", vm);
   }
 
   renderer = VMGetRef(RawVal(ref), vm);
   SDL_SetRenderDrawColor(renderer, RawInt(r), RawInt(g), RawInt(b), SDL_ALPHA_OPAQUE);
-  return OkVal(0);
+  return 0;
 }
 
-Result SDLGetColor(VM *vm)
+u32 SDLGetColor(VM *vm)
 {
   u32 refs = StackPop();
   u32 ref = TupleGet(refs, 0);
@@ -105,7 +107,7 @@ Result SDLGetColor(VM *vm)
   TupleSet(color, 0, r);
   TupleSet(color, 0, g);
   TupleSet(color, 0, b);
-  return OkVal(color);
+  return color;
 }
 
 static u32 EventType(SDL_Event *event)
@@ -221,7 +223,7 @@ static u32 KeyVal(SDL_Keycode keycode)
   }
 }
 
-Result SDLPollEvent(VM *vm)
+u32 SDLPollEvent(VM *vm)
 {
   SDL_Event event;
   u32 event_val, where;
@@ -252,15 +254,15 @@ Result SDLPollEvent(VM *vm)
       break;
     }
   }
-  return OkVal(event_val);
+  return event_val;
 }
 
-Result SDLGetTicks(VM *vm)
+u32 SDLGetTicks(VM *vm)
 {
-  return OkVal(IntVal(SDL_GetTicks()));
+  return IntVal(SDL_GetTicks());
 }
 
-Result SDLBlit(VM *vm)
+u32 SDLBlit(VM *vm)
 {
   u32 refs = StackPop();
   u32 img = StackPop();
@@ -275,10 +277,10 @@ Result SDLBlit(VM *vm)
   int pitch;
   SDL_Rect dst;
 
-  if (!IsInt(y)) return RuntimeError("Expected integer", vm);
-  if (!IsInt(x)) return RuntimeError("Expected integer", vm);
-  if (!IsInt(width)) return RuntimeError("Expected integer", vm);
-  if (!IsBinary(img)) return RuntimeError("Expected binary", vm);
+  if (!IsInt(y)) return PrimitiveError("Expected integer", vm);
+  if (!IsInt(x)) return PrimitiveError("Expected integer", vm);
+  if (!IsInt(width)) return PrimitiveError("Expected integer", vm);
+  if (!IsBinary(img)) return PrimitiveError("Expected binary", vm);
 
   w = RawInt(width);
   h = (ObjLength(img)*8) % w;
@@ -294,5 +296,7 @@ Result SDLBlit(VM *vm)
   SDL_UnlockTexture(tex);
   SDL_RenderCopy(renderer, tex, 0, &dst);
   SDL_DestroyTexture(tex);
-  return OkVal(0);
+  return 0;
 }
+
+#endif

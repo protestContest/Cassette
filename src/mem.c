@@ -3,7 +3,7 @@
 #include "univ/str.h"
 #include "univ/symbol.h"
 
-Mem mem = {0, 0, 0, 0};
+static Mem mem = {0, 0, 0, 0};
 
 void InitMem(u32 size)
 {
@@ -48,9 +48,6 @@ static u32 MemAlloc(u32 count)
   u32 index;
   if (!mem.data) InitMem(256);
   count = Max(2, count);
-  if (MemFree() < count) {
-    DumpMem();
-  }
   assert(MemFree() >= count);
   index = mem.free;
   mem.free += count;
@@ -328,93 +325,6 @@ bool ValEq(u32 a, u32 b)
   }
 }
 
-static u32 FormatValInto(u32 value, char *str, u32 index)
-{
-  char *dst = str ? str + index : 0;
-  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < 256) {
-    *dst = (u8)RawInt(value);
-    return 1;
-  }
-  if (IsBinary(value)) {
-    return WriteStr(BinaryData(value), ObjLength(value), dst);
-  }
-  if (IsPair(value) && value) {
-    u32 head_len = FormatValInto(Head(value), str, index);
-    u32 tail_len = FormatValInto(Tail(value), str, index + head_len);
-    return head_len + tail_len;
-  }
-  return 0;
-}
-
-u32 FormatVal(u32 value)
-{
-  u32 len = FormatValInto(value, 0, 0);
-  u32 bin = NewBinary(len);
-  char *str = BinaryData(bin);
-  FormatValInto(value, str, 0);
-  return bin;
-}
-
-static u32 InspectValInto(u32 value, u32 bin, u32 index)
-{
-  char *str = bin ? BinaryData(bin) + index : 0;
-
-  if (value == 0) return WriteStr("nil", 3, str);
-  if (IsBinary(value)) {
-    char *data = BinaryData(value);
-    u32 len = ObjLength(value);
-    return WriteStr("\"", 1, str) +
-           WriteStr(data, len, str ? str + 1 : 0) +
-           WriteStr("\"", 1, str ? str + 1 + len : 0);
-  }
-  if (IsInt(value)) {
-    char *data = SymbolName(RawVal(value));
-    if (data) {
-      u32 len = strlen(data);
-      return WriteStr(":", 1, str) +
-             WriteStr(data, len, str ? str + 1 : 0);
-    } else {
-      return WriteNum(RawInt(value), str);
-    }
-  }
-  if (IsTuple(value)) {
-    u32 i;
-    u32 len = WriteStr("{", 1, str);
-    for (i = 0; i < ObjLength(value); i++) {
-      len += InspectValInto(TupleGet(value, i), bin, index + len);
-      if (i < ObjLength(value) - 1) {
-        len += WriteStr(", ", 2, str ? str + len : 0);
-      }
-    }
-    len += WriteStr("}", 1, str ? str + len : 0);
-    return len;
-  }
-  if (IsPair(value)) {
-    u32 len = WriteStr("[", 1, str);
-    while (value) {
-      len += InspectValInto(Head(value), bin, index + len);
-      value = Tail(value);
-      if (!IsPair(value)) {
-        len += WriteStr(" | ", 3, str ? str + len : 0);
-        len += InspectValInto(value, bin, index + len);
-        break;
-      }
-      if (value) len += WriteStr(", ", 2, str ? str + len : 0);
-    }
-    len += WriteStr("]", 1, str ? str + len : 0);
-    return len;
-  }
-  return 0;
-}
-
-u32 InspectVal(u32 value)
-{
-  u32 len = InspectValInto(value, 0, 0);
-  u32 str = NewBinary(len);
-  InspectValInto(value, str, 0);
-  return str;
-}
-
 char *MemValStr(u32 value)
 {
   char *str;
@@ -469,6 +379,7 @@ char *MemValStr(u32 value)
   return str;
 }
 
+#ifdef DEBUG
 void DumpMem(void)
 {
   u32 i;
@@ -503,3 +414,4 @@ void DumpMem(void)
   fprintf(stderr, "\n");
   fprintf(stderr, "%d / %d\n", mem.free, mem.capacity);
 }
+#endif

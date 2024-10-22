@@ -100,6 +100,7 @@ u32 SerializeProgram(Program *program, u8 **dst)
   return size;
 }
 
+#ifdef DEBUG
 void DisassembleProgram(Program *program)
 {
   u32 end = VecCount(program->code);
@@ -128,3 +129,4 @@ void DisassembleProgram(Program *program)
     fprintf(stderr, "\n");
   }
 }
+#endif

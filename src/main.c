@@ -58,7 +58,6 @@ int main(int argc, char *argv[])
   Opts opts = ParseOpts(argc, argv);
   Project *project;
   Error *error;
-  Result result;
 
   project = NewProject();
   AddProjectFile(project, opts.entry);
@@ -73,13 +72,13 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  project->program->trace = opts.debug;;
-  result = VMRun(project->program);
-  if (!result.ok) {
-    PrintError(result.data.p);
-    PrintStackTrace(result);
-    FreeStackTrace(result);
-    FreeError(result.data.p);
+  project->program->trace = opts.debug;
+  error = VMRun(project->program);
+  if (error) {
+    PrintError(error);
+    PrintStackTrace(error->data);
+    FreeStackTrace(error->data);
+    FreeError(error);
   }
 
   return 0;

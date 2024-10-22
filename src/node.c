@@ -1,6 +1,4 @@
 #include "node.h"
-#include "mem.h"
-#include "univ/symbol.h"
 
 ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value)
 {
@@ -115,6 +113,10 @@ char *NodeTypeName(i32 type)
   }
 }
 
+#ifdef DEBUG
+#include "mem.h"
+#include "univ/symbol.h"
+
 void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
 {
   u32 i, j;
@@ -171,3 +173,4 @@ void PrintNode(ASTNode *node)
 {
   PrintNodeLevel(node, 0, 0);
 }
+#endif

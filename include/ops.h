@@ -10,11 +10,11 @@ typedef enum {
   opNoop = 0x00,   /* */
   opHalt,   /* */
   opPanic,  /* */
-  opConst,  /* (a) -> a           pushes a tagged value */
+  opConst,  /* a; -> a           pushes a tagged value */
 
   opJump = 0x10,   /* (n) pc <- pc + n */
-  opBranch, /* (n) a -> ; pc <- pc + n */
-  opPos,    /* (n) -> pc + n */
+  opBranch, /* n; a -> ; pc <- pc + n */
+  opPos,    /* n; -> pc + n */
   opGoto,   /* a -> ; pc <- pc + a */
   opPush,   /* n; -> regs[n] */
   opPull,   /* n; a -> ; regs[n] <- a */
@@ -43,18 +43,18 @@ typedef enum {
   opRot,    /* a b c -> b c a */
   opPick,   /* n; a ... z -> a ... z a */
 
-  opPair = 0x40,   /* t h -> pair(h,t)   creates a pair (may GC) */
+  opPair = 0x40,   /* t h -> pair(h,t)   creates a pair */
   opHead,   /* p -> head(p) */
   opTail,   /* p -> tail(p) */
-  opTuple,  /* (n) -> tuple(n)    creates a tuple of length n (may GC) */
+  opTuple,  /* n; -> tuple(n)    creates a tuple of length n */
   opLen,    /* a -> len(a) */
   opGet,    /* a b -> a[b] */
   opSet,    /* a b c -> a         sets a[b] := c */
-  opStr,    /* a -> str(a)        must be a symbol (may GC) */
-  opJoin,   /* a b -> a<>b        (may GC) */
-  opSlice,  /* a b c -> a[b:c]    (may GC) */
+  opStr,    /* a -> str(a)        must be a symbol */
+  opJoin,   /* a b -> a<>b        */
+  opSlice,  /* a b c -> a[b:c]    */
 
-  opTrap = 0x7F    /* (n) ?? -> a        calls a native trap function (may GC) */
+  opTrap = 0x7F    /* n; ?? -> a        calls a native trap function */
 } OpCode;
 
 char *OpName(OpCode op);

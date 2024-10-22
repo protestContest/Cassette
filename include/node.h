@@ -33,5 +33,8 @@ void FreeNode(ASTNode *node);
 void FreeNodeShallow(ASTNode *node);
 bool IsTerminal(ASTNode *node);
 void NodePush(ASTNode *node, ASTNode *child);
-void PrintNode(ASTNode *node);
 char *NodeTypeName(i32 type);
+
+#ifdef DEBUG
+void PrintNode(ASTNode *node);
+#endif

@@ -19,7 +19,7 @@ MAIN_OBJ := $(BUILD)/$(MAIN).o
 CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/prefix.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
-CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
+CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -DSDL -DDEBUG
 LDFLAGS = -lsdl2
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
