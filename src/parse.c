@@ -470,8 +470,8 @@ ASTNode *TransformDef(ASTNode *list)
 }
 
 typedef struct {
-  ASTNode **stmts;
-  ASTNode **defs;
+  ASTNode **stmts; /* vec */
+  ASTNode **defs; /* vec */
   HashMap map;
 } StmtParser;
 

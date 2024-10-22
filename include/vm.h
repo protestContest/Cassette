@@ -16,7 +16,7 @@ typedef struct VM {
   u32 link;
   PrimFn *primitives;
   Program *program;
-  void **refs;
+  void **refs; /* vec */
 } VM;
 
 #define CheckStack(vm, n) \

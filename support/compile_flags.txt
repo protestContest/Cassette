@@ -1,6 +1,4 @@
--std=c89
--fsanitize=address
--D__APPLE__=1
+-std=c99
 -Wall
 -Wextra
 -Werror

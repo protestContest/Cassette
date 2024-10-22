@@ -6,8 +6,8 @@
 /* A Program is run by the VM. */
 
 typedef struct {
-  u8 *code;
-  char *strings;
+  u8 *code; /* vec */
+  char *strings; /* vec */
   SourceMap srcmap;
   bool trace;
 } Program;

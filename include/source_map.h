@@ -3,9 +3,9 @@
 #include "chunk.h"
 
 typedef struct {
-  u32 *filenames;
-  u32 *file_map;
-  u32 *pos_map;
+  u32 *filenames; /* vec */
+  u32 *file_map; /* vec */
+  u32 *pos_map; /* vec */
 } SourceMap;
 
 void InitSourceMap(SourceMap *map);

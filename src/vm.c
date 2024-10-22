@@ -651,7 +651,7 @@ static Result OpLen(VM *vm)
 {
   u32 a;
   OneArg(a);
-  if (!IsTuple(a) || !IsBinary(a)) {
+  if (!IsTuple(a) && !IsBinary(a)) {
     return RuntimeError("Only tuples and binaries have lengths", vm);
   }
   StackPush(IntVal(ObjLength(a)));
@@ -836,7 +836,7 @@ static PrimFn *InitPrimitives(void)
 static StackTrace *BuildStackTrace(VM *vm)
 {
   u32 link = vm->link;
-  StackTrace *trace = 0;
+  StackTrace *trace = 0; /* vec */
   StackTrace item;
 
   item.filename = GetSourceFile(vm->pc, &vm->program->srcmap);

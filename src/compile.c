@@ -463,7 +463,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
 {
   u32 i, num_defs;
   Chunk *chunk;
-  ASTNode **stmts = 0, **defs = 0;
+  ASTNode **stmts = 0, **defs = 0; /* vec */
 
   /* split up the defs and other statements */
   for (i = 0; i < NodeCount(node); i++) {

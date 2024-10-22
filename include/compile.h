@@ -10,7 +10,7 @@
 typedef struct {
   Env *env;
   Error *error;
-  Module *modules;
+  Module *modules; /* vec */
   HashMap *mod_map;
   HashMap alias_map;
   u32 mod_id;

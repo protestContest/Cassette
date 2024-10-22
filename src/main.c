@@ -3,7 +3,7 @@
 #include "vm.h"
 #include <unistd.h>
 
-#define VERSION "2.0.0-alpha"
+#define VERSION "2.0.0"
 
 typedef struct {
   bool debug;

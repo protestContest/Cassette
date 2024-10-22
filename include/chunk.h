@@ -6,7 +6,7 @@
  */
 
 typedef struct Chunk {
-  u8 *data;
+  u8 *data; /* vec */
   bool needs_env;
   bool modifies_env;
   u32 src;

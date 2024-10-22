@@ -58,5 +58,5 @@ typedef enum {
 } OpCode;
 
 char *OpName(OpCode op);
-u32 DisassembleInst(u8 *code, u32 *index);
-void Disassemble(u8 *code);
+u32 DisassembleInst(u8 *code /* vec */, u32 *index);
+void Disassemble(u8 *code /* vec */);

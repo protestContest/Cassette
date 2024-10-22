@@ -116,7 +116,7 @@ u8 *SerializeChunk(Chunk *chunk, u8 *dst)
 
 void DisassembleChunk(Chunk *chunk)
 {
-  u8 *data = NewVec(u8, ChunkSize(chunk));
+  u8 *data /* vec */ = NewVec(u8, ChunkSize(chunk));
   RawVecCount(data) = ChunkSize(chunk);
   SerializeChunk(chunk, data);
   Disassemble(data);

@@ -5,7 +5,7 @@
 #include "univ/vec.h"
 
 static i32 symSize = 32;
-static char *names = 0;
+static char *names = 0; /* vec */
 static HashMap map = EmptyHashMap;
 
 u32 Symbol(char *name)

@@ -1,5 +1,4 @@
 #include "univ/vec.h"
-#include "univ/str.h"
 
 void *ResizeVec(void *vec, u32 num_items, u32 item_size)
 {
@@ -15,23 +14,3 @@ void *ResizeVec(void *vec, u32 num_items, u32 item_size)
 
   return new_raw_buffer + 2;
 }
-
-void VecDelete(void *vec, u32 index, u32 item_size)
-{
-  u32 size = VecCount(vec)*item_size;
-  u8 *data = (u8*)vec;
-  if (!vec) return;
-  Copy(data + (index+1)*item_size, data + index*item_size, size);
-  RawVecCount(vec)--;
-}
-
-void *DoVecCat(void *a, void *b, u32 item_size)
-{
-  if (!a) return b;
-  if (!b) return a;
-  a = ResizeVec(a, VecCount(b), item_size);
-  Copy((u8*)b, (u8*)a + item_size*VecCount(a), item_size*VecCount(b));
-  RawVecCount(a) += VecCount(b);
-  return a;
-}
-

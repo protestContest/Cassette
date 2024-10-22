@@ -8,6 +8,7 @@ ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value)
   node->type = type;
   node->start = start;
   node->end = end;
+  node->data.children = 0;
   node->data.value = value;
   return node;
 }

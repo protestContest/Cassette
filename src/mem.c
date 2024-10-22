@@ -47,6 +47,7 @@ static u32 MemAlloc(u32 count)
 {
   u32 index;
   if (!mem.data) InitMem(256);
+  count = Max(2, count);
   if (MemFree() < count) {
     DumpMem();
   }

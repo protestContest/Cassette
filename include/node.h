@@ -18,7 +18,7 @@ typedef struct ASTNode {
   u32 end;
   union {
     u32 value;
-    struct ASTNode **children;
+    struct ASTNode **children; /* vec */
   } data;
 } ASTNode;
 #define IsErrorNode(n)  ((n)->type == errorNode)

@@ -7,10 +7,10 @@
 /* A Project is a set of modules that can be built into a Program */
 
 typedef struct {
-  Module *modules;
+  Module *modules; /* vec */
   HashMap mod_map;
   Program *program;
-  u32 *build_list;
+  u32 *build_list; /* vec */
 } Project;
 
 Project *NewProject(void);

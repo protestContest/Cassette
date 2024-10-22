@@ -41,8 +41,10 @@ static Error *CircularDependency(char *mod1, char *mod2, char *file)
 Project *NewProject(void)
 {
   Project *project = malloc(sizeof(Project));
-  InitHashMap(&project->mod_map);
   project->modules = 0;
+  InitHashMap(&project->mod_map);
+  project->program = 0;
+  project->build_list = 0;
   return project;
 }
 
@@ -88,7 +90,7 @@ void ScanProjectFolder(Project *project, char *path)
 
 static Error *ScanModuleDeps(
   u32 mod_index,
-  u32 **scan_list,
+  u32 **scan_list, /* vec */
   HashMap *build_set,
   HashMap *scan_set,
   Project *project)
@@ -132,7 +134,7 @@ static Error *ScanModuleDeps(
 
 static Error *ScanDeps(Project *project)
 {
-  u32 *scan_list = 0;
+  u32 *scan_list = 0; /* vec */
   HashMap build_set = EmptyHashMap;
   HashMap scan_set = EmptyHashMap;
   Error *error = ScanModuleDeps(0, &scan_list, &build_set, &scan_set, project);
