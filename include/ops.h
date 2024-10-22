@@ -16,10 +16,8 @@ typedef enum {
   opBranch, /* (n) a -> ; pc <- pc + n */
   opPos,    /* (n) -> pc + n */
   opGoto,   /* a -> ; pc <- pc + a */
-  opGetEnv, /* -> env */
-  opSetEnv, /* a -> ; env <- a */
-  opGetMod, /* -> mods */
-  opSetMod, /* a -> ; mods <- a */
+  opPush,   /* n; -> regs[n] */
+  opPull,   /* n; a -> ; regs[n] <- a */
   opLink,   /* -> link; link <- #stack */
   opUnlink, /* a -> ; link <- a */
 
@@ -44,7 +42,6 @@ typedef enum {
   opOver,   /* a b -> a b a */
   opRot,    /* a b c -> b c a */
   opPick,   /* n; a ... z -> a ... z a */
-  opRoll,   /* n; a b ... z -> a ... z b */
 
   opPair = 0x40,   /* t h -> pair(h,t)   creates a pair (may GC) */
   opHead,   /* p -> head(p) */

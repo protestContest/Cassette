@@ -3,6 +3,7 @@
 #include "ops.h"
 #include "univ/str.h"
 #include "univ/vec.h"
+#include "vm.h"
 
 Chunk *NewChunk(u32 src)
 {
@@ -25,8 +26,6 @@ void FreeChunk(Chunk *chunk)
 
 void ChunkWrite(u8 byte, Chunk *chunk)
 {
-  if (byte == opGetEnv) chunk->needs_env = true;
-  if (byte == opSetEnv) chunk->modifies_env = true;
   while (chunk->next) chunk = chunk->next;
   VecPush(chunk->data, byte);
 }
@@ -82,10 +81,13 @@ Chunk *PreservingEnv(Chunk *first, Chunk *second)
   if (!first) return second;
   if (second->needs_env && first->modifies_env) {
     Chunk *save_env = NewChunk(first->src);
-    ChunkWrite(opGetEnv, save_env);
+    ChunkWrite(opPush, save_env);
+    ChunkWriteInt(regEnv, save_env);
     save_env->next = first;
     ChunkWrite(opSwap, save_env);
-    ChunkWrite(opSetEnv, save_env);
+    ChunkWrite(opPull, save_env);
+    ChunkWriteInt(regEnv, save_env);
+    save_env->needs_env = true;
     save_env->modifies_env = false;
     first = save_env;
   }

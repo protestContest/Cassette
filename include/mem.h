@@ -21,7 +21,6 @@ Some common operations are required for lists, tuples, and binaries:
 - Slice: returns a subset of an object
 */
 
-typedef u32 val;
 enum {objType, intType, tupleHdr, binHdr};
 
 #define typeBits        2
@@ -46,45 +45,51 @@ enum {objType, intType, tupleHdr, binHdr};
 #define MaxIntVal       (MaxInt >> typeBits)
 #define nil             0
 
+typedef struct {
+  u32 capacity;
+  u32 free;
+  u32 stack;
+  u32 *data;
+} Mem;
+
 void InitMem(u32 size);
 void DestroyMem(void);
 void SizeMem(u32 size);
-u32 MemSize(void);
 u32 MemCapacity(void);
 u32 MemFree(void);
-void CollectGarbage(val *roots);
+void CollectGarbage(u32 *roots, u32 num_roots);
 
-val Pair(val head, val tail);
-val Head(val pair);
-val Tail(val pair);
-u32 ListLength(val list);
-val ListGet(val list, u32 index);
-val ReverseList(val list, val tail);
-val ListJoin(val left, val right);
-val ListSlice(val list, u32 start, u32 end);
+void StackPush(u32 value);
+u32 StackPop(void);
+u32 StackPeek(u32 index);
+u32 StackSize(void);
 
-val Tuple(u32 length);
-u32 TupleLength(val tuple);
-val TupleGet(val tuple, u32 index);
-void TupleSet(val tuple, u32 index, val value);
-val TupleJoin(val left, val right);
-val TupleSlice(val tuple, u32 start, u32 end);
+u32 Pair(u32 head, u32 tail);
+u32 Head(u32 pair);
+u32 Tail(u32 pair);
 
-#define BinSpace(length)  (Align(length, sizeof(val)) / sizeof(val))
-val NewBinary(u32 length);
-val Binary(char *str);
-val BinaryFrom(char *data, u32 length);
-u32 BinaryLength(val bin);
-char *BinaryData(val bin);
-val BinaryGet(val bin, u32 index);
-void BinarySet(val bin, u32 index, val value);
-val BinaryJoin(val left, val right);
-val BinarySlice(val list, u32 start, u32 end);
-bool BinIsPrintable(val bin);
-char *BinToStr(val bin);
+u32 ObjLength(u32 obj);
 
-bool ValEq(val a, val b);
-val FormatVal(val value);
-val InspectVal(val value);
-char *MemValStr(val value);
+u32 Tuple(u32 length);
+u32 TupleGet(u32 tuple, u32 index);
+void TupleSet(u32 tuple, u32 index, u32 value);
+u32 TupleJoin(u32 left, u32 right);
+u32 TupleSlice(u32 tuple, u32 start, u32 end);
+
+#define BinSpace(length)  (Align(length, sizeof(u32)) / sizeof(u32))
+u32 NewBinary(u32 length);
+u32 Binary(char *str);
+u32 BinaryFrom(char *data, u32 length);
+char *BinaryData(u32 bin);
+u32 BinaryGet(u32 bin, u32 index);
+void BinarySet(u32 bin, u32 index, u32 value);
+u32 BinaryJoin(u32 left, u32 right);
+u32 BinarySlice(u32 list, u32 start, u32 end);
+bool BinIsPrintable(u32 bin);
+char *BinToStr(u32 bin);
+
+bool ValEq(u32 a, u32 b);
+u32 FormatVal(u32 value);
+u32 InspectVal(u32 value);
+char *MemValStr(u32 value);
 void DumpMem(void);

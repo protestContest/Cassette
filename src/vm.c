@@ -1,5 +1,6 @@
 #include "vm.h"
 #include "leb.h"
+#include "mem.h"
 #include "ops.h"
 #include "primitives.h"
 #include "univ/file.h"
@@ -9,10 +10,12 @@
 #include "univ/vec.h"
 #include <SDL2/SDL.h>
 
+extern Mem mem;
+
 typedef Result (*OpFn)(VM *vm);
 
 static void TraceInst(VM *vm);
-static u32 PrintStack(VM *vm);
+static u32 PrintStack(VM *vm, u32 max);
 static PrimFn *InitPrimitives(void);
 
 typedef struct {
@@ -22,6 +25,18 @@ typedef struct {
 
 static StackTrace *BuildStackTrace(VM *vm);
 
+static void PrintEnv(u32 env)
+{
+  while (env) {
+    u32 frame;
+    assert(IsPair(env));
+    frame = Head(env);
+    fprintf(stderr, "%s[%s] -> ", MemValStr(env), MemValStr(frame));
+    env = Tail(env);
+  }
+  fprintf(stderr, "nil\n");
+}
+
 static Result OpNoop(VM *vm);
 static Result OpHalt(VM *vm);
 static Result OpPanic(VM *vm);
@@ -30,8 +45,8 @@ static Result OpJump(VM *vm);
 static Result OpBranch(VM *vm);
 static Result OpPos(VM *vm);
 static Result OpGoto(VM *vm);
-static Result OpGetEnv(VM *vm);
-static Result OpSetEnv(VM *vm);
+static Result OpPush(VM *vm);
+static Result OpPull(VM *vm);
 static Result OpGetMod(VM *vm);
 static Result OpSetMod(VM *vm);
 static Result OpLink(VM *vm);
@@ -56,7 +71,6 @@ static Result OpSwap(VM *vm);
 static Result OpOver(VM *vm);
 static Result OpRot(VM *vm);
 static Result OpPick(VM *vm);
-static Result OpRoll(VM *vm);
 static Result OpPair(VM *vm);
 static Result OpHead(VM *vm);
 static Result OpTail(VM *vm);
@@ -78,10 +92,8 @@ static OpFn ops[] = {
   [opBranch]  = OpBranch,
   [opPos]     = OpPos,
   [opGoto]    = OpGoto,
-  [opGetEnv]  = OpGetEnv,
-  [opSetEnv]  = OpSetEnv,
-  [opGetMod]  = OpGetMod,
-  [opSetMod]  = OpSetMod,
+  [opPush]    = OpPush,
+  [opPull]    = OpPull,
   [opLink]    = OpLink,
   [opUnlink]  = OpUnlink,
   [opAdd]     = OpAdd,
@@ -104,7 +116,6 @@ static OpFn ops[] = {
   [opOver]    = OpOver,
   [opRot]     = OpRot,
   [opPick]    = OpPick,
-  [opRoll]    = OpRoll,
   [opPair]    = OpPair,
   [opHead]    = OpHead,
   [opTail]    = OpTail,
@@ -118,12 +129,6 @@ static OpFn ops[] = {
   [opTrap]    = OpTrap,
 };
 
-void UnwindVM(VM *vm)
-{
-  vm->pc = RawInt(vm->stack[vm->link-1]);
-  vm->link = RawInt(vm->stack[vm->link]);
-}
-
 Result RuntimeError(char *message, struct VM *vm)
 {
   char *file = GetSourceFile(vm->pc, &vm->program->srcmap);
@@ -136,12 +141,11 @@ Result RuntimeError(char *message, struct VM *vm)
 
 void InitVM(VM *vm, Program *program)
 {
+  u32 i;
   vm->status = Ok(0);
   vm->pc = 0;
-  vm->env = 0;
-  vm->mod = 0;
+  for (i = 0; i < ArrayCount(vm->regs); i++) vm->regs[i] = 0;
   vm->link = 0;
-  vm->stack = 0;
   vm->program = program;
   if (program) {
     char *names = program->strings;
@@ -161,7 +165,6 @@ void InitVM(VM *vm, Program *program)
 
 void DestroyVM(VM *vm)
 {
-  FreeVec(vm->stack);
   FreeVec(vm->refs);
   free(vm->primitives);
 
@@ -211,18 +214,6 @@ Result VMRun(Program *program)
   return vm.status;
 }
 
-#define StackRef(i, vm) (vm)->stack[VecCount((vm)->stack) - 1 - (i)]
-
-val VMStackPop(VM *vm)
-{
-  return VecPop(vm->stack);
-}
-
-void VMStackPush(val value, VM *vm)
-{
-  VecPush(vm->stack, value);
-}
-
 u32 VMPushRef(void *ref, VM *vm)
 {
   u32 index = VecCount(vm->refs);
@@ -238,41 +229,40 @@ void *VMGetRef(u32 ref, VM *vm)
 void MaybeGC(u32 size, VM *vm)
 {
   if (MemFree() < size) RunGC(vm);
-  if (MemFree() < size) SizeMem(size);
+  if (MemFree() < size) {
+    u32 needed = MemCapacity() + size - MemFree();
+    SizeMem(Max(2*MemCapacity(), needed));
+  }
 }
 
 void RunGC(VM *vm)
 {
   if (vm->program->trace) fprintf(stderr, "GARBAGE DAY!!!\n");
-  VMStackPush(vm->env, vm);
-  VMStackPush(vm->mod, vm);
-  CollectGarbage(vm->stack);
-  vm->mod = VMStackPop(vm);
-  vm->env = VMStackPop(vm);
-  if (MemSize() > MemCapacity()/2 + MemCapacity()/4) {
-    SizeMem(2*MemSize());
-  } else if (MemSize() < MemCapacity()/4) {
-    SizeMem(Max(256, MemSize()/2));
+  CollectGarbage(vm->regs, ArrayCount(vm->regs));
+  if (MemFree() < MemCapacity()/4) {
+    SizeMem(2*MemCapacity());
+  } else if (MemFree() > MemCapacity()/4 + MemCapacity()/2) {
+    SizeMem(Max(256, MemCapacity()/2));
   }
 }
 
 #define OneArg(a) \
   CheckStack(vm, 1);\
-  a = VMStackPop(vm)
+  a = StackPop()
 
 #define TwoArgs(a, b) \
   CheckStack(vm, 2);\
-  b = VMStackPop(vm);\
-  a = VMStackPop(vm)
+  b = StackPop();\
+  a = StackPop()
 
 #define ThreeArgs(a, b, c) \
   CheckStack(vm, 3);\
-  c = VMStackPop(vm);\
-  b = VMStackPop(vm);\
-  a = VMStackPop(vm)
+  c = StackPop();\
+  b = StackPop();\
+  a = StackPop()
 
-#define UnaryOp(op, a)    VMStackPush(IntVal(op RawVal(a)), vm)
-#define BinOp(a, op, b)   VMStackPush(IntVal(RawInt(a) op RawInt(b)), vm)
+#define UnaryOp(op, a)    StackPush(IntVal(op RawVal(a)))
+#define BinOp(a, op, b)   StackPush(IntVal(RawInt(a) op RawInt(b)))
 #define CheckBounds(n) \
   if ((n) < 0 || (n) > (i32)VecCount(vm->program->code)) \
     return RuntimeError("Out of bounds", vm)
@@ -293,10 +283,10 @@ static Result OpPanic(VM *vm)
 {
   Result result;
   char *msg = 0;
-  if (VecCount((vm)->stack) > 0) {
-    val msgVal = VMStackPop(vm);
+  if (StackSize() > 0) {
+    u32 msgVal = StackPop();
     if (IsBinary(msgVal)) {
-      msg = StringFrom(BinaryData(msgVal), BinaryLength(msgVal));
+      msg = StringFrom(BinaryData(msgVal), ObjLength(msgVal));
     }
   }
   if (!msg) msg = NewString("Panic!");
@@ -307,9 +297,10 @@ static Result OpPanic(VM *vm)
 
 static Result OpConst(VM *vm)
 {
-  val value = ReadLEB(++vm->pc, vm->program->code);
+  u32 value = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(value);
-  VMStackPush(value, vm);
+  MaybeGC(1, vm);
+  StackPush(value);
   return vm->status;
 }
 
@@ -317,15 +308,16 @@ static Result OpPos(VM *vm)
 {
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
-  VMStackPush(IntVal((i32)vm->pc + n), vm);
+  MaybeGC(1, vm);
+  StackPush(IntVal((i32)vm->pc + n));
   return vm->status;
 }
 
 static Result OpGoto(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
-  if (!IsInt(a)) return RuntimeError("Invalid type", vm);
+  if (!IsInt(a)) return RuntimeError("Invalid address", vm);
   CheckBounds(RawInt(a));
   vm->pc = RawVal(a);
   return vm->status;
@@ -342,7 +334,7 @@ static Result OpJump(VM *vm)
 
 static Result OpBranch(VM *vm)
 {
-  val a;
+  u32 a;
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
   OneArg(a);
@@ -353,50 +345,38 @@ static Result OpBranch(VM *vm)
   return vm->status;
 }
 
-static Result OpGetEnv(VM *vm)
+static Result OpPush(VM *vm)
 {
-  VMStackPush(vm->env, vm);
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  MaybeGC(1, vm);
+  StackPush(vm->regs[n]);
   vm->pc++;
   return vm->status;
 }
 
-static Result OpSetEnv(VM *vm)
+static Result OpPull(VM *vm)
 {
-  if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
-  vm->env = VMStackPop(vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpGetMod(VM *vm)
-{
-  VMStackPush(vm->mod, vm);
-  vm->pc++;
-  return vm->status;
-}
-
-static Result OpSetMod(VM *vm)
-{
-  val a;
-  OneArg(a);
-  vm->mod = a;
+  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  CheckStack(vm, 1);
+  vm->regs[n] = StackPop();
   vm->pc++;
   return vm->status;
 }
 
 static Result OpLink(VM *vm)
 {
-  VMStackPush(IntVal(vm->link), vm);
-  vm->link = VecCount(vm->stack);
+  MaybeGC(1, vm);
+  StackPush(IntVal(vm->link));
+  vm->link = StackSize();
   vm->pc++;
   return vm->status;
 }
 
 static Result OpUnlink(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
-  if (!IsInt(a)) return RuntimeError("Link type error", vm);
+  if (!IsInt(a)) return RuntimeError("Invalid stack link", vm);
   vm->link = RawInt(a);
   vm->pc++;
   return vm->status;
@@ -404,9 +384,11 @@ static Result OpUnlink(VM *vm)
 
 static Result OpAdd(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be added", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be added", vm);
+  }
   BinOp(a, +, b);
   vm->pc++;
   return vm->status;
@@ -414,9 +396,11 @@ static Result OpAdd(VM *vm)
 
 static Result OpSub(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be subtracted", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be subtracted", vm);
+  }
   BinOp(a, -, b);
   vm->pc++;
   return vm->status;
@@ -424,9 +408,11 @@ static Result OpSub(VM *vm)
 
 static Result OpMul(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be multiplied", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be multiplied", vm);
+  }
   BinOp(a, *, b);
   vm->pc++;
   return vm->status;
@@ -434,9 +420,11 @@ static Result OpMul(VM *vm)
 
 static Result OpDiv(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be divided", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be divided", vm);
+  }
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
   BinOp(a, /, b);
   vm->pc++;
@@ -445,9 +433,11 @@ static Result OpDiv(VM *vm)
 
 static Result OpRem(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be remaindered", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be remaindered", vm);
+  }
   if (RawVal(b) == 0) return RuntimeError("Divide by zero", vm);
   BinOp(a, %, b);
   vm->pc++;
@@ -456,9 +446,11 @@ static Result OpRem(VM *vm)
 
 static Result OpAnd(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be and-ed", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be and-ed", vm);
+  }
   BinOp(a, &, b);
   vm->pc++;
   return vm->status;
@@ -466,9 +458,11 @@ static Result OpAnd(VM *vm)
 
 static Result OpOr(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be or-ed", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be or-ed", vm);
+  }
   BinOp(a, |, b);
   vm->pc++;
   return vm->status;
@@ -476,9 +470,9 @@ static Result OpOr(VM *vm)
 
 static Result OpComp(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
-  if (!IsInt(a)) return RuntimeError("Only integers can be ", vm);
+  if (!IsInt(a)) return RuntimeError("Only integers can be complemented", vm);
   UnaryOp(~, a);
   vm->pc++;
   return vm->status;
@@ -486,9 +480,11 @@ static Result OpComp(VM *vm)
 
 static Result OpLt(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be compared", vm);
+  }
   BinOp(a, <, b);
   vm->pc++;
   return vm->status;
@@ -496,9 +492,11 @@ static Result OpLt(VM *vm)
 
 static Result OpGt(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be compared", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be compared", vm);
+  }
   BinOp(a, >, b);
   vm->pc++;
   return vm->status;
@@ -506,16 +504,16 @@ static Result OpGt(VM *vm)
 
 static Result OpEq(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  VMStackPush(IntVal(ValEq(a, b)), vm);
+  StackPush(IntVal(ValEq(a, b)));
   vm->pc++;
   return vm->status;
 }
 
 static Result OpNeg(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
   if (!IsInt(a)) return RuntimeError("Only integers can be negated", vm);
   UnaryOp(-, a);
@@ -525,18 +523,20 @@ static Result OpNeg(VM *vm)
 
 static Result OpNot(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
-  VMStackPush(IntVal(RawVal(a) == 0), vm);
+  StackPush(IntVal(RawVal(a) == 0));
   vm->pc++;
   return vm->status;
 }
 
 static Result OpShift(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  if (!IsInt(a) || !IsInt(b)) return RuntimeError("Only integers can be shifted", vm);
+  if (!IsInt(a) || !IsInt(b)) {
+    return RuntimeError("Only integers can be shifted", vm);
+  }
   BinOp(a, <<, b);
   vm->pc++;
   return vm->status;
@@ -544,50 +544,52 @@ static Result OpShift(VM *vm)
 
 static Result OpDup(VM *vm)
 {
-  val a;
+  u32 a;
+  MaybeGC(1, vm);
   OneArg(a);
-  VMStackPush(a, vm);
-  VMStackPush(a, vm);
+  StackPush(a);
+  StackPush(a);
   vm->pc++;
   return vm->status;
 }
 
 static Result OpDrop(VM *vm)
 {
-  if (VecCount(vm->stack) < 1) return RuntimeError("Stack underflow", vm);
-  VecPop(vm->stack);
+  CheckStack(vm, 1);
+  StackPop();
   vm->pc++;
   return vm->status;
 }
 
 static Result OpSwap(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
-  VMStackPush(b, vm);
-  VMStackPush(a, vm);
+  StackPush(b);
+  StackPush(a);
   vm->pc++;
   return vm->status;
 }
 
 static Result OpOver(VM *vm)
 {
-  val a, b;
+  u32 a, b;
+  MaybeGC(1, vm);
   TwoArgs(a, b);
-  VMStackPush(a, vm);
-  VMStackPush(b, vm);
-  VMStackPush(a, vm);
+  StackPush(a);
+  StackPush(b);
+  StackPush(a);
   vm->pc++;
   return vm->status;
 }
 
 static Result OpRot(VM *vm)
 {
-  val a, b, c;
+  u32 a, b, c;
   ThreeArgs(a, b, c);
-  VMStackPush(b, vm);
-  VMStackPush(c, vm);
-  VMStackPush(a, vm);
+  StackPush(b);
+  StackPush(c);
+  StackPush(a);
   vm->pc++;
   return vm->status;
 }
@@ -595,60 +597,43 @@ static Result OpRot(VM *vm)
 static Result OpPick(VM *vm)
 {
   u32 n = ReadLEB(++vm->pc, vm->program->code);
-  val v;
+  u32 v;
   vm->pc += LEBSize(n);
   CheckStack(vm, n);
   if (n < 0) return RuntimeError("Invalid stack index", vm);
 
-  v = vm->stack[VecCount(vm->stack) - 1 - n];
-  VMStackPush(v, vm);
-  return vm->status;
-}
-
-static Result OpRoll(VM *vm)
-{
-  u32 n = ReadLEB(++vm->pc, vm->program->code);
-  u32 i;
-  val v;
-  vm->pc += LEBSize(n);
-  CheckStack(vm, n);
-  if (n < 0) return RuntimeError("Invalid stack index", vm);
-
-  v = vm->stack[VecCount(vm->stack) - 1 - n];
-  for (i = n; i > 0; i--) {
-    vm->stack[VecCount(vm->stack) - 1 - i] = vm->stack[VecCount(vm->stack - i)];
-  }
-  vm->stack[VecCount(vm->stack) - 1] = v;
-
+  MaybeGC(1, vm);
+  v = StackPeek(n);
+  StackPush(v);
   return vm->status;
 }
 
 static Result OpPair(VM *vm)
 {
-  val a, b;
-  MaybeGC(2, vm);
+  u32 a, b;
+  MaybeGC(1, vm);
   TwoArgs(a, b);
-  VMStackPush(Pair(b, a), vm);
+  StackPush(Pair(b, a));
   vm->pc++;
   return vm->status;
 }
 
 static Result OpHead(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
   if (!IsPair(a)) return RuntimeError("Only pairs have heads", vm);
-  VMStackPush(Head(a), vm);
+  StackPush(Head(a));
   vm->pc++;
   return vm->status;
 }
 
 static Result OpTail(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
   if (!IsPair(a)) return RuntimeError("Only pairs have tails", vm);
-  VMStackPush(Tail(a), vm);
+  StackPush(Tail(a));
   vm->pc++;
   return vm->status;
 }
@@ -658,43 +643,36 @@ static Result OpTuple(VM *vm)
   u32 count = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(count);
   MaybeGC(count+1, vm);
-  VMStackPush(Tuple(count), vm);
+  StackPush(Tuple(count));
   return vm->status;
 }
 
 static Result OpLen(VM *vm)
 {
-  val a;
+  u32 a;
   OneArg(a);
-  if (IsPair(a)) {
-    VMStackPush(IntVal(ListLength(a)), vm);
-  } else if (IsTuple(a)) {
-    VMStackPush(IntVal(TupleLength(a)), vm);
-  } else if (IsBinary(a)) {
-    VMStackPush(IntVal(BinaryLength(a)), vm);
-  } else {
-    return RuntimeError("Invalid type", vm);
+  if (!IsTuple(a) || !IsBinary(a)) {
+    return RuntimeError("Only tuples and binaries have lengths", vm);
   }
+  StackPush(IntVal(ObjLength(a)));
   vm->pc++;
   return vm->status;
 }
 
 static Result OpGet(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   TwoArgs(a, b);
   if (!IsInt(b)) return RuntimeError("Only integers can be indexes", vm);
-  if (IsPair(a)) {
-    if (RawInt(b) < 0 || RawInt(b) >= (i32)ListLength(a)) return RuntimeError("Out of bounds", vm);
-    VMStackPush(ListGet(a, RawInt(b)), vm);
-  } else if (IsTuple(a)) {
-    if (RawInt(b) < 0 || RawInt(b) >= (i32)TupleLength(a)) return RuntimeError("Out of bounds", vm);
-    VMStackPush(TupleGet(a, RawInt(b)), vm);
+  if (RawInt(b) < 0 || RawInt(b) >= (i32)ObjLength(a)) {
+    return RuntimeError("Out of bounds", vm);
+  }
+  if (IsTuple(a)) {
+    StackPush(TupleGet(a, RawInt(b)));
   } else if (IsBinary(a)) {
-    if (RawInt(b) < 0 || RawInt(b) >= (i32)BinaryLength(a)) return RuntimeError("Out of bounds", vm);
-    VMStackPush(IntVal(BinaryGet(a, RawInt(b))), vm);
+    StackPush(IntVal(BinaryGet(a, RawInt(b))));
   } else {
-    return RuntimeError("Invalid type", vm);
+    return RuntimeError("Only tuples and binaries can be accessed", vm);
   }
   vm->pc++;
   return vm->status;
@@ -702,7 +680,7 @@ static Result OpGet(VM *vm)
 
 static Result OpSet(VM *vm)
 {
-  val a, b, c;
+  u32 a, b, c;
   ThreeArgs(a, b, c);
   if (!IsInt(b)) return RuntimeError("Only integers can be indexes", vm);
   if (RawInt(b) < 0) return RuntimeError("Out of bounds", vm);
@@ -711,9 +689,9 @@ static Result OpSet(VM *vm)
   } else if (IsBinary(a)) {
     BinarySet(a, RawVal(b), c);
   } else {
-    return RuntimeError("Invalid type", vm);
+    return RuntimeError("Only tuples and binaries can be accessed", vm);
   }
-  VMStackPush(a, vm);
+  StackPush(a);
   vm->pc++;
   return vm->status;
 }
@@ -722,7 +700,7 @@ static Result OpStr(VM *vm)
 {
   char *name;
   u32 len;
-  val a;
+  u32 a;
   u32 x;
   OneArg(a);
   if (!IsInt(a)) return RuntimeError("Only symbols can become strings", vm);
@@ -731,56 +709,40 @@ static Result OpStr(VM *vm)
   len = strlen(name);
   x = BinSpace(len) + 1;
   MaybeGC(x, vm);
-  VMStackPush(BinaryFrom(name, len), vm);
+  StackPush(BinaryFrom(name, len));
   vm->pc++;
   return vm->status;
 }
 
 static Result OpJoin(VM *vm)
 {
-  val a, b;
+  u32 a, b;
   CheckStack(vm, 2);
-  b = StackRef(0, vm);
-  a = StackRef(1, vm);
-  if (ValType(a) != ValType(b)) return RuntimeError("Only values of the same type can be joined", vm);
-  if (IsPair(a)) {
-    if (!a) {
-      VMStackPop(vm);
-      VMStackPop(vm);
-      VMStackPush(b, vm);
-    } else if (!b) {
-      VMStackPop(vm);
-    } else {
-      MaybeGC(2*(ListLength(a) + ListLength(b)), vm);
-      TwoArgs(a, b);
-      VMStackPush(ListJoin(a, b), vm);
-    }
-  } else if (IsTuple(a)) {
-    if (TupleLength(a) == 0) {
-      VMStackPop(vm);
-      VMStackPop(vm);
-      VMStackPush(b, vm);
-    } else if (TupleLength(b) == 0) {
-      VMStackPop(vm);
-    } else {
-      MaybeGC(1 + TupleLength(a) + TupleLength(b), vm);
-      TwoArgs(a, b);
-      VMStackPush(TupleJoin(a, b), vm);
-    }
-  } else if (IsBinary(a)) {
-    if (BinaryLength(a) == 0) {
-      VMStackPop(vm);
-      VMStackPop(vm);
-      VMStackPush(b, vm);
-    } else if (BinaryLength(b) == 0) {
-      VMStackPop(vm);
-    } else {
-      MaybeGC(1 + BinSpace(BinaryLength(a) + BinaryLength(b)), vm);
-      TwoArgs(a, b);
-      VMStackPush(BinaryJoin(a, b), vm);
-    }
+  b = StackPeek(0);
+  a = StackPeek(1);
+  if (ValType(a) != ValType(b)) {
+    return RuntimeError("Only values of the same type can be joined", vm);
+  }
+  if (!IsTuple(a) && !IsBinary(a)) {
+    return RuntimeError("Only tuples and binaries can be joined", vm);
+  }
+
+  if (ObjLength(a) == 0) {
+    StackPop();
+    StackPop();
+    StackPush(b);
+  } else if (ObjLength(b) == 0) {
+    StackPop();
   } else {
-    return RuntimeError("Only lists, tuples, and binaries can be joined", vm);
+    if (IsTuple(a)) {
+      MaybeGC(1 + ObjLength(a) + ObjLength(b), vm);
+      TwoArgs(a, b);
+      StackPush(TupleJoin(a, b));
+    } else if (IsBinary(a)) {
+      MaybeGC(1 + BinSpace(ObjLength(a) + ObjLength(b)), vm);
+      TwoArgs(a, b);
+      StackPush(BinaryJoin(a, b));
+    }
   }
   vm->pc++;
   return vm->status;
@@ -788,45 +750,28 @@ static Result OpJoin(VM *vm)
 
 static Result OpSlice(VM *vm)
 {
-  val a, b, c;
+  u32 a, b, c, len;
   TwoArgs(b, c);
   CheckStack(vm, 1);
-  a = StackRef(0, vm);
-  if (!IsInt(b)) return RuntimeError("Only integers can be slice indexes", vm);
-  if (RawInt(b) < 0) return RuntimeError("Out of bounds", vm);
-  if (c && !IsInt(c)) return RuntimeError("Only integers can be slice indexes", vm);
+  a = StackPeek(0);
+  if (!IsInt(b) || !IsInt(c)) {
+    return RuntimeError("Only integers can be slice indexes", vm);
+  }
+  if (RawInt(b) < 0 || RawInt(c) < RawInt(b) || RawInt(c) > (i32)ObjLength(a)) {
+    return RuntimeError("Out of bounds", vm);
+  }
+  len = RawVal(c) - RawVal(b);
 
-  if (IsPair(a)) {
-    val list;
-    u32 end = ListLength(a);
-    if (c) {
-      u32 len;
-      if (RawInt(c) < 0 || RawInt(c) > (i32)end) return RuntimeError("Out of bounds", vm);
-      len = RawInt(c) - RawInt(b);
-      if (RawInt(c) < (i32)end) MaybeGC(4*len, vm);
-      end = RawInt(c);
-    }
-    a = VMStackPop(vm);
-    list = ListSlice(a, RawVal(b), end);
-    VMStackPush(list, vm);
-  } else if (IsTuple(a)) {
-    u32 len;
-    if (!c) c = IntVal(TupleLength(a));
-    if (RawInt(c) < 0 || RawInt(c) > (i32)TupleLength(a)) return RuntimeError("Out of bounds", vm);
-    len = RawVal(c) - RawVal(b);
+  if (IsTuple(a)) {
     MaybeGC(len+1, vm);
-    a = VMStackPop(vm);
-    VMStackPush(TupleSlice(a, RawVal(b), RawVal(c)), vm);
+    a = StackPop();
+    StackPush(TupleSlice(a, RawVal(b), RawVal(c)));
   } else if (IsBinary(a)) {
-    u32 len;
-    if (!c) c = IntVal(BinaryLength(a));
-    if (RawInt(c) < 0 || RawInt(c) > (i32)BinaryLength(a)) return RuntimeError("Out of bounds", vm);
-    len = RawVal(c) - RawVal(b);
     MaybeGC(BinSpace(len)+1, vm);
-    a = VMStackPop(vm);
-    VMStackPush(BinarySlice(a, RawVal(b), RawVal(c)), vm);
+    a = StackPop();
+    StackPush(BinarySlice(a, RawVal(b), RawVal(c)));
   } else {
-    return RuntimeError("Only lists, tuples, and binaries can be sliced", vm);
+    return RuntimeError("Only tuples and binaries can be sliced", vm);
   }
   vm->pc++;
   return vm->status;
@@ -836,7 +781,7 @@ static Result OpTrap(VM *vm)
 {
   u32 id = ReadLEB(vm->pc+1, vm->program->code);
   vm->status = vm->primitives[id](vm);
-  if (!IsError(vm->status)) VMStackPush(vm->status.data.v, vm);
+  if (!IsError(vm->status)) StackPush(vm->status.data.v);
   vm->pc += LEBSize(id) + 1;
   return vm->status;
 }
@@ -844,7 +789,7 @@ static Result OpTrap(VM *vm)
 void VMTrace(VM *vm, char *src)
 {
   TraceInst(vm);
-  PrintStack(vm);
+  PrintStack(vm, 20);
   fprintf(stderr, "\n");
 }
 
@@ -860,17 +805,19 @@ static void TraceInst(VM *vm)
   for (i = 0; i < 20 - len; i++) fprintf(stderr, " ");
 }
 
-static u32 PrintStack(VM *vm)
+static u32 PrintStack(VM *vm, u32 max)
 {
-  u32 i, printed = 0, max = 20;
+  u32 i, printed = 0;
   char *str;
   for (i = 0; i < max; i++) {
-    if (i >= VecCount(vm->stack)) break;
-    str = MemValStr(vm->stack[VecCount(vm->stack) - i - 1]);
+    if (i >= StackSize()) break;
+    str = MemValStr(StackPeek(i));
     printed += fprintf(stderr, "%s ", str);
     free(str);
   }
-  if (VecCount(vm->stack) > max) printed += fprintf(stderr, "... [%d]", VecCount(vm->stack) - max);
+  if (StackSize() > max) {
+    printed += fprintf(stderr, "... [%d]", StackSize() - max);
+  }
   for (i = 0; (i32)i < 30 - (i32)printed; i++) fprintf(stderr, " ");
   return printed;
 }
@@ -901,7 +848,7 @@ static StackTrace *BuildStackTrace(VM *vm)
   VecPush(trace, item);
 
   while (link > 0) {
-    u32 code_pos = RawInt(vm->stack[link]);
+    u32 code_pos = RawInt(StackPeek(StackSize() - link - 1));
     item.filename = GetSourceFile(code_pos, &vm->program->srcmap);
     if (item.filename) {
       item.pos = GetSourcePos(code_pos, &vm->program->srcmap);
@@ -909,7 +856,7 @@ static StackTrace *BuildStackTrace(VM *vm)
       item.pos = code_pos;
     }
     VecPush(trace, item);
-    link = RawInt(vm->stack[link - 1]);
+    link = RawInt(StackPeek(StackSize() - link));
   }
   return trace;
 }
@@ -934,7 +881,8 @@ void PrintStackTrace(Result result)
       if (text) {
         u32 line_num = LineNum(text, trace[i].pos);
         u32 col = ColNum(text, trace[i].pos);
-        u32 len = snprintf(0, 0, "  %s:%d:%d: ", trace[i].filename, line_num+1, col+1);
+        u32 len = snprintf(0, 0, "  %s:%d:%d: ",
+            trace[i].filename, line_num+1, col+1);
         free(text);
         colwidth = Max(colwidth, len);
       }
@@ -949,7 +897,8 @@ void PrintStackTrace(Result result)
         u32 line = LineNum(text, trace[i].pos);
         u32 col = ColNum(text, trace[i].pos);
         u32 j, printed;
-        printed = fprintf(stderr, "  %s:%d:%d: ", trace[i].filename, line+1, col+1);
+        printed = fprintf(stderr, "  %s:%d:%d: ",
+            trace[i].filename, line+1, col+1);
         for (j = 0; j < colwidth - printed; j++) fprintf(stderr, " ");
         PrintSourceLine(text, trace[i].pos);
         free(text);

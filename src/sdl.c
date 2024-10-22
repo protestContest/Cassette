@@ -6,12 +6,12 @@
 
 Result SDLNewWindow(VM *vm)
 {
-  val height = VMStackPop(vm);
-  val width = VMStackPop(vm);
+  u32 height = StackPop();
+  u32 width = StackPop();
   SDL_Window *window;
   SDL_Renderer *renderer;
   u32 ref, winref;
-  val result;
+  u32 result;
 
   if (!IsInt(width) || !IsInt(height)) return RuntimeError("Width and height must be integers", vm);
 
@@ -27,9 +27,9 @@ Result SDLNewWindow(VM *vm)
 
 Result SDLDestroyWindow(VM *vm)
 {
-  val refs = VMStackPop(vm);
-  val ref = TupleGet(refs, 0);
-  val winref = TupleGet(refs, 1);
+  u32 refs = StackPop();
+  u32 ref = TupleGet(refs, 0);
+  u32 winref = TupleGet(refs, 1);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_Window *window = VMGetRef(RawVal(winref), vm);
   SDL_DestroyRenderer(renderer);
@@ -39,8 +39,8 @@ Result SDLDestroyWindow(VM *vm)
 
 Result SDLPresent(VM *vm)
 {
-  val refs = VMStackPop(vm);
-  val ref = TupleGet(refs, 0);
+  u32 refs = StackPop();
+  u32 ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_RenderPresent(renderer);
   return OkVal(0);
@@ -48,8 +48,8 @@ Result SDLPresent(VM *vm)
 
 Result SDLClear(VM *vm)
 {
-  val refs = VMStackPop(vm);
-  val ref = TupleGet(refs, 0);
+  u32 refs = StackPop();
+  u32 ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_RenderClear(renderer);
   return OkVal(0);
@@ -57,12 +57,12 @@ Result SDLClear(VM *vm)
 
 Result SDLLine(VM *vm)
 {
-  val refs = VMStackPop(vm);
-  val ref = TupleGet(refs, 0);
-  val y2 = VMStackPop(vm);
-  val x2 = VMStackPop(vm);
-  val y1 = VMStackPop(vm);
-  val x1 = VMStackPop(vm);
+  u32 refs = StackPop();
+  u32 ref = TupleGet(refs, 0);
+  u32 y2 = StackPop();
+  u32 x2 = StackPop();
+  u32 y1 = StackPop();
+  u32 x1 = StackPop();
   SDL_Renderer *renderer;
 
   if (!IsInt(x1) || !IsInt(y1) || !IsInt(x2) || !IsInt(y2)) {
@@ -76,11 +76,11 @@ Result SDLLine(VM *vm)
 
 Result SDLSetColor(VM *vm)
 {
-  val refs = VMStackPop(vm);
-  val ref = TupleGet(refs, 0);
-  val b = VMStackPop(vm);
-  val g = VMStackPop(vm);
-  val r = VMStackPop(vm);
+  u32 refs = StackPop();
+  u32 ref = TupleGet(refs, 0);
+  u32 b = StackPop();
+  u32 g = StackPop();
+  u32 r = StackPop();
   SDL_Renderer *renderer;
 
   if (!IsInt(r) || !IsInt(g) || !IsInt(b)) {
@@ -94,11 +94,11 @@ Result SDLSetColor(VM *vm)
 
 Result SDLGetColor(VM *vm)
 {
-  val refs = VMStackPop(vm);
-  val ref = TupleGet(refs, 0);
+  u32 refs = StackPop();
+  u32 ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   u8 r, g, b, a;
-  val color;
+  u32 color;
   MaybeGC(4, vm);
   color = Tuple(3);
   SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
@@ -108,7 +108,7 @@ Result SDLGetColor(VM *vm)
   return OkVal(color);
 }
 
-static val EventType(SDL_Event *event)
+static u32 EventType(SDL_Event *event)
 {
   switch (event->type) {
   case SDL_QUIT:            return IntVal(Symbol("quit"));
@@ -120,7 +120,7 @@ static val EventType(SDL_Event *event)
   }
 }
 
-static val KeyVal(SDL_Keycode keycode)
+static u32 KeyVal(SDL_Keycode keycode)
 {
   switch (keycode) {
   case SDLK_RETURN:       return IntVal(Symbol("return"));
@@ -224,7 +224,7 @@ static val KeyVal(SDL_Keycode keycode)
 Result SDLPollEvent(VM *vm)
 {
   SDL_Event event;
-  val event_val, where;
+  u32 event_val, where;
   i32 x, y;
 
   MaybeGC(9, vm);
@@ -262,12 +262,12 @@ Result SDLGetTicks(VM *vm)
 
 Result SDLBlit(VM *vm)
 {
-  val refs = VMStackPop(vm);
-  val img = VMStackPop(vm);
-  val width = VMStackPop(vm);
-  val y = VMStackPop(vm);
-  val x = VMStackPop(vm);
-  val ref = TupleGet(refs, 0);
+  u32 refs = StackPop();
+  u32 img = StackPop();
+  u32 width = StackPop();
+  u32 y = StackPop();
+  u32 x = StackPop();
+  u32 ref = TupleGet(refs, 0);
   SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
   SDL_Texture *tex;
   void *pixels;
@@ -281,7 +281,7 @@ Result SDLBlit(VM *vm)
   if (!IsBinary(img)) return RuntimeError("Expected binary", vm);
 
   w = RawInt(width);
-  h = (BinaryLength(img)*8) % w;
+  h = (ObjLength(img)*8) % w;
 
   dst.x = RawInt(x);
   dst.y = RawInt(y);
@@ -290,7 +290,7 @@ Result SDLBlit(VM *vm)
 
   tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_INDEX1LSB, SDL_TEXTUREACCESS_STREAMING, w, h);
   SDL_LockTexture(tex, 0, &pixels, &pitch);
-  Copy(BinaryData(img), pixels, BinaryLength(img));
+  Copy(BinaryData(img), pixels, ObjLength(img));
   SDL_UnlockTexture(tex);
   SDL_RenderCopy(renderer, tex, 0, &dst);
   SDL_DestroyTexture(tex);

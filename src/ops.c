@@ -15,10 +15,8 @@ char *OpName(OpCode op)
   case opBranch:  return "branch";
   case opPos:     return "pos";
   case opGoto:    return "goto";
-  case opGetEnv:  return "getEnv";
-  case opSetEnv:  return "setEnv";
-  case opSetMod:  return "setMod";
-  case opGetMod:  return "getMod";
+  case opPush:    return "push";
+  case opPull:    return "pull";
   case opLink:    return "link";
   case opUnlink:  return "unlink";
   case opAdd:     return "add";
@@ -41,7 +39,6 @@ char *OpName(OpCode op)
   case opOver:    return "over";
   case opRot:     return "rot";
   case opPick:    return "pick";
-  case opRoll:    return "roll";
   case opPair:    return "pair";
   case opHead:    return "head";
   case opTail:    return "tail";
@@ -80,8 +77,9 @@ u32 DisassembleInst(u8 *code, u32 *index)
   case opBranch:
   case opJump:
   case opPos:
+  case opPush:
+  case opPull:
   case opPick:
-  case opRoll:
   case opTrap:
     arg = ReadLEB(*index, code);
     len += fprintf(stderr, " %d", arg);

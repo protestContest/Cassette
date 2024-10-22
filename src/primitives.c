@@ -1,4 +1,5 @@
 #include "primitives.h"
+#include "mem.h"
 #include "sdl.h"
 #include "univ/math.h"
 #include "univ/symbol.h"
@@ -9,11 +10,11 @@
 #include <termios.h>
 #include <unistd.h>
 
-static val IOError(char *msg, VM *vm);
+static u32 IOError(char *msg, VM *vm);
 
 static Result VMPanic(VM *vm)
 {
-  val a = VMStackPop(vm);
+  u32 a = StackPop();
   char *str = BinToStr(InspectVal(a));
   Result result = RuntimeError(str, vm);
   free(str);
@@ -22,7 +23,7 @@ static Result VMPanic(VM *vm)
 
 static Result VMTypeOf(VM *vm)
 {
-  val a = VMStackPop(vm);
+  u32 a = StackPop();
   if (IsPair(a)) return OkVal(IntVal(Symbol("pair")));
   if (IsTuple(a)) return OkVal(IntVal(Symbol("tuple")));
   if (IsBinary(a)) return OkVal(IntVal(Symbol("binary")));
@@ -36,9 +37,9 @@ static Result VMTypeOf(VM *vm)
 
 static Result VMByte(VM *vm)
 {
-  val a = VMStackPop(vm);
+  u32 a = StackPop();
   u32 num;
-  val bin;
+  u32 bin;
   if (!IsInt(a)) return RuntimeError("Bad byte value", vm);
   num = RawInt(a);
   if (num < 0 || num > 255) return RuntimeError("Bad byte value", vm);
@@ -50,9 +51,9 @@ static Result VMByte(VM *vm)
 
 static Result VMSymbolName(VM *vm)
 {
-  val a = VMStackPop(vm);
+  u32 a = StackPop();
   char *name = SymbolName(RawVal(a));
-  val bin;
+  u32 bin;
   if (!name) return OkVal(0);
   MaybeGC(BinSpace(strlen(name)) + 1, vm);
   bin = BinaryFrom(name, strlen(name));
@@ -61,8 +62,8 @@ static Result VMSymbolName(VM *vm)
 
 static Result VMOpen(VM *vm)
 {
-  val flags = VMStackPop(vm);
-  val path = VMStackPop(vm);
+  u32 flags = StackPop();
+  u32 path = StackPop();
   char *str;
   i32 file;
 
@@ -78,9 +79,9 @@ static Result VMOpen(VM *vm)
 
 static Result VMOpenSerial(VM *vm)
 {
-  val opts = VMStackPop(vm);
-  val speed = VMStackPop(vm);
-  val port = VMStackPop(vm);
+  u32 opts = StackPop();
+  u32 speed = StackPop();
+  u32 port = StackPop();
   i32 file;
   char *str;
   struct termios options;
@@ -107,7 +108,7 @@ static Result VMOpenSerial(VM *vm)
 
 static Result VMClose(VM *vm)
 {
-  val file = VMStackPop(vm);
+  u32 file = StackPop();
   u32 err;
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
 
@@ -118,9 +119,9 @@ static Result VMClose(VM *vm)
 
 static Result VMRead(VM *vm)
 {
-  val size = VMStackPop(vm);
-  val file = VMStackPop(vm);
-  val result;
+  u32 size = StackPop();
+  u32 file = StackPop();
+  u32 result;
   char *data;
   i32 bytes_read;
 
@@ -138,21 +139,21 @@ static Result VMRead(VM *vm)
 
 static Result VMWrite(VM *vm)
 {
-  val buf = VMStackPop(vm);
-  val file = VMStackPop(vm);
+  u32 buf = StackPop();
+  u32 file = StackPop();
   i32 written;
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
   if (!IsBinary(buf)) return RuntimeError("Data must be binary", vm);
-  written = write(RawInt(file), BinaryData(buf), BinaryLength(buf));
+  written = write(RawInt(file), BinaryData(buf), ObjLength(buf));
   if (written < 0) return OkVal(IOError(strerror(errno), vm));
   return OkVal(IntVal(written));
 }
 
 static Result VMSeek(VM *vm)
 {
-  val whence = VMStackPop(vm);
-  val offset = VMStackPop(vm);
-  val file = VMStackPop(vm);
+  u32 whence = StackPop();
+  u32 offset = StackPop();
+  u32 file = StackPop();
   i32 pos;
 
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
@@ -166,7 +167,7 @@ static Result VMSeek(VM *vm)
 
 static Result VMListen(VM *vm)
 {
-  val portVal = VMStackPop(vm);
+  u32 portVal = StackPop();
   i32 status, s;
   char *port;
   struct addrinfo hints = {0};
@@ -201,7 +202,7 @@ static Result VMListen(VM *vm)
 
 static Result VMAccept(VM *vm)
 {
-  val socketVal = VMStackPop(vm);
+  u32 socketVal = StackPop();
   i32 s;
   if (!IsInt(socketVal)) return RuntimeError("Socket must be an integer", vm);
   s = accept(RawInt(socketVal), 0, 0);
@@ -211,8 +212,8 @@ static Result VMAccept(VM *vm)
 
 static Result VMConnect(VM *vm)
 {
-  val portVal = VMStackPop(vm);
-  val nodeVal = VMStackPop(vm);
+  u32 portVal = StackPop();
+  u32 nodeVal = StackPop();
   i32 status, s;
   char *node, *port;
   struct addrinfo hints = {0};
@@ -244,9 +245,9 @@ static Result VMConnect(VM *vm)
   return OkVal(IntVal(s));
 }
 
-static val IOError(char *msg, VM *vm)
+static u32 IOError(char *msg, VM *vm)
 {
-  val result;
+  u32 result;
   u32 len = strlen(msg);
   MaybeGC(BinSpace(len) + 4, vm);
   result = Tuple(2);
@@ -263,15 +264,15 @@ static Result VMRandom(VM *vm)
 
 static Result VMRandomBetween(VM *vm)
 {
-  val max = VMStackPop(vm);
-  val min = VMStackPop(vm);
+  u32 max = StackPop();
+  u32 min = StackPop();
   if (!IsInt(min) || !IsInt(max)) return RuntimeError("Range must be integers", vm);
   return OkVal(IntVal(RandomBetween(RawInt(min), RawInt(max))));
 }
 
 static Result VMSeed(VM *vm)
 {
-  val seed = VMStackPop(vm);
+  u32 seed = StackPop();
   if (!IsInt(seed)) return RuntimeError("Seed must be an integer", vm);
   SeedRandom(RawInt(seed));
   return OkVal(0);

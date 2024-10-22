@@ -7,6 +7,7 @@
 #include "univ/str.h"
 #include "univ/symbol.h"
 #include "univ/vec.h"
+#include "vm.h"
 
 static Error *FileNotFound(char *filename)
 {
@@ -152,7 +153,8 @@ static void LinkModules(Project *project)
   if (VecCount(project->build_list) > 1) {
     ChunkWrite(opTuple, chunk);
     ChunkWriteInt(VecCount(project->build_list) - 1, chunk);
-    ChunkWrite(opSetMod, chunk);
+    ChunkWrite(opPull, chunk);
+    ChunkWriteInt(regMod, chunk);
     AddChunkSource(chunk, 0, &program->srcmap);
   }
 

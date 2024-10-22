@@ -105,6 +105,32 @@ static void WriteReturn(Chunk *chunk)
   ChunkWrite(opGoto, chunk);
 }
 
+static void WriteGetEnv(Chunk *chunk)
+{
+  ChunkWrite(opPush, chunk);
+  ChunkWriteInt(regEnv, chunk);
+  chunk->needs_env = true;
+}
+
+static void WriteSetEnv(Chunk *chunk)
+{
+  ChunkWrite(opPull, chunk);
+  ChunkWriteInt(regEnv, chunk);
+  chunk->modifies_env = true;
+}
+
+static void WriteGetMod(Chunk *chunk)
+{
+  ChunkWrite(opPush, chunk);
+  ChunkWriteInt(regMod, chunk);
+}
+
+static void WriteSetMod(Chunk *chunk)
+{
+  ChunkWrite(opPull, chunk);
+  ChunkWriteInt(regMod, chunk);
+}
+
 /* Looks up a variable given the frame and index number */
 static void WriteLookup(u32 frame, u32 index, Chunk *chunk)
 {
@@ -117,7 +143,7 @@ static void WriteLookup(u32 frame, u32 index, Chunk *chunk)
   get
   */
   u32 i;
-  ChunkWrite(opGetEnv, chunk);
+  WriteGetEnv(chunk);
   for (i = 0; i < frame; i++) {
     ChunkWrite(opTail, chunk);
   }
@@ -135,11 +161,11 @@ static void WriteExtendEnv(u32 num_assigns, Chunk *chunk)
   pair
   setEnv
   */
-  ChunkWrite(opGetEnv, chunk);
+  WriteGetEnv(chunk);
   ChunkWrite(opTuple, chunk);
   ChunkWriteInt(num_assigns, chunk);
   ChunkWrite(opPair, chunk);
-  ChunkWrite(opSetEnv, chunk);
+  WriteSetEnv(chunk);
 }
 
 /* Extends an environment for a chunk */
@@ -161,7 +187,7 @@ static void WriteDefine(u32 index, Chunk *chunk)
   set
   drop
   */
-  ChunkWrite(opGetEnv, chunk);
+  WriteGetEnv(chunk);
   ChunkWrite(opHead, chunk);
   WriteConst(index, chunk);
   ChunkWrite(opRot, chunk);
@@ -179,7 +205,7 @@ static void WriteSetModule(Chunk *chunk, u32 mod_id)
   set
   drop
   */
-  ChunkWrite(opGetMod, chunk);
+  WriteGetMod(chunk);
   WriteConst(mod_id - 1, chunk);
   ChunkWrite(opRot, chunk);
   ChunkWrite(opSet, chunk);
@@ -199,7 +225,7 @@ body:
 after:
   */
   Chunk *chunk = NewChunk(body->src);
-  ChunkWrite(opGetEnv, chunk);
+  WriteGetEnv(chunk);
   ChunkWrite(opPair, chunk);
   if (returns) {
     WriteReturn(chunk);
@@ -236,7 +262,7 @@ static Chunk *WriteMakeCall(Chunk *chunk, bool returns)
 
   ChunkWrite(opDup, chunk);
   ChunkWrite(opHead, chunk);
-  ChunkWrite(opSetEnv, chunk);
+  WriteSetEnv(chunk);
   ChunkWrite(opTail, chunk);
   ChunkWrite(opGoto, chunk);
   if (!returns) {
@@ -628,10 +654,10 @@ ok:
       ChunkWrite(opRot, chunk);
       ChunkWrite(opSet, chunk);
     }
-    ChunkWrite(opGetEnv, chunk);
+    WriteGetEnv(chunk);
     ChunkWrite(opSwap, chunk);
     ChunkWrite(opPair, chunk);
-    ChunkWrite(opSetEnv, chunk);
+    WriteSetEnv(chunk);
   }
 
   result = CompileExpr(body, true, c);
@@ -789,7 +815,7 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
   }
 
   chunk = NewChunk(node->start);
-  ChunkWrite(opGetMod, chunk);
+  WriteGetMod(chunk);
   WriteConst(mod->id - 1, chunk);
   ChunkWrite(opGet, chunk);
   WriteConst(sym_index, chunk);
