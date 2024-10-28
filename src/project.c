@@ -56,6 +56,7 @@ void FreeProject(Project *project)
   }
   FreeVec(project->modules);
   DestroyHashMap(&project->mod_map);
+  FreeVec(project->build_list);
   free(project);
 }
 
@@ -147,30 +148,42 @@ static Error *ScanDeps(Project *project)
 static void LinkModules(Project *project)
 {
   u32 i;
-  Chunk *chunk = NewChunk(0);
-  u32 size;
+  Chunk *intro_chunk = 0;
+  u32 size = 0;
   Program *program = NewProgram();
   HashMap strings = EmptyHashMap;
+  u8 *cur;
 
   if (VecCount(project->build_list) > 1) {
-    ChunkWrite(opTuple, chunk);
-    ChunkWriteInt(VecCount(project->build_list) - 1, chunk);
-    ChunkWrite(opPull, chunk);
-    ChunkWriteInt(regMod, chunk);
-    AddChunkSource(chunk, 0, &program->srcmap);
+    intro_chunk = NewChunk(0);
+    ChunkWrite(opTuple, intro_chunk);
+    ChunkWriteInt(VecCount(project->build_list) - 1, intro_chunk);
+    ChunkWrite(opPull, intro_chunk);
+    ChunkWriteInt(regMod, intro_chunk);
+    size += ChunkSize(intro_chunk);
+  }
+
+  for (i = 0; i < VecCount(project->build_list); i++) {
+    Module *mod = &project->modules[project->build_list[i]];
+    size += ChunkSize(mod->code);
+  }
+
+  program->code = NewVec(u8, size);
+  cur = program->code;
+  if (intro_chunk) {
+    AddChunkSource(intro_chunk, 0, &program->srcmap);
+    cur = SerializeChunk(intro_chunk, cur);
+    FreeChunk(intro_chunk);
   }
 
   for (i = 0; i < VecCount(project->build_list); i++) {
     Module *mod = &project->modules[project->build_list[i]];
     AddChunkSource(mod->code, mod->filename, &program->srcmap);
     AddStrings(mod->ast, program, &strings);
-    chunk = AppendChunk(chunk, mod->code);
+    cur = SerializeChunk(mod->code, cur);
   }
-  ChunkWrite(opHalt, chunk);
+
   DestroyHashMap(&strings);
-  size = ChunkSize(chunk);
-  program->code = NewVec(u8, size);
-  SerializeChunk(chunk, program->code);
   RawVecCount(program->code) = size;
   project->program = program;
 }

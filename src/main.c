@@ -81,5 +81,8 @@ int main(int argc, char *argv[])
     FreeError(error);
   }
 
+  FreeProgram(project->program);
+  FreeProject(project);
+
   return 0;
 }

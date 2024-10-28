@@ -497,7 +497,11 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
       set_chunk = NewChunk(def->start);
       WriteDefine(index, set_chunk);
       def_chunk = CompileExpr(NodeChild(def, 1), false, c);
-      if (!def_chunk) return CompileFail(chunk);
+      if (!def_chunk) {
+        FreeVec(defs);
+        FreeVec(stmts);
+        return CompileFail(chunk);
+      }
       def_chunk = PreservingEnv(def_chunk, set_chunk);
       chunk = PreservingEnv(def_chunk, chunk);
     }
@@ -519,7 +523,11 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
       Chunk *stmt_chunk;
       bool is_last = index == VecCount(stmts) - 1;
       stmt_chunk = CompileExpr(stmt, is_last && returns, c);
-      if (!stmt_chunk) return CompileFail(chunk);
+      if (!stmt_chunk) {
+        FreeVec(defs);
+        FreeVec(stmts);
+        return CompileFail(chunk);
+      }
       if (!is_last) stmts_chunk = PrependChunk(opDrop, stmts_chunk);
       stmts_chunk = PreservingEnv(stmt_chunk, stmts_chunk);
     }
@@ -530,6 +538,8 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
     c->env = PopEnv(c->env);
   }
 
+  FreeVec(defs);
+  FreeVec(stmts);
   return chunk;
 }
 

@@ -42,7 +42,8 @@ enum {objType, intType, tupleHdr, binHdr};
 #define IsPair(v)       (IsObj(v) && !IsTupleHdr(Head(v)) && !IsBinHdr(Head(v)))
 #define IsTuple(v)      (IsObj(v)  && IsTupleHdr(Head(v)))
 #define IsBinary(v)     (IsObj(v) && IsBinHdr(Head(v)))
-#define MaxIntVal       (MaxInt >> typeBits)
+#define MaxIntVal       0x7FFFFFFD
+#define MinIntVal       0xFFFFFFFD
 #define nil             0
 
 typedef struct {

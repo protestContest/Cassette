@@ -7,4 +7,3 @@
 u32 NumDigits(i32 num, u32 base);
 void SeedRandom(u32 seed);
 u32 Random(void);
-i32 RandomBetween(i32 min, i32 max);

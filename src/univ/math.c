@@ -32,24 +32,3 @@ u32 Random(void) {
   x ^= x >> 18;
   return x >> r | x << (-r & 31);
 }
-
-i32 RandomBetween(i32 min, i32 max)
-{
-  u32 r, range, buckets, limit;
-  if (min == max) return min;
-  if (min > max) {
-    u32 tmp = min;
-    min = max;
-    max = tmp;
-  }
-
-  range = max - min;
-  buckets = MaxUInt / range;
-  limit = buckets * range;
-
-  do {
-    r = Random();
-  } while (r >= limit);
-
-  return min + (i32)(r / buckets);
-}

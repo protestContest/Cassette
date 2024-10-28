@@ -1,18 +1,25 @@
 module Math
-export random, random_between, seed, constrain, wrap
+export random, random_between, seed, constrain
 
 def random() trap random()
-def random_between(min, max) trap random_between(min, max)
 def seed(s) trap seed(s)
 
-def constrain(n, min, max)
-  if
-    n < min, min
-    n >= max, max - 1
-    else n
+def random_between(min, max) when min == max min
+def random_between(min, max) when min > max random_between(max, min)
+def random_between(min, max) do
+  def loop(r, limit) when r < 0       loop(random(), limit)
+  def loop(r, limit) when r >= limit  loop(random(), limit)
+  def loop(r, limit)                  r
 
-def wrap(n, min, max)
-  if
-    n < min, max - 1
-    n >= max, min
-    else n
+  let
+    range = max - min
+    num_buckets = trap max_int() / range
+    limit = num_buckets * range
+    r = loop(random(), limit)
+  in
+    min + r / num_buckets
+end
+
+def constrain(n, min, max) when n < min min
+def constrain(n, min, max) when n >= max max
+def constrain(n, min, max) n

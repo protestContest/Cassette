@@ -268,16 +268,7 @@ static u32 IOError(char *msg, VM *vm)
 
 static u32 VMRandom(VM *vm)
 {
-  u32 r = RandomBetween(0, MaxIntVal);
-  return IntVal(r);
-}
-
-static u32 VMRandomBetween(VM *vm)
-{
-  u32 max = StackPop();
-  u32 min = StackPop();
-  if (!IsInt(min) || !IsInt(max)) return PrimitiveError("Range must be integers", vm);
-  return IntVal(RandomBetween(RawInt(min), RawInt(max)));
+  return IntVal(Random());
 }
 
 static u32 VMSeed(VM *vm)
@@ -286,6 +277,16 @@ static u32 VMSeed(VM *vm)
   if (!IsInt(seed)) return PrimitiveError("Seed must be an integer", vm);
   SeedRandom(RawInt(seed));
   return 0;
+}
+
+static u32 VMMaxInt(VM *vm)
+{
+  return MaxIntVal;
+}
+
+static u32 VMMinInt(VM *vm)
+{
+  return MinIntVal;
 }
 
 static u32 VMTime(VM *vm)
@@ -300,8 +301,9 @@ static PrimDef primitives[] = {
   {"symbol_name", VMSymbolName},
   {"time", VMTime},
   {"random", VMRandom},
-  {"random_between", VMRandomBetween},
   {"seed", VMSeed},
+  {"max_int", VMMaxInt},
+  {"min_int", VMMinInt},
   {"open", VMOpen},
   {"open_serial", VMOpenSerial},
   {"close", VMClose},
@@ -312,15 +314,15 @@ static PrimDef primitives[] = {
   {"accept", VMAccept},
   {"connect", VMConnect},
 #ifdef SDL
-  {"sdl_new_window", SDLNewWindow},
-  {"sdl_destroy_window", SDLDestroyWindow},
-  {"sdl_present", SDLPresent},
-  {"sdl_clear", SDLClear},
-  {"sdl_line", SDLLine},
-  {"sdl_set_color", SDLSetColor},
-  {"sdl_poll_event", SDLPollEvent},
-  {"sdl_get_ticks", SDLGetTicks},
-  {"sdl_blit", SDLBlit}
+  {"new_window", SDLNewWindow},
+  {"close_window", SDLDestroyWindow},
+  {"update_window", SDLPresent},
+  {"clear_window", SDLClear},
+  {"draw_line", SDLLine},
+  {"set_color", SDLSetColor},
+  {"poll_event", SDLPollEvent},
+  {"get_ticks", SDLGetTicks},
+  {"blit", SDLBlit}
 #endif
 };
 
