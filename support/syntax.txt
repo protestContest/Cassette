@@ -20,7 +20,7 @@ Stmts:      vsp Stmt | Stmts NL vsp Stmt ;
 Stmt:       Def | Expr ;
 Def:        "def" sp ID "(" vsp Params ")" vsp DefGuard vsp Expr ;
 Params:     IDList | ;
-DefGuard:   "when" vsp Expr | ;
+DefGuard:   "when" vsp Expr sp "," | ;
 Expr:       Lambda sp ;
 Lambda:     "\\" sp Params "->" vsp Expr | Logic ;
 Logic:      Equal | Logic "and" vsp Equal | Logic "or" vsp Equal ;

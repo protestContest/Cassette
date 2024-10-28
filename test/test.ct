@@ -1,4 +1,12 @@
-import Math, List, IO
+import IO
 
-List.map(List.range(0, 100), \n ->
-  IO.print(Math.random_between(0, 100)))
+trap new_window(500, 300)
+
+def loop()
+  let event = trap poll_event() except event[0] == :quit, :ok
+  in do
+    IO.inspect(event)
+    loop()
+  end
+
+loop()

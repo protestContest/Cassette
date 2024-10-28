@@ -627,9 +627,13 @@ static ASTNode *ParseParams(Parser *p)
 
 static ASTNode *ParseDefGuard(Parser *p)
 {
+  ASTNode *node;
   if (!MatchToken(whenToken, p)) return MakeTerminal(constNode, IntVal(1), p);
   VSpacing(p);
-  return ParseExpr(p);
+  node = ParseExpr(p);
+  Spacing(p);
+  if (!MatchToken(commaToken, p)) return Expected(",", node, p);
+  return node;
 }
 
 static ASTNode *ParsePrec(Precedence prec, Parser *p)
@@ -769,7 +773,7 @@ static ASTNode *ParseTrap(Parser *p)
 
 static ASTNode *ParseAccess(ASTNode *expr, Parser *p)
 {
-  ASTNode *node, *arg, *add;
+  ASTNode *node, *arg;
   Adv(p);
   node = MakeNode(accessNode, p);
   node->start = expr->start;
@@ -778,10 +782,7 @@ static ASTNode *ParseAccess(ASTNode *expr, Parser *p)
 
   arg = ParseExpr(p);
   if (IsErrorNode(arg)) return ParseFail(node, arg);
-  add = MakeNode(addNode, p);
-  NodePush(add, arg);
-  NodePush(add, MakeTerminal(constNode, IntVal(1), p));
-  NodePush(node, add);
+  NodePush(node, arg);
 
   VSpacing(p);
   if (MatchToken(commaToken, p)) {
@@ -1013,6 +1014,11 @@ static ASTNode *ParseTuple(Parser *p)
   u32 start = p->token.pos;
   if (!MatchToken(lbraceToken, p)) return ParseError("Expected \"{\"", p);
   VSpacing(p);
+  if (MatchToken(rbraceToken, p)) {
+    node = MakeNode(tupleNode, p);
+    node->start = start;
+    return node;
+  }
   node = ParseItems(p);
   if (IsErrorNode(node)) return node;
   node->type = tupleNode;

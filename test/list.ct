@@ -5,7 +5,7 @@ export
   range, zip, with_index, contains?,
   intersperse
 
-def take(list, n) when (n == 0) nil
+def take(list, n) when (n == 0), nil
 def take(list, n) reverse(@list : take(^list, n - 1))
 
 ; takes n items from a list and adds them to the front of tail, in reverse order

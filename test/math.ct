@@ -4,12 +4,12 @@ export random, random_between, seed, constrain
 def random() trap random()
 def seed(s) trap seed(s)
 
-def random_between(min, max) when min == max min
-def random_between(min, max) when min > max random_between(max, min)
+def random_between(min, max) when min == max, min
+def random_between(min, max) when min > max, random_between(max, min)
 def random_between(min, max) do
-  def loop(r, limit) when r < 0       loop(random(), limit)
-  def loop(r, limit) when r >= limit  loop(random(), limit)
-  def loop(r, limit)                  r
+  def loop(r, limit) when r < 0, loop(random(), limit)
+  def loop(r, limit) when r >= limit, loop(random(), limit)
+  def loop(r, limit) r
 
   let
     range = max - min
@@ -20,6 +20,6 @@ def random_between(min, max) do
     min + r / num_buckets
 end
 
-def constrain(n, min, max) when n < min min
-def constrain(n, min, max) when n >= max max
+def constrain(n, min, max) when n < min, min
+def constrain(n, min, max) when n >= max, max
 def constrain(n, min, max) n

@@ -8,12 +8,18 @@
 
 u32 SDLNewWindow(VM *vm)
 {
-  u32 height = StackPop();
-  u32 width = StackPop();
+  u32 width, height;
   SDL_Window *window;
   SDL_Renderer *renderer;
   u32 ref, winref;
   u32 result;
+
+  if (StackSize() < 2) {
+    RuntimeError("Wrong number of arguments", vm);
+    return 0;
+  }
+  height = StackPop();
+  width = StackPop();
 
   if (!IsInt(width) || !IsInt(height)) return PrimitiveError("Width and height must be integers", vm);
 
@@ -29,11 +35,19 @@ u32 SDLNewWindow(VM *vm)
 
 u32 SDLDestroyWindow(VM *vm)
 {
-  u32 refs = StackPop();
-  u32 ref = TupleGet(refs, 0);
-  u32 winref = TupleGet(refs, 1);
-  SDL_Renderer *renderer = VMGetRef(RawVal(ref), vm);
-  SDL_Window *window = VMGetRef(RawVal(winref), vm);
+  u32 refs, ref, winref;
+  SDL_Renderer *renderer;
+  SDL_Window *window;
+  if (StackSize() < 1) {
+    RuntimeError("Wrong number of arguments", vm);
+    return 0;
+  }
+
+  refs = StackPop();
+  ref = TupleGet(refs, 0);
+  winref = TupleGet(refs, 1);
+  renderer = VMGetRef(RawVal(ref), vm);
+  window = VMGetRef(RawVal(winref), vm);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   return 0;
@@ -242,6 +256,9 @@ u32 SDLPollEvent(VM *vm)
   if (SDL_PollEvent(&event)) {
     TupleSet(event_val, 0, EventType(&event));
     switch (event.type) {
+    case SDL_QUIT:
+      printf("quit: %08X\n", EventType(&event));
+      break;
     case SDL_KEYDOWN:
     case SDL_KEYUP:
       TupleSet(event_val, 3, KeyVal(event.key.keysym.sym));

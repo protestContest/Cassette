@@ -40,12 +40,13 @@ def inspect_int(num) do
 end
 
 def inspect_tuple(value, depth) do
+  def loop(i, parts) when i == #value, List.reverse(parts)
   def loop(i, parts)
-    if
-      i == #value, List.reverse(parts)
-      else loop(i + 1, inspect_depth(value[i], depth - 1) : parts)
+    let part = inspect_depth(value[i], depth-1)
+    in loop(i+1, part : parts)
 
-  ["{", List.intersperse(loop(0, []), ", "), "}"]
+  let parts = loop(0, [])
+  in ["{", List.intersperse(parts, ", "), "}"]
 end
 
 def inspect_list(list, depth) do

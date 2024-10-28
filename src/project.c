@@ -213,7 +213,6 @@ Error *BuildProject(Project *project)
       u32 export = NodeValue(NodeChild(exports, j));
       HashMapSet(&mod->exports, export, j);
     }
-    /* PrintNode(mod->ast); */
   }
 
   error = ScanDeps(project);
@@ -228,11 +227,6 @@ Error *BuildProject(Project *project)
       c.error->filename = NewString(mod->filename);
       return c.error;
     }
-
-    /*
-    printf("%s\n", SymbolName(NodeValue(ModuleName(mod))));
-    DisassembleChunk(mod->code);
-    */
   }
   DestroyCompiler(&c);
 

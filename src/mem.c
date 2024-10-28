@@ -103,6 +103,8 @@ void CollectGarbage(u32 *roots, u32 num_roots)
   }
 
   mem.data = malloc(mem.capacity*sizeof(u32));
+  mem.data[0] = 0;
+  mem.data[1] = 0;
   mem.free = 2;
 
   for (i = 0; i < num_roots; i++) {

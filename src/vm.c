@@ -30,8 +30,6 @@ static void OpPos(VM *vm);
 static void OpGoto(VM *vm);
 static void OpPush(VM *vm);
 static void OpPull(VM *vm);
-static void OpGetMod(VM *vm);
-static void OpSetMod(VM *vm);
 static void OpLink(VM *vm);
 static void OpUnlink(VM *vm);
 static void OpAdd(VM *vm);
@@ -122,6 +120,7 @@ Error *RuntimeError(char *message, struct VM *vm)
   Error *error = NewError(NewString("Runtime error: ^"), file, pos, 0);
   error->message = FormatString(error->message, message);
   error->data = BuildStackTrace(vm);
+  vm->error = error;
   return error;
 }
 
@@ -727,7 +726,7 @@ static void OpTuple(VM *vm)
 {
   u32 count = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(count);
-  MaybeGC(count+1, vm);
+  MaybeGC(count+2, vm);
   StackPush(Tuple(count));
 }
 
@@ -989,7 +988,7 @@ static StackTrace *BuildStackTrace(VM *vm)
 {
   u32 link = vm->link;
   StackTrace *trace = NewStackTrace(0);
-  StackTrace *item;
+  StackTrace *item, *st = trace;
 
   trace->filename = GetSourceFile(vm->pc, &vm->program->srcmap);
   if (trace->filename) {
@@ -1000,7 +999,8 @@ static StackTrace *BuildStackTrace(VM *vm)
 
   while (link > 0) {
     u32 code_pos = RawInt(StackPeek(StackSize() - link - 1));
-    item = NewStackTrace(trace);
+    item = NewStackTrace(0);
+    trace->next = item;
     item->filename = GetSourceFile(code_pos, &vm->program->srcmap);
     if (item->filename) {
       item->pos = GetSourcePos(code_pos, &vm->program->srcmap);
@@ -1010,7 +1010,7 @@ static StackTrace *BuildStackTrace(VM *vm)
     trace = item;
     link = RawInt(StackPeek(StackSize() - link));
   }
-  return trace;
+  return st;
 }
 
 void FreeStackTrace(StackTrace *st)
