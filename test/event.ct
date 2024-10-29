@@ -5,7 +5,7 @@ export poll, loop, ticks
 def poll() trap poll_event()
 def ticks() trap get_ticks()
 
-def loop(on_event) do
+def loop(on_event)
   let event = poll()
   in if
     not event, loop(on_event)

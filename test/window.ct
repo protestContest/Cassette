@@ -1,5 +1,5 @@
 module Window
-export new, set_color, clear, present
+export new, set_color, clear, update, white, black
 
 def white() {255, 255, 255}
 def black() {0, 0, 0}
@@ -7,4 +7,4 @@ def black() {0, 0, 0}
 def new(width, height) trap new_window(width, height)
 def set_color(color, window) trap set_color(color[0], color[1], color[2], window)
 def clear(window) trap clear_window(window)
-def present(window) trap update_window(window)
+def update(window) trap update_window(window)

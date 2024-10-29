@@ -38,8 +38,8 @@ def next_frame(draw, frame_time) do
       next = start + frame_time
       event = Event.poll()
     in if
-      Event.type(event) == :quit, :quit
-      Event.type(event) == :keydown and Event.message(event) == :escape, :quit
+      event[0] == :quit, :quit
+      event[0] == :keydown and event[3] == :escape, :quit
       now >= next, draw(now - start)
       else loop(start)
 

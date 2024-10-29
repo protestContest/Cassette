@@ -1,7 +1,7 @@
 module List
 export
   head, tail, drop, take,
-  reduce, reverse, map, filter,
+  reduce, reverse, map, filter, each,
   range, zip, with_index, contains?,
   intersperse
 
@@ -47,6 +47,12 @@ def reverse(list) reverse_onto(list, nil)
 
 def map(list, fn)
   reverse(reduce(list, nil, \item, acc -> fn(item) : acc))
+
+def each(list, fn) when list == nil, nil
+def each(list, fn) do
+  fn(@list)
+  each(^list, fn)
+end
 
 def filter(list, fn)
   let list =
