@@ -10,9 +10,9 @@ typedef enum {
   eqeqToken, gtToken, gteqToken, gtgtToken, atToken, idToken, andToken, asToken,
   defToken, doToken, elseToken, endToken, exceptToken, exportToken, falseToken,
   ifToken, importToken, inToken, letToken, moduleToken, nilToken, notToken,
-  orToken, trapToken, trueToken, whenToken, lbraceToken, bslashToken,
-  rbraceToken, caretToken, lbracketToken, barToken, rbracketToken, tildeToken,
-  errorToken
+  orToken, recordToken, trapToken, trueToken, whenToken, lbraceToken,
+  bslashToken, rbraceToken, caretToken, lbracketToken, barToken, rbracketToken,
+  tildeToken, errorToken
 } TokenType;
 
 typedef struct {

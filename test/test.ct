@@ -1,4 +1,6 @@
 
-let rec = {:x : 100, :y : 200}
+record Rect(top, left, right, bottom)
+
+let r = Rect(0, 0, 100, 200)
 in
-  rec.z
+  r.bottom

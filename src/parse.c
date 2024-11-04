@@ -74,6 +74,7 @@ static ASTNode *ParseStmts(Parser *p);
 static ASTNode *ParseDef(Parser *p);
 static ASTNode *ParseParams(Parser *p);
 static ASTNode *ParseDefGuard(Parser *p);
+static ASTNode *ParseRecord(Parser *p);
 #define ParseExpr(p)  ParsePrec(precExpr, p)
 static ASTNode *ParsePrec(Precedence prec, Parser *p);
 static ASTNode *ParseOp(ASTNode *expr, Parser *p);
@@ -159,8 +160,9 @@ static ParseRule rules[] = {
   [nilToken]      = {ParseLiteral,  0,            precNone},
   [notToken]      = {ParseUnary,    0,            precNone},
   [orToken]       = {0,             ParseOp,      precLogic},
-  [trueToken]     = {ParseLiteral,  0,            precNone},
+  [recordToken]   = {0,             0,            precNone},
   [trapToken]     = {ParseTrap,     0,            precNone},
+  [trueToken]     = {ParseLiteral,  0,            precNone},
   [lbraceToken]   = {ParseTuple,    0,            precNone},
   [bslashToken]   = {ParseLambda,   0,            precNone},
   [rbraceToken]   = {0,             0,            precNone},
@@ -559,7 +561,13 @@ static ASTNode *ParseStmts(Parser *p)
     VSpacing(p);
     if (AtEnd(p) || CheckToken(endToken, p)) break;
 
-    stmt = CheckToken(defToken, p) ? ParseDef(p) : ParseExpr(p);
+    if (CheckToken(defToken, p)) {
+      stmt = ParseDef(p);
+    } else if (CheckToken(recordToken, p)) {
+      stmt = ParseRecord(p);
+    } else {
+      stmt = ParseExpr(p);
+    }
 
     if (IsErrorNode(stmt)) return ParseStmtsFail(&sp, stmt);
 
@@ -633,6 +641,39 @@ static ASTNode *ParseDefGuard(Parser *p)
   node = ParseExpr(p);
   Spacing(p);
   if (!MatchToken(commaToken, p)) return Expected(",", node, p);
+  return node;
+}
+
+static ASTNode *ParseRecord(Parser *p)
+{
+  ASTNode *node, *id, *params, *body;
+  u32 i;
+  node = MakeNode(defNode, p);
+  MatchToken(recordToken, p);
+  Spacing(p);
+  id = ParseID(p);
+  if (IsErrorNode(id)) return ParseFail(node, id);
+  NodePush(node, id);
+  if (!MatchToken(lparenToken, p)) return Expected("(", node, p);
+  VSpacing(p);
+  params = ParseParams(p);
+  if (IsErrorNode(params)) return ParseFail(node, params);
+  NodePush(node, params);
+  if (!MatchToken(rparenToken, p)) return Expected(")", node, p);
+  NodePush(node, MakeTerminal(constNode, IntVal(1), p));
+
+  body = MakeNode(tupleNode, p);
+  for (i = 0; i < NodeCount(params); i++) {
+    ASTNode *param = NodeChild(params, i);
+    ASTNode *item = MakeNode(pairNode, p);
+    ASTNode *key = MakeTerminal(symNode, IntVal(NodeValue(param)), p);
+    ASTNode *value = CloneNode(param);
+    NodePush(item, value);
+    NodePush(item, key);
+    NodePush(body, item);
+  }
+
+  NodePush(node, body);
   return node;
 }
 
