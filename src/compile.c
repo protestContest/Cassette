@@ -1,4 +1,5 @@
 #include "compile.h"
+#include "leb.h"
 #include "mem.h"
 #include "ops.h"
 #include "primitives.h"
@@ -790,6 +791,82 @@ after:
   return chunk;
 }
 
+static Chunk *CompileMember(ASTNode *node, bool returns, Compiler *c)
+{
+  /*
+  <lookup record>
+  const -1
+loop:         rec i
+  const 1     rec i 1
+  add         rec i
+  over        rec i rec
+  len         rec i #rec
+  over        rec i #rec i
+  swap        rec i i #rec
+  lt          rec i i<#rec
+  br :ok      rec i
+  const :Undefined field
+  panic
+ok:
+              rec i
+  over        rec i rec
+  over        rec i rec i
+  get         rec i rec[i]
+  head        rec i @rec[i]
+  const <key> rec i @rec[i] key
+  eq          rec i match?
+  not         rec i !match?
+  br loop     rec i
+  get         rec[i]
+  tail        ^rec[i]
+  */
+
+  ASTNode *record = NodeChild(node, 0);
+  ASTNode *key = NodeChild(node, 1);
+  Chunk *error, *loop;
+  Chunk *chunk = CompileExpr(record, false, c);
+  u32 loop_len;
+  if (!chunk) return 0;
+  assert(key->type == idNode);
+
+  error = NewChunk(node->start);
+  WriteConst(Symbol("Undefined field"), error);
+  ChunkWrite(opPanic, error);
+
+  WriteConst(-1, chunk);
+
+  loop = NewChunk(node->start);
+  WriteConst(1, loop);
+  ChunkWrite(opAdd, loop);
+  ChunkWrite(opOver, loop);
+  ChunkWrite(opLen, loop);
+  ChunkWrite(opOver, loop);
+  ChunkWrite(opSwap, loop);
+  ChunkWrite(opLt, loop);
+  ChunkWrite(opBranch, loop);
+  ChunkWriteInt(ChunkSize(error), loop);
+  loop = AppendChunk(loop, error);
+  ChunkWrite(opOver, loop);
+  ChunkWrite(opOver, loop);
+  ChunkWrite(opGet, loop);
+  ChunkWrite(opHead, loop);
+  WriteConst(NodeValue(key), loop);
+  ChunkWrite(opEq, loop);
+  ChunkWrite(opNot, loop);
+  ChunkWrite(opBranch, loop);
+  loop_len = -ChunkSize(loop);
+  while (loop_len != -(ChunkSize(loop) + LEBSize(loop_len))) loop_len--;
+  ChunkWriteInt(loop_len, loop);
+  assert(loop_len == -ChunkSize(loop));
+
+  chunk = AppendChunk(chunk, loop);
+  ChunkWrite(opGet, chunk);
+  ChunkWrite(opTail, chunk);
+
+  if (returns) WriteReturn(chunk);
+  return chunk;
+}
+
 static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
 {
   /*
@@ -808,6 +885,9 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
   ASTNode *mod_exports;
   Chunk *chunk;
   u32 sym_index, mod_index;
+
+  EnvPosition pos = EnvFind(NodeValue(alias), c->env);
+  if (pos.frame >= 0) return CompileMember(node, returns, c);
 
   if (!HashMapContains(&c->alias_map, NodeValue(alias))) {
     return UndefinedVariable(alias, c);

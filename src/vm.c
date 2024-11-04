@@ -180,6 +180,9 @@ Error *VMRun(Program *program)
       VMTrace(&vm, 0);
       VMStep(&vm);
     }
+    for (i = 0; i < 20; i++) fprintf(stderr, " ");
+    PrintStack(&vm, 20);
+    fprintf(stderr, "\n");
   } else {
     while (!VMDone(&vm)) VMStep(&vm);
   }
@@ -237,6 +240,11 @@ static void OpPanic(VM *vm)
     u32 msgVal = StackPop();
     if (IsBinary(msgVal)) {
       msg = StringFrom(BinaryData(msgVal), ObjLength(msgVal));
+    } else if (IsInt(msgVal)) {
+      char *name = SymbolName(RawVal(msgVal));
+      if (name) {
+        msg = StringFrom(name, strlen(name));
+      }
     }
   }
   if (!msg) msg = NewString("Panic!");
