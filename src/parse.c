@@ -712,6 +712,7 @@ NodeType OpNodeType(TokenType type)
   case eqeqToken:     return eqNode;
   case gtToken:       return gtNode;
   case gteqToken:     return ltNode;
+  case gtgtToken:     return shiftNode;
   case andToken:      return andNode;
   case orToken:       return orNode;
   case lbracketToken: return sliceNode;
@@ -1223,7 +1224,10 @@ static ASTNode *ParseID(Parser *p)
 {
   i32 sym;
   ASTNode *node;
-  if (!CheckToken(idToken, p)) return ParseError("Expected identifier", p);
+
+  if (p->token.type != idToken && !IsKeyword(p->token.type)) {
+    return ParseError("Expected identifier", p);
+  }
   sym = SymbolFrom(p->text + p->token.pos, p->token.length);
   node = MakeTerminal(idNode, sym, p);
   Adv(p);

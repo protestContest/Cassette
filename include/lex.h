@@ -25,3 +25,4 @@ Token NextToken(char *src, u32 pos);
 bool Match(char *test, char *str);
 bool MatchKeyword(char *test, char *str);
 bool AdvMatch(char *test, char **str);
+bool IsKeyword(TokenType type);

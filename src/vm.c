@@ -113,7 +113,7 @@ static OpFn ops[] = {
 #define VMDone(vm) ((vm)->error || (vm)->pc >= VecCount((vm)->program->code))
 #define BinOp(a, op, b)   StackPush(IntVal(RawInt(a) op RawInt(b)))
 
-Error *RuntimeError(char *message, struct VM *vm)
+u32 RuntimeError(char *message, struct VM *vm)
 {
   char *file = GetSourceFile(vm->pc, &vm->program->srcmap);
   u32 pos = GetSourcePos(vm->pc, &vm->program->srcmap);
@@ -121,7 +121,7 @@ Error *RuntimeError(char *message, struct VM *vm)
   error->message = FormatString(error->message, message);
   error->data = BuildStackTrace(vm);
   vm->error = error;
-  return error;
+  return 0;
 }
 
 void InitVM(VM *vm, Program *program)
@@ -203,6 +203,15 @@ void *VMGetRef(u32 ref, VM *vm)
   return vm->refs[ref];
 }
 
+i32 VMFindRef(void *ref, VM *vm)
+{
+  u32 i;
+  for (i = 0; i < VecCount(vm->refs); i++) {
+    if (vm->refs[i] == ref) return i;
+  }
+  return -1;
+}
+
 void MaybeGC(u32 size, VM *vm)
 {
   if (MemFree() < size) RunGC(vm);
@@ -210,6 +219,7 @@ void MaybeGC(u32 size, VM *vm)
     u32 needed = MemCapacity() + size - MemFree();
     SizeMem(Max(2*MemCapacity(), needed));
   }
+  assert(MemFree() >= size);
 }
 
 void RunGC(VM *vm)
@@ -272,16 +282,16 @@ static void OpGoto(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsInt(a)) {
-    vm->error = RuntimeError("Invalid address", vm);
+    RuntimeError("Invalid address", vm);
     return;
   }
   if (RawInt(a) < 0 || RawInt(a) > (i32)VecCount(vm->program->code)) {
-    vm->error = RuntimeError("Out of bounds", vm);
+    RuntimeError("Out of bounds", vm);
     return;
   }
   vm->pc = RawVal(a);
@@ -292,7 +302,7 @@ static void OpJump(VM *vm)
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
   if (vm->pc + n < 0 || vm->pc + n > VecCount(vm->program->code)) {
-    vm->error = RuntimeError("Out of bounds", vm);
+    RuntimeError("Out of bounds", vm);
     return;
   }
   vm->pc += n;
@@ -304,14 +314,14 @@ static void OpBranch(VM *vm)
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
 
   a = StackPop();
   if (RawVal(a)) {
     if (vm->pc + n < 0 || vm->pc + n > VecCount(vm->program->code)) {
-      vm->error = RuntimeError("Out of bounds", vm);
+      RuntimeError("Out of bounds", vm);
       return;
     }
     vm->pc += n;
@@ -330,7 +340,7 @@ static void OpPull(VM *vm)
 {
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   vm->regs[n] = StackPop();
@@ -349,12 +359,12 @@ static void OpUnlink(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsInt(a)) {
-    vm->error = RuntimeError("Invalid stack link", vm);
+    RuntimeError("Invalid stack link", vm);
     return;
   }
   vm->link = RawInt(a);
@@ -365,13 +375,13 @@ static void OpAdd(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be added", vm);
+    RuntimeError("Only integers can be added", vm);
     return;
   }
   BinOp(a, +, b);
@@ -382,13 +392,13 @@ static void OpSub(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be subtracted", vm);
+    RuntimeError("Only integers can be subtracted", vm);
     return;
   }
   BinOp(a, -, b);
@@ -399,13 +409,13 @@ static void OpMul(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be multiplied", vm);
+    RuntimeError("Only integers can be multiplied", vm);
     return;
   }
   BinOp(a, *, b);
@@ -416,17 +426,17 @@ static void OpDiv(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be divided", vm);
+    RuntimeError("Only integers can be divided", vm);
     return;
   }
   if (RawVal(b) == 0) {
-    vm->error = RuntimeError("Divide by zero", vm);
+    RuntimeError("Divide by zero", vm);
     return;
   }
   BinOp(a, /, b);
@@ -437,17 +447,17 @@ static void OpRem(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be remaindered", vm);
+    RuntimeError("Only integers can be remaindered", vm);
     return;
   }
   if (RawVal(b) == 0) {
-    vm->error = RuntimeError("Divide by zero", vm);
+    RuntimeError("Divide by zero", vm);
     return;
   }
   BinOp(a, %, b);
@@ -458,13 +468,13 @@ static void OpAnd(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be and-ed", vm);
+    RuntimeError("Only integers can be and-ed", vm);
     return;
   }
   BinOp(a, &, b);
@@ -475,13 +485,13 @@ static void OpOr(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be or-ed", vm);
+    RuntimeError("Only integers can be or-ed", vm);
     return;
   }
   BinOp(a, |, b);
@@ -492,12 +502,12 @@ static void OpComp(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsInt(a)) {
-    vm->error = RuntimeError("Only integers can be complemented", vm);
+    RuntimeError("Only integers can be complemented", vm);
     return;
   }
   StackPush(IntVal(~RawVal(a)));
@@ -508,13 +518,13 @@ static void OpLt(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be compared", vm);
+    RuntimeError("Only integers can be compared", vm);
     return;
   }
   BinOp(a, <, b);
@@ -525,13 +535,13 @@ static void OpGt(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be compared", vm);
+    RuntimeError("Only integers can be compared", vm);
     return;
   }
   BinOp(a, >, b);
@@ -542,7 +552,7 @@ static void OpEq(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
@@ -555,12 +565,12 @@ static void OpNeg(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsInt(a)) {
-    vm->error = RuntimeError("Only integers can be negated", vm);
+    RuntimeError("Only integers can be negated", vm);
     return;
   }
   StackPush(IntVal(-RawInt(a)));
@@ -571,7 +581,7 @@ static void OpNot(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
@@ -581,18 +591,24 @@ static void OpNot(VM *vm)
 
 static void OpShift(VM *vm)
 {
-  u32 a, b;
+  i32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be shifted", vm);
+    RuntimeError("Only integers can be shifted", vm);
     return;
   }
-  BinOp(a, <<, b);
+  a = RawInt(a);
+  b = RawInt(b);
+  if (b < 0) {
+    StackPush(IntVal(a >> -b));
+  } else {
+    StackPush(IntVal(a << b));
+  }
   vm->pc++;
 }
 
@@ -601,7 +617,7 @@ static void OpDup(VM *vm)
   u32 a;
   MaybeGC(1, vm);
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
@@ -613,7 +629,7 @@ static void OpDup(VM *vm)
 static void OpDrop(VM *vm)
 {
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   StackPop();
@@ -624,7 +640,7 @@ static void OpSwap(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
@@ -639,7 +655,7 @@ static void OpOver(VM *vm)
   u32 a, b;
   MaybeGC(1, vm);
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
@@ -654,7 +670,7 @@ static void OpRot(VM *vm)
 {
   u32 a, b, c;
   if (StackSize() < 3) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   c = StackPop();
@@ -672,11 +688,11 @@ static void OpPick(VM *vm)
   u32 v;
   vm->pc += LEBSize(n);
   if (StackSize() < n) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   if (n < 0) {
-    vm->error = RuntimeError("Invalid stack index", vm);
+    RuntimeError("Invalid stack index", vm);
     return;
   }
   MaybeGC(1, vm);
@@ -689,7 +705,7 @@ static void OpPair(VM *vm)
   u32 a, b;
   MaybeGC(1, vm);
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
@@ -702,12 +718,12 @@ static void OpHead(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsPair(a)) {
-    vm->error = RuntimeError("Only pairs have heads", vm);
+    RuntimeError("Only pairs have heads", vm);
     return;
   }
   StackPush(Head(a));
@@ -718,12 +734,12 @@ static void OpTail(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsPair(a)) {
-    vm->error = RuntimeError("Only pairs have tails", vm);
+    RuntimeError("Only pairs have tails", vm);
     return;
   }
   StackPush(Tail(a));
@@ -742,12 +758,12 @@ static void OpLen(VM *vm)
 {
   u32 a;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsTuple(a) && !IsBinary(a)) {
-    vm->error = RuntimeError("Only tuples and binaries have lengths", vm);
+    RuntimeError("Only tuples and binaries have lengths", vm);
     return;
   }
   StackPush(IntVal(ObjLength(a)));
@@ -758,17 +774,17 @@ static void OpGet(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPop();
   a = StackPop();
   if (!IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be indexes", vm);
+    RuntimeError("Only integers can be indexes", vm);
     return;
   }
   if (RawInt(b) < 0 || RawInt(b) >= (i32)ObjLength(a)) {
-    vm->error = RuntimeError("Out of bounds", vm);
+    RuntimeError("Out of bounds", vm);
     return;
   }
   if (IsTuple(a)) {
@@ -776,7 +792,7 @@ static void OpGet(VM *vm)
   } else if (IsBinary(a)) {
     StackPush(IntVal(BinaryGet(a, RawInt(b))));
   } else {
-    vm->error = RuntimeError("Only tuples and binaries can be accessed", vm);
+    RuntimeError("Only tuples and binaries can be accessed", vm);
     return;
   }
   vm->pc++;
@@ -786,18 +802,18 @@ static void OpSet(VM *vm)
 {
   u32 a, b, c;
   if (StackSize() < 3) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   c = StackPop();
   b = StackPop();
   a = StackPop();
   if (!IsInt(b)) {
-    vm->error = RuntimeError("Only integers can be indexes", vm);
+    RuntimeError("Only integers can be indexes", vm);
     return;
   }
   if (RawInt(b) < 0) {
-    vm->error = RuntimeError("Out of bounds", vm);
+    RuntimeError("Out of bounds", vm);
     return;
   }
   if (IsTuple(a)) {
@@ -805,7 +821,7 @@ static void OpSet(VM *vm)
   } else if (IsBinary(a)) {
     BinarySet(a, RawVal(b), c);
   } else {
-    vm->error = RuntimeError("Only tuples and binaries can be accessed", vm);
+    RuntimeError("Only tuples and binaries can be accessed", vm);
     return;
   }
   StackPush(a);
@@ -817,24 +833,22 @@ static void OpStr(VM *vm)
   char *name;
   u32 len;
   u32 a;
-  u32 x;
   if (StackSize() < 1) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   a = StackPop();
   if (!IsInt(a)) {
-    vm->error = RuntimeError("Only symbols can become strings", vm);
+    RuntimeError("Only symbols can become strings", vm);
     return;
   }
   name = SymbolName(RawVal(a));
   if (!name) {
-    vm->error = RuntimeError("Only symbols can become strings", vm);
+    RuntimeError("Only symbols can become strings", vm);
     return;
   }
   len = strlen(name);
-  x = BinSpace(len) + 1;
-  MaybeGC(x, vm);
+  MaybeGC(BinSpace(len) + 2, vm);
   StackPush(BinaryFrom(name, len));
   vm->pc++;
 }
@@ -843,17 +857,17 @@ static void OpJoin(VM *vm)
 {
   u32 a, b;
   if (StackSize() < 2) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   b = StackPeek(0);
   a = StackPeek(1);
   if (ValType(a) != ValType(b)) {
-    vm->error = RuntimeError("Only values of the same type can be joined", vm);
+    RuntimeError("Only values of the same type can be joined", vm);
     return;
   }
   if (!IsTuple(a) && !IsBinary(a)) {
-    vm->error = RuntimeError("Only tuples and binaries can be joined", vm);
+    RuntimeError("Only tuples and binaries can be joined", vm);
     return;
   }
 
@@ -867,7 +881,7 @@ static void OpJoin(VM *vm)
     if (IsTuple(a)) {
       MaybeGC(1 + ObjLength(a) + ObjLength(b), vm);
       if (StackSize() < 2) {
-        vm->error = RuntimeError("Stack underflow", vm);
+        RuntimeError("Stack underflow", vm);
         return;
       }
 
@@ -877,7 +891,7 @@ static void OpJoin(VM *vm)
     } else if (IsBinary(a)) {
       MaybeGC(1 + BinSpace(ObjLength(a) + ObjLength(b)), vm);
       if (StackSize() < 2) {
-        vm->error = RuntimeError("Stack underflow", vm);
+        RuntimeError("Stack underflow", vm);
         return;
       }
 
@@ -893,18 +907,18 @@ static void OpSlice(VM *vm)
 {
   u32 a, b, c, len;
   if (StackSize() < 3) {
-    vm->error = RuntimeError("Stack underflow", vm);
+    RuntimeError("Stack underflow", vm);
     return;
   }
   c = StackPop();
   b = StackPop();
   a = StackPeek(0);
   if (!IsInt(b) || !IsInt(c)) {
-    vm->error = RuntimeError("Only integers can be slice indexes", vm);
+    RuntimeError("Only integers can be slice indexes", vm);
     return;
   }
   if (RawInt(b) < 0 || RawInt(c) < RawInt(b) || RawInt(c) > (i32)ObjLength(a)) {
-    vm->error = RuntimeError("Out of bounds", vm);
+    RuntimeError("Out of bounds", vm);
     return;
   }
   len = RawVal(c) - RawVal(b);
@@ -918,7 +932,7 @@ static void OpSlice(VM *vm)
     a = StackPop();
     StackPush(BinarySlice(a, RawVal(b), RawVal(c)));
   } else {
-    vm->error = RuntimeError("Only tuples and binaries can be sliced", vm);
+    RuntimeError("Only tuples and binaries can be sliced", vm);
     return;
   }
   vm->pc++;
@@ -928,9 +942,9 @@ static void OpTrap(VM *vm)
 {
   u32 id = ReadLEB(vm->pc+1, vm->program->code);
   u32 value;
-  MaybeGC(1, vm);
   value = vm->primitives[id](vm);
   if (!vm->error) {
+    MaybeGC(1, vm);
     StackPush(value);
   }
   vm->pc += LEBSize(id) + 1;

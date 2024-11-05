@@ -8,6 +8,7 @@ def symbol_name(sym) trap symbol_name(sym)
 
 def nil?(v) v == nil
 def integer?(v) typeof(v) == :integer
+def symbol?(v) typeof(v) == :symbol
 def pair?(v) typeof(v) == :pair
 def tuple?(v) typeof(v) == :tuple
 def binary?(v) typeof(v) == :binary
@@ -72,6 +73,7 @@ def inspect_depth(value, depth)
     value == nil,     "nil"
     binary?(value),   ["\"", value, "\""]
     integer?(value),  inspect_int(value)
+    symbol?(value),   ":" <> symbol_name(value)
     tuple?(value),    inspect_tuple(value, depth)
     pair?(value) and  typeof(^value) != :pair,
       [inspect_depth(@value, depth - 1), " : ", inspect_depth(^value, depth - 1)]

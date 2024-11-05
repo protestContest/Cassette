@@ -19,8 +19,8 @@ MAIN_OBJ := $(BUILD)/$(MAIN).o
 CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/prefix.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
-CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -DSDL -DDEBUG
-LDFLAGS = -lsdl2
+CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -DDEBUG
+LDFLAGS = -framework Cocoa -framework AudioToolbox
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
@@ -57,6 +57,5 @@ syntax:
 
 .PHONY: entitlements
 entitlements: $(EXECTARGET)
-	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(LIBTARGET)
-	codesign -f -s 'Apple Development' --entitlements support/entitlements.xml $(EXECTARGET)
-
+	codesign -f -s 'Development' --entitlements support/entitlements.xml $(LIBTARGET)
+	codesign -f -s 'Development' --entitlements support/entitlements.xml $(EXECTARGET)

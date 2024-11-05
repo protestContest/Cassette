@@ -3,7 +3,7 @@ export
   head, tail, drop, take,
   reduce, reverse, map, filter, each,
   range, zip, with_index, contains?,
-  intersperse
+  intersperse, join
 
 def take(list, n) when (n == 0), nil
 def take(list, n) reverse(@list : take(^list, n - 1))
@@ -89,12 +89,15 @@ def contains?(list, item)
     @list == item, true
     else contains?(^list, item)
 
+def intersperse(list, sep) when list == nil, nil
+def intersperse(list, sep) when ^list == nil, list
 def intersperse(list, sep)
-  if
-    list == nil, nil
-    ^list == nil, list
-  else
-    reverse(reduce(^list, [@list], \item, acc -> item : sep : acc))
+  reverse(reduce(^list, [@list], \item, acc -> item : sep : acc))
+
+def join(list, sep) when sep != nil, join(intersperse(list, sep), nil)
+def join(list, sep) when list == nil, nil
+def join(list, sep)
+  reduce(^list, @list, \item, result -> result <> item)
 
 def all?(list)
   if

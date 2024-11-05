@@ -150,3 +150,34 @@ static bool IsSymChar(char ch)
 {
   return IsAlpha(ch) || IsDigit(ch) || ch == '_' || ch == '!' || ch == '?';
 }
+
+bool IsKeyword(TokenType type)
+{
+  switch (type) {
+  case andToken:
+  case asToken:
+  case defToken:
+  case doToken:
+  case elseToken:
+  case endToken:
+  case exceptToken:
+  case exportToken:
+  case falseToken:
+  case ifToken:
+  case importToken:
+  case inToken:
+  case letToken:
+  case moduleToken:
+  case nilToken:
+  case notToken:
+  case orToken:
+  case recordToken:
+  case trapToken:
+  case trueToken:
+  case whenToken:
+    return true;
+  default:
+    return false;
+  }
+}
+
