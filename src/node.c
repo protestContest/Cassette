@@ -94,6 +94,7 @@ char *NodeTypeName(i32 type)
   case joinNode:    return "join";
   case sliceNode:   return "slice";
   case bitorNode:   return "bitor";
+  case xorNode:     return "bitxor";
   case pairNode:    return "pair";
   case andNode:     return "and";
   case orNode:      return "or";

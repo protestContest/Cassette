@@ -7,9 +7,9 @@ typedef enum {
   idNode, constNode, symNode, strNode, tupleNode, lambdaNode, panicNode, negNode,
   notNode, headNode, tailNode, lenNode, compNode, eqNode, remNode, bitandNode,
   mulNode, addNode, subNode, divNode, ltNode, shiftNode, gtNode, joinNode,
-  sliceNode, bitorNode, pairNode, andNode, orNode, accessNode, callNode,
-  trapNode, refNode, ifNode, letNode, assignNode,  doNode, defNode, importNode,
-  moduleNode, errorNode
+  sliceNode, bitorNode, pairNode, andNode, orNode, xorNode, accessNode,
+  callNode, trapNode, refNode, ifNode, letNode, assignNode, doNode, defNode,
+  importNode, moduleNode, errorNode
 } NodeType;
 
 typedef struct ASTNode {

@@ -83,11 +83,10 @@ def write(file, data) do
   loop(data)
 end
 
-def print(str) write(stdout(), Value.format([str, newline]))
+def print(str) write(stdout(), Value.format([str, newline()]))
 
 def inspect(val) do
   print(Value.inspect(val))
-  print(String.newline())
   val
 end
 

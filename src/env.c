@@ -25,7 +25,9 @@ EnvPosition EnvFind(u32 value, Env *env)
 {
   EnvPosition pos = {0, 0};
   while (env) {
-    for (pos.index = 0; pos.index < env->size; pos.index++) {
+    u32 i;
+    for (i = 0; i < env->size; i++) {
+      pos.index = env->size - 1 - i;
       if (env->items[pos.index] == value) return pos;
     }
     pos.frame++;

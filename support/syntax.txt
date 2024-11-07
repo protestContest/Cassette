@@ -30,7 +30,7 @@ Pair:       Join | Join  ":" vsp Pair ;
 Join:       Compare | Join "<>" vsp Compare ;
 Compare:    Shift | Compare "<" vsp Shift | Compare ">" vsp Shift ;
 Shift:      Sum | Shift "<<" vsp Sum | Shift ">>" vsp Sum ;
-Sum:        Product | Sum "+" vsp Product | Sum "-" vsp Product | Sum "|" vsp Product ;
+Sum:        Product | Sum "+" vsp Product | Sum "-" vsp Product | Sum "|" vsp Product | Sum "^" vsp Product;
 Product:    Unary | Product "*" vsp Unary | Product "/" vsp Unary | Product "%" vsp Unary | Product "&" vsp Unary ;
 Unary:      "-" Call | "~" Call | "#" Call | "@" Call | "^" Call | "not" vsp Call | Call ;
 Call:       Qualifier | Call Args | Call Slice ;

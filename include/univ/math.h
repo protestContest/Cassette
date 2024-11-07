@@ -7,3 +7,4 @@
 u32 NumDigits(i32 num, u32 base);
 void SeedRandom(u32 seed);
 u32 Random(void);
+u32 PopCount(u32 num);

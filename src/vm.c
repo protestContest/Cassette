@@ -46,6 +46,7 @@ static void OpEq(VM *vm);
 static void OpNeg(VM *vm);
 static void OpNot(VM *vm);
 static void OpShift(VM *vm);
+static void OpXor(VM *vm);
 static void OpDup(VM *vm);
 static void OpDrop(VM *vm);
 static void OpSwap(VM *vm);
@@ -91,6 +92,7 @@ static OpFn ops[] = {
   [opNeg]     = OpNeg,
   [opNot]     = OpNot,
   [opShift]   = OpShift,
+  [opXor]     = OpXor,
   [opDup]     = OpDup,
   [opDrop]    = OpDrop,
   [opSwap]    = OpSwap,
@@ -609,6 +611,23 @@ static void OpShift(VM *vm)
   } else {
     StackPush(IntVal(a << b));
   }
+  vm->pc++;
+}
+
+static void OpXor(VM *vm)
+{
+  i32 a, b;
+  if (StackSize() < 2) {
+    RuntimeError("Stack underflow", vm);
+    return;
+  }
+  b = StackPop();
+  a = StackPop();
+  if (!IsInt(a) || !IsInt(b)) {
+    RuntimeError("Only integers can be xor'd", vm);
+    return;
+  }
+  StackPush(IntVal(RawInt(a) ^ RawInt(b)));
   vm->pc++;
 }
 

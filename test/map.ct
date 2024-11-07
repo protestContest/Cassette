@@ -1,0 +1,180 @@
+module Map
+import Value (typeof, hash, symbol?, symbol_name), Math, List
+export
+  new, put, get, delete, member?, count, reduce, merge, keys, values, items,
+  inspect
+
+def empty?(map) map == nil
+def empty_map() nil
+def leaf?(map) typeof(map) == :pair
+def leaf(key, value) key : value
+def leaf_key(leaf) @leaf
+def leaf_value(leaf) ^leaf
+def map_node(bits, entries) {bits, entries}
+def map_bits(map) map[0]
+def map_entries(map) map[1]
+def slot_taken?(map, slot) map_bits(map) & (1 << slot)
+def slot_index(bits, slot) Math.popcount(bits & ((1 << slot)-1))
+def hash_slot(hash, depth) (hash >> 4*depth) & 0xF
+def key_slot(key, depth) hash_slot(hash(key), depth)
+def set_slot(bits, slot) bits | (1 << slot)
+def unset_slot(bits, slot) bits & ~(1 << slot)
+
+def update_slot(map, slot, entry)
+  let
+    bits = map_bits(map)
+    index = slot_index(bits, slot)
+    entries = map_entries(map)
+    entries = entries[0,index] <> {entry} <> entries[index+1,#entries]
+  in map_node(bits, entries)
+
+
+def new(entries) do
+  def loop(entries, map) when entries == nil, map
+  def loop(entries, map)
+    let entry = @entries
+    in loop(^entries, put(map, @entry, ^entry))
+  loop(entries, empty_map())
+end
+
+def put(map, key, value) when empty?(map), leaf(key, value)
+def put(map, key, value) do
+  def put(map, depth, key, value) when leaf?(map),
+    if leaf_key(map) == key, leaf(key, value)
+    else put(mapify(map, depth), depth, key, value)
+
+  def put(map, depth, key, value)
+    let
+      slot = key_slot(key, depth)
+      index = slot_index(map_bits(map), slot)
+      entries = map_entries(map)
+    in if
+      slot_taken?(map, slot),
+        update_slot(map, slot, put(entries[index], depth+1, key, value))
+      else
+        insert_slot(map, slot, key, value)
+
+  def mapify(leaf, depth)
+    let slot = key_slot(leaf_key(leaf), depth)
+    in map_node(set_slot(0, slot), {leaf})
+
+  def insert_slot(map, slot, key, value)
+    let
+      bits = set_slot(map_bits(map), slot)
+      index = slot_index(bits, slot)
+      entries = map_entries(map)
+      entries = entries[0,index] <> {key : value} <> entries[index,#entries]
+    in map_node(bits, entries)
+
+  put(map, 0, key, value)
+end
+
+def get(map, key, default) do
+  def get(map, hash, key) when empty?(map), default
+  def get(map, hash, key) when leaf?(map),
+    if leaf_key(map) == key, leaf_value(map)
+    else default
+
+  def get(map, hash, key)
+    let
+      slot = hash & 0xF except not slot_taken?(map, slot), nil
+      index = slot_index(map[0], slot)
+      entries = map[1]
+    in get(entries[index], hash >> 4, key)
+
+  get(map, hash(key), key)
+end
+
+def get!(map, key) when member?(map, key), get(map, key, nil)
+def get!(map, key) trap panic!("Missing map key")
+
+def member?(map, key) do
+  def member?(map, hash, key) when empty?(map), false
+  def member?(map, hash, key) when leaf?(map), @map == key
+  def member?(map, hash, key)
+    let
+      slot = hash_slot(hash, 0) except not slot_taken?(map, slot), nil
+      index = slot_index(map_bits(map), slot)
+      entries = map_entries(map)
+    in member?(entries[index], hash >> 4, key)
+
+  member?(map, hash(key), key)
+end
+
+def count(map) when empty?(map), 0
+def count(map) when leaf?(map), 1
+def count(map)
+  let entries = map_entries(map)
+  in do
+    def loop(i, n) when i == #entries, n
+    def loop(i, n) loop(i+1, n + count(entries[i]))
+    loop(0, 0)
+  end
+
+def delete(map, key) when empty?(map), map
+def delete(map, key) do
+  def delete(map, depth, key) when leaf?(map),
+    if leaf_key(map) == key, empty_map()
+    else map
+
+  def delete(map, depth, key)
+    let
+      slot = key_slot(key, depth) except not slot_taken?(map, slot), map
+      index = slot_index(map_bits(map), slot)
+      entries = map_entries(map)
+      entry = delete(entries[index], depth+1, key)
+    in if
+      empty?(entry), remove_slot(map, slot)
+      else update_slot(map, slot, entry)
+
+  def remove_slot(map, slot)
+    let
+      index = slot_index(map_bits(map), slot)
+      bits = unset_slot(map_bits(map), slot)
+      entries = map_entries(map)
+      entries = entries[0,index] <> entries[index+1,#entries]
+    in
+      if #entries == 1 and leaf?(entries[0]), entries[0]
+      else map_node(bits, entries)
+
+  delete(map, 0, key)
+end
+
+def reduce(map, result, fn) do
+  def loop(map, result) when empty?(map), result
+  def loop(map, result) when leaf?(map), do
+    fn(map, result)
+  end
+
+  def loop(map, result) do
+    def entry_loop(entries, i, result) when i == #entries, result
+    def entry_loop(entries, i, result) do
+      entry_loop(entries, i+1, loop(entries[i], result))
+    end
+
+
+    entry_loop(map_entries(map), 0, result)
+  end
+
+  loop(map, result)
+end
+
+def keys(map) reduce(map, [], \leaf, keys -> leaf_key(leaf) : keys)
+def values(map) reduce(map, [], \leaf, keys -> leaf_value(leaf) : keys)
+def items(map) reduce(map, [], \leaf, keys -> leaf : keys)
+
+def merge(m1, m2) when empty?(m1), m2
+def merge(m1, m2) when empty?(m2), m1
+def merge(m1, m2)
+  reduce(m2, m1, \entry, map -> do
+    put(map, leaf_key(entry), leaf_value(entry))
+  end)
+
+def inspect(map) do
+  def inspect_key(key) when symbol?(key), symbol_name(key)
+  def inspect_key(key) inspect(key)
+
+  let items = List.map(items(map), \item ->
+      [inspect_key(@item), ": ", Value.inspect(^item)])
+  in ["{", List.intersperse(items, ", "), "}"]
+end

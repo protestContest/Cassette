@@ -166,7 +166,7 @@ static ParseRule rules[] = {
   [lbraceToken]   = {ParseTuple,    0,            precNone},
   [bslashToken]   = {ParseLambda,   0,            precNone},
   [rbraceToken]   = {0,             0,            precNone},
-  [caretToken]    = {ParseUnary,    0,            precNone},
+  [caretToken]    = {ParseUnary,    ParseOp,      precSum},
   [lbracketToken] = {ParseList,     ParseAccess,  precCall},
   [barToken]      = {0,             ParseOp,      precSum},
   [rbracketToken] = {0,             0,            precNone},
@@ -715,6 +715,7 @@ NodeType OpNodeType(TokenType type)
   case gtgtToken:     return shiftNode;
   case andToken:      return andNode;
   case orToken:       return orNode;
+  case caretToken:    return xorNode;
   case lbracketToken: return sliceNode;
   case barToken:      return bitorNode;
   case colonToken:    return pairNode;
@@ -843,13 +844,13 @@ static ASTNode *ParseAccess(ASTNode *expr, Parser *p)
 static i32 UnaryOpNodeType(TokenType type)
 {
   switch (type) {
-  case minusToken:  return negNode;
-  case hashToken:   return lenNode;
-  case tildeToken:  return compNode;
-  case atToken:     return headNode;
-  case caretToken:  return tailNode;
-  case notToken:    return notNode;
-  default:          assert(false);
+  case minusToken:    return negNode;
+  case hashToken:     return lenNode;
+  case tildeToken:    return compNode;
+  case atToken:       return headNode;
+  case caretToken:    return tailNode;
+  case notToken:      return notNode;
+  default:            assert(false);
   }
 }
 

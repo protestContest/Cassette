@@ -2,8 +2,12 @@
 
 u32 Hash(void *data, u32 size)
 {
+  return AppendHash(EmptyHash, data, size);
+}
+
+u32 AppendHash(u32 hash, void *data, u32 size)
+{
   u32 i;
-  u32 hash = 5381;
   u8 *bytes = (u8*)data;
   for (i = 0; i < size; i++) {
     hash = ((hash << 5) + hash) + bytes[i];
