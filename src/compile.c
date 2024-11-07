@@ -981,6 +981,7 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   case divNode:     return CompileOp(opDiv, node, returns, c);
   case ltNode:      return CompileOp(opLt, node, returns, c);
   case shiftNode:   return CompileOp(opShift, node, returns, c);
+  case xorNode:     return CompileOp(opXor, node, returns, c);
   case gtNode:      return CompileOp(opGt, node, returns, c);
   case joinNode:    return CompileOp(opJoin, node, returns, c);
   case sliceNode:   return CompileOp(opSlice, node, returns, c);

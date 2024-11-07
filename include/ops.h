@@ -35,6 +35,7 @@ typedef enum {
   opNeg,    /* a -> -a */
   opNot,    /* a -> !a */
   opShift,  /* a b -> a<<b */
+  opXor,    /* a b -> a^b */
 
   opDup = 0x30,    /* a -> a a */
   opDrop,   /* a -> */

@@ -33,14 +33,11 @@ static u32 VMTypeOf(VM *vm)
   u32 a;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   a = StackPop();
-  if (IsPair(a)) return IntVal(Symbol("pair"));
-  if (IsTuple(a)) return IntVal(Symbol("tuple"));
-  if (IsBinary(a)) return IntVal(Symbol("binary"));
-  if (IsInt(a)) {
-    char *name = SymbolName(RawVal(a));
-    if (name) return IntVal(Symbol("symbol"));
-    return IntVal(Symbol("integer"));
-  }
+  if (IsPair(a))    return IntVal(Symbol("pair"));
+  if (IsTuple(a))   return IntVal(Symbol("tuple"));
+  if (IsBinary(a))  return IntVal(Symbol("binary"));
+  if (IsSymbol(a))  return IntVal(Symbol("symbol"));
+  if (IsInt(a))     return IntVal(Symbol("integer"));
   return 0;
 }
 
@@ -310,6 +307,21 @@ static u32 VMMinInt(VM *vm)
   return MinIntVal;
 }
 
+static u32 VMPopCount(VM *vm)
+{
+  i32 a;
+  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  a = StackPop();
+  if (!IsInt(a)) return RuntimeError("Only integers can be popcnt'd", vm);
+  return IntVal(PopCount(RawInt(a)));
+}
+
+static u32 VMHash(VM *vm)
+{
+  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  return HashVal(StackPop());
+}
+
 static u32 VMTime(VM *vm)
 {
   return IntVal(Time());
@@ -504,6 +516,8 @@ static PrimDef primitives[] = {
   {"typeof", VMTypeOf},
   {"byte", VMByte},
   {"symbol_name", VMSymbolName},
+  {"popcount", VMPopCount},
+  {"hash", VMHash},
   {"time", VMTime},
   {"random", VMRandom},
   {"seed", VMSeed},

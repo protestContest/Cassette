@@ -1,4 +1,6 @@
 #include "mem.h"
+#include "univ/hash.h"
+#include "univ/hashmap.h"
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/symbol.h"
@@ -300,7 +302,7 @@ char *BinToStr(u32 bin)
 
 bool ValEq(u32 a, u32 b)
 {
-  if (!a && !b) {
+  if (a == b) {
     return true;
   } else if (IsPair(a) && IsPair(b)) {
     return ValEq(Head(a), Head(b)) && ValEq(Tail(a), Tail(b));
@@ -320,11 +322,45 @@ bool ValEq(u32 a, u32 b)
       if (adata[i] != bdata[i]) return false;
     }
     return true;
-  } else if (IsInt(a) && IsInt(b)) {
-    return a == b;
   } else {
     return false;
   }
+}
+
+static u32 HashValRec(u32 value, HashMap *map)
+{
+  u32 hash = EmptyHash;
+  u32 h = Hash(&value, sizeof(value));
+  if (HashMapContains(map, h)) return HashMapGet(map, h);
+
+  HashMapSet(map, h, IntVal(hash));
+
+  if (IsSymbol(value)) {
+    hash = value;
+  } else if (IsInt(value) || value == 0) {
+    hash = IntVal(Hash(&value, sizeof(value)));
+  } else if (IsPair(value)) {
+    hash = IntVal(HashValRec(Head(value), map) ^ HashValRec(Tail(value), map));
+  } else if (IsTuple(value)) {
+    u32 i;
+    for (i = 0; i < ObjLength(value); i++) {
+      hash ^= HashValRec(TupleGet(value, i), map);
+    }
+    hash = IntVal(hash);
+  } else if (IsBinary(value)) {
+    hash = IntVal(Hash(BinaryData(value), ObjLength(value)));
+  }
+  HashMapSet(map, h, hash);
+  return hash;
+}
+
+u32 HashVal(u32 value)
+{
+  u32 hash;
+  HashMap map = EmptyHashMap;
+  hash = HashValRec(value, &map);
+  DestroyHashMap(&map);
+  return hash;
 }
 
 char *MemValStr(u32 value)

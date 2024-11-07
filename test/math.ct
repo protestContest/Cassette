@@ -1,5 +1,9 @@
 module Math
-export random, random_between, seed, constrain, align
+export random, random_between, seed, constrain, align, max_int, min_int, popcount
+
+def max_int() trap max_int()
+def min_int() trap min_int()
+def popcount(n) trap popcount(n)
 
 def random() trap random()
 def seed(s) trap seed(s)
