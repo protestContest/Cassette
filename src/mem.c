@@ -71,17 +71,17 @@ static void MemSet(u32 index, u32 value)
 static u32 CopyObj(u32 value, u32 *oldmem)
 {
   u32 index, i, len;
-  if (value == 0 || !IsObj(value)) return value;
-  index = RawVal(value);
+  if (value == 0 || !IsPtr(value)) return value;
+  index = RawPtr(value);
   if (oldmem[index] == IntVal(Symbol("*moved*"))) {
     return oldmem[index+1];
   }
   if (IsBinHdr(oldmem[index])) {
-    len = RawVal(oldmem[index]);
+    len = RawHdr(oldmem[index]);
     value = NewBinary(len);
     Copy(oldmem+index+1, BinaryData(value), len);
   } else if (IsTupleHdr(oldmem[index])) {
-    len = RawVal(oldmem[index]);
+    len = RawHdr(oldmem[index]);
     value = Tuple(len);
     for (i = 0; i < len; i++) {
       TupleSet(value, i, oldmem[index+i+1]);
@@ -121,12 +121,12 @@ void CollectGarbage(u32 *roots, u32 num_roots)
   while (scan < mem.free) {
     u32 next = MemGet(scan);
     if (IsBinHdr(next)) {
-      scan += Max(2, BinSpace(RawVal(next)) + 1);
+      scan += Max(2, BinSpace(RawHdr(next)) + 1);
     } else if (IsTupleHdr(next)) {
-      for (i = 0; i < RawVal(next); i++) {
+      for (i = 0; i < RawHdr(next); i++) {
         MemSet(scan+1+i, CopyObj(MemGet(scan+1+i), oldmem));
       }
-      scan += Max(2, RawVal(next) + 1);
+      scan += Max(2, RawHdr(next) + 1);
     } else {
       MemSet(scan, CopyObj(MemGet(scan), oldmem));
       MemSet(scan+1, CopyObj(MemGet(scan+1), oldmem));
@@ -165,22 +165,17 @@ u32 Pair(u32 head, u32 tail)
   i32 index = MemAlloc(2);
   MemSet(index, head);
   MemSet(index+1, tail);
-  return ObjVal(index);
+  return PtrVal(index);
 }
 
 u32 Head(u32 pair)
 {
-  return MemGet(RawVal(pair));
+  return MemGet(RawPtr(pair));
 }
 
 u32 Tail(u32 pair)
 {
-  return MemGet(RawVal(pair)+1);
-}
-
-u32 ObjLength(u32 obj)
-{
-  return RawVal(mem.data[RawVal(obj)]);
+  return MemGet(RawPtr(pair)+1);
 }
 
 u32 Tuple(u32 length)
@@ -189,19 +184,19 @@ u32 Tuple(u32 length)
   u32 index = MemAlloc(length+1);
   MemSet(index, TupleHeader(length));
   for (i = 0; i < length; i++) MemSet(index + i + 1, 0);
-  return ObjVal(index);
+  return PtrVal(index);
 }
 
 u32 TupleGet(u32 tuple, u32 index)
 {
   if (index < 0 || index >= ObjLength(tuple)) return 0;
-  return MemGet(RawVal(tuple)+index+1);
+  return MemGet(RawPtr(tuple)+index+1);
 }
 
 void TupleSet(u32 tuple, u32 index, u32 value)
 {
   if (index < 0 || index >= ObjLength(tuple)) return;
-  MemSet(RawVal(tuple)+index+1, value);
+  MemSet(RawPtr(tuple)+index+1, value);
 }
 
 u32 TupleJoin(u32 left, u32 right)
@@ -232,7 +227,7 @@ u32 NewBinary(u32 length)
 {
   u32 index = MemAlloc(BinSpace(length) + 1);
   MemSet(index, BinHeader(length));
-  return ObjVal(index);
+  return PtrVal(index);
 }
 
 u32 Binary(char *str)
@@ -250,7 +245,7 @@ u32 BinaryFrom(char *str, u32 length)
 
 char *BinaryData(u32 bin)
 {
-  return (char*)(mem.data + RawVal(bin) + 1);
+  return (char*)(mem.data + RawPtr(bin) + 1);
 }
 
 u32 BinaryGet(u32 bin, u32 index)
@@ -375,7 +370,7 @@ char *MemValStr(u32 value)
     return str;
   }
   if (IsInt(value)) {
-    char *data = SymbolName(RawVal(value));
+    char *data = SymbolName(RawSym(value));
     if (data) {
       str = malloc(strlen(data) + 2);
       str[0] = ':';
@@ -397,23 +392,27 @@ char *MemValStr(u32 value)
     str[len + 2] = 0;
     return str;
   }
-
-  str = malloc(NumDigits(RawVal(value), 10) + 2);
-  if (IsBinary(value)) {
-    str[0] = 'b';
-  } else if (IsTuple(value)) {
-    str[0] = 't';
-  } else if (IsPair(value)) {
-    str[0] = 'p';
-  } else if (IsTupleHdr(value)) {
-    str[0] = '#';
-  } else if (IsBinHdr(value)) {
-    str[0] = '$';
+  if (IsPtr(value)) {
+    str = malloc(NumDigits(RawPtr(value), 10) + 2);
+    if (IsBinary(value)) {
+      str[0] = 'b';
+    } else if (IsTuple(value)) {
+      str[0] = 't';
+    } else if (IsPair(value)) {
+      str[0] = 'p';
+    }
+    WriteNum(RawPtr(value), str + 1);
+    str[NumDigits(RawPtr(value), 10) + 1] = 0;
   } else {
-    str[0] = '?';
+    str = malloc(NumDigits(HeaderVal(value), 10) + 2);
+    if (IsTupleHdr(value)) {
+      str[0] = '#';
+    } else if (IsBinHdr(value)) {
+      str[0] = '$';
+    } else {
+      str[0] = '?';
+    }
   }
-  WriteNum(RawVal(value), str + 1);
-  str[NumDigits(RawVal(value), 10) + 1] = 0;
   return str;
 }
 
@@ -439,7 +438,7 @@ void DumpMem(void)
       fprintf(stderr, "%*s│", colWidth, str);
       free(str);
       if (IsBinHdr(value)) {
-        bin_cells = BinSpace(RawVal(value));
+        bin_cells = BinSpace(HeaderVal(value));
         bin_data = (char*)(mem.data + i + 1);
       }
     }

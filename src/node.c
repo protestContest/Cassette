@@ -129,7 +129,7 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
     if (node->data.value == 0) {
       fprintf(stderr, " nil\n");
     } else if (IsInt(node->data.value)) {
-      char *name = SymbolName(RawVal(node->data.value));
+      char *name = SymbolName(RawSym(node->data.value));
       if (name) {
         fprintf(stderr, " :%s\n", name);
       } else {
@@ -143,10 +143,10 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
     fprintf(stderr, " %s\n", SymbolName(node->data.value));
     break;
   case symNode:
-    fprintf(stderr, " %s\n", SymbolName(RawVal(node->data.value)));
+    fprintf(stderr, " %s\n", SymbolName(RawSym(node->data.value)));
     break;
   case strNode:
-    fprintf(stderr, " \"%s\"\n", SymbolName(RawVal(node->data.value)));
+    fprintf(stderr, " \"%s\"\n", SymbolName(RawSym(node->data.value)));
     break;
   default:
     fprintf(stderr, "\n");

@@ -194,7 +194,7 @@ Error *BuildProject(Project *project)
   Error *error;
   Compiler c;
 
-  SetSymbolSize(valBits);
+  SetSymbolSize(31);
 
   for (i = 0; i < VecCount(project->modules); i++) {
     Module *mod = &project->modules[i];

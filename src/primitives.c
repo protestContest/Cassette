@@ -62,7 +62,7 @@ static u32 VMSymbolName(VM *vm)
   u32 bin;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   a = StackPop();
-  name = SymbolName(RawVal(a));
+  name = SymbolName(RawSym(a));
   if (!name || !*name) return 0;
   MaybeGC(BinSpace(strlen(name)) + 2, vm);
   bin = BinaryFrom(name, strlen(name));
@@ -362,7 +362,7 @@ static u32 VMDestroyWindow(VM *vm)
 {
   Window *w;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
-  w = VMGetRef(RawVal(StackPop()), vm);
+  w = VMGetRef(RawInt(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
   CloseWindow(w);
   free(w->buf);
@@ -375,7 +375,7 @@ static u32 VMUpdateWindow(VM *vm)
 {
   Window *w;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
-  w = VMGetRef(RawVal(StackPop()), vm);
+  w = VMGetRef(RawInt(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
   UpdateWindow(w);
   return 0;
@@ -434,7 +434,7 @@ static u32 VMWritePixel(VM *vm)
   Window *w;
   u32 x, y, color;
   if (StackSize() < 4) return RuntimeError("Stack underflow", vm);
-  w = VMGetRef(RawVal(StackPop()), vm);
+  w = VMGetRef(RawInt(StackPop()), vm);
   color = StackPop();
   y = StackPop();
   x = StackPop();
@@ -453,7 +453,7 @@ static u32 VMBlit(VM *vm)
   i32 data, width, height, x, y, sx, sy, i, rowWidth;
   u32 *pixels;
   if (StackSize() < 6) return RuntimeError("Stack underflow", vm);
-  w = VMGetRef(RawVal(StackPop()), vm);
+  w = VMGetRef(RawInt(StackPop()), vm);
   y = StackPop();
   x = StackPop();
   height = StackPop();

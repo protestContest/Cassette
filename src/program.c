@@ -30,7 +30,7 @@ void AddStrings(ASTNode *node, Program *program, HashMap *strings)
   if (node->type == strNode || node->type == symNode) {
     u32 len, sym;
     char *name;
-    sym = RawVal(NodeValue(node));
+    sym = RawSym(NodeValue(node));
     if (HashMapContains(strings, sym)) return;
     HashMapSet(strings, sym, 1);
     name = SymbolName(sym);

@@ -253,7 +253,7 @@ static void OpPanic(VM *vm)
     if (IsBinary(msgVal)) {
       msg = StringFrom(BinaryData(msgVal), ObjLength(msgVal));
     } else if (IsInt(msgVal)) {
-      char *name = SymbolName(RawVal(msgVal));
+      char *name = SymbolName(RawSym(msgVal));
       if (name) {
         msg = StringFrom(name, strlen(name));
       }
@@ -296,7 +296,7 @@ static void OpGoto(VM *vm)
     RuntimeError("Out of bounds", vm);
     return;
   }
-  vm->pc = RawVal(a);
+  vm->pc = RawInt(a);
 }
 
 static void OpJump(VM *vm)
@@ -321,7 +321,7 @@ static void OpBranch(VM *vm)
   }
 
   a = StackPop();
-  if (RawVal(a)) {
+  if (RawInt(a)) {
     if (vm->pc + n < 0 || vm->pc + n > VecCount(vm->program->code)) {
       RuntimeError("Out of bounds", vm);
       return;
@@ -437,7 +437,7 @@ static void OpDiv(VM *vm)
     RuntimeError("Only integers can be divided", vm);
     return;
   }
-  if (RawVal(b) == 0) {
+  if (RawInt(b) == 0) {
     RuntimeError("Divide by zero", vm);
     return;
   }
@@ -458,7 +458,7 @@ static void OpRem(VM *vm)
     RuntimeError("Only integers can be remaindered", vm);
     return;
   }
-  if (RawVal(b) == 0) {
+  if (RawInt(b) == 0) {
     RuntimeError("Divide by zero", vm);
     return;
   }
@@ -512,7 +512,7 @@ static void OpComp(VM *vm)
     RuntimeError("Only integers can be complemented", vm);
     return;
   }
-  StackPush(IntVal(~RawVal(a)));
+  StackPush(IntVal(~RawInt(a)));
   vm->pc++;
 }
 
@@ -587,7 +587,7 @@ static void OpNot(VM *vm)
     return;
   }
   a = StackPop();
-  StackPush(IntVal(RawVal(a) == 0));
+  StackPush(IntVal(RawInt(a) == 0));
   vm->pc++;
 }
 
@@ -836,9 +836,9 @@ static void OpSet(VM *vm)
     return;
   }
   if (IsTuple(a)) {
-    TupleSet(a, RawVal(b), c);
+    TupleSet(a, RawInt(b), c);
   } else if (IsBinary(a)) {
-    BinarySet(a, RawVal(b), c);
+    BinarySet(a, RawInt(b), c);
   } else {
     RuntimeError("Only tuples and binaries can be accessed", vm);
     return;
@@ -861,7 +861,7 @@ static void OpStr(VM *vm)
     RuntimeError("Only symbols can become strings", vm);
     return;
   }
-  name = SymbolName(RawVal(a));
+  name = SymbolName(RawSym(a));
   if (!name) {
     RuntimeError("Only symbols can become strings", vm);
     return;
@@ -881,12 +881,12 @@ static void OpJoin(VM *vm)
   }
   b = StackPeek(0);
   a = StackPeek(1);
-  if (ValType(a) != ValType(b)) {
-    RuntimeError("Only values of the same type can be joined", vm);
+  if (!IsObj(a) || !IsObj(b)) {
+    RuntimeError("Only tuples and binaries can be joined", vm);
     return;
   }
-  if (!IsTuple(a) && !IsBinary(a)) {
-    RuntimeError("Only tuples and binaries can be joined", vm);
+  if (ObjType(a) != ObjType(b)) {
+    RuntimeError("Only values of the same type can be joined", vm);
     return;
   }
 
@@ -940,16 +940,16 @@ static void OpSlice(VM *vm)
     RuntimeError("Out of bounds", vm);
     return;
   }
-  len = RawVal(c) - RawVal(b);
+  len = RawInt(c) - RawInt(b);
 
   if (IsTuple(a)) {
     MaybeGC(len+1, vm);
     a = StackPop();
-    StackPush(TupleSlice(a, RawVal(b), RawVal(c)));
+    StackPush(TupleSlice(a, RawInt(b), RawInt(c)));
   } else if (IsBinary(a)) {
     MaybeGC(BinSpace(len)+1, vm);
     a = StackPop();
-    StackPush(BinarySlice(a, RawVal(b), RawVal(c)));
+    StackPush(BinarySlice(a, RawInt(b), RawInt(c)));
   } else {
     RuntimeError("Only tuples and binaries can be sliced", vm);
     return;

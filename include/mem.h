@@ -2,18 +2,32 @@
 
 /* The runtime dynamic memory system.
 
-Cassette values are 32 bits long, using 2 bits as a type tag. The types are
-object, integer, tuple header, and binary header. An Object is a pointer to
-a pair, a tuple header, or a binary header. These headers should only appear in
-the heap.
+Cassette values are 32 bits long. The low bit determines whether the value is an
+immediate integer or a boxed value. For boxed values, the second bit determines
+whether the value is a pointer or an object header. Object headers use two
+additional bits to determine the object type. Object headers are used for
+garbage collection, and should only appear in the heap.
 
-The value of an object is the index into the heap of its referent. A tuple
-header contains its length (the count of items), and is followed in memory by
-the contents of the tuple. A binary header contains its length (in bytes), and
-is followed in memory by its binary data. Since heap space is allocated in
-32-bit cells, a binary is padded to the next cell boundary.
+xxx1: integer
+xx00: pointer
+xx10: object header
+0010: tuple header (number of items)
+0110: binary header (number of bytes)
+1010: map header (bitfield)
+1110: function header (arity)
 
-Some common operations are required for lists, tuples, and binaries:
+The value of a pointer is the heap index of its contents. If the value at that
+index is not an object header, the value is a pair and implicitly contains the
+two values on the heap at that index. If the value is an object header, the
+value is that object, and the header contains type-dependent info.
+
+A tuple header contains the count of items, and is followed by the items. A
+binary header contains the count of bytes and is followed by the data, padded to
+4 bytes. A map header contains the bitfield of slots and is followed by the
+slots. A function header contains the function arity and is followed by a code
+index (the entrypoint) and the function's environment.
+
+Some common operations are required for tuples and binaries:
 
 - Length: returns the length of the object
 - Get: returns an element of the object
@@ -21,30 +35,39 @@ Some common operations are required for lists, tuples, and binaries:
 - Slice: returns a subset of an object
 */
 
-enum {objType, intType, tupleHdr, binHdr};
+enum {tupleHdr, binHdr, mapHdr};
 
-#define typeBits        2
-#define valBits         (32 - typeBits)
-#define typeMask        ((1 << typeBits)-1)
-#define Val(type, x)    (((x) << typeBits) | (type & typeMask))
-#define ValType(x)      ((x) & typeMask)
-#define RawVal(v)       (((u32)(v)) >> typeBits)
-#define RawInt(v)       ((i32)((RawVal(v) ^ (1 << (valBits-1))) - (1 << (valBits-1))))
-#define ObjVal(x)       Val(objType, x)
-#define IntVal(x)       Val(intType, x)
-#define TupleHeader(x)  Val(tupleHdr, x)
-#define BinHeader(x)    Val(binHdr, x)
-#define IsType(v,t)     (ValType(v) == (t))
-#define IsObj(v)        IsType(v, objType)
-#define IsInt(v)        IsType(v, intType)
-#define IsSymbol(v)     (IsInt(v) && SymbolName(RawVal(v)))
-#define IsTupleHdr(v)   IsType(v, tupleHdr)
-#define IsBinHdr(v)     IsType(v, binHdr)
-#define IsPair(v)       (IsObj(v) && !IsTupleHdr(Head(v)) && !IsBinHdr(Head(v)))
-#define IsTuple(v)      (IsObj(v)  && IsTupleHdr(Head(v)))
-#define IsBinary(v)     (IsObj(v) && IsBinHdr(Head(v)))
-#define MaxIntVal       0x7FFFFFFD
-#define MinIntVal       0xFFFFFFFD
+#define IntVal(n)       (((n) << 1) + 1)
+#define RawInt(n)       ((i32)(n) >> 1)
+#define RawSym(n)       ((u32)(n) >> 1)
+#define PtrVal(n)       ((n) << 2)
+#define RawPtr(n)       ((u32)(n) >> 2)
+#define HdrVal(n,t)     (((((n) << 2) | (t)) << 2) | 2)
+#define RawHdr(n)       ((n) >> 4)
+#define HdrType(n)      (((n) >> 2) & 0x3)
+#define TupleHeader(n)  HdrVal(n, tupleHdr)
+#define BinHeader(n)    HdrVal(n, binHdr)
+#define MapHeader(n)    HdrVal(n, mapHdr)
+
+#define IsInt(n)        ((n) & 1)
+#define IsSymbol(n)     (IsInt(n) && SymbolName(RawInt(n)))
+#define IsPtr(n)        (((n) & 0x3) == 0)
+#define IsHdr(n)        (((n) & 0x3) == 0x2)
+#define IsPair(n)       (IsPtr(n) && !IsHdr(Head(n)))
+#define IsObj(n)        (IsPtr(n) && IsHdr(Head(n)))
+#define IsTupleHdr(n)   (((n) & 0xF) == 0x2)
+#define IsBinHdr(n)     (((n) & 0xF) == 0x6)
+#define IsMapHdr(n)     (((n) & 0xF) == 0xA)
+#define IsFnHdr(n)      (((n) & 0xF) == 0xE)
+#define IsTuple(n)      (IsPtr(n) && IsTupleHdr(Head(n)))
+#define IsBinary(n)     (IsPtr(n) && IsBinHdr(Head(n)))
+#define IsMap(n)        (IsPtr(n) && IsMapHdr(Head(n)))
+
+#define ObjType(n)      HdrType(Head(n))
+#define HeaderVal(n)    RawHdr(Head(n))
+
+#define MaxIntVal       0x7FFFFFFF
+#define MinIntVal       0x80000001
 #define nil             0
 
 typedef struct {
@@ -70,7 +93,7 @@ u32 Pair(u32 head, u32 tail);
 u32 Head(u32 pair);
 u32 Tail(u32 pair);
 
-u32 ObjLength(u32 obj);
+#define ObjLength(obj) HeaderVal(obj)
 
 u32 Tuple(u32 length);
 u32 TupleGet(u32 tuple, u32 index);
@@ -91,7 +114,7 @@ bool BinIsPrintable(u32 bin);
 char *BinToStr(u32 bin);
 
 bool ValEq(u32 a, u32 b);
-u32 HashVal(u32 a);
+u32 HashVal(u32 value);
 u32 InspectVal(u32 value);
 char *MemValStr(u32 value);
 #ifdef DEBUG
