@@ -1,10 +1,33 @@
-import Map, IO
+import Window, IO, Math, List
+
+def should_quit(event)
+  event.what == :keyDown and
+  ((event.message & 0xFF == $q and Window.modifier?(event, :cmd)) or
+   (event.message >> 8 == 0x35))
+
+def loop(window) do
+  let event = Window.next_event()
+  in do
+    if event.what, IO.inspect(event) else nil
+    Window.update(window)
+    if should_quit(event), nil
+    else loop(window)
+  end
+end
 
 let
-  m = Map.new([:a: 100, :b: 200, :q: 300])
-  m = Map.merge(m, Map.new([:b: 400, :c: 500]))
-  v = Map.items(m)
+  width = 400
+  height = 300
+  window = Window.open("Test", width, height)
+  white = 0x00FFFFFF
+  black = 0
 in do
-  IO.print(Map.inspect(m))
-  IO.inspect(v)
+  List.each(List.range(0, height), \y ->
+    List.each(List.range(0, width), \x ->
+      let
+        bit = x % 8
+        c = if ((x >> bit) + y) & 1, black else white
+      in
+        Window.write_pixel(x, y, c, window)))
+  loop(window)
 end

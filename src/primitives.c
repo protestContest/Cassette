@@ -41,7 +41,7 @@ static u32 VMTypeOf(VM *vm)
   return 0;
 }
 
-static u32 VMByte(VM *vm)
+static u32 VMChar(VM *vm)
 {
   u32 a, num, bin;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
@@ -106,7 +106,7 @@ static u32 VMOpenSerial(VM *vm)
   file = open(str, O_RDWR | O_NDELAY | O_NOCTTY);
   free(str);
   if (file == -1) return IOError(strerror(errno), vm);
-  fcntl(file, F_SETFL, FNDELAY);
+  fcntl(file, F_SETFL, O_NONBLOCK);
 
   tcgetattr(file, &options);
   cfsetispeed(&options, RawInt(speed));
@@ -331,7 +331,7 @@ static u32 VMNewWindow(VM *vm)
 {
   /* new_window(title, width, height) */
   u32 title, width, height;
-  Window *w;
+  CTWindow *w;
   u32 ref;
 
   if (StackSize() < 3) return RuntimeError("Stack underflow", vm);
@@ -345,7 +345,7 @@ static u32 VMNewWindow(VM *vm)
     return RuntimeError("Title must be a string", vm);
   }
 
-  w = malloc(sizeof(Window));
+  w = malloc(sizeof(CTWindow));
   w->title = StringFrom(BinaryData(title), ObjLength(title));
   w->width = RawInt(width);
   w->height = RawInt(height);
@@ -360,7 +360,7 @@ static u32 VMNewWindow(VM *vm)
 
 static u32 VMDestroyWindow(VM *vm)
 {
-  Window *w;
+  CTWindow *w;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   w = VMGetRef(RawVal(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
@@ -373,7 +373,7 @@ static u32 VMDestroyWindow(VM *vm)
 
 static u32 VMUpdateWindow(VM *vm)
 {
-  Window *w;
+  CTWindow *w;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   w = VMGetRef(RawVal(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
@@ -381,7 +381,7 @@ static u32 VMUpdateWindow(VM *vm)
   return 0;
 }
 
-static u32 EventType(u32 id)
+static u32 EventTypeVal(u32 id)
 {
   switch (id) {
   case mouseDown: return IntVal(Symbol("mouseDown"));
@@ -406,7 +406,7 @@ static u32 VMPollEvent(VM *vm)
   case keyDown:
   case keyUp:
   case autoKey:
-    msg = IntVal(event.message.key);
+    msg = IntVal(event.message.key.code << 8 | event.message.key.c);
     break;
   case mouseDown:
   case mouseUp:
@@ -416,7 +416,7 @@ static u32 VMPollEvent(VM *vm)
 
   MaybeGC(24, vm);
   eventVal = Tuple(5);
-  TupleSet(eventVal, 0, Pair(IntVal(Symbol("what")), EventType(event.what)));
+  TupleSet(eventVal, 0, Pair(IntVal(Symbol("what")), EventTypeVal(event.what)));
   TupleSet(eventVal, 1, Pair(IntVal(Symbol("message")), msg));
   TupleSet(eventVal, 2, Pair(IntVal(Symbol("when")), IntVal(event.when)));
   where = Tuple(2);
@@ -431,7 +431,7 @@ static u32 VMPollEvent(VM *vm)
 static u32 VMWritePixel(VM *vm)
 {
   /* write_pixel(x, y, color, window) */
-  Window *w;
+  CTWindow *w;
   u32 x, y, color;
   if (StackSize() < 4) return RuntimeError("Stack underflow", vm);
   w = VMGetRef(RawVal(StackPop()), vm);
@@ -449,7 +449,7 @@ static u32 VMWritePixel(VM *vm)
 static u32 VMBlit(VM *vm)
 {
   /* blit(data, width, height, x, y, window) */
-  Window *w;
+  CTWindow *w;
   i32 data, width, height, x, y, sx, sy, i, rowWidth;
   u32 *pixels;
   if (StackSize() < 6) return RuntimeError("Stack underflow", vm);
@@ -514,15 +514,15 @@ static u32 VMBlit(VM *vm)
 static PrimDef primitives[] = {
   {"panic!", VMPanic},
   {"typeof", VMTypeOf},
-  {"byte", VMByte},
+  {"char", VMChar},
   {"symbol_name", VMSymbolName},
-  {"popcount", VMPopCount},
   {"hash", VMHash},
+  {"popcount", VMPopCount},
+  {"max_int", VMMaxInt},
+  {"min_int", VMMinInt},
   {"time", VMTime},
   {"random", VMRandom},
   {"seed", VMSeed},
-  {"max_int", VMMaxInt},
-  {"min_int", VMMinInt},
   {"open", VMOpen},
   {"open_serial", VMOpenSerial},
   {"close", VMClose},
@@ -535,7 +535,7 @@ static PrimDef primitives[] = {
   {"open_window", VMNewWindow},
   {"close_window", VMDestroyWindow},
   {"update_window", VMUpdateWindow},
-  {"poll_event", VMPollEvent},
+  {"next_event", VMPollEvent},
   {"write_pixel", VMWritePixel},
   {"blit", VMBlit}
 };

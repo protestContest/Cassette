@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+
+#ifndef _Bool
+#define _Bool int
+#endif
 
 typedef uint8_t u8;
 typedef int8_t i8;

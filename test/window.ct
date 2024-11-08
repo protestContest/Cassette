@@ -1,5 +1,5 @@
 module Window
-export open, close, update, poll_event, write_pixel, blit, Color, Event, modifier?
+export open, close, update, next_event, write_pixel, blit, Color, Event, modifier?
 
 def Color(r, g, b) r << 16 | g << 8 | b
 def white() Color(255, 255, 255)
@@ -9,11 +9,12 @@ record Event(what, message, when, where, modifiers)
 
 def mod_mask(mod)
   if
-    mod == :cmd, 1 << 8
-    mod == :shift, 1 << 9
-    mod == :caps, 1 << 10
-    mod == :opt, 1 << 11
-  else 0
+    mod == :cmd,      1 <<  8
+    mod == :shift,    1 <<  9
+    mod == :caps,     1 << 10
+    mod == :opt,      1 << 11
+    mod == :control,  1 << 12
+    else 0
 
 def modifier?(event, mod)
   event.modifiers & mod_mask(mod)
@@ -21,6 +22,6 @@ def modifier?(event, mod)
 def open(title, width, height) trap open_window(title, width, height)
 def close(window) trap close_window(window)
 def update(window) trap update_window(window)
-def poll_event() trap poll_event()
+def next_event() trap next_event()
 def write_pixel(x, y, color, window) trap write_pixel(x, y, color, window)
 def blit(data, width, height, x, y, window) trap blit(data, x, y, width, height, window)

@@ -1,11 +1,11 @@
 module Value
 import List
 export
-  typeof, byte, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?,
+  typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?,
   error?, format, inspect, hash
 
 def typeof(value) trap typeof(value)
-def byte(value) trap byte(value)
+def char(value) trap char(value)
 def symbol_name(sym) trap symbol_name(sym)
 def hash(value) trap hash(value)
 
@@ -21,7 +21,7 @@ def error?(result) when tuple?(result) and #result > 0 and result[0] == :error, 
 def error?(result) false
 
 def format(data) when binary?(data), data
-def format(data) when integer?(data) and data >= 0 and data <= 255, byte(data)
+def format(data) when integer?(data) and data >= 0 and data <= 255, char(data)
 def format(data) when pair?(data) and data != nil, format(@data) <> format(^data)
 def format(data) ""
 
