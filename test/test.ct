@@ -1,4 +1,4 @@
-import Window, IO, Math, List
+import Window, IO, Math, List, Value
 
 def should_quit(event)
   event.what == :keyDown and
@@ -19,15 +19,17 @@ let
   width = 400
   height = 300
   window = Window.open("Test", width, height)
-  white = 0x00FFFFFF
-  black = 0
+  white = [0, 0xFF, 0xFF, 0xFF]
+  black = [0, 0, 0, 0]
 in do
-  List.each(List.range(0, height), \y ->
-    List.each(List.range(0, width), \x ->
-      let
-        bit = x % 8
-        c = if ((x >> bit) + y) & 1, black else white
-      in
-        Window.write_pixel(x, y, c, window)))
-  loop(window)
+  let pixels =
+    List.map(List.range(0, height), \y ->
+      List.map(List.range(0, width), \x ->
+        let bit = x % 8
+        in if ((x >> bit) + y) & 1, black else white))
+    img = Value.format(pixels)
+  in do
+    Window.blit(img, width, height, 0, 0, window)
+    loop(window)
+  end
 end

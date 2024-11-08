@@ -8,6 +8,7 @@ def typeof(value) trap typeof(value)
 def char(value) trap char(value)
 def symbol_name(sym) trap symbol_name(sym)
 def hash(value) trap hash(value)
+def format(value) trap format(value)
 
 def nil?(v) v == nil
 def integer?(v) typeof(v) == :integer
@@ -19,11 +20,6 @@ def binary?(v) typeof(v) == :binary
 def error?(result) when result == :error, true
 def error?(result) when tuple?(result) and #result > 0 and result[0] == :error, true
 def error?(result) false
-
-def format(data) when binary?(data), data
-def format(data) when integer?(data) and data >= 0 and data <= 255, char(data)
-def format(data) when pair?(data) and data != nil, format(@data) <> format(^data)
-def format(data) ""
 
 def inspect_int(num) when num == 0, "0"
 def inspect_int(num) when num < 0, "-" : inspect_int(-num)
