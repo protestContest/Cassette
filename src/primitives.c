@@ -389,7 +389,7 @@ static u32 VMNewWindow(VM *vm)
   w->title = StringFrom(BinaryData(title), ObjLength(title));
   w->width = RawInt(width);
   w->height = RawInt(height);
-  w->buf = malloc(sizeof(u32)*w->width*w->height);
+  w->buf = calloc(1, sizeof(u32)*w->width*w->height);
   ref = VMPushRef(w, vm);
 
   OpenWindow(w);
@@ -545,7 +545,7 @@ static u32 VMBlit(VM *vm)
   for (i = 0; i < height; i++) {
     u32 *src = pixels + (sy+i)*rowWidth + sx;
     u32 *dst = w->buf + (y+i)*w->width + x;
-    Copy(src, dst, width);
+    Copy(src, dst, width*sizeof(u32));
   }
 
   return 0;

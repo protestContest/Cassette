@@ -6,6 +6,7 @@ def white() Color(255, 255, 255)
 def black() Color(0, 0, 0)
 
 record Event(what, message, when, where, modifiers)
+record Window(title, width, height, ref)
 
 def mod_mask(mod)
   if
@@ -19,9 +20,10 @@ def mod_mask(mod)
 def modifier?(event, mod)
   event.modifiers & mod_mask(mod)
 
-def open(title, width, height) trap open_window(title, width, height)
-def close(window) trap close_window(window)
-def update(window) trap update_window(window)
+def open(title, width, height)
+  Window(title, width, height, trap open_window(title, width, height))
+def close(window) trap close_window(window.ref)
+def update(window) trap update_window(window.ref)
 def next_event() trap next_event()
-def write_pixel(x, y, color, window) trap write_pixel(x, y, color, window)
-def blit(data, width, height, x, y, window) trap blit(data, x, y, width, height, window)
+def write_pixel(x, y, color, window) trap write_pixel(x, y, color, window.ref)
+def blit(data, width, height, x, y, window) trap blit(data, width, height, x, y, window.ref)

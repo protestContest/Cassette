@@ -20,7 +20,7 @@ CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/prefix.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic -fsanitize=address -fno-omit-frame-pointer
 CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -DDEBUG
-LDFLAGS = -framework Cocoa -framework AudioToolbox
+LDFLAGS = -framework Cocoa
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)

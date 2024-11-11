@@ -5,31 +5,37 @@ def should_quit(event)
   ((event.message & 0xFF == $q and Window.modifier?(event, :cmd)) or
    (event.message >> 8 == 0x35))
 
-def loop(window) do
-  let event = Window.next_event()
+def loop(window, mod) do
+  let
+    event = Window.next_event() except should_quit(event), nil
+    white = [0xFF, 0xFF, 0xFF, 0]
+    black = [0, 0, 0, 0]
+    mod = if mod > 32, 2 else mod
+    pixels =
+      map_range(0, window.height, \y ->
+        map_range(0, window.width, \x ->
+          if (x ^ y) % mod, white else black))
+    img = Value.format(pixels)
   in do
     if event.what, IO.inspect(event) else nil
+    Window.blit(img, window.width, window.height, 0, 0, window)
     Window.update(window)
-    if should_quit(event), nil
-    else loop(window)
+    loop(window, mod + 1)
   end
+end
+
+def map_range(start, end, fn) do
+  def loop(i, acc) when i >= end, List.reverse(acc)
+  def loop(i, acc) do
+    loop(i+1, fn(i) : acc)
+  end
+  loop(start, [])
 end
 
 let
   width = 400
   height = 300
   window = Window.open("Test", width, height)
-  white = [0, 0xFF, 0xFF, 0xFF]
-  black = [0, 0, 0, 0]
 in do
-  let pixels =
-    List.map(List.range(0, height), \y ->
-      List.map(List.range(0, width), \x ->
-        let bit = x % 8
-        in if ((x >> bit) + y) & 1, black else white))
-    img = Value.format(pixels)
-  in do
-    Window.blit(img, width, height, 0, 0, window)
-    loop(window)
-  end
+  loop(window, 1)
 end

@@ -71,7 +71,7 @@ static int ShouldTerminate(id v, SEL s, id w)
 void OpenWindow(CTWindow *window)
 {
   Class delegateclass, viewclass;
-  id title, view, delegate;
+  id title, view, delegate, ev;
   u32 key;
   msg(id, cls("NSApplication"), "sharedApplication");
   msg1(void, NSApp, "setActivationPolicy:", NSInteger, 0);
@@ -105,6 +105,12 @@ void OpenWindow(CTWindow *window)
   msg1(void, window->data, "makeKeyAndOrderFront:", id, nil);
   msg(void, window->data, "center");
   msg1(void, NSApp, "activateIgnoringOtherApps:", BOOL, YES);
+
+  ev = msg4(id, NSApp, "nextEventMatchingMask:untilDate:inMode:dequeue:",
+    NSUInteger, NSUIntegerMax, id, NULL, id, NSDefaultRunLoopMode, BOOL, YES);
+  if (ev) msg1(void, NSApp, "sendEvent:", id, ev);
+
+
 
   key = Hash(&window->data, sizeof(id));
   HashMapSet(&window_map, key, VecCount(windows));
