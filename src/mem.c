@@ -29,10 +29,13 @@ void DestroyMem(void)
 void SizeMem(u32 size)
 {
   u32 stack_size = StackSize();
+  u32 *stack = malloc(sizeof(u32)*stack_size);
+  Copy(mem.data + mem.stack, stack, sizeof(u32)*stack_size);
+  mem.data = realloc(mem.data, sizeof(u32)*size);
+  mem.stack = size - stack_size;
+  Copy(stack, mem.data + mem.stack, sizeof(u32)*stack_size);
   mem.capacity = size;
-  mem.data = realloc(mem.data, size*sizeof(u32));
-  memcpy(mem.data + mem.capacity - stack_size, mem.data + mem.stack, stack_size*sizeof(u32));
-  mem.stack = mem.capacity - stack_size;
+  free(stack);
 }
 
 u32 MemCapacity(void)

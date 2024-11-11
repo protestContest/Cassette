@@ -18,7 +18,7 @@ MAIN_OBJ := $(BUILD)/$(MAIN).o
 
 CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/prefix.h
-WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
+WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic -fsanitize=address -fno-omit-frame-pointer
 CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -DDEBUG
 LDFLAGS = -framework Cocoa -framework AudioToolbox
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
