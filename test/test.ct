@@ -5,6 +5,7 @@ def should_quit(event)
   ((event.message & 0xFF == $q and Window.modifier?(event, :cmd)) or
    (event.message >> 8 == 0x35))
 
+def loop(window, mod) when mod == 8, nil
 def loop(window, mod) do
   let
     event = Window.next_event() except should_quit(event), nil

@@ -8,7 +8,7 @@ u32 Time(void)
   return ts.tv_sec;
 }
 
-u32 Microtime(void)
+u64 Microtime(void)
 {
   struct timeval ts;
   gettimeofday(&ts, NULL);

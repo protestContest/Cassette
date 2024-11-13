@@ -9,10 +9,6 @@
 #include "univ/symbol.h"
 #include "univ/vec.h"
 
-#ifdef SDL
-#include <SDL2/SDL.h>
-#endif
-
 typedef void (*OpFn)(VM *vm);
 
 static void TraceInst(VM *vm);
@@ -146,10 +142,6 @@ void InitVM(VM *vm, Program *program)
   }
   vm->primitives = InitPrimitives();
   vm->refs = 0;
-
-#ifdef SDL
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-#endif
 }
 
 void DestroyVM(VM *vm)
@@ -228,11 +220,6 @@ void RunGC(VM *vm)
 {
   if (vm->program->trace) fprintf(stderr, "GARBAGE DAY!!!\n");
   CollectGarbage(vm->regs, ArrayCount(vm->regs));
-  if (MemFree() < MemCapacity()/4) {
-    SizeMem(2*MemCapacity());
-  } else if (MemFree() > MemCapacity()/4 + MemCapacity()/2) {
-    SizeMem(Max(256, MemCapacity()/2));
-  }
 }
 
 static void OpNoop(VM *vm)

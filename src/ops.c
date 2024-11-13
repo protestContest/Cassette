@@ -33,6 +33,7 @@ char *OpName(OpCode op)
   case opNeg:     return "neg";
   case opNot:     return "not";
   case opShift:   return "shift";
+  case opXor:     return "xor";
   case opDup:     return "dup";
   case opDrop:    return "drop";
   case opSwap:    return "swap";

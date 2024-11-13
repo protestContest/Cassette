@@ -599,3 +599,8 @@ i32 PrimitiveID(u32 name)
   }
   return -1;
 }
+
+char *PrimitiveName(u32 id)
+{
+  return primitives[id].name;
+}

@@ -73,10 +73,13 @@ static void MemSet(u32 index, u32 value)
 
 static u32 CopyObj(u32 value, u32 *oldmem)
 {
+  static u32 moved = 0;
   u32 index, i, len;
+
+  if (!moved) moved = IntVal(Symbol("*moved*"));
   if (value == 0 || !IsObj(value)) return value;
   index = RawVal(value);
-  if (oldmem[index] == IntVal(Symbol("*moved*"))) {
+  if (oldmem[index] == moved) {
     return oldmem[index+1];
   }
   if (IsBinHdr(oldmem[index])) {
@@ -92,11 +95,12 @@ static u32 CopyObj(u32 value, u32 *oldmem)
   } else {
     value = Pair(oldmem[index], oldmem[index+1]);
   }
-  oldmem[index] = IntVal(Symbol("*moved*"));
+  oldmem[index] = moved;
   oldmem[index+1] = value;
   return value;
 }
 
+#define MIN_CAPACITY  1000000
 void CollectGarbage(u32 *roots, u32 num_roots)
 {
   u32 i, scan;
@@ -138,6 +142,15 @@ void CollectGarbage(u32 *roots, u32 num_roots)
   }
 
   free(oldmem);
+
+  if (MemFree() < MemCapacity()/4) {
+    SizeMem(2*MemCapacity());
+    fprintf(stderr, "Mem size: %d\n", MemCapacity());
+  } else if (MemCapacity() > MIN_CAPACITY &&
+      MemFree() > MemCapacity()/4 + MemCapacity()/2) {
+    SizeMem(Max(256, MemCapacity()/2));
+    fprintf(stderr, "Mem size: %d\n", MemCapacity());
+  }
 }
 
 void StackPush(u32 value)
