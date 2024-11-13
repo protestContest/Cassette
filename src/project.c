@@ -8,7 +8,6 @@
 #include "univ/symbol.h"
 #include "univ/vec.h"
 #include "vm.h"
-#include "node.h"
 
 static Error *FileNotFound(char *filename)
 {
@@ -207,8 +206,6 @@ Error *BuildProject(Project *project)
       u32 len = mod->ast->end - mod->ast->start;
       return NewError(msg, mod->filename, mod->ast->start, len);
     }
-
-    PrintNode(mod->ast);
 
     name = NodeValue(ModuleName(mod));
     if (name) HashMapSet(&project->mod_map, name, i);

@@ -205,7 +205,7 @@ void NextEvent(Event *event)
     } else {
       event->message.key.c = 0;
     }
-    break;
+    return;
   case 11:
     event->what = keyUp;
     event->message.key.code = (u8)msg(NSUInteger, ev, "keyCode");
@@ -216,7 +216,7 @@ void NextEvent(Event *event)
     } else {
       event->message.key.c = 0;
     }
-    break;
+    return;
   }
   msg1(void, NSApp, "sendEvent:", id, ev);
 }
