@@ -546,10 +546,10 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
 
 static Chunk *CompileLet(ASTNode *node, bool returns, Compiler *c)
 {
-  u32 num_assigns = RawInt(NodeValue(NodeChild(node, 0)));
+  u32 num_assigns = GetNodeAttr(node, "count");
   Chunk *chunk;
   c->env = ExtendEnv(num_assigns, c->env);
-  chunk = CompileExpr(NodeChild(node, 1), returns, c);
+  chunk = CompileExpr(NodeChild(node, 0), returns, c);
   if (!chunk) return 0;
   c->env = PopEnv(c->env);
   return WriteScope(num_assigns, node->start, chunk);
@@ -576,10 +576,10 @@ static Chunk *CompileAssign(ASTNode *node, bool returns, Compiler *c)
   */
 
   Chunk *val_chunk, *def_chunk, *expr_chunk;
-  u32 index = RawInt(NodeValue(NodeChild(node, 0)));
-  ASTNode *id = NodeChild(node, 1);
-  ASTNode *value = NodeChild(node, 2);
-  ASTNode *expr = NodeChild(node, 3);
+  u32 index = GetNodeAttr(node, "index");
+  ASTNode *id = NodeChild(node, 0);
+  ASTNode *value = NodeChild(node, 1);
+  ASTNode *expr = NodeChild(node, 2);
 
   val_chunk = CompileExpr(value, false, c);
   if (!val_chunk) return 0;

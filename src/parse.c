@@ -317,7 +317,7 @@ static ASTNode *TransformImports(ASTNode *imports, ASTNode *body, Parser *p)
   if (num_assigns == 0) return body;
 
   node = NewNode(letNode, imports->start, imports->end, 0);
-  NodePush(node, MakeTerminal(constNode, IntVal(num_assigns), p));
+  SetNodeAttr(node, "count", num_assigns);
 
   for (i = 0; i < NodeCount(imports); i++) {
     u32 import_index = NodeCount(imports) - i - 1;
@@ -333,7 +333,7 @@ static ASTNode *TransformImports(ASTNode *imports, ASTNode *body, Parser *p)
       ASTNode *ref = NewNode(refNode, var->start, var->end, 0);
       NodePush(ref, CloneNode(alias));
       NodePush(ref, CloneNode(var));
-      NodePush(assign, MakeTerminal(constNode, IntVal(assign_index), p));
+      SetNodeAttr(assign, "index", assign_index);
       NodePush(assign, var);
       NodePush(assign, ref);
       NodePush(assign, body);
@@ -923,7 +923,7 @@ static ASTNode *ParseLet(Parser *p)
   if (!CheckToken(idToken, p)) return Expected("assignment", node, p);
   assigns = ParseAssigns(&num_assigns, p);
   if (IsErrorNode(assigns)) return ParseFail(node, assigns);
-  NodePush(node, MakeTerminal(constNode, IntVal(num_assigns), p));
+  SetNodeAttr(node, "count", num_assigns);
   NodePush(node, assigns);
   return node;
 }
@@ -939,7 +939,7 @@ static ASTNode *ParseAssigns(u32 *num_assigns, Parser *p)
   (*num_assigns)++;
 
   node = MakeNode(assignNode, p);
-  NodePush(node, MakeTerminal(constNode, IntVal((*num_assigns) - 1), p));
+  SetNodeAttr(node, "index", (*num_assigns)-1);
   result = ParseID(p);
   if (IsErrorNode(result)) return ParseFail(node, result);
   NodePush(node, result);

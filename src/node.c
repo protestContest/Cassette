@@ -1,4 +1,5 @@
 #include "node.h"
+#include "univ/symbol.h"
 
 ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value)
 {
@@ -8,6 +9,7 @@ ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value)
   node->end = end;
   node->data.children = 0;
   node->data.value = value;
+  node->attrs = 0;
   return node;
 }
 
@@ -41,13 +43,14 @@ ASTNode *CloneNode(ASTNode *node)
 
 void FreeNode(ASTNode *node)
 {
+  u32 i;
   if (!IsTerminal(node)) {
-    u32 i;
     for (i = 0; i < VecCount(node->data.children); i++) {
       FreeNode(node->data.children[i]);
     }
     FreeVec(node->data.children);
   }
+  FreeVec(node->attrs);
   free(node);
 }
 
@@ -56,6 +59,7 @@ void FreeNodeShallow(ASTNode *node)
   if (!IsTerminal(node)) {
     FreeVec(node->data.children);
   }
+  FreeVec(node->attrs);
   free(node);
 }
 
@@ -114,6 +118,34 @@ char *NodeTypeName(i32 type)
   }
 }
 
+void SetNodeAttr(ASTNode *node, char *name, u32 value)
+{
+  u32 i;
+  u32 key = Symbol(name);
+  NodeAttr attr;
+  for (i = 0; i < VecCount(node->attrs); i++) {
+    if (node->attrs[i].name == key) {
+      node->attrs[i].value = value;
+      return;
+    }
+  }
+  attr.name = key;
+  attr.value = value;
+  VecPush(node->attrs, attr);
+}
+
+u32 GetNodeAttr(ASTNode *node, char *name)
+{
+  u32 i;
+  u32 key = Symbol(name);
+  for (i = 0; i < VecCount(node->attrs); i++) {
+    if (node->attrs[i].name == key) {
+      return node->attrs[i].value;
+    }
+  }
+  assert(false);
+}
+
 #ifdef DEBUG
 #include "mem.h"
 #include "univ/symbol.h"
@@ -123,6 +155,15 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
   u32 i, j;
 
   fprintf(stderr, "%s[%d:%d]", NodeTypeName(node->type), node->start, node->end);
+
+  if (VecCount(node->attrs) > 0) {
+    fprintf(stderr, " (");
+    for (i = 0; i < VecCount(node->attrs); i++) {
+      fprintf(stderr, "%s: %d", SymbolName(node->attrs[i].name), node->attrs[i].value);
+      if (i < VecCount(node->attrs) - 1) fprintf(stderr, ", ");
+    }
+    fprintf(stderr, ")");
+  }
 
   switch (node->type) {
   case constNode:

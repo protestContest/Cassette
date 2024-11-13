@@ -12,6 +12,11 @@ typedef enum {
   importNode, moduleNode, errorNode
 } NodeType;
 
+typedef struct {
+  u32 name;
+  u32 value;
+} NodeAttr;
+
 typedef struct ASTNode {
   NodeType type;
   u32 start;
@@ -20,6 +25,7 @@ typedef struct ASTNode {
     u32 value;
     struct ASTNode **children; /* vec */
   } data;
+  NodeAttr *attrs;
 } ASTNode;
 #define IsErrorNode(n)  ((n)->type == errorNode)
 #define NodeCount(n)    VecCount((n)->data.children)
@@ -34,6 +40,8 @@ void FreeNodeShallow(ASTNode *node);
 bool IsTerminal(ASTNode *node);
 void NodePush(ASTNode *node, ASTNode *child);
 char *NodeTypeName(i32 type);
+void SetNodeAttr(ASTNode *node, char *name, u32 value);
+u32 GetNodeAttr(ASTNode *node, char *name);
 
 #ifdef DEBUG
 void PrintNode(ASTNode *node);
