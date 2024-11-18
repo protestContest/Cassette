@@ -60,7 +60,7 @@ u32 DisassembleInst(u8 *code, u32 *index, u32 codeSize)
   OpCode op = code[*index];
   u32 arg;
   u32 len = 0;
-  char *arg_str;
+  char **arg_str;
   u32 num_width = NumDigits(codeSize, 10);
 
   len += fprintf(stderr, "%*d│ %s", num_width, *index, OpName(op)) - 2;
@@ -70,8 +70,8 @@ u32 DisassembleInst(u8 *code, u32 *index, u32 codeSize)
   case opConst:
     arg = ReadLEB(*index, code);
     arg_str = MemValStr(arg);
-    len += fprintf(stderr, " %s", arg_str);
-    free(arg_str);
+    len += fprintf(stderr, " %s", *arg_str);
+    DisposeHandle(arg_str);
     (*index) += LEBSize(arg);
     return len;
   case opTuple:

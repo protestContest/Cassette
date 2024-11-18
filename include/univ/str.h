@@ -11,11 +11,11 @@
 #define IsPrintable(c)    ((c) >= 0x20 && (c) < 0x7F)
 #define StrEq(s1, s2)     ((s1) && (s2) && strcmp(s1, s2) == 0)
 
-char *NewString(char *str);
-char *StringFrom(char *str, u32 len);
-char *FormatString(char *format, char *str);
-char *FormatInt(char *format, i32 num);
-char *JoinStr(char *a, char *b, char join);
+char **NewString(char *str);
+char **StringFrom(char *str, u32 len);
+char **FormatString(char **format, char *str);
+char **FormatInt(char **format, i32 num);
+char **JoinStr(char *a, char *b, char join);
 char *LineStart(u32 index, char *str);
 char *LineEnd(u32 index, char *str);
 u32 LineNum(char *str, u32 index);

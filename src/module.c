@@ -12,8 +12,8 @@ void InitModule(Module *module)
 
 void DestroyModule(Module *module)
 {
-  if (module->filename) free(module->filename);
-  if (module->source) free(module->source);
+  if (module->filename) DisposeHandle((Handle)module->filename);
+  if (module->source) DisposeHandle((Handle)module->source);
   if (module->ast) FreeNode(module->ast);
   if (module->code) FreeChunk(module->code);
   DestroyHashMap(&module->exports);

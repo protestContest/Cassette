@@ -9,17 +9,17 @@ static Mem mem = {0, 0, 0, 0};
 
 void InitMem(u32 size)
 {
-  mem.data = malloc(size*sizeof(u32));
+  mem.data = (u32**)NewHandle(size*sizeof(u32));
   mem.capacity = size;
   mem.free = 2;
   mem.stack = size;
-  mem.data[0] = 0;
-  mem.data[1] = 0;
+  (*mem.data)[0] = 0;
+  (*mem.data)[1] = 0;
 }
 
 void DestroyMem(void)
 {
-  if (mem.data) free(mem.data);
+  if (mem.data) DisposeHandle((Handle)mem.data);
   mem.capacity = 0;
   mem.data = 0;
   mem.free = 0;
@@ -29,13 +29,13 @@ void DestroyMem(void)
 void SizeMem(u32 size)
 {
   u32 stack_size = StackSize();
-  u32 *stack = malloc(sizeof(u32)*stack_size);
-  Copy(mem.data + mem.stack, stack, sizeof(u32)*stack_size);
-  mem.data = realloc(mem.data, sizeof(u32)*size);
+  u32 **stack = (u32**)NewHandle(sizeof(u32)*stack_size);
+  Copy(*mem.data + mem.stack, *stack, sizeof(u32)*stack_size);
+  SetHandleSize((Handle)mem.data, sizeof(u32)*size);
   mem.stack = size - stack_size;
-  Copy(stack, mem.data + mem.stack, sizeof(u32)*stack_size);
+  Copy(*stack, *mem.data + mem.stack, sizeof(u32)*stack_size);
   mem.capacity = size;
-  free(stack);
+  DisposeHandle((Handle)stack);
 }
 
 u32 MemCapacity(void)
@@ -62,16 +62,16 @@ static u32 MemAlloc(u32 count)
 static u32 MemGet(u32 index)
 {
   assert(index < mem.free);
-  return mem.data[index];
+  return (*mem.data)[index];
 }
 
 static void MemSet(u32 index, u32 value)
 {
   assert(index < mem.free);
-  mem.data[index] = value;
+  (*mem.data)[index] = value;
 }
 
-static u32 CopyObj(u32 value, u32 *oldmem)
+static u32 CopyObj(u32 value, u32 **oldmem)
 {
   static u32 moved = 0;
   u32 index, i, len;
@@ -79,24 +79,24 @@ static u32 CopyObj(u32 value, u32 *oldmem)
   if (!moved) moved = IntVal(Symbol("*moved*"));
   if (value == 0 || !IsObj(value)) return value;
   index = RawVal(value);
-  if (oldmem[index] == moved) {
-    return oldmem[index+1];
+  if ((*oldmem)[index] == moved) {
+    return (*oldmem)[index+1];
   }
-  if (IsBinHdr(oldmem[index])) {
-    len = RawVal(oldmem[index]);
+  if (IsBinHdr((*oldmem)[index])) {
+    len = RawVal((*oldmem)[index]);
     value = NewBinary(len);
-    Copy(oldmem+index+1, BinaryData(value), len);
-  } else if (IsTupleHdr(oldmem[index])) {
-    len = RawVal(oldmem[index]);
+    Copy((*oldmem)+index+1, BinaryData(value), len);
+  } else if (IsTupleHdr((*oldmem)[index])) {
+    len = RawVal((*oldmem)[index]);
     value = Tuple(len);
     for (i = 0; i < len; i++) {
-      TupleSet(value, i, oldmem[index+i+1]);
+      TupleSet(value, i, (*oldmem)[index+i+1]);
     }
   } else {
-    value = Pair(oldmem[index], oldmem[index+1]);
+    value = Pair((*oldmem)[index], (*oldmem)[index+1]);
   }
-  oldmem[index] = moved;
-  oldmem[index+1] = value;
+  (*oldmem)[index] = moved;
+  (*oldmem)[index+1] = value;
   return value;
 }
 
@@ -104,16 +104,16 @@ static u32 CopyObj(u32 value, u32 *oldmem)
 void CollectGarbage(u32 *roots, u32 num_roots)
 {
   u32 i, scan;
-  u32 *oldmem = mem.data;
+  u32 **oldmem = mem.data;
 
   if (!mem.data) {
     InitMem(256);
     return;
   }
 
-  mem.data = malloc(mem.capacity*sizeof(u32));
-  mem.data[0] = 0;
-  mem.data[1] = 0;
+  mem.data = (u32**)NewHandle(mem.capacity*sizeof(u32));
+  (*mem.data)[0] = 0;
+  (*mem.data)[1] = 0;
   mem.free = 2;
 
   for (i = 0; i < num_roots; i++) {
@@ -121,7 +121,7 @@ void CollectGarbage(u32 *roots, u32 num_roots)
   }
 
   for (i = mem.stack; i < mem.capacity; i++) {
-    mem.data[i] = CopyObj(oldmem[i], oldmem);
+    (*mem.data)[i] = CopyObj((*oldmem)[i], oldmem);
   }
 
   scan = 2;
@@ -141,7 +141,7 @@ void CollectGarbage(u32 *roots, u32 num_roots)
     }
   }
 
-  free(oldmem);
+  DisposeHandle((Handle)oldmem);
 
   if (MemFree() < MemCapacity()/4) {
     SizeMem(2*MemCapacity());
@@ -156,19 +156,19 @@ void CollectGarbage(u32 *roots, u32 num_roots)
 void StackPush(u32 value)
 {
   assert(mem.stack > mem.free);
-  mem.data[--mem.stack] = value;
+  (*mem.data)[--mem.stack] = value;
 }
 
 u32 StackPop(void)
 {
   assert(mem.stack < mem.capacity);
-  return mem.data[mem.stack++];
+  return (*mem.data)[mem.stack++];
 }
 
 u32 StackPeek(u32 index)
 {
   assert(StackSize() > index);
-  return mem.data[mem.stack + index];
+  return (*mem.data)[mem.stack + index];
 }
 
 u32 StackSize(void)
@@ -196,7 +196,7 @@ u32 Tail(u32 pair)
 
 u32 ObjLength(u32 obj)
 {
-  return RawVal(mem.data[RawVal(obj)]);
+  return RawVal((*mem.data)[RawVal(obj)]);
 }
 
 u32 Tuple(u32 length)
@@ -266,7 +266,7 @@ u32 BinaryFrom(char *str, u32 length)
 
 char *BinaryData(u32 bin)
 {
-  return (char*)(mem.data + RawVal(bin) + 1);
+  return (char*)(*mem.data + RawVal(bin) + 1);
 }
 
 u32 BinaryGet(u32 bin, u32 index)
@@ -308,11 +308,11 @@ bool BinIsPrintable(u32 bin)
   return true;
 }
 
-char *BinToStr(u32 bin)
+char **BinToStr(u32 bin)
 {
-  char *str = malloc(ObjLength(bin) + 1);
-  Copy(BinaryData(bin), str, ObjLength(bin));
-  str[ObjLength(bin)] = 0;
+  char **str = NewHandle(ObjLength(bin) + 1);
+  Copy(BinaryData(bin), *str, ObjLength(bin));
+  (*str)[ObjLength(bin)] = 0;
   return str;
 }
 
@@ -379,57 +379,58 @@ u32 HashVal(u32 value)
   return hash;
 }
 
-char *MemValStr(u32 value)
+char **MemValStr(u32 value)
 {
-  char *str;
+  char **str;
   if (value == 0) {
-    str = malloc(4);
-    str[0] = 'n';
-    str[1] = 'i';
-    str[2] = 'l';
-    str[3] = 0;
+    str = NewHandle(4);
+    (*str)[0] = 'n';
+    (*str)[1] = 'i';
+    (*str)[2] = 'l';
+    (*str)[3] = 0;
     return str;
   }
   if (IsInt(value)) {
-    char *data = SymbolName(RawVal(value));
-    if (data) {
-      str = malloc(strlen(data) + 2);
-      str[0] = ':';
-      WriteStr(data, strlen(data), str+1);
+    if (SymbolExists(RawVal(value))) {
+      char **data = SymbolName(RawVal(value));
+      str = NewHandle(strlen(*data) + 2);
+      (*str)[0] = ':';
+      WriteStr(*data, strlen(*data), *str+1);
+      DisposeHandle(data);
       return str;
     } else {
-      str = malloc(NumDigits(value, 10) + 1);
-      WriteNum(RawInt(value), str);
+      str = NewHandle(NumDigits(value, 10) + 1);
+      WriteNum(RawInt(value), *str);
       return str;
     }
   }
   if (IsBinary(value) && ObjLength(value) < 8 && BinIsPrintable(value)) {
     u32 len = ObjLength(value);
     char *data = BinaryData(value);
-    str = malloc(len + 3);
-    str[0] = '"';
-    WriteStr(data, len, str+1);
-    str[len + 1] = '"';
-    str[len + 2] = 0;
+    str = NewHandle(len + 3);
+    (*str)[0] = '"';
+    WriteStr(data, len, *str+1);
+    (*str)[len + 1] = '"';
+    (*str)[len + 2] = 0;
     return str;
   }
 
-  str = malloc(NumDigits(RawVal(value), 10) + 2);
+  str = NewHandle(NumDigits(RawVal(value), 10) + 2);
   if (IsBinary(value)) {
-    str[0] = 'b';
+    (*str)[0] = 'b';
   } else if (IsTuple(value)) {
-    str[0] = 't';
+    (*str)[0] = 't';
   } else if (IsPair(value)) {
-    str[0] = 'p';
+    (*str)[0] = 'p';
   } else if (IsTupleHdr(value)) {
-    str[0] = '#';
+    (*str)[0] = '#';
   } else if (IsBinHdr(value)) {
-    str[0] = '$';
+    (*str)[0] = '$';
   } else {
-    str[0] = '?';
+    (*str)[0] = '?';
   }
-  WriteNum(RawVal(value), str + 1);
-  str[NumDigits(RawVal(value), 10) + 1] = 0;
+  WriteNum(RawVal(value), *str+1);
+  (*str)[NumDigits(RawVal(value), 10) + 1] = 0;
   return str;
 }
 
@@ -450,13 +451,13 @@ void DumpMem(void)
       bin_data += 4;
       bin_cells--;
     } else {
-      u32 value = mem.data[i];
-      char *str = MemValStr(value);
-      fprintf(stderr, "%*s│", colWidth, str);
-      free(str);
+      u32 value = (*mem.data)[i];
+      char **str = MemValStr(value);
+      fprintf(stderr, "%*s│", colWidth, *str);
+      DisposeHandle(str);
       if (IsBinHdr(value)) {
         bin_cells = BinSpace(RawVal(value));
-        bin_data = (char*)(mem.data + i + 1);
+        bin_data = (char*)(*mem.data + i + 1);
       }
     }
 

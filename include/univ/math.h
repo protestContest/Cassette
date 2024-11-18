@@ -1,6 +1,5 @@
 #pragma once
 
-#define Abs(n)            (((n) ^ ((n) >> 31)) - ((n) >> 31))
 #define Align(n, m)       ((n) == 0 ? 0 : ((((n) - 1) / (m) + 1) * (m)))
 #define RightZeroBit(x)   (~(x) & ((x) + 1))
 

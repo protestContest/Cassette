@@ -13,11 +13,11 @@ typedef struct {
   bool trace;
 } Program;
 
-Program *NewProgram(void);
-void FreeProgram(Program *program);
-void AddStrings(ASTNode *node, Program *program, HashMap *strings);
-u32 SerializeProgram(Program *program, u8 **dst);
+Program **NewProgram(void);
+void FreeProgram(Program **program);
+void AddStrings(ASTNode **node, Program **program, HashMap *strings);
+u32 SerializeProgram(Program **program, u8 **dst);
 
 #ifdef DEBUG
-void DisassembleProgram(Program *program);
+void DisassembleProgram(Program **program);
 #endif

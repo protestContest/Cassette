@@ -1,7 +1,7 @@
 #pragma once
 
 typedef struct {
-  char *title;
+  char **title;
   i32 width;
   i32 height;
   u32 *buf;
@@ -33,7 +33,7 @@ enum {
 typedef struct {
   i32 what;
   union {
-    CTWindow *window;
+    CTWindow **window;
     struct {
       u8 code;
       char c;
@@ -47,8 +47,8 @@ typedef struct {
   i32 modifiers;
 } Event;
 
-void OpenWindow(CTWindow *window);
-void CloseWindow(CTWindow *window);
-void UpdateWindow(CTWindow *window);
+void OpenWindow(CTWindow **window);
+void CloseWindow(CTWindow **window);
+void UpdateWindow(CTWindow **window);
 void NextEvent(Event *event);
-#define WritePixel(w, x, y) ((w)->buf[((y) * (w)->width) + (x)])
+#define WritePixel(w, x, y) ((*(w))->buf[((y) * (*(w))->width) + (x)])

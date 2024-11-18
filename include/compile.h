@@ -8,8 +8,8 @@
 #include "univ/hashmap.h"
 
 typedef struct {
-  Env *env;
-  Error *error;
+  Env **env;
+  Error **error;
   ModuleVec modules;
   HashMap *mod_map;
   HashMap alias_map;
@@ -18,4 +18,4 @@ typedef struct {
 
 void InitCompiler(Compiler *c, ModuleVec modules, HashMap *mod_map);
 void DestroyCompiler(Compiler *c);
-Chunk *Compile(ASTNode *ast, Compiler *c);
+Chunk **Compile(ASTNode **ast, Compiler *c);

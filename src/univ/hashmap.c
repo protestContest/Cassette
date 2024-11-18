@@ -27,18 +27,18 @@ static void ResizeMap(HashMap *map, u32 capacity)
 
   map2.capacity = Max(capacity, HashMapMinSize);
   map2.count = map->count;
-  map2.buckets = malloc(sizeof(MapBucket)*map2.capacity);
+  map2.buckets = (MapBucket**)NewHandle(sizeof(MapBucket)*map2.capacity);
 
-  for (i = 0; i < map2.capacity; i++) map2.buckets[i].probe = -1;
+  for (i = 0; i < map2.capacity; i++) (*map2.buckets)[i].probe = -1;
   for (i = 0; i < map->capacity; i++) {
-    if (!IsEmpty(map->buckets[i])) {
-      u32 key = map->buckets[i].key;
-      u32 value = map->buckets[i].value;
+    if (!IsEmpty((*map->buckets)[i])) {
+      u32 key = (*map->buckets)[i].key;
+      u32 value = (*map->buckets)[i].value;
       Put(&map2, key, value);
     }
   }
 
-  if (map->buckets) free(map->buckets);
+  if (map->buckets) DisposeHandle((Handle)map->buckets);
   map->capacity = map2.capacity;
   map->buckets = map2.buckets;
 }
@@ -52,7 +52,7 @@ void InitHashMap(HashMap *map)
 
 void DestroyHashMap(HashMap *map)
 {
-  if (map->buckets) free(map->buckets);
+  if (map->buckets) DisposeHandle((Handle)map->buckets);
   map->buckets = 0;
   map->count = 0;
   map->capacity = 0;
@@ -67,17 +67,17 @@ static bool Put(HashMap *map, u32 key, u32 value)
   bucket.probe = 0;
 
   while (true) {
-    if (IsEmpty(map->buckets[index])) {
-      map->buckets[index] = bucket;
+    if (IsEmpty((*map->buckets)[index])) {
+      (*map->buckets)[index] = bucket;
       return true;
     }
-    if (map->buckets[index].key == key) {
-      map->buckets[index].value = value;
+    if ((*map->buckets)[index].key == key) {
+      (*map->buckets)[index].value = value;
       return false;
     }
-    if (map->buckets[index].probe < bucket.probe) {
-      MapBucket tmp = map->buckets[index];
-      map->buckets[index] = bucket;
+    if ((*map->buckets)[index].probe < bucket.probe) {
+      MapBucket tmp = (*map->buckets)[index];
+      (*map->buckets)[index] = bucket;
       bucket = tmp;
     }
 
@@ -100,8 +100,8 @@ bool HashMapContains(HashMap *map, u32 key)
   index = IndexFor(key, map->capacity);
 
   while (true) {
-    if (IsEmpty(map->buckets[index])) return false;
-    if (map->buckets[index].key == key) return true;
+    if (IsEmpty((*map->buckets)[index])) return false;
+    if ((*map->buckets)[index].key == key) return true;
     index = IndexFor(index + 1, map->capacity);
   }
 }
@@ -114,8 +114,8 @@ u32 HashMapGet(HashMap *map, u32 key)
   index = IndexFor(key, map->capacity);
 
   while (true) {
-    if (IsEmpty(map->buckets[index])) return -1;
-    if (map->buckets[index].key == key) return map->buckets[index].value;
+    if (IsEmpty((*map->buckets)[index])) return -1;
+    if ((*map->buckets)[index].key == key) return (*map->buckets)[index].value;
     index = IndexFor(index + 1, map->capacity);
   }
 }
@@ -128,13 +128,13 @@ void HashMapDelete(HashMap *map, u32 key)
   index = IndexFor(key, map->capacity);
 
   while (true) {
-    if (IsEmpty(map->buckets[index])) return;
-    if (map->buckets[index].key == key) {
+    if (IsEmpty((*map->buckets)[index])) return;
+    if ((*map->buckets)[index].key == key) {
       u32 next_index = IndexFor(index + 1, map->capacity);
-      map->buckets[index].probe = -1;
-      while (map->buckets[next_index].probe > 0) {
-        map->buckets[index] = map->buckets[next_index];
-        map->buckets[index].probe--;
+      (*map->buckets)[index].probe = -1;
+      while ((*map->buckets)[next_index].probe > 0) {
+        (*map->buckets)[index] = (*map->buckets)[next_index];
+        (*map->buckets)[index].probe--;
         index = next_index;
         next_index = IndexFor(next_index + 1, map->capacity);
       }
@@ -150,8 +150,8 @@ u32 HashMapKey(HashMap *map, u32 key_num)
 {
   u32 i, count = 0;
   for (i = 0; i < map->capacity; i++) {
-    if (!IsEmpty(map->buckets[i])) {
-      if (count == key_num) return map->buckets[i].key;
+    if (!IsEmpty((*map->buckets)[i])) {
+      if (count == key_num) return (*map->buckets)[i].key;
       count++;
     }
   }

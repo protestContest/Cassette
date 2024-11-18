@@ -19,9 +19,11 @@ static u32 VMPanic(VM *vm)
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   a = StackPop();
   if (IsBinary(a)) {
-    char *msg = BinToStr(a);
-    RuntimeError(msg, vm);
-    free(msg);
+    char **msg = BinToStr(a);
+    HLock(msg);
+    RuntimeError(*msg, vm);
+    HUnlock(msg);
+    DisposeHandle(msg);
   } else {
     RuntimeError("Panic!", vm);
   }
@@ -98,21 +100,22 @@ static u32 VMFormat(VM *vm)
 static u32 VMSymbolName(VM *vm)
 {
   u32 a;
-  char *name;
+  char **name;
   u32 bin;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   a = StackPop();
   name = SymbolName(RawVal(a));
   if (!name || !*name) return 0;
-  MaybeGC(BinSpace(strlen(name)) + 2, vm);
-  bin = BinaryFrom(name, strlen(name));
+  MaybeGC(BinSpace(strlen(*name)) + 2, vm);
+  bin = BinaryFrom(*name, strlen(*name));
+  DisposeHandle(name);
   return bin;
 }
 
 static u32 VMOpen(VM *vm)
 {
   u32 flags, path;
-  char *str;
+  char **str;
   i32 file;
   if (StackSize() < 2) return RuntimeError("Stack underflow", vm);
   flags = StackPop();
@@ -122,8 +125,8 @@ static u32 VMOpen(VM *vm)
   if (!IsInt(flags)) return RuntimeError("Flags must be an integer", vm);
 
   str = BinToStr(path);
-  file = open(str, RawInt(flags), 0x1FF);
-  free(str);
+  file = open(*str, RawInt(flags), 0x1FF);
+  DisposeHandle(str);
   if (file == -1) return IOError(strerror(errno), vm);
   return IntVal(file);
 }
@@ -132,7 +135,7 @@ static u32 VMOpenSerial(VM *vm)
 {
   u32 opts, port, speed;
   i32 file;
-  char *str;
+  char **str;
   struct termios options;
   if (StackSize() < 3) return RuntimeError("Stack underflow", vm);
   opts = StackPop();
@@ -143,8 +146,8 @@ static u32 VMOpenSerial(VM *vm)
   if (!IsInt(opts)) return RuntimeError("Serial options must be an integer", vm);
 
   str = BinToStr(port);
-  file = open(str, O_RDWR | O_NDELAY | O_NOCTTY);
-  free(str);
+  file = open(*str, O_RDWR | O_NDELAY | O_NOCTTY);
+  DisposeHandle(str);
   if (file == -1) return IOError(strerror(errno), vm);
   fcntl(file, F_SETFL, O_NONBLOCK);
 
@@ -175,7 +178,7 @@ static u32 VMClose(VM *vm)
 static u32 VMRead(VM *vm)
 {
   u32 result, size, file;
-  char *data;
+  char **data;
   i32 bytes_read;
   if (StackSize() < 2) return RuntimeError("Stack underflow", vm);
   size = StackPop();
@@ -184,12 +187,12 @@ static u32 VMRead(VM *vm)
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
   if (!IsInt(size)) return RuntimeError("Size must be an integer", vm);
 
-  data = malloc(RawInt(size));
+  data = NewHandle(RawInt(size));
   bytes_read = read(RawInt(file), data, RawInt(size));
   if (bytes_read < 0) return IOError(strerror(errno), vm);
   MaybeGC(BinSpace(bytes_read) + 2, vm);
-  result = BinaryFrom(data, bytes_read);
-  free(data);
+  result = BinaryFrom(*data, bytes_read);
+  DisposeHandle(data);
   return result;
 }
 
@@ -229,7 +232,7 @@ static u32 VMListen(VM *vm)
 {
   u32 portVal;
   i32 status, s;
-  char *port;
+  char **port;
   struct addrinfo hints = {0};
   struct addrinfo *servinfo;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
@@ -241,8 +244,8 @@ static u32 VMListen(VM *vm)
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
-  status = getaddrinfo(0, port, &hints, &servinfo);
-  free(port);
+  status = getaddrinfo(0, *port, &hints, &servinfo);
+  DisposeHandle(port);
   if (status != 0) return IOError((char*)gai_strerror(status), vm);
 
   s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
@@ -277,7 +280,7 @@ static u32 VMConnect(VM *vm)
 {
   u32 portVal, nodeVal;
   i32 status, s;
-  char *node, *port;
+  char **node, **port;
   struct addrinfo hints = {0};
   struct addrinfo *servinfo;
 
@@ -293,9 +296,9 @@ static u32 VMConnect(VM *vm)
 
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
-  status = getaddrinfo(node, port, &hints, &servinfo);
-  if (nodeVal) free(node);
-  free(port);
+  status = getaddrinfo(*node, *port, &hints, &servinfo);
+  if (nodeVal) DisposeHandle(node);
+  DisposeHandle(port);
   if (status != 0) return IOError((char*)gai_strerror(status), vm);
 
   s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
@@ -371,7 +374,7 @@ static u32 VMNewWindow(VM *vm)
 {
   /* new_window(title, width, height) */
   u32 title, width, height;
-  CTWindow *w;
+  CTWindow **w;
   u32 ref;
 
   if (StackSize() < 3) return RuntimeError("Stack underflow", vm);
@@ -385,11 +388,11 @@ static u32 VMNewWindow(VM *vm)
     return RuntimeError("Title must be a string", vm);
   }
 
-  w = malloc(sizeof(CTWindow));
-  w->title = StringFrom(BinaryData(title), ObjLength(title));
-  w->width = RawInt(width);
-  w->height = RawInt(height);
-  w->buf = calloc(1, sizeof(u32)*w->width*w->height);
+  w = New(CTWindow);
+  (*w)->title = StringFrom(BinaryData(title), ObjLength(title));
+  (*w)->width = RawInt(width);
+  (*w)->height = RawInt(height);
+  (*w)->buf = malloc(sizeof(u32)*(*w)->width*(*w)->height);
   ref = VMPushRef(w, vm);
 
   OpenWindow(w);
@@ -400,20 +403,20 @@ static u32 VMNewWindow(VM *vm)
 
 static u32 VMDestroyWindow(VM *vm)
 {
-  CTWindow *w;
+  CTWindow **w;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   w = VMGetRef(RawVal(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
   CloseWindow(w);
-  free(w->buf);
-  free(w->title);
-  free(w);
+  DisposeHandle((Handle)(*w)->buf);
+  DisposeHandle((Handle)(*w)->title);
+  DisposeHandle((Handle)w);
   return 0;
 }
 
 static u32 VMUpdateWindow(VM *vm)
 {
-  CTWindow *w;
+  CTWindow **w;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   w = VMGetRef(RawVal(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
@@ -471,7 +474,7 @@ static u32 VMPollEvent(VM *vm)
 static u32 VMWritePixel(VM *vm)
 {
   /* write_pixel(x, y, color, window) */
-  CTWindow *w;
+  CTWindow **w;
   u32 x, y, color;
   if (StackSize() < 4) return RuntimeError("Stack underflow", vm);
   w = VMGetRef(RawVal(StackPop()), vm);
@@ -489,7 +492,7 @@ static u32 VMWritePixel(VM *vm)
 static u32 VMBlit(VM *vm)
 {
   /* blit(data, width, height, x, y, window) */
-  CTWindow *w;
+  CTWindow **w;
   i32 data, width, height, x, y, sx, sy, i, rowWidth;
   u32 *pixels;
   if (StackSize() < 6) return RuntimeError("Stack underflow", vm);
@@ -516,8 +519,8 @@ static u32 VMBlit(VM *vm)
   pixels = (u32*)BinaryData(data);
 
   /* dst is outside window */
-  if (x >= w->width) return 0;
-  if (y >= w->height) return 0;
+  if (x >= (*w)->width) return 0;
+  if (y >= (*w)->height) return 0;
 
   /* clip src to fit in window */
   if (x < 0) {
@@ -530,8 +533,8 @@ static u32 VMBlit(VM *vm)
     sy = -y;
     y = 0;
   }
-  if (x + width > w->width) width = w->width - x;
-  if (y + height > w->height) height = w->height - y;
+  if (x + width > (*w)->width) width = (*w)->width - x;
+  if (y + height > (*w)->height) height = (*w)->height - y;
 
   /* nothing to copy */
   if (width <= 0 || height <= 0) return 0;
@@ -544,12 +547,18 @@ static u32 VMBlit(VM *vm)
   /* copy each row */
   for (i = 0; i < height; i++) {
     u32 *src = pixels + (sy+i)*rowWidth + sx;
-    u32 *dst = w->buf + (y+i)*w->width + x;
+    u32 *dst = (*w)->buf + (y+i)*(*w)->width + x;
     Copy(src, dst, width*sizeof(u32));
   }
 
   return 0;
 }
+
+typedef struct {
+  char *name;
+  PrimFn fn;
+} PrimDef;
+
 
 static PrimDef primitives[] = {
   {"panic!", VMPanic},
@@ -581,16 +590,6 @@ static PrimDef primitives[] = {
   {"blit", VMBlit}
 };
 
-PrimDef *Primitives(void)
-{
-  return primitives;
-}
-
-u32 NumPrimitives(void)
-{
-  return ArrayCount(primitives);
-}
-
 i32 PrimitiveID(u32 name)
 {
   u32 i;
@@ -598,6 +597,11 @@ i32 PrimitiveID(u32 name)
     if (Symbol(primitives[i].name) == name) return i;
   }
   return -1;
+}
+
+PrimFn GetPrimitive(u32 id)
+{
+  return primitives[id].fn;
 }
 
 char *PrimitiveName(u32 id)

@@ -7,10 +7,10 @@
 
 typedef struct Module {
   u32 id;
-  char *filename;
-  char *source;
-  ASTNode *ast;
-  Chunk *code;
+  char **filename;
+  char **source;
+  ASTNode **ast;
+  Chunk **code;
   HashMap exports;
 } Module;
 

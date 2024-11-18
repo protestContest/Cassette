@@ -4,4 +4,4 @@
 
 #include "node.h"
 
-ASTNode *ParseModule(char *source);
+ASTNode **ParseModule(char **source);

@@ -2,6 +2,7 @@
 #include "univ/hash.h"
 #include "univ/hashmap.h"
 #include "univ/vec.h"
+#include "univ/str.h"
 
 static i32 symSize = 32;
 static VecOf(char) **names = 0;
@@ -27,13 +28,18 @@ u32 SymbolFrom(char *name, u32 len)
   return sym;
 }
 
-char *SymbolName(u32 sym)
+char **SymbolName(u32 sym)
 {
   if (!HashMapContains(&map, sym)) return 0;
-  return VecData(names) + HashMapGet(&map, sym);
+  return NewString(VecData(names) + HashMapGet(&map, sym));
 }
 
 void SetSymbolSize(i32 size)
 {
   symSize = size;
+}
+
+bool SymbolExists(u32 sym)
+{
+  return HashMapContains(&map, sym);
 }

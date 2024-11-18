@@ -1,31 +1,31 @@
 #include "node.h"
 #include "univ/symbol.h"
 
-ASTNode *NewNode(NodeType type, u32 start, u32 end)
+ASTNode **NewNode(NodeType type, u32 start, u32 end)
 {
-  ASTNode *node = malloc(sizeof(ASTNode));
-  node->type = type;
-  node->start = start;
-  node->end = end;
-  InitVec(node->data.children);
-  InitVec(node->attrs);
+  ASTNode **node = New(ASTNode);
+  (*node)->type = type;
+  (*node)->start = start;
+  (*node)->end = end;
+  InitVec((*node)->data.children);
+  InitVec((*node)->attrs);
   return node;
 }
 
-ASTNode *NewTerminal(NodeType type, u32 start, u32 end, u32 value)
+ASTNode **NewTerminal(NodeType type, u32 start, u32 end, u32 value)
 {
-  ASTNode *node = malloc(sizeof(ASTNode));
-  node->type = type;
-  node->start = start;
-  node->end = end;
-  node->data.value = value;
-  InitVec(node->attrs);
+  ASTNode **node = New(ASTNode);
+  (*node)->type = type;
+  (*node)->start = start;
+  (*node)->end = end;
+  (*node)->data.value = value;
+  InitVec((*node)->attrs);
   return node;
 }
 
-bool IsTerminal(ASTNode *node)
+bool IsTerminal(ASTNode **node)
 {
-  switch (node->type) {
+  switch ((*node)->type) {
   case constNode:
   case idNode:
   case symNode:
@@ -37,47 +37,47 @@ bool IsTerminal(ASTNode *node)
   }
 }
 
-ASTNode *CloneNode(ASTNode *node)
+ASTNode **CloneNode(ASTNode **node)
 {
-  ASTNode *clone;
+  ASTNode **clone;
   if (IsTerminal(node)) {
-    clone = NewTerminal(node->type, node->start, node->end, node->data.value);
+    clone = NewTerminal((*node)->type, (*node)->start, (*node)->end, (*node)->data.value);
   } else {
     u32 i;
-    clone = NewNode(node->type, node->start, node->end);
-    for (i = 0; i < VecCount(node->data.children); i++) {
-      NodePush(clone, CloneNode(VecAt(node->data.children, i)));
+    clone = NewNode((*node)->type, (*node)->start, (*node)->end);
+    for (i = 0; i < VecCount((*node)->data.children); i++) {
+      NodePush(clone, CloneNode(VecAt((*node)->data.children, i)));
     }
   }
   return clone;
 }
 
-void FreeNode(ASTNode *node)
+void FreeNode(ASTNode **node)
 {
   u32 i;
   if (!IsTerminal(node)) {
-    for (i = 0; i < VecCount(node->data.children); i++) {
-      FreeNode(VecAt(node->data.children, i));
+    for (i = 0; i < VecCount((*node)->data.children); i++) {
+      FreeNode(VecAt((*node)->data.children, i));
     }
-    FreeVec(node->data.children);
+    FreeVec((*node)->data.children);
   }
-  FreeVec(node->attrs);
-  free(node);
+  FreeVec((*node)->attrs);
+  DisposeHandle((Handle)node);
 }
 
-void FreeNodeShallow(ASTNode *node)
+void FreeNodeShallow(ASTNode **node)
 {
   if (!IsTerminal(node)) {
-    FreeVec(node->data.children);
+    FreeVec((*node)->data.children);
   }
-  FreeVec(node->attrs);
-  free(node);
+  FreeVec((*node)->attrs);
+  DisposeHandle((Handle)node);
 }
 
-void NodePush(ASTNode *node, ASTNode *child)
+void NodePush(ASTNode **node, ASTNode **child)
 {
-  VecPush(node->data.children, child);
-  if (child->end > node->end) node->end = child->end;
+  VecPush((*node)->data.children, child);
+  if ((*child)->end > (*node)->end) (*node)->end = (*child)->end;
 }
 
 char *NodeTypeName(i32 type)
@@ -129,29 +129,29 @@ char *NodeTypeName(i32 type)
   }
 }
 
-void SetNodeAttr(ASTNode *node, char *name, u32 value)
+void SetNodeAttr(ASTNode **node, char *name, u32 value)
 {
   u32 i;
   u32 key = Symbol(name);
   NodeAttr attr;
-  for (i = 0; i < VecCount(node->attrs); i++) {
-    if (VecAt(node->attrs, i).name == key) {
-      VecAt(node->attrs, i).value = value;
+  for (i = 0; i < VecCount((*node)->attrs); i++) {
+    if (VecAt((*node)->attrs, i).name == key) {
+      VecAt((*node)->attrs, i).value = value;
       return;
     }
   }
   attr.name = key;
   attr.value = value;
-  VecPush(node->attrs, attr);
+  VecPush((*node)->attrs, attr);
 }
 
-u32 GetNodeAttr(ASTNode *node, char *name)
+u32 GetNodeAttr(ASTNode **node, char *name)
 {
   u32 i;
   u32 key = Symbol(name);
-  for (i = 0; i < VecCount(node->attrs); i++) {
-    if (VecAt(node->attrs, i).name == key) {
-      return VecAt(node->attrs, i).value;
+  for (i = 0; i < VecCount((*node)->attrs); i++) {
+    if (VecAt((*node)->attrs, i).name == key) {
+      return VecAt((*node)->attrs, i).value;
     }
   }
   assert(false);
@@ -161,51 +161,63 @@ u32 GetNodeAttr(ASTNode *node, char *name)
 #include "mem.h"
 #include "univ/symbol.h"
 
-void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
+void PrintNodeLevel(ASTNode **node, u32 level, u32 lines)
 {
   u32 i, j;
 
-  fprintf(stderr, "%s[%d:%d]", NodeTypeName(node->type), node->start, node->end);
+  fprintf(stderr, "%s[%d:%d]", NodeTypeName((*node)->type), (*node)->start, (*node)->end);
 
-  if (VecCount(node->attrs) > 0) {
+  if (VecCount((*node)->attrs) > 0) {
     fprintf(stderr, " (");
-    for (i = 0; i < VecCount(node->attrs); i++) {
+    for (i = 0; i < VecCount((*node)->attrs); i++) {
+      char **attr_name = SymbolName(VecAt((*node)->attrs, i).name);
       fprintf(stderr, "%s: %d",
-          SymbolName(VecAt(node->attrs, i).name),
-          VecAt(node->attrs, i).value);
-      if (i < VecCount(node->attrs) - 1) fprintf(stderr, ", ");
+          *attr_name,
+          VecAt((*node)->attrs, i).value);
+      if (i < VecCount((*node)->attrs) - 1) fprintf(stderr, ", ");
+      DisposeHandle(attr_name);
     }
     fprintf(stderr, ")");
   }
 
-  switch (node->type) {
+  switch ((*node)->type) {
   case constNode:
-    if (node->data.value == 0) {
+    if ((*node)->data.value == 0) {
       fprintf(stderr, " nil\n");
-    } else if (IsInt(node->data.value)) {
-      char *name = SymbolName(RawVal(node->data.value));
+    } else if (IsInt((*node)->data.value)) {
+      char **name = SymbolName(RawVal((*node)->data.value));
       if (name) {
-        fprintf(stderr, " :%s\n", name);
+        fprintf(stderr, " :%s\n", *name);
+        DisposeHandle(name);
       } else {
-        fprintf(stderr, " %d\n", RawInt(node->data.value));
+        fprintf(stderr, " %d\n", RawInt((*node)->data.value));
       }
     } else {
       assert(false);
     }
     break;
-  case idNode:
-    fprintf(stderr, " %s\n", SymbolName(node->data.value));
+  case idNode: {
+    char **name = SymbolName((*node)->data.value);
+    fprintf(stderr, " %s\n", *name);
+    DisposeHandle(name);
     break;
-  case symNode:
-    fprintf(stderr, " %s\n", SymbolName(RawVal(node->data.value)));
+  }
+  case symNode: {
+    char **name = SymbolName((*node)->data.value);
+    fprintf(stderr, " %s\n", *name);
+    DisposeHandle(name);
     break;
-  case strNode:
-    fprintf(stderr, " \"%s\"\n", SymbolName(RawVal(node->data.value)));
+  }
+  case strNode: {
+    char **name = SymbolName(RawVal((*node)->data.value));
+    fprintf(stderr, " \"%s\"\n", *name);
+    DisposeHandle(name);
     break;
+  }
   default:
     fprintf(stderr, "\n");
     lines |= 1 << level;
-    for (i = 0; i < VecCount(node->data.children); i++) {
+    for (i = 0; i < VecCount((*node)->data.children); i++) {
       for (j = 0; j < level; j++) {
         if (lines & (1 << j)) {
           fprintf(stderr, "│ ");
@@ -213,18 +225,18 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
           fprintf(stderr, "  ");
         }
       }
-      if (i < VecCount(node->data.children) - 1) {
+      if (i < VecCount((*node)->data.children) - 1) {
         fprintf(stderr, "├ ");
       } else {
         lines &= ~(1 << level);
         fprintf(stderr, "└ ");
       }
-      PrintNodeLevel(VecAt(node->data.children, i), level+1, lines);
+      PrintNodeLevel(VecAt((*node)->data.children, i), level+1, lines);
     }
   }
 }
 
-void PrintNode(ASTNode *node)
+void PrintNode(ASTNode **node)
 {
   PrintNodeLevel(node, 0, 0);
 }

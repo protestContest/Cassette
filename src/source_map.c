@@ -16,16 +16,16 @@ void DestroySourceMap(SourceMap *map)
   FreeVec(map->pos_map);
 }
 
-static u32 SerializeChunkSource(Chunk *chunk, SourceMap *map)
+static u32 SerializeChunkSource(Chunk **chunk, SourceMap *map)
 {
   u32 start = VecCount(map->pos_map);
   while (chunk) {
-    u32 src = chunk->src;
-    u32 count = VecCount(chunk->data);
-    chunk = chunk->next;
-    while (chunk && chunk->src == src) {
-      count += VecCount(chunk->data);
-      chunk = chunk->next;
+    u32 src = (*chunk)->src;
+    u32 count = VecCount((*chunk)->data);
+    chunk = (*chunk)->next;
+    while (chunk && (*chunk)->src == src) {
+      count += VecCount((*chunk)->data);
+      chunk = (*chunk)->next;
     }
     VecPush(map->pos_map, src);
     VecPush(map->pos_map, count);
@@ -33,11 +33,17 @@ static u32 SerializeChunkSource(Chunk *chunk, SourceMap *map)
   return VecCount(map->pos_map) - start;
 }
 
-void AddChunkSource(Chunk *chunk, char *filename, SourceMap *map)
+void AddChunkSource(Chunk **chunk, char **filename, SourceMap *map)
 {
   u32 filenum = VecCount(map->filenames);
+  u32 name = 0;
+  if (filename) {
+    HLock(filename);
+    name = Symbol(*filename);
+    HUnlock(filename);
+  }
   SerializeChunkSource(chunk, map);
-  VecPush(map->filenames, filename ? Symbol(filename) : 0);
+  VecPush(map->filenames, name);
   VecPush(map->file_map, filenum);
   VecPush(map->file_map, ChunkSize(chunk));
 }
@@ -54,7 +60,7 @@ u32 GetSourcePos(u32 code_index, SourceMap *map)
   return 0;
 }
 
-char *GetSourceFile(u32 code_index, SourceMap *map)
+char **GetSourceFile(u32 code_index, SourceMap *map)
 {
   u32 i = 0;
   u32 *cur = VecData(map->file_map);

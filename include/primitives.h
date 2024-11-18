@@ -3,13 +3,8 @@
 
 /* Primitive functions for use by the VM. */
 
-typedef struct {
-  char *name;
-  PrimFn fn;
-} PrimDef;
+typedef u32 (*PrimFn)(struct VM *vm);
 
-PrimDef *Primitives(void);
-u32 NumPrimitives(void);
 i32 PrimitiveID(u32 name);
+PrimFn GetPrimitive(u32 id);
 char *PrimitiveName(u32 id);
-u32 PrimitiveError(char *msg, VM *vm);

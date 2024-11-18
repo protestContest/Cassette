@@ -5,7 +5,7 @@
 
 enum {running, quitting, done};
 
-static VecOf(CTWindow*) **windows = 0;
+static VecOf(CTWindow**) **windows = 0;
 static HashMap window_map = EmptyHashMap;
 static i32 state = running;
 
@@ -31,27 +31,27 @@ extern id const NSApp;
 
 static void DrawRect(id view, SEL s, CGRect r)
 {
-  CTWindow *window;
+  CTWindow **window;
   CGContextRef port;
   id context;
   CGColorSpaceRef space;
   CGDataProviderRef provider;
   CGImageRef img;
   (void)r, (void)s;
-  window = (CTWindow*)objc_getAssociatedObject(view, "window_data");
+  window = (CTWindow**)objc_getAssociatedObject(view, "window_data");
   context = msg(id, cls("NSGraphicsContext"), "currentContext");
   port = msg(CGContextRef, context, "graphicsPort");
   CGContextSetInterpolationQuality(port, kCGInterpolationNone);
   space = CGColorSpaceCreateDeviceRGB();
   provider = CGDataProviderCreateWithData(
-    NULL, window->buf, window->width * window->height * 4, NULL);
+    NULL, (*window)->buf, (*window)->width * (*window)->height * 4, NULL);
   img =
-    CGImageCreate(window->width, window->height, 8, 32, window->width * 4, space,
+    CGImageCreate((*window)->width, (*window)->height, 8, 32, (*window)->width * 4, space,
                   kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little,
                   provider, NULL, false, kCGRenderingIntentDefault);
   CGColorSpaceRelease(space);
   CGDataProviderRelease(provider);
-  CGContextDrawImage(port, CGRectMake(0, 0, window->width, window->height), img);
+  CGContextDrawImage(port, CGRectMake(0, 0, (*window)->width, (*window)->height), img);
   CGImageRelease(img);
 }
 
@@ -68,16 +68,16 @@ static int ShouldTerminate(id v, SEL s, id w)
   return TerminateCancel;
 }
 
-void OpenWindow(CTWindow *window)
+void OpenWindow(CTWindow **window)
 {
   Class delegateclass, viewclass;
   id title, view, delegate, ev;
   u32 key;
   msg(id, cls("NSApplication"), "sharedApplication");
   msg1(void, NSApp, "setActivationPolicy:", NSInteger, 0);
-  window->data = msg4(id, msg(id, cls("NSWindow"), "alloc"),
+  (*window)->data = msg4(id, msg(id, cls("NSWindow"), "alloc"),
                 "initWithContentRect:styleMask:backing:defer:", CGRect,
-                CGRectMake(0, 0, window->width, window->height), NSUInteger, 3,
+                CGRectMake(0, 0, (*window)->width, (*window)->height), NSUInteger, 3,
                 NSUInteger, 2, BOOL, NO);
   delegateclass =
       objc_allocateClassPair((Class)cls("NSObject"), "CassetteDelegate", 0);
@@ -88,22 +88,22 @@ void OpenWindow(CTWindow *window)
   objc_registerClassPair(delegateclass);
 
   delegate = msg(id, msg(id, (id)delegateclass, "alloc"), "init");
-  msg1(void, window->data, "setDelegate:", id, delegate);
+  msg1(void, (*window)->data, "setDelegate:", id, delegate);
   viewclass = objc_allocateClassPair((Class)cls("NSView"), "CassetteView", 0);
   class_addMethod(viewclass, sel_getUid("drawRect:"),
                   (IMP)DrawRect, "i@:@@");
   objc_registerClassPair(viewclass);
 
   view = msg(id, msg(id, (id)viewclass, "alloc"), "init");
-  msg1(void, window->data, "setContentView:", id, view);
+  msg1(void, (*window)->data, "setContentView:", id, view);
   objc_setAssociatedObject(view, "window_data", (id)window,
                            OBJC_ASSOCIATION_ASSIGN);
 
   title = msg1(id, cls("NSString"), "stringWithUTF8String:", const char *,
-               window->title);
-  msg1(void, window->data, "setTitle:", id, title);
-  msg1(void, window->data, "makeKeyAndOrderFront:", id, nil);
-  msg(void, window->data, "center");
+               *(*window)->title);
+  msg1(void, (*window)->data, "setTitle:", id, title);
+  msg1(void, (*window)->data, "makeKeyAndOrderFront:", id, nil);
+  msg(void, (*window)->data, "center");
   msg1(void, NSApp, "activateIgnoringOtherApps:", BOOL, YES);
 
   ev = msg4(id, NSApp, "nextEventMatchingMask:untilDate:inMode:dequeue:",
@@ -111,22 +111,22 @@ void OpenWindow(CTWindow *window)
   if (ev) msg1(void, NSApp, "sendEvent:", id, ev);
 
   if (!windows) InitVec(windows);
-  key = Hash(&window->data, sizeof(id));
+  key = Hash(&(*window)->data, sizeof(id));
   HashMapSet(&window_map, key, VecCount(windows));
   VecPush(windows, window);
 }
 
-void CloseWindow(CTWindow *window)
+void CloseWindow(CTWindow **window)
 {
-  u32 key = Hash(&window->data, sizeof(id));
+  u32 key = Hash(&(*window)->data, sizeof(id));
   VecAt(windows, HashMapGet(&window_map, key)) = 0;
   HashMapDelete(&window_map, key);
-  msg(void, window->data, "close");
+  msg(void, (*window)->data, "close");
 }
 
-void UpdateWindow(CTWindow *window)
+void UpdateWindow(CTWindow **window)
 {
-  msg1(void, msg(id, window->data, "contentView"), "setNeedsDisplay:", BOOL, YES);
+  msg1(void, msg(id, (*window)->data, "contentView"), "setNeedsDisplay:", BOOL, YES);
 }
 
 void NextEvent(Event *event)
@@ -165,9 +165,9 @@ void NextEvent(Event *event)
   win = msg(id, ev, "window");
   key = Hash(&win, sizeof(id));
   if (HashMapContains(&window_map, key)) {
-    CTWindow *window = VecAt(windows, HashMapGet(&window_map, key));
+    CTWindow **window = VecAt(windows, HashMapGet(&window_map, key));
     event->message.window = window;
-    msg1(void, msg(id, window->data, "contentView"), "setNeedsDisplay:", BOOL, YES);
+    msg1(void, msg(id, (*window)->data, "contentView"), "setNeedsDisplay:", BOOL, YES);
   }
 
   mod = msg(NSUInteger, ev, "modifierFlags");

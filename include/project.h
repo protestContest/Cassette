@@ -10,12 +10,12 @@
 typedef struct {
   ModuleVec modules;
   HashMap mod_map;
-  Program *program;
+  Program **program;
   WordVec build_list;
 } Project;
 
-Project *NewProject(void);
-void FreeProject(Project *project);
-Error *AddProjectFile(Project *project, char *filename);
-void ScanProjectFolder(Project *project, char *path);
-Error *BuildProject(Project *project);
+Project **NewProject(void);
+void FreeProject(Project **project);
+Error **AddProjectFile(Project **project, char **filename);
+void ScanProjectFolder(Project **project, char *path);
+Error **BuildProject(Project **project);

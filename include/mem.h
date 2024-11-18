@@ -37,7 +37,7 @@ enum {objType, intType, tupleHdr, binHdr};
 #define IsType(v,t)     (ValType(v) == (t))
 #define IsObj(v)        IsType(v, objType)
 #define IsInt(v)        IsType(v, intType)
-#define IsSymbol(v)     (IsInt(v) && SymbolName(RawVal(v)))
+#define IsSymbol(v)     (IsInt(v) && SymbolExists(RawVal(v)))
 #define IsTupleHdr(v)   IsType(v, tupleHdr)
 #define IsBinHdr(v)     IsType(v, binHdr)
 #define IsPair(v)       (IsObj(v) && !IsTupleHdr(Head(v)) && !IsBinHdr(Head(v)))
@@ -50,7 +50,7 @@ typedef struct {
   u32 capacity;
   u32 free;
   u32 stack;
-  u32 *data;
+  u32 **data;
 } Mem;
 
 void InitMem(u32 size);
@@ -87,12 +87,12 @@ void BinarySet(u32 bin, u32 index, u32 value);
 u32 BinaryJoin(u32 left, u32 right);
 u32 BinarySlice(u32 list, u32 start, u32 end);
 bool BinIsPrintable(u32 bin);
-char *BinToStr(u32 bin);
+char **BinToStr(u32 bin);
 
 bool ValEq(u32 a, u32 b);
 u32 HashVal(u32 a);
 u32 InspectVal(u32 value);
-char *MemValStr(u32 value);
+char **MemValStr(u32 value);
 #ifdef DEBUG
 void DumpMem(void);
 #endif

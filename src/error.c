@@ -3,25 +3,25 @@
 #include "univ/math.h"
 #include "univ/str.h"
 
-Error *NewError(char *message, char *filename, u32 pos, u32 length)
+Error **NewError(char *message, char *filename, u32 pos, u32 length)
 {
-  Error *error = malloc(sizeof(Error));
-  error->message = NewString(message);
-  error->filename = NewString(filename);
-  error->pos = pos;
-  error->length = length;
-  error->data = 0;
+  Error **error = New(Error);
+  (*error)->message = NewString(message);
+  (*error)->filename = filename ? NewString(filename) : 0;
+  (*error)->pos = pos;
+  (*error)->length = length;
+  (*error)->data = 0;
   return error;
 }
 
-void FreeError(Error *error)
+void FreeError(Error **error)
 {
-  if (error->message) free(error->message);
-  if (error->filename) free(error->filename);
-  free(error);
+  if ((*error)->message) DisposeHandle((Handle)(*error)->message);
+  if ((*error)->filename) DisposeHandle((Handle)(*error)->filename);
+  DisposeHandle((Handle)error);
 }
 
-void PrintSourceContext(char *text, u32 pos, u32 length, u32 context)
+static void PrintSourceContext(char *text, u32 pos, u32 length, u32 context)
 {
   char *line = LineStart(pos, text);
   char *startline = line;
@@ -74,22 +74,22 @@ void PrintSourceLine(char *text, u32 pos)
   fprintf(stderr, "%*.*s", len, len, line);
 }
 
-void PrintError(Error *error)
+void PrintError(Error **error)
 {
-  char *text = 0;
+  char **text = 0;
   u32 line, col;
-  if (error->filename) {
-    text = ReadFile(error->filename);
+  if ((*error)->filename) {
+    text = ReadFile(*(*error)->filename);
     if (text) {
-      line = LineNum(text, error->pos);
-      col = ColNum(text, error->pos);
-      fprintf(stderr, "%s:%d:%d: ", error->filename, line+1, col+1);
+      line = LineNum(*text, (*error)->pos);
+      col = ColNum(*text, (*error)->pos);
+      fprintf(stderr, "%s:%d:%d: ", *(*error)->filename, line+1, col+1);
     }
   }
-  fprintf(stderr, "%s\n", error->message);
+  fprintf(stderr, "%s\n", *(*error)->message);
 
-  if (text) PrintSourceContext(text, error->pos, error->length, 1);
+  if (text) PrintSourceContext(*text, (*error)->pos, (*error)->length, 1);
 
   fprintf(stderr, "\n");
-  if(text) free(text);
+  if(text) DisposeHandle((Handle)text);
 }

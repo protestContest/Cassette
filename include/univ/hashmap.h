@@ -5,7 +5,7 @@
 typedef struct {
   u32 capacity;
   u32 count;
-  struct MapBucket *buckets;
+  struct MapBucket **buckets;
 } HashMap;
 
 #define EmptyHashMap {0, 0, 0}

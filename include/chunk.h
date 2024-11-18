@@ -11,21 +11,21 @@ typedef struct Chunk {
   bool needs_env;
   bool modifies_env;
   u32 src;
-  struct Chunk *next;
+  struct Chunk **next;
 } Chunk;
 
-Chunk *NewChunk(u32 src);
-void FreeChunk(Chunk *chunk);
-void ChunkWrite(u8 byte, Chunk *chunk);
-void ChunkWriteInt(u32 num, Chunk *chunk);
-u32 ChunkSize(Chunk *chunk);
-Chunk *PrependChunk(u8 byte, Chunk *chunk);
-Chunk *AppendChunk(Chunk *first, Chunk *second);
-void TackOnChunk(Chunk *first, Chunk *second);
-Chunk *PreservingEnv(Chunk *first, Chunk *second);
-Chunk *ParallelChunks(Chunk *first, Chunk *second);
-u8 *SerializeChunk(Chunk *chunk, u8 *dst);
+Chunk **NewChunk(u32 src);
+void FreeChunk(Chunk **chunk);
+void ChunkWrite(u8 byte, Chunk **chunk);
+void ChunkWriteInt(u32 num, Chunk **chunk);
+u32 ChunkSize(Chunk **chunk);
+Chunk **PrependChunk(u8 byte, Chunk **chunk);
+Chunk **AppendChunk(Chunk **first, Chunk **second);
+void TackOnChunk(Chunk **first, Chunk **second);
+Chunk **PreservingEnv(Chunk **first, Chunk **second);
+Chunk **ParallelChunks(Chunk **first, Chunk **second);
+u8 *SerializeChunk(Chunk **chunk, u8 *dst);
 
 #ifdef DEBUG
-void DisassembleChunk(Chunk *chunk);
+void DisassembleChunk(Chunk **chunk);
 #endif

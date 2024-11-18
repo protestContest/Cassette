@@ -38,41 +38,49 @@ void DestroyCompiler(Compiler *c)
 
 /* Error functions */
 
-static Chunk *UnknownExpr(ASTNode *node, Compiler *c)
+static Chunk **UnknownExpr(ASTNode **node, Compiler *c)
 {
-  char *msg = NewString("Unknown expression \"^\"");
-  msg = FormatString(msg, NodeTypeName(node->type));
-  c->error = NewError(msg, 0, node->start, node->end - node->start);
+  c->error = NewError("Unknown expression \"^\"", 0, (*node)->start, (*node)->end - (*node)->start);
+  FormatString((*c->error)->message, NodeTypeName((*node)->type));
   return 0;
 }
 
-static Chunk *UndefinedVariable(ASTNode *node, Compiler *c)
+static Chunk **UndefinedVariable(ASTNode **node, Compiler *c)
 {
-  char *msg = NewString("Undefined variable \"^\"");
-  msg = FormatString(msg, SymbolName(NodeValue(node)));
-  c->error = NewError(msg, 0, node->start, node->end - node->start);
+  char **name = SymbolName(NodeValue(node));
+  c->error = NewError("Undefined variable \"^\"", 0, (*node)->start, (*node)->end - (*node)->start);
+  HLock(name);
+  FormatString((*c->error)->message, *name);
+  HUnlock(name);
+  DisposeHandle(name);
   return 0;
 }
 
-static Chunk *UndefinedTrap(ASTNode *node, Compiler *c)
+static Chunk **UndefinedTrap(ASTNode **node, Compiler *c)
 {
-  char *msg = NewString("Undefined trap \"^\"");
-  msg = FormatString(msg, SymbolName(NodeValue(node)));
-  c->error = NewError(msg, 0, node->start, node->end - node->start);
+  char **name = SymbolName(NodeValue(node));
+  c->error = NewError("Undefined trap \"^\"", 0, (*node)->start, (*node)->end - (*node)->start);
+  HLock(name);
+  FormatString((*c->error)->message, *name);
+  HUnlock(name);
+  DisposeHandle(name);
   return 0;
 }
 
-static Chunk *UndefinedModule(ASTNode *node, Compiler *c)
+static Chunk **UndefinedModule(ASTNode **node, Compiler *c)
 {
-  char *msg = NewString("Undefined module \"^\"");
-  msg = FormatString(msg, SymbolName(NodeValue(node)));
-  c->error = NewError(msg, 0, node->start, node->end - node->start);
+  char **name = SymbolName(NodeValue(node));
+  c->error = NewError("Undefined module \"^\"", 0, (*node)->start, (*node)->end - (*node)->start);
+  HLock(name);
+  FormatString((*c->error)->message, *name);
+  HUnlock(name);
+  DisposeHandle(name);
   return 0;
 }
 
 /* Helper to free a chunk and return null */
 
-static Chunk *CompileFail(Chunk *chunk)
+static Chunk **CompileFail(Chunk **chunk)
 {
   FreeChunk(chunk);
   return 0;
@@ -80,23 +88,23 @@ static Chunk *CompileFail(Chunk *chunk)
 
 /* Emitter functions */
 
-static void WriteConst(u32 n, Chunk *chunk)
+static void WriteConst(u32 n, Chunk **chunk)
 {
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(IntVal(n), chunk);
 }
 
 /* Wrap a chunk with a "pos" instruction, pointing to the end of the chunk */
-static Chunk *WriteChunkSize(Chunk *chunk)
+static Chunk **WriteChunkSize(Chunk **chunk)
 {
-  Chunk *pos_chunk = NewChunk(chunk->src);
+  Chunk **pos_chunk = NewChunk((*chunk)->src);
   ChunkWrite(opPos, pos_chunk);
   ChunkWriteInt(ChunkSize(chunk), pos_chunk);
   return AppendChunk(pos_chunk, chunk);
 }
 
 /* Assumes a return value and result are on the stack */
-static void WriteReturn(Chunk *chunk)
+static void WriteReturn(Chunk **chunk)
 {
   /*
   swap
@@ -106,34 +114,34 @@ static void WriteReturn(Chunk *chunk)
   ChunkWrite(opGoto, chunk);
 }
 
-static void WriteGetEnv(Chunk *chunk)
+static void WriteGetEnv(Chunk **chunk)
 {
   ChunkWrite(opPush, chunk);
   ChunkWriteInt(regEnv, chunk);
-  chunk->needs_env = true;
+  (*chunk)->needs_env = true;
 }
 
-static void WriteSetEnv(Chunk *chunk)
+static void WriteSetEnv(Chunk **chunk)
 {
   ChunkWrite(opPull, chunk);
   ChunkWriteInt(regEnv, chunk);
-  chunk->modifies_env = true;
+  (*chunk)->modifies_env = true;
 }
 
-static void WriteGetMod(Chunk *chunk)
+static void WriteGetMod(Chunk **chunk)
 {
   ChunkWrite(opPush, chunk);
   ChunkWriteInt(regMod, chunk);
 }
 
-static void WriteSetMod(Chunk *chunk)
+static void WriteSetMod(Chunk **chunk)
 {
   ChunkWrite(opPull, chunk);
   ChunkWriteInt(regMod, chunk);
 }
 
 /* Looks up a variable given the frame and index number */
-static void WriteLookup(u32 frame, u32 index, Chunk *chunk)
+static void WriteLookup(u32 frame, u32 index, Chunk **chunk)
 {
   /*
   getEnv
@@ -154,7 +162,7 @@ static void WriteLookup(u32 frame, u32 index, Chunk *chunk)
 }
 
 /* Extends the runtime environment with a new scope */
-static void WriteExtendEnv(u32 num_assigns, Chunk *chunk)
+static void WriteExtendEnv(u32 num_assigns, Chunk **chunk)
 {
   /*
   getEnv
@@ -170,15 +178,15 @@ static void WriteExtendEnv(u32 num_assigns, Chunk *chunk)
 }
 
 /* Extends an environment for a chunk */
-static Chunk *WriteScope(u32 num_assigns, u32 pos, Chunk *body)
+static Chunk **WriteScope(u32 num_assigns, u32 pos, Chunk **body)
 {
-  Chunk *chunk = NewChunk(pos);
+  Chunk **chunk = NewChunk(pos);
   WriteExtendEnv(num_assigns, chunk);
   return AppendChunk(chunk, body);
 }
 
 /* Sets a variable in the environment */
-static void WriteDefine(u32 index, Chunk *chunk)
+static void WriteDefine(u32 index, Chunk **chunk)
 {
   /*
   getEnv
@@ -197,7 +205,7 @@ static void WriteDefine(u32 index, Chunk *chunk)
 }
 
 /* Sets the value of a module */
-static void WriteSetModule(Chunk *chunk, u32 mod_id)
+static void WriteSetModule(Chunk **chunk, u32 mod_id)
 {
   /*
   getMod
@@ -214,7 +222,7 @@ static void WriteSetModule(Chunk *chunk, u32 mod_id)
 }
 
 /* Wraps a lambda body with code to create a lambda */
-static Chunk *WriteMakeLambda(Chunk *body, bool returns)
+static Chunk **WriteMakeLambda(Chunk **body, bool returns)
 {
   /*
   pos <body>
@@ -225,7 +233,7 @@ body:
   <lambda body>
 after:
   */
-  Chunk *chunk = NewChunk(body->src);
+  Chunk **chunk = NewChunk((*body)->src);
   WriteGetEnv(chunk);
   ChunkWrite(opPair, chunk);
   if (returns) {
@@ -241,7 +249,7 @@ after:
 
 /* Wraps a chunk in code to perform a function call. Chunk should have set up
 arguments and the function on the stack. */
-static Chunk *WriteMakeCall(Chunk *chunk, bool returns)
+static Chunk **WriteMakeCall(Chunk **chunk, bool returns)
 {
   /*
   ; if not tail call, set up call frame:
@@ -267,7 +275,7 @@ static Chunk *WriteMakeCall(Chunk *chunk, bool returns)
   ChunkWrite(opTail, chunk);
   ChunkWrite(opGoto, chunk);
   if (!returns) {
-    Chunk *link = NewChunk(chunk->src);
+    Chunk **link = NewChunk((*chunk)->src);
     ChunkWrite(opLink, link);
     ChunkWrite(opPos, link);
     ChunkWriteInt(0, link);
@@ -280,43 +288,43 @@ static Chunk *WriteMakeCall(Chunk *chunk, bool returns)
   return chunk;
 }
 
-static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c);
+static Chunk **CompileExpr(ASTNode **node, bool returns, Compiler *c);
 
-static Chunk *CompileConst(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileConst(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   const <value>
   */
-  Chunk *chunk;
-  chunk = NewChunk(node->start);
+  Chunk **chunk;
+  chunk = NewChunk((*node)->start);
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(NodeValue(node), chunk);
   if (returns) WriteReturn(chunk);
   return chunk;
 }
 
-static Chunk *CompileVar(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileVar(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   <lookup var>
   */
-  Chunk *chunk;
+  Chunk **chunk;
   EnvPosition pos;
   pos = EnvFind(NodeValue(node), c->env);
   if (pos.frame < 0) return UndefinedVariable(node, c);
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   WriteLookup(pos.frame, pos.index, chunk);
   if (returns) WriteReturn(chunk);
   return chunk;
 }
 
-static Chunk *CompileStr(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileStr(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   const sym
   str
   */
-  Chunk *chunk = NewChunk(node->start);
+  Chunk **chunk = NewChunk((*node)->start);
   ChunkWrite(opConst, chunk);
   ChunkWriteInt(NodeValue(node), chunk);
   ChunkWrite(opStr, chunk);
@@ -324,7 +332,7 @@ static Chunk *CompileStr(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileTuple(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileTuple(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   tuple <n>
@@ -333,7 +341,7 @@ static Chunk *CompileTuple(ASTNode *node, bool returns, Compiler *c)
     <item>
     set
   */
-  Chunk *chunk, *items_chunk = 0;
+  Chunk **chunk, **items_chunk = 0;
   u32 i, num_items;
 
   /* compile from the last element backwards, so we can save/restore env around
@@ -341,23 +349,23 @@ static Chunk *CompileTuple(ASTNode *node, bool returns, Compiler *c)
   num_items = NodeCount(node);
   for (i = 0; i < num_items; i++) {
     u32 index = num_items - 1 - i;
-    Chunk *item_chunk, *index_chunk, *set_chunk;
-    ASTNode *item = NodeChild(node, index);
+    Chunk **item_chunk, **index_chunk, **set_chunk;
+    ASTNode **item = NodeChild(node, index);
 
     item_chunk = CompileExpr(item, false, c);
     if (!item_chunk) return CompileFail(items_chunk);
 
-    set_chunk = NewChunk(node->start);
+    set_chunk = NewChunk((*node)->start);
     ChunkWrite(opSet, set_chunk);
     items_chunk = AppendChunk(set_chunk, items_chunk);
 
     items_chunk = PreservingEnv(item_chunk, items_chunk);
 
-    index_chunk = NewChunk(node->start);
+    index_chunk = NewChunk((*node)->start);
     WriteConst(index, index_chunk);
     items_chunk = AppendChunk(index_chunk, items_chunk);
   }
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   ChunkWrite(opTuple, chunk);
   ChunkWriteInt(num_items, chunk);
   chunk = AppendChunk(chunk, items_chunk);
@@ -365,19 +373,19 @@ static Chunk *CompileTuple(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileOp(OpCode op, ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileOp(OpCode op, ASTNode **node, bool returns, Compiler *c)
 {
   /*
   ; for each operand:
     <operand>
   <op>
   */
-  Chunk *chunk = NewChunk(node->start);
+  Chunk **chunk = NewChunk((*node)->start);
   u32 num_items, i;
   num_items = NodeCount(node);
   for (i = 0; i < num_items; i++) {
-    ASTNode *item = NodeChild(node, num_items - 1 - i);
-    Chunk *result = CompileExpr(item, false, c);
+    ASTNode **item = NodeChild(node, num_items - 1 - i);
+    Chunk **result = CompileExpr(item, false, c);
     if (!result) return CompileFail(chunk);
     chunk = PreservingEnv(result, chunk);
   }
@@ -386,7 +394,7 @@ static Chunk *CompileOp(OpCode op, ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileLogic(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileLogic(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   <left code>
@@ -399,18 +407,18 @@ static Chunk *CompileLogic(ASTNode *node, bool returns, Compiler *c)
 after:
   */
 
-  Chunk *chunk, *left_chunk, *right_chunk;
+  Chunk **chunk, **left_chunk, **right_chunk;
 
   right_chunk = CompileExpr(NodeChild(node, 1), false, c);
   if (!right_chunk) return right_chunk;
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   ChunkWrite(opDrop, chunk);
   right_chunk = AppendChunk(chunk, right_chunk);
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   ChunkWrite(opDup, chunk);
-  if (node->type == andNode) ChunkWrite(opNot, chunk);
+  if ((*node)->type == andNode) ChunkWrite(opNot, chunk);
   ChunkWrite(opBranch, chunk);
   ChunkWriteInt(ChunkSize(right_chunk), chunk);
   right_chunk = AppendChunk(chunk, right_chunk);
@@ -423,7 +431,7 @@ after:
   return chunk;
 }
 
-static Chunk *CompileIf(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileIf(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   <test>
@@ -435,7 +443,7 @@ false:
   <falseCode>
 after:
   */
-  Chunk *chunk, *pred_code, *true_code, *false_code;
+  Chunk **chunk, **pred_code, **true_code, **false_code;
 
   pred_code = CompileExpr(NodeChild(node, 0), false, c);
   if (!pred_code) return pred_code;
@@ -451,7 +459,7 @@ after:
     ChunkWriteInt(ChunkSize(true_code), false_code);
   }
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   ChunkWrite(opBranch, chunk);
   ChunkWriteInt(ChunkSize(false_code), chunk);
 
@@ -460,10 +468,10 @@ after:
   return chunk;
 }
 
-static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileDo(ASTNode **node, bool returns, Compiler *c)
 {
   u32 i, num_defs;
-  Chunk *chunk;
+  Chunk **chunk;
   NodeVec stmts;
   NodeVec defs;
 
@@ -472,8 +480,8 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
 
   /* split up the defs and other statements */
   for (i = 0; i < NodeCount(node); i++) {
-    ASTNode *stmt = NodeChild(node, i);
-    if (stmt->type == defNode) {
+    ASTNode **stmt = NodeChild(node, i);
+    if ((*stmt)->type == defNode) {
       VecPush(defs, stmt);
     } else {
       VecPush(stmts, stmt);
@@ -481,14 +489,14 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
   }
   num_defs = VecCount(defs);
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
 
   if (num_defs > 0) {
     c->env = ExtendEnv(num_defs, c->env);
 
     /* define each def ahead of time */
     for (i = 0; i < VecCount(defs); i++) {
-      ASTNode *def = VecAt(defs, i);
+      ASTNode **def = VecAt(defs, i);
       u32 name;
       name = NodeValue(NodeChild(def, 0));
       EnvSet(name, i, c->env);
@@ -497,9 +505,9 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
     /* compile each def, in reverse order to preserve env */
     for (i = 0; i < VecCount(defs); i++) {
       u32 index = num_defs - i - 1;
-      Chunk *def_chunk, *set_chunk;
-      ASTNode *def = VecAt(defs, index);
-      set_chunk = NewChunk(def->start);
+      Chunk **def_chunk, **set_chunk;
+      ASTNode **def = VecAt(defs, index);
+      set_chunk = NewChunk((*def)->start);
       WriteDefine(index, set_chunk);
       def_chunk = CompileExpr(NodeChild(def, 1), false, c);
       if (!def_chunk) {
@@ -512,7 +520,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
     }
 
     /* prepend the env extension */
-    chunk = WriteScope(num_defs, node->start, chunk);
+    chunk = WriteScope(num_defs, (*node)->start, chunk);
   }
 
   if (VecCount(stmts) == 0) {
@@ -520,12 +528,12 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
     WriteConst(0, chunk);
     if (returns) WriteReturn(chunk);
   } else {
-    Chunk *stmts_chunk = NewChunk(node->start);
+    Chunk **stmts_chunk = NewChunk((*node)->start);
     /* compile each non-def statement, in reverse */
     for (i = 0; i < VecCount(stmts); i++) {
       u32 index = VecCount(stmts) - i - 1;
-      ASTNode *stmt = VecAt(stmts, index);
-      Chunk *stmt_chunk;
+      ASTNode **stmt = VecAt(stmts, index);
+      Chunk **stmt_chunk;
       bool is_last = index == VecCount(stmts) - 1;
       stmt_chunk = CompileExpr(stmt, is_last && returns, c);
       if (!stmt_chunk) {
@@ -548,18 +556,18 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileLet(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileLet(ASTNode **node, bool returns, Compiler *c)
 {
   u32 num_assigns = GetNodeAttr(node, "count");
-  Chunk *chunk;
+  Chunk **chunk;
   c->env = ExtendEnv(num_assigns, c->env);
   chunk = CompileExpr(NodeChild(node, 0), returns, c);
   if (!chunk) return 0;
   c->env = PopEnv(c->env);
-  return WriteScope(num_assigns, node->start, chunk);
+  return WriteScope(num_assigns, (*node)->start, chunk);
 }
 
-static Chunk *CompileAssign(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileAssign(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   assign
@@ -579,16 +587,16 @@ static Chunk *CompileAssign(ASTNode *node, bool returns, Compiler *c)
   its value in the environment at its index.
   */
 
-  Chunk *val_chunk, *def_chunk, *expr_chunk;
+  Chunk **val_chunk, **def_chunk, **expr_chunk;
   u32 index = GetNodeAttr(node, "index");
-  ASTNode *id = NodeChild(node, 0);
-  ASTNode *value = NodeChild(node, 1);
-  ASTNode *expr = NodeChild(node, 2);
+  ASTNode **id = NodeChild(node, 0);
+  ASTNode **value = NodeChild(node, 1);
+  ASTNode **expr = NodeChild(node, 2);
 
   val_chunk = CompileExpr(value, false, c);
   if (!val_chunk) return 0;
 
-  def_chunk = NewChunk(node->start);
+  def_chunk = NewChunk((*node)->start);
   WriteDefine(index, def_chunk);
   EnvSet(NodeValue(id), index, c->env);
 
@@ -600,7 +608,7 @@ static Chunk *CompileAssign(ASTNode *node, bool returns, Compiler *c)
   return PreservingEnv(val_chunk, expr_chunk);
 }
 
-static Chunk *CompileLambdaBody(ASTNode *node, Compiler *c)
+static Chunk **CompileLambdaBody(ASTNode **node, Compiler *c)
 {
   /*
   calling convention:
@@ -638,17 +646,17 @@ ok:
   goto
   */
 
-  Chunk *chunk, *error_chunk, *result;
-  ASTNode *params = NodeChild(node, 0);
-  ASTNode *body = NodeChild(node, 1);
+  Chunk **chunk, **error_chunk, **result;
+  ASTNode **params = NodeChild(node, 0);
+  ASTNode **body = NodeChild(node, 1);
   u32 num_params = NodeCount(params);
 
-  error_chunk = NewChunk(node->start);
+  error_chunk = NewChunk((*node)->start);
   WriteConst(Symbol("Wrong number of arguments"), error_chunk);
   ChunkWrite(opPanic, error_chunk);
 
   /* check that the number of params matches */
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   WriteConst(num_params, chunk);
   ChunkWrite(opEq, chunk);
   ChunkWrite(opBranch, chunk);
@@ -663,7 +671,7 @@ ok:
     c->env = ExtendEnv(num_params, c->env);
     for (i = 0; i < num_params; i++) {
       u32 index = num_params - i - 1;
-      ASTNode *param = NodeChild(params, index);
+      ASTNode **param = NodeChild(params, index);
       EnvSet(NodeValue(param), index, c->env);
       WriteConst(index, chunk);
       ChunkWrite(opRot, chunk);
@@ -684,7 +692,7 @@ ok:
   return chunk;
 }
 
-static Chunk *CompileLambda(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileLambda(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   pos <body>
@@ -699,21 +707,21 @@ body:
 after:
   */
 
-  Chunk *chunk, *body;
+  Chunk **chunk, **body;
   body = CompileLambdaBody(node, c);
   if (!body) return body;
   chunk = WriteMakeLambda(body, returns);
   return chunk;
 }
 
-static Chunk *CompileArgs(ASTNode *node, Chunk *chunk, Compiler *c)
+static Chunk **CompileArgs(ASTNode **node, Chunk **chunk, Compiler *c)
 {
   u32 i, num_args = NodeCount(node);
 
   for (i = 0; i < num_args; i++) {
     u32 index = NodeCount(node) - 1 - i;
-    ASTNode *arg = NodeChild(node, index);
-    Chunk *arg_chunk = CompileExpr(arg, false, c);
+    ASTNode **arg = NodeChild(node, index);
+    Chunk **arg_chunk = CompileExpr(arg, false, c);
     if (!arg_chunk) return CompileFail(chunk);
     chunk = PreservingEnv(arg_chunk, chunk);
   }
@@ -721,16 +729,16 @@ static Chunk *CompileArgs(ASTNode *node, Chunk *chunk, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileTrap(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileTrap(ASTNode **node, bool returns, Compiler *c)
 {
   i32 primitive_num;
-  Chunk *chunk;
-  ASTNode *id = NodeChild(node, 0);
-  ASTNode *args = NodeChild(node, 1);
+  Chunk **chunk;
+  ASTNode **id = NodeChild(node, 0);
+  ASTNode **args = NodeChild(node, 1);
   primitive_num = PrimitiveID(NodeValue(id));
   if (primitive_num < 0) return UndefinedTrap(id, c);
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   ChunkWrite(opTrap, chunk);
   ChunkWriteInt(primitive_num, chunk);
   if (returns) WriteReturn(chunk);
@@ -740,7 +748,7 @@ static Chunk *CompileTrap(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileCall(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileCall(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   calling convention:
@@ -775,14 +783,14 @@ after:
     unlink
   */
 
-  ASTNode *args = NodeChild(node, 1);
-  Chunk *chunk, *arity;
-  u32 src = node->start;
+  ASTNode **args = NodeChild(node, 1);
+  Chunk **chunk, **arity;
+  u32 src = (*node)->start;
 
   chunk = CompileExpr(NodeChild(node, 0), false, c);
   if (!chunk) return 0;
 
-  arity = NewChunk(chunk->src);
+  arity = NewChunk((*chunk)->src);
   WriteConst(NodeCount(args), arity);
   chunk = AppendChunk(arity, chunk);
 
@@ -790,12 +798,12 @@ after:
   if (!chunk) return 0;
 
   chunk = WriteMakeCall(chunk, returns);
-  chunk->src = src;
+  (*chunk)->src = src;
 
   return chunk;
 }
 
-static Chunk *CompileMember(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileMember(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   <lookup record>
@@ -825,21 +833,21 @@ ok:
   tail        ^rec[i]
   */
 
-  ASTNode *record = NodeChild(node, 0);
-  ASTNode *key = NodeChild(node, 1);
-  Chunk *error, *loop;
-  Chunk *chunk = CompileExpr(record, false, c);
+  ASTNode **record = NodeChild(node, 0);
+  ASTNode **key = NodeChild(node, 1);
+  Chunk **error, **loop;
+  Chunk **chunk = CompileExpr(record, false, c);
   u32 loop_len;
   if (!chunk) return 0;
-  assert(key->type == idNode);
+  assert((*key)->type == idNode);
 
-  error = NewChunk(node->start);
+  error = NewChunk((*node)->start);
   WriteConst(Symbol("Undefined field"), error);
   ChunkWrite(opPanic, error);
 
   WriteConst(-1, chunk);
 
-  loop = NewChunk(node->start);
+  loop = NewChunk((*node)->start);
   WriteConst(1, loop);
   ChunkWrite(opAdd, loop);
   ChunkWrite(opOver, loop);
@@ -871,7 +879,7 @@ ok:
   return chunk;
 }
 
-static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileRef(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   Compiler has a map of alias -> module for imports
@@ -883,11 +891,11 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
   const <fn index>
   get
   */
-  ASTNode *alias = NodeChild(node, 0);
-  ASTNode *sym = NodeChild(node, 1);
+  ASTNode **alias = NodeChild(node, 0);
+  ASTNode **sym = NodeChild(node, 1);
   Module *mod;
-  ASTNode *mod_exports;
-  Chunk *chunk;
+  ASTNode **mod_exports;
+  Chunk **chunk;
   u32 sym_index, mod_index;
 
   EnvPosition pos = EnvFind(NodeValue(alias), c->env);
@@ -901,14 +909,14 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
   mod_exports = NodeChild(mod->ast, 2);
 
   for (sym_index = 0; sym_index < NodeCount(mod_exports); sym_index++) {
-    ASTNode *export = NodeChild(mod_exports, sym_index);
+    ASTNode **export = NodeChild(mod_exports, sym_index);
     if (NodeValue(export) == NodeValue(sym)) break;
   }
   if (sym_index == NodeCount(mod_exports)) {
     return UndefinedVariable(sym, c);
   }
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk((*node)->start);
   WriteGetMod(chunk);
   WriteConst(mod->id - 1, chunk);
   ChunkWrite(opGet, chunk);
@@ -918,7 +926,7 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileModule(ASTNode **node, bool returns, Compiler *c)
 {
   /*
   <body>
@@ -931,13 +939,13 @@ static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
   drop
   */
 
-  ASTNode *imports = NodeChild(node, 1);
+  ASTNode **imports = NodeChild(node, 1);
   u32 i;
-  Chunk *chunk;
+  Chunk **chunk;
 
   InitHashMap(&c->alias_map);
   for (i = 0; i < NodeCount(imports); i++) {
-    ASTNode *import = NodeChild(imports, i);
+    ASTNode **import = NodeChild(imports, i);
     u32 name = NodeValue(NodeChild(import, 0));
     u32 alias = NodeValue(NodeChild(import, 1));
     u32 mod_index;
@@ -960,9 +968,9 @@ static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
+static Chunk **CompileExpr(ASTNode **node, bool returns, Compiler *c)
 {
-  switch (node->type) {
+  switch ((*node)->type) {
   case idNode:      return CompileVar(node, returns, c);
   case constNode:   return CompileConst(node, returns, c);
   case symNode:     return CompileConst(node, returns, c);
@@ -1006,7 +1014,7 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   }
 }
 
-Chunk *Compile(ASTNode *node, Compiler *c)
+Chunk **Compile(ASTNode **node, Compiler *c)
 {
   return CompileExpr(node, false, c);
 }

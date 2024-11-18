@@ -1,5 +1,6 @@
 #include "project.h"
 #include "univ/file.h"
+#include "univ/str.h"
 #include "vm.h"
 #include <unistd.h>
 
@@ -56,11 +57,13 @@ static Opts ParseOpts(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
   Opts opts = ParseOpts(argc, argv);
-  Project *project;
-  Error *error;
+  Project **project;
+  Error **error;
+  char **entry = NewString(opts.entry);
 
   project = NewProject();
-  AddProjectFile(project, opts.entry);
+  AddProjectFile(project, entry);
+  DisposeHandle(entry);
   ScanProjectFolder(project, DirName(opts.entry));
   ScanProjectFolder(project, opts.lib_path);
 
@@ -72,16 +75,16 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  project->program->trace = opts.debug;
-  error = VMRun(project->program);
+  (*(*project)->program)->trace = opts.debug;
+  error = VMRun((*project)->program);
   if (error) {
     PrintError(error);
-    PrintStackTrace(error->data);
-    FreeStackTrace(error->data);
+    PrintStackTrace((*error)->data);
+    FreeStackTrace((*error)->data);
     FreeError(error);
   }
 
-  FreeProgram(project->program);
+  FreeProgram((*project)->program);
   FreeProject(project);
 
   return 0;

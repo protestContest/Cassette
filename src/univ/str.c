@@ -1,23 +1,23 @@
 #include "univ/str.h"
 #include "univ/math.h"
 
-char *NewString(char *str)
+char **NewString(char *str)
 {
   if (!str) return 0;
   return StringFrom(str, strlen(str));
 }
 
-char *StringFrom(char *str, u32 len)
+char **StringFrom(char *str, u32 len)
 {
-  char *newstr;
+  char **newstr;
   if (!str) return 0;
-  newstr = malloc(len+1);
-  Copy(str, newstr, len);
-  newstr[len] = 0;
+  newstr = (char**)NewHandle(len+1);
+  Copy(str, *newstr, len);
+  (*newstr)[len] = 0;
   return newstr;
 }
 
-char *FormatString(char *format, char *str)
+char **FormatString(char **format, char *str)
 {
   u32 start;
   u32 len_result;
@@ -25,38 +25,38 @@ char *FormatString(char *format, char *str)
   u32 len_format;
   if (!str) str = "";
   len_str = strlen(str);
-  len_format = strlen(format);
+  len_format = strlen(*format);
 
-  for (start = 0; format[start]; start++) {
-    if (format[start] == '^') break;
+  for (start = 0; (*format)[start]; start++) {
+    if ((*format)[start] == '^') break;
   }
   if (start == len_format) return format;
   len_result = len_format - 1 + len_str;
 
-  format = realloc(format, len_result + 1);
-  format[len_result] = 0;
+  SetHandleSize((Handle)format, len_result+1);
+  (*format)[len_result] = 0;
 
-  Copy(format + start + 1, format + start + len_str, len_format - start - 1);
-  Copy(str, format + start, len_str);
+  Copy(*format + start + 1, *format + start + len_str, len_format - start - 1);
+  Copy(str, *format + start, len_str);
   return format;
 }
 
-char *FormatInt(char *format, i32 num)
+char **FormatInt(char **format, i32 num)
 {
   char numStr[256];
   snprintf(numStr, 256, "%d", num);
   return FormatString(format, numStr);
 }
 
-char *JoinStr(char *str1, char *str2, char joiner)
+char **JoinStr(char *str1, char *str2, char joiner)
 {
   u32 len1 = strlen(str1), len2 = strlen(str2);
   u32 joinlen = joiner != 0;
-  char *str = malloc(len1 + joinlen + len2 + 1);
-  Copy(str1, str, len1);
-  if (joiner) str[len1] = joiner;
-  Copy(str2, str+len1+1, len2);
-  str[len1+1+len2] = 0;
+  char **str = (char**)NewHandle(len1 + joinlen + len2 + 1);
+  Copy(str1, *str, len1);
+  if (joiner) (*str)[len1] = joiner;
+  Copy(str2, *str+len1+1, len2);
+  (*str)[len1+1+len2] = 0;
   return str;
 }
 

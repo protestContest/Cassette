@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "univ/handle.h"
 
 #ifndef _Bool
 #define _Bool int
@@ -20,14 +21,15 @@ typedef uint64_t u64;
 typedef int64_t i64;
 typedef float f32;
 typedef double f64;
-typedef i32 bool;
 
 #define true 1
 #define false 0
+#define New(type)         (type**)NewHandle(sizeof(type))
 #define ArrayCount(a)     (sizeof(a) / sizeof(a)[0])
 #define MinInt            ((i32)0x80000000)
 #define MaxInt            ((i32)0x7FFFFFFF)
 #define MaxUInt           ((u32)0xFFFFFFFF)
 #define Min(a, b)         ((a) > (b) ? (b) : (a))
 #define Max(a, b)         ((a) > (b) ? (a) : (b))
+#define Abs(n)            ((n) < 0 ? -(n) : (n))
 #define Copy(s, d, c)     memmove(d,s,c)

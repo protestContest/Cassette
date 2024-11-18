@@ -19,49 +19,42 @@ static char *FileExt(char *path)
   return strrchr(path, '.');
 }
 
-FileList *ListFiles(char *path, char *ext, FileList *list)
+FileList ListFiles(char *path, char *ext, FileList list)
 {
   struct dirent **filenames;
   struct dirent **foldernames;
-  i32 num_files, num_folders, num_filtered, i;
+  i32 num_files, num_folders, i;
 
-  if (!list) {
-    list = malloc(sizeof(FileList));
-    list->count = 0;
-    list->filenames = 0;
-  }
+  if (!list) InitVec(list);
 
   num_files = scandir(path, &filenames, OnlyFiles, 0);
   num_folders = scandir(path, &foldernames, OnlyFolders, 0);
 
   if (num_files <= 0 && num_folders <= 0) return list;
 
-  num_filtered = num_files;
   if (ext) {
     for (i = 0; i < num_files; i++) {
       char *fext = FileExt(filenames[i]->d_name);
       if (!StrEq(ext, fext)) {
-        num_filtered--;
         free(filenames[i]);
         filenames[i] = 0;
       }
     }
   }
 
-  list->filenames = realloc(list->filenames, sizeof(char*)*(list->count + num_filtered));
-
   for (i = 0; i < num_files; i++) {
     if (filenames[i]) {
-      list->filenames[list->count++] = JoinStr(path, filenames[i]->d_name, '/');
+      char **filename = JoinStr(path, filenames[i]->d_name, '/');
+      VecPush(list, filename);
       free(filenames[i]);
     }
   }
   free(filenames);
 
   for (i = 0; i < num_folders; i++) {
-    char *foldername = JoinStr(path, foldernames[i]->d_name, '/');
-    list = ListFiles(foldername, ext, list);
-    free(foldername);
+    char **foldername = JoinStr(path, foldernames[i]->d_name, '/');
+    list = ListFiles(*foldername, ext, list);
+    DisposeHandle(foldername);
     free(foldernames[i]);
   }
   free(foldernames);
@@ -69,27 +62,26 @@ FileList *ListFiles(char *path, char *ext, FileList *list)
   return list;
 }
 
-void FreeFileList(FileList *list)
+void FreeFileList(FileList list)
 {
   u32 i;
-  for (i = 0; i < list->count; i++) free(list->filenames[i]);
-  free(list->filenames);
-  free(list);
+  for (i = 0; i < VecCount(list); i++) DisposeHandle(VecAt(list, i));
+  FreeVec(list);
 }
 
-char *ReadFile(char *path)
+char **ReadFile(char *path)
 {
   int file;
   u32 size;
-  char *data;
+  char **data;
 
   file = open(path, O_RDWR, 0);
   if (file < 0) return 0;
   size = lseek(file, 0, 2);
   lseek(file, 0, 0);
-  data = malloc(size + 1);
-  read(file, data, size);
-  data[size] = 0;
+  data = (char**)NewHandle(size + 1);
+  read(file, *data, size);
+  (*data)[size] = 0;
   close(file);
   return data;
 }

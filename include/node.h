@@ -18,7 +18,7 @@ typedef struct {
 } NodeAttr;
 
 struct ASTNode;
-typedef VecOf(struct ASTNode*) **NodeVec;
+typedef VecOf(struct ASTNode**) **NodeVec;
 
 typedef struct ASTNode {
   NodeType type;
@@ -30,23 +30,23 @@ typedef struct ASTNode {
   } data;
   VecOf(NodeAttr) **attrs;
 } ASTNode;
-#define IsErrorNode(n)  ((n)->type == errorNode)
-#define NodeCount(n)    VecCount((n)->data.children)
-#define NodeChild(n,i)  VecAt((n)->data.children, i)
-#define NodeValue(n)    ((n)->data.value)
-#define IsTrueNode(n)   ((n)->type == constNode && NodeValue(n) == IntVal(1))
+#define IsErrorNode(n)  ((*(n))->type == errorNode)
+#define NodeCount(n)    VecCount((*(n))->data.children)
+#define NodeChild(n,i)  VecAt((*(n))->data.children, i)
+#define NodeValue(n)    ((*(n))->data.value)
+#define IsTrueNode(n)   ((*(n))->type == constNode && NodeValue(n) == IntVal(1))
 
-ASTNode *NewNode(NodeType type, u32 start, u32 end);
-ASTNode *NewTerminal(NodeType type, u32 start, u32 end, u32 value);
-ASTNode *CloneNode(ASTNode *node);
-void FreeNode(ASTNode *node);
-void FreeNodeShallow(ASTNode *node);
-bool IsTerminal(ASTNode *node);
-void NodePush(ASTNode *node, ASTNode *child);
+ASTNode **NewNode(NodeType type, u32 start, u32 end);
+ASTNode **NewTerminal(NodeType type, u32 start, u32 end, u32 value);
+ASTNode **CloneNode(ASTNode **node);
+void FreeNode(ASTNode **node);
+void FreeNodeShallow(ASTNode **node);
+bool IsTerminal(ASTNode **node);
+void NodePush(ASTNode **node, ASTNode **child);
 char *NodeTypeName(i32 type);
-void SetNodeAttr(ASTNode *node, char *name, u32 value);
-u32 GetNodeAttr(ASTNode *node, char *name);
+void SetNodeAttr(ASTNode **node, char *name, u32 value);
+u32 GetNodeAttr(ASTNode **node, char *name);
 
 #ifdef DEBUG
-void PrintNode(ASTNode *node);
+void PrintNode(ASTNode **node);
 #endif

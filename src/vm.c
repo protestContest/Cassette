@@ -13,8 +13,7 @@ typedef void (*OpFn)(VM *vm);
 
 static void TraceInst(VM *vm);
 static u32 PrintStack(VM *vm, u32 max);
-static PrimFn *InitPrimitives(void);
-static StackTrace *BuildStackTrace(VM *vm);
+static StackTrace **BuildStackTrace(VM *vm);
 
 static void OpNoop(VM *vm);
 static void OpHalt(VM *vm);
@@ -108,21 +107,28 @@ static OpFn ops[] = {
   [opTrap]    = OpTrap,
 };
 
-#define VMDone(vm) ((vm)->error || (vm)->pc >= VecCount((vm)->program->code))
+#define VMSourceMap(vm) (&(*(vm)->program)->srcmap)
+#define VMCode(vm)      ((*(vm)->program)->code)
+#define VMDone(vm)      ((vm)->error || (vm)->pc >= VecCount(VMCode(vm)))
 #define BinOp(a, op, b)   StackPush(IntVal(RawInt(a) op RawInt(b)))
+
 
 u32 RuntimeError(char *message, struct VM *vm)
 {
-  char *file = GetSourceFile(vm->pc, &vm->program->srcmap);
-  u32 pos = GetSourcePos(vm->pc, &vm->program->srcmap);
-  Error *error = NewError(NewString("Runtime error: ^"), file, pos, 0);
-  error->message = FormatString(error->message, message);
-  error->data = BuildStackTrace(vm);
+  char **file = GetSourceFile(vm->pc, VMSourceMap(vm));
+  u32 pos = GetSourcePos(vm->pc, VMSourceMap(vm));
+  Error **error;
+  HLock(file);
+  error = NewError("Runtime error: ^", *file, pos, 0);
+  HUnlock(file);
+  DisposeHandle(file);
+  FormatString((*error)->message, message);
+  (*error)->data = BuildStackTrace(vm);
   vm->error = error;
   return 0;
 }
 
-void InitVM(VM *vm, Program *program)
+void InitVM(VM *vm, Program **program)
 {
   u32 i;
   vm->error = 0;
@@ -131,8 +137,8 @@ void InitVM(VM *vm, Program *program)
   vm->link = 0;
   vm->program = program;
   if (program) {
-    char *names = VecData(program->strings);
-    u32 len = VecCount(program->strings);
+    char *names = VecData((*program)->strings);
+    u32 len = VecCount((*program)->strings);
     char *end = names + len;
     while (names < end) {
       len = strlen(names);
@@ -140,30 +146,28 @@ void InitVM(VM *vm, Program *program)
       names += len + 1;
     }
   }
-  vm->primitives = InitPrimitives();
   InitVec(vm->refs);
 }
 
 void DestroyVM(VM *vm)
 {
   FreeVec(vm->refs);
-  free(vm->primitives);
 }
 
 void VMStep(VM *vm)
 {
-  ops[VecAt(vm->program->code, vm->pc)](vm);
+  ops[VecAt((*vm->program)->code, vm->pc)](vm);
 }
 
-Error *VMRun(Program *program)
+Error **VMRun(Program **program)
 {
   VM vm;
 
   InitVM(&vm, program);
   InitMem(256);
 
-  if (program->trace) {
-    u32 num_width = NumDigits(VecCount(program->code), 10);
+  if ((*program)->trace) {
+    u32 num_width = NumDigits(VecCount(VMCode(&vm)), 10);
     u32 i;
     for (i = 0; i < num_width; i++) fprintf(stderr, "─");
     fprintf(stderr, "┬─inst─────────stack───────────────\n");
@@ -215,7 +219,7 @@ void MaybeGC(u32 size, VM *vm)
 
 void RunGC(VM *vm)
 {
-  if (vm->program->trace) fprintf(stderr, "GARBAGE DAY!!!\n");
+  if ((*vm->program)->trace) fprintf(stderr, "GARBAGE DAY!!!\n");
   CollectGarbage(vm->regs, ArrayCount(vm->regs));
 }
 
@@ -226,31 +230,28 @@ static void OpNoop(VM *vm)
 
 static void OpHalt(VM *vm)
 {
-  vm->pc = VecCount(vm->program->code);
+  vm->pc = VecCount(VMCode(vm));
 }
 
 static void OpPanic(VM *vm)
 {
-  char *msg = 0;
+  char **msg = 0;
   if (StackSize() > 0) {
     u32 msgVal = StackPop();
     if (IsBinary(msgVal)) {
       msg = StringFrom(BinaryData(msgVal), ObjLength(msgVal));
-    } else if (IsInt(msgVal)) {
-      char *name = SymbolName(RawVal(msgVal));
-      if (name) {
-        msg = StringFrom(name, strlen(name));
-      }
+    } else if (IsInt(msgVal) && SymbolExists(RawVal(msgVal))) {
+      msg = SymbolName(RawVal(msgVal));
     }
   }
   if (!msg) msg = NewString("Panic!");
-  RuntimeError(msg, vm);
-  free(msg);
+  RuntimeError(*msg, vm);
+  DisposeHandle((Handle)msg);
 }
 
 static void OpConst(VM *vm)
 {
-  u32 value = ReadLEB(++vm->pc, VecData(vm->program->code));
+  u32 value = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   vm->pc += LEBSize(value);
   MaybeGC(1, vm);
   StackPush(value);
@@ -258,7 +259,7 @@ static void OpConst(VM *vm)
 
 static void OpPos(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
+  i32 n = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   vm->pc += LEBSize(n);
   MaybeGC(1, vm);
   StackPush(IntVal((i32)vm->pc + n));
@@ -276,7 +277,7 @@ static void OpGoto(VM *vm)
     RuntimeError("Invalid address", vm);
     return;
   }
-  if (RawInt(a) < 0 || RawInt(a) > (i32)VecCount(vm->program->code)) {
+  if (RawInt(a) < 0 || RawInt(a) > (i32)VecCount(VMCode(vm))) {
     RuntimeError("Out of bounds", vm);
     return;
   }
@@ -285,9 +286,9 @@ static void OpGoto(VM *vm)
 
 static void OpJump(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
+  i32 n = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   vm->pc += LEBSize(n);
-  if (vm->pc + n < 0 || vm->pc + n > VecCount(vm->program->code)) {
+  if (vm->pc + n < 0 || vm->pc + n > VecCount(VMCode(vm))) {
     RuntimeError("Out of bounds", vm);
     return;
   }
@@ -297,7 +298,7 @@ static void OpJump(VM *vm)
 static void OpBranch(VM *vm)
 {
   u32 a;
-  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
+  i32 n = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   vm->pc += LEBSize(n);
   if (StackSize() < 1) {
     RuntimeError("Stack underflow", vm);
@@ -306,7 +307,7 @@ static void OpBranch(VM *vm)
 
   a = StackPop();
   if (RawVal(a)) {
-    if (vm->pc + n < 0 || vm->pc + n > VecCount(vm->program->code)) {
+    if (vm->pc + n < 0 || vm->pc + n > VecCount(VMCode(vm))) {
       RuntimeError("Out of bounds", vm);
       return;
     }
@@ -316,7 +317,7 @@ static void OpBranch(VM *vm)
 
 static void OpPush(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
+  i32 n = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   MaybeGC(1, vm);
   StackPush(vm->regs[n]);
   vm->pc++;
@@ -324,7 +325,7 @@ static void OpPush(VM *vm)
 
 static void OpPull(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
+  i32 n = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   if (StackSize() < 1) {
     RuntimeError("Stack underflow", vm);
     return;
@@ -687,7 +688,7 @@ static void OpRot(VM *vm)
 
 static void OpPick(VM *vm)
 {
-  u32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
+  u32 n = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   u32 v;
   vm->pc += LEBSize(n);
   if (StackSize() < n) {
@@ -751,7 +752,7 @@ static void OpTail(VM *vm)
 
 static void OpTuple(VM *vm)
 {
-  u32 count = ReadLEB(++vm->pc, VecData(vm->program->code));
+  u32 count = ReadLEB(++vm->pc, VecData(VMCode(vm)));
   vm->pc += LEBSize(count);
   MaybeGC(count+2, vm);
   StackPush(Tuple(count));
@@ -833,7 +834,7 @@ static void OpSet(VM *vm)
 
 static void OpStr(VM *vm)
 {
-  char *name;
+  char **name;
   u32 len;
   u32 a;
   if (StackSize() < 1) {
@@ -850,10 +851,11 @@ static void OpStr(VM *vm)
     RuntimeError("Only symbols can become strings", vm);
     return;
   }
-  len = strlen(name);
+  len = strlen(*name);
   MaybeGC(BinSpace(len) + 2, vm);
-  StackPush(BinaryFrom(name, len));
+  StackPush(BinaryFrom(*name, len));
   vm->pc++;
+  DisposeHandle(name);
 }
 
 static void OpJoin(VM *vm)
@@ -943,9 +945,9 @@ static void OpSlice(VM *vm)
 
 static void OpTrap(VM *vm)
 {
-  u32 id = ReadLEB(vm->pc+1, VecData(vm->program->code));
+  u32 id = ReadLEB(vm->pc+1, VecData(VMCode(vm)));
   u32 value;
-  value = vm->primitives[id](vm);
+  value = GetPrimitive(id)(vm);
   if (!vm->error) {
     MaybeGC(1, vm);
     StackPush(value);
@@ -964,7 +966,7 @@ static void TraceInst(VM *vm)
 {
   u32 index = vm->pc;
   u32 i, len;
-  len = DisassembleInst(VecData(vm->program->code), &index, VecCount(vm->program->code));
+  len = DisassembleInst(VecData(VMCode(vm)), &index, VecCount(VMCode(vm)));
   if (len >= 20) {
     fprintf(stderr, "\n");
     len = 0;
@@ -975,12 +977,12 @@ static void TraceInst(VM *vm)
 static u32 PrintStack(VM *vm, u32 max)
 {
   u32 i, printed = 0;
-  char *str;
+  char **str;
   for (i = 0; i < max; i++) {
     if (i >= StackSize()) break;
     str = MemValStr(StackPeek(i));
-    printed += fprintf(stderr, "%s ", str);
-    free(str);
+    printed += fprintf(stderr, "%s ", *str);
+    DisposeHandle(str);
   }
   if (StackSize() > max) {
     printed += fprintf(stderr, "... [%d]", StackSize() - max);
@@ -989,48 +991,37 @@ static u32 PrintStack(VM *vm, u32 max)
   return printed;
 }
 
-static PrimFn *InitPrimitives(void)
+static StackTrace **NewStackTrace(StackTrace **next)
 {
-  PrimDef *primitives = Primitives();
-  PrimFn *fns = malloc(sizeof(PrimFn)*NumPrimitives());
-  u32 i;
-  for (i = 0; i < NumPrimitives(); i++) {
-    fns[i] = primitives[i].fn;
-  }
-  return fns;
-}
-
-static StackTrace *NewStackTrace(StackTrace *next)
-{
-  StackTrace *trace = malloc(sizeof(StackTrace));
-  trace->filename = 0;
-  trace->pos = 0;
-  trace->next = next;
+  StackTrace **trace = New(StackTrace);
+  (*trace)->filename = 0;
+  (*trace)->pos = 0;
+  (*trace)->next = next;
   return trace;
 }
 
-static StackTrace *BuildStackTrace(VM *vm)
+static StackTrace **BuildStackTrace(VM *vm)
 {
   u32 link = vm->link;
-  StackTrace *trace = NewStackTrace(0);
-  StackTrace *item, *st = trace;
+  StackTrace **trace = NewStackTrace(0);
+  StackTrace **item, **st = trace;
 
-  trace->filename = GetSourceFile(vm->pc, &vm->program->srcmap);
-  if (trace->filename) {
-    trace->pos = GetSourcePos(vm->pc, &vm->program->srcmap);
+  (*trace)->filename = GetSourceFile(vm->pc, VMSourceMap(vm));
+  if ((*trace)->filename) {
+    (*trace)->pos = GetSourcePos(vm->pc, VMSourceMap(vm));
   } else {
-    trace->pos = vm->pc;
+    (*trace)->pos = vm->pc;
   }
 
   while (link > 0) {
     u32 code_pos = RawInt(StackPeek(StackSize() - link - 1));
     item = NewStackTrace(0);
-    trace->next = item;
-    item->filename = GetSourceFile(code_pos, &vm->program->srcmap);
-    if (item->filename) {
-      item->pos = GetSourcePos(code_pos, &vm->program->srcmap);
+    (*trace)->next = item;
+    (*item)->filename = GetSourceFile(code_pos, VMSourceMap(vm));
+    if ((*item)->filename) {
+      (*item)->pos = GetSourcePos(code_pos, VMSourceMap(vm));
     } else {
-      item->pos = code_pos;
+      (*item)->pos = code_pos;
     }
     trace = item;
     link = RawInt(StackPeek(StackSize() - link));
@@ -1038,55 +1029,55 @@ static StackTrace *BuildStackTrace(VM *vm)
   return st;
 }
 
-void FreeStackTrace(StackTrace *st)
+void FreeStackTrace(StackTrace **st)
 {
   while (st) {
-    StackTrace *next = st->next;
-    free(st);
+    StackTrace **next = (*st)->next;
+    DisposeHandle((Handle)st);
     st = next;
   }
 }
 
-void PrintStackTrace(StackTrace *st)
+void PrintStackTrace(StackTrace **st)
 {
   u32 colwidth = 0;
-  StackTrace *trace = st;
+  StackTrace **trace = st;
 
   while (trace) {
-    if (trace->filename) {
-      char *text = ReadFile(trace->filename);
+    if ((*trace)->filename) {
+      char **text = ReadFile(*(*trace)->filename);
       if (text) {
-        u32 line_num = LineNum(text, trace->pos);
-        u32 col = ColNum(text, trace->pos);
+        u32 line_num = LineNum(*text, (*trace)->pos);
+        u32 col = ColNum(*text, (*trace)->pos);
         u32 len = snprintf(0, 0, "  %s:%d:%d: ",
-            trace->filename, line_num+1, col+1);
-        free(text);
+            *(*trace)->filename, line_num+1, col+1);
+        DisposeHandle(text);
         colwidth = Max(colwidth, len);
       }
     }
-    trace = trace->next;
+    trace = (*trace)->next;
   }
 
   trace = st;
   fprintf(stderr, "Stacktrace:\n");
   while (trace) {
-    if (trace->filename) {
-      char *text = ReadFile(trace->filename);
+    if ((*trace)->filename) {
+      char **text = ReadFile(*(*trace)->filename);
       if (text) {
-        u32 line = LineNum(text, trace->pos);
-        u32 col = ColNum(text, trace->pos);
+        u32 line = LineNum(*text, (*trace)->pos);
+        u32 col = ColNum(*text, (*trace)->pos);
         u32 j, printed;
         printed = fprintf(stderr, "  %s:%d:%d: ",
-            trace->filename, line+1, col+1);
+            *(*trace)->filename, line+1, col+1);
         for (j = 0; j < colwidth - printed; j++) fprintf(stderr, " ");
-        PrintSourceLine(text, trace->pos);
-        free(text);
+        PrintSourceLine(*text, (*trace)->pos);
+        DisposeHandle(text);
       } else {
-        fprintf(stderr, "%s@%d\n", trace->filename, trace->pos);
+        fprintf(stderr, "%s@%d\n", *(*trace)->filename, (*trace)->pos);
       }
     } else {
-      fprintf(stderr, "  (system)@%d\n", trace->pos);
+      fprintf(stderr, "  (system)@%d\n", (*trace)->pos);
     }
-    trace = trace->next;
+    trace = (*trace)->next;
   }
 }
