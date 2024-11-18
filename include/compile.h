@@ -10,12 +10,12 @@
 typedef struct {
   Env *env;
   Error *error;
-  Module *modules; /* vec */
+  ModuleVec modules;
   HashMap *mod_map;
   HashMap alias_map;
   u32 mod_id;
 } Compiler;
 
-void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map);
+void InitCompiler(Compiler *c, ModuleVec modules, HashMap *mod_map);
 void DestroyCompiler(Compiler *c);
 Chunk *Compile(ASTNode *ast, Compiler *c);

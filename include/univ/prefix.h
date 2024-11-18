@@ -30,3 +30,4 @@ typedef i32 bool;
 #define MaxUInt           ((u32)0xFFFFFFFF)
 #define Min(a, b)         ((a) > (b) ? (b) : (a))
 #define Max(a, b)         ((a) > (b) ? (a) : (b))
+#define Copy(s, d, c)     memmove(d,s,c)

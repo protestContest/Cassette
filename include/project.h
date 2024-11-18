@@ -3,14 +3,15 @@
 #include "module.h"
 #include "program.h"
 #include "univ/hashmap.h"
+#include "univ/vec.h"
 
 /* A Project is a set of modules that can be built into a Program */
 
 typedef struct {
-  Module *modules; /* vec */
+  ModuleVec modules;
   HashMap mod_map;
   Program *program;
-  u32 *build_list; /* vec */
+  WordVec build_list;
 } Project;
 
 Project *NewProject(void);

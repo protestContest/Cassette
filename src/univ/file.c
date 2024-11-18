@@ -4,53 +4,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-FileList *NewFileList(u32 count)
-{
-  FileList *list = malloc(sizeof(FileList));
-  u32 i;
-  list->count = count;
-  list->filenames = malloc(sizeof(char*)*count);
-  for (i = 0; i < count; i++) list->filenames[i] = 0;
-  return list;
-}
-
-void FreeFileList(FileList *list)
-{
-  u32 i;
-  for (i = 0; i < list->count; i++) free(list->filenames[i]);
-  free(list->filenames);
-  free(list);
-}
-
-char *ReadFile(char *path)
-{
-  int file;
-  u32 size;
-  char *data;
-
-  file = open(path, O_RDWR, 0);
-  if (file < 0) return 0;
-  size = lseek(file, 0, 2);
-  lseek(file, 0, 0);
-  data = malloc(size + 1);
-  read(file, data, size);
-  data[size] = 0;
-  close(file);
-  return data;
-}
-
-i32 WriteFile(u8 *data, u32 size, char *path)
-{
-  int file;
-  i32 written;
-  u32 mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-  file = open(path, O_RDWR | O_CREAT | O_TRUNC, mode);
-  if (file < 0) return -1;
-  written = write(file, data, size);
-  close(file);
-  return written;
-}
-
 static int OnlyFiles(const struct dirent *entry)
 {
   return entry->d_type == DT_REG && entry->d_name[0] != '.';
@@ -59,6 +12,11 @@ static int OnlyFiles(const struct dirent *entry)
 static int OnlyFolders(const struct dirent *entry)
 {
   return entry->d_type == DT_DIR && entry->d_name[0] != '.';
+}
+
+static char *FileExt(char *path)
+{
+  return strrchr(path, '.');
 }
 
 FileList *ListFiles(char *path, char *ext, FileList *list)
@@ -111,7 +69,39 @@ FileList *ListFiles(char *path, char *ext, FileList *list)
   return list;
 }
 
-char *FileExt(char *path)
+void FreeFileList(FileList *list)
 {
-  return strrchr(path, '.');
+  u32 i;
+  for (i = 0; i < list->count; i++) free(list->filenames[i]);
+  free(list->filenames);
+  free(list);
+}
+
+char *ReadFile(char *path)
+{
+  int file;
+  u32 size;
+  char *data;
+
+  file = open(path, O_RDWR, 0);
+  if (file < 0) return 0;
+  size = lseek(file, 0, 2);
+  lseek(file, 0, 0);
+  data = malloc(size + 1);
+  read(file, data, size);
+  data[size] = 0;
+  close(file);
+  return data;
+}
+
+i32 WriteFile(u8 *data, u32 size, char *path)
+{
+  int file;
+  i32 written;
+  u32 mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+  file = open(path, O_RDWR | O_CREAT | O_TRUNC, mode);
+  if (file < 0) return -1;
+  written = write(file, data, size);
+  close(file);
+  return written;
 }

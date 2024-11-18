@@ -1,19 +1,43 @@
 #pragma once
+#include "univ/handle.h"
 
-#define NewVec(type, max)     ResizeVec(0, max, sizeof(type))
-#define FreeVec(vec)          ((vec) ? free(RawVec(vec)),0 : 0)
-#define VecCapacity(vec)      ((vec) ? RawVecCap(vec) : 0)
-#define VecCount(vec)         ((vec) ? RawVecCount(vec) : 0)
-#define VecPush(vec, val)     (VecMakeRoom(vec, 1), (vec)[RawVecCount(vec)++] = val)
-#define VecPop(vec)           ((vec)[--RawVecCount(vec)])
-#define GrowVec(vec, num)     (VecMakeRoom(vec, Max(1, num)), RawVecCount(vec) += num)
-#define VecEnd(vec)           &(vec[RawVecCount(vec)])
+typedef struct {
+  u32 count;
+  void *data[];
+} Vec;
 
-#define RawVec(vec)           (((u32 *)vec) - 2)
-#define RawVecCap(vec)        RawVec(vec)[0]
-#define RawVecCount(vec)      RawVec(vec)[1]
-#define VecHasRoom(vec, n)    (VecCount(vec) + (n) <= VecCapacity(vec))
-#define VecMakeRoom(vec, n)   (VecHasRoom(vec, n) ? 0 : DoVecGrow(vec, n))
-#define DoVecGrow(vec, n)     (*((void **)&(vec)) = ResizeVec((vec), (n), sizeof(*(vec))/* NOLINT */))
+#define VecOf(type) \
+struct { \
+  u32 count; \
+  type data[]; \
+}
 
-void *ResizeVec(void *vec, u32 num_items, u32 item_size);
+typedef VecOf(u8) **ByteVec;
+typedef VecOf(u32) **WordVec;
+
+#define NewVec(type, count)   (void*)MakeVec(count, sizeof(type))
+#define FreeVec(v)            DisposeHandle((Handle)v)
+#define InitVec(v)            (v) = (void*)MakeVec(0, 0)
+#define VecData(v)            ((*(v))->data)
+#define ItemSize(v)           sizeof(*VecData(v)) /* NOLINT */
+#define VecCount(v)           (**((u32**)(v)))
+#define VecCap(v)             ((GetHandleSize((Handle)v) - sizeof(Vec)) / ItemSize(v)) /* NOLINT */
+#define VecAt(v,i)            (VecData(v)[i])
+#define VecEnd(v)             (VecData(v) + VecCount(v))
+#define VecDelete(v,i)        DoVecDelete(v, i, ItemSize(v))
+#define GrowVec(v,c) do {\
+  if (VecCount(v) + (c) > VecCap(v)) {\
+    SetHandleSize((Handle)v, sizeof(Vec) + Max(VecCount(v)+(c), 2*VecCap(v))*ItemSize(v)); /* NOLINT */\
+  }\
+  VecCount(v) += (c);\
+} while (0)
+
+#define VecPush(v,x) do {\
+  GrowVec(v,1);\
+  VecAt(v, VecCount(v)-1) = (x);\
+} while (0)
+
+#define VecPop(v)             (VecData(v)[--VecCount(v)])
+
+Handle MakeVec(u32 count, u32 itemSize);
+void DoVecDelete(Handle vec, u32 index, u32 itemSize);

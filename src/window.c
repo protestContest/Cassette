@@ -5,7 +5,7 @@
 
 enum {running, quitting, done};
 
-static CTWindow **windows = 0;
+static VecOf(CTWindow*) **windows = 0;
 static HashMap window_map = EmptyHashMap;
 static i32 state = running;
 
@@ -110,8 +110,7 @@ void OpenWindow(CTWindow *window)
     NSUInteger, NSUIntegerMax, id, NULL, id, NSDefaultRunLoopMode, BOOL, YES);
   if (ev) msg1(void, NSApp, "sendEvent:", id, ev);
 
-
-
+  if (!windows) InitVec(windows);
   key = Hash(&window->data, sizeof(id));
   HashMapSet(&window_map, key, VecCount(windows));
   VecPush(windows, window);
@@ -120,7 +119,7 @@ void OpenWindow(CTWindow *window)
 void CloseWindow(CTWindow *window)
 {
   u32 key = Hash(&window->data, sizeof(id));
-  windows[HashMapGet(&window_map, key)] = 0;
+  VecAt(windows, HashMapGet(&window_map, key)) = 0;
   HashMapDelete(&window_map, key);
   msg(void, window->data, "close");
 }
@@ -166,7 +165,7 @@ void NextEvent(Event *event)
   win = msg(id, ev, "window");
   key = Hash(&win, sizeof(id));
   if (HashMapContains(&window_map, key)) {
-    CTWindow *window = windows[HashMapGet(&window_map, key)];
+    CTWindow *window = VecAt(windows, HashMapGet(&window_map, key));
     event->message.window = window;
     msg1(void, msg(id, window->data, "contentView"), "setNeedsDisplay:", BOOL, YES);
   }
@@ -263,7 +262,7 @@ void CloseWindow(CTWindow *window)
 {
   XInfo *info = window->data;
   u32 key = Hash(&info->win, sizeof(info->win));
-  windows[HashMapGet(&window_map, key)] = 0;
+  VecAt(windows, HashMapGet(&window_map, key)) = 0;
   HashMapDelete(&window_map, key);
   XDestroyWindow(display, info->win);
   free(info);
@@ -329,7 +328,7 @@ void NextEvent(Event *event)
 
   key = Hash(&ev.xany.window, sizeof(ev.xany.window));
   if (HashMapContains(&window_map, key)) {
-    CTWindow *window = windows[HashMapGet(&window_map, key)];
+    CTWindow *window = VecAt(windows, HashMapGet(&window_map, key));
     event->message.window = window;
     UpdateWindow(window);
   }

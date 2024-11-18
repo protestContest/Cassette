@@ -2,12 +2,13 @@
 #include "node.h"
 #include "source_map.h"
 #include "univ/hashmap.h"
+#include "univ/vec.h"
 
 /* A Program is run by the VM. */
 
 typedef struct {
-  u8 *code; /* vec */
-  char *strings; /* vec */
+  VecOf(u8) **code;
+  VecOf(char) **strings;
   SourceMap srcmap;
   bool trace;
 } Program;

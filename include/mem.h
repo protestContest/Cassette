@@ -45,7 +45,6 @@ enum {objType, intType, tupleHdr, binHdr};
 #define IsBinary(v)     (IsObj(v) && IsBinHdr(Head(v)))
 #define MaxIntVal       0x7FFFFFFD
 #define MinIntVal       0xFFFFFFFD
-#define nil             0
 
 typedef struct {
   u32 capacity;

@@ -2,7 +2,6 @@
 #include "leb.h"
 #include "mem.h"
 #include "univ/math.h"
-#include "univ/vec.h"
 
 char *OpName(OpCode op)
 {
@@ -55,13 +54,14 @@ char *OpName(OpCode op)
   }
 }
 
-u32 DisassembleInst(u8 *code, u32 *index)
+#ifdef DEBUG
+u32 DisassembleInst(u8 *code, u32 *index, u32 codeSize)
 {
   OpCode op = code[*index];
   u32 arg;
   u32 len = 0;
   char *arg_str;
-  u32 num_width = NumDigits(VecCount(code), 10);
+  u32 num_width = NumDigits(codeSize, 10);
 
   len += fprintf(stderr, "%*d│ %s", num_width, *index, OpName(op)) - 2;
   (*index)++;
@@ -91,11 +91,11 @@ u32 DisassembleInst(u8 *code, u32 *index)
   }
 }
 
-void Disassemble(u8 *code)
+void Disassemble(u8 *code, u32 codeSize)
 {
-  u32 end = VecCount(code);
+  u32 end = codeSize;
   u32 index = 0;
-  u32 num_width = NumDigits(VecCount(code), 10);
+  u32 num_width = NumDigits(codeSize, 10);
   u32 i;
 
   if (!code) {
@@ -106,7 +106,8 @@ void Disassemble(u8 *code)
   for (i = 0; i < num_width; i++) fprintf(stderr, "─");
   fprintf(stderr, "┬─disassembly─────\n");
   while (index < end) {
-    DisassembleInst(code, &index);
+    DisassembleInst(code, &index, codeSize);
     fprintf(stderr, "\n");
   }
 }
+#endif

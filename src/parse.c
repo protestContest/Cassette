@@ -31,12 +31,13 @@ typedef struct {
 #define ParseFail(n,r)      (FreeNode(n), (r))
 #define Spacing(p)          MatchToken(spaceToken, p)
 #define MakeTerminal(type, value, p) \
-  NewNode(type, (p)->token.pos, (p)->token.pos + (p)->token.length, value)
-#define MakeNode(type, p)   MakeTerminal(type, 0, p)
+  NewTerminal(type, (p)->token.pos, (p)->token.pos + (p)->token.length, value)
+#define MakeNode(type, p) \
+  NewNode(type, (p)->token.pos, (p)->token.pos + (p)->token.length)
 #define NilNode(p) \
-  NewNode(constNode, (p)->token.pos, (p)->token.pos, 0)
+  NewTerminal(constNode, (p)->token.pos, (p)->token.pos, 0)
 #define EmptyNode(p) \
-  NewNode(tupleNode, (p)->token.pos, (p)->token.pos, 0)
+  NewNode(tupleNode, (p)->token.pos, (p)->token.pos)
 #define Expected(s, n, p) \
   ParseFail(n, ParseError("Expected \"" s "\"", p))
 
@@ -316,7 +317,7 @@ static ASTNode *TransformImports(ASTNode *imports, ASTNode *body, Parser *p)
 
   if (num_assigns == 0) return body;
 
-  node = NewNode(letNode, imports->start, imports->end, 0);
+  node = NewNode(letNode, imports->start, imports->end);
   SetNodeAttr(node, "count", num_assigns);
 
   for (i = 0; i < NodeCount(imports); i++) {
@@ -329,8 +330,8 @@ static ASTNode *TransformImports(ASTNode *imports, ASTNode *body, Parser *p)
       u32 id_index = NodeCount(ids) - j - 1;
       u32 assign_index = num_assigns - assigned - 1;
       ASTNode *var = CloneNode(NodeChild(ids, id_index));
-      ASTNode *assign = NewNode(assignNode, var->start, var->end, 0);
-      ASTNode *ref = NewNode(refNode, var->start, var->end, 0);
+      ASTNode *assign = NewNode(assignNode, var->start, var->end);
+      ASTNode *ref = NewNode(refNode, var->start, var->end);
       NodePush(ref, CloneNode(alias));
       NodePush(ref, CloneNode(var));
       SetNodeAttr(assign, "index", assign_index);
@@ -410,7 +411,7 @@ ASTNode *TransformDef(ASTNode *list)
 
   /* if there's only one def, skip building the if/else chain */
   if (def == NodeChild(list, 0) && IsTrueNode(test)) {
-    lambda = NewNode(lambdaNode, def->start, def->end, 0);
+    lambda = NewNode(lambdaNode, def->start, def->end);
     NodePush(lambda, params);
     NodePush(lambda, expr);
     NodeChild(def, 1) = lambda;
@@ -429,10 +430,10 @@ ASTNode *TransformDef(ASTNode *list)
     FreeNode(test);
   } else {
     u32 value = IntVal(Symbol("No matching function"));
-    ASTNode *panic = NewNode(panicNode, def->start, def->end, 0);
-    ASTNode *msg = NewNode(strNode, def->start, def->end, value);
+    ASTNode *panic = NewNode(panicNode, def->start, def->end);
+    ASTNode *msg = NewTerminal(strNode, def->start, def->end, value);
     NodePush(panic, msg);
-    alt = NewNode(ifNode, def->start, def->end, 0);
+    alt = NewNode(ifNode, def->start, def->end);
     NodePush(alt, test);
     NodePush(alt, expr);
     NodePush(alt, panic);
@@ -446,7 +447,7 @@ ASTNode *TransformDef(ASTNode *list)
     test = NodeChild(def, 2);
     expr = NodeChild(def, 3);
     start = def->start;
-    guard = NewNode(ifNode, def->start, def->end, 0);
+    guard = NewNode(ifNode, def->start, def->end);
     NodePush(guard, test);
     NodePush(guard, expr);
     NodePush(guard, alt);
@@ -460,11 +461,11 @@ ASTNode *TransformDef(ASTNode *list)
     FreeNode(NodeChild(list, i));
   }
 
-  lambda = NewNode(lambdaNode, start, end, 0);
+  lambda = NewNode(lambdaNode, start, end);
   NodePush(lambda, params);
   NodePush(lambda, alt);
 
-  def = NewNode(defNode, start, end, 0);
+  def = NewNode(defNode, start, end);
   NodePush(def, id);
   NodePush(def, lambda);
 
@@ -472,15 +473,15 @@ ASTNode *TransformDef(ASTNode *list)
 }
 
 typedef struct {
-  ASTNode **stmts; /* vec */
-  ASTNode **defs; /* vec */
+  NodeVec stmts;
+  NodeVec defs;
   HashMap map;
 } StmtParser;
 
 static void InitStmtParser(StmtParser *sp)
 {
-  sp->stmts = 0;
-  sp->defs = 0;
+  InitVec(sp->stmts);
+  InitVec(sp->defs);
   InitHashMap(&sp->map);
 }
 
@@ -488,7 +489,7 @@ static void DestroyStmtParser(StmtParser *sp)
 {
   u32 i;
   for (i = 0; i < VecCount(sp->defs); i++) {
-    FreeNodeShallow(sp->defs[i]);
+    FreeNodeShallow(VecAt(sp->defs, i));
   }
   FreeVec(sp->stmts);
   FreeVec(sp->defs);
@@ -499,7 +500,7 @@ static ASTNode *ParseStmtsFail(StmtParser *sp, ASTNode *result)
 {
   u32 i;
   for (i = 0; i < VecCount(sp->stmts); i++) {
-    FreeNode(sp->stmts[i]);
+    FreeNode(VecAt(sp->stmts, i));
   }
   while (VecCount(sp->defs)) {
     FreeNode(VecPop(sp->defs));
@@ -516,7 +517,7 @@ static bool CheckDefParams(StmtParser *sp, ASTNode *stmt)
 
   if (!HashMapContains(&sp->map, name)) return true;
   i = HashMapGet(&sp->map, name);
-  list = sp->defs[HashMapGet(&sp->map, name)];
+  list = VecAt(sp->defs, HashMapGet(&sp->map, name));
   def = NodeChild(list, 0);
   def_params = NodeChild(def, 1);
   stmt_params = NodeChild(stmt, 1);
@@ -536,10 +537,10 @@ static void AddDefStmt(StmtParser *sp, ASTNode *stmt)
 {
   u32 name = NodeValue(NodeChild(stmt, 0));
   if (HashMapContains(&sp->map, name)) {
-    ASTNode *list = sp->defs[HashMapGet(&sp->map, name)];
+    ASTNode *list = VecAt(sp->defs, HashMapGet(&sp->map, name));
     NodePush(list, stmt);
   } else {
-    ASTNode *list = NewNode(tupleNode, stmt->start, stmt->end, 0);
+    ASTNode *list = NewNode(tupleNode, stmt->start, stmt->end);
     NodePush(list, stmt);
     HashMapSet(&sp->map, name, VecCount(sp->defs));
     VecPush(sp->defs, list);
@@ -588,12 +589,12 @@ static ASTNode *ParseStmts(Parser *p)
   node->end = p->token.pos;
 
   for (i = 0; i < VecCount(sp.defs); i++) {
-    ASTNode *def = TransformDef(sp.defs[i]);
+    ASTNode *def = TransformDef(VecAt(sp.defs, i));
     NodePush(node, def);
   }
 
   for (i = 0; i < VecCount(sp.stmts); i++) {
-    NodePush(node, sp.stmts[i]);
+    NodePush(node, VecAt(sp.stmts, i));
   }
 
   DestroyStmtParser(&sp);

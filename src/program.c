@@ -2,25 +2,23 @@
 #include "mem.h"
 #include "ops.h"
 #include "univ/math.h"
-#include "univ/str.h"
 #include "univ/symbol.h"
-#include "univ/vec.h"
 
 Program *NewProgram(void)
 {
   Program *program = malloc(sizeof(Program));
-  program->code = 0;
+  InitVec(program->code);
+  InitVec(program->strings);
   InitSourceMap(&program->srcmap);
-  program->strings = 0;
   program->trace = false;
   return program;
 }
 
 void FreeProgram(Program *program)
 {
-  if (program->code) FreeVec(program->code);
+  FreeVec(program->code);
+  FreeVec(program->strings);
   DestroySourceMap(&program->srcmap);
-  if (program->strings) FreeVec(program->strings);
   free(program);
 }
 
@@ -35,9 +33,6 @@ void AddStrings(ASTNode *node, Program *program, HashMap *strings)
     HashMapSet(strings, sym, 1);
     name = SymbolName(sym);
     len = strlen(name);
-    if (!program->strings) {
-      program->strings = NewVec(u8, len);
-    }
     GrowVec(program->strings, len);
     Copy(name, VecEnd(program->strings) - len, len);
     VecPush(program->strings, 0);
@@ -85,7 +80,7 @@ u32 SerializeProgram(Program *program, u8 **dst)
   cur += sizeof(code);
   WriteBE(code_size, cur);
   cur += sizeof(code_size);
-  Copy(program->code, cur, VecCount(program->code));
+  Copy(VecData(program->code), cur, VecCount(program->code));
   cur += VecCount(program->code);
   trailing_bytes = code_size - VecCount(program->code);
   for (i = 0; i < trailing_bytes; i++) *cur++ = opNoop;
@@ -93,7 +88,7 @@ u32 SerializeProgram(Program *program, u8 **dst)
   cur += sizeof(strs);
   WriteBE(strs_size, cur);
   cur += sizeof(strs_size);
-  Copy(program->strings, cur, VecCount(program->strings));
+  Copy(VecData(program->strings), cur, VecCount(program->strings));
   cur += VecCount(program->strings);
   trailing_bytes = strs_size - VecCount(program->strings);
   for (i = 0; i < trailing_bytes; i++) *cur++ = 0;
@@ -125,7 +120,7 @@ void DisassembleProgram(Program *program)
       }
     }
 
-    DisassembleInst(program->code, &index);
+    DisassembleInst(VecData(program->code), &index, VecCount(program->code));
     fprintf(stderr, "\n");
   }
 }

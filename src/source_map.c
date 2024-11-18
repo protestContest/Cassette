@@ -4,9 +4,9 @@
 
 void InitSourceMap(SourceMap *map)
 {
-  map->filenames = 0;
-  map->file_map = 0;
-  map->pos_map = 0;
+  InitVec(map->filenames);
+  InitVec(map->file_map);
+  InitVec(map->pos_map);
 }
 
 void DestroySourceMap(SourceMap *map)
@@ -45,7 +45,7 @@ void AddChunkSource(Chunk *chunk, char *filename, SourceMap *map)
 u32 GetSourcePos(u32 code_index, SourceMap *map)
 {
   u32 i = 0;
-  u32 *cur = map->pos_map;
+  u32 *cur = VecData(map->pos_map);
   while (cur < VecEnd(map->pos_map)) {
     if (i + cur[1] > code_index) return cur[0];
     i += cur[1];
@@ -57,9 +57,9 @@ u32 GetSourcePos(u32 code_index, SourceMap *map)
 char *GetSourceFile(u32 code_index, SourceMap *map)
 {
   u32 i = 0;
-  u32 *cur = map->file_map;
+  u32 *cur = VecData(map->file_map);
   while (cur < VecEnd(map->file_map)) {
-    if (i + cur[1] >= code_index) return SymbolName(map->filenames[cur[0]]);
+    if (i + cur[1] >= code_index) return SymbolName(VecAt(map->filenames, cur[0]));
     i += cur[1];
     cur += 2;
   }

@@ -1,6 +1,7 @@
 #pragma once
 #include "program.h"
 #include "error.h"
+#include "univ/vec.h"
 
 /* A VM can execute bytecode in a Program. */
 
@@ -16,7 +17,7 @@ typedef struct VM {
   u32 link;
   PrimFn *primitives;
   Program *program;
-  void **refs; /* vec */
+  VecOf(void*) **refs;
 } VM;
 
 typedef struct StackTrace {

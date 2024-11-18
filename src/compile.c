@@ -21,7 +21,7 @@ Compile functions may use emitter functions to write bytecode to a chunk.
 Emitter functions generally start with "Write...".
 */
 
-void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map)
+void InitCompiler(Compiler *c, ModuleVec modules, HashMap *mod_map)
 {
   c->env = 0;
   c->error = 0;
@@ -464,7 +464,11 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
 {
   u32 i, num_defs;
   Chunk *chunk;
-  ASTNode **stmts = 0, **defs = 0; /* vec */
+  NodeVec stmts;
+  NodeVec defs;
+
+  InitVec(stmts);
+  InitVec(defs);
 
   /* split up the defs and other statements */
   for (i = 0; i < NodeCount(node); i++) {
@@ -484,7 +488,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
 
     /* define each def ahead of time */
     for (i = 0; i < VecCount(defs); i++) {
-      ASTNode *def = defs[i];
+      ASTNode *def = VecAt(defs, i);
       u32 name;
       name = NodeValue(NodeChild(def, 0));
       EnvSet(name, i, c->env);
@@ -494,7 +498,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
     for (i = 0; i < VecCount(defs); i++) {
       u32 index = num_defs - i - 1;
       Chunk *def_chunk, *set_chunk;
-      ASTNode *def = defs[index];
+      ASTNode *def = VecAt(defs, index);
       set_chunk = NewChunk(def->start);
       WriteDefine(index, set_chunk);
       def_chunk = CompileExpr(NodeChild(def, 1), false, c);
@@ -520,7 +524,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
     /* compile each non-def statement, in reverse */
     for (i = 0; i < VecCount(stmts); i++) {
       u32 index = VecCount(stmts) - i - 1;
-      ASTNode *stmt = stmts[index];
+      ASTNode *stmt = VecAt(stmts, index);
       Chunk *stmt_chunk;
       bool is_last = index == VecCount(stmts) - 1;
       stmt_chunk = CompileExpr(stmt, is_last && returns, c);
@@ -893,7 +897,7 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
     return UndefinedVariable(alias, c);
   }
   mod_index = HashMapGet(&c->alias_map, NodeValue(alias));
-  mod = &c->modules[mod_index];
+  mod = &VecAt(c->modules, mod_index);
   mod_exports = NodeChild(mod->ast, 2);
 
   for (sym_index = 0; sym_index < NodeCount(mod_exports); sym_index++) {

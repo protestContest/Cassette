@@ -131,7 +131,7 @@ void InitVM(VM *vm, Program *program)
   vm->link = 0;
   vm->program = program;
   if (program) {
-    char *names = program->strings;
+    char *names = VecData(program->strings);
     u32 len = VecCount(program->strings);
     char *end = names + len;
     while (names < end) {
@@ -141,21 +141,18 @@ void InitVM(VM *vm, Program *program)
     }
   }
   vm->primitives = InitPrimitives();
-  vm->refs = 0;
+  InitVec(vm->refs);
 }
 
 void DestroyVM(VM *vm)
 {
   FreeVec(vm->refs);
   free(vm->primitives);
-#ifdef SDL
-  SDL_Quit();
-#endif
 }
 
 void VMStep(VM *vm)
 {
-  ops[vm->program->code[vm->pc]](vm);
+  ops[VecAt(vm->program->code, vm->pc)](vm);
 }
 
 Error *VMRun(Program *program)
@@ -194,14 +191,14 @@ u32 VMPushRef(void *ref, VM *vm)
 
 void *VMGetRef(u32 ref, VM *vm)
 {
-  return vm->refs[ref];
+  return VecAt(vm->refs, ref);
 }
 
 i32 VMFindRef(void *ref, VM *vm)
 {
   u32 i;
   for (i = 0; i < VecCount(vm->refs); i++) {
-    if (vm->refs[i] == ref) return i;
+    if (VecAt(vm->refs, i) == ref) return i;
   }
   return -1;
 }
@@ -253,7 +250,7 @@ static void OpPanic(VM *vm)
 
 static void OpConst(VM *vm)
 {
-  u32 value = ReadLEB(++vm->pc, vm->program->code);
+  u32 value = ReadLEB(++vm->pc, VecData(vm->program->code));
   vm->pc += LEBSize(value);
   MaybeGC(1, vm);
   StackPush(value);
@@ -261,7 +258,7 @@ static void OpConst(VM *vm)
 
 static void OpPos(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
   vm->pc += LEBSize(n);
   MaybeGC(1, vm);
   StackPush(IntVal((i32)vm->pc + n));
@@ -288,7 +285,7 @@ static void OpGoto(VM *vm)
 
 static void OpJump(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
   vm->pc += LEBSize(n);
   if (vm->pc + n < 0 || vm->pc + n > VecCount(vm->program->code)) {
     RuntimeError("Out of bounds", vm);
@@ -300,7 +297,7 @@ static void OpJump(VM *vm)
 static void OpBranch(VM *vm)
 {
   u32 a;
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
   vm->pc += LEBSize(n);
   if (StackSize() < 1) {
     RuntimeError("Stack underflow", vm);
@@ -319,7 +316,7 @@ static void OpBranch(VM *vm)
 
 static void OpPush(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
   MaybeGC(1, vm);
   StackPush(vm->regs[n]);
   vm->pc++;
@@ -327,7 +324,7 @@ static void OpPush(VM *vm)
 
 static void OpPull(VM *vm)
 {
-  i32 n = ReadLEB(++vm->pc, vm->program->code);
+  i32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
   if (StackSize() < 1) {
     RuntimeError("Stack underflow", vm);
     return;
@@ -690,7 +687,7 @@ static void OpRot(VM *vm)
 
 static void OpPick(VM *vm)
 {
-  u32 n = ReadLEB(++vm->pc, vm->program->code);
+  u32 n = ReadLEB(++vm->pc, VecData(vm->program->code));
   u32 v;
   vm->pc += LEBSize(n);
   if (StackSize() < n) {
@@ -754,7 +751,7 @@ static void OpTail(VM *vm)
 
 static void OpTuple(VM *vm)
 {
-  u32 count = ReadLEB(++vm->pc, vm->program->code);
+  u32 count = ReadLEB(++vm->pc, VecData(vm->program->code));
   vm->pc += LEBSize(count);
   MaybeGC(count+2, vm);
   StackPush(Tuple(count));
@@ -946,7 +943,7 @@ static void OpSlice(VM *vm)
 
 static void OpTrap(VM *vm)
 {
-  u32 id = ReadLEB(vm->pc+1, vm->program->code);
+  u32 id = ReadLEB(vm->pc+1, VecData(vm->program->code));
   u32 value;
   value = vm->primitives[id](vm);
   if (!vm->error) {
@@ -967,7 +964,7 @@ static void TraceInst(VM *vm)
 {
   u32 index = vm->pc;
   u32 i, len;
-  len = DisassembleInst(vm->program->code, &index);
+  len = DisassembleInst(VecData(vm->program->code), &index, VecCount(vm->program->code));
   if (len >= 20) {
     fprintf(stderr, "\n");
     len = 0;

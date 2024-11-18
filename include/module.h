@@ -13,6 +13,9 @@ typedef struct Module {
   Chunk *code;
   HashMap exports;
 } Module;
+
+typedef VecOf(Module) **ModuleVec;
+
 #define ModuleName(mod) NodeChild((mod)->ast, 0)
 #define ModuleImports(mod) NodeChild((mod)->ast, 1)
 #define ModuleExports(mod) NodeChild((mod)->ast, 2)

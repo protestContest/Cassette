@@ -1,14 +1,12 @@
 #include "chunk.h"
 #include "leb.h"
 #include "ops.h"
-#include "univ/str.h"
-#include "univ/vec.h"
 #include "vm.h"
 
 Chunk *NewChunk(u32 src)
 {
   Chunk *chunk = malloc(sizeof(Chunk));
-  chunk->data = 0;
+  InitVec(chunk->data);
   chunk->needs_env = false;
   chunk->modifies_env = false;
   chunk->src = src;
@@ -19,7 +17,7 @@ Chunk *NewChunk(u32 src)
 void FreeChunk(Chunk *chunk)
 {
   if (!chunk) return;
-  if (chunk->data) FreeVec(chunk->data);
+  FreeVec(chunk->data);
   if (chunk->next) FreeChunk(chunk->next);
   free(chunk);
 }
@@ -37,7 +35,7 @@ void ChunkWriteInt(u32 num, Chunk *chunk)
   while (chunk->next) chunk = chunk->next;
   index = VecCount(chunk->data);
   GrowVec(chunk->data, size);
-  WriteLEB(num, index, chunk->data);
+  WriteLEB(num, index, VecData(chunk->data));
 }
 
 u32 ChunkSize(Chunk *chunk)
@@ -106,7 +104,7 @@ u8 *SerializeChunk(Chunk *chunk, u8 *dst)
 {
   assert(dst);
   while (chunk) {
-    Copy(chunk->data, dst, VecCount(chunk->data));
+    Copy(VecData(chunk->data), dst, VecCount(chunk->data));
     dst += VecCount(chunk->data);
     chunk = chunk->next;
   }
@@ -114,10 +112,13 @@ u8 *SerializeChunk(Chunk *chunk, u8 *dst)
   return dst;
 }
 
+#ifdef DEBUG
 void DisassembleChunk(Chunk *chunk)
 {
-  u8 *data /* vec */ = NewVec(u8, ChunkSize(chunk));
-  RawVecCount(data) = ChunkSize(chunk);
-  SerializeChunk(chunk, data);
-  Disassemble(data);
+  VecOf(u8) **data = NewVec(u8, ChunkSize(chunk));
+  VecCount(data) = ChunkSize(chunk);
+  SerializeChunk(chunk, VecData(data));
+  Disassemble(VecData(data), VecCount(data));
+  FreeVec(data);
 }
+#endif

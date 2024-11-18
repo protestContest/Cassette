@@ -1,11 +1,11 @@
 #pragma once
-
 #include "chunk.h"
+#include "univ/vec.h"
 
 typedef struct {
-  u32 *filenames; /* vec */
-  u32 *file_map; /* vec */
-  u32 *pos_map; /* vec */
+  WordVec(filenames);
+  WordVec(file_map);
+  WordVec(pos_map);
 } SourceMap;
 
 void InitSourceMap(SourceMap *map);

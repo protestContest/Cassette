@@ -17,23 +17,27 @@ typedef struct {
   u32 value;
 } NodeAttr;
 
+struct ASTNode;
+typedef VecOf(struct ASTNode*) **NodeVec;
+
 typedef struct ASTNode {
   NodeType type;
   u32 start;
   u32 end;
   union {
     u32 value;
-    struct ASTNode **children; /* vec */
+    NodeVec children;
   } data;
-  NodeAttr *attrs;
+  VecOf(NodeAttr) **attrs;
 } ASTNode;
 #define IsErrorNode(n)  ((n)->type == errorNode)
 #define NodeCount(n)    VecCount((n)->data.children)
-#define NodeChild(n,i)  ((n)->data.children[i])
+#define NodeChild(n,i)  VecAt((n)->data.children, i)
 #define NodeValue(n)    ((n)->data.value)
 #define IsTrueNode(n)   ((n)->type == constNode && NodeValue(n) == IntVal(1))
 
-ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value);
+ASTNode *NewNode(NodeType type, u32 start, u32 end);
+ASTNode *NewTerminal(NodeType type, u32 start, u32 end, u32 value);
 ASTNode *CloneNode(ASTNode *node);
 void FreeNode(ASTNode *node);
 void FreeNodeShallow(ASTNode *node);
