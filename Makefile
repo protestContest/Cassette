@@ -17,11 +17,11 @@ OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 MAIN_OBJ := $(BUILD)/$(MAIN).o
 
 CC = clang
-INCLUDE_FLAGS = -I$(INCLUDE) -include univ/prefix.h
+INCLUDE_FLAGS = -I$(INCLUDE) -include src/prefix.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic -fsanitize=address -fno-omit-frame-pointer
 CFLAGS = -g -O0 -std=c99 $(WFLAGS) $(INCLUDE_FLAGS) -DDEBUG
 LDFLAGS = -framework Cocoa
-LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
+LIBLDFLAGS = -dynamiclib
 
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)
@@ -37,6 +37,9 @@ $(BUILD)/%.o: $(SRC)/%.c
 	@mkdir -p $(dir $@)
 	@echo $@
 	@$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: lib
+lib: $(LIBTARGET)
 
 .PHONY: clean
 clean:

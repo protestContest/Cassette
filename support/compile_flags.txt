@@ -8,5 +8,5 @@
 -I/opt/homebrew/include
 -I../include
 -I../src
--include univ/prefix.h
+-include prefix.h
 -DDEBUG

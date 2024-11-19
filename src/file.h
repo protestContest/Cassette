@@ -1,0 +1,1 @@
+#pragma oncechar **ReadFile(char *path);i32 WriteFile(u8 *data, u32 size, char *path);
