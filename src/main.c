@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
   project = NewProject();
   AddProjectFile(project, opts.entry);
   ScanProjectFolder(project, DirName(opts.entry));
-  ScanProjectFolder(project, opts.lib_path);
+  if (opts.lib_path) ScanProjectFolder(project, opts.lib_path);
 
   error = BuildProject(project);
   if (error) {

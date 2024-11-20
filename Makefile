@@ -10,6 +10,8 @@ INSTALL = $(HOME)/.local
 EXECTARGET = $(BIN)/$(NAME)
 LIBTARGET = $(BIN)/lib$(NAME).dylib
 
+PLATFORM := $(shell uname -s)
+
 MAIN := main
 TESTFILE = test/test.ct
 SRCS := $(shell find $(SRC) -name '*.c' -not -name '$(MAIN).c' -print)
@@ -20,8 +22,15 @@ CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/prefix.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic -fsanitize=address -fno-omit-frame-pointer
 CFLAGS = -g -O0 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS) -DDEBUG
-LDFLAGS = -framework Cocoa
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
+
+ifeq ($(PLATFORM),Darwin)
+LDFLAGS = -framework Cocoa
+else ifeq ($(PLATFORM),Linux)
+LDFLAGS = -lX11
+LIBLDFLAGS = -shared
+CFLAGS += -fPIC
+endif
 
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)
