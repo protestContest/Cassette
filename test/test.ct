@@ -1,10 +1,16 @@
 import Window, IO, Math, List, Value
 
+---
+Quit when key press is cmd+Q or escape
+---
 def should_quit(event)
   event.what == :keyDown and
   ((event.message & 0xFF == $q and Window.modifier?(event, :cmd)) or
    (event.message >> 8 == 0x35))
 
+---
+Keep checking for events and draw the next image on key press
+---
 def loop(window, mod)
   let event = Window.next_event() except should_quit(event), nil
   in
@@ -15,6 +21,9 @@ def loop(window, mod)
     else
       loop(window, mod)
 
+---
+Generate a new image and update the window
+---
 def draw_image(window, mod)
   let
     white = Value.format([0xFF, 0xFF, 0xFF, 0])
@@ -30,12 +39,15 @@ def draw_image(window, mod)
     Window.update(window)
   end
 
-def map_range(start, end, fn) do
-  def loop(i, acc) when i >= end, List.reverse(acc)
+---
+Map a range of integers with a function
+---
+def map_range(min, max, fn) do
+  def loop(i, acc) when i >= max, List.reverse(acc)
   def loop(i, acc) do
     loop(i+1, fn(i) : acc)
   end
-  loop(start, [])
+  loop(min, [])
 end
 
 let

@@ -10,6 +10,14 @@ Token NextToken(char *src, u32 pos)
     while (src[pos] && !IsNewline(src[pos])) pos++;
   }
 
+  if (Match("---\n", src+pos) && (pos == 0 || src[pos-1] == '\n')) {
+    pos += 4;
+    while (!Match("---\n", src+pos)) {
+      pos++;
+    }
+    pos += 4;
+  }
+
   if (src[pos] == 0) return MakeToken(eofToken, pos, 0);
   if (IsSpace(src[pos])) {
     u32 len = 0;
