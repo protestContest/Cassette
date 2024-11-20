@@ -1140,6 +1140,22 @@ static ASTNode *ParseSymbol(Parser *p)
   return node;
 }
 
+static char EscapeChar(char c)
+{
+  switch (c) {
+  case 'a': return '\a';
+  case 'b': return '\b';
+  case 'e': return 0x1B;
+  case 'f': return '\f';
+  case 'n': return '\n';
+  case 'r': return '\r';
+  case 't': return '\t';
+  case 'v': return '\v';
+  case '0': return '\0';
+  default: return c;
+  }
+}
+
 static ASTNode *ParseString(Parser *p)
 {
   ASTNode *node;
@@ -1159,7 +1175,7 @@ static ASTNode *ParseString(Parser *p)
     char ch = p->text[token.pos + i + 1];
     if (ch == '\\') {
       i++;
-      ch = p->text[token.pos + i + 1];
+      ch = EscapeChar(p->text[token.pos + i + 1]);
     }
     str[j] = ch;
     i++;

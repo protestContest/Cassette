@@ -1,11 +1,6 @@
 module String
 import Value (format, tuple?, binary?, integer?), List
 export
-  newline,
-  carriage_return,
-  space,
-  tab,
-  crlf,
   digit?,
   lowercase?,
   uppercase?,
@@ -21,12 +16,6 @@ export
   substring,
   from_substring,
   join
-
-def newline() format(0x0A)
-def carriage_return() format(0x0D)
-def space() format(0x20)
-def tab() format(0x09)
-def crlf() format([carriage_return(), newline()])
 
 def digit?(c) c >= $0 and c <= $9
 def lowercase?(c) c >= $a and c <= $z

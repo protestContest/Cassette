@@ -145,11 +145,9 @@ void CollectGarbage(u32 *roots, u32 num_roots)
 
   if (MemFree() < MemCapacity()/4) {
     SizeMem(2*MemCapacity());
-    fprintf(stderr, "Mem size: %d\n", MemCapacity());
   } else if (MemCapacity() > MIN_CAPACITY &&
       MemFree() > MemCapacity()/4 + MemCapacity()/2) {
     SizeMem(Max(256, MemCapacity()/2));
-    fprintf(stderr, "Mem size: %d\n", MemCapacity());
   }
 }
 

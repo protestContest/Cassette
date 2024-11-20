@@ -1,5 +1,5 @@
 module IO
-import List, Value (typeof, error?), String (newline)
+import List, Value (typeof, error?)
 export open, close, read, read_chunk, write, write_chunk, seek, print, inspect, read_file, write_file,
 stdin, stdout, stderr
 
@@ -83,7 +83,7 @@ def write(file, data) do
   loop(data)
 end
 
-def print(str) write(stdout(), Value.format([str, newline()]))
+def print(str) write(stdout(), Value.format([str, "\n"]))
 
 def inspect(val) do
   print(Value.inspect(val))
