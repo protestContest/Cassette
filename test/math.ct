@@ -1,5 +1,6 @@
 module Math
-export random, random_between, seed, constrain, align, max_int, min_int, popcount
+export random, random_between, seed, constrain, align, max_int, min_int,
+popcount, map, clamp
 
 def max_int() trap max_int()
 def min_int() trap min_int()
@@ -31,3 +32,11 @@ def constrain(n, min, max) n
 def align(n, m) when n == 0, 0
 def align(n, m)
   ((n - 1) / m + 1) * m
+
+def map(t, a0, a1, b0, b1)
+  (t - a0) * (b1 - b0) / (a1 - a0) + b0
+
+def clamp(n, low, high) when n < low, low
+def clamp(n, low, high) when n > high, high
+def clamp(n, low, high) n
+

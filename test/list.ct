@@ -3,7 +3,7 @@ export
   head, tail, drop, take,
   reduce, reverse, map, filter, each,
   range, zip, with_index, contains?,
-  intersperse, join
+  intersperse, join, repeat, for_range
 
 def take(list, n) when (n == 0), nil
 def take(list, n) reverse(@list : take(^list, n - 1))
@@ -110,3 +110,17 @@ def any?(list)
     list == nil, false
     @list, true
     else any?(^list)
+
+def repeat(item, num) do
+  def loop(list, n) when n == num, list
+  def loop(list, n) loop(item : list, n + 1)
+  loop(nil, 0)
+end
+
+def for_range(min, max, fn) do
+  def loop(i, acc) when i >= max, reverse(acc)
+  def loop(i, acc) do
+    loop(i+1, fn(i) : acc)
+  end
+  loop(min, [])
+end

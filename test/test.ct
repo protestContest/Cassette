@@ -1,28 +1,35 @@
-import IO, Net, List
+import Window, Value, List, IO, Graphics, Math
 
-; keeps reading from a connection while there's any data
-def read_resp(conn) do
-  ; define an iterative loop
-  def loop(received)
-    let
-      chunk = IO.read_chunk(conn, 1024)   ; get the next chunk
-    in
-      if #chunk == 0, received            ; no more data
-      else loop(received <> chunk)        ; concatenate chunk onto received data
+def draw_image(window, grid_size, scale)
+  let
+    perlin = Graphics.perlin(grid_size)
+    pixels =
+      List.for_range(0, window.height/scale, \y ->
+        let row = List.for_range(0, window.width/scale, \x ->
+          let
+            color = Math.map(perlin(x, y), -grid_size, grid_size, 0, 255)
+            pixel = [color, color, color, 0]
+          in
+            List.repeat(pixel, scale))
+        in List.repeat(row, scale))
+    img = Value.format(pixels)
+  in do
+    Window.blit(img, window.width, window.height, 0, 0, window)
+    Window.update(window)
+  end
 
-  ; start the loop
-  loop("")
-end
+def loop(window, size)
+  let event = Window.next_event()
+  in
+    if size == 0 or event.what == :keyDown, nil
+    else do
+      draw_image(window, size, 2)
+      loop(window, size / 2)
+    end
 
 let
-  conn = Net.connect("cassette-lang.com", "80")   ; open a network connection
-  req = List.join([                               ; form an HTTP request
-    "GET / HTTP/1.0",
-    "Host: cassette-lang.com",
-    "",
-    ""
-  ], "\r\n")
-in do
-  IO.write(conn, req)         ; send the request
-  IO.print(read_resp(conn))   ; read the response and print it
-end
+  width = 400
+  height = 400
+  window = Window.open("Test", width, height)
+in
+  loop(window, 400)
