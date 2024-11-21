@@ -21,10 +21,10 @@ def draw_image(window, grid_size, scale)
 def loop(window, size)
   let event = Window.next_event()
   in
-    if size == 0 or event.what == :keyDown, nil
+    if event.what == :keyDown, nil
     else do
       draw_image(window, size, 2)
-      loop(window, size / 2)
+      loop(window, size / 2 or 400)
     end
 
 let

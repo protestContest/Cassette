@@ -21,20 +21,20 @@ Env *PopEnv(Env *env)
   return parent;
 }
 
-EnvPosition EnvFind(u32 value, Env *env)
+i32 EnvFind(u32 value, Env *env)
 {
-  EnvPosition pos = {0, 0};
+  i32 pos = 0;
   while (env) {
     u32 i;
     for (i = 0; i < env->size; i++) {
-      pos.index = env->size - 1 - i;
-      if (env->items[pos.index] == value) return pos;
+      i32 index = env->size - 1 - i;
+      if (env->items[index] == value) return pos + index;
     }
-    pos.frame++;
+    pos += env->size;
     env = env->parent;
   }
-  pos.frame = -1;
-  return pos;
+
+  return -1;
 }
 
 bool EnvSet(u32 var, u32 index, Env *env)

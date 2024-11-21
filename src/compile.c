@@ -133,24 +133,15 @@ static void WriteSetMod(Chunk *chunk)
 }
 
 /* Looks up a variable given the frame and index number */
-static void WriteLookup(u32 frame, u32 index, Chunk *chunk)
+static void WriteLookup(u32 index, Chunk *chunk)
 {
   /*
   getEnv
-  ; for n frames:
-    tail
-  head
-  const <index>
-  get
+  lookup n
   */
-  u32 i;
   WriteGetEnv(chunk);
-  for (i = 0; i < frame; i++) {
-    ChunkWrite(opTail, chunk);
-  }
-  ChunkWrite(opHead, chunk);
-  WriteConst(index, chunk);
-  ChunkWrite(opGet, chunk);
+  ChunkWrite(opLookup, chunk);
+  ChunkWriteInt(index, chunk);
 }
 
 /* Extends the runtime environment with a new scope */
@@ -182,18 +173,13 @@ static void WriteDefine(u32 index, Chunk *chunk)
 {
   /*
   getEnv
-  head
-  const <index>
-  rot
-  set
-  drop
+  swap
+  define i
   */
   WriteGetEnv(chunk);
-  ChunkWrite(opHead, chunk);
-  WriteConst(index, chunk);
-  ChunkWrite(opRot, chunk);
-  ChunkWrite(opSet, chunk);
-  ChunkWrite(opDrop, chunk);
+  ChunkWrite(opSwap, chunk);
+  ChunkWrite(opDefine, chunk);
+  ChunkWriteInt(index, chunk);
 }
 
 /* Sets the value of a module */
@@ -301,11 +287,10 @@ static Chunk *CompileVar(ASTNode *node, bool returns, Compiler *c)
   <lookup var>
   */
   Chunk *chunk;
-  EnvPosition pos;
-  pos = EnvFind(NodeValue(node), c->env);
-  if (pos.frame < 0) return UndefinedVariable(node, c);
+  i32 pos = EnvFind(NodeValue(node), c->env);
+  if (pos < 0) return UndefinedVariable(node, c);
   chunk = NewChunk(node->start);
-  WriteLookup(pos.frame, pos.index, chunk);
+  WriteLookup(pos, chunk);
   if (returns) WriteReturn(chunk);
   return chunk;
 }
@@ -886,8 +871,8 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
   Chunk *chunk;
   u32 sym_index, mod_index;
 
-  EnvPosition pos = EnvFind(NodeValue(alias), c->env);
-  if (pos.frame >= 0) return CompileMember(node, returns, c);
+  i32 pos = EnvFind(NodeValue(alias), c->env);
+  if (pos >= 0) return CompileMember(node, returns, c);
 
   if (!HashMapContains(&c->alias_map, NodeValue(alias))) {
     return UndefinedVariable(alias, c);

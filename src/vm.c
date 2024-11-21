@@ -20,6 +20,8 @@ static void OpNoop(VM *vm);
 static void OpHalt(VM *vm);
 static void OpPanic(VM *vm);
 static void OpConst(VM *vm);
+static void OpLookup(VM *vm);
+static void OpDefine(VM *vm);
 static void OpJump(VM *vm);
 static void OpBranch(VM *vm);
 static void OpPos(VM *vm);
@@ -66,7 +68,9 @@ static OpFn ops[128] = {
   /* opHalt */    OpHalt,
   /* opPanic */   OpPanic,
   /* opConst */   OpConst,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  /* opLookup */  OpLookup,
+  /* opDefine */  OpDefine,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   /* opJump */    OpJump,
   /* opBranch */  OpBranch,
   /* opPos */     OpPos,
@@ -265,6 +269,57 @@ static void OpConst(VM *vm)
   vm->pc += LEBSize(value);
   MaybeGC(1, vm);
   StackPush(value);
+}
+
+static void OpLookup(VM *vm)
+{
+  u32 n = ReadLEB(++vm->pc, vm->program->code);
+  u32 env;
+  if (StackSize() < 1) {
+    RuntimeError("Stack underflow", vm);
+    return;
+  }
+  env = StackPop();
+  while (env) {
+    u32 frame = Head(env);
+    if (ObjLength(frame) > n) {
+      StackPush(TupleGet(frame, n));
+      break;
+    }
+    n -= ObjLength(frame);
+    env = Tail(env);
+  }
+  if (!env) {
+    RuntimeError("Undefined variable", vm);
+    return;
+  }
+  vm->pc += LEBSize(n);
+}
+
+static void OpDefine(VM *vm)
+{
+  u32 n = ReadLEB(++vm->pc, vm->program->code);
+  u32 env, value;
+  if (StackSize() < 2) {
+    RuntimeError("Stack underflow", vm);
+    return;
+  }
+  value = StackPop();
+  env = StackPop();
+  while (env) {
+    u32 frame = Head(env);
+    if (ObjLength(frame) > n) {
+      TupleSet(frame, n, value);
+      break;
+    }
+    n -= ObjLength(frame);
+    env = Tail(env);
+  }
+  if (!env) {
+    RuntimeError("Bad variable index", vm);
+    return;
+  }
+  vm->pc += LEBSize(n);
 }
 
 static void OpPos(VM *vm)

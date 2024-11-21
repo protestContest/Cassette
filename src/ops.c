@@ -11,6 +11,8 @@ char *OpName(OpCode op)
   case opHalt:    return "halt";
   case opPanic:   return "panic";
   case opConst:   return "const";
+  case opLookup:  return "lookup";
+  case opDefine:  return "define";
   case opJump:    return "jump";
   case opBranch:  return "branch";
   case opPos:     return "pos";
@@ -74,6 +76,8 @@ u32 DisassembleInst(u8 *code, u32 *index)
     free(arg_str);
     (*index) += LEBSize(arg);
     return len;
+  case opLookup:
+  case opDefine:
   case opTuple:
   case opBranch:
   case opJump:
