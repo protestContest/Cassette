@@ -1,4 +1,4 @@
-import Window, IO, Math, List, Value
+import Window
 
 def should_quit(event)
   event.what == :keyDown and

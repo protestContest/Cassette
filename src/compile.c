@@ -28,6 +28,7 @@ void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map)
   c->modules = modules;
   c->mod_map = mod_map;
   c->mod_id = 0;
+  c->current_mod = 0;
   InitHashMap(&c->alias_map);
 }
 
@@ -124,6 +125,23 @@ static void WriteGetMod(Chunk *chunk)
 {
   ChunkWrite(opPush, chunk);
   ChunkWriteInt(regMod, chunk);
+}
+
+static void WriteCheckMod(Chunk *chunk)
+{
+  /*
+  dup
+  br :ok
+  panic "Module unavailable"
+ok:
+  */
+  Chunk *error = NewChunk(chunk->src);
+  WriteConst(Symbol("Module unavailable"), error);
+  ChunkWrite(opPanic, error);
+  ChunkWrite(opDup, chunk);
+  ChunkWrite(opBranch, chunk);
+  ChunkWriteInt(ChunkSize(error), chunk);
+  chunk = AppendChunk(chunk, error);
 }
 
 static void WriteSetMod(Chunk *chunk)
@@ -267,6 +285,7 @@ static Chunk *WriteMakeCall(Chunk *chunk, bool returns)
 }
 
 static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c);
+static Chunk *CompileRef(ASTNode *alias, ASTNode *sym, bool returns, Compiler *c);
 
 static Chunk *CompileConst(ASTNode *node, bool returns, Compiler *c)
 {
@@ -281,6 +300,28 @@ static Chunk *CompileConst(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
+static Chunk *CompileUnqualitifedRef(ASTNode *node, bool returns, Compiler *c)
+{
+  ASTNode *imports = ModuleImports(&c->modules[c->current_mod]);
+  u32 i;
+
+
+  for (i = 0; i < NodeCount(imports); i++) {
+    ASTNode *import = NodeChild(imports, i);
+    ASTNode *fns = NodeChild(import, 2);
+    u32 j;
+    for (j = 0; j < NodeCount(fns); j++) {
+      ASTNode *fn = NodeChild(fns, j);
+      if (NodeValue(fn) == NodeValue(node)) {
+        ASTNode *alias = NodeChild(import, 1);
+        return CompileRef(alias, node, returns, c);
+      }
+    }
+  }
+
+  return UndefinedVariable(node, c);
+}
+
 static Chunk *CompileVar(ASTNode *node, bool returns, Compiler *c)
 {
   /*
@@ -288,7 +329,9 @@ static Chunk *CompileVar(ASTNode *node, bool returns, Compiler *c)
   */
   Chunk *chunk;
   i32 pos = EnvFind(NodeValue(node), c->env);
-  if (pos < 0) return UndefinedVariable(node, c);
+  if (pos < 0) {
+    return CompileUnqualitifedRef(node, returns, c);
+  }
   chunk = NewChunk(node->start);
   WriteLookup(pos, chunk);
   if (returns) WriteReturn(chunk);
@@ -852,7 +895,7 @@ ok:
   return chunk;
 }
 
-static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
+static Chunk *CompileDot(ASTNode *node, bool returns, Compiler *c)
 {
   /*
   Compiler has a map of alias -> module for imports
@@ -866,13 +909,19 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
   */
   ASTNode *alias = NodeChild(node, 0);
   ASTNode *sym = NodeChild(node, 1);
+
+  i32 pos = EnvFind(NodeValue(alias), c->env);
+  if (pos >= 0) return CompileMember(node, returns, c);
+
+  return CompileRef(alias, sym, returns, c);
+}
+
+static Chunk *CompileRef(ASTNode *alias, ASTNode *sym, bool returns, Compiler *c)
+{
   Module *mod;
   ASTNode *mod_exports;
   Chunk *chunk;
   u32 sym_index, mod_index;
-
-  i32 pos = EnvFind(NodeValue(alias), c->env);
-  if (pos >= 0) return CompileMember(node, returns, c);
 
   if (!HashMapContains(&c->alias_map, NodeValue(alias))) {
     return UndefinedVariable(alias, c);
@@ -889,10 +938,11 @@ static Chunk *CompileRef(ASTNode *node, bool returns, Compiler *c)
     return UndefinedVariable(sym, c);
   }
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk(sym->start);
   WriteGetMod(chunk);
   WriteConst(mod->id - 1, chunk);
   ChunkWrite(opGet, chunk);
+  WriteCheckMod(chunk);
   WriteConst(sym_index, chunk);
   ChunkWrite(opGet, chunk);
   if (returns) WriteReturn(chunk);
@@ -977,7 +1027,7 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   case accessNode:  return CompileOp(opGet, node, returns, c);
   case callNode:    return CompileCall(node, returns, c);
   case trapNode:    return CompileTrap(node, returns, c);
-  case refNode:     return CompileRef(node, returns, c);
+  case refNode:     return CompileDot(node, returns, c);
   case ifNode:      return CompileIf(node, returns, c);
   case letNode:     return CompileLet(node, returns, c);
   case assignNode:  return CompileAssign(node, returns, c);

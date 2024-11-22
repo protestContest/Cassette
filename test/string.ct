@@ -1,5 +1,4 @@
 module String
-import Value (format, tuple?, binary?, integer?), List
 export
   digit?,
   lowercase?,

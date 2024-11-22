@@ -7,10 +7,10 @@ LIB = lib
 SRC = src
 INSTALL = $(HOME)/.local
 
+DEBUG ?= 0
+
 EXECTARGET = $(BIN)/$(NAME)
 LIBTARGET = $(BIN)/lib$(NAME).dylib
-
-PLATFORM := $(shell uname -s)
 
 MAIN := main
 TESTFILE = test/test.ct
@@ -21,9 +21,16 @@ MAIN_OBJ := $(BUILD)/$(MAIN).o
 CC = clang
 INCLUDE_FLAGS = -I$(INCLUDE) -include univ/prefix.h
 WFLAGS = -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter -pedantic
-CFLAGS = -O2 -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
+CFLAGS = -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
+ifeq ($(DEBUG),1)
+CFLAGS += -O0 -g -fsanitize=address -fno-omit-frame-pointer -DDEBUG
+else
+CFLAGS += -O2
+endif
+
+PLATFORM := $(shell uname -s)
 ifeq ($(PLATFORM),Darwin)
 LDFLAGS = -framework Cocoa
 else ifeq ($(PLATFORM),Linux)
@@ -35,18 +42,15 @@ endif
 
 $(EXECTARGET): $(LIBTARGET) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)
-	@echo $@
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LIBTARGET) $(MAIN_OBJ) -o $@
 
 $(LIBTARGET): $(OBJS)
 	@mkdir -p $(dir $@)
-	@echo $<
 	$(CC) $(LIBLDFLAGS) -o $@ $(OBJS)
 
 $(BUILD)/%.o: $(SRC)/%.c
 	@mkdir -p $(dir $@)
-	@echo $@
-	@$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:

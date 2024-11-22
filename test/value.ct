@@ -1,5 +1,4 @@
 module Value
-import List
 export
   typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?,
   error?, format, inspect, hash

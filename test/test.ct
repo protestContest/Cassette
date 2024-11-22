@@ -1,4 +1,4 @@
-import Window, Value, List, IO, Graphics, Math
+import Window, Graphics
 
 def draw_image(window, grid_size, scale)
   let

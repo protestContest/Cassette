@@ -5,10 +5,13 @@
 
 #define VERSION "2.0.0"
 
+#define DEFAULT_IMPORTS "IO, List, Map, Math, String, VM (panic!), Value (typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, format, inspect, hash)"
+
 typedef struct {
   bool debug;
   char *lib_path;
   char *entry;
+  char *default_imports;
 } Opts;
 
 static void Usage(void)
@@ -17,6 +20,7 @@ static void Usage(void)
   fprintf(stderr, "  -v            Print version\n");
   fprintf(stderr, "  -d            Enable debug mode\n");
   fprintf(stderr, "  -L lib_path   Library search path (defaults to $CASSETTE_PATH)\n");
+  fprintf(stderr, "  -i imports    List of modules to auto-import\n");
 }
 
 static Opts ParseOpts(int argc, char *argv[])
@@ -26,8 +30,9 @@ static Opts ParseOpts(int argc, char *argv[])
   opts.debug = false;
   opts.lib_path = getenv("CASSETTE_PATH");
   opts.entry = 0;
+  opts.default_imports = DEFAULT_IMPORTS;
 
-  while ((ch = getopt(argc, argv, "vdL:")) >= 0) {
+  while ((ch = getopt(argc, argv, "i:vdL:")) >= 0) {
     switch (ch) {
     case 'd':
       opts.debug = true;
@@ -38,6 +43,9 @@ static Opts ParseOpts(int argc, char *argv[])
     case 'v':
       printf("Cassette %s\n", VERSION);
       exit(0);
+    case 'i':
+      opts.default_imports = optarg;
+      break;
     default:
       Usage();
       exit(1);
@@ -60,6 +68,7 @@ int main(int argc, char *argv[])
   Error *error;
 
   project = NewProject();
+  project->default_imports = opts.default_imports;
   AddProjectFile(project, opts.entry);
   ScanProjectFolder(project, DirName(opts.entry));
   if (opts.lib_path) ScanProjectFolder(project, opts.lib_path);

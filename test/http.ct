@@ -1,5 +1,5 @@
 module HTTP
-import Net, String (crlf), List, Value (tuple?, binary?, error?), IO
+import Net
 export new, request, get, post
 
 def new(host, headers) {host, headers}
@@ -26,7 +26,7 @@ def request(method, host, path, headers, body)
       headers,
       "",
       body
-    ], crlf)
+    ], "\r\n")
     conn = Net.connect(host, "80") except error?(conn), conn
     result = IO.write(conn, req) except error?(result), result
   in IO.read(conn)

@@ -1,5 +1,4 @@
 module IO
-import List, Value (typeof, error?)
 export open, close, read, read_chunk, write, write_chunk, seek, print, inspect, read_file, write_file,
 stdin, stdout, stderr
 

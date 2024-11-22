@@ -30,14 +30,6 @@ static Error *DuplicateModule(char *name, char *file)
   return error;
 }
 
-static Error *CircularDependency(char *mod1, char *mod2, char *file)
-{
-  Error *error = NewError(NewString("Circular dependency between ^ and ^"), file, 0, 0);
-  error->message = FormatString(error->message, mod1);
-  error->message = FormatString(error->message, mod2);
-  return error;
-}
-
 Project *NewProject(void)
 {
   Project *project = malloc(sizeof(Project));
@@ -45,6 +37,7 @@ Project *NewProject(void)
   InitHashMap(&project->mod_map);
   project->program = 0;
   project->build_list = 0;
+  project->default_imports = 0;
   return project;
 }
 
@@ -116,10 +109,7 @@ static Error *ScanModuleDeps(
 
       index = HashMapGet(&project->mod_map, name);
       if (HashMapContains(build_set, index)) continue;
-      if (HashMapContains(scan_set, index)) {
-        char *mod_name = SymbolName(NodeValue(ModuleName(mod)));
-        return CircularDependency(mod_name, SymbolName(name), mod->filename);
-      }
+      if (HashMapContains(scan_set, index)) continue;
 
       error = ScanModuleDeps(index, scan_list, build_set, scan_set, project);
       if (error) return error;
@@ -188,6 +178,31 @@ static void LinkModules(Project *project)
   project->program = program;
 }
 
+static void AddDefaultImports(Module *module, char *import_str)
+{
+  Parser p;
+  ASTNode *imports, *defaults;
+  u32 i;
+
+  InitParser(&p, import_str);
+  defaults = ParseImportList(&p);
+  if (IsErrorNode(defaults)) {
+    FreeNode(defaults);
+    return;
+  }
+
+  imports = ModuleImports(module);
+  for (i = 0; i < NodeCount(defaults); i++) {
+    ASTNode *import = NodeChild(defaults, i);
+    ASTNode *name = NodeChild(import, 0);
+    if (NodeValue(ModuleName(module)) != NodeValue(name)) {
+      NodePush(imports, import);
+    }
+  }
+
+  FreeNodeShallow(defaults);
+}
+
 Error *BuildProject(Project *project)
 {
   u32 i;
@@ -207,6 +222,10 @@ Error *BuildProject(Project *project)
       return NewError(msg, mod->filename, mod->ast->start, len);
     }
 
+    if (project->default_imports) {
+      AddDefaultImports(mod, project->default_imports);
+    }
+
     name = NodeValue(ModuleName(mod));
     if (name) HashMapSet(&project->mod_map, name, i);
     exports = ModuleExports(mod);
@@ -221,8 +240,10 @@ Error *BuildProject(Project *project)
 
   InitCompiler(&c, project->modules, &project->mod_map);
   for (i = 0; i < VecCount(project->build_list); i++) {
-    Module *mod = &project->modules[project->build_list[i]];
+    u32 index = project->build_list[i];
+    Module *mod = &project->modules[index];
     c.mod_id = mod->id;
+    c.current_mod = index;
     mod->code = Compile(mod->ast, &c);
     if (c.error) {
       c.error->filename = NewString(mod->filename);

@@ -14,6 +14,7 @@ typedef struct {
   HashMap *mod_map;
   HashMap alias_map;
   u32 mod_id;
+  u32 current_mod;
 } Compiler;
 
 void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map);

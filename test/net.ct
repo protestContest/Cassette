@@ -1,5 +1,4 @@
 module Net
-import Value (error?), List, IO (read, write)
 export listen, accept, connect
 
 def listen(port) trap listen(port)

@@ -1,5 +1,4 @@
 module Map
-import Value (typeof, hash, tuple?, symbol?, symbol_name), Math, List, IO
 export
   new, put, get, delete, member?, count, reduce, merge, keys, values, items,
   inspect, take

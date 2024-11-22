@@ -1,15 +1,9 @@
 #include "parse.h"
-#include "lex.h"
 #include "mem.h"
 #include "node.h"
 #include "univ/hashmap.h"
 #include "univ/str.h"
 #include "univ/symbol.h"
-
-typedef struct {
-  char *text;
-  Token token;
-} Parser;
 
 typedef ASTNode* (*ParsePrefix)(Parser *p);
 typedef ASTNode* (*ParseInfix)(ASTNode *expr, Parser *p);
@@ -40,7 +34,7 @@ typedef struct {
 #define Expected(s, n, p) \
   ParseFail(n, ParseError("Expected \"" s "\"", p))
 
-static void InitParser(Parser *p, char *text)
+void InitParser(Parser *p, char *text)
 {
   p->text = text;
   p->token.pos = 0;
@@ -64,11 +58,9 @@ static bool MatchToken(TokenType type, Parser *p)
 
 static ASTNode *ParseModuleName(Parser *p);
 static ASTNode *ParseImports(Parser *p);
-static ASTNode *ParseImportList(Parser *p);
 static ASTNode *ParseImport(Parser *p);
 static ASTNode *ParseAlias(ASTNode *name, Parser *p);
 static ASTNode *ParseFnList(Parser *p);
-static ASTNode *TransformImports(ASTNode *node, ASTNode *body, Parser *p);
 static ASTNode *ParseExports(Parser *p);
 static ASTNode *ParseStmts(Parser *p);
 static ASTNode *ParseDef(Parser *p);
@@ -210,7 +202,6 @@ ASTNode *ParseModule(char *source)
     NodePush(body, CloneNode(exports));
   }
 
-  body = TransformImports(imports, body, &p);
   NodePush(node, body);
 
   if (!AtEnd(&p)) return Expected("End of file", node, &p);
@@ -247,7 +238,7 @@ static ASTNode *ParseImports(Parser *p)
   return node;
 }
 
-static ASTNode *ParseImportList(Parser *p)
+ASTNode *ParseImportList(Parser *p)
 {
   ASTNode *node, *import;
   node = MakeNode(tupleNode, p);
@@ -309,45 +300,6 @@ static u32 CountUnqualifiedImports(ASTNode *imports)
     count += NodeCount(NodeChild(import, 2));
   }
   return count;
-}
-
-static ASTNode *TransformImports(ASTNode *imports, ASTNode *body, Parser *p)
-{
-  u32 i, j, num_assigns = CountUnqualifiedImports(imports);
-  u32 assigned = 0;
-  ASTNode *node;
-
-  if (num_assigns == 0) return body;
-
-  node = NewNode(letNode, imports->start, imports->end, 0);
-  SetNodeAttr(node, "count", num_assigns);
-
-  for (i = 0; i < NodeCount(imports); i++) {
-    u32 import_index = NodeCount(imports) - i - 1;
-    ASTNode *import = NodeChild(imports, import_index);
-    ASTNode *alias = NodeChild(import, 1);
-    ASTNode *ids = NodeChild(import, 2);
-
-    for (j = 0; j < NodeCount(ids); j++) {
-      u32 id_index = NodeCount(ids) - j - 1;
-      u32 assign_index = num_assigns - assigned - 1;
-      ASTNode *var = CloneNode(NodeChild(ids, id_index));
-      ASTNode *assign = NewNode(assignNode, var->start, var->end, 0);
-      ASTNode *ref = NewNode(refNode, var->start, var->end, 0);
-      NodePush(ref, CloneNode(alias));
-      NodePush(ref, CloneNode(var));
-      SetNodeAttr(assign, "index", assign_index);
-      NodePush(assign, var);
-      NodePush(assign, ref);
-      NodePush(assign, body);
-      body = assign;
-      assigned += 1;
-    }
-  }
-
-  NodePush(node, body);
-
-  return node;
 }
 
 static ASTNode *ParseExports(Parser *p)
