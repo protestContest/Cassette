@@ -221,24 +221,43 @@ static void WriteSetModule(Chunk *chunk, u32 mod_id)
 static Chunk *WriteMakeLambda(Chunk *body, bool returns)
 {
   /*
-  pos <body>
+  tuple 3
+  const 0
+  const :fn
+  set
+  const 1
   getEnv
-  pair
+  set
+  const 2
+  pos <body>
+  set
   jump <after>
 body:
   <lambda body>
 after:
   */
   Chunk *chunk = NewChunk(body->src);
-  WriteGetEnv(chunk);
-  ChunkWrite(opPair, chunk);
+  Chunk *after = NewChunk(body->src);
+
+  ChunkWrite(opSet, after);
   if (returns) {
-    WriteReturn(chunk);
+    WriteReturn(after);
   } else {
-    ChunkWrite(opJump, chunk);
-    ChunkWriteInt(ChunkSize(body), chunk);
+    ChunkWrite(opJump, after);
+    ChunkWriteInt(ChunkSize(body), after);
   }
-  chunk = WriteChunkSize(chunk);
+  after = WriteChunkSize(after);
+
+  ChunkWrite(opTuple, chunk);
+  ChunkWriteInt(3, chunk);
+  WriteConst(0, chunk);
+  WriteConst(Symbol("fn"), chunk);
+  ChunkWrite(opSet, chunk);
+  WriteConst(1, chunk);
+  WriteGetEnv(chunk);
+  ChunkWrite(opSet, chunk);
+  WriteConst(2, chunk);
+  chunk = AppendChunk(chunk, after);
   TackOnChunk(chunk, body);
   return chunk;
 }
@@ -254,9 +273,11 @@ static Chunk *WriteMakeCall(Chunk *chunk, bool returns)
   <args>
   <func>
   dup
-  head
+  const 1
+  get
   setEnv
-  tail
+  const 2
+  get
   goto
   ; if not tail call, clean up call frame:
     swap
@@ -266,9 +287,11 @@ static Chunk *WriteMakeCall(Chunk *chunk, bool returns)
   */
 
   ChunkWrite(opDup, chunk);
-  ChunkWrite(opHead, chunk);
+  WriteConst(1, chunk);
+  ChunkWrite(opGet, chunk);
   WriteSetEnv(chunk);
-  ChunkWrite(opTail, chunk);
+  WriteConst(2, chunk);
+  ChunkWrite(opGet, chunk);
   ChunkWrite(opGoto, chunk);
   if (!returns) {
     Chunk *link = NewChunk(chunk->src);
@@ -711,9 +734,16 @@ ok:
 static Chunk *CompileLambda(ASTNode *node, bool returns, Compiler *c)
 {
   /*
+  tuple 3
+  const 0
+  const :fn
+  set
+  const 1
   pos <body>
+  set
+  const 2
   getEnv
-  pair
+  set
   ; if returning after:
     <return>
   ; else:
@@ -821,77 +851,23 @@ after:
 
 static Chunk *CompileMember(ASTNode *node, bool returns, Compiler *c)
 {
-  /*
-  <lookup record>
-  const -1
-loop:         rec i
-  const 1     rec i 1
-  add         rec i
-  over        rec i rec
-  len         rec i #rec
-  over        rec i #rec i
-  swap        rec i i #rec
-  lt          rec i i<#rec
-  br :ok      rec i
-  const :Undefined field
-  panic
-ok:
-              rec i
-  over        rec i rec
-  over        rec i rec i
-  get         rec i rec[i]
-  head        rec i @rec[i]
-  const <key> rec i @rec[i] key
-  eq          rec i match?
-  not         rec i !match?
-  br loop     rec i
-  get         rec[i]
-  tail        ^rec[i]
-  */
-
-  ASTNode *record = NodeChild(node, 0);
+  Chunk *chunk;
+  ASTNode *record = CloneNode(NodeChild(node, 0));
   ASTNode *key = NodeChild(node, 1);
-  Chunk *error, *loop;
-  Chunk *chunk = CompileExpr(record, false, c);
-  u32 loop_len;
-  if (!chunk) return 0;
-  assert(key->type == idNode);
+  ASTNode *call = NewNode(callNode, node->start, node->end, 0);
+  ASTNode *fn = NewNode(refNode, node->start, node->end, 0);
+  ASTNode *args = NewNode(tupleNode, node->start, node->end, 0);
 
-  error = NewChunk(node->start);
-  WriteConst(Symbol("Undefined field"), error);
-  ChunkWrite(opPanic, error);
+  key = NewNode(symNode, key->start, key->end, IntVal(NodeValue(key)));
+  NodePush(fn, NewNode(idNode, node->start, node->end, Symbol("Record")));
+  NodePush(fn, NewNode(idNode, node->start, node->end, Symbol("get")));
+  NodePush(call, fn);
+  NodePush(args, record);
+  NodePush(args, key);
+  NodePush(call, args);
 
-  WriteConst(-1, chunk);
-
-  loop = NewChunk(node->start);
-  WriteConst(1, loop);
-  ChunkWrite(opAdd, loop);
-  ChunkWrite(opOver, loop);
-  ChunkWrite(opLen, loop);
-  ChunkWrite(opOver, loop);
-  ChunkWrite(opSwap, loop);
-  ChunkWrite(opLt, loop);
-  ChunkWrite(opBranch, loop);
-  ChunkWriteInt(ChunkSize(error), loop);
-  loop = AppendChunk(loop, error);
-  ChunkWrite(opOver, loop);
-  ChunkWrite(opOver, loop);
-  ChunkWrite(opGet, loop);
-  ChunkWrite(opHead, loop);
-  WriteConst(NodeValue(key), loop);
-  ChunkWrite(opEq, loop);
-  ChunkWrite(opNot, loop);
-  ChunkWrite(opBranch, loop);
-  loop_len = -ChunkSize(loop);
-  while (loop_len != -(ChunkSize(loop) + LEBSize(loop_len))) loop_len--;
-  ChunkWriteInt(loop_len, loop);
-  assert(loop_len == -ChunkSize(loop));
-
-  chunk = AppendChunk(chunk, loop);
-  ChunkWrite(opGet, chunk);
-  ChunkWrite(opTail, chunk);
-
-  if (returns) WriteReturn(chunk);
+  chunk = CompileExpr(call, returns, c);
+  FreeNode(call);
   return chunk;
 }
 

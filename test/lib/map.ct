@@ -8,24 +8,22 @@ export
 ; to slots based on 4 bits of their hash. on a collision, that slot is a sub-map
 ; that uses the next 4 hash bits.
 
+record MapNode(bits, entries)
+
 ; a map node stores its slot bitmap and its entries
-def map_node(bits, entries) {:map, bits, entries}
-def map?(value) tuple?(value) and value[0] == :map
-def map_bits(map) map[1]
-def map_entries(map) map[2]
 
 ; if the entries are nil, it's the empty map
-def empty?(map) map_entries(map) == nil
-def empty_map() map_node(0, nil)
+def empty?(map) map.entries == nil
+def empty_map() MapNode(0, nil)
 
 ; if the entries are a pair, it's a leaf
-def leaf?(map) typeof(map_entries(map)) == :pair
-def leaf(key, value) map_node(0, key : value)
-def leaf_key(leaf) @map_entries(leaf)
-def leaf_value(leaf) ^map_entries(leaf)
+def leaf?(map) typeof(map.entries) == :pair
+def leaf(key, value) MapNode(0, key : value)
+def leaf_key(leaf) @leaf.entries
+def leaf_value(leaf) ^leaf.entries
 
 ; check if a slot is taken
-def slot_taken?(map, slot) map_bits(map) & (1 << slot)
+def slot_taken?(map, slot) map.bits & (1 << slot)
 
 ; the entry index is the number of taken slots below our slot
 def slot_index(bits, slot) Math.popcount(bits & ((1 << slot)-1))
@@ -38,11 +36,11 @@ def key_slot(key, depth) hash_slot(hash(key), depth)
 
 def replace_slot(map, slot, entry)
   let
-    bits = map_bits(map)
+    bits = map.bits
     index = slot_index(bits, slot)
-    entries = map_entries(map)
+    entries = map.entries
     entries = entries[0,index] <> {entry} <> entries[index+1,#entries]
-  in map_node(bits, entries)
+  in MapNode(bits, entries)
 
 ; create a map from a list of (key : value) pairs
 def new(entries) do
@@ -64,8 +62,8 @@ def put(map, key, value) do
   def put(map, depth, hash, entry)
     let
       slot = hash_slot(hash, depth)
-      index = slot_index(map_bits(map), slot)
-      entries = map_entries(map)
+      index = slot_index(map.bits, slot)
+      entries = map.entries
     in if
       slot_taken?(map, slot),
         replace_slot(map, slot, put(entries[index], depth+1, hash, entry))
@@ -76,15 +74,15 @@ def put(map, key, value) do
   ; correctly recalculate the slot from the hash
   def mapify(leaf, depth)
     let slot = key_slot(leaf_key(leaf), depth)
-    in map_node(set_slot(0, slot), {leaf})
+    in MapNode(set_slot(0, slot), {leaf})
 
   def insert_slot(map, slot, entry)
     let
-      bits = set_slot(map_bits(map), slot)
+      bits = set_slot(map.bits, slot)
       index = slot_index(bits, slot)
-      entries = map_entries(map)
+      entries = map.entries
       entries = entries[0,index] <> {entry} <> entries[index,#entries]
-    in map_node(bits, entries)
+    in MapNode(bits, entries)
 
   put(map, 0, hash(key), leaf(key, value))
 end
@@ -99,8 +97,8 @@ def get(map, key, default) do
   def get(map, hash, key)
     let
       slot = hash_slot(hash, 0) except not slot_taken?(map, slot), default
-      index = slot_index(map_bits(map), slot)
-      entries = map_entries(map)
+      index = slot_index(map.bits, slot)
+      entries = map.entries
     in get(entries[index], hash >> 4, key)
 
   get(map, hash(key), key)
@@ -118,8 +116,8 @@ def delete(map, key) do
   def delete(map, depth, key)
     let
       slot = key_slot(key, depth) except not slot_taken?(map, slot), map
-      index = slot_index(map_bits(map), slot)
-      entries = map_entries(map)
+      index = slot_index(map.bits, slot)
+      entries = map.entries
       entry = delete(entries[index], depth+1, key)
     in if
       empty?(entry), remove_slot(map, slot)
@@ -127,13 +125,13 @@ def delete(map, key) do
 
   def remove_slot(map, slot)
     let
-      index = slot_index(map_bits(map), slot)
-      bits = unset_slot(map_bits(map), slot)
-      entries = map_entries(map)
+      index = slot_index(map.bits, slot)
+      bits = unset_slot(map.bits, slot)
+      entries = map.entries
       entries = entries[0,index] <> entries[index+1,#entries]
     in
       if #entries == 1 and leaf?(entries[0]), entries[0]
-      else map_node(bits, entries)
+      else MapNode(bits, entries)
 
   delete(map, 0, key)
 end
@@ -145,8 +143,8 @@ def member?(map, key) do
   def member?(map, hash, key)
     let
       slot = hash_slot(hash, 0) except not slot_taken?(map, slot), false
-      index = slot_index(map_bits(map), slot)
-      entries = map_entries(map)
+      index = slot_index(map.bits, slot)
+      entries = map.entries
     in member?(entries[index], hash >> 4, key)
 
   member?(map, hash(key), key)
@@ -164,15 +162,15 @@ def reduce(map, result, fn) do
       entry_loop(entries, i+1, loop(entries[i], result))
     end
 
-    entry_loop(map_entries(map), 0, result)
+    entry_loop(map.entries, 0, result)
   end
 
   loop(map, result)
 end
 
 ; returns the number of entries in a map
-def count(map)
-  reduce(map, 0, \entry, count -> count + 1)
+def count(map) when empty?(map), 0
+def count(map) reduce(map, 0, \entry, count -> count + 1)
 
 def keys(map) reduce(map, [], \entry, keys -> @entry : keys)
 def values(map) reduce(map, [], \entry, values -> ^entry : values)

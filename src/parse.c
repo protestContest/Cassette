@@ -529,7 +529,7 @@ static ASTNode *ParseStmts(Parser *p)
     if (stmt->type == defNode) {
       if (!CheckDefParams(&sp, stmt)) {
         /* multiply-defined def failed */
-        ASTNode *error = ParseError("Parameter list mismatch", p);
+        ASTNode *error = ParseError("Parameter lists must match", p);
         return ParseStmtsFail(&sp, ParseFail(stmt, error));
       }
       AddDefStmt(&sp, stmt);
@@ -595,17 +595,22 @@ static ASTNode *ParseDefGuard(Parser *p)
   VSpacing(p);
   node = ParseExpr(p);
   Spacing(p);
-  if (!MatchToken(commaToken, p)) return Expected(",", node, p);
+  if (!MatchToken(commaToken, p)) {
+    if (!MatchToken(newlineToken, p)) {
+      return Expected(", or newline", node, p);
+    }
+  }
   return node;
 }
 
 static ASTNode *ParseRecord(Parser *p)
 {
-  ASTNode *node, *id, *params, *body;
+  ASTNode *node, *id, *params, *body, *type, *keys, *values;
   u32 i;
-  node = MakeNode(defNode, p);
   MatchToken(recordToken, p);
   Spacing(p);
+
+  node = MakeNode(defNode, p);
   id = ParseID(p);
   if (IsErrorNode(id)) return ParseFail(node, id);
   NodePush(node, id);
@@ -618,17 +623,21 @@ static ASTNode *ParseRecord(Parser *p)
   NodePush(node, MakeTerminal(constNode, IntVal(1), p));
 
   body = MakeNode(tupleNode, p);
+  type = MakeTerminal(symNode, IntVal(NodeValue(id)), p);
+  NodePush(body, type);
+  NodePush(node, body);
+  keys = MakeNode(tupleNode, p);
+  NodePush(body, keys);
+  values = MakeNode(tupleNode, p);
+  NodePush(body, values);
+
   for (i = 0; i < NodeCount(params); i++) {
     ASTNode *param = NodeChild(params, i);
-    ASTNode *item = MakeNode(pairNode, p);
     ASTNode *key = MakeTerminal(symNode, IntVal(NodeValue(param)), p);
-    ASTNode *value = CloneNode(param);
-    NodePush(item, value);
-    NodePush(item, key);
-    NodePush(body, item);
+    NodePush(keys, key);
+    NodePush(values, CloneNode(param));
   }
 
-  NodePush(node, body);
   return node;
 }
 
@@ -905,6 +914,7 @@ static ASTNode *ParseAssigns(u32 *num_assigns, Parser *p)
   if (IsErrorNode(result)) return ParseFail(node, result);
   NodePush(node, result);
 
+  VSpacing(p);
   if (MatchToken(exceptToken, p)) {
     ASTNode *alt = MakeNode(ifNode, p);
     NodePush(node, alt);
@@ -912,8 +922,12 @@ static ASTNode *ParseAssigns(u32 *num_assigns, Parser *p)
     result = ParseExpr(p);
     if (IsErrorNode(result)) return ParseFail(node, result);
     NodePush(alt, result);
-    VSpacing(p);
-    if (!MatchToken(commaToken, p)) return Expected(",", node, p);
+    Spacing(p);
+    if (!MatchToken(commaToken, p)) {
+      if (!MatchToken(newlineToken, p)) {
+        return Expected(",", node, p);
+      }
+    }
     VSpacing(p);
     result = ParseExpr(p);
     if (IsErrorNode(result)) return ParseFail(node, result);
