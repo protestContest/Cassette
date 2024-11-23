@@ -1,0 +1,114 @@
+module Enum
+export
+  Iterator, iterate, range,
+  Collector, collector,
+  reduce, map, filter
+
+---
+Iterator
+
+An iterator is a behavior that can generate a sequence of values from some
+iterable collection.
+
+- value: Returns the current value of the iteration.
+- done?: Returns whether the iteration is at the end.
+- next: Returns an iterator whose value is the next in the sequence. If the
+  iterator is done, this should return the same iterator.
+---
+record Iterator(value, done?, next)
+def iterator?(it) Record.record?(it) and Record.type(it) == :Iterator
+
+def iterate(enum) when iterator?(enum), enum
+
+def iterate(enum) when pair?(enum),
+  Iterator(
+    \ -> @enum,
+    \ -> enum == nil,
+    \ -> iterate(^enum))
+
+def iterate(enum) when Map.map?(enum), Map.iterate(enum)
+
+def iterate(enum) when tuple?(enum) or binary?(enum), do
+  def next(i)
+    Iterator(
+      \ -> if i < #enum, enum[i] else nil,
+      \ -> i >= #enum,
+      \ -> if i < #enum, next(i+1) else next(i))
+  next(0)
+end
+
+; returns an iterator between two integers
+def range(min, max) do
+  def next(i) when min > max
+    Iterator(
+      \ -> i,
+      \ -> i <= max,
+      \ -> if i > max, next(i-1) else next(i))
+
+  def next(i)
+    Iterator(
+      \ -> i,
+      \ -> i >= max,
+      \ -> if i < max, next(i+1) else next(i))
+  next(min)
+end
+
+---
+Collector
+
+A collector is a behavior that can receive a series of values and return an
+iterable value.
+
+- collect: A function that takes a value and returns a collector. The new
+  collector should include the value in its internal state. This function should
+  be as fast as possible, preferably O(n).
+- value: A function that returns an iterable value. The value should contain all
+  items added with `collect`. This function may take some time to convert its
+  internal state.
+---
+record Collector(collect, value)
+
+def collector(enum) when pair?(enum) or iterator?(enum), do
+  def next(list)
+    Collector(
+      \item -> next(item : list),
+      \ -> List.reverse(list))
+  next(nil)
+end
+
+def collector(enum) when tuple?(enum), do
+  def value(list)
+    Value.make_tuple(List.reverse(list))
+
+  def next(list)
+    Collector(
+      \item -> next(item : list),
+      \ -> value(list))
+  next(nil)
+end
+
+---
+Enum
+---
+
+def reduce(enum, result, fn) when iterator?(enum), do
+  def loop(it, result) when it.done?(), result
+  def loop(it, result) loop(it.next(), fn(it.value(), result))
+  loop(enum, result)
+end
+
+def reduce(enum, result, fn)
+  let it = iterate(enum)
+  in reduce(it, result, fn)
+
+def map(enum, fn)
+  let c = reduce(enum, collector(enum),
+            \item, c -> c.collect(fn(item)))
+  in c.value()
+
+def filter(enum, fn)
+  let c = reduce(enum, collector(enum),
+            \item, c ->
+              if fn(item), c.collect(item)
+              else c)
+  in c.value()

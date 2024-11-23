@@ -5,7 +5,7 @@
 
 #define VERSION "2.0.0"
 
-#define DEFAULT_IMPORTS "Record, IO, List, Map, Math, String, VM (panic!), Value (typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, format, inspect, hash)"
+#define DEFAULT_IMPORTS "Record, IO, List, Enum, Map, Math, String, VM (panic!), Value (typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, format, inspect, hash)"
 
 typedef struct {
   bool debug;

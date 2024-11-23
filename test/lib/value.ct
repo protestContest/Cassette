@@ -1,13 +1,14 @@
 module Value
 export
   typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?,
-  error?, format, inspect, hash
+  error?, format, inspect, hash, make_tuple
 
 def typeof(value) trap typeof(value)
 def char(value) trap char(value)
 def symbol_name(sym) trap symbol_name(sym)
 def hash(value) trap hash(value)
 def format(value) trap format(value)
+def make_tuple(list) trap make_tuple(list)
 
 def nil?(v) v == nil
 def integer?(v) typeof(v) == :integer
@@ -31,6 +32,7 @@ def inspect_int(num) do
   loop(num, [])
 end
 
+def inspect_tuple(value, depth) when #value == 3 and value[0] == :fn, "<fn>"
 def inspect_tuple(value, depth) do
   def loop(i, parts) when i == #value, List.reverse(parts)
   def loop(i, parts)

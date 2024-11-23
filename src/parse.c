@@ -292,16 +292,6 @@ static ASTNode *ParseFnList(Parser *p)
   return node;
 }
 
-static u32 CountUnqualifiedImports(ASTNode *imports)
-{
-  u32 i, count = 0;
-  for (i = 0; i < NodeCount(imports); i++) {
-    ASTNode *import = NodeChild(imports, i);
-    count += NodeCount(NodeChild(import, 2));
-  }
-  return count;
-}
-
 static ASTNode *ParseExports(Parser *p)
 {
   ASTNode *node;
@@ -572,10 +562,14 @@ static ASTNode *ParseDef(Parser *p)
   NodePush(node, result);
   if (!MatchToken(rparenToken, p)) return Expected(")", node, p);
   VSpacing(p);
-  result = ParseDefGuard(p);
-  if (IsErrorNode(result)) return ParseFail(node, result);
-  NodePush(node, result);
-  VSpacing(p);
+  if (MatchToken(whenToken, p)) {
+    result = ParseDefGuard(p);
+    if (IsErrorNode(result)) return ParseFail(node, result);
+    NodePush(node, result);
+    VSpacing(p);
+  } else {
+    NodePush(node, MakeTerminal(constNode, IntVal(1), p));
+  }
   result = ParseExpr(p);
   if (IsErrorNode(result)) return ParseFail(node, result);
   NodePush(node, result);
@@ -591,13 +585,13 @@ static ASTNode *ParseParams(Parser *p)
 static ASTNode *ParseDefGuard(Parser *p)
 {
   ASTNode *node;
-  if (!MatchToken(whenToken, p)) return MakeTerminal(constNode, IntVal(1), p);
   VSpacing(p);
   node = ParseExpr(p);
+  if (IsErrorNode(node)) return node;
   Spacing(p);
   if (!MatchToken(commaToken, p)) {
     if (!MatchToken(newlineToken, p)) {
-      return Expected(", or newline", node, p);
+      return Expected(",", node, p);
     }
   }
   return node;
@@ -659,7 +653,7 @@ static ASTNode *ParsePrec(Precedence prec, Parser *p)
   return expr;
 }
 
-NodeType OpNodeType(TokenType type)
+static NodeType OpNodeType(TokenType type)
 {
   switch (type) {
   case bangeqToken:   return eqNode;

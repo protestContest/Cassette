@@ -1,24 +1,28 @@
 module Map
 export
   new, put, get, delete, member?, count, reduce, merge, keys, values, items,
-  inspect, take
+  inspect, take, map?, iterate
 
 ; a hash array mapped trie. each node has 16 "slots" and a bitmap of which slots
 ; are present. each node only stores the slots that are present. keys are mapped
 ; to slots based on 4 bits of their hash. on a collision, that slot is a sub-map
 ; that uses the next 4 hash bits.
 
-record MapNode(bits, entries)
+record Map(bits, entries)
+
+def map?(map) Record.type(map) == :Map
+
+def iterate(map) Enum.iterate(values(map))
 
 ; a map node stores its slot bitmap and its entries
 
 ; if the entries are nil, it's the empty map
 def empty?(map) map.entries == nil
-def empty_map() MapNode(0, nil)
+def empty_map() Map(0, nil)
 
 ; if the entries are a pair, it's a leaf
 def leaf?(map) typeof(map.entries) == :pair
-def leaf(key, value) MapNode(0, key : value)
+def leaf(key, value) Map(0, key : value)
 def leaf_key(leaf) @leaf.entries
 def leaf_value(leaf) ^leaf.entries
 
@@ -40,7 +44,7 @@ def replace_slot(map, slot, entry)
     index = slot_index(bits, slot)
     entries = map.entries
     entries = entries[0,index] <> {entry} <> entries[index+1,#entries]
-  in MapNode(bits, entries)
+  in Map(bits, entries)
 
 ; create a map from a list of (key : value) pairs
 def new(entries) do
@@ -74,7 +78,7 @@ def put(map, key, value) do
   ; correctly recalculate the slot from the hash
   def mapify(leaf, depth)
     let slot = key_slot(leaf_key(leaf), depth)
-    in MapNode(set_slot(0, slot), {leaf})
+    in Map(set_slot(0, slot), {leaf})
 
   def insert_slot(map, slot, entry)
     let
@@ -82,7 +86,7 @@ def put(map, key, value) do
       index = slot_index(bits, slot)
       entries = map.entries
       entries = entries[0,index] <> {entry} <> entries[index,#entries]
-    in MapNode(bits, entries)
+    in Map(bits, entries)
 
   put(map, 0, hash(key), leaf(key, value))
 end
@@ -131,7 +135,7 @@ def delete(map, key) do
       entries = entries[0,index] <> entries[index+1,#entries]
     in
       if #entries == 1 and leaf?(entries[0]), entries[0]
-      else MapNode(bits, entries)
+      else Map(bits, entries)
 
   delete(map, 0, key)
 end
@@ -188,7 +192,7 @@ def inspect(map) do
   def inspect_key(key) when symbol?(key), symbol_name(key)
   def inspect_key(key) inspect(key)
 
-  let items = List.map(items(map), \item ->
+  let items = Enum.map(items(map), \item ->
       [inspect_key(@item), ": ", Value.inspect(^item)])
   in ["{", List.intersperse(items, ", "), "}"]
 end
@@ -204,3 +208,5 @@ def take(map, keys) do
 
   loop(keys, new([]))
 end
+
+def iterate(map) Enum.iterate(values(map))

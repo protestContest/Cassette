@@ -1,0 +1,34 @@
+module Record
+export get, put, member?, type, keys, values, record?
+
+def record?(rec)
+  tuple?(rec) and
+  #rec == 3 and
+  symbol?(rec[0]) and
+  tuple?(rec[1]) and
+  tuple?(rec[2]) and
+  #rec[1] == #rec[2]
+def type(rec) record?(rec) and rec[0]
+def keys(rec) rec[1]
+def values(rec) rec[2]
+
+def key_index(rec, key) do
+  def loop(i, keys) when i == #keys, nil
+  def loop(i, keys) when keys[i] == key, i
+  def loop(i, keys) loop(i+1, keys)
+  loop(0, keys(rec))
+end
+
+def get(rec, key)
+  let i = key_index(rec, key) except i == nil, nil
+  in values(rec)[i]
+
+def put(rec, key, value)
+  let
+    i = key_index(rec, key) except i == nil, rec
+    values = values(rec)
+    values = values[0,i] <> values[i+1,#values]
+  in {type(rec), keys(rec), values}
+
+def member?(rec, key) key_index(rec, key) != nil
+

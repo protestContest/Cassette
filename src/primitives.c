@@ -95,6 +95,26 @@ static u32 VMFormat(VM *vm)
   return bin;
 }
 
+static u32 VMMakeTuple(VM *vm)
+{
+  u32 list, size = 0, tuple, i;
+  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  list = StackPeek(0);
+  if (!IsPair(list)) return RuntimeError("Expected a list", vm);
+  while (list) {
+    size++;
+    list = Tail(list);
+  }
+  MaybeGC(size+1, vm);
+  tuple = Tuple(size);
+  list = StackPop();
+  for (i = 0; i < size; i++) {
+    TupleSet(tuple, i, Head(list));
+    list = Tail(list);
+  }
+  return tuple;
+}
+
 static u32 VMSymbolName(VM *vm)
 {
   u32 a;
@@ -556,6 +576,7 @@ static PrimDef primitives[] = {
   {"typeof", VMTypeOf},
   {"char", VMChar},
   {"format", VMFormat},
+  {"make_tuple", VMMakeTuple},
   {"symbol_name", VMSymbolName},
   {"hash", VMHash},
   {"popcount", VMPopCount},
