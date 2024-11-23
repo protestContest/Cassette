@@ -17,6 +17,7 @@ char *StringFrom(char *str, u32 len);
 char *FormatString(char *format, char *str);
 char *FormatInt(char *format, i32 num);
 char *JoinStr(char *a, char *b, char join);
+char *StrCat(char *a, char *b);
 char *LineStart(u32 index, char *str);
 char *LineEnd(u32 index, char *str);
 u32 LineNum(char *str, u32 index);

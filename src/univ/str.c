@@ -60,6 +60,16 @@ char *JoinStr(char *str1, char *str2, char joiner)
   return str;
 }
 
+char *StrCat(char *a, char *b)
+{
+  u32 len1 = strlen(a), len2 = strlen(b);
+  char *str = malloc(len1 + len2 + 1);
+  Copy(a, str, len1);
+  Copy(b, str+len1, len2);
+  str[len1 + len2] = 0;
+  return str;
+}
+
 char *LineStart(u32 index, char *str)
 {
   while (index > 0 && !IsNewline(str[index-1])) index--;

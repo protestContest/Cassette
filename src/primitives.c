@@ -41,20 +41,6 @@ static u32 VMTypeOf(VM *vm)
   return 0;
 }
 
-static u32 VMChar(VM *vm)
-{
-  u32 a, num, bin;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
-  a = StackPop();
-  if (!IsInt(a)) return RuntimeError("Bad byte value", vm);
-  num = RawInt(a);
-  if (num < 0 || num > 255) return RuntimeError("Bad byte value", vm);
-  MaybeGC(3, vm);
-  bin = NewBinary(1);
-  BinaryData(bin)[0] = num;
-  return bin;
-}
-
 static u32 FormatSize(u32 value)
 {
   if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < 256) return 1;
@@ -474,16 +460,16 @@ static u32 VMPollEvent(VM *vm)
     break;
   }
 
-  MaybeGC(24, vm);
+  MaybeGC(9, vm);
   eventVal = Tuple(5);
-  TupleSet(eventVal, 0, Pair(IntVal(Symbol("what")), EventTypeVal(event.what)));
-  TupleSet(eventVal, 1, Pair(IntVal(Symbol("message")), msg));
-  TupleSet(eventVal, 2, Pair(IntVal(Symbol("when")), IntVal(event.when)));
+  TupleSet(eventVal, 0, EventTypeVal(event.what));
+  TupleSet(eventVal, 1, msg);
+  TupleSet(eventVal, 2, IntVal(event.when));
   where = Tuple(2);
-  TupleSet(where, 0, Pair(IntVal(Symbol("x")), IntVal(event.where.x)));
-  TupleSet(where, 1, Pair(IntVal(Symbol("y")), IntVal(event.where.y)));
-  TupleSet(eventVal, 3, Pair(IntVal(Symbol("where")), where));
-  TupleSet(eventVal, 4, Pair(IntVal(Symbol("modifiers")), IntVal(event.modifiers)));
+  TupleSet(where, 0, IntVal(event.where.x));
+  TupleSet(where, 1, IntVal(event.where.y));
+  TupleSet(eventVal, 3, where);
+  TupleSet(eventVal, 4, IntVal(event.modifiers));
 
   return eventVal;
 }
@@ -574,7 +560,6 @@ static u32 VMBlit(VM *vm)
 static PrimDef primitives[] = {
   {"panic!", VMPanic},
   {"typeof", VMTypeOf},
-  {"char", VMChar},
   {"format", VMFormat},
   {"make_tuple", VMMakeTuple},
   {"symbol_name", VMSymbolName},

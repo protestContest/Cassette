@@ -1,4 +1,28 @@
-import Enum
+import IO, Net, List
 
-IO.inspect(Enum.map({1, 2, 3, 4}, \n -> n * 2))
+; keeps reading from a connection while there's any data
+def read_resp(conn) do
+  ; define an iterative loop
+  def loop(received)
+    let
+      chunk = IO.read_chunk(conn, 1024)   ; get the next chunk
+    in
+      if #chunk == 0, received            ; no more data
+      else loop(received <> chunk)        ; concatenate chunk onto received data
 
+  ; start the loop
+  loop("")
+end
+
+let
+  conn = Net.connect("cassette-lang.com", "80")   ; open a network connection
+  req = List.join([                               ; form an HTTP request
+    "GET / HTTP/1.0",
+    "Host: cassette-lang.com",
+    "",
+    ""
+  ], "\r\n")
+in do
+  IO.write(conn, req)         ; send the request
+  IO.print(read_resp(conn))   ; read the response and print it
+end

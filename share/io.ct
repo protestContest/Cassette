@@ -100,7 +100,7 @@ def seek(file, offset, whence)
 
 def read_file(path)
   let
-    file = open(path, :read) except error?(file), file
+    file = open(path, [:read]) except error?(file), file
     size = seek(file, 0, :end)
     _ = seek(file, 0, :start)
     contents = read(file)
@@ -111,7 +111,7 @@ def read_file(path)
 
 def write_file(path, data)
   let
-    file = open(path, :write) except not file, 0
+    file = open(path, [:write]) except not file, 0
     written = write(file, data)
   in do
     close(file)

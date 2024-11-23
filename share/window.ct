@@ -7,6 +7,7 @@ def black() Color(0, 0, 0)
 
 record Event(what, message, when, where, modifiers)
 record Window(title, width, height, ref)
+record Point(x, y)
 
 def mod_mask(mod)
   if
@@ -24,6 +25,12 @@ def open(title, width, height)
   Window(title, width, height, trap open_window(title, width, height))
 def close(window) trap close_window(window.ref)
 def update(window) trap update_window(window.ref)
-def next_event() trap next_event()
+
+def next_event()
+  let
+    event = trap next_event()
+    where = Point(event[3][0], event[3][1])
+  in Event(event[0], event[1], event[2], where, event[4])
+
 def write_pixel(x, y, color, window) trap write_pixel(x, y, color, window.ref)
 def blit(data, width, height, x, y, window) trap blit(data, width, height, x, y, window.ref)

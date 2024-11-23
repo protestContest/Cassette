@@ -3,6 +3,8 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <pwd.h>
 
 FileList *NewFileList(u32 count)
 {
@@ -114,4 +116,16 @@ FileList *ListFiles(char *path, char *ext, FileList *list)
 char *FileExt(char *path)
 {
   return strrchr(path, '.');
+}
+
+bool DirExists(char *path)
+{
+  struct stat info;
+  return stat(path, &info) == 0 && S_ISDIR(info.st_mode);
+}
+
+char *HomeDir(void)
+{
+  struct passwd *pw = getpwuid(getuid());
+  return pw->pw_dir;
 }

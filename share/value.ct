@@ -1,10 +1,9 @@
 module Value
 export
-  typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?,
+  typeof, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?,
   error?, format, inspect, hash, make_tuple
 
 def typeof(value) trap typeof(value)
-def char(value) trap char(value)
 def symbol_name(sym) trap symbol_name(sym)
 def hash(value) trap hash(value)
 def format(value) trap format(value)

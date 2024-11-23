@@ -5,6 +5,7 @@ BUILD = build
 INCLUDE = include
 LIB = lib
 SRC = src
+SHARE = share
 INSTALL = $(HOME)/.local
 
 DEBUG ?= 0
@@ -59,7 +60,7 @@ clean:
 
 .PHONY: test
 test: $(EXECTARGET)
-	$(EXECTARGET) $(TESTFILE)
+	$(EXECTARGET) -L share $(TESTFILE)
 
 .PHONY: leaks
 leaks: $(EXECTARGET)
@@ -73,3 +74,16 @@ syntax:
 sign: $(EXECTARGET)
 	codesign -f -s 'Development' --entitlements support/entitlements.xml $(LIBTARGET)
 	codesign -f -s 'Development' --entitlements support/entitlements.xml $(EXECTARGET)
+
+.PHONY: install
+install: $(EXECTARGET)
+	mkdir -p $(INSTALL)/bin $(INSTALL)/lib $(INSTALL)/share/$(NAME)
+	cp $(EXECTARGET) $(INSTALL)/bin/$(NAME)
+	cp $(LIBTARGET) $(INSTALL)/lib/lib$(NAME).dylib
+	cp $(SHARE)/*.ct $(INSTALL)/share/$(NAME)
+
+.PHONY: uninstall
+uninstall:
+	rm -f $(INSTALL)/bin/$(NAME)
+	rm -f $(INSTALL)/lib/lib$(NAME).dylib
+	rm -rf $(INSTALL)/share/$(NAME)

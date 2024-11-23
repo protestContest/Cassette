@@ -1,11 +1,12 @@
 #include "project.h"
 #include "univ/file.h"
+#include "univ/str.h"
 #include "vm.h"
 #include <unistd.h>
 
 #define VERSION "2.0.0"
 
-#define DEFAULT_IMPORTS "Record, IO, List, Enum, Map, Math, String, VM (panic!), Value (typeof, char, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, format, inspect, hash)"
+#define DEFAULT_IMPORTS "Record, IO, List, Enum, Map, Math, String, VM (panic!), Value (typeof, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, format, inspect, hash)"
 
 typedef struct {
   bool debug;
@@ -23,12 +24,23 @@ static void Usage(void)
   fprintf(stderr, "  -i imports    List of modules to auto-import\n");
 }
 
+static char *GetLibPath(void)
+{
+  char *path = getenv("CASSETTE_PATH");
+  if (path && DirExists(path)) return path;
+  path = StrCat(HomeDir(), "/.local/share/cassette");
+  if (DirExists(path)) return path;
+  path = "/usr/local/share/cassette";
+  if (DirExists(path)) return path;
+  return 0;
+}
+
 static Opts ParseOpts(int argc, char *argv[])
 {
   Opts opts;
   int ch;
   opts.debug = false;
-  opts.lib_path = getenv("CASSETTE_PATH");
+  opts.lib_path = GetLibPath();
   opts.entry = 0;
   opts.default_imports = DEFAULT_IMPORTS;
 
@@ -42,6 +54,7 @@ static Opts ParseOpts(int argc, char *argv[])
       break;
     case 'v':
       printf("Cassette %s\n", VERSION);
+      printf("Library path: %s\n", opts.lib_path);
       exit(0);
     case 'i':
       opts.default_imports = optarg;
