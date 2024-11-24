@@ -1,10 +1,16 @@
 #include "univ/file.h"
 #include "univ/str.h"
+
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
+#include <libgen.h>
+#include <netdb.h>
 #include <pwd.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <termios.h>
+#include <unistd.h>
 
 FileList *NewFileList(u32 count)
 {
@@ -22,6 +28,141 @@ void FreeFileList(FileList *list)
   for (i = 0; i < list->count; i++) free(list->filenames[i]);
   free(list->filenames);
   free(list);
+}
+
+i32 Open(char *path, i32 flags, char **error)
+{
+  i32 f = open(path, flags, 0x1FF);
+  if (error && f < 0) {
+    *error = strerror(errno);
+  }
+  return f;
+}
+
+i32 OpenSerial(char *path, i32 speed, i32 opts, char **error)
+{
+  struct termios options;
+  i32 file = open(path, O_RDWR | O_NDELAY | O_NOCTTY);
+  if (file < 0) {
+    *error = strerror(errno);
+    return file;
+  }
+  fcntl(file, F_SETFL, O_NONBLOCK);
+  tcgetattr(file, &options);
+  cfsetispeed(&options, speed);
+  cfsetospeed(&options, speed);
+  options.c_cflag |= opts;
+  options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+  options.c_oflag &= ~OPOST;
+  tcsetattr(file, TCSANOW, &options);
+  return file;
+}
+
+char *Close(i32 file)
+{
+  i32 err = close(file);
+  if (err != 0) {
+    return strerror(err);
+  }
+  return 0;
+}
+
+i32 Read(i32 file, char *buf, u32 size, char **error)
+{
+  i32 num_read = read(file, buf, size);
+  *error = (num_read < 0) ? strerror(errno) : 0;
+  return num_read;
+}
+
+i32 Write(i32 file, char *buf, u32 size, char **error)
+{
+  i32 num_written = write(file, buf, size);
+  *error = (num_written < 0) ? strerror(errno) : 0;
+  return num_written;
+}
+
+i32 Seek(i32 file, i32 offset, i32 whence, char **error)
+{
+  i32 pos = lseek(file, offset, whence);
+  *error = (pos < 0) ? strerror(errno) : 0;
+  return pos;
+}
+
+i32 Listen(char *port, char **error)
+{
+  i32 status, sock;
+  struct addrinfo hints = {0};
+  struct addrinfo *info;
+
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+  status = getaddrinfo(0, port, &hints, &info);
+
+  if (status != 0) {
+    *error = (char*)gai_strerror(status);
+    return -1;
+  }
+
+  sock = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
+  if (sock < 0) {
+    freeaddrinfo(info);
+    *error = (char*)strerror(errno);
+    return -1;
+  }
+
+  status = bind(sock, info->ai_addr, info->ai_addrlen);
+  freeaddrinfo(info);
+  if (status < 0) {
+    *error = (char*)strerror(errno);
+    return -1;
+  }
+
+  status = listen(sock, 10);
+  if (status < 0) {
+    *error = strerror(errno);
+    return -1;
+  }
+
+  *error = 0;
+  return sock;
+}
+
+i32 Accept(i32 sock, char **error)
+{
+  i32 s = accept(sock, 0, 0);
+  *error = (s < 0) ? strerror(errno) : 0;
+  return s;
+}
+
+i32 Connect(char *node, char *port, char **error)
+{
+  struct addrinfo hints = {0};
+  struct addrinfo *servinfo;
+  i32 status, s;
+
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  status = getaddrinfo(node, port, &hints, &servinfo);
+  if (status != 0) {
+    *error = (char*)gai_strerror(status);
+    return -1;
+  }
+
+  s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+  if (s < 0) {
+    freeaddrinfo(servinfo);
+    *error = strerror(errno);
+    return s;
+  }
+
+  status = connect(s, servinfo->ai_addr, servinfo->ai_addrlen);
+  freeaddrinfo(servinfo);
+
+  if (status < 0) {
+    *error = strerror(errno);
+  }
+  return s;
 }
 
 char *ReadFile(char *path)
@@ -92,7 +233,8 @@ FileList *ListFiles(char *path, char *ext, FileList *list)
     }
   }
 
-  list->filenames = realloc(list->filenames, sizeof(char*)*(list->count + num_filtered));
+  list->filenames = realloc(list->filenames,
+                            sizeof(char*)*(list->count + num_filtered));
 
   for (i = 0; i < num_files; i++) {
     if (filenames[i]) {
@@ -115,7 +257,12 @@ FileList *ListFiles(char *path, char *ext, FileList *list)
 
 char *FileExt(char *path)
 {
-  return strrchr(path, '.');
+  return LastIndex(path, '.');
+}
+
+char *DirName(char *path)
+{
+  return dirname(path);
 }
 
 bool DirExists(char *path)

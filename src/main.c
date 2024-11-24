@@ -1,7 +1,7 @@
-#include "project.h"
+#include "compile/project.h"
+#include "runtime/vm.h"
 #include "univ/file.h"
 #include "univ/str.h"
-#include "vm.h"
 #include <unistd.h>
 
 #define VERSION "2.0.0"
@@ -98,8 +98,6 @@ int main(int argc, char *argv[])
   error = VMRun(project->program);
   if (error) {
     PrintError(error);
-    PrintStackTrace(error->data);
-    FreeStackTrace(error->data);
     FreeError(error);
   }
 

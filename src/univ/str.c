@@ -1,10 +1,31 @@
 #include "univ/str.h"
 #include "univ/math.h"
+#include <string.h>
+
+bool StrEq(char *s1, char *s2)
+{
+  return s1 && s2 && strcmp(s1,s2) == 0;
+}
+
+void Copy(void *src, void *dst, u32 size)
+{
+  memmove(dst, src, size);
+}
+
+u32 StrLen(char *s)
+{
+  return strlen(s);
+}
+
+char *LastIndex(char *s, char c)
+{
+  return strrchr(s, c);
+}
 
 char *NewString(char *str)
 {
   if (!str) return 0;
-  return StringFrom(str, strlen(str));
+  return StringFrom(str, StrLen(str));
 }
 
 char *StringFrom(char *str, u32 len)
@@ -24,8 +45,8 @@ char *FormatString(char *format, char *str)
   u32 len_str;
   u32 len_format;
   if (!str) str = "";
-  len_str = strlen(str);
-  len_format = strlen(format);
+  len_str = StrLen(str);
+  len_format = StrLen(format);
 
   for (start = 0; format[start]; start++) {
     if (format[start] == '^') break;
@@ -50,7 +71,7 @@ char *FormatInt(char *format, i32 num)
 
 char *JoinStr(char *str1, char *str2, char joiner)
 {
-  u32 len1 = strlen(str1), len2 = strlen(str2);
+  u32 len1 = StrLen(str1), len2 = StrLen(str2);
   u32 joinlen = joiner != 0;
   char *str = malloc(len1 + joinlen + len2 + 1);
   Copy(str1, str, len1);
@@ -62,7 +83,7 @@ char *JoinStr(char *str1, char *str2, char joiner)
 
 char *StrCat(char *a, char *b)
 {
-  u32 len1 = strlen(a), len2 = strlen(b);
+  u32 len1 = StrLen(a), len2 = StrLen(b);
   char *str = malloc(len1 + len2 + 1);
   Copy(a, str, len1);
   Copy(b, str+len1, len2);
@@ -114,4 +135,12 @@ u32 WriteNum(i32 num, char *buf)
 {
   u32 len = buf ? NumDigits(num, 10) + 1 : 0;
   return snprintf(buf, len, "%d", num);
+}
+
+void WriteBE(u32 num, u8 *dst)
+{
+  dst[0] = num >> 24;
+  dst[1] = (num >> 16) & 0xFF;
+  dst[2] = (num >> 8) & 0xFF;
+  dst[3] = num & 0xFF;
 }

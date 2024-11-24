@@ -8,7 +8,7 @@ SRC = src
 SHARE = share
 INSTALL = $(HOME)/.local
 
-DEBUG ?= 0
+DEBUG ?= 1
 
 EXECTARGET = $(BIN)/$(NAME)
 LIBTARGET = $(BIN)/lib$(NAME).dylib

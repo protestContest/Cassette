@@ -9,8 +9,11 @@
 #define IsHexDigit(c)     (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
 #define HexDigit(n)       ((n) < 10 ? (n) + '0' : (n) - 10 + 'A')
 #define IsPrintable(c)    ((c) >= 0x20 && (c) < 0x7F)
-#define StrEq(s1, s2)     ((s1) && (s2) && strcmp(s1, s2) == 0)
-#define Copy(s, d, c)     memmove(d,s,c)
+
+bool StrEq(char *s1, char *s2);
+void Copy(void *src, void *dst, u32 size);
+u32 StrLen(char *s);
+char *LastIndex(char *s, char c);
 
 char *NewString(char *str);
 char *StringFrom(char *str, u32 len);
@@ -24,3 +27,4 @@ u32 LineNum(char *str, u32 index);
 u32 ColNum(char *str, u32 index);
 u32 WriteStr(char *str, u32 len, char *buf);
 u32 WriteNum(i32 num, char *buf);
+void WriteBE(u32 num, u8 *dst);
