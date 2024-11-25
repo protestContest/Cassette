@@ -29,11 +29,13 @@ void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map)
   c->mod_id = 0;
   c->current_mod = 0;
   InitHashMap(&c->alias_map);
+  InitHashMap(&c->host_imports);
 }
 
 void DestroyCompiler(Compiler *c)
 {
   DestroyHashMap(&c->alias_map);
+  DestroyHashMap(&c->host_imports);
 }
 
 /* Error functions */
@@ -48,7 +50,7 @@ static Chunk *UndefinedVariable(ASTNode *node, Compiler *c)
 
 static Chunk *UndefinedTrap(ASTNode *node, Compiler *c)
 {
-  char *msg = NewString("Undefined trap \"^\"");
+  char *msg = NewString("Undefined host function \"^\"");
   msg = FormatString(msg, SymbolName(NodeValue(node)));
   c->error = NewError(msg, 0, node->start, node->end - node->start);
   return 0;
@@ -312,7 +314,6 @@ static Chunk *CompileConst(ASTNode *node, bool returns, Compiler *c)
 static ASTNode *FindImportedAlias(u32 fn_name, ASTNode *imports)
 {
   u32 i;
-
   for (i = 0; i < NodeCount(imports); i++) {
     ASTNode *import = NodeChild(imports, i);
     ASTNode *fns = NodeChild(import, 2);
@@ -336,6 +337,7 @@ static Chunk *CompileVar(ASTNode *node, bool returns, Compiler *c)
   u32 name = NodeValue(node);
   i32 pos = EnvFind(name, c->env);
 
+  /* variable exists in scope */
   if (pos >= 0) {
     chunk = NewChunk(node->start);
     EmitLookup(pos, chunk);
@@ -768,16 +770,26 @@ static Chunk *CompileArgs(ASTNode *node, Chunk *chunk, Compiler *c)
   return chunk;
 }
 
-static Chunk *CompileTrap(ASTNode *node, bool returns, Compiler *c)
+static bool IsHostRef(ASTNode *node, Compiler *c)
+{
+  return node->type == refNode &&
+         NodeValue(NodeChild(node, 0)) == Symbol("Host");
+}
+
+static bool IsImportedHostFn(ASTNode *node, Compiler *c)
+{
+  return node->type == idNode &&
+         HashMapContains(&c->host_imports, NodeValue(node));
+}
+
+static Chunk *CompileTrapCall(ASTNode *id, ASTNode *args, bool returns, Compiler *c)
 {
   i32 primitive_num;
   Chunk *chunk;
-  ASTNode *id = NodeChild(node, 0);
-  ASTNode *args = NodeChild(node, 1);
   primitive_num = PrimitiveID(NodeValue(id));
   if (primitive_num < 0) return UndefinedTrap(id, c);
 
-  chunk = NewChunk(node->start);
+  chunk = NewChunk(id->start);
   Emit(opTrap, chunk);
   EmitInt(primitive_num, chunk);
   if (returns) EmitReturn(chunk);
@@ -825,6 +837,15 @@ after:
   ASTNode *args = NodeChild(node, 1);
   Chunk *chunk, *arity;
   u32 src = node->start;
+
+  if (IsHostRef(NodeChild(node, 0), c)) {
+    ASTNode *fn = NodeChild(NodeChild(node, 0), 1);
+    return CompileTrapCall(fn, args, returns, c);
+  }
+  if (IsImportedHostFn(NodeChild(node, 0), c)) {
+    ASTNode *fn = NodeChild(node, 0);
+    return CompileTrapCall(fn, args, returns, c);
+  }
 
   chunk = CompileExpr(NodeChild(node, 0), false, c);
   if (!chunk) return 0;
@@ -942,6 +963,15 @@ static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
     u32 name = NodeValue(NodeChild(import, 0));
     u32 alias = NodeValue(NodeChild(import, 1));
     u32 mod_index;
+    if (name == Symbol("Host")) {
+      u32 j;
+      ASTNode *fns = NodeChild(import, 2);
+      for (j = 0; j < NodeCount(fns); j++) {
+        u32 fn = NodeValue(NodeChild(fns, j));
+        HashMapSet(&c->host_imports, fn, PrimitiveID(fn));
+      }
+      continue;
+    }
     if (!HashMapContains(c->mod_map, name)) {
       return UndefinedModule(NodeChild(import, 0), c);
     }
@@ -996,7 +1026,6 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   case orNode:      return CompileLogic(node, returns, c);
   case accessNode:  return CompileOp(opGet, node, returns, c);
   case callNode:    return CompileCall(node, returns, c);
-  case trapNode:    return CompileTrap(node, returns, c);
   case refNode:     return CompileDot(node, returns, c);
   case ifNode:      return CompileIf(node, returns, c);
   case letNode:     return CompileLet(node, returns, c);

@@ -13,6 +13,7 @@ typedef struct {
   Module *modules; /* vec */
   HashMap *mod_map;
   HashMap alias_map;
+  HashMap host_imports;
   u32 mod_id;
   u32 current_mod;
 } Compiler;

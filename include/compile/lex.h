@@ -53,7 +53,6 @@ typedef enum {
   notToken,
   orToken,
   recordToken,
-  trapToken,
   trueToken,
   whenToken,
   lbraceToken,

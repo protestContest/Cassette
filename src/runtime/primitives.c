@@ -527,6 +527,7 @@ static PrimDef primitives[] = {
   {"time", VMTime},
   {"random", VMRandom},
   {"seed", VMSeed},
+  /* I/O */
   {"open", VMOpen},
   {"open_serial", VMOpenSerial},
   {"close", VMClose},
@@ -536,6 +537,7 @@ static PrimDef primitives[] = {
   {"listen", VMListen},
   {"accept", VMAccept},
   {"connect", VMConnect},
+  /* Graphics */
   {"open_window", VMNewWindow},
   {"close_window", VMDestroyWindow},
   {"update_window", VMUpdateWindow},

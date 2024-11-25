@@ -134,7 +134,6 @@ Token NextToken(char *src, u32 pos)
   if (MatchKeyword("not", src+pos)) return MakeToken(notToken, pos, 3);
   if (MatchKeyword("or", src+pos)) return MakeToken(orToken, pos, 2);
   if (MatchKeyword("record", src+pos)) return MakeToken(recordToken, pos, 6);
-  if (MatchKeyword("trap", src+pos)) return MakeToken(trapToken, pos, 4);
   if (MatchKeyword("true", src+pos)) return MakeToken(trueToken, pos, 4);
   if (MatchKeyword("when", src+pos)) return MakeToken(whenToken, pos, 4);
 
@@ -168,7 +167,6 @@ bool IsKeyword(TokenType type)
   case notToken:
   case orToken:
   case recordToken:
-  case trapToken:
   case trueToken:
   case whenToken:
     return true;

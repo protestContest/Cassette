@@ -78,7 +78,7 @@ end
 
 def collector(enum) when tuple?(enum), do
   def value(list)
-    Value.make_tuple(List.reverse(list))
+    Host.make_tuple(List.reverse(list))
 
   def next(list)
     Collector(

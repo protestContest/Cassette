@@ -81,7 +81,6 @@ static ASTNode *ParseUnary(Parser *p);
 static ASTNode *ParseList(Parser *p);
 static ASTNode *ParseTuple(Parser *p);
 static ASTNode *ParseLambda(Parser *p);
-static ASTNode *ParseTrap(Parser *p);
 static ASTNode *ParseIf(Parser *p);
 static ASTNode *ParseLet(Parser *p);
 static ASTNode *ParseDo(Parser *p);
@@ -137,7 +136,6 @@ static ParseRule rules[] = {
   /* notToken */      {ParseUnary,    0,            precNone},
   /* orToken */       {ParseID,       ParseOp,      precLogic},
   /* recordToken */   {ParseID,       0,            precNone},
-  /* trapToken */     {ParseTrap,     0,            precNone},
   /* trueToken */     {ParseLiteral,  0,            precNone},
   /* whenToken */     {0,             0,            precNone},
   /* lbraceToken */   {ParseTuple,    0,            precNone},
@@ -601,19 +599,6 @@ static ASTNode *ParseLambda(Parser *p)
   body = ParseExpr(p);
   if (IsErrorNode(body)) return ParseFail(node, body);
   NodePush(node, body);
-  return node;
-}
-
-static ASTNode *ParseTrap(Parser *p)
-{
-  ASTNode *node, *id;
-  MatchToken(trapToken, p);
-  Spacing(p);
-  id = ParseID(p);
-  if (IsErrorNode(id)) return id;
-  node = ParseCall(id, p);
-  if (IsErrorNode(node)) return node;
-  node->type = trapNode;
   return node;
 }
 

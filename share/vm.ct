@@ -1,4 +1,0 @@
-module VM
-export panic!
-
-def panic!(message) trap panic!(message)

@@ -1,6 +1,6 @@
 module Net
 export listen, accept, connect
 
-def listen(port) trap listen(port)
-def accept(socket) trap accept(socket)
-def connect(host, port) trap connect(host, port)
+def listen(port) Host.listen(port)
+def accept(socket) Host.accept(socket)
+def connect(host, port) Host.connect(host, port)

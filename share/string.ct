@@ -100,4 +100,4 @@ def split(str, sep) do
 end
 
 def join(list, sep)
-  Value.format(List.intersperse(list, sep))
+  format(List.intersperse(list, sep))

@@ -33,9 +33,7 @@ void FreeFileList(FileList *list)
 i32 Open(char *path, i32 flags, char **error)
 {
   i32 f = open(path, flags, 0x1FF);
-  if (error && f < 0) {
-    *error = strerror(errno);
-  }
+  *error = (error && f < 0) ? strerror(errno) : 0;
   return f;
 }
 
@@ -47,6 +45,7 @@ i32 OpenSerial(char *path, i32 speed, i32 opts, char **error)
     *error = strerror(errno);
     return file;
   }
+  *error = 0;
   fcntl(file, F_SETFL, O_NONBLOCK);
   tcgetattr(file, &options);
   cfsetispeed(&options, speed);
@@ -159,9 +158,7 @@ i32 Connect(char *node, char *port, char **error)
   status = connect(s, servinfo->ai_addr, servinfo->ai_addrlen);
   freeaddrinfo(servinfo);
 
-  if (status < 0) {
-    *error = strerror(errno);
-  }
+  *error = (status < 0) ? *error = strerror(errno) : 0;
   return s;
 }
 

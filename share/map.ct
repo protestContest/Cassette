@@ -109,7 +109,7 @@ def get(map, key, default) do
 end
 
 def get!(map, key) when member?(map, key), get(map, key, nil)
-def get!(map, key) trap panic!("Missing map key")
+def get!(map, key) Host.panic!("Missing map key")
 
 def delete(map, key) when empty?(map), map
 def delete(map, key) do

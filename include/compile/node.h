@@ -36,7 +36,6 @@ typedef enum {
   xorNode,
   accessNode,
   callNode,
-  trapNode,
   refNode,
   ifNode,
   letNode,

@@ -111,6 +111,11 @@ void ScanProjectFolder(Project *project, char *path)
   FreeFileList(list);
 }
 
+/*
+For each module, add it to the scan list. Then scan each of its imports.
+Afterwards, move the module to the build list. Thus all of that module's
+dependencies are in the build list before it.
+*/
 static Error *ScanModuleDeps(
   u32 mod_index,
   u32 **scan_list, /* vec */
@@ -132,6 +137,7 @@ static Error *ScanModuleDeps(
       ASTNode *import = NodeChild(imports, i);
       u32 name = NodeValue(NodeChild(import, 0));
       u32 index;
+      if (name == Symbol("Host")) continue;
       if (!HashMapContains(&project->mod_map, name)) {
         return ModuleNotFound(SymbolName(name), mod->filename, import->start,
           import->end - import->start);

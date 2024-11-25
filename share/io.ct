@@ -24,7 +24,7 @@ def open(path, modes) do
       in
         flags
 
-  trap open(path, parse_modes(modes))
+  Host.open(path, parse_modes(modes))
 end
 
 ; opts should be of the form "8N1" or {8, :none, 1}
@@ -51,25 +51,25 @@ def open_serial(port, speed, opts) do
           flags = if opts[2] == 2, flags | 0x400 else flags
       in flags
 
-  trap open_serial(speed, parse_opts(opts))
+  Host.open_serial(speed, parse_opts(opts))
 end
 
-def close(file) trap close(file)
+def close(file) Host.close(file)
 
-def read_chunk(file, size) trap read(file, size)
+def read_chunk(file, size) Host.read(file, size)
 
 def read(file) do
   def loop(received)
     let data = read_chunk(file, 1024)
     in if
       error?(data), data
-      #data == 0, Value.format(List.reverse(received))
+      #data == 0, format(List.reverse(received))
       else loop(data : received)
 
   loop([])
 end
 
-def write_chunk(file, data) trap write(file, data)
+def write_chunk(file, data) Host.write(file, data)
 
 def write(file, data) do
   def loop(data)
@@ -82,10 +82,10 @@ def write(file, data) do
   loop(data)
 end
 
-def print(str) write(stdout(), Value.format([str, "\n"]))
+def print(str) write(stdout(), format([str, "\n"]))
 
 def inspect(val) do
-  print(Value.inspect(val))
+  print(inspect(val))
   val
 end
 
@@ -96,7 +96,7 @@ def seek(file, offset, whence)
       whence == :cur, 1
       whence == :end, 2
       else 0
-  in trap seek(file, offset, whence)
+  in Host.seek(file, offset, whence)
 
 def read_file(path)
   let

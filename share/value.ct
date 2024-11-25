@@ -1,13 +1,5 @@
 module Value
-export
-  typeof, symbol_name, nil?, integer?, symbol?, pair?, tuple?, binary?,
-  error?, format, inspect, hash, make_tuple
-
-def typeof(value) trap typeof(value)
-def symbol_name(sym) trap symbol_name(sym)
-def hash(value) trap hash(value)
-def format(value) trap format(value)
-def make_tuple(list) trap make_tuple(list)
+export nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect
 
 def nil?(v) v == nil
 def integer?(v) typeof(v) == :integer
@@ -20,55 +12,57 @@ def error?(result) when result == :error, true
 def error?(result) when tuple?(result) and #result > 0 and result[0] == :error, true
 def error?(result) false
 
-def inspect_int(num) when num == 0, "0"
-def inspect_int(num) when num < 0, "-" : inspect_int(-num)
-def inspect_int(num) do
-  def loop(num, parts) when num == 0, parts
-  def loop(num, parts)
-    let digit = num % 10 + $0
-    in loop(num / 10, digit : parts)
+def inspect(value) do
+  def inspect_int(num) when num == 0, "0"
+  def inspect_int(num) when num < 0, "-" : inspect_int(-num)
+  def inspect_int(num) do
+    def loop(num, parts) when num == 0, parts
+    def loop(num, parts)
+      let digit = num % 10 + $0
+      in loop(num / 10, digit : parts)
 
-  loop(num, [])
+    loop(num, [])
+  end
+
+  def inspect_tuple(value, depth) when #value == 3 and value[0] == :fn, "<fn>"
+  def inspect_tuple(value, depth) do
+    def loop(i, parts) when i == #value, List.reverse(parts)
+    def loop(i, parts)
+      let part = inspect_depth(value[i], depth-1)
+      in loop(i+1, part : parts)
+
+    let parts = loop(0, [])
+    in ["{", List.intersperse(parts, ", "), "}"]
+  end
+
+  def inspect_pair(value, depth)
+    let
+      head = inspect_depth(@value, depth - 1)
+      tail = inspect_depth(^value, depth - 1)
+    in [head, " : ", tail]
+
+  def inspect_list(list, depth) do
+    def loop(list, parts) when list == nil, List.reverse(parts)
+    def loop(list, parts) when not pair?(^list),
+      let parts = inspect_pair(list) : parts
+      in List.reverse(parts)
+    def loop(list, parts)
+      loop(^list, inspect_depth(@list, depth - 1) : parts)
+
+    let parts = loop(list, [])
+    in ["[", List.intersperse(parts, ", "), "]"]
+  end
+
+  def inspect_depth(value, depth) when depth == 0, "..."
+  def inspect_depth(value, depth) when value == nil, "nil"
+  def inspect_depth(value, depth) when binary?(value), ["\"", value, "\""]
+  def inspect_depth(value, depth) when symbol?(value), ":" <> symbol_name(value)
+  def inspect_depth(value, depth) when integer?(value), inspect_int(value)
+  def inspect_depth(value, depth) when tuple?(value), inspect_tuple(value, depth)
+  def inspect_depth(value, depth) when pair?(value),
+    if not pair?(^value), inspect_pair(value, depth)
+    else inspect_list(value, depth)
+  def inspect_depth(value, depth) ""
+
+  inspect_depth(value, 10)
 end
-
-def inspect_tuple(value, depth) when #value == 3 and value[0] == :fn, "<fn>"
-def inspect_tuple(value, depth) do
-  def loop(i, parts) when i == #value, List.reverse(parts)
-  def loop(i, parts)
-    let part = inspect_depth(value[i], depth-1)
-    in loop(i+1, part : parts)
-
-  let parts = loop(0, [])
-  in ["{", List.intersperse(parts, ", "), "}"]
-end
-
-def inspect_pair(value, depth)
-  let
-    head = inspect_depth(@value, depth - 1)
-    tail = inspect_depth(^value, depth - 1)
-  in [head, " : ", tail]
-
-def inspect_list(list, depth) do
-  def loop(list, parts) when list == nil, List.reverse(parts)
-  def loop(list, parts) when not pair?(^list),
-    let parts = inspect_pair(list) : parts
-    in List.reverse(parts)
-  def loop(list, parts)
-    loop(^list, inspect_depth(@list, depth - 1) : parts)
-
-  let parts = loop(list, [])
-  in ["[", List.intersperse(parts, ", "), "]"]
-end
-
-def inspect_depth(value, depth) when depth == 0, "..."
-def inspect_depth(value, depth) when value == nil, "nil"
-def inspect_depth(value, depth) when binary?(value), ["\"", value, "\""]
-def inspect_depth(value, depth) when symbol?(value), ":" <> symbol_name(value)
-def inspect_depth(value, depth) when integer?(value), inspect_int(value)
-def inspect_depth(value, depth) when tuple?(value), inspect_tuple(value, depth)
-def inspect_depth(value, depth) when pair?(value),
-  if not pair?(^value), inspect_pair(value, depth)
-  else inspect_list(value, depth)
-def inspect_depth(value, depth) ""
-
-def inspect(value) inspect_depth(value, 10)

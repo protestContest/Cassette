@@ -136,7 +136,6 @@ static char *NodeTypeName(i32 type)
   case orNode:      return "or";
   case accessNode:  return "access";
   case callNode:    return "call";
-  case trapNode:    return "trap";
   case refNode:     return "ref";
   case ifNode:      return "if";
   case letNode:     return "let";
