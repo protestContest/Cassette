@@ -9,12 +9,12 @@ struct VM;
 enum {regEnv, regMod};
 
 typedef struct VM {
-  Error *error;
+  Error *error; /* borrowed */
   u32 regs[8];
   u32 pc;
   u32 link;
-  Program *program;
-  void **refs; /* vec */
+  Program *program; /* borrowed */
+  void **refs; /* vec, each borrowed */
 } VM;
 
 void InitVM(VM *vm, Program *program);

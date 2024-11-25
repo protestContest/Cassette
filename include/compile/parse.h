@@ -6,7 +6,7 @@
 #include "compile/lex.h"
 
 typedef struct {
-  char *text;
+  char *text; /* borrowed */
   Token token;
 } Parser;
 

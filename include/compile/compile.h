@@ -9,9 +9,9 @@
 
 typedef struct {
   Env *env;
-  Error *error;
+  Error *error; /* borrowed */
   Module *modules; /* vec */
-  HashMap *mod_map;
+  HashMap *mod_map; /* borrowed */
   HashMap alias_map;
   HashMap host_imports;
   u32 mod_id;

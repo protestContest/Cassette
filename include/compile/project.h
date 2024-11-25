@@ -11,7 +11,7 @@ typedef struct {
   HashMap mod_map;
   Program *program;
   u32 *build_list; /* vec */
-  char *default_imports;
+  char *default_imports; /* borrowed */
 } Project;
 
 Project *NewProject(void);

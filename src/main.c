@@ -1,84 +1,15 @@
+#include "opts.h"
 #include "compile/project.h"
 #include "runtime/vm.h"
 #include "univ/file.h"
-#include "univ/str.h"
-#include <unistd.h>
-
-#define VERSION "2.0.0"
-
-#define DEFAULT_IMPORTS "Enum, IO, List, Map, Math, Record, String, Value (nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect), Host (typeof, symbol_name, format, hash)"
-
-typedef struct {
-  bool debug;
-  char *lib_path;
-  char *entry;
-  char *default_imports;
-} Opts;
-
-static void Usage(void)
-{
-  fprintf(stderr, "Usage: cassette [opts] script\n");
-  fprintf(stderr, "  -v            Print version\n");
-  fprintf(stderr, "  -d            Enable debug mode\n");
-  fprintf(stderr, "  -L lib_path   Library search path (defaults to $CASSETTE_PATH)\n");
-  fprintf(stderr, "  -i imports    List of modules to auto-import\n");
-}
-
-static char *GetLibPath(void)
-{
-  char *path = getenv("CASSETTE_PATH");
-  if (path && DirExists(path)) return path;
-  path = StrCat(HomeDir(), "/.local/share/cassette");
-  if (DirExists(path)) return path;
-  path = "/usr/local/share/cassette";
-  if (DirExists(path)) return path;
-  return 0;
-}
-
-static Opts ParseOpts(int argc, char *argv[])
-{
-  Opts opts;
-  int ch;
-  opts.debug = false;
-  opts.lib_path = GetLibPath();
-  opts.entry = 0;
-  opts.default_imports = DEFAULT_IMPORTS;
-
-  while ((ch = getopt(argc, argv, "i:vdL:")) >= 0) {
-    switch (ch) {
-    case 'd':
-      opts.debug = true;
-      break;
-    case 'L':
-      opts.lib_path = optarg;
-      break;
-    case 'v':
-      printf("Cassette %s\n", VERSION);
-      printf("Library path: %s\n", opts.lib_path);
-      exit(0);
-    case 'i':
-      opts.default_imports = optarg;
-      break;
-    default:
-      Usage();
-      exit(1);
-    }
-  }
-
-  if (optind == argc) {
-    Usage();
-    exit(1);
-  }
-
-  opts.entry = argv[optind];
-  return opts;
-}
 
 int main(int argc, char *argv[])
 {
-  Opts opts = ParseOpts(argc, argv);
+  Opts opts;
   Project *project;
   Error *error;
+
+  if (!ParseOpts(argc, argv, &opts)) return 1;
 
   project = NewProject();
   project->default_imports = opts.default_imports;
@@ -91,6 +22,7 @@ int main(int argc, char *argv[])
     PrintError(error);
     FreeError(error);
     FreeProject(project);
+    DestroyOpts(&opts);
     return 1;
   }
 
@@ -103,6 +35,7 @@ int main(int argc, char *argv[])
 
   FreeProgram(project->program);
   FreeProject(project);
+  DestroyOpts(&opts);
 
   return 0;
 }

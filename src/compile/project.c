@@ -23,6 +23,13 @@ static Error *ModuleNotFound(char *name, char *file, u32 pos, u32 len)
   return error;
 }
 
+static Error *BadImportList(char *imports)
+{
+  Error *error = NewError(NewString("Bad import list: \"^\""), 0, 0, 0);
+  error->message = FormatString(error->message, imports);
+  return error;
+}
+
 static void AddStrings(ASTNode *node, Program *program, HashMap *strings)
 {
   u32 i;
@@ -137,10 +144,10 @@ static Error *ScanModuleDeps(
       ASTNode *import = NodeChild(imports, i);
       u32 name = NodeValue(NodeChild(import, 0));
       u32 index;
-      if (name == Symbol("Host")) continue;
+      if (name == Symbol("Host")) continue; /* Skip host pseudo-module */
       if (!HashMapContains(&project->mod_map, name)) {
         return ModuleNotFound(SymbolName(name), mod->filename, import->start,
-          import->end - import->start);
+            import->end - import->start);
       }
 
       index = HashMapGet(&project->mod_map, name);
@@ -171,24 +178,27 @@ static Error *ScanDeps(Project *project)
   return error;
 }
 
+/* Serializes the compiled modules into a program */
 static void LinkModules(Project *project)
 {
   u32 i;
   Chunk *intro_chunk = 0;
-  u32 size = 0;
+  u32 size;
   Program *program = NewProgram();
   HashMap strings = EmptyHashMap;
   u8 *cur;
 
+  /* The intro chunk sets up the module register (if there are any imports) */
   if (VecCount(project->build_list) > 1) {
     intro_chunk = NewChunk(0);
     Emit(opTuple, intro_chunk);
     EmitInt(VecCount(project->build_list) - 1, intro_chunk);
     Emit(opPull, intro_chunk);
     EmitInt(regMod, intro_chunk);
-    size += ChunkSize(intro_chunk);
   }
 
+  /* calculate program size */
+  size = intro_chunk ? ChunkSize(intro_chunk) : 0;
   for (i = 0; i < VecCount(project->build_list); i++) {
     Module *mod = &project->modules[project->build_list[i]];
     size += ChunkSize(mod->code);
@@ -196,12 +206,15 @@ static void LinkModules(Project *project)
 
   program->code = NewVec(u8, size);
   cur = program->code;
+
+  /* serialize intro chunk */
   if (intro_chunk) {
     AddChunkSource(intro_chunk, 0, &program->srcmap);
     cur = SerializeChunk(intro_chunk, cur);
     FreeChunk(intro_chunk);
   }
 
+  /* serialize each module chunk */
   for (i = 0; i < VecCount(project->build_list); i++) {
     Module *mod = &project->modules[project->build_list[i]];
     AddChunkSource(mod->code, mod->filename, &program->srcmap);
@@ -214,7 +227,8 @@ static void LinkModules(Project *project)
   project->program = program;
 }
 
-static void AddDefaultImports(Module *module, char *import_str)
+/* Adds default imports to a module */
+static Error *AddDefaultImports(Module *module, char *import_str)
 {
   Parser p;
   ASTNode *imports, *defaults;
@@ -224,19 +238,17 @@ static void AddDefaultImports(Module *module, char *import_str)
   defaults = ParseImportList(&p);
   if (IsErrorNode(defaults)) {
     FreeNode(defaults);
-    return;
+    return BadImportList(import_str);
   }
 
   imports = ModuleImports(module);
   for (i = 0; i < NodeCount(defaults); i++) {
     ASTNode *import = NodeChild(defaults, i);
-    ASTNode *name = NodeChild(import, 0);
-    if (NodeValue(ModuleName(module)) != NodeValue(name)) {
-      NodePush(imports, import);
-    }
+    NodePush(imports, import);
   }
 
   FreeNodeShallow(defaults);
+  return 0;
 }
 
 Error *BuildProject(Project *project)
@@ -245,8 +257,10 @@ Error *BuildProject(Project *project)
   Error *error;
   Compiler c;
 
+  /* avoid clobbering symbol bits when used in tagged values */
   SetSymbolSize(valBits);
 
+  /* parse each source file and add it to mod_map */
   for (i = 0; i < VecCount(project->modules); i++) {
     Module *mod = &project->modules[i];
     u32 name, j;
@@ -259,11 +273,14 @@ Error *BuildProject(Project *project)
     }
 
     if (project->default_imports) {
-      AddDefaultImports(mod, project->default_imports);
+      error = AddDefaultImports(mod, project->default_imports);
+      if (error) return error;
     }
 
     name = NodeValue(ModuleName(mod));
     if (name) HashMapSet(&project->mod_map, name, i);
+
+    /* index the module's exports */
     exports = ModuleExports(mod);
     for (j = 0; j < NodeCount(exports); j++) {
       u32 export = NodeValue(NodeChild(exports, j));
@@ -271,9 +288,11 @@ Error *BuildProject(Project *project)
     }
   }
 
+  /* create the build list */
   error = ScanDeps(project);
   if (error) return error;
 
+  /* compile each module in the build list */
   InitCompiler(&c, project->modules, &project->mod_map);
   for (i = 0; i < VecCount(project->build_list); i++) {
     u32 index = project->build_list[i];
@@ -282,12 +301,15 @@ Error *BuildProject(Project *project)
     c.current_mod = index;
     mod->code = Compile(mod->ast, &c);
     if (c.error) {
-      c.error->filename = NewString(mod->filename);
-      return c.error;
+      error = c.error;
+      error->filename = NewString(mod->filename);
+      DestroyCompiler(&c);
+      return error;
     }
   }
   DestroyCompiler(&c);
 
+  /* generate program from compiled modules */
   LinkModules(project);
 
   return 0;
