@@ -89,6 +89,18 @@
       </ol>
 
       <h2 id="syntax">Syntax</h2>
+      <h3 id="comments">Comments</h3>
+      <p>Comments can appear at the end of a line or span multiple lines.</p>
+      <pre>
+<span class="cm">; end of line comment</span>
+
+<span class="cm">---
+Multiline comment
+
+Comment text must be between triple lines.
+---</span>
+</pre>
+
       <h3 id="values">Values</h3>
       <p>Cassette has only four value types: integers, pairs, tuples, and binaries.</p>
       <p>Integers are signed, 30-bit numbers (-536,870,912 to 536,870,911). Integers can be written in decimal, hexadecimal, or a literal byte value. The keyword <code>true</code> is shorthand for <code>1</code> and the keyword <code>false</code> is shorthand for <code>0</code>.</p>
