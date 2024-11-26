@@ -2,7 +2,23 @@
 #include "runtime/error.h"
 #include "runtime/program.h"
 
-/* A VM can execute bytecode in a Program. */
+/*
+A VM can execute bytecode in a Program. Each instruction is executed until the
+end is reached, or until a runtime error occurs.
+
+The VM has 8 "registers" that can be freely manipulated with the push and pull
+instructions. The compiler uses r0 to store the environment and r1 to store a
+tuple of module exports.
+
+The VM has a program counter, pc, which tracks the current execution position.
+It also has a separate "link" register, which is used with the link and unlink
+instructions to keep track of the call stack.
+
+The VM has a list of "refs", which are opaque pointers that primitive functions
+can create and use. For example, a primitive function can create a complex
+structure, add it as a reference to the VM, and return the reference integer to
+the program code.
+*/
 
 struct VM;
 
@@ -17,12 +33,12 @@ typedef struct VM {
   void **refs; /* vec, each borrowed */
 } VM;
 
-void InitVM(VM *vm, Program *program);
+void InitVM(VM *vm, Program *program); /* prepare the VM to run a program */
 void DestroyVM(VM *vm);
-void VMStep(VM *vm);
-Error *VMRun(Program *program);
-u32 VMPushRef(void *ref, VM *vm);
-void *VMGetRef(u32 ref, VM *vm);
-i32 VMFindRef(void *ref, VM *vm);
-void MaybeGC(u32 size, VM *vm);
-u32 RuntimeError(char *message, VM *vm);
+void VMStep(VM *vm); /* execute one instruction */
+Error *VMRun(Program *program, bool trace); /* execute an entire program */
+u32 VMPushRef(void *ref, VM *vm); /* create a ref */
+void *VMGetRef(u32 ref, VM *vm); /* get the value of a ref */
+i32 VMFindRef(void *ref, VM *vm); /* find a ref */
+void MaybeGC(u32 size, VM *vm); /* collect garbage if size is too much */
+u32 RuntimeError(char *message, VM *vm); /* create a runtime error */

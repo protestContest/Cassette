@@ -1,24 +1,25 @@
 #pragma once
 
-/* The runtime dynamic memory system.
+/*
+The runtime dynamic memory system.
 
 Cassette values are 32 bits long, using 2 bits as a type tag. The types are
 object, integer, tuple header, and binary header. An Object is a pointer to
-a pair, a tuple header, or a binary header. These headers should only appear in
-the heap.
+a pair, a tuple header, or a binary header. Tuple and binary headers should only
+appear in the heap. An object value is considered to "be" a pair, tuple, or
+binary if that's what it points to.
 
-The value of an object is the index into the heap of its referent. A tuple
-header contains its length (the count of items), and is followed in memory by
-the contents of the tuple. A binary header contains its length (in bytes), and
-is followed in memory by its binary data. Since heap space is allocated in
-32-bit cells, a binary is padded to the next cell boundary.
+A tuple header contains the count of its items, followed by the items. A binary
+header contains its length in bytes, followed by its binary data. Since heap
+space is allocated in 32-bit cells, a binary is padded to the next cell
+boundary.
 
-Some common operations are required for lists, tuples, and binaries:
+Values can be stored on the stack, and objects can be created in the heap.
+Before pushing to the stack or creating an object, callers must ensure there is
+enough memory and either collect garbage or resize memory if not.
 
-- Length: returns the length of the object
-- Get: returns an element of the object
-- Join: concatenates two objects, returning a new one
-- Slice: returns a subset of an object
+When garbage collecting, care must be taken that all live objects are on the
+stack, in the heap, or in the root values.
 */
 
 enum {objType, intType, tupleHdr, binHdr};
@@ -93,6 +94,7 @@ bool ValEq(u32 a, u32 b);
 u32 HashVal(u32 a);
 u32 InspectVal(u32 value);
 char *MemValStr(u32 value);
+
 #ifdef DEBUG
 void DumpMem(void);
 #endif

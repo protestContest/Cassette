@@ -5,7 +5,18 @@
 #include "runtime/program.h"
 #include "univ/hashmap.h"
 
-/* A Project is a set of modules that can be built into a Program */
+/*
+A Project keeps track of the construction of a Program from source files. A
+program is built in these steps:
+
+1. All project files are parsed, generating Modules with ASTs.
+2. Starting with the entry file, a build list is constructed of only the
+   imported modules, in order of dependency.
+3. Each module in the build list is compiled.
+4. The compiled modules are linked into a Program in order of dependency. Each
+   module is executed before the modules that import it. The entry module is
+   executed last.
+*/
 
 typedef struct {
   Module *modules; /* vec */

@@ -71,14 +71,14 @@ static void VMTrace(VM *vm)
   fprintf(stderr, "\n");
 }
 
-Error *VMRun(Program *program)
+Error *VMRun(Program *program, bool trace)
 {
   VM vm;
 
   InitVM(&vm, program);
   InitMem(256);
 
-  if (program->trace) {
+  if (trace) {
     u32 num_width = NumDigits(VecCount(program->code), 10);
     u32 i;
     for (i = 0; i < num_width; i++) fprintf(stderr, "─");
@@ -121,7 +121,6 @@ i32 VMFindRef(void *ref, VM *vm)
 
 static void RunGC(VM *vm)
 {
-  if (vm->program->trace) fprintf(stderr, "GARBAGE DAY!!!\n");
   CollectGarbage(vm->regs, ArrayCount(vm->regs));
 }
 

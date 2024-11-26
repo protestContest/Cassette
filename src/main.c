@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  error = VMRun(project->program);
+  error = VMRun(project->program, opts->debug);
   if (error) {
     PrintError(error);
     FreeError(error);

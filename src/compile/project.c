@@ -192,8 +192,6 @@ static void LinkModules(Project *project)
   HashMap strings = EmptyHashMap;
   u8 *cur;
 
-  program->trace = project->opts->debug;
-
   /* The intro chunk sets up the module register (if there are any imports) */
   if (VecCount(project->build_list) > 1) {
     intro_chunk = NewChunk(0);
