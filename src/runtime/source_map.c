@@ -4,14 +4,12 @@
 
 void InitSourceMap(SourceMap *map)
 {
-  map->filenames = 0;
   map->file_map = 0;
   map->pos_map = 0;
 }
 
 void DestroySourceMap(SourceMap *map)
 {
-  FreeVec(map->filenames);
   FreeVec(map->file_map);
   FreeVec(map->pos_map);
 }
@@ -33,7 +31,7 @@ char *GetSourceFile(u32 code_index, SourceMap *map)
   u32 i = 0;
   u32 *cur = map->file_map;
   while (cur < VecEnd(map->file_map)) {
-    if (i + cur[1] >= code_index) return SymbolName(map->filenames[cur[0]]);
+    if (i + cur[1] >= code_index) return SymbolName(cur[0]);
     i += cur[1];
     cur += 2;
   }
@@ -56,8 +54,6 @@ void AddSourcePos(SourceMap *map, u32 src, u32 count)
 
 void AddSourceFile(SourceMap *map, char *filename, u32 count)
 {
-  u32 filenum = VecCount(map->filenames);
-  VecPush(map->filenames, filename ? Symbol(filename) : 0);
-  VecPush(map->file_map, filenum);
+  VecPush(map->file_map, filename ? Symbol(filename) : 0);
   VecPush(map->file_map, count);
 }
