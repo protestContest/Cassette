@@ -74,8 +74,11 @@ Project *NewProject(Opts *opts)
   project->program = 0;
   project->build_list = 0;
   project->opts = opts ? opts : DefaultOpts();
+  project->entry_index = 0;
   if (project->opts->entry) {
-    AddProjectFile(project, project->opts->entry);
+    if (!AddProjectFile(project, project->opts->entry)) {
+      project->entry_index = VecCount(project->modules) - 1;
+    }
   }
   return project;
 }
@@ -175,7 +178,8 @@ static Error *ScanDeps(Project *project)
   u32 *scan_list = 0; /* vec */
   HashMap build_set = EmptyHashMap;
   HashMap scan_set = EmptyHashMap;
-  Error *error = ScanModuleDeps(0, &scan_list, &build_set, &scan_set, project);
+  Error *error = ScanModuleDeps(project->entry_index,
+                                &scan_list, &build_set, &scan_set, project);
   FreeVec(scan_list);
   DestroyHashMap(&build_set);
   DestroyHashMap(&scan_set);

@@ -24,6 +24,7 @@ typedef struct {
   Program *program;
   u32 *build_list; /* vec */
   Opts *opts;
+  u32 entry_index;
 } Project;
 
 Project *NewProject(Opts *opts);

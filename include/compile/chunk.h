@@ -1,9 +1,13 @@
 #pragma once
 
-/* A chunk is a linked list, where each node has a snippet of bytecode. A chunk
- * also keeps track of whether it (or any chunk after it) needs or modifies the
- * env register.
- */
+/*
+A chunk is a sequence of bytecode. It also keeps track of whether the chunk
+needs or modifies the env register, and its source file position.
+
+A chunk is a linked list, but logically represents the code in the entire list.
+`needs_env` and `modifies_env` should represent all chunks, and functions to
+append or emit chunks work on chunk lists as a whole.
+*/
 
 typedef struct Chunk {
   u8 *data; /* vec */

@@ -1,8 +1,9 @@
 #pragma once
 
-/* An Env is a compile-time structure to keep track of variables currently in
- * scope
- */
+/*
+An Env keeps track of variables currently in scope during compilation. Each item
+in the env is the symbol of the variable.
+*/
 
 typedef struct Env {
   u32 size;
