@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Cassette Primitives</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="favicon.svg" />
+    <link rel="mask-icon" href="favicon.svg" color="#2D2F38" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Cassette Primitives</h1>
+
+      <p>This is the reference of built-in primitives for the programming language <a href="index.html">Cassette</a>.</p>
+      <p>Built-in functions are accessed from the <code>Host</code> module. Some of these calls are wrapped in more descriptive modules.</p>
+
+      <h2>System Functions</h2>
+      <h3>panic!(message)</h3>
+      <p>Halts the program in an error state, with the given message.</p>
+
+      <h3>typeof(value)</h3>
+      <p>Returns the type of the given value, as a symbol:</p>
+      <ul>
+        <li><code>:integer</code></li>
+        <li><code>:symbol</code></li>
+        <li><code>:pair</code> lists, pairs, and <code>nil</code></li>
+        <li><code>:tuple</code></li>
+        <li><code>:binary</code></li>
+      </ul>
+
+      <h3>format(iodata)</h3>
+      <p>Renders <code>iodata</code> into a binary. <code>iodata</code> is a binary, an integer between 0–255 (representing a byte), or a list of other <code>iodata</code> items.</p>
+
+      <h3>make_tuple(list)</h3>
+      <p>Converts a list into a tuple.</p>
+
+      <h3>symbol_name(symbol)</h3>
+      <p>Returns a string of the name of the given symbol, or <code>nil</code> if not present.</p>
+
+      <h3>hash(value)</h3>
+      <p>Returns a hash of a value.</p>
+
+      <h3>popcount(num)</h3>
+      <p>Returns the number of bits set in an integer.</p>
+
+      <h3>max_int()</h3>
+      <p>Returns the maximum integer.</p>
+
+      <h3>min_int()</h3>
+      <p>Returns the minimum integer.</p>
+
+      <h3>time(value)</h3>
+      <p>Returns the current Unix timestamp, in seconds.</p>
+
+      <h3>random()</h3>
+      <p>Returns a random integer between the minimum and the maximum integer size.</p>
+
+      <h3>seed(value)</h3>
+      <p>Seeds the random number generator.</p>
+
+      <h2>I/O</h2>
+      <h3>open(path, flags)</h3>
+      <p>Wrapper for the Unix <code>open</code> function. Returns a file descriptor as an integer or <code>{:error, reason}</code>.</p>
+
+      <h3>open_serial(device, speed, opts)</h3>
+      <p>Opens a serial device. <code>opts</code> is an integer that is set to the <code>c_cflag</code> property of the termios. Returns a file descriptor as an integer or <code>{:error, reason}</code>.</p>
+
+      <h3>close(file)</h3>
+      <p>Wrapper for the Unix <code>close</code> function. Returns <code>:ok</code> or <code>{:error, reason}</code>.</p>
+
+      <h3>read(file, size)</h3>
+      <p>Wrapper for the Unix <code>read</code> function. Returns a binary or <code>{:error, reason}</code>.</p>
+
+      <h3>write(file, data, size)</h3>
+      <p>Wrapper for the Unix <code>write</code> function. Returns the number of bytes written or <code>{:error, reason}</code>.</p>
+
+      <h3>seek(file, offset, whence)</h3>
+      <p>Wrapper for the Unix <code>lseek</code> function. Returns the position or <code>{:error, reason}</code>.</p>
+
+      <h3>listen(port)</h3>
+      <p>Returns a passive socket listening on a given port (as a string).</p>
+
+      <h3>accept(socket)</h3>
+      <p>Waits for a new connection on a passive socket.</p>
+
+      <h3>connect(host, port)</h3>
+      <p>Returns an active socket connected to a host and port.</p>
+
+      <h2>Graphics</h2>
+      <h3>open_window(title, width, height)</h3>
+      <p>Creates a new window. Returns a window reference.</p>
+
+      <h3>close_window(window)</h3>
+      <p>Closes a window.</p>
+
+      <h3>update_window(window)</h3>
+      <p>Updates a window's contents.</p>
+
+      <h3>next_event()</h3>
+      <p>Returns a tuple record with these fields:</p>
+      <ul>
+        <li>Event type, one of <code>:keyDown</code>, <code>:keyUp</code>, <code>:autoKey</code>, <code>:mouseDown</code>, <code>:mouseUp</code>, or <code>:quit</code>.</li>
+        <li>Timestamp of when the event occured.</li>
+        <li>The mouse position of the event, as a tuple with <code>x</code> and <code>y</code> fields.</li>
+        <li>The event message. For keyboard events, this is the ASCII character in the low byte and the scan code in the second byte. For mouse events, this is a window reference.</li>
+        <li>A bitmap of keyboard modifiers.
+          <pre>
+ 15   13 12 11 10  9  8  7  6        0
+┌───────┬──┬──┬──┬──┬──┬──┬───────────┐
+│       │  │  │  │  │  │  │           │
+└───────┴─┬┴─┬┴─┬┴─┬┴─┬┴─┬┴───────────┘
+Control───┘  │  │  │  │  │
+Option───────┘  │  │  │  │
+Caps Lock───────┘  │  │  │
+Shift──────────────┘  │  │
+Command───────────────┘  │
+Mouse────────────────────┘
+</pre>
+        </li>
+      </ul>
+
+      <h3>write_pixel(x, y, color, window)</h3>
+      <p>Writes a pixel into a window. Color is a 24-bit <code>0x00RRGGBB</code> integer.</p>
+
+      <h3>blit(data, width, height, x, y, window)</h3>
+      <p>Copies pixel data into a window. <code>data</code> is a binary of pixel values, <code>width</code> and <code>height</code> are the size of the source image, and <code>x</code> and <code>y</code> are the destination in the window.</p>
+    </main>
+    <footer>
+      <hr/>
+      <center>
+      <p>&copy; 2024 <a href="https://zjm.me">zjm</a></p>
+      </center>
+    </footer>
+  </body>
+</html>

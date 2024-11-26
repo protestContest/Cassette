@@ -1,0 +1,146 @@
+@font-face {font-family: "Berkeley Mono"; src: url("https://cassette-lang.com/fonts/BerkeleyMono.woff2"); font-weight: normal; font-style: normal;}
+@font-face {font-family: "Berkeley Mono"; src: url("https://cassette-lang.com/fonts/BerkeleyMono-Bold.woff2"); font-weight: bold; font-style: normal;}
+@font-face {font-family: "Berkeley Mono"; src: url("https://cassette-lang.com/fonts/BerkeleyMono-Italic.woff2"); font-weight: normal; font-style: italic;}
+@font-face {font-family: "Berkeley Mono"; src: url("https://cassette-lang.com/fonts/BerkeleyMono-BoldItalic.woff2"); font-weight: bold; font-style: italic;}
+@font-face {font-family: "Libre Franklin"; src: url("https://cassette-lang.com/fonts/LibreFranklin-Regular.ttf"); font-weight: 400; font-style: normal; }
+@font-face {font-family: "Libre Franklin"; src: url("https://cassette-lang.com/fonts/LibreFranklin-Medium.ttf"); font-weight: 500; font-style: normal; }
+@font-face {font-family: "Libre Franklin"; src: url("https://cassette-lang.com/fonts/LibreFranklin-SemiBold.ttf"); font-weight: 600; font-style: normal; }
+@font-face {font-family: "Libre Franklin"; src: url("https://cassette-lang.com/fonts/LibreFranklin-RegularItalic.ttf"); font-weight: 400; font-style: italic; }
+@font-face {font-family: "Libre Franklin"; src: url("https://cassette-lang.com/fonts/LibreFranklin-MediumItalic.ttf"); font-weight: 500; font-style: italic; }
+@font-face {font-family: "Libre Franklin"; src: url("https://cassette-lang.com/fonts/LibreFranklin-SemiBoldItalic.ttf"); font-weight: 600; font-style: italic; }
+
+:root {
+  --black:    #0A0B11;
+  --white:    #F0F1F3;
+  --dark:     #2D2F38;
+  --light:    #EBECEF;
+  --base03:   #002B36;
+  --base02:   #073642;
+  --base01:   #586E75;
+  --base00:   #657B83;
+  --base0:    #839496;
+  --base1:    #93A1A1;
+  --base2:    #EEE8D5;
+  --base3:    #FDF6E3;
+  --yellow:   #B58900;
+  --orange:   #CB4B16;
+  --red:      #DC322F;
+  --magenta:  #D33682;
+  --violet:   #6C71C4;
+  --blue:     #268BD2;
+  --cyan:     #2AA198;
+  --green:    #859900;
+
+  color-scheme: light dark;
+  font-family: "Libre Franklin", sans-serif;
+  font-size: 14pt;
+  line-height: 1.5;
+  color: var(--black);
+  background-color: var(--white);
+}
+
+.kw {color: var(--green);}
+.str {color: var(--cyan);}
+.num {color: var(--violet);}
+.cm {color: var(--base1);}
+.fn {color: var(--yellow);}
+.var {color: var(--blue);}
+.sym {color: var(--red);}
+
+body {
+  margin: auto;
+  max-width: 800px;
+  padding: 0 8px;
+  overflow-wrap: break-word;
+}
+header {
+  text-align: center;
+}
+.banner {
+  max-width: 100%;
+}
+main {
+}
+pre {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 12pt;
+  border: 1px solid var(--black);
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: inset 0 0 4px -2px var(--black);
+  line-height: 1;
+  overflow-x: auto;
+  background: var(--light);
+}
+td > :first-child {
+  margin-top: 0;
+}
+td > :last-child {
+  margin-bottom: 0;
+}
+code {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 12pt;
+  border: 1px solid var(--black);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin: 0 2px;
+}
+footer {
+  margin-top: 4rem;
+}
+footer > center {
+  padding: 1rem 0;
+}
+h2, h3 {
+  margin-top: 2em;
+}
+h2 {
+  border-bottom: 1px solid var(--black);
+}
+h2 + h3 {
+  margin-top: 0;
+}
+h1 a, h2 a, h3 a {
+  text-decoration: none;
+}
+i {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 12pt;
+  padding: 0 4px;
+  margin: 0 2px;
+}
+a {
+  color: var(--black);
+}
+
+aside::before {
+  content: 'i';
+  font-family: "Berkeley Mono", monospace;
+  font-weight: bold;
+  font-style: italic;
+  position: absolute;
+  top: 0;
+  left: 10px;
+  display: flex;
+  width: 24px;
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+}
+
+aside {
+  font-size: smaller;
+  margin: 2em 0;
+  padding: 0px 20px 0px 50px;
+  position: relative;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --black: #F0F1F3;
+    --white: #2D2F38;
+    --dark: #F8F9FB;
+    --light: #2D2F38;
+  }
+}
