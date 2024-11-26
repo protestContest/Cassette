@@ -20,7 +20,7 @@ Error *NewRuntimeError(char *message, u32 pos, u32 link, SourceMap *srcmap)
 
   char *file = GetSourceFile(pos, srcmap);
   u32 srcpos = GetSourcePos(pos, srcmap);
-  Error *error = NewError(NewString("Runtime error: ^"), file, srcpos, 0);
+  Error *error = NewError("Runtime error: ^", file, srcpos, 0);
   error->message = FormatString(error->message, message);
   error->stacktrace = BuildStackTrace(link, srcmap);
   return error;

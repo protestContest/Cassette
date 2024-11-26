@@ -45,9 +45,12 @@ void InitParser(Parser *p, char *text)
 
 static ASTNode *ParseError(char *msg, Parser *p)
 {
+  ASTNode *node;
   char *error = NewString("Parse error: ^");
   error = FormatString(error, msg);
-  return MakeTerminal(errorNode, Symbol(error), p);
+  node = MakeTerminal(errorNode, Symbol(error), p);
+  free(error);
+  return node;
 }
 
 static bool MatchToken(TokenType type, Parser *p)

@@ -7,5 +7,6 @@ typedef struct {
   char *default_imports;
 } Opts;
 
-bool ParseOpts(int argc, char *argv[], Opts *opts);
-void DestroyOpts(Opts *opts);
+Opts *DefaultOpts(void);
+Opts *ParseOpts(int argc, char *argv[]);
+void FreeOpts(Opts *opts);

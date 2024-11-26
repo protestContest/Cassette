@@ -1,4 +1,4 @@
-#include "opts.h"
+#include "compile/opts.h"
 #include "univ/file.h"
 #include "univ/str.h"
 #include <unistd.h>
@@ -42,13 +42,20 @@ static void PrintVersion(void)
   free(lib_path);
 }
 
-bool ParseOpts(int argc, char *argv[], Opts *opts)
+Opts *DefaultOpts(void)
 {
-  int ch;
+  Opts *opts = malloc(sizeof(Opts));
   opts->debug = false;
-  opts->lib_path = 0;
+  opts->lib_path = GetLibPath();
   opts->entry = 0;
-  opts->default_imports = 0;
+  opts->default_imports = NewString(DEFAULT_IMPORTS);
+  return opts;
+}
+
+Opts *ParseOpts(int argc, char *argv[])
+{
+  Opts *opts = DefaultOpts();
+  int ch;
 
   while ((ch = getopt(argc, argv, "hvdL:i:")) >= 0) {
     switch (ch) {
@@ -56,38 +63,37 @@ bool ParseOpts(int argc, char *argv[], Opts *opts)
       opts->debug = true;
       break;
     case 'L':
+      free(opts->lib_path);
       opts->lib_path = NewString(optarg);
       break;
     case 'v':
       PrintVersion();
-      return false;
+      FreeOpts(opts);
+      return 0;
     case 'i':
+      free(opts->default_imports);
       opts->default_imports = NewString(optarg);
       break;
     default:
       Usage();
-      return false;
+      FreeOpts(opts);
+      return 0;
     }
   }
 
   if (optind == argc) {
     Usage();
+    FreeOpts(opts);
     exit(1);
   }
 
-  if (opts->lib_path == 0) {
-    opts->lib_path = GetLibPath();
-  }
-  if (opts->default_imports == 0) {
-    opts->default_imports = NewString(DEFAULT_IMPORTS);
-  }
-
   opts->entry = argv[optind];
-  return true;
+  return opts;
 }
 
-void DestroyOpts(Opts *opts)
+void FreeOpts(Opts *opts)
 {
   if (opts->lib_path) free(opts->lib_path);
   if (opts->default_imports) free(opts->default_imports);
+  free(opts);
 }

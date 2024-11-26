@@ -64,7 +64,7 @@ test: $(EXECTARGET)
 
 .PHONY: leaks
 leaks: $(EXECTARGET)
-	leaks -atExit -- $(EXECTARGET) $(TESTFILE)
+	leaks -atExit -- $(EXECTARGET) -L share $(TESTFILE)
 
 .PHONY: syntax
 syntax:

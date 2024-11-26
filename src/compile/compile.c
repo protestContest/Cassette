@@ -45,6 +45,7 @@ static Chunk *UndefinedVariable(ASTNode *node, Compiler *c)
   char *msg = NewString("Undefined variable \"^\"");
   msg = FormatString(msg, SymbolName(NodeValue(node)));
   c->error = NewError(msg, 0, node->start, node->end - node->start);
+  free(msg);
   return 0;
 }
 
@@ -53,6 +54,7 @@ static Chunk *UndefinedTrap(ASTNode *node, Compiler *c)
   char *msg = NewString("Undefined host function \"^\"");
   msg = FormatString(msg, SymbolName(NodeValue(node)));
   c->error = NewError(msg, 0, node->start, node->end - node->start);
+  free(msg);
   return 0;
 }
 
@@ -61,6 +63,7 @@ static Chunk *UndefinedModule(ASTNode *node, Compiler *c)
   char *msg = NewString("Undefined module \"^\"");
   msg = FormatString(msg, SymbolName(NodeValue(node)));
   c->error = NewError(msg, 0, node->start, node->end - node->start);
+  free(msg);
   return 0;
 }
 
@@ -547,6 +550,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
       if (!def_chunk) {
         FreeVec(defs);
         FreeVec(stmts);
+        FreeChunk(set_chunk);
         return CompileFail(chunk);
       }
       def_chunk = PreservingEnv(def_chunk, set_chunk);
@@ -573,6 +577,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
       if (!stmt_chunk) {
         FreeVec(defs);
         FreeVec(stmts);
+        FreeChunk(stmts_chunk);
         return CompileFail(chunk);
       }
       if (!is_last) stmts_chunk = PrependChunk(opDrop, stmts_chunk);

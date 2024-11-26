@@ -11,21 +11,21 @@
 
 static Error *FileNotFound(char *filename)
 {
-  Error *error = NewError(NewString("File \"^\" not found"), filename, 0, 0);
+  Error *error = NewError("File \"^\" not found", filename, 0, 0);
   error->message = FormatString(error->message, filename);
   return error;
 }
 
 static Error *ModuleNotFound(char *name, char *file, u32 pos, u32 len)
 {
-  Error *error = NewError(NewString("Module \"^\" not found"), file, pos, len);
+  Error *error = NewError("Module \"^\" not found", file, pos, len);
   error->message = FormatString(error->message, name);
   return error;
 }
 
 static Error *BadImportList(char *imports)
 {
-  Error *error = NewError(NewString("Bad import list: \"^\""), 0, 0, 0);
+  Error *error = NewError("Bad import list: \"^\"", 0, 0, 0);
   error->message = FormatString(error->message, imports);
   return error;
 }
@@ -66,14 +66,17 @@ static void AddChunkSource(Chunk *chunk, char *filename, SourceMap *map)
   AddSourceFile(map, filename, ChunkSize(chunk));
 }
 
-Project *NewProject(void)
+Project *NewProject(Opts *opts)
 {
   Project *project = malloc(sizeof(Project));
   project->modules = 0;
   InitHashMap(&project->mod_map);
   project->program = 0;
   project->build_list = 0;
-  project->default_imports = 0;
+  project->opts = opts ? opts : DefaultOpts();
+  if (project->opts->entry) {
+    AddProjectFile(project, project->opts->entry);
+  }
   return project;
 }
 
@@ -86,6 +89,7 @@ void FreeProject(Project *project)
   FreeVec(project->modules);
   DestroyHashMap(&project->mod_map);
   FreeVec(project->build_list);
+  FreeOpts(project->opts);
   free(project);
 }
 
@@ -188,6 +192,8 @@ static void LinkModules(Project *project)
   HashMap strings = EmptyHashMap;
   u8 *cur;
 
+  program->trace = project->opts->debug;
+
   /* The intro chunk sets up the module register (if there are any imports) */
   if (VecCount(project->build_list) > 1) {
     intro_chunk = NewChunk(0);
@@ -272,8 +278,8 @@ Error *BuildProject(Project *project)
       return NewError(msg, mod->filename, mod->ast->start, len);
     }
 
-    if (project->default_imports) {
-      error = AddDefaultImports(mod, project->default_imports);
+    if (project->opts->default_imports) {
+      error = AddDefaultImports(mod, project->opts->default_imports);
       if (error) return error;
     }
 
