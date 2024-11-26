@@ -5,28 +5,11 @@
 #include "runtime/symbol.h"
 #include "univ/str.h"
 
-/*
-A compiler object holds context for compiling an AST node. `Compile` is a
-wrapper around `CompileExpr`, which dispatches to a compile function based on
-the node type. Compile functions generally start with "Compile...".
-
-Each compile function takes a node, a compiler object, and whether the node is
-in a tail position. Terminal nodes in a tail position should compile code to
-return. Each compile function should return a chunk of code on success, or null
-on error. Errors should be set on the compiler object using one of the
-convenience error functions.
-
-Compile functions may use emitter functions to write bytecode to a chunk.
-Emitter functions generally start with "Write...".
-*/
-
-void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map)
+void InitCompiler(Compiler *c, Project *project)
 {
-  c->env = 0;
+  c->project = project;
   c->error = 0;
-  c->modules = modules;
-  c->mod_map = mod_map;
-  c->mod_id = 0;
+  c->env = 0;
   c->current_mod = 0;
   InitHashMap(&c->alias_map);
   InitHashMap(&c->host_imports);
@@ -42,27 +25,30 @@ void DestroyCompiler(Compiler *c)
 
 static Chunk *UndefinedVariable(ASTNode *node, Compiler *c)
 {
+  char *filename = c->project->modules[c->current_mod].filename;
   char *msg = NewString("Undefined variable \"^\"");
   msg = FormatString(msg, SymbolName(NodeValue(node)));
-  c->error = NewError(msg, 0, node->start, node->end - node->start);
+  c->error = NewError(msg, filename, node->start, node->end - node->start);
   free(msg);
   return 0;
 }
 
 static Chunk *UndefinedTrap(ASTNode *node, Compiler *c)
 {
+  char *filename = c->project->modules[c->current_mod].filename;
   char *msg = NewString("Undefined host function \"^\"");
   msg = FormatString(msg, SymbolName(NodeValue(node)));
-  c->error = NewError(msg, 0, node->start, node->end - node->start);
+  c->error = NewError(msg, filename, node->start, node->end - node->start);
   free(msg);
   return 0;
 }
 
 static Chunk *UndefinedModule(ASTNode *node, Compiler *c)
 {
+  char *filename = c->project->modules[c->current_mod].filename;
   char *msg = NewString("Undefined module \"^\"");
   msg = FormatString(msg, SymbolName(NodeValue(node)));
-  c->error = NewError(msg, 0, node->start, node->end - node->start);
+  c->error = NewError(msg, filename, node->start, node->end - node->start);
   free(msg);
   return 0;
 }
@@ -349,7 +335,7 @@ static Chunk *CompileVar(ASTNode *node, bool returns, Compiler *c)
   }
 
   if (pos < 0) {
-    ASTNode *imports = ModuleImports(&c->modules[c->current_mod]);
+    ASTNode *imports = ModuleImports(&c->project->modules[c->current_mod]);
     ASTNode *alias = FindImportedAlias(name, imports);
     if (alias) {
       return CompileRef(alias, node, returns, c);
@@ -923,7 +909,7 @@ static Chunk *CompileRef(
     return UndefinedVariable(alias, c);
   }
   mod_index = HashMapGet(&c->alias_map, NodeValue(alias));
-  mod = &c->modules[mod_index];
+  mod = &c->project->modules[mod_index];
   mod_exports = NodeChild(mod->ast, 2);
 
   for (sym_index = 0; sym_index < NodeCount(mod_exports); sym_index++) {
@@ -959,7 +945,7 @@ static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
   */
 
   ASTNode *imports = NodeChild(node, 1);
-  u32 i;
+  u32 i, mod_id;
   Chunk *chunk;
 
   InitHashMap(&c->alias_map);
@@ -977,18 +963,19 @@ static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
       }
       continue;
     }
-    if (!HashMapContains(c->mod_map, name)) {
+    if (!HashMapContains(&c->project->mod_map, name)) {
       return UndefinedModule(NodeChild(import, 0), c);
     }
-    mod_index = HashMapGet(c->mod_map, name);
+    mod_index = HashMapGet(&c->project->mod_map, name);
     HashMapSet(&c->alias_map, alias, mod_index);
   }
 
   chunk = CompileExpr(NodeChild(node, 3), false, c);
   if (!chunk) return 0;
 
-  if (c->mod_id > 0) {
-    EmitSetModule(chunk, c->mod_id);
+  mod_id = c->project->modules[c->current_mod].id;
+  if (mod_id > 0) {
+    EmitSetModule(chunk, mod_id);
   }
 
   DestroyHashMap(&c->alias_map);
@@ -1041,7 +1028,10 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   }
 }
 
-Chunk *Compile(ASTNode *node, Compiler *c)
+Error *Compile(Compiler *c, u32 mod_index)
 {
-  return CompileExpr(node, false, c);
+  Module *mod = &c->project->modules[mod_index];
+  c->current_mod = mod_index;
+  mod->code = CompileExpr(mod->ast, false, c);
+  return c->error;
 }

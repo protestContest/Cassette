@@ -297,16 +297,10 @@ Error *BuildProject(Project *project)
   if (error) return error;
 
   /* compile each module in the build list */
-  InitCompiler(&c, project->modules, &project->mod_map);
+  InitCompiler(&c, project);
   for (i = 0; i < VecCount(project->build_list); i++) {
-    u32 index = project->build_list[i];
-    Module *mod = &project->modules[index];
-    c.mod_id = mod->id;
-    c.current_mod = index;
-    mod->code = Compile(mod->ast, &c);
-    if (c.error) {
-      error = c.error;
-      error->filename = NewString(mod->filename);
+    error = Compile(&c, project->build_list[i]);
+    if (error) {
       DestroyCompiler(&c);
       return error;
     }

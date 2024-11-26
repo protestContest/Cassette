@@ -1,23 +1,23 @@
 #pragma once
 
-/* Functions for compiling ASTNodes into bytecode */
+/*
+A compiler object holds context for compiling a module's AST to a Chunk.
+*/
 
 #include "compile/env.h"
-#include "compile/module.h"
+#include "compile/project.h"
 #include "runtime/error.h"
 #include "univ/hashmap.h"
 
 typedef struct {
-  Env *env;
+  Project *project; /* borrowed */
   Error *error; /* borrowed */
-  Module *modules; /* vec */
-  HashMap *mod_map; /* borrowed */
+  Env *env;
+  u32 current_mod;
   HashMap alias_map;
   HashMap host_imports;
-  u32 mod_id;
-  u32 current_mod;
 } Compiler;
 
-void InitCompiler(Compiler *c, Module *modules, HashMap *mod_map);
+void InitCompiler(Compiler *c, Project *project);
 void DestroyCompiler(Compiler *c);
-Chunk *Compile(ASTNode *ast, Compiler *c);
+Error *Compile(Compiler *c, u32 mod_index);
