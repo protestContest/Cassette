@@ -169,7 +169,7 @@ result=$(cat <<-EOF
   <body>
     <main>
       <h1>Commit Activity</h1>
-      <p>This is a graph of commit activity in Cassette. Last generated ${TODAY}.</p>
+      <p>This is a graph of commit activity in <a href="https://github.com/protestContest/Cassette">Cassette</a>. Last generated ${TODAY}.</p>
       <div class='activity'>
         ${years_result}
       </div>
