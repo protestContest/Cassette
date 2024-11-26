@@ -70,6 +70,10 @@ leaks: $(EXECTARGET)
 syntax:
 	bison -v support/syntax.txt -o support/syntax.tab && rm support/syntax.tab
 
+.PHONY: activity
+activity:
+	support/activity.sh > support/site/activity.html
+
 .PHONY: sign
 sign: $(EXECTARGET)
 	codesign -f -s 'Development' --entitlements support/entitlements.xml $(LIBTARGET)
