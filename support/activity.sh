@@ -1,45 +1,68 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
 WEEKSTART="Mon"
 TODAY=$(date -I)
+TOMORROW=$(date -j -v +1d -f "%Y-%m-%d" "$TODAY" +"%Y-%m-%d")
 
+# given a year in $year, generate a "cols" div in $result
 gen_year() {
   start=$(date -j -f "%Y" "$year" +%Y-01-01)
   end=$(date -j -v +1y -f "%Y-%m-%d" "$start" +%Y-%m-%d)
   generate
 }
 
+# given dates in $start and $end, generate a "cols" div in $result
 generate() {
+  local col
+  local commit
+  local count
+  local cur
+  local day
+  local item
+  local items
+  local lvl
+  local label
+  local month
+  local next
+  local weekday
+
   result=""
   items=""
+
+  # add empty items for each weekday before $start
   cur=$start
   weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
   while [ "$weekday" != "$WEEKSTART" ]; do
     cur=$(date -j -v -1d -f "%Y-%m-%d" "$cur" +%Y-%m-%d)
     weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
-    item="      <div class='item'></div>\n"
+    item="      <div class='item'></div>"
     items="${items}${item}"
   done
   WEEKEND=$(date -j -v -1d -f "%Y-%m-%d" "$cur" +%a)
 
+  # main loop
   cur=$start
-  while [ "$cur" != "$end" ] && [ "$cur" != "$TODAY" ]; do
+  while [ "$cur" != "$end" ] && [ "$cur" != "$TOMORROW" ]; do
     next=$(date -j -v +1d -f "%Y-%m-%d" "$cur" +%Y-%m-%d)
     weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
     day=$(date -j -f "%Y-%m-%d" "$cur" +%d)
     month=$(date -j -f "%Y-%m-%d" "$cur" +%b)
 
+    # get commit count for current date
     count=$(git shortlog -s --since="$cur" --before="$next" | xargs | cut -d " " -f1)
     if [ -z "$count" ]; then
       count=0
     fi
 
+    # pluralize "commit"
     commit="commits"
     if [ "$count" = "1" ]; then
       commit="commit"
     fi
+
+    # determine level based on number of commits
     lvl=0
     if [ "$count" -gt 0 ]; then
       lvl=1
@@ -54,15 +77,19 @@ generate() {
       lvl=4
     fi
 
+    # add month label for week containing first day of the month
     if [ "$day" = "01" ]; then
-      label="      <div class='label'>${month}</div>\n"
+      label="      <div class='label'>${month}</div>"
     fi
 
-    item="      <div class='item lvl${lvl}' title='${cur}: ${count} ${commit}'></div>\n"
+    # append day item
+    item="      <div class='item lvl${lvl}' title='${cur}: ${count} ${commit}'></div>"
     items="${items}${item}"
 
+    # if this is the last day of the week, roll up items into a "col" and add
+    # to $result. $items and $label are reset.
     if [ "$weekday" = "$WEEKEND" ]; then
-      col="    <div class='col'>\n${label}${items}    </div>\n"
+      col="    <div class='col'>${label}${items}    </div>"
       result="${result}${col}"
       items=""
       label=""
@@ -71,19 +98,22 @@ generate() {
     cur=$next
   done
 
+  # fill the last week with empty items
   weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
   while [ "$weekday" != "$WEEKSTART" ]; do
-    item="      <div class='item'></div>\n"
+    item="      <div class='item'></div>"
     items="${items}${item}"
     cur=$(date -j -v +1d -f "%Y-%m-%d" "$cur" +%Y-%m-%d)
     weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
   done
 
+  # if the loop ended mid-week, accumulate the leftover items
   if [ -n "$items" ]; then
-    col="    <div class='col'>\n${items}    </div>\n"
+    col="    <div class='col'>${items}    </div>"
     result="${result}${col}"
   fi
 
+  # format the result
   result=$(cat <<-EOF
     <div class='cols'>
       <div class='col labels'>
@@ -101,10 +131,12 @@ EOF
   )
 }
 
+# get date of first commit
 START=$(git log --date=short --pretty=format:%ad | tail -n 1)
 year=$(date -j -f "%Y-%m-%d" "$START" +%Y)
 end_year=$(date -j -v +1y -f "%Y-%m-%d" "$TODAY" +%Y)
 
+# generate a graph for each year
 years_result=""
 while [ "$year" != "$end_year" ]; do
   gen_year
@@ -117,6 +149,7 @@ EOF
   year=$(date -j -v +1y -f "%Y" "$year" +%Y)
 done
 
+# format HTML page
 result=$(cat <<-EOF
 <!DOCTYPE html>
 <html>

@@ -76,3 +76,16 @@
   background-color: rgb(33, 110, 57);
   border: 1px solid rgba(0,0,0,0.1);
 }
+
+@media (prefers-color-scheme: dark) {
+  .activity .item.lvl0 {
+    background-color: hsl(225, 14%, 24%);
+  }
+  .activity .item.lvl0,
+  .activity .item.lvl1,
+  .activity .item.lvl2,
+  .activity .item.lvl3,
+  .activity .item.lvl4 {
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+}
