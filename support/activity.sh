@@ -4,12 +4,12 @@ set -e
 
 WEEKSTART="Mon"
 TODAY=$(date -I)
-TOMORROW=$(date -j -v +1d -f "%Y-%m-%d" "$TODAY" +"%Y-%m-%d")
+TOMORROW=$(date -j -v +1d -f "%F" "$TODAY" +"%F")
 
 # given a year in $year, generate a "cols" div in $result
 gen_year() {
   start=$(date -j -f "%Y" "$year" +%Y-01-01)
-  end=$(date -j -v +1y -f "%Y-%m-%d" "$start" +%Y-%m-%d)
+  end=$(date -j -v +1y -f "%F" "$start" +%F)
   generate
 }
 
@@ -27,31 +27,35 @@ generate() {
   local month
   local next
   local weekday
+  local since
+  local until
 
   result=""
   items=""
 
   # add empty items for each weekday before $start
   cur=$start
-  weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
+  weekday=$(date -j -f "%F" "$cur" +%a)
   while [ "$weekday" != "$WEEKSTART" ]; do
-    cur=$(date -j -v -1d -f "%Y-%m-%d" "$cur" +%Y-%m-%d)
-    weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
+    cur=$(date -j -v -1d -f "%F" "$cur" +%F)
+    weekday=$(date -j -f "%F" "$cur" +%a)
     item="      <div class='item'></div>"
     items="${items}${item}"
   done
-  WEEKEND=$(date -j -v -1d -f "%Y-%m-%d" "$cur" +%a)
+  WEEKEND=$(date -j -v -1d -f "%F" "$cur" +%a)
 
   # main loop
   cur=$start
   while [ "$cur" != "$end" ] && [ "$cur" != "$TOMORROW" ]; do
-    next=$(date -j -v +1d -f "%Y-%m-%d" "$cur" +%Y-%m-%d)
-    weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
-    day=$(date -j -f "%Y-%m-%d" "$cur" +%d)
-    month=$(date -j -f "%Y-%m-%d" "$cur" +%b)
+    next=$(date -j -v +1d -f "%F" "$cur" +%F)
+    weekday=$(date -j -f "%F" "$cur" +%a)
+    day=$(date -j -f "%F" "$cur" +%d)
+    month=$(date -j -f "%F" "$cur" +%b)
 
     # get commit count for current date
-    count=$(git shortlog -s --since="$cur" --before="$next" | xargs | cut -d " " -f1)
+    since=$(date -j -f "%F" "$cur" +%FT00:00:00Z)
+    until=$(date -j -f "%F" "$next" +%FT00:00:00Z)
+    count=$(git shortlog -s --since="$since" --until="$until" | xargs | cut -d " " -f1)
     if [ -z "$count" ]; then
       count=0
     fi
@@ -99,12 +103,12 @@ generate() {
   done
 
   # fill the last week with empty items
-  weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
+  weekday=$(date -j -f "%F" "$cur" +%a)
   while [ "$weekday" != "$WEEKSTART" ]; do
     item="      <div class='item'></div>"
     items="${items}${item}"
-    cur=$(date -j -v +1d -f "%Y-%m-%d" "$cur" +%Y-%m-%d)
-    weekday=$(date -j -f "%Y-%m-%d" "$cur" +%a)
+    cur=$(date -j -v +1d -f "%F" "$cur" +%F)
+    weekday=$(date -j -f "%F" "$cur" +%a)
   done
 
   # if the loop ended mid-week, accumulate the leftover items
@@ -133,8 +137,8 @@ EOF
 
 # get date of first commit
 START=$(git log --date=short --pretty=format:%ad | tail -n 1)
-year=$(date -j -f "%Y-%m-%d" "$START" +%Y)
-end_year=$(date -j -v +1y -f "%Y-%m-%d" "$TODAY" +%Y)
+year=$(date -j -f "%F" "$START" +%Y)
+end_year=$(date -j -v +1y -f "%F" "$TODAY" +%Y)
 
 # generate a graph for each year
 years_result=""
