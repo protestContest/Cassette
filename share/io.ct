@@ -85,7 +85,7 @@ end
 def print(str) write(stdout(), format([str, "\n"]))
 
 def inspect(val) do
-  print(inspect(val))
+  print(Value.inspect(val))
   val
 end
 
