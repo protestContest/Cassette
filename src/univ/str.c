@@ -1,6 +1,7 @@
 #include "univ/str.h"
 #include "univ/math.h"
 #include <string.h>
+#include <malloc/malloc.h>
 
 bool StrEq(char *s1, char *s2)
 {
@@ -143,4 +144,12 @@ void WriteBE(u32 num, u8 *dst)
   dst[1] = (num >> 16) & 0xFF;
   dst[2] = (num >> 8) & 0xFF;
   dst[3] = num & 0xFF;
+}
+
+char *TerminateString(char *str)
+{
+  i32 size = malloc_size(str);
+  str = realloc(str, size+1);
+  str[size] = 0;
+  return str;
 }

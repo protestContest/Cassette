@@ -92,7 +92,6 @@ void FreeProject(Project *project)
   FreeVec(project->modules);
   DestroyHashMap(&project->mod_map);
   FreeVec(project->build_list);
-  FreeOpts(project->opts);
   free(project);
 }
 
@@ -104,7 +103,7 @@ Error *AddProjectFile(Project *project, char *filename)
   for (i = 0; i < VecCount(project->modules); i++) {
     if (StrEq(project->modules[i].filename, filename)) return 0;
   }
-  source = ReadFile(filename);
+  source = ReadTextFile(filename);
   if (!source) return FileNotFound(filename);
   InitModule(&mod);
   mod.filename = NewString(filename);
@@ -265,7 +264,6 @@ Error *BuildProject(Project *project)
   Error *error;
   Compiler c;
 
-  /* avoid clobbering symbol bits when used in tagged values */
   SetSymbolSize(valBits);
 
   /* parse each source file and add it to mod_map */

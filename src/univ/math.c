@@ -100,3 +100,11 @@ u32 FoldHash(u32 hash, i32 size)
   return (hash ^ ((hash & ~mask) >> size)) & mask;
 }
 
+u32 ByteSwap(u32 n)
+{
+  return
+    (n << 24) |
+    ((n&0x0000FF00) << 8) |
+    ((n&0x00FF0000) >> 8) |
+    (n >> 24);
+}

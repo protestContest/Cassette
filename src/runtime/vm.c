@@ -16,6 +16,7 @@ void InitVM(VM *vm, Program *program)
   for (i = 0; i < ArrayCount(vm->regs); i++) vm->regs[i] = 0;
   vm->link = 0;
   vm->program = program;
+  SetSymbolSize(valBits);
   if (program) {
     char *names = program->strings;
     u32 len = VecCount(program->strings);

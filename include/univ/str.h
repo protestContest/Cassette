@@ -28,3 +28,4 @@ u32 ColNum(char *str, u32 index);
 u32 WriteStr(char *str, u32 len, char *buf);
 u32 WriteNum(i32 num, char *buf);
 void WriteBE(u32 num, u8 *dst);
+char *TerminateString(char *str);

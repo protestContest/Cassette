@@ -162,7 +162,7 @@ i32 Connect(char *node, char *port, char **error)
   return s;
 }
 
-char *ReadFile(char *path)
+void *ReadFile(char *path)
 {
   int file;
   u32 size;
@@ -172,14 +172,30 @@ char *ReadFile(char *path)
   if (file < 0) return 0;
   size = lseek(file, 0, 2);
   lseek(file, 0, 0);
-  data = malloc(size + 1);
+  data = malloc(size);
   read(file, data, size);
-  data[size] = 0;
   close(file);
   return data;
 }
 
-i32 WriteFile(u8 *data, u32 size, char *path)
+char *ReadTextFile(char *path)
+{
+  int file;
+  u32 size;
+  char *data;
+
+  file = open(path, O_RDWR, 0);
+  if (file < 0) return 0;
+  size = lseek(file, 0, 2);
+  lseek(file, 0, 0);
+  data = malloc(size+1);
+  read(file, data, size);
+  close(file);
+  data[size] = 0;
+  return data;
+}
+
+i32 WriteFile(void *data, u32 size, char *path)
 {
   int file;
   i32 written;
@@ -257,9 +273,27 @@ char *FileExt(char *path)
   return LastIndex(path, '.');
 }
 
+char *ReplaceExt(char *path, char *ext)
+{
+  char *oldExt = FileExt(path);
+  i32 baseLen = StrLen(path) - StrLen(oldExt);
+  i32 extLen = StrLen(ext);
+  char *newPath = malloc(baseLen + extLen + 1);
+  Copy(path, newPath, baseLen);
+  Copy(ext, newPath+baseLen, extLen);
+  newPath[baseLen+extLen] = 0;
+  return newPath;
+}
+
 char *DirName(char *path)
 {
   return dirname(path);
+}
+
+bool FileExists(char *path)
+{
+  struct stat info;
+  return stat(path, &info) == 0;
 }
 
 bool DirExists(char *path)

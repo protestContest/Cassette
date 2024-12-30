@@ -1,8 +1,8 @@
 #include "runtime/program.h"
-#include "runtime/ops.h"
-#include "univ/math.h"
-#include "univ/str.h"
+#include "univ/file.h"
 #include "univ/vec.h"
+#include "univ/iff.h"
+#include "univ/str.h"
 
 Program *NewProgram(void)
 {
@@ -21,50 +21,43 @@ void FreeProgram(Program *program)
   free(program);
 }
 
-u32 SerializeProgram(Program *program, u8 **dst)
+IFFChunk *SerializeProgram(Program *program)
 {
-  char form[4] = "FORM";
-  char tape[4] = "TAPE";
-  char code[4] = "CODE";
-  char strs[4] = "STRS";
+  IFFChunk *code = NewIFFChunk('CODE', program->code, VecCount(program->code));
+  IFFChunk *strs = NewIFFChunk('STRS', program->strings, VecCount(program->strings));
+  IFFChunk *form = NewIFFForm('TAPE');
+  form = IFFAppendChunk(form, code);
+  form = IFFAppendChunk(form, strs);
+  return form;
+}
 
-  u32 trailing_bytes, i;
-  u32 code_size = Align(VecCount(program->code), sizeof(u32));
-  u32 strs_size = Align(VecCount(program->strings), sizeof(u32));
-  u32 form_size = sizeof(tape)
-                + sizeof(code) + sizeof(code_size) + code_size
-                + sizeof(strs) + sizeof(strs_size) + strs_size;
-  u32 size = sizeof(form) + sizeof(form_size) + form_size;
-  u8 *cur;
-  *dst = realloc(*dst, size);
-  cur = *dst;
+Program *DeserializeProgram(IFFChunk *chunk)
+{
+  Program *program;
+  IFFChunk *code, *strs;
+  code = IFFGetFormField(chunk, 'TAPE', 'CODE');
+  strs = IFFGetFormField(chunk, 'TAPE', 'STRS');
 
-  Copy(form, cur, sizeof(form));
-  cur += sizeof(form);
-  WriteBE(form_size, cur);
-  cur += sizeof(form_size);
-  Copy(tape, cur, sizeof(tape));
-  cur += sizeof(tape);
-  Copy(code, cur, sizeof(code));
-  cur += sizeof(code);
-  WriteBE(code_size, cur);
-  cur += sizeof(code_size);
-  Copy(program->code, cur, VecCount(program->code));
-  cur += VecCount(program->code);
-  trailing_bytes = code_size - VecCount(program->code);
-  for (i = 0; i < trailing_bytes; i++) *cur++ = opNoop;
-  Copy(strs, cur, sizeof(strs));
-  cur += sizeof(strs);
-  WriteBE(strs_size, cur);
-  cur += sizeof(strs_size);
-  Copy(program->strings, cur, VecCount(program->strings));
-  cur += VecCount(program->strings);
-  trailing_bytes = strs_size - VecCount(program->strings);
-  for (i = 0; i < trailing_bytes; i++) *cur++ = 0;
-  return size;
+  program = NewProgram();
+  GrowVec(program->code, IFFDataSize(code));
+  Copy(IFFData(code), program->code, IFFDataSize(code));
+  GrowVec(program->strings, IFFDataSize(strs));
+  Copy(IFFData(strs), program->strings, IFFDataSize(strs));
+  return program;
+}
+
+Program *ReadProgramFile(char *filename)
+{
+  IFFChunk *data = ReadFile(filename);
+  if (!data) return false;
+  if (IFFFormType(data) != 'TAPE') return 0;
+  return DeserializeProgram(data);
 }
 
 #ifdef DEBUG
+#include "runtime/ops.h"
+#include "univ/math.h"
+
 void DisassembleProgram(Program *program)
 {
   u32 end = VecCount(program->code);

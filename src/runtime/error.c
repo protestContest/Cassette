@@ -93,7 +93,7 @@ void PrintError(Error *error)
   char *text = 0;
   u32 line, col;
   if (error->filename) {
-    text = ReadFile(error->filename);
+    text = ReadTextFile(error->filename);
     if (text) {
       line = LineNum(text, error->pos);
       col = ColNum(text, error->pos);
@@ -156,7 +156,7 @@ void PrintStackTrace(StackTrace *st)
 
   while (trace) {
     if (trace->filename) {
-      char *text = ReadFile(trace->filename);
+      char *text = ReadTextFile(trace->filename);
       if (text) {
         u32 line_num = LineNum(text, trace->pos);
         u32 col = ColNum(text, trace->pos);
@@ -173,7 +173,7 @@ void PrintStackTrace(StackTrace *st)
   fprintf(stderr, "Stacktrace:\n");
   while (trace) {
     if (trace->filename) {
-      char *text = ReadFile(trace->filename);
+      char *text = ReadTextFile(trace->filename);
       if (text) {
         u32 line = LineNum(text, trace->pos);
         u32 col = ColNum(text, trace->pos);

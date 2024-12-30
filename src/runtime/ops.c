@@ -786,6 +786,7 @@ static void OpStr(VM *vm)
   char *name;
   u32 len;
   u32 a;
+
   if (StackSize() < 1) {
     RuntimeError("Stack underflow", vm);
     return;
@@ -797,7 +798,7 @@ static void OpStr(VM *vm)
   }
   name = SymbolName(RawVal(a));
   if (!name) {
-    RuntimeError("Only symbols can become strings", vm);
+    RuntimeError("Unrecognized symbol", vm);
     return;
   }
   len = StrLen(name);

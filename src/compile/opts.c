@@ -5,12 +5,13 @@
 
 #define VERSION "2.0.0"
 
-#define DEFAULT_IMPORTS "Enum, IO, List, Map, Math, Record, String, Value (nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect), Host (typeof, symbol_name, format, hash)"
+#define DEFAULT_IMPORTS "IO, List, Map, Math, Record, String, Value (nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect), Host (typeof, symbol_name, format, hash)"
 
 static void Usage(void)
 {
   fprintf(stderr, "Usage: cassette [opts] script\n");
   fprintf(stderr, "  -v            Print version\n");
+  fprintf(stderr, "  -c            Compile project\n");
   fprintf(stderr, "  -d            Enable debug mode\n");
   fprintf(stderr, "  -L lib_path   Library search path (defaults to $CASSETTE_PATH)\n");
   fprintf(stderr, "  -i imports    List of modules to auto-import\n");
@@ -46,6 +47,7 @@ Opts *DefaultOpts(void)
 {
   Opts *opts = malloc(sizeof(Opts));
   opts->debug = false;
+  opts->compile = false;
   opts->lib_path = GetLibPath();
   opts->entry = 0;
   opts->default_imports = NewString(DEFAULT_IMPORTS);
@@ -57,8 +59,11 @@ Opts *ParseOpts(int argc, char *argv[])
   Opts *opts = DefaultOpts();
   int ch;
 
-  while ((ch = getopt(argc, argv, "hvdL:i:")) >= 0) {
+  while ((ch = getopt(argc, argv, "chvdL:i:")) >= 0) {
     switch (ch) {
+    case 'c':
+      opts->compile = true;
+      break;
     case 'd':
       opts->debug = true;
       break;

@@ -18,10 +18,13 @@ i32 Listen(char *port, char **error);
 i32 Accept(i32 sock, char **error);
 i32 Connect(char *node, char *port, char **error);
 
-char *ReadFile(char *path);
-i32 WriteFile(u8 *data, u32 size, char *path);
+void *ReadFile(char *path);
+char *ReadTextFile(char *path);
+i32 WriteFile(void *data, u32 size, char *path);
 FileList *ListFiles(char *path, char *ext, FileList *list);
 char *FileExt(char *path);
+char *ReplaceExt(char *path, char *ext);
 char *DirName(char *path);
+bool FileExists(char *path);
 bool DirExists(char *path);
 char *HomeDir(void);

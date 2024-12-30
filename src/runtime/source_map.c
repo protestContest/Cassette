@@ -18,6 +18,7 @@ u32 GetSourcePos(u32 code_index, SourceMap *map)
 {
   u32 i = 0;
   u32 *cur = map->pos_map;
+  if (!cur) return 0;
   while (cur < VecEnd(map->pos_map)) {
     if (i + cur[1] > code_index) return cur[0];
     i += cur[1];
@@ -30,6 +31,7 @@ char *GetSourceFile(u32 code_index, SourceMap *map)
 {
   u32 i = 0;
   u32 *cur = map->file_map;
+  if (!cur) return 0;
   while (cur < VecEnd(map->file_map)) {
     if (i + cur[1] >= code_index) return SymbolName(cur[0]);
     i += cur[1];

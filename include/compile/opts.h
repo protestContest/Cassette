@@ -11,6 +11,7 @@ These options control aspects of how a program is compiled and run.
 
 typedef struct {
   bool debug;
+  bool compile;
   char *lib_path;
   char *entry;
   char *default_imports;

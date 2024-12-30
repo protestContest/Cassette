@@ -1,5 +1,6 @@
 #pragma once
 #include "runtime/source_map.h"
+#include "univ/iff.h"
 
 /*
 A Program is run by the VM.
@@ -18,7 +19,9 @@ typedef struct {
 
 Program *NewProgram(void);
 void FreeProgram(Program *program);
-u32 SerializeProgram(Program *program, u8 **dst);
+IFFChunk *SerializeProgram(Program *program);
+Program *DeserializeProgram(IFFChunk *data);
+Program *ReadProgramFile(char *filename);
 
 #ifdef DEBUG
 void DisassembleProgram(Program *program);

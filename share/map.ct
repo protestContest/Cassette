@@ -1,7 +1,7 @@
 module Map
 export
   new, put, get, delete, member?, count, reduce, merge, keys, values, items,
-  inspect, take, map?, iterate
+  inspect, take, map?
 
 ; a hash array mapped trie. each node has 16 "slots" and a bitmap of which slots
 ; are present. each node only stores the slots that are present. keys are mapped
@@ -11,8 +11,6 @@ export
 record Map(bits, entries)
 
 def map?(map) Record.type(map) == :Map
-
-def iterate(map) Enum.iterate(values(map))
 
 ; a map node stores its slot bitmap and its entries
 
@@ -192,7 +190,7 @@ def inspect(map) do
   def inspect_key(key) when symbol?(key), symbol_name(key)
   def inspect_key(key) inspect(key)
 
-  let items = Enum.map(items(map), \item ->
+  let items = List.map(items(map), \item ->
       [inspect_key(@item), ": ", Value.inspect(^item)])
   in ["{", List.intersperse(items, ", "), "}"]
 end
@@ -208,5 +206,3 @@ def take(map, keys) do
 
   loop(keys, new([]))
 end
-
-def iterate(map) Enum.iterate(values(map))
