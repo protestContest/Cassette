@@ -3,8 +3,6 @@
 #include "univ/str.h"
 #include <unistd.h>
 
-#define VERSION "2.0.0"
-
 #define DEFAULT_IMPORTS "IO, List, Map, Math, Record, String, Value (nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect), Host (typeof, symbol_name, format, hash)"
 
 #define DEFAULT_EXT ".ct"
@@ -40,7 +38,7 @@ static char *GetLibPath(void)
 static void PrintVersion(void)
 {
   char *lib_path = GetLibPath();
-  printf("Cassette %s\n", VERSION);
+  printf("Cassette %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
   printf("Library path: %s\n", lib_path ? lib_path : "None");
   free(lib_path);
 }

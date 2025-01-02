@@ -9,6 +9,10 @@ These options control aspects of how a program is compiled and run.
 `default_imports` is a list of modules to automatically import.
 */
 
+#define VERSION_MAJOR   2
+#define VERSION_MINOR   0
+#define VERSION_PATCH   0
+
 typedef struct {
   bool debug;
   bool compile;

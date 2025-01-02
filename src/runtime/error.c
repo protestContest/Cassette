@@ -4,7 +4,7 @@
 #include "univ/math.h"
 #include "univ/str.h"
 
-Error *NewError(char *message, char *filename, u32 pos, u32 length)
+Error *NewError(char *message, char *filename, i32 pos, u32 length)
 {
   Error *error = malloc(sizeof(Error));
   error->message = NewString(message);
@@ -15,7 +15,7 @@ Error *NewError(char *message, char *filename, u32 pos, u32 length)
   return error;
 }
 
-Error *NewRuntimeError(char *message, u32 pos, u32 link, SourceMap *srcmap)
+Error *NewRuntimeError(char *message, i32 pos, u32 link, SourceMap *srcmap)
 {
 
   char *file = GetSourceFile(pos, srcmap);
@@ -93,19 +93,24 @@ void PrintError(Error *error)
   char *text = 0;
   u32 line, col;
   if (error->filename) {
-    text = ReadTextFile(error->filename);
-    if (text) {
-      line = LineNum(text, error->pos);
-      col = ColNum(text, error->pos);
-      fprintf(stderr, "%s:%d:%d: ", error->filename, line+1, col+1);
+    fprintf(stderr, "%s", error->filename);
+    if (error->pos >= 0) {
+      text = ReadTextFile(error->filename);
+      if (text) {
+        line = LineNum(text, error->pos);
+        col = ColNum(text, error->pos);
+        fprintf(stderr, ":%d:%d", line+1, col+1);
+      }
     }
+    fprintf(stderr, ": ");
   }
   fprintf(stderr, "%s\n", error->message);
 
-  if (text) PrintSourceContext(text, error->pos, error->length, 1);
-
-  fprintf(stderr, "\n");
-  if(text) free(text);
+  if (text) {
+    PrintSourceContext(text, error->pos, error->length, 1);
+    fprintf(stderr, "\n");
+    free(text);
+  }
 
   if (error->stacktrace) PrintStackTrace(error->stacktrace);
 }

@@ -4,6 +4,8 @@
 #include "univ/iff.h"
 #include "univ/str.h"
 #include "univ/compress.h"
+#include "univ/math.h"
+#include "compile/opts.h"
 
 Program *NewProgram(void)
 {
@@ -24,9 +26,15 @@ void FreeProgram(Program *program)
 
 IFFChunk *SerializeProgram(Program *program)
 {
-  IFFChunk *code, *strs, *form;
+  IFFChunk *code, *vers, *strs, *form;
   u8 *compressed;
   u32 length;
+  u32 version[2];
+
+  version[0] = ByteSwap(VERSION_MAJOR);
+  version[1] = ByteSwap(VERSION_MINOR);
+
+  vers = NewIFFChunk('VERS', version, ArrayCount(version)*sizeof(*version));
 
   length = Compress(program->code, VecCount(program->code), &compressed, 8);
   code = NewIFFChunk('CODE', compressed, length);
@@ -37,24 +45,42 @@ IFFChunk *SerializeProgram(Program *program)
   free(compressed);
 
   form = NewIFFForm('TAPE');
+  form = IFFAppendChunk(form, vers);
   form = IFFAppendChunk(form, code);
   form = IFFAppendChunk(form, strs);
   return form;
 }
 
-Program *DeserializeProgram(IFFChunk *chunk)
+static Error *BadProgramFile(void)
+{
+  return NewError("Corrupt program file", 0, -1, 0);
+}
+
+static Error *UnsupportedVersion(void)
+{
+  return NewError("Unsupported version", 0, -1, 0);
+}
+
+Error *DeserializeProgram(IFFChunk *chunk, Program **result)
 {
   Program *program;
-  IFFChunk *code, *strs;
+  IFFChunk *vers, *code, *strs;
   u32 size;
   u8 *data;
+  u32 vMajor, vMinor;
 
-  if (IFFFormType(chunk) != 'TAPE') return 0;
+  if (IFFFormType(chunk) != 'TAPE') return BadProgramFile();
 
-  code = IFFGetField(chunk, 0);
-  if (!code || IFFChunkType(code) != 'CODE') return 0;
-  strs = IFFGetField(chunk, 1);
-  if (!strs || IFFChunkType(strs) != 'STRS') return 0;
+  vers = IFFGetField(chunk, 0);
+  if (!vers || IFFChunkType(vers) != 'VERS') return BadProgramFile();
+  vMajor = ByteSwap(((u32*)IFFData(chunk))[0]);
+  if (vMajor > VERSION_MAJOR) UnsupportedVersion();
+  vMinor = ByteSwap(((u32*)IFFData(chunk))[1]);
+  if (vMinor > VERSION_MINOR) UnsupportedVersion();
+  code = IFFGetField(chunk, 1);
+  if (!code || IFFChunkType(code) != 'CODE') BadProgramFile();
+  strs = IFFGetField(chunk, 2);
+  if (!strs || IFFChunkType(strs) != 'STRS') BadProgramFile();
 
   program = NewProgram();
   size = Decompress(IFFData(code), IFFDataSize(code), &data, 8);
@@ -65,14 +91,21 @@ Program *DeserializeProgram(IFFChunk *chunk)
   GrowVec(program->strings, size);
   Copy(data, program->strings, size);
   free(data);
-  return program;
+
+  *result = program;
+  return 0;
 }
 
-Program *ReadProgramFile(char *filename)
+Error *ReadProgramFile(char *filename, Program **program)
 {
   IFFChunk *data = ReadFile(filename);
-  if (!data) return 0;
-  return DeserializeProgram(data);
+  Error *error;
+  if (!data) NewError("Couldn't read file", filename, 0, 0);
+  error = DeserializeProgram(data, program);
+  if (error) {
+    error->filename = filename;
+  }
+  return error;
 }
 
 void WriteProgramFile(Program *program, char *filename)

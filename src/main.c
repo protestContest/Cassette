@@ -45,9 +45,9 @@ int main(int argc, char *argv[])
     program = project->program;
     FreeProject(project);
   } else {
-    program = ReadProgramFile(opts->entry);
-    if (!program) {
-      fprintf(stderr, "Error: Can't read program from \"%s\"\n", opts->entry);
+    Error *error = ReadProgramFile(opts->entry, &program);
+    if (error) {
+      PrintError(error);
       FreeOpts(opts);
       return 1;
     }
