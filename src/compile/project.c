@@ -115,7 +115,7 @@ Error *AddProjectFile(Project *project, char *filename)
 void ScanProjectFolder(Project *project, char *path)
 {
   u32 i;
-  FileList *list = ListFiles(path, ".ct", 0);
+  FileList *list = ListFiles(path, project->opts->source_ext, 0);
 
   for (i = 0; i < list->count; i++) {
     Error *error = AddProjectFile(project, list->filenames[i]);
@@ -278,7 +278,7 @@ Error *BuildProject(Project *project)
       return NewError(msg, mod->filename, mod->ast->start, len);
     }
 
-    if (project->opts->default_imports) {
+    if (*project->opts->default_imports) {
       error = AddDefaultImports(mod, project->opts->default_imports);
       if (error) return error;
     }

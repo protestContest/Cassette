@@ -2,12 +2,12 @@
 #include "compile/project.h"
 #include "runtime/vm.h"
 #include "univ/file.h"
+#include "univ/str.h"
 
 int main(int argc, char *argv[])
 {
   Opts *opts;
   Error *error;
-  IFFChunk *chunk;
   Program *program = 0;
 
   opts = ParseOpts(argc, argv);
@@ -19,11 +19,7 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  if (!opts->compile) {
-    program = ReadProgramFile(opts->entry);
-  }
-
-  if (!program) {
+  if (StrEq(FileExt(opts->entry), opts->source_ext)) {
     Project *project = NewProject(opts);
     ScanProjectFolder(project, DirName(opts->entry));
     if (opts->lib_path) ScanProjectFolder(project, opts->lib_path);
@@ -39,8 +35,7 @@ int main(int argc, char *argv[])
 
     if (opts->compile) {
       char *path = ReplaceExt(opts->entry, ".tape");
-      chunk = SerializeProgram(project->program);
-      WriteFile(chunk, IFFChunkSize(chunk), path);
+      WriteProgramFile(project->program, path);
       FreeProject(project);
       FreeOpts(opts);
       free(path);
@@ -49,6 +44,13 @@ int main(int argc, char *argv[])
 
     program = project->program;
     FreeProject(project);
+  } else {
+    program = ReadProgramFile(opts->entry);
+    if (!program) {
+      fprintf(stderr, "Error: Can't read program from \"%s\"\n", opts->entry);
+      FreeOpts(opts);
+      return 1;
+    }
   }
 
   error = VMRun(program, opts->debug);

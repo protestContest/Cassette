@@ -15,6 +15,7 @@ typedef struct {
   char *lib_path;
   char *entry;
   char *default_imports;
+  char *source_ext;
 } Opts;
 
 Opts *DefaultOpts(void);

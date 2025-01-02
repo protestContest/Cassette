@@ -162,6 +162,18 @@ i32 Connect(char *node, char *port, char **error)
   return s;
 }
 
+u32 FileSize(char *path)
+{
+  int file;
+  u32 size;
+
+  file = open(path, O_RDWR, 0);
+  if (file < 0) return 0;
+  size = lseek(file, 0, 2);
+  close(file);
+  return size;
+}
+
 void *ReadFile(char *path)
 {
   int file;

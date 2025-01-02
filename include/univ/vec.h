@@ -8,6 +8,7 @@
 #define VecPop(vec)           ((vec)[--RawVecCount(vec)])
 #define GrowVec(vec, num)     (VecMakeRoom(vec, Max(1, num)), RawVecCount(vec) += num)
 #define VecEnd(vec)           &(vec[RawVecCount(vec)])
+#define VecTrunc(vec,n)       ((vec) ? RawVecCount(vec) = (n),0 : 0)
 
 #define RawVec(vec)           (((u32 *)vec) - 2)
 #define RawVecCap(vec)        RawVec(vec)[0]

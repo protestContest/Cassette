@@ -7,6 +7,8 @@
 
 #define DEFAULT_IMPORTS "IO, List, Map, Math, Record, String, Value (nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect), Host (typeof, symbol_name, format, hash)"
 
+#define DEFAULT_EXT ".ct"
+
 static void Usage(void)
 {
   fprintf(stderr, "Usage: cassette [opts] script\n");
@@ -51,6 +53,7 @@ Opts *DefaultOpts(void)
   opts->lib_path = GetLibPath();
   opts->entry = 0;
   opts->default_imports = NewString(DEFAULT_IMPORTS);
+  opts->source_ext = NewString(DEFAULT_EXT);
   return opts;
 }
 
@@ -100,5 +103,6 @@ void FreeOpts(Opts *opts)
 {
   if (opts->lib_path) free(opts->lib_path);
   if (opts->default_imports) free(opts->default_imports);
+  if (opts->source_ext) free(opts->source_ext);
   free(opts);
 }

@@ -36,17 +36,14 @@ IFFChunk *IFFAppendChunk(IFFChunk *chunk, IFFChunk *child)
   return IFFAppend(chunk, child, IFFChunkSize(child));
 }
 
-IFFChunk *IFFGetFormField(IFFChunk *form, u32 type, u32 field)
+IFFChunk *IFFGetField(IFFChunk *form, u32 index)
 {
-  IFFChunk *chunk;
   IFFChunk *end = (IFFChunk*)((u8*)form + IFFChunkSize(form));
-  if (IFFFormType(form) != type) return 0;
-
-  chunk = (IFFChunk*)((u32*)IFFData(form)+1);
+  IFFChunk *chunk = (IFFChunk*)((u32*)IFFData(form)+1);
   while (chunk < end) {
-    if (IFFChunkType(chunk) == 'FORM' && IFFFormType(chunk) == field) return chunk;
-    if (IFFChunkType(chunk) == field) return chunk;
+    if (index == 0) return chunk;
     chunk = (IFFChunk*)((u8*)chunk + IFFChunkSize(chunk));
+    index--;
   }
 
   return 0;

@@ -18,6 +18,7 @@ i32 Listen(char *port, char **error);
 i32 Accept(i32 sock, char **error);
 i32 Connect(char *node, char *port, char **error);
 
+u32 FileSize(char *path);
 void *ReadFile(char *path);
 char *ReadTextFile(char *path);
 i32 WriteFile(void *data, u32 size, char *path);

@@ -108,3 +108,40 @@ u32 ByteSwap(u32 n)
     ((n&0x00FF0000) >> 8) |
     (n >> 24);
 }
+
+static u32 *crcTable = 0;
+
+static void GenerateCRCTable(void)
+{
+  u32 c;
+  u16 n, k;
+  crcTable = malloc(sizeof(u32)*256);
+
+  for (n = 0; n < 256; n++) {
+    c = (u32)n;
+    for (k = 0; k < 8; k++) {
+      if (c & 1) {
+        c = 0XEDB88320 ^ (c >> 1);
+      } else {
+        c = c >> 1;
+      }
+    }
+    crcTable[n] = c;
+  }
+}
+
+u32 CRC32(u8 *data, u32 size)
+{
+  u32 result = 0xFFFFFFFF;
+  u32 i;
+
+  if (!crcTable) GenerateCRCTable();
+
+  for (i = 0; i < size; i++) {
+    u32 index = (result ^ data[i]) & 0xff;
+    result = (result >> 8) ^ crcTable[index];
+  }
+
+  result ^= 0xFFFFFFFF;
+  return result;
+}

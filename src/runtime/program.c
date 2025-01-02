@@ -3,6 +3,7 @@
 #include "univ/vec.h"
 #include "univ/iff.h"
 #include "univ/str.h"
+#include "univ/compress.h"
 
 Program *NewProgram(void)
 {
@@ -23,9 +24,19 @@ void FreeProgram(Program *program)
 
 IFFChunk *SerializeProgram(Program *program)
 {
-  IFFChunk *code = NewIFFChunk('CODE', program->code, VecCount(program->code));
-  IFFChunk *strs = NewIFFChunk('STRS', program->strings, VecCount(program->strings));
-  IFFChunk *form = NewIFFForm('TAPE');
+  IFFChunk *code, *strs, *form;
+  u8 *compressed;
+  u32 length;
+
+  length = Compress(program->code, VecCount(program->code), &compressed, 8);
+  code = NewIFFChunk('CODE', compressed, length);
+  free(compressed);
+
+  length = Compress(program->strings, VecCount(program->strings), &compressed, 8);
+  strs = NewIFFChunk('STRS', compressed, length);
+  free(compressed);
+
+  form = NewIFFForm('TAPE');
   form = IFFAppendChunk(form, code);
   form = IFFAppendChunk(form, strs);
   return form;
@@ -35,23 +46,40 @@ Program *DeserializeProgram(IFFChunk *chunk)
 {
   Program *program;
   IFFChunk *code, *strs;
-  code = IFFGetFormField(chunk, 'TAPE', 'CODE');
-  strs = IFFGetFormField(chunk, 'TAPE', 'STRS');
+  u32 size;
+  u8 *data;
+
+  if (IFFFormType(chunk) != 'TAPE') return 0;
+
+  code = IFFGetField(chunk, 0);
+  if (!code || IFFChunkType(code) != 'CODE') return 0;
+  strs = IFFGetField(chunk, 1);
+  if (!strs || IFFChunkType(strs) != 'STRS') return 0;
 
   program = NewProgram();
-  GrowVec(program->code, IFFDataSize(code));
-  Copy(IFFData(code), program->code, IFFDataSize(code));
-  GrowVec(program->strings, IFFDataSize(strs));
-  Copy(IFFData(strs), program->strings, IFFDataSize(strs));
+  size = Decompress(IFFData(code), IFFDataSize(code), &data, 8);
+  GrowVec(program->code, size);
+  Copy(data, program->code, size);
+  free(data);
+  size = Decompress(IFFData(strs), IFFDataSize(strs), &data, 8);
+  GrowVec(program->strings, size);
+  Copy(data, program->strings, size);
+  free(data);
   return program;
 }
 
 Program *ReadProgramFile(char *filename)
 {
   IFFChunk *data = ReadFile(filename);
-  if (!data) return false;
-  if (IFFFormType(data) != 'TAPE') return 0;
+  if (!data) return 0;
   return DeserializeProgram(data);
+}
+
+void WriteProgramFile(Program *program, char *filename)
+{
+  IFFChunk *chunk = SerializeProgram(program);
+  WriteFile(chunk, IFFChunkSize(chunk), filename);
+  free(chunk);
 }
 
 #ifdef DEBUG
