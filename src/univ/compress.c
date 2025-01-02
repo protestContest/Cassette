@@ -13,6 +13,7 @@ typedef struct {
 } TableItem;
 
 #define NullCode ((u32)-1)
+#define TableFull(t) (NextCode(t) >= (1 << MAX_CODE_SIZE))
 
 static void IndexItem(TableItem *table, u32 code, u32 prefix, u32 sym)
 {
@@ -109,7 +110,12 @@ typedef struct {
   TableItem *table;
   u32 *outputBuf;
   bool done;
+  i32 metric;
 } Compressor;
+
+#define CLEAR_THRESHHOLD (-10)
+
+#define IsSymbolCode(code, symbolSize) ((code) < (1 << (symbolSize)))
 
 void InitCompressor(Compressor *c, u32 symbolSize)
 {
@@ -121,6 +127,7 @@ void InitCompressor(Compressor *c, u32 symbolSize)
   c->prefix = NullCode;
   c->outputBuf = 0;
   c->done = false;
+  c->metric = 0;
 }
 
 void DestroyCompressor(Compressor *c)
@@ -140,6 +147,7 @@ static void ClearTable(Compressor *c)
     c->table[i].right = NullCode;
   }
   c->codeSize = c->symbolSize + 1;
+  c->metric = 0;
 }
 
 void CompressStep(Compressor *c, BitStream *input, BitStream *output)
@@ -155,17 +163,25 @@ void CompressStep(Compressor *c, BitStream *input, BitStream *output)
     c->prefix = code;
   } else {
     WriteBits(output, c->prefix, c->codeSize);
-    TableAdd(&c->table, c->prefix, sym);
-    c->prefix = sym;
 
-    if (NextCode(c->table) == (1 << c->codeSize)) {
-      if (c->codeSize == MAX_CODE_SIZE) {
-        WriteBits(output, c->clearCode, c->codeSize);
-        ClearTable(c);
-      } else {
+    if (!TableFull(c->table)) {
+      TableAdd(&c->table, c->prefix, sym);
+      if (NextCode(c->table) == (1 << c->codeSize) &&
+          c->codeSize < MAX_CODE_SIZE) {
         c->codeSize++;
       }
+    } else {
+      /* table full */
+      /* record compression metrics (subtract one if symbol code, else add one) */
+      c->metric += 2*(-IsSymbolCode(c->prefix, c->symbolSize)) + 1;
+
+      if (c->metric < CLEAR_THRESHHOLD) {
+        WriteBits(output, c->clearCode, c->codeSize);
+        ClearTable(c);
+      }
     }
+
+    c->prefix = sym;
   }
 
   if (!HasBits(input)) {
