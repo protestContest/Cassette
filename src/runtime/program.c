@@ -36,11 +36,11 @@ IFFChunk *SerializeProgram(Program *program)
 
   vers = NewIFFChunk('VERS', version, ArrayCount(version)*sizeof(*version));
 
-  length = Compress(program->code, VecCount(program->code), &compressed, 8);
+  length = Compress(program->code, VecCount(program->code), &compressed);
   code = NewIFFChunk('CODE', compressed, length);
   free(compressed);
 
-  length = Compress(program->strings, VecCount(program->strings), &compressed, 8);
+  length = Compress(program->strings, VecCount(program->strings), &compressed);
   strs = NewIFFChunk('STRS', compressed, length);
   free(compressed);
 
@@ -48,6 +48,9 @@ IFFChunk *SerializeProgram(Program *program)
   form = IFFAppendChunk(form, vers);
   form = IFFAppendChunk(form, code);
   form = IFFAppendChunk(form, strs);
+  free(vers);
+  free(code);
+  free(strs);
   return form;
 }
 
@@ -83,11 +86,11 @@ Error *DeserializeProgram(IFFChunk *chunk, Program **result)
   if (!strs || IFFChunkType(strs) != 'STRS') BadProgramFile();
 
   program = NewProgram();
-  size = Decompress(IFFData(code), IFFDataSize(code), &data, 8);
+  size = Decompress(IFFData(code), IFFDataSize(code), &data);
   GrowVec(program->code, size);
   Copy(data, program->code, size);
   free(data);
-  size = Decompress(IFFData(strs), IFFDataSize(strs), &data, 8);
+  size = Decompress(IFFData(strs), IFFDataSize(strs), &data);
   GrowVec(program->strings, size);
   Copy(data, program->strings, size);
   free(data);

@@ -101,7 +101,8 @@ static u32 NextCode(TableItem *table)
   return VecCount(table);
 }
 
-typedef struct {
+struct Compressor {
+  BitStream *stream;
   u32 symbolSize;
   u32 codeSize;
   u32 clearCode;
@@ -111,14 +112,16 @@ typedef struct {
   u32 *outputBuf;
   bool done;
   i32 metric;
-} Compressor;
+};
 
 #define CLEAR_THRESHHOLD (-10)
 
 #define IsSymbolCode(code, symbolSize) ((code) < (1 << (symbolSize)))
 
-void InitCompressor(Compressor *c, u32 symbolSize)
+Compressor *NewCompressor(BitStream *stream, u32 symbolSize)
 {
+  Compressor *c = malloc(sizeof(Compressor));
+  c->stream = stream;
   c->symbolSize = symbolSize;
   c->table = CreateTable(symbolSize);
   c->clearCode = TableAdd(&c->table, NullCode, NullCode);
@@ -128,12 +131,19 @@ void InitCompressor(Compressor *c, u32 symbolSize)
   c->outputBuf = 0;
   c->done = false;
   c->metric = 0;
+  return c;
 }
 
-void DestroyCompressor(Compressor *c)
+void FreeCompressor(Compressor *c)
 {
   FreeTable(c->table);
   FreeVec(c->outputBuf);
+  free(c);
+}
+
+u32 CompressorEnd(Compressor *c)
+{
+  return c->stopCode;
 }
 
 static void ClearTable(Compressor *c)
@@ -150,19 +160,18 @@ static void ClearTable(Compressor *c)
   c->metric = 0;
 }
 
-void CompressStep(Compressor *c, BitStream *input, BitStream *output)
+void CompressStep(Compressor *c, u32 sym)
 {
-  u32 sym, code;
+  u32 code;
 
   if (c->done) return;
 
-  sym = ReadBits(input, c->symbolSize);
   code = TableFind(c->table, c->prefix, sym);
 
   if (code != NullCode) {
     c->prefix = code;
   } else {
-    WriteBits(output, c->prefix, c->codeSize);
+    WriteBits(c->stream, c->prefix, c->codeSize);
 
     if (!TableFull(c->table)) {
       TableAdd(&c->table, c->prefix, sym);
@@ -176,22 +185,23 @@ void CompressStep(Compressor *c, BitStream *input, BitStream *output)
       c->metric += 2*(-IsSymbolCode(c->prefix, c->symbolSize)) + 1;
 
       if (c->metric < CLEAR_THRESHHOLD) {
-        WriteBits(output, c->clearCode, c->codeSize);
+        WriteBits(c->stream, c->clearCode, c->codeSize);
         ClearTable(c);
       }
     }
 
     c->prefix = sym;
   }
-
-  if (!HasBits(input)) {
-    WriteBits(output, c->prefix, c->codeSize);
-    WriteBits(output, c->stopCode, c->codeSize);
-    c->done = true;
-  }
 }
 
-static u32 WriteString(Compressor *c, u32 code, BitStream *output)
+void CompressFinish(Compressor *c)
+{
+  WriteBits(c->stream, c->prefix, c->codeSize);
+  WriteBits(c->stream, c->stopCode, c->codeSize);
+  c->done = true;
+}
+
+static u32 BufferSymbols(Compressor *c, u32 code)
 {
   u32 firstSym;
 
@@ -200,33 +210,34 @@ static u32 WriteString(Compressor *c, u32 code, BitStream *output)
     firstSym = c->table[code].symbol;
     code = c->table[code].prefix;
   } while (code != NullCode);
-  while (VecCount(c->outputBuf) > 0) {
-    u32 symbol = VecPop(c->outputBuf);
-    WriteBits(output, symbol, c->symbolSize);
-  }
+
   return firstSym;
 }
 
-void DecompressStep(Compressor *c, BitStream *input, BitStream *output)
+u32 DecompressStep(Compressor *c)
 {
   u32 code, firstSym, symbol;
 
-  if (!HasBits(input)) c->done = true;
-  if (c->done) return;
+  if (!HasBits(c->stream)) c->done = true;
+  if (c->done) return 0;
 
-  code = ReadBits(input, c->codeSize);
+  if (VecCount(c->outputBuf) > 0) {
+    return VecPop(c->outputBuf);
+  }
+
+  code = ReadBits(c->stream, c->codeSize);
 
   if (code == c->stopCode) {
     c->done = true;
-    return;
+    return 0;
   } else if (code == c->clearCode) {
     ClearTable(c);
     c->prefix = NullCode;
-    return;
+    return DecompressStep(c);
   }
 
   if (code < NextCode(c->table)) {
-    firstSym = WriteString(c, code, output);
+    firstSym = BufferSymbols(c, code);
 
     if (c->prefix != NullCode) {
       TableAdd(&c->table, c->prefix, firstSym);
@@ -238,7 +249,7 @@ void DecompressStep(Compressor *c, BitStream *input, BitStream *output)
     }
     firstSym = c->table[index].symbol;
     symbol = TableAdd(&c->table, c->prefix, firstSym);
-    WriteString(c, symbol, output);
+    BufferSymbols(c, symbol);
   }
 
   if (NextCode(c->table) == (1 << c->codeSize) - 1 && c->codeSize < MAX_CODE_SIZE) {
@@ -246,45 +257,51 @@ void DecompressStep(Compressor *c, BitStream *input, BitStream *output)
   }
 
   c->prefix = code;
+
+  return VecPop(c->outputBuf);
 }
 
-u32 Compress(void *src, u32 srcLen, u8 **dst, u32 symbolSize)
+u32 Compress(void *src, u32 srcLen, u8 **dst)
 {
-  BitStream reader;
   BitStream writer;
-  Compressor c;
+  Compressor *c;
+  u8 *bytes = src;
+  u8 *end = bytes + srcLen;
 
   *dst = 0;
-  InitBitStream(&reader, src, srcLen);
   InitBitStream(&writer, *dst, 0);
-  InitCompressor(&c, symbolSize);
+  c = NewCompressor(&writer, 8);
 
-  while (!c.done) {
-    CompressStep(&c, &reader, &writer);
+  while (bytes < end) {
+    u32 sym = *bytes++;
+    CompressStep(c, sym);
   }
+  CompressFinish(c);
 
-  DestroyCompressor(&c);
+  FreeCompressor(c);
 
   *dst = writer.data;
   return writer.length;
 }
 
-u32 Decompress(void *src, u32 srcLen, u8 **dst, u32 symbolSize)
+u32 Decompress(void *src, u32 srcLen, u8 **dst)
 {
-  BitStream reader;
-  BitStream writer;
-  Compressor c;
+  BitStream writer, reader;
+  Compressor *c;
+  u32 sym;
 
   *dst = 0;
-  InitBitStream(&reader, src, srcLen);
   InitBitStream(&writer, *dst, 0);
-  InitCompressor(&c, symbolSize);
+  InitBitStream(&reader, src, srcLen);
+  c = NewCompressor(&reader, 8);
 
-  while (!c.done) {
-    DecompressStep(&c, &reader, &writer);
+  while (HasBits(&reader)) {
+    sym = DecompressStep(c);
+    if (sym == CompressorEnd(c)) break;
+    WriteBits(&writer, sym, 8);
   }
 
-  DestroyCompressor(&c);
+  FreeCompressor(c);
 
   *dst = writer.data;
   return writer.length;

@@ -1,5 +1,10 @@
 #pragma once
 
+/*
+Bit stream reader/writer. Bits are read/written least-significant-bit first. To
+use WriteBits, the data buffer must be an allocated pointer (or 0).
+*/
+
 typedef struct {
   u8 *data;
   u32 length;
