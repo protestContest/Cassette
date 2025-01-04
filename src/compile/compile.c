@@ -43,6 +43,13 @@ static Chunk *UndefinedTrap(ASTNode *node, Compiler *c)
   return 0;
 }
 
+static Chunk *InvalidSet(ASTNode *node, Compiler *c)
+{
+  char *filename = c->project->modules[c->current_mod].filename;
+  c->error = NewError("Invalid call to \"set!\"", filename, node->start, node->end - node->start);
+  return 0;
+}
+
 static Chunk *UndefinedModule(ASTNode *node, Compiler *c)
 {
   char *filename = c->project->modules[c->current_mod].filename;
@@ -790,6 +797,32 @@ static Chunk *CompileTrapCall(ASTNode *id, ASTNode *args, bool returns, Compiler
   return chunk;
 }
 
+static bool IsSet(ASTNode *node)
+{
+  return node->type == idNode && node->data.value == Symbol("set!");
+}
+
+static Chunk *CompileSet(ASTNode *node, bool returns, Compiler *c)
+{
+  Chunk *chunk;
+  ASTNode *var, *value;
+  i32 pos;
+
+  if (NodeCount(node) != 2) return InvalidSet(node, c);
+  var = NodeChild(node, 0);
+  value = NodeChild(node, 1);
+  pos = EnvFind(NodeValue(var), c->env);
+
+  if (pos < 0) return UndefinedVariable(var, c);
+
+  chunk = CompileExpr(value, false, c);
+  if (!chunk) return 0;
+  Emit(opDup, chunk);
+  EmitDefine(pos, chunk);
+  if (returns) EmitReturn(chunk);
+  return chunk;
+}
+
 static Chunk *CompileCall(ASTNode *node, bool returns, Compiler *c)
 {
   /*
@@ -829,6 +862,9 @@ after:
   Chunk *chunk, *arity;
   u32 src = node->start;
 
+  if (IsSet(NodeChild(node, 0))) {
+    return CompileSet(args, returns, c);
+  }
   if (IsHostRef(NodeChild(node, 0), c)) {
     ASTNode *fn = NodeChild(NodeChild(node, 0), 1);
     return CompileTrapCall(fn, args, returns, c);

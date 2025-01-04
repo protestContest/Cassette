@@ -243,6 +243,17 @@ Comment text must be between triple lines.
 </pre>
       <p>This makes <code>let</code> expressions useful for <a href="https://fsharpforfunandprofit.com/rop/">railway-oriented programming</a>. Each assignment can be tested and bail on an error.</p>
 
+      <h3 id="set!">set!</h3>
+      <p>While discouraged, variable values can be replaced with the pseudo-function <code>set!</code>. This replaces the value of the variable in the current environment, similar to Lisp.</p>
+      <pre>
+<span class="kw">let</span>
+  <span class="var">x</span> = <span class="num">0</span>
+<span class="kw">in</span> <span class="kw">do</span>
+  <span class="sym">set!</span>(x, <span class="num">1</span>)
+  <span class="fn">IO.inspect</span>(x)   <span class="cm">; prints "1"</span>
+<span class="kw">end</span>
+</pre>
+
       <h3 id="blocks">Blocks</h3>
       <p>A <code>do</code> block is a list of expressions. The result of the last expression is the result of the block.</p>
       <pre>
