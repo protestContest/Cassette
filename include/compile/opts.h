@@ -20,6 +20,7 @@ typedef struct {
   char *entry;
   char *default_imports;
   char *source_ext;
+  char **program_args; /* vec */
 } Opts;
 
 Opts *DefaultOpts(void);

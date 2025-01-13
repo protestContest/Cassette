@@ -8,7 +8,7 @@
 
 #define VMDone(vm) ((vm)->error || (vm)->pc >= VecCount((vm)->program->code))
 
-void InitVM(VM *vm, Program *program)
+void InitVM(VM *vm, Program *program, Opts *opts)
 {
   u32 i;
   vm->error = 0;
@@ -28,6 +28,7 @@ void InitVM(VM *vm, Program *program)
     }
   }
   vm->refs = 0;
+  vm->opts = opts;
 }
 
 void DestroyVM(VM *vm)
@@ -72,14 +73,14 @@ static void VMTrace(VM *vm)
   fprintf(stderr, "\n");
 }
 
-Error *VMRun(Program *program, bool trace)
+Error *VMRun(Program *program, Opts *opts)
 {
   VM vm;
 
-  InitVM(&vm, program);
+  InitVM(&vm, program, opts);
   InitMem(256);
 
-  if (trace) {
+  if (opts->debug) {
     u32 num_width = NumDigits(VecCount(program->code), 10);
     u32 i;
     for (i = 0; i < num_width; i++) fprintf(stderr, "─");

@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  error = VMRun(program, opts->debug);
+  error = VMRun(program, opts);
   if (error) {
     PrintError(error);
     FreeError(error);

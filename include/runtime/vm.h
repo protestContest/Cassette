@@ -1,4 +1,5 @@
 #pragma once
+#include "compile/opts.h"
 #include "runtime/error.h"
 #include "runtime/program.h"
 
@@ -31,12 +32,13 @@ typedef struct VM {
   u32 link;
   Program *program; /* borrowed */
   void **refs; /* vec, each borrowed */
+  Opts *opts;
 } VM;
 
-void InitVM(VM *vm, Program *program); /* prepare the VM to run a program */
+void InitVM(VM *vm, Program *program, Opts *opts); /* prepare the VM to run a program */
 void DestroyVM(VM *vm);
 void VMStep(VM *vm); /* execute one instruction */
-Error *VMRun(Program *program, bool trace); /* execute an entire program */
+Error *VMRun(Program *program, Opts *opts); /* execute an entire program */
 u32 VMPushRef(void *ref, VM *vm); /* create a ref */
 void *VMGetRef(u32 ref, VM *vm); /* get the value of a ref */
 i32 VMFindRef(void *ref, VM *vm); /* find a ref */

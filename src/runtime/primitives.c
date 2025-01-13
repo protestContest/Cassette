@@ -5,6 +5,7 @@
 #include "univ/math.h"
 #include "univ/str.h"
 #include "univ/time.h"
+#include "univ/vec.h"
 #include "univ/window.h"
 
 static u32 IOError(char *msg, VM *vm)
@@ -300,6 +301,69 @@ static u32 VMSeed(VM *vm)
   return 0;
 }
 
+static u32 VMArgs(VM *vm)
+{
+  u32 i;
+  u32 args, size;
+  u32 num_args = VecCount(vm->opts->program_args);
+
+  size = num_args + 1; /* space for tuple */
+  for (i = 0; i < num_args; i++) {
+    char *arg = vm->opts->program_args[i];
+    size += BinSpace(StrLen(arg)) + 1; /* space for each binary */
+  }
+
+  MaybeGC(size, vm);
+  args = Tuple(num_args);
+  for (i = 0; i < num_args; i++) {
+    char *arg = vm->opts->program_args[i];
+    TupleSet(args, i, BinaryFrom(arg, StrLen(arg)));
+  }
+
+  return args;
+}
+
+static u32 VMEnv(VM *vm)
+{
+  char *name;
+  char *value;
+  u32 nameVal, valueVal, len;
+
+  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  nameVal = StackPeek(0);
+  if (!IsBinary(nameVal)) return RuntimeError("Env variable must be a string", vm);
+  name = StringFrom(BinaryData(nameVal), ObjLength(nameVal));
+  value = getenv(name);
+  if (value) {
+    len = StrLen(value);
+    MaybeGC(BinSpace(len)+1, vm);
+    valueVal = BinaryFrom(value, StrLen(value));
+  } else {
+    valueVal = 0;
+  }
+  free(name);
+  StackPop();
+  return valueVal;
+}
+
+static u32 VMShell(VM *vm)
+{
+  char *cmd;
+  u32 cmdVal;
+  u32 result;
+
+  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  cmdVal = StackPeek(0);
+  if (!IsBinary(cmdVal)) return RuntimeError("Command must be a string", vm);
+  cmd = StringFrom(BinaryData(cmdVal), ObjLength(cmdVal));
+
+  result = system(cmd);
+
+  free(cmd);
+  StackPop();
+  return IntVal(result);
+}
+
 static u32 VMMaxInt(VM *vm)
 {
   return MaxIntVal;
@@ -524,9 +588,13 @@ static PrimDef primitives[] = {
   {"popcount", VMPopCount},
   {"max_int", VMMaxInt},
   {"min_int", VMMinInt},
+  /* System */
   {"time", VMTime},
   {"random", VMRandom},
   {"seed", VMSeed},
+  {"args", VMArgs},
+  {"env", VMEnv},
+  {"shell", VMShell},
   /* I/O */
   {"open", VMOpen},
   {"open_serial", VMOpenSerial},

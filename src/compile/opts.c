@@ -1,6 +1,7 @@
 #include "compile/opts.h"
 #include "univ/file.h"
 #include "univ/str.h"
+#include "univ/vec.h"
 #include <unistd.h>
 
 #define DEFAULT_IMPORTS "IO, List, Map, Math, Record, String, Value (nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect), Host (typeof, symbol_name, format, hash)"
@@ -52,13 +53,14 @@ Opts *DefaultOpts(void)
   opts->entry = 0;
   opts->default_imports = NewString(DEFAULT_IMPORTS);
   opts->source_ext = NewString(DEFAULT_EXT);
+  opts->program_args = 0;
   return opts;
 }
 
 Opts *ParseOpts(int argc, char *argv[])
 {
   Opts *opts = DefaultOpts();
-  int ch;
+  int ch, i;
 
   while ((ch = getopt(argc, argv, "chvdL:i:")) >= 0) {
     switch (ch) {
@@ -94,6 +96,9 @@ Opts *ParseOpts(int argc, char *argv[])
   }
 
   opts->entry = argv[optind];
+  for (i = optind + 1; i < argc; i++) {
+    VecPush(opts->program_args, NewString(argv[i]));
+  }
   return opts;
 }
 
@@ -102,5 +107,12 @@ void FreeOpts(Opts *opts)
   if (opts->lib_path) free(opts->lib_path);
   if (opts->default_imports) free(opts->default_imports);
   if (opts->source_ext) free(opts->source_ext);
+  if (opts->program_args) {
+    u32 i;
+    for (i = 0; i < VecCount(opts->program_args); i++) {
+      free(opts->program_args[i]);
+    }
+    FreeVec(opts->program_args);
+  }
   free(opts);
 }
