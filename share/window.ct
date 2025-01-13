@@ -1,4 +1,5 @@
 module Window
+import Record
 export open, close, update, next_event, write_pixel, blit, Color, Event, modifier?
 
 def Color(r, g, b) r << 16 | g << 8 | b

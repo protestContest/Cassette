@@ -1,4 +1,4 @@
-import IO, Net, List
+import IO, Net, String
 
 ; keeps reading from a connection while there's any data
 def read_resp(conn) do
@@ -16,7 +16,7 @@ end
 
 let
   conn = Net.connect("cassette-lang.com", "80")   ; open a network connection
-  req = List.join([                               ; form an HTTP request
+  req = String.join([                             ; form an HTTP request
     "GET / HTTP/1.0",
     "Host: cassette-lang.com",
     "",

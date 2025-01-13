@@ -1,6 +1,9 @@
 module IO
-export open, close, read, read_chunk, write, write_chunk, seek, print, inspect, read_file, write_file,
-stdin, stdout, stderr
+import Value (error?), List
+export
+  stdin, stdout, stderr,
+  open, open_serial, close, read_chunk, read, write_chunk, write,
+  print, inspect, seek, read_file, write_file
 
 def stdin() 0
 def stdout() 1

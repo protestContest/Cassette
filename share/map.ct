@@ -1,12 +1,18 @@
 module Map
+import Record, Math (hash), Value (typeof, symbol?), List
 export
-  new, put, get, delete, member?, count, reduce, merge, keys, values, items,
-  inspect, take, map?
+  map?, empty?, count,
+  new, put, get, delete, contains?,
+  reduce, merge, take, drop,
+  keys, values, items,
+  inspect
 
-; a hash array mapped trie. each node has 16 "slots" and a bitmap of which slots
-; are present. each node only stores the slots that are present. keys are mapped
-; to slots based on 4 bits of their hash. on a collision, that slot is a sub-map
-; that uses the next 4 hash bits.
+---
+a hash array mapped trie. each node has 16 "slots" and a bitmap of which slots
+are present. each node only stores the slots that are present. keys are mapped
+to slots based on 4 bits of their hash. on a collision, that slot is a sub-map
+that uses the next 4 hash bits.
+---
 
 record Map(bits, entries)
 
@@ -106,7 +112,7 @@ def get(map, key, default) do
   get(map, hash(key), key)
 end
 
-def get!(map, key) when member?(map, key), get(map, key, nil)
+def get!(map, key) when contains?(map, key), get(map, key, nil)
 def get!(map, key) Host.panic!("Missing map key")
 
 def delete(map, key) when empty?(map), map
@@ -139,17 +145,17 @@ def delete(map, key) do
 end
 
 ; returns whether a key exists in a map
-def member?(map, key) do
-  def member?(map, hash, key) when empty?(map), false
-  def member?(map, hash, key) when leaf?(map), leaf_key(map) == key
-  def member?(map, hash, key)
+def contains?(map, key) do
+  def contains?(map, hash, key) when empty?(map), false
+  def contains?(map, hash, key) when leaf?(map), leaf_key(map) == key
+  def contains?(map, hash, key)
     let
       slot = hash_slot(hash, 0) except not slot_taken?(map, slot), false
       index = slot_index(map.bits, slot)
       entries = map.entries
-    in member?(entries[index], hash >> 4, key)
+    in contains?(entries[index], hash >> 4, key)
 
-  member?(map, hash(key), key)
+  contains?(map, hash(key), key)
 end
 
 ; reduces a function over each (key : value) pair
@@ -200,9 +206,12 @@ def take(map, keys) do
   def loop(keys, taken) when keys == nil, taken
   def loop(keys, taken)
     let
-      key = @keys except not member?(map, key), loop(^keys, taken)
+      key = @keys except not contains?(map, key), loop(^keys, taken)
       value = get!(map, key)
     in loop(^keys, put(taken, key, value))
 
   loop(keys, new([]))
 end
+
+def drop(map, keys) when keys == nil, map
+def drop(map, keys) drop(delete(map, @keys), ^keys)

@@ -1,0 +1,15 @@
+module Time
+
+record Date(year, month, day)
+record Time(hour, minute, second)
+record DateTime(date, time)
+
+; def timestamp()
+; def now()
+; def from_string(str)
+; def to_string(dt)
+; def from_timestamp(ts)
+; def to_timestamp(dt)
+; def compare(dt1, dt2)
+; def add(dt1, amount, unit)
+; def diff(dt1, dt2, unit)

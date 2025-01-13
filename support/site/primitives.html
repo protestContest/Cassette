@@ -15,89 +15,99 @@
       <p>This is the reference of built-in primitives for the programming language <a href="index.html">Cassette</a>.</p>
       <p>Built-in functions are accessed from the <code>Host</code> module. Some of these calls are wrapped in more descriptive modules.</p>
 
-      <h2>System Functions</h2>
-      <h3>panic!(message)</h3>
+      <h2>Basic Functions</h2>
+      <h3><code>panic!(message)</code></h3>
       <p>Halts the program in an error state, with the given message.</p>
 
-      <h3>typeof(value)</h3>
+      <h3><code>typeof(value)</code></h3>
       <p>Returns the type of the given value, as a symbol:</p>
       <ul>
         <li><code>:integer</code></li>
-        <li><code>:symbol</code></li>
+        <li><code>:symbol</code> if <code>value</code> is an integer that corresponds to a symbol</li>
         <li><code>:pair</code> lists, pairs, and <code>nil</code></li>
         <li><code>:tuple</code></li>
         <li><code>:binary</code></li>
       </ul>
 
-      <h3>format(iodata)</h3>
+      <h3><code>format(iodata)</code></h3>
       <p>Renders <code>iodata</code> into a binary. <code>iodata</code> is a binary, an integer between 0–255 (representing a byte), or a list of other <code>iodata</code> items.</p>
 
-      <h3>make_tuple(list)</h3>
+      <h3><code>make_tuple(list)</code></h3>
       <p>Converts a list into a tuple.</p>
 
-      <h3>symbol_name(symbol)</h3>
+      <h3><code>symbol_name(symbol)</code></h3>
       <p>Returns a string of the name of the given symbol, or <code>nil</code> if not present.</p>
 
-      <h3>hash(value)</h3>
+      <h3><code>hash(value)</code></h3>
       <p>Returns a hash of a value.</p>
 
-      <h3>popcount(num)</h3>
+      <h3><code>popcount(num)</code></h3>
       <p>Returns the number of bits set in an integer.</p>
 
-      <h3>max_int()</h3>
-      <p>Returns the maximum integer.</p>
+      <h3><code>max_int()</code></h3>
+      <p>Returns the maximum integer, 536,870,911.</p>
 
-      <h3>min_int()</h3>
-      <p>Returns the minimum integer.</p>
+      <h3><code>min_int()</code></h3>
+      <p>Returns the minimum integer, -536,870,912.</p>
 
-      <h3>time(value)</h3>
+      <h2>System</h2>
+      <h3><code>time(value)</code></h3>
       <p>Returns the current Unix timestamp, in seconds.</p>
 
-      <h3>random()</h3>
+      <h3><code>random()</code></h3>
       <p>Returns a random integer between the minimum and the maximum integer size.</p>
 
-      <h3>seed(value)</h3>
+      <h3><code>seed(value)</code></h3>
       <p>Seeds the random number generator.</p>
 
+      <h3><code>args()</code></h3>
+      <p>Returns a list of command-line arguments invoked with the program.</p>
+
+      <h3><code>env(name)</code></h3>
+      <p>Returns the value of a system environment variable, or <code>nil</code>.</p>
+
+      <h3><code>shell(cmd)</code></h3>
+      <p>Executes a command in a shell. Returns the integer result code.</p>
+
       <h2>I/O</h2>
-      <h3>open(path, flags)</h3>
+      <h3><code>open(path, flags)</code></h3>
       <p>Wrapper for the Unix <code>open</code> function. Returns a file descriptor as an integer or <code>{:error, reason}</code>.</p>
 
-      <h3>open_serial(device, speed, opts)</h3>
+      <h3><code>open_serial(device, speed, opts)</code></h3>
       <p>Opens a serial device. <code>opts</code> is an integer that is set to the <code>c_cflag</code> property of the termios. Returns a file descriptor as an integer or <code>{:error, reason}</code>.</p>
 
-      <h3>close(file)</h3>
+      <h3><code>close(file)</code></h3>
       <p>Wrapper for the Unix <code>close</code> function. Returns <code>:ok</code> or <code>{:error, reason}</code>.</p>
 
-      <h3>read(file, size)</h3>
+      <h3><code>read(file, size)</code></h3>
       <p>Wrapper for the Unix <code>read</code> function. Returns a binary or <code>{:error, reason}</code>.</p>
 
-      <h3>write(file, data, size)</h3>
+      <h3><code>write(file, data, size)</code></h3>
       <p>Wrapper for the Unix <code>write</code> function. Returns the number of bytes written or <code>{:error, reason}</code>.</p>
 
-      <h3>seek(file, offset, whence)</h3>
+      <h3><code>seek(file, offset, whence)</code></h3>
       <p>Wrapper for the Unix <code>lseek</code> function. Returns the position or <code>{:error, reason}</code>.</p>
 
-      <h3>listen(port)</h3>
+      <h3><code>listen(port)</code></h3>
       <p>Returns a passive socket listening on a given port (as a string).</p>
 
-      <h3>accept(socket)</h3>
+      <h3><code>accept(socket)</code></h3>
       <p>Waits for a new connection on a passive socket.</p>
 
-      <h3>connect(host, port)</h3>
+      <h3><code>connect(host, port)</code></h3>
       <p>Returns an active socket connected to a host and port.</p>
 
       <h2>Graphics</h2>
-      <h3>open_window(title, width, height)</h3>
+      <h3><code>open_window(title, width, height)</code></h3>
       <p>Creates a new window. Returns a window reference.</p>
 
-      <h3>close_window(window)</h3>
+      <h3><code>close_window(window)</code></h3>
       <p>Closes a window.</p>
 
-      <h3>update_window(window)</h3>
+      <h3><code>update_window(window)</code></h3>
       <p>Updates a window's contents.</p>
 
-      <h3>next_event()</h3>
+      <h3><code>next_event()</code></h3>
       <p>Returns a tuple record with these fields:</p>
       <ul>
         <li>Event type, one of <code>:keyDown</code>, <code>:keyUp</code>, <code>:autoKey</code>, <code>:mouseDown</code>, <code>:mouseUp</code>, or <code>:quit</code>.</li>
@@ -120,10 +130,10 @@ Mouse────────────────────┘
         </li>
       </ul>
 
-      <h3>write_pixel(x, y, color, window)</h3>
+      <h3><code>write_pixel(x, y, color, window)</code></h3>
       <p>Writes a pixel into a window. Color is a 24-bit <code>0x00RRGGBB</code> integer.</p>
 
-      <h3>blit(data, width, height, x, y, window)</h3>
+      <h3><code>blit(data, width, height, x, y, window)</code></h3>
       <p>Copies pixel data into a window. <code>data</code> is a binary of pixel values, <code>width</code> and <code>height</code> are the size of the source image, and <code>x</code> and <code>y</code> are the destination in the window.</p>
     </main>
     <footer>

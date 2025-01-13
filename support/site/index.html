@@ -28,7 +28,7 @@
     <main>
       <p>Cassette is a small functional programming language. It looks like this:</p>
       <pre border="1">
-<span class="kw">import</span> <span class="var">IO</span>, <span class="var">Net</span>, <span class="var">List</span>
+<span class="kw">import</span> <span class="var">IO</span>, <span class="var">Net</span>, <span class="var">String</span>
 
 <span class="cm">; keeps reading from a connection while there's any data</span>
 <span class="kw">def</span> <span class="fn">read_resp</span>(<span class="var">conn</span>) <span class="kw">do</span>
@@ -46,7 +46,7 @@
 
 <span class="kw">let</span>
   <span class="var">conn</span> = <span class="fn">Net.connect</span>(<span class="str">"cassette-lang.com"</span>, <span class="str">"80"</span>)   <span class="cm">; open a network connection</span>
-  <span class="var">req</span> = <span class="fn">List.join</span>([                               <span class="cm">; form an HTTP request</span>
+  <span class="var">req</span> = <span class="fn">String.join</span>([                             <span class="cm">; form an HTTP request</span>
     <span class="str">"GET / HTTP/1.0"</span>,
     <span class="str">"Host: cassette-lang.com"</span>,
     <span class="str">""</span>,
@@ -97,7 +97,7 @@
 <span class="cm">---
 Multiline comment
 
-Comment text must be between triple lines.
+Comment text must be between triple hyphens.
 ---</span>
 </pre>
 
@@ -145,14 +145,14 @@ Comment text must be between triple lines.
       <p>Cassette supports several built-in operators on values. Most operators only work on certain types.</p>
       <p>Basic arithmetic and comparison operators work on integers.</p>
       <pre>
-<span class="kw">-</span><span class="num">24</span>               <span class="cm">; unary negation</span>
+<span class="kw">-</span><span class="num">24</span>               <span class="cm">; negation</span>
 <span class="num">73</span> <span class="kw">+</span> <span class="num">4</span>            <span class="cm">; addition</span>
 <span class="num">87</span> <span class="kw">-</span> <span class="num">41</span>           <span class="cm">; subtraction</span>
 <span class="num">43</span> <span class="kw">*</span> <span class="num">12</span>           <span class="cm">; multiplication</span>
 <span class="num">17</span> <span class="kw">/</span> <span class="num">4</span>            <span class="cm">; division (truncating)</span>
 <span class="num">400</span> <span class="kw">%</span> <span class="num">12</span>          <span class="cm">; modulus</span>
-<span class="num">256</span> <span class="kw">&gt;&gt;</span> <span class="num">3</span>          <span class="cm">; bit shift</span>
-<span class="num">1</span> <span class="kw">&lt;&lt;</span> <span class="num">27</span>
+<span class="num">256</span> <span class="kw">&gt;&gt;</span> <span class="num">3</span>          <span class="cm">; bit shift right</span>
+<span class="num">1</span> <span class="kw">&lt;&lt;</span> <span class="num">27</span>           <span class="cm">; bit shift left (arithmetic)</span>
 <span class="num">0xAA</span> <span class="kw">|</span> <span class="num">1</span>          <span class="cm">; bitwise or</span>
 <span class="num">0xB</span> <span class="kw">^</span> <span class="num">0x6</span>         <span class="cm">; bitwise xor</span>
 <span class="num">1036</span> <span class="kw">&</span> <span class="num">0xFF</span>       <span class="cm">; bitwise and</span>

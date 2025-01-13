@@ -1,5 +1,6 @@
 module Record
-export get, put, member?, type, keys, values, record?
+import Value (symbol?, tuple?)
+export get, put, contains?, type, keys, values, record?
 
 def record?(rec)
   tuple?(rec) and
@@ -30,5 +31,4 @@ def put(rec, key, value)
     values = values[0,i] <> values[i+1,#values]
   in {type(rec), keys(rec), values}
 
-def member?(rec, key) key_index(rec, key) != nil
-
+def contains?(rec, key) key_index(rec, key) != nil

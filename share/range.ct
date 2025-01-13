@@ -1,0 +1,8 @@
+module Range
+
+record Range(first, last)
+
+; def disjoint?(range1, range2)
+; def reduce(range, acc, fn)
+; def size(range)
+; def split(range, index)

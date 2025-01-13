@@ -1,0 +1,10 @@
+module Stream
+
+; def concat(stream1, stream2)
+; def cycle(list)
+; def drop(list, n)
+; def duplicate(value, n)
+; def filter(stream, test)
+; def map(stream, fn)
+; def take(stream, n)
+; def zip(stream)

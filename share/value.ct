@@ -1,17 +1,27 @@
 module Value
-export nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect
+import List, Symbol
+export
+  typeof, nil?, integer?, symbol?, pair?, tuple?, binary?, error?,
+  inspect, format
 
-def nil?(v) v == nil
+---
+Basic functions to determine types of values
+---
+def typeof(v)   Host.typeof(v)
+def nil?(v)     v == nil
 def integer?(v) typeof(v) == :integer
-def symbol?(v) typeof(v) == :symbol
-def pair?(v) typeof(v) == :pair
-def tuple?(v) typeof(v) == :tuple
-def binary?(v) typeof(v) == :binary
+def symbol?(v)  typeof(v) == :symbol
+def pair?(v)    typeof(v) == :pair
+def tuple?(v)   typeof(v) == :tuple
+def binary?(v)  typeof(v) == :binary
 
 def error?(result) when result == :error, true
 def error?(result) when tuple?(result) and #result > 0 and result[0] == :error, true
 def error?(result) false
 
+---
+Returns a printable representation of a value.
+---
 def inspect(value) do
   def inspect_int(num) when num == 0, "0"
   def inspect_int(num) when num < 0, "-" : inspect_int(-num)
@@ -56,7 +66,7 @@ def inspect(value) do
   def inspect_depth(value, depth) when depth == 0, "..."
   def inspect_depth(value, depth) when value == nil, "nil"
   def inspect_depth(value, depth) when binary?(value), ["\"", value, "\""]
-  def inspect_depth(value, depth) when symbol?(value), ":" <> symbol_name(value)
+  def inspect_depth(value, depth) when symbol?(value), ":" <> Symbol.name(value)
   def inspect_depth(value, depth) when integer?(value), inspect_int(value)
   def inspect_depth(value, depth) when tuple?(value), inspect_tuple(value, depth)
   def inspect_depth(value, depth) when pair?(value),
@@ -66,3 +76,5 @@ def inspect(value) do
 
   inspect_depth(value, 10)
 end
+
+def format(value) Host.format(value)

@@ -1,0 +1,6 @@
+module Regex
+
+; def compile(src)
+; def match?(re, str)
+; def first_match(re, str)
+; def match_all(re, str)

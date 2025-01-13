@@ -1,0 +1,45 @@
+module Integer
+import String (digit?)
+export parse, to_string, num_digits
+
+; returns {index, value} pair, where index is the byte index after the parsed
+; num and value is the integer, or nil
+def parse(str, start) do
+  def loop(i, n)
+    if i == #str or not digit?(str[i]),
+      {i, n}
+    else
+      let d = str[i] - $0
+      in loop(i+1, n*10 + d)
+
+  if
+    str[start] == $- and digit?(str[start+1]),
+      -loop(start+1, 0)
+    digit?(str[start]),
+      loop(start, 0)
+    else
+      {start, nil}
+end
+
+def to_string(n, base) when n == 0, "0"
+def to_string(n, base) do
+  def digit(n) when n < 10, n + $0
+  def digit(n) n + $A
+
+  def loop(n, digits) when n == 0, format(digits)
+  def loop(n, digits)
+    loop(n / base, digit(n % base) : digits)
+
+  if n < 0,
+    "-" <> loop(n, nil)
+  else
+    loop(n, nil)
+end
+
+def num_digits(n, base) when n == 0, 1
+def num_digits(n, base) when n < 0, num_digits(-n, base) + 1
+def num_digits(n, base) do
+  def loop(n, num) when n == 0, num
+  def loop(n, num) loop(n / base, num + 1)
+  loop(n, 0)
+end

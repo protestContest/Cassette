@@ -1,0 +1,8 @@
+module Tuple
+
+; def delete(tup, index)
+; def duplicate(value, n)
+; def insert(tup, index, value)
+; def to_list(tup)
+; def reduce(tup, acc, fn)
+; def replace(tup, index, value)

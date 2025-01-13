@@ -1,6 +1,9 @@
 module Math
-export random, random_between, seed, constrain, align, max_int, min_int,
-popcount, map, clamp
+export
+  max_int, min_int, popcount,
+  random, seed, random_between,
+  min, max, clamp, map,
+  align, hash
 
 def max_int() Host.max_int()
 def min_int() Host.min_int()
@@ -25,18 +28,20 @@ def random_between(min, max) do
     min + r / num_buckets
 end
 
-def constrain(n, min, max) when n < min, min
-def constrain(n, min, max) when n >= max, max
-def constrain(n, min, max) n
-
-def align(n, m) when n == 0, 0
-def align(n, m)
-  ((n - 1) / m + 1) * m
-
-def map(t, a0, a1, b0, b1)
-  (t - a0) * (b1 - b0) / (a1 - a0) + b0
+def min(a,b) when a < b, a
+def min(a,b) b
+def max(a, b) when a > b, a
+def max(a, b) b
 
 def clamp(n, low, high) when n < low, low
 def clamp(n, low, high) when n > high, high
 def clamp(n, low, high) n
 
+def map(t, a0, a1, b0, b1)
+  (t - a0) * (b1 - b0) / (a1 - a0) + b0
+
+def align(n, m) when n == 0, 0
+def align(n, m)
+  ((n - 1) / m + 1) * m
+
+def hash(value) Host.hash(value)

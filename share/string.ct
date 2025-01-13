@@ -1,103 +1,42 @@
 module String
-export
-  digit?,
-  lowercase?,
-  uppercase?,
-  alpha?,
-  space?,
-  newline?,
-  printable?,
-  match_at?,
-  parse_int,
-  split,
-  skip,
-  substring?,
-  substring,
-  from_substring,
-  join
+import List
+export alpha?, digit?, duplicate, join, lowercase?, newline?, space?, uppercase?
+
+def alpha?(c) lowercase?(c) or uppercase?(c)
+
+; def contains?(str, content)
 
 def digit?(c) c >= $0 and c <= $9
-def lowercase?(c) c >= $a and c <= $z
-def uppercase?(c) c >= $A and c <= $Z
-def alpha?(c) lowercase?(c) or uppercase?(c)
-def space?(c) c == 0x20 or c == 0x09
-def newline?(c) c == 0x0A or c == 0x0D
-def printable?(c) c >= 0x20 and c < 0x7F
 
-def match_at?(test, str, index) do
-  def loop(i)
-    if
-      i == #test, true
-      index + i >= #str, false
-      test[i] != str[index + i], false
-      else loop(i + 1)
-  loop(0)
-end
+def duplicate(str, n) do
+  def loop(i, parts) when i == n,
+    Host.format(List.reverse(parts))
 
-; returns {index, value} pair, where index is the byte index after the parsed
-; num and value is the integer, or nil
-def parse_int(str, start) do
-  def loop(i, n)
-    if i == #str or not digit?(str[i]),
-      {i, n}
-    else
-      let d = str[i] - $0
-      in loop(i+1, n*10 + d)
+  def loop(i, parts)
+    loop(i+1, str : parts)
 
-  if
-    str[start] == $- and digit?(str[start+1]), -loop(start+1, 0)
-    digit?(str[start]), loop(start, 0)
-    else {start, nil}
-end
-
-; returns the next index after all instances of "test"
-def skip(test, str, index)
-  if match_at?(test, str, index),
-    skip(test, str, index + #test)
-  else
-    index
-
-def substring?(sub)
-  if
-    not tuple?(sub), false
-    #sub != 3, false
-    not binary?(sub[0]), false
-    not integer?(sub[1]), false
-    not integer?(sub[2]), false
-    sub[1] < 0 or sub[1] >= #sub[0], false
-    sub[2] < 0 or sub[2] >= #sub[0], false
-    else true
-
-def substring(str, start, subend) {str, start, subend}
-
-def from_substring(sub) sub[0][sub[1],sub[2]]
-
-; returns a list of substrings
-def split(str, sep) do
-  def skip_one(index)
-    if match_at?(sep, str, index), index + #sep
-    else index
-
-  def part_end(index)
-    if
-      index >= #str, #str
-      match_at?(sep, str, index), index
-      else part_end(index + 1)
-
-  def loop(start, parts)
-    if start >= #str,
-      List.reverse(parts)
-    else
-      let next = part_end(start)
-      in if
-        next > start,
-          let part = substring(str, start, next)
-          in loop(skip_one(next), part : parts)
-        else
-          loop(skip_one(start), parts)
-
-  loop(skip_one(0), nil)
+  loop(0, [])
 end
 
 def join(list, sep)
   format(List.intersperse(list, sep))
+
+; def lowercase(str)
+
+def lowercase?(c) c >= $a and c <= $z
+
+def newline?(c) c == 0x0A or c == 0x0D
+
+; def pad_leading(str, n, pad)
+; def pad_trailing(str, n, pad)
+; def printable?(str)
+; def replace(str, pattern, repl)
+; def reverse(str)
+
+def space?(c) c == 0x20 or c == 0x09
+
+; def split(str, sep)
+; def split_at(str, index)
+; def trim(str, chars)
+
+def uppercase?(c) c >= $A and c <= $Z

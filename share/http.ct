@@ -1,5 +1,5 @@
 module HTTP
-import Net
+import Net, Value (binary?, tuple?, error?), String, IO
 export new, request, get, post
 
 def new(host, headers) {host, headers}
@@ -18,8 +18,8 @@ def post(conn, path, body)
 
 def request(method, host, path, headers, body)
   let
-    headers = List.join(headers, crlf)
-    req = List.join([
+    headers = String.join(headers, "\r\n")
+    req = String.join([
       [method, " ", path, " HTTP/1.1"],
       ["Host: ", host],
       ["Connection: close"],

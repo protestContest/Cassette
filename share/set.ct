@@ -1,0 +1,14 @@
+module Set
+
+; def contains?(set, item)
+; def count(set)
+; def delete(set, value)
+; def difference(set1, set2)
+; def disjoint?(set1, set2)
+; def equal?(set1, set2)
+; def filter(set, test)
+; def intersection(set1, set2)
+; def new(items)
+; def put(set, item)
+; def subset?(set1, set2)
+; def union(set1, set2)

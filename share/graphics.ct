@@ -1,4 +1,5 @@
 module Graphics
+import Math
 export perlin
 
 def perlin(grid_size) do

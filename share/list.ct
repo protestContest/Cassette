@@ -1,74 +1,122 @@
 module List
 export
-  head, tail, drop, take,
-  reduce, reverse, map, filter, each,
-  range, zip, with_index, contains?,
-  intersperse, join, repeat, for_range
+  all?, any?, at,
+  concat, contains?, count,
+  delete, drop, duplicate,
+  filter, head, insert, intersperse, iota,
+  map, reduce, replace, reverse, reverse_onto,
+  slice, split, tail, take,
+  with_index, zip
 
-def take(list, n) when (n == 0), nil
-def take(list, n) reverse(@list : take(^list, n - 1))
+def all?(list) when list == nil, true
+def all?(list) when @list, all?(^list)
+def all?(list) false
 
-; takes n items from a list and adds them to the front of tail, in reverse order
-def take_onto(list, n, tail)
-  if n == 0, tail
-  else take_onto(^list, n - 1, @list : tail)
+def any?(list) when list == nil, false
+def any?(list) when @list, true
+def any?(list) any?(^list)
 
-; takes n items from a list
-def take(list, n) reverse(take_onto(list, n, nil))
+def at(list, index) when list == nil, nil
+def at(list, index) when index == 0, @list
+def at(list, index) at(^list, index - 1)
 
-; drops n items from the front of a list
-def drop(list, n)
-  if
-    n == 0, list
-    list == nil, list
-    else drop(^list, n - 1)
+; def chunk_by(list, fn)
 
-; inserts an item into a list at index
-def insert(list, index, item) do
-  def loop(list, index, prefix)
-    if not list or index == 0, reverse_onto(prefix, item : list)
-    else loop(^list, index - 1, @list : prefix)
-  loop(list, index, nil)
+def concat(left, right)
+  reverse_onto(reverse(left), right)
+
+def contains?(list, item) when list == nil, false
+def contains?(list, item) when @list == item, true
+def contains?(list, item) contains?(^list, item)
+
+def count(list) do
+  def loop(list, n) when list == nil, n
+  def loop(list, n) loop(^list, n+1)
+  loop(list, 0)
 end
 
+def delete(list, index)
+  let parts = split(list, index)
+  in concat(parts[0], ^parts[1])
+
+def drop(list, n) when list == nil, nil
+def drop(list, n) when n == 0, list
+def drop(list, n) drop(^list, n - 1)
+
+def duplicate(item, n) do
+  def loop(list, n) when n == 0, list
+  def loop(list, n) loop(item : list, n - 1)
+  loop(nil, n)
+end
+
+def filter(list, test)
+  let list =
+    reduce(list, nil, \item, acc ->
+      if test(item), item : acc
+      else acc)
+  in reverse(list)
+
+; def find(list, test)
+; def find_index(list, test)
+; def find_value(list, fn)
+; def flatten(list)
+; def flatten_onto(list, tail)
+
 def head(list) @list
-def tail(list) ^list
 
-def reduce(list, acc, fn)
-  if list, reduce(^list, fn(@list, acc), fn)
-  else acc
+def insert(list, index, item)
+  let parts = split(list, index)
+  in concat(parts[0], item : parts[1])
 
-; adds list to the front of tail, in reverse order
-def reverse_onto(list, tail)
-  reduce(list, tail, \item, acc -> item : acc)
+def intersperse(list, sep) when list == nil, nil
+def intersperse(list, sep) when ^list == nil, list
+def intersperse(list, sep)
+  reverse(reduce(^list, [@list], \item, acc -> item : sep : acc))
 
-; reverses a list
-def reverse(list) reverse_onto(list, nil)
+def iota(n) do
+  def loop(n, list) when n == 0, list
+  def loop(n, list) loop(n - 1, (n - 1) : list)
+  loop(n, nil)
+end
 
 def map(list, fn)
   reverse(reduce(list, nil, \item, acc -> fn(item) : acc))
 
-def each(list, fn) when list == nil, nil
-def each(list, fn) do
-  fn(@list)
-  each(^list, fn)
+def reduce(list, acc, fn) when list == nil, acc
+def reduce(list, acc, fn) reduce(^list, fn(@list, acc), fn)
+
+def replace(list, index, item)
+  let parts = split(list, index)
+  in concat(parts[0], item : ^parts[1])
+
+def reverse(list) reverse_onto(list, nil)
+
+def reverse_onto(list, tail)
+  reduce(list, tail, \item, acc -> item : acc)
+
+def slice(list, start, length)
+  take(drop(list, start), length)
+
+def split(list, index) do
+  def loop(first, last, n) when n == index, {reverse(first), last}
+  def loop(first, last, n) when last == nil, {reverse(first), last}
+  def loop(first, last, n) loop(@last : first, ^last, n + 1)
+  loop(nil, list, 0)
 end
 
-def filter(list, fn)
-  let list =
-    reduce(list, nil, \item, acc ->
-      if fn(item), item : acc
-      else acc)
-  in reverse(list)
+def tail(list) ^list
 
-def range(min, max) do
-  def build_range(n, list)
-    if n > min, build_range(n-1, n-1 : list)
-    else list
-
-  if max < min, reverse(range(max, min))
-  else build_range(max, nil)
+def take(list, n) do
+  def loop(list, n, result) when list == nil, reverse(result)
+  def loop(list, n, result) when n == 0, reverse(result)
+  def loop(list, n, result) loop(^list, n - 1, @list : result)
+  loop(list, n, nil)
 end
+
+; def unzip(list)
+
+def with_index(list)
+  zip(iota(#list), list)
 
 def zip(a, b) do
   def build_zip(a, b, zipped)
@@ -78,49 +126,4 @@ def zip(a, b) do
       reverse(zipped)
 
   build_zip(a, b, nil)
-end
-
-def with_index(list)
-  zip(range(0, #list), list)
-
-def contains?(list, item)
-  if
-    list == nil, false
-    @list == item, true
-    else contains?(^list, item)
-
-def intersperse(list, sep) when list == nil, nil
-def intersperse(list, sep) when ^list == nil, list
-def intersperse(list, sep)
-  reverse(reduce(^list, [@list], \item, acc -> item : sep : acc))
-
-def join(list, sep) when sep != nil, join(intersperse(list, sep), nil)
-def join(list, sep) when list == nil, nil
-def join(list, sep)
-  reduce(^list, @list, \item, result -> result <> item)
-
-def all?(list)
-  if
-    list == nil, true
-    @list, all?(^list)
-    else false
-
-def any?(list)
-  if
-    list == nil, false
-    @list, true
-    else any?(^list)
-
-def repeat(item, num) do
-  def loop(list, n) when n == num, list
-  def loop(list, n) loop(item : list, n + 1)
-  loop(nil, 0)
-end
-
-def for_range(min, max, fn) do
-  def loop(i, acc) when i >= max, reverse(acc)
-  def loop(i, acc) do
-    loop(i+1, fn(i) : acc)
-  end
-  loop(min, [])
 end
