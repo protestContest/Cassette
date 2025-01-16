@@ -20,7 +20,7 @@ compressed data is written to the bitstream data, which also has its length.
 Decompression can be done in steps. A compressor is created by passing a
 bitstream of compressed data to NewCompressor. Then DecompressStep should be
 called repeatedly, which returns the next symbol. If the symbol is the stop code
-(which is returned by CompressorEnd), decompression is done.
+(which is returned by StopCode), decompression is done.
 
 See the source of Compress and Decompress for details.
 */
@@ -33,4 +33,4 @@ void FreeCompressor(Compressor *c);
 void CompressStep(Compressor *c, u32 symbol);
 void CompressFinish(Compressor *c);
 u32 DecompressStep(Compressor *c);
-u32 CompressorEnd(Compressor *c);
+u32 StopCode(Compressor *c);

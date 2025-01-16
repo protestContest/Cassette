@@ -897,10 +897,10 @@ static void OpTrap(VM *vm)
   u32 id = ReadLEB(vm->pc+1, vm->program->code);
   u32 value;
   value = PrimitiveFn(id)(vm);
-  if (!vm->error) {
-    MaybeGC(1, vm);
-    StackPush(value);
-  }
+  if (vm->error) return;
+
+  assert(MemFree() > 0);
+  StackPush(value);
   vm->pc += LEBSize(id) + 1;
 }
 

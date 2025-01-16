@@ -1,4 +1,4 @@
-import Window
+import Window, List, IO, Range
 
 def should_quit(event)
   event.what == :keyDown and
@@ -20,8 +20,8 @@ def draw_image(window, mod)
     white = format([0xFF, 0xFF, 0xFF, 0])
     black = format([0, 0, 0, 0])
     pixels =
-      map_range(0, window.height, \y ->
-        map_range(0, window.width, \x ->
+      Range.for(0, window.height, \y ->
+        Range.for(0, window.width, \x ->
           if (x ^ y) % mod, white else black))
     img = format(pixels)
   in do

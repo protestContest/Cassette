@@ -1,17 +1,17 @@
-import Window, Graphics
+import Window, Graphics, List, Range, Math
 
 def draw_image(window, grid_size, scale)
   let
     perlin = Graphics.perlin(grid_size)
     pixels =
-      List.for_range(0, window.height/scale, \y ->
-        let row = List.for_range(0, window.width/scale, \x ->
+      Range.for(0, window.height/scale, \y ->
+        let row = Range.for(0, window.width/scale, \x ->
           let
             color = Math.map(perlin(x, y), -grid_size, grid_size, 0, 255)
             pixel = [color, color, color, 0]
           in
-            List.repeat(pixel, scale))
-        in List.repeat(row, scale))
+            List.duplicate(pixel, scale))
+        in List.duplicate(row, scale))
     img = format(pixels)
   in do
     Window.blit(img, window.width, window.height, 0, 0, window)

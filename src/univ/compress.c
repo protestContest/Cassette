@@ -141,7 +141,7 @@ void FreeCompressor(Compressor *c)
   free(c);
 }
 
-u32 CompressorEnd(Compressor *c)
+u32 StopCode(Compressor *c)
 {
   return c->stopCode;
 }
@@ -297,7 +297,7 @@ u32 Decompress(void *src, u32 srcLen, u8 **dst)
 
   while (HasBits(&reader)) {
     sym = DecompressStep(c);
-    if (sym == CompressorEnd(c)) break;
+    if (sym == StopCode(c)) break;
     WriteBits(&writer, sym, 8);
   }
 

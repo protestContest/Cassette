@@ -481,7 +481,7 @@ static u32 VMPollEvent(VM *vm)
     break;
   }
 
-  MaybeGC(9, vm);
+  MaybeGC(10, vm);
   eventVal = Tuple(5);
   TupleSet(eventVal, 0, EventTypeVal(event.what));
   TupleSet(eventVal, 1, msg);
