@@ -23,3 +23,7 @@ u32 FoldHash(u32 hash, i32 size);
 
 u32 ByteSwap(u32 n);
 u32 CRC32(u8 *data, u32 size);
+
+/* Crockford's version */
+char *Base32Encode(void *data, u32 len);
+char *Base32Decode(void *data, u32 len);

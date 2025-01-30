@@ -269,7 +269,7 @@ u32 Compress(void *src, u32 srcLen, u8 **dst)
   u8 *end = bytes + srcLen;
 
   *dst = 0;
-  InitBitStream(&writer, *dst, 0);
+  InitBitStream(&writer, *dst, 0, false);
   c = NewCompressor(&writer, 8);
 
   while (bytes < end) {
@@ -291,8 +291,8 @@ u32 Decompress(void *src, u32 srcLen, u8 **dst)
   u32 sym;
 
   *dst = 0;
-  InitBitStream(&writer, *dst, 0);
-  InitBitStream(&reader, src, srcLen);
+  InitBitStream(&writer, *dst, 0, false);
+  InitBitStream(&reader, src, srcLen, false);
   c = NewCompressor(&reader, 8);
 
   while (HasBits(&reader)) {

@@ -1,13 +1,14 @@
 #include "univ/bitstream.h"
 #include "univ/math.h"
 
-void InitBitStream(BitStream *stream, u8 *data, u32 length)
+void InitBitStream(BitStream *stream, void *data, u32 length, bool dir)
 {
   stream->data = data;
   stream->length = length;
   stream->capacity = length;
   stream->index = 0;
   stream->bit = 0;
+  stream->dir = dir;
 }
 
 bool HasBits(BitStream *stream)
@@ -23,18 +24,25 @@ u32 ReadBits(BitStream *stream, u32 nBits)
   u8 byteBits;
   u8 bitsRead;
 
-  while (nBits) {
-    mask = (1 << nBits) - 1;
-    byteBits = (stream->data[stream->index] >> stream->bit) & mask;
-    sym |= (u32)byteBits << symBit;
-    bitsRead = Min(nBits, 8 - stream->bit);
+  while (nBits && stream->index < stream->length) {
+    bitsRead = Min(8-stream->bit, nBits);
+    mask = (1 << bitsRead) - 1;
+    if (stream->dir == msb) {
+      byteBits = (stream->data[stream->index] >> (8-stream->bit-bitsRead)) & mask;
+      sym = (sym << bitsRead) | byteBits;
+    } else {
+      byteBits = (stream->data[stream->index] >> stream->bit) & mask;
+      sym |= (u32)byteBits << symBit;
+    }
+
     stream->bit += bitsRead;
+    nBits -= bitsRead;
+    symBit += bitsRead;
+
     if (stream->bit == 8) {
       stream->index++;
       stream->bit = 0;
     }
-    nBits -= bitsRead;
-    symBit += bitsRead;
   }
 
   return sym;
@@ -43,9 +51,15 @@ u32 ReadBits(BitStream *stream, u32 nBits)
 void GrowStream(BitStream *stream, u32 nBits)
 {
   u32 bytesFree = stream->capacity - stream->length;
-  u32 bitsFree = (bytesFree == 0) ? 0 : bytesFree*8 + ((stream->bit > 0) ? (8 - stream->bit) : 0);
+  u32 bitsFree = 0;
   u32 bitsNeeded, bytesNeeded;
   u32 capacity, i;
+
+  if (bytesFree != 0) {
+    u32 extra = (stream->bit > 0) ? (8 - stream->bit) : 0;
+    bitsFree = bytesFree * 8 + extra;
+  }
+
   if (bitsFree >= nBits) return;
   bitsNeeded = nBits - bitsFree;
   bytesNeeded = Align(bitsNeeded, 8) / 8;
@@ -67,18 +81,31 @@ void WriteBits(BitStream *stream, u32 sym, u32 nBits)
 
   while (nBits) {
     assert(stream->index < stream->capacity);
+
     bitsWritten = Min(nBits, 8 - stream->bit);
     mask = (1 << bitsWritten) - 1;
-    byteBits = (sym >> symBit) & mask;
-    stream->data[stream->index] |= byteBits << stream->bit;
-    symBit += bitsWritten;
+
+    if (stream->dir == msb) {
+      byteBits = (sym >> (nBits - bitsWritten)) & mask;
+      stream->data[stream->index] |= byteBits << (8-bitsWritten-stream->bit);
+    } else {
+      byteBits = (sym >> symBit) & mask;
+      stream->data[stream->index] |= byteBits << stream->bit;
+      symBit += bitsWritten;
+    }
     stream->bit += bitsWritten;
+    nBits -= bitsWritten;
     if (stream->bit == 8) {
       stream->bit = 0;
       stream->index++;
     }
-    nBits -= bitsWritten;
   }
 
   stream->length = Max(stream->length, stream->index + (stream->bit > 0));
+}
+
+void *FinalizeBits(BitStream *stream)
+{
+  stream->data = realloc(stream->data, stream->length);
+  return stream->data;
 }

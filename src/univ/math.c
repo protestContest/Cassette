@@ -1,4 +1,6 @@
 #include "univ/math.h"
+#include "univ/bitstream.h"
+#include "univ/str.h"
 
 u32 NumDigits(i32 num, u32 base)
 {
@@ -15,22 +17,28 @@ u32 NumDigits(i32 num, u32 base)
   return n;
 }
 
-static u32 rand_state = 1;
+static u32 randSeed = 1;
 
 void SeedRandom(u32 seed)
 {
-  rand_state = seed;
+  randSeed = seed;
   Random();
 }
 
-u32 Random(void) {
-  u32 mul = (u32)6364136223846793005u;
-  u32 inc = (u32)1442695040888963407u;
-  u32 x = rand_state;
-  u32 r = (u32)(x >> 29);
-  rand_state = x * mul + inc;
-  x ^= x >> 18;
-  return x >> r | x << (-r & 31);
+u32 Random(void)
+{
+  u32 hiSeed = randSeed >> 16;
+  u32 loSeed = randSeed & 0xFFFF;
+  u32 a, c;
+
+  a = 0x41A7 * loSeed;
+  c = 0x41A7 * hiSeed + (a >> 16);
+  c = ((c & 0x7FFF) << 16) + ((2*c) >> 16);
+  a = ((a & 0xFFFF) - 0x7FFFFFFF) + c;
+
+  if ((i32)a < 0) a += 0x7FFFFFFF;
+  randSeed = a;
+  return randSeed;
 }
 
 u32 PopCount(u32 n)
@@ -144,4 +152,56 @@ u32 CRC32(u8 *data, u32 size)
 
   result ^= 0xFFFFFFFF;
   return result;
+}
+
+static char base32encode[] = {
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+  'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'Z'
+};
+static char base32decode[] = {
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+  0, 0, 0, 0, 0, 0, 0, 10, 11, 12,
+  13, 14, 15, 16, 17, 0, 18, 19, 0, 20,
+  21, 0, 22, 23, 24, 25, 26, 0, 27, 28,
+  29, 30, 31
+};
+
+char *Base32Encode(void *data, u32 len)
+{
+  u8 *bytes = (u8*)data;
+  u32 i = 0;
+  u32 dst_len = Align(len*8, 5) / 5;
+  u8 *dst = malloc(dst_len+1);
+  BitStream stream;
+  InitBitStream(&stream, bytes, len, true);
+  while (HasBits(&stream)) {
+    u8 bits = ReadBits(&stream, 5);
+    dst[i++] = base32encode[bits];
+  }
+  dst[dst_len] = 0;
+  return (char*)dst;
+}
+
+char *Base32Decode(void *data, u32 len)
+{
+  u32 i;
+  u32 nBits = 5;
+  BitStream stream;
+  u8 *bytes = (u8*)data;
+  InitBitStream(&stream, 0, 0, true);
+  for (i = 0; i < len; i++) {
+    char c = UpChar(bytes[i]);
+    switch (c) {
+    case 'O':
+      c = '0';
+      break;
+    case 'I':
+    case 'L':
+      c = '1';
+      break;
+    }
+    WriteBits(&stream, base32decode[c - '0'], nBits);
+  }
+  FinalizeBits(&stream);
+  return (char*)stream.data;
 }

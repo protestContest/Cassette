@@ -138,12 +138,23 @@ u32 WriteNum(i32 num, char *buf)
   return snprintf(buf, len, "%d", num);
 }
 
-void WriteBE(u32 num, u8 *dst)
+void WriteBE(u32 num, void *dst)
 {
-  dst[0] = num >> 24;
-  dst[1] = (num >> 16) & 0xFF;
-  dst[2] = (num >> 8) & 0xFF;
-  dst[3] = num & 0xFF;
+  u8 *bytes = (u8*)dst;
+  bytes[0] = num >> 24;
+  bytes[1] = (num >> 16) & 0xFF;
+  bytes[2] = (num >> 8) & 0xFF;
+  bytes[3] = num & 0xFF;
+}
+
+u32 ReadBE(void *src)
+{
+  u8 *bytes = (u8*)src;
+  return
+      (((u32)bytes[0] & 0xFF) << 24)
+    | (((u32)bytes[1] & 0xFF) << 16)
+    | (((u32)bytes[2] & 0xFF) << 8)
+    | (((u32)bytes[3] & 0xFF));
 }
 
 char *TerminateString(char *str)
