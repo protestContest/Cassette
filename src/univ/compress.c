@@ -102,7 +102,7 @@ static u32 NextCode(TableItem *table)
 }
 
 struct Compressor {
-  BitStream *stream;
+  BitStream stream;
   u32 symbolSize;
   u32 codeSize;
   u32 clearCode;
@@ -118,10 +118,10 @@ struct Compressor {
 
 #define IsSymbolCode(code, symbolSize) ((code) < (1 << (symbolSize)))
 
-Compressor *NewCompressor(BitStream *stream, u32 symbolSize)
+Compressor *NewCompressor(void *data, u32 length, u32 symbolSize)
 {
   Compressor *c = malloc(sizeof(Compressor));
-  c->stream = stream;
+  InitBitStream(&c->stream, data, length, false);
   c->symbolSize = symbolSize;
   c->table = CreateTable(symbolSize);
   c->clearCode = TableAdd(&c->table, NullCode, NullCode);
@@ -171,7 +171,7 @@ void CompressStep(Compressor *c, u32 sym)
   if (code != NullCode) {
     c->prefix = code;
   } else {
-    WriteBits(c->stream, c->prefix, c->codeSize);
+    WriteBits(&c->stream, c->prefix, c->codeSize);
 
     if (!TableFull(c->table)) {
       TableAdd(&c->table, c->prefix, sym);
@@ -185,7 +185,7 @@ void CompressStep(Compressor *c, u32 sym)
       c->metric += 2*(-IsSymbolCode(c->prefix, c->symbolSize)) + 1;
 
       if (c->metric < CLEAR_THRESHHOLD) {
-        WriteBits(c->stream, c->clearCode, c->codeSize);
+        WriteBits(&c->stream, c->clearCode, c->codeSize);
         ClearTable(c);
       }
     }
@@ -196,8 +196,9 @@ void CompressStep(Compressor *c, u32 sym)
 
 void CompressFinish(Compressor *c)
 {
-  WriteBits(c->stream, c->prefix, c->codeSize);
-  WriteBits(c->stream, c->stopCode, c->codeSize);
+  WriteBits(&c->stream, c->prefix, c->codeSize);
+  WriteBits(&c->stream, c->stopCode, c->codeSize);
+  FinalizeBits(&c->stream);
   c->done = true;
 }
 
@@ -218,14 +219,14 @@ u32 DecompressStep(Compressor *c)
 {
   u32 code, firstSym, symbol;
 
-  if (!HasBits(c->stream)) c->done = true;
-  if (c->done) return 0;
-
   if (VecCount(c->outputBuf) > 0) {
     return VecPop(c->outputBuf);
   }
 
-  code = ReadBits(c->stream, c->codeSize);
+  if (!HasBits(&c->stream)) c->done = true;
+  if (c->done) return 0;
+
+  code = ReadBits(&c->stream, c->codeSize);
 
   if (code == c->stopCode) {
     c->done = true;
@@ -263,46 +264,48 @@ u32 DecompressStep(Compressor *c)
 
 u32 Compress(void *src, u32 srcLen, u8 **dst)
 {
-  BitStream writer;
   Compressor *c;
   u8 *bytes = src;
   u8 *end = bytes + srcLen;
+  u32 len;
 
-  *dst = 0;
-  InitBitStream(&writer, *dst, 0, false);
-  c = NewCompressor(&writer, 8);
+  c = NewCompressor(0, 0, 8);
 
   while (bytes < end) {
     u32 sym = *bytes++;
     CompressStep(c, sym);
   }
-  CompressFinish(c);
 
+  CompressFinish(c);
+  *dst = c->stream.data;
+  len = c->stream.length;
   FreeCompressor(c);
 
-  *dst = writer.data;
-  return writer.length;
+  return len;
 }
 
 u32 Decompress(void *src, u32 srcLen, u8 **dst)
 {
-  BitStream writer, reader;
   Compressor *c;
   u32 sym;
+  u32 cap = 0, count = 0;
+  u8 *buf = 0;
 
-  *dst = 0;
-  InitBitStream(&writer, *dst, 0, false);
-  InitBitStream(&reader, src, srcLen, false);
-  c = NewCompressor(&reader, 8);
+  c = NewCompressor(src, srcLen, 8);
 
-  while (HasBits(&reader)) {
+  while (!c->done) {
     sym = DecompressStep(c);
     if (sym == StopCode(c)) break;
-    WriteBits(&writer, sym, 8);
+
+    if (count+1 >= cap) {
+      cap = Max(256, 2*cap);
+      buf = realloc(buf, cap);
+    }
+    buf[count++] = (u8)sym;
   }
 
   FreeCompressor(c);
 
-  *dst = writer.data;
-  return writer.length;
+  *dst = realloc(buf, count);
+  return count;
 }
