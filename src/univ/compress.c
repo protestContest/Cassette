@@ -1,5 +1,6 @@
 #include "univ/compress.h"
 #include "univ/bitstream.h"
+#include "univ/str.h"
 #include "univ/vec.h"
 
 #define MAX_CODE_SIZE 12
@@ -308,4 +309,104 @@ u32 Decompress(void *src, u32 srcLen, u8 **dst)
 
   *dst = realloc(buf, count);
   return count;
+}
+
+void PackBits(void *src, i8 **dst, u32 len)
+{
+  u8 *bytes = src;
+  u8 *cur;
+  u8 *runStart = 0;
+  bool inRun = false;
+  if (len == 0) return;
+
+  cur = bytes+1;
+  len--;
+
+  while (len > 0) {
+    if (inRun) {
+      if (*cur != *(cur-1)) {
+        i32 runLen = cur-bytes;
+        while (runLen > 128) {
+          *(*dst)++ = -127;
+          *(*dst)++ = *bytes;
+          runLen -= 128;
+        }
+        *(*dst)++ = (i8)(1 - runLen);
+        *(*dst)++ = *bytes;
+        bytes = cur;
+        runStart = 0;
+        inRun = false;
+      }
+    } else {
+      if (*cur == *(cur-1)) {
+        if (runStart == cur-2) {
+          u32 literalLen = runStart - bytes;
+
+          while (literalLen > 128) {
+            *(*dst)++ = 127;
+            Copy(bytes, *dst, 128);
+            *dst += 128;
+            bytes += 128;
+            literalLen -= 128;
+          }
+
+          if (literalLen > 0) {
+            *(*dst)++ = (i8)(literalLen - 1);
+            Copy(bytes, *dst, literalLen);
+            *dst += literalLen;
+            bytes = runStart;
+          }
+
+          inRun = true;
+        } else {
+          runStart = cur-1;
+        }
+      }
+    }
+
+    cur++;
+    len--;
+  }
+
+  if (inRun) {
+    i32 runLen = cur-bytes;
+    while (runLen > 128) {
+      *(*dst)++ = 1 - 128;
+      *(*dst)++ = *bytes;
+      runLen -= 128;
+    }
+    *(*dst)++ = 1 - runLen;
+    *(*dst)++ = *bytes;
+  } else {
+    u32 literalLen = cur - bytes;
+    *(*dst)++ = literalLen - 1;
+    Copy(bytes, *dst, literalLen);
+    *dst += literalLen;
+    bytes = runStart;
+  }
+}
+
+void UnpackBits(void *src, void *dst, u32 len)
+{
+  i8 *bytes = src;
+  u8 *dstBytes = dst;
+  while (len > 0) {
+    if (*bytes == -128) {
+      bytes++;
+    } else if (*bytes >= 0) {
+      u32 runLen = 1 + *bytes;
+      Copy(bytes + 1, dstBytes, runLen);
+      bytes += runLen + 1;
+      dstBytes += runLen;
+      len -= runLen;
+    } else {
+      u32 runLen = 1 - *bytes;
+      u32 i;
+      for (i = 0; i < runLen; i++) {
+        *dstBytes++ = *(bytes+1);
+      }
+      bytes += 2;
+      len -= runLen;
+    }
+  }
 }

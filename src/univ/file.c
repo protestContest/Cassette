@@ -12,28 +12,10 @@
 #include <termios.h>
 #include <unistd.h>
 
-FileList *NewFileList(u32 count)
-{
-  FileList *list = malloc(sizeof(FileList));
-  u32 i;
-  list->count = count;
-  list->filenames = malloc(sizeof(char*)*count);
-  for (i = 0; i < count; i++) list->filenames[i] = 0;
-  return list;
-}
-
-void FreeFileList(FileList *list)
-{
-  u32 i;
-  for (i = 0; i < list->count; i++) free(list->filenames[i]);
-  free(list->filenames);
-  free(list);
-}
-
 i32 Open(char *path, i32 flags, char **error)
 {
   i32 f = open(path, flags, 0x1FF);
-  *error = (error && f < 0) ? strerror(errno) : 0;
+  if (error) *error = (f < 0) ? strerror(errno) : 0;
   return f;
 }
 
@@ -134,7 +116,7 @@ i32 Accept(i32 sock, char **error)
   return s;
 }
 
-i32 Connect(char *node, char *port, char **error)
+i32 Connect(char *host, char *port, char **error)
 {
   struct addrinfo hints = {0};
   struct addrinfo *servinfo;
@@ -142,7 +124,7 @@ i32 Connect(char *node, char *port, char **error)
 
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
-  status = getaddrinfo(node, port, &hints, &servinfo);
+  status = getaddrinfo(host, port, &hints, &servinfo);
   if (status != 0) {
     *error = (char*)gai_strerror(status);
     return -1;
@@ -217,6 +199,24 @@ i32 WriteFile(void *data, u32 size, char *path)
   written = write(file, data, size);
   close(file);
   return written;
+}
+
+FileList *NewFileList(u32 count)
+{
+  FileList *list = malloc(sizeof(FileList));
+  u32 i;
+  list->count = count;
+  list->filenames = malloc(sizeof(char*)*count);
+  for (i = 0; i < count; i++) list->filenames[i] = 0;
+  return list;
+}
+
+void FreeFileList(FileList *list)
+{
+  u32 i;
+  for (i = 0; i < list->count; i++) free(list->filenames[i]);
+  free(list->filenames);
+  free(list);
 }
 
 static int OnlyFiles(const struct dirent *entry)

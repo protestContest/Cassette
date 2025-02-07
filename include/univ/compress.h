@@ -8,8 +8,8 @@ To compress in multiple steps, create a compressor with NewCompressor and call
 CompressStep with each symbol. Then call CompressFinish and FreeCompressor.
 
 To decompress in multiple steps, create a compressor with NewCompressor and call
-DecompressStep and save each decompressed symbol. When the compressor's done
-flag is set, call FreeCompressor.
+DecompressStep and save each decompressed symbol. When the stop symbol is
+returned, call FreeCompressor.
 */
 
 /* Compresses src, returning the compressed length and the compressed data in
@@ -37,10 +37,24 @@ See the source of Compress and Decompress for details.
 
 typedef struct Compressor Compressor;
 
+/* Creates a compressor to compress/decompress data with a given symbol size */
 Compressor *NewCompressor(void *data, u32 length, u32 symbolSize);
+
+/* Frees a compressor */
 void FreeCompressor(Compressor *c);
 
+/* Adds one symbol to a compression stream */
 void CompressStep(Compressor *c, u32 symbol);
+
+/* Finalizes a compression stream */
 void CompressFinish(Compressor *c);
+
+/* Returns the next symbol from a decompression stream */
 u32 DecompressStep(Compressor *c);
+
+/* Returns the stop symbol for a compression/decompression stream */
 u32 StopCode(Compressor *c);
+
+/* Simple Macintosh-style RLE encoding */
+void PackBits(void *src, i8 **dst, u32 len);
+void UnpackBits(void *src, void *dst, u32 len);

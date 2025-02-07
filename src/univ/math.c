@@ -185,12 +185,11 @@ char *Base32Encode(void *data, u32 len)
 char *Base32Decode(void *data, u32 len)
 {
   u32 i;
-  u32 nBits = 5;
   BitStream stream;
   u8 *bytes = (u8*)data;
   InitBitStream(&stream, 0, 0, true);
   for (i = 0; i < len; i++) {
-    char c = UpChar(bytes[i]);
+    u8 c = UpChar(bytes[i]);
     switch (c) {
     case 'O':
       c = '0';
@@ -200,7 +199,12 @@ char *Base32Decode(void *data, u32 len)
       c = '1';
       break;
     }
-    WriteBits(&stream, base32decode[c - '0'], nBits);
+    c -= '0';
+    if (c >= ArrayCount(base32decode)) {
+      if (stream.data) free(stream.data);
+      return 0;
+    }
+    WriteBits(&stream, base32decode[c], 5);
   }
   FinalizeBits(&stream);
   return (char*)stream.data;

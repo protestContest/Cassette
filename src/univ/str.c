@@ -164,3 +164,32 @@ char *TerminateString(char *str)
   str[size] = 0;
   return str;
 }
+
+char *StuffHex(char *hex)
+{
+  char *dst = 0;
+  u32 len = 0;
+  u32 cap = 0;
+
+  while (*hex) {
+    u8 byte;
+    if (!IsHexDigit(*hex)) {
+      hex++;
+      continue;
+    }
+
+    byte = HexByte(*hex) << 4;
+    hex++;
+    if (IsHexDigit(*hex)) {
+      byte |= HexByte(*hex);
+      hex++;
+    }
+
+    if (len+1 > cap) {
+      cap = Max(2*cap, 1);
+      dst = realloc(dst, cap);
+    }
+    dst[len++] = byte;
+  }
+  return realloc(dst, len);
+}

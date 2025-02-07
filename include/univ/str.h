@@ -10,6 +10,7 @@
 #define IsAlpha(c)        (IsUppercase(c) || IsLowercase(c))
 #define IsHexDigit(c)     (IsDigit(c) || ((c) >= 'A' && (c) <= 'F'))
 #define HexDigit(n)       ((n) < 10 ? (n) + '0' : (n) - 10 + 'A')
+#define HexByte(c)        (IsDigit(c) ? (c) - '0' : UpChar(c) - 'A' + 10)
 #define IsPrintable(c)    ((c) >= 0x20 && (c) < 0x7F)
 
 bool StrEq(char *s1, char *s2);
@@ -32,3 +33,4 @@ u32 WriteNum(i32 num, char *buf);
 void WriteBE(u32 num, void *dst);
 u32 ReadBE(void *bytes);
 char *TerminateString(char *str);
+char *StuffHex(char *hex);

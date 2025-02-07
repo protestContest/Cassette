@@ -12,10 +12,16 @@ void SeedRandom(u32 seed);
 u32 Random(void);
 u32 PopCount(u32 num);
 
+/* Returns the number of bytes num needs to be encoded as a LEB */
 i32 LEBSize(i32 num);
+
+/* Writes a number into a buffer as a LEB */
 void WriteLEB(i32 num, u32 pos, u8 *buf);
+
+/* Reads a LEB number from a buffer */
 i32 ReadLEB(u32 index, u8 *buf);
 
+/* DJB2 hash */
 #define EmptyHash 5381
 u32 Hash(void *data, u32 size);
 u32 AppendHash(u32 hash, void *data, u32 size);
@@ -24,6 +30,8 @@ u32 FoldHash(u32 hash, i32 size);
 u32 ByteSwap(u32 n);
 u32 CRC32(u8 *data, u32 size);
 
-/* Crockford's version */
+/* Crockford's version. Resulting string is zero-padded and null-terminated. */
 char *Base32Encode(void *data, u32 len);
+
+/* Crockford's version. Invalid input will return null. */
 char *Base32Decode(void *data, u32 len);

@@ -27,9 +27,10 @@ static char *FormatKey(char *key)
   return key;
 }
 
-static void UnformatKey(char *key)
+static char *UnformatKey(char *key)
 {
-  char *cur = key;
+  char *newkey = malloc(StrLen(key) + 1);
+  char *cur = newkey;
   while (*key) {
     if (*key != '-' && *key != ' ') {
       *cur = *key;
@@ -38,9 +39,10 @@ static void UnformatKey(char *key)
     key++;
   }
   *cur = 0;
+  return newkey;
 }
 
-char *GenKey(char *data)
+char *GenKey(void *data)
 {
   u8 bytes[13] = {0};
   u32 hash, i, chk = 0;
@@ -49,22 +51,27 @@ char *GenKey(char *data)
   } else {
     for (i = 0; i < 8; i++) bytes[i] = Random() & 0xFF;
   }
-  for (i = 0; i < 8; i++) printf("%02X ", bytes[i]);
   hash = Hash(bytes, 8);
-  printf("\n%08X\n", hash);
   WriteBE(hash, bytes+8);
   for (i = 0; i < 12; i++) chk = chk ^ bytes[i];
-  printf("%s\n", Base32Encode(bytes, 12));
   bytes[12] = (chk & 0x0F) << 4;
   return FormatKey(Base32Encode(bytes, 13));
 }
 
-bool ValidateKey(char *key)
+bool KeyValid(char *key)
 {
   char *data;
   u32 i, storedHash, calcHash, storedChk, calcChk = 0;
-  UnformatKey(key);
-  data = Base32Decode(key, StrLen(key));
+  key = UnformatKey(key);
+  if (StrLen(key) != 20) {
+    free(key);
+    return false;
+  }
+  data = Base32Decode(key, 20);
+  if (!data) {
+    free(key);
+    return false;
+  }
 
   storedChk = (data[12] >> 4) & 0xF;
   for (i = 0; i < 12; i++) calcChk = calcChk ^ data[i];
@@ -72,6 +79,7 @@ bool ValidateKey(char *key)
 
   storedHash = ReadBE(data+8);
   calcHash = Hash(data, 8);
+  free(key);
   free(data);
   return calcHash == storedHash && storedChk == calcChk;
 }

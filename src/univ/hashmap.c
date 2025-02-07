@@ -120,6 +120,23 @@ u32 HashMapGet(HashMap *map, u32 key)
   }
 }
 
+bool HashMapFetch(HashMap *map, u32 key, u32 *value)
+{
+  u32 index;
+  if (map->capacity == 0) return false;
+
+  index = IndexFor(key, map->capacity);
+
+  while (true) {
+    if (IsEmpty(map->buckets[index])) return false;
+    if (map->buckets[index].key == key) {
+      *value = map->buckets[index].value;
+      return true;
+    }
+    index = IndexFor(index + 1, map->capacity);
+  }
+}
+
 void HashMapDelete(HashMap *map, u32 key)
 {
   u32 index;
