@@ -6,6 +6,12 @@
 
 static Mem mem = {0, 0, 0, 0};
 
+#if DEBUG
+#include "runtime/stats.h"
+#include "univ/time.h"
+StatGroup *mem_stats = 0;
+#endif
+
 void InitMem(u32 size)
 {
   mem.data = malloc(size*sizeof(u32));
@@ -105,6 +111,12 @@ void CollectGarbage(u32 *roots, u32 num_roots)
   u32 i, scan;
   u32 *oldmem = mem.data;
 
+#if DEBUG
+  u64 start;
+  if (!mem_stats) mem_stats = NewStatGroup("Mem");
+  start = Ticks();
+#endif
+
   if (!mem.data) {
     InitMem(256);
     return;
@@ -144,10 +156,14 @@ void CollectGarbage(u32 *roots, u32 num_roots)
 
   if (MemFree() < MemCapacity()/4) {
     SizeMem(2*MemCapacity());
-  } else if (MemCapacity() > MIN_CAPACITY &&
+  } else if (MemCapacity() > MIN_CAPACITY*2 &&
       MemFree() > MemCapacity()/4 + MemCapacity()/2) {
-    SizeMem(Max(256, MemCapacity()/2));
+    SizeMem(MemCapacity()/2);
   }
+
+#if DEBUG
+  IncStat(mem_stats, "GC", start);
+#endif
 }
 
 void StackPush(u32 value)

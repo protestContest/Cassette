@@ -1,48 +1,16 @@
-import Window, List, IO, Range
-
-def should_quit(event)
-  event.what == :keyDown and
-  ((event.message & 0xFF == $q and Window.modifier?(event, :cmd)) or
-   (event.message >> 8 == 0x35))
-
-def loop(window, mod)
-  let event = Window.next_event() except should_quit(event), nil
-  in
-    if event.what == :keyDown, do
-      draw_image(window, mod+1)
-      loop(window, mod+1)
-    end
-    else
-      loop(window, mod)
+import Sketch (rgba), Range, Window
 
 def draw_image(window, mod)
   let
-    white = format([0xFF, 0xFF, 0xFF, 0])
-    black = format([0, 0, 0, 0])
+    white = rgba(0xFF, 0xFF, 0xFF, 0)
+    black = rgba(0, 0, 0, 0)
     pixels =
       Range.for(0, window.height, \y ->
         Range.for(0, window.width, \x ->
           if (x ^ y) % mod, white else black))
     img = format(pixels)
   in do
-    IO.inspect(mod)
     Window.blit(img, window.width, window.height, 0, 0, window)
-    Window.update(window)
   end
 
-def map_range(min, max, fn) do
-  def loop(i, acc) when i >= max, List.reverse(acc)
-  def loop(i, acc) do
-    loop(i+1, fn(i) : acc)
-  end
-  loop(min, [])
-end
-
-let
-  width = 512
-  height = 384
-  window = Window.open("Test", width, height)
-in do
-  draw_image(window, 3)
-  loop(window, 3)
-end
+Sketch.draw(512, 384, \window -> draw_image(window, 9))

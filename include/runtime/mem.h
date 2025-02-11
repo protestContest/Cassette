@@ -96,5 +96,7 @@ u32 InspectVal(u32 value);
 char *MemValStr(u32 value);
 
 #ifdef DEBUG
+#include "runtime/stats.h"
+extern StatGroup *mem_stats;
 void DumpMem(void);
 #endif

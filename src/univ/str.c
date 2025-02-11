@@ -15,7 +15,12 @@ void Copy(void *src, void *dst, u32 size)
 
 u32 StrLen(char *s)
 {
-  return strlen(s);
+  u32 len = 0;
+  while (*s) {
+    if ((*s & 0xC0) != 0x80) len++;
+    s++;
+  }
+  return len;
 }
 
 char *LastIndex(char *s, char c)

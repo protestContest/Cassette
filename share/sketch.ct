@@ -1,0 +1,23 @@
+module Sketch
+import Window
+export draw, rgba
+
+def rgba(r, g, b, a) format([r, g, b, a])
+
+def should_quit(event)
+  event.what == :keyDown and
+  ((event.message & 0xFF == $q and Window.modifier?(event, :cmd)) or
+   (event.message >> 8 == 0x35))
+
+def loop_until_close(window)
+  let event = Window.next_event()
+  in if should_quit(event), nil
+  else loop_until_close(window)
+
+def draw(width, height, draw)
+  let window = Window.open("Sketch", width, height)
+  in do
+    draw(window)
+    Window.update(window)
+    loop_until_close(window)
+  end

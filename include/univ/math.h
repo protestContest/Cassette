@@ -24,6 +24,7 @@ i32 ReadLEB(u32 index, u8 *buf);
 /* DJB2 hash */
 #define EmptyHash 5381
 u32 Hash(void *data, u32 size);
+#define HashStr(str) Hash(str, StrLen(str))
 u32 AppendHash(u32 hash, void *data, u32 size);
 u32 FoldHash(u32 hash, i32 size);
 

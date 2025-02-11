@@ -68,7 +68,7 @@ leaks: $(EXECTARGET)
 
 .PHONY: syntax
 syntax:
-	bison -v support/syntax.txt -o support/syntax.tab && rm support/syntax.tab
+	bison -v support/syntax.y -o support/syntax.tab && rm support/syntax.tab
 
 .PHONY: activity
 activity:

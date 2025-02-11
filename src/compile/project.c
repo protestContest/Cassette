@@ -9,6 +9,11 @@
 #include "univ/str.h"
 #include "univ/vec.h"
 
+#if DEBUG
+#include "univ/time.h"
+StatGroup *build_stats = 0;
+#endif
+
 static Error *FileNotFound(char *filename)
 {
   Error *error = NewError("File \"^\" not found", filename, 0, 0);
@@ -264,6 +269,11 @@ Error *BuildProject(Project *project)
   Error *error;
   Compiler c;
 
+#if DEBUG
+  u64 start, build_start = Ticks();
+  build_stats = NewStatGroup("Build");
+#endif
+
   SetSymbolSize(valBits);
 
   /* parse each source file and add it to mod_map */
@@ -271,7 +281,17 @@ Error *BuildProject(Project *project)
     Module *mod = &project->modules[i];
     u32 name, j;
     ASTNode *exports;
+
+#if DEBUG
+    start = Ticks();
+#endif
+
     mod->ast = ParseModule(mod->source);
+
+#if DEBUG
+    IncStat(build_stats, "Parse", start);
+#endif
+
     if (IsErrorNode(mod->ast)) {
       char *msg = SymbolName(mod->ast->data.value);
       u32 len = mod->ast->end - mod->ast->start;
@@ -301,7 +321,13 @@ Error *BuildProject(Project *project)
   /* compile each module in the build list */
   InitCompiler(&c, project);
   for (i = 0; i < VecCount(project->build_list); i++) {
+#if DEBUG
+    start = Ticks();
+#endif
     error = Compile(&c, project->build_list[i]);
+#if DEBUG
+    IncStat(build_stats, "Compile", start);
+#endif
     if (error) {
       DestroyCompiler(&c);
       return error;
@@ -309,8 +335,20 @@ Error *BuildProject(Project *project)
   }
   DestroyCompiler(&c);
 
+#if DEBUG
+  start = Ticks();
+#endif
+
   /* generate program from compiled modules */
   LinkModules(project);
+
+#if DEBUG
+  IncStat(build_stats, "Link", start);
+#endif
+
+#if DEBUG
+  IncStat(build_stats, "Build", build_start);
+#endif
 
   return 0;
 }

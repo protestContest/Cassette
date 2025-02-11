@@ -6,6 +6,14 @@
 #include "univ/str.h"
 #include "univ/vec.h"
 
+#if DEBUG
+#include "univ/time.h"
+#include "runtime/stats.h"
+StatGroup *op_stats = 0;
+StatGroup *primitive_stats = 0;
+static i64 adjust = 0;
+#endif
+
 char *OpName(OpCode op)
 {
   switch (op) {
@@ -117,7 +125,6 @@ void Disassemble(u8 *code)
   }
 }
 
-
 static void OpNoop(VM *vm)
 {
   vm->pc++;
@@ -147,11 +154,23 @@ static void OpPanic(VM *vm)
   free(msg);
 }
 
+#if DEBUG
+#define OpGC(n, vm) do { \
+  adjust = Ticks(); \
+  MaybeGC(n, vm); \
+  adjust = Ticks() - adjust; \
+} while (0)
+#else
+#define OpGC MaybeGC
+#endif
+
 static void OpConst(VM *vm)
 {
   u32 value = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(value);
-  MaybeGC(1, vm);
+
+  OpGC(1, vm);
+
   StackPush(value);
 }
 
@@ -210,7 +229,7 @@ static void OpPos(VM *vm)
 {
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
-  MaybeGC(1, vm);
+  OpGC(1, vm);
   StackPush(IntVal((i32)vm->pc + n));
 }
 
@@ -267,7 +286,7 @@ static void OpBranch(VM *vm)
 static void OpPush(VM *vm)
 {
   i32 n = ReadLEB(++vm->pc, vm->program->code);
-  MaybeGC(1, vm);
+  OpGC(1, vm);
   StackPush(vm->regs[n]);
   vm->pc++;
 }
@@ -285,7 +304,7 @@ static void OpPull(VM *vm)
 
 static void OpLink(VM *vm)
 {
-  MaybeGC(1, vm);
+  OpGC(1, vm);
   StackPush(IntVal(vm->link));
   vm->link = StackSize();
   vm->pc++;
@@ -568,7 +587,7 @@ static void OpXor(VM *vm)
 static void OpDup(VM *vm)
 {
   u32 a;
-  MaybeGC(1, vm);
+  OpGC(1, vm);
   if (StackSize() < 1) {
     RuntimeError("Stack underflow", vm);
     return;
@@ -606,7 +625,7 @@ static void OpSwap(VM *vm)
 static void OpOver(VM *vm)
 {
   u32 a, b;
-  MaybeGC(1, vm);
+  OpGC(1, vm);
   if (StackSize() < 2) {
     RuntimeError("Stack underflow", vm);
     return;
@@ -648,7 +667,7 @@ static void OpPick(VM *vm)
     RuntimeError("Invalid stack index", vm);
     return;
   }
-  MaybeGC(1, vm);
+  OpGC(1, vm);
   v = StackPeek(n);
   StackPush(v);
 }
@@ -656,7 +675,7 @@ static void OpPick(VM *vm)
 static void OpPair(VM *vm)
 {
   u32 a, b;
-  MaybeGC(1, vm);
+  OpGC(1, vm);
   if (StackSize() < 2) {
     RuntimeError("Stack underflow", vm);
     return;
@@ -703,7 +722,7 @@ static void OpTuple(VM *vm)
 {
   u32 count = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(count);
-  MaybeGC(count+2, vm);
+  OpGC(count+2, vm);
   StackPush(Tuple(count));
 }
 
@@ -802,7 +821,7 @@ static void OpStr(VM *vm)
     return;
   }
   len = StrLen(name);
-  MaybeGC(BinSpace(len) + 2, vm);
+  OpGC(BinSpace(len) + 2, vm);
   StackPush(BinaryFrom(name, len));
   vm->pc++;
 }
@@ -833,7 +852,7 @@ static void OpJoin(VM *vm)
     StackPop();
   } else {
     if (IsTuple(a)) {
-      MaybeGC(1 + ObjLength(a) + ObjLength(b), vm);
+      OpGC(1 + ObjLength(a) + ObjLength(b), vm);
       if (StackSize() < 2) {
         RuntimeError("Stack underflow", vm);
         return;
@@ -843,7 +862,7 @@ static void OpJoin(VM *vm)
       a = StackPop();
       StackPush(TupleJoin(a, b));
     } else if (IsBinary(a)) {
-      MaybeGC(1 + BinSpace(ObjLength(a) + ObjLength(b)), vm);
+      OpGC(1 + BinSpace(ObjLength(a) + ObjLength(b)), vm);
       if (StackSize() < 2) {
         RuntimeError("Stack underflow", vm);
         return;
@@ -878,11 +897,11 @@ static void OpSlice(VM *vm)
   len = RawVal(c) - RawVal(b);
 
   if (IsTuple(a)) {
-    MaybeGC(len+1, vm);
+    OpGC(len+1, vm);
     a = StackPop();
     StackPush(TupleSlice(a, RawVal(b), RawVal(c)));
   } else if (IsBinary(a)) {
-    MaybeGC(BinSpace(len)+1, vm);
+    OpGC(BinSpace(len)+1, vm);
     a = StackPop();
     StackPush(BinarySlice(a, RawVal(b), RawVal(c)));
   } else {
@@ -894,9 +913,15 @@ static void OpSlice(VM *vm)
 
 static void OpTrap(VM *vm)
 {
+#if DEBUG
+  u64 start = Ticks();
+#endif
   u32 id = ReadLEB(vm->pc+1, vm->program->code);
   u32 value;
   value = PrimitiveFn(id)(vm);
+#if DEBUG
+  IncStat(primitive_stats, PrimitiveName(id), start);
+#endif
   if (vm->error) return;
 
   assert(MemFree() > 0);
@@ -964,5 +989,18 @@ static OpFn ops[128] = {
 
 void ExecOp(OpCode op, VM *vm)
 {
+#if DEBUG
+  u64 start;
+  if (!op_stats) op_stats = NewStatGroup("Ops");
+  if (!primitive_stats) primitive_stats = NewStatGroup("Primitives");
+  start = Ticks();
+#endif
+
   ops[op](vm);
+
+#if DEBUG
+  if (op != opTrap) IncStat(op_stats, OpName(op), start);
+  if (adjust != 0) AdjustStat(op_stats, OpName(op), -adjust);
+  adjust = 0;
+#endif
 }

@@ -5,3 +5,5 @@ u32 Time(void);
 
 /* Returns the time in microseconds */
 u64 Microtime(void);
+
+u64 Ticks(void);
