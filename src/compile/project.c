@@ -57,13 +57,13 @@ static void AddStrings(ASTNode *node, Program *program, HashMap *strings)
 
 static void AddChunkSource(Chunk *chunk, char *filename, SourceMap *map)
 {
+  AddSourceFile(map, filename, ChunkSize(chunk));
   while (chunk) {
     u32 src = chunk->src;
     u32 count = VecCount(chunk->data);
     AddSourcePos(map, src, count);
     chunk = chunk->next;
   }
-  AddSourceFile(map, filename, ChunkSize(chunk));
 }
 
 Project *NewProject(Opts *opts)
