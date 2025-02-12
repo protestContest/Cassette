@@ -7,7 +7,10 @@ Env *ExtendEnv(u32 size, Env *parent)
   env->size = size;
   env->items = malloc(size*sizeof(*env->items));
   env->parent = parent;
-  for (i = 0; i < size; i++) env->items[i] = 0;
+  for (i = 0; i < size; i++) {
+    env->items[i].var = 0;
+    env->items[i].value = EnvUndefined;
+  }
   return env;
 }
 
@@ -28,7 +31,7 @@ i32 EnvFind(u32 value, Env *env)
     u32 i;
     for (i = 0; i < env->size; i++) {
       i32 index = env->size - 1 - i;
-      if (env->items[index] == value) return pos + index;
+      if (env->items[index].var == value) return pos + index;
     }
     pos += env->size;
     env = env->parent;
@@ -37,18 +40,26 @@ i32 EnvFind(u32 value, Env *env)
   return -1;
 }
 
-bool EnvSet(u32 var, u32 index, Env *env)
+bool EnvSet(u32 var, u32 value, u32 index, Env *env)
 {
-  if (!env || index >= env->size) return false;
-  env->items[index] = var;
-  return true;
+  while (env) {
+    if (index < env->size) {
+      env->items[index].var = var;
+      env->items[index].value = value;
+      return true;
+    }
+    index -= env->size;
+    env = env->parent;
+  }
+
+  return false;
 }
 
 u32 EnvGet(u32 index, Env *env)
 {
   while (env) {
     if (index < env->size) {
-      return env->items[index];
+      return env->items[index].value;
     }
     index -= env->size;
     env = env->parent;

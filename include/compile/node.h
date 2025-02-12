@@ -1,4 +1,5 @@
 #pragma once
+#include "compile/env.h"
 #include "univ/vec.h"
 
 /* An ASTNode is a node parsed from text. */
@@ -76,6 +77,8 @@ bool IsTerminal(ASTNode *node);
 void NodePush(ASTNode *node, ASTNode *child);
 void SetNodeAttr(ASTNode *node, char *name, u32 value);
 u32 GetNodeAttr(ASTNode *node, char *name);
+
+ASTNode *SimplifyNode(ASTNode *node, Env *env);
 
 #ifdef DEBUG
 void PrintNode(ASTNode *node);

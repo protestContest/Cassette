@@ -286,7 +286,7 @@ Error *BuildProject(Project *project)
     start = Ticks();
 #endif
 
-    mod->ast = ParseModule(mod->source);
+    mod->ast = SimplifyNode(ParseModule(mod->source), 0);
 
 #if PROFILE
     IncStat(build_stats, "Parse", start);

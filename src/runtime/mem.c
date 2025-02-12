@@ -110,17 +110,31 @@ static u32 CopyObj(u32 value, u32 *oldmem)
     return oldmem[index+1];
   }
   if (IsBinHdr(oldmem[index])) {
+    u32 obj_index;
     len = RawVal(oldmem[index]);
-    value = NewBinary(len);
+
+    obj_index = mem.free;
+    mem.free += BinSpace(len) + 1;
+    MemSet(obj_index, BinHeader(len));
+    value = ObjVal(obj_index);
+
     Copy(oldmem+index+1, BinaryData(value), len);
   } else if (IsTupleHdr(oldmem[index])) {
+    u32 obj_index = mem.free;
     len = RawVal(oldmem[index]);
-    value = Tuple(len);
+    mem.free += len + 1;
+    MemSet(obj_index, TupleHeader(len));
+    value = ObjVal(obj_index);
+
     for (i = 0; i < len; i++) {
       TupleSet(value, i, oldmem[index+i+1]);
     }
   } else {
-    value = Pair(oldmem[index], oldmem[index+1]);
+    u32 obj_index = mem.free;
+    mem.free += 2;
+    MemSet(obj_index, oldmem[index]);
+    MemSet(obj_index+1, oldmem[index+1]);
+    value = ObjVal(obj_index);
   }
   oldmem[index] = moved;
   oldmem[index+1] = value;

@@ -529,7 +529,7 @@ static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
       ASTNode *def = defs[i];
       u32 name;
       name = NodeValue(NodeChild(def, 0));
-      EnvSet(name, i, c->env);
+      EnvSet(name, EnvUndefined, i, c->env);
     }
 
     /* compile each def, in reverse order to preserve env */
@@ -630,7 +630,7 @@ static Chunk *CompileAssign(ASTNode *node, bool returns, Compiler *c)
 
   def_chunk = NewChunk(node->start);
   EmitDefine(index, def_chunk);
-  EnvSet(NodeValue(id), index, c->env);
+  EnvSet(NodeValue(id), EnvUndefined, index, c->env);
 
   val_chunk = PreservingEnv(val_chunk, def_chunk);
 
@@ -704,7 +704,7 @@ ok:
     for (i = 0; i < num_params; i++) {
       u32 index = num_params - i - 1;
       ASTNode *param = NodeChild(params, index);
-      EnvSet(NodeValue(param), index, c->env);
+      EnvSet(NodeValue(param), EnvUndefined, index, c->env);
       EmitConst(index, chunk);
       Emit(opRot, chunk);
       Emit(opSet, chunk);
@@ -960,7 +960,6 @@ static Chunk *CompileRef(
   EmitGetMod(chunk);
   EmitConst(mod->id - 1, chunk);
   Emit(opGet, chunk);
-  WriteCheckMod(chunk);
   EmitConst(sym_index, chunk);
   Emit(opGet, chunk);
   if (returns) EmitReturn(chunk);
@@ -1012,6 +1011,8 @@ static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
   mod_id = c->project->modules[c->current_mod].id;
   if (mod_id > 0) {
     EmitSetModule(chunk, mod_id);
+  } else {
+    Emit(opHalt, chunk);
   }
 
   DestroyHashMap(&c->alias_map);
