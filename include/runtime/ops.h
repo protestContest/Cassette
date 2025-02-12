@@ -92,7 +92,7 @@ void Disassemble(u8 *code /* vec */);
 
 void ExecOp(OpCode op, VM *vm);
 
-#if DEBUG
+#if PROFILE
 #include "runtime/stats.h"
 extern StatGroup *op_stats;
 extern StatGroup *primitive_stats;

@@ -79,6 +79,7 @@ Error *VMRun(Program *program, Opts *opts)
 
   InitVM(&vm, program, opts);
   InitMem(256);
+  SetMemRoots(vm.regs, ArrayCount(vm.regs));
 
   if (opts->debug) {
     u32 num_width = NumDigits(VecCount(program->code), 10);
@@ -119,21 +120,6 @@ i32 VMFindRef(void *ref, VM *vm)
     if (vm->refs[i] == ref) return i;
   }
   return -1;
-}
-
-static void RunGC(VM *vm)
-{
-  CollectGarbage(vm->regs, ArrayCount(vm->regs));
-}
-
-void MaybeGC(u32 size, VM *vm)
-{
-  if (MemFree() < size) RunGC(vm);
-  if (MemFree() < size) {
-    u32 needed = MemCapacity() + size - MemFree();
-    SizeMem(Max(2*MemCapacity(), needed));
-  }
-  assert(MemFree() >= size);
 }
 
 u32 RuntimeError(char *message, VM *vm)

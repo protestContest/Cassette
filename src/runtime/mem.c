@@ -4,13 +4,18 @@
 #include "univ/math.h"
 #include "univ/str.h"
 
-static Mem mem = {0, 0, 0, 0};
+#define MIN_CAPACITY  1000000
 
-#if DEBUG
+static Mem mem = {0};
+
+#if PROFILE
 #include "runtime/stats.h"
 #include "univ/time.h"
 StatGroup *mem_stats = 0;
 #endif
+
+#define Save(v, n)      mem.tmp[n] = (v)
+#define Restore(v, n)   v = mem.tmp[n], mem.tmp[n] = 0
 
 void InitMem(u32 size)
 {
@@ -20,6 +25,10 @@ void InitMem(u32 size)
   mem.stack = size;
   mem.data[0] = 0;
   mem.data[1] = 0;
+  mem.roots = 0;
+  mem.num_roots = 0;
+  mem.tmp[0] = 0;
+  mem.tmp[1] = 0;
 }
 
 void DestroyMem(void)
@@ -56,9 +65,16 @@ u32 MemFree(void)
 static u32 MemAlloc(u32 count)
 {
   u32 index;
-  if (!mem.data) InitMem(256);
+  if (!mem.data) InitMem(MIN_CAPACITY);
   count = Max(2, count);
+
+  if (MemFree() < count && !mem.collecting) CollectGarbage();
+  if (MemFree() < count) {
+    u32 needed = MemCapacity() + count - MemFree();
+    SizeMem(Max(2*MemCapacity(), needed));
+  }
   assert(MemFree() >= count);
+
   index = mem.free;
   mem.free += count;
   return index;
@@ -74,6 +90,12 @@ static void MemSet(u32 index, u32 value)
 {
   assert(index < mem.free);
   mem.data[index] = value;
+}
+
+void SetMemRoots(u32 *roots, u32 num_roots)
+{
+  mem.roots = roots;
+  mem.num_roots = num_roots;
 }
 
 static u32 CopyObj(u32 value, u32 *oldmem)
@@ -105,35 +127,38 @@ static u32 CopyObj(u32 value, u32 *oldmem)
   return value;
 }
 
-#define MIN_CAPACITY  1000000
-void CollectGarbage(u32 *roots, u32 num_roots)
+void CollectGarbage(void)
 {
   u32 i, scan;
   u32 *oldmem = mem.data;
 
-#if DEBUG
+#if PROFILE
   u64 start;
   if (!mem_stats) mem_stats = NewStatGroup("Mem");
   start = Ticks();
 #endif
 
   if (!mem.data) {
-    InitMem(256);
+    InitMem(MIN_CAPACITY);
     return;
   }
 
+  mem.collecting = true;
   mem.data = malloc(mem.capacity*sizeof(u32));
   mem.data[0] = 0;
   mem.data[1] = 0;
   mem.free = 2;
 
-  for (i = 0; i < num_roots; i++) {
-    roots[i] = CopyObj(roots[i], oldmem);
+  for (i = 0; i < mem.num_roots; i++) {
+    mem.roots[i] = CopyObj(mem.roots[i], oldmem);
   }
 
   for (i = mem.stack; i < mem.capacity; i++) {
     mem.data[i] = CopyObj(oldmem[i], oldmem);
   }
+
+  mem.tmp[0] = CopyObj(mem.tmp[0], oldmem);
+  mem.tmp[1] = CopyObj(mem.tmp[1], oldmem);
 
   scan = 2;
   while (scan < mem.free) {
@@ -160,16 +185,24 @@ void CollectGarbage(u32 *roots, u32 num_roots)
       MemFree() > MemCapacity()/4 + MemCapacity()/2) {
     SizeMem(MemCapacity()/2);
   }
+  mem.collecting = false;
 
-#if DEBUG
+#if PROFILE
   IncStat(mem_stats, "GC", start);
 #endif
 }
 
-void StackPush(u32 value)
+u32 StackPush(u32 value)
 {
+  if (mem.stack <= mem.free) {
+    mem.tmp[0] = value;
+    CollectGarbage();
+    value = mem.tmp[0];
+    mem.tmp[1] = 0;
+  }
   assert(mem.stack > mem.free);
   mem.data[--mem.stack] = value;
+  return value;
 }
 
 u32 StackPop(void)
@@ -236,7 +269,13 @@ void TupleSet(u32 tuple, u32 index, u32 value)
 u32 TupleJoin(u32 left, u32 right)
 {
   u32 i;
-  u32 tuple = Tuple(ObjLength(left) + ObjLength(right));
+  u32 tuple;
+  Save(left, 0);
+  Save(right, 1);
+  tuple = Tuple(ObjLength(left) + ObjLength(right));
+  Restore(left, 0);
+  Restore(right, 1);
+
   for (i = 0; i < ObjLength(left); i++) {
     TupleSet(tuple, i, TupleGet(left, i));
   }
@@ -250,7 +289,12 @@ u32 TupleSlice(u32 tuple, u32 start, u32 end)
 {
   u32 i;
   u32 len = (end > start) ? end - start : 0;
-  u32 slice = Tuple(Min(len, ObjLength(tuple)));
+  u32 slice;
+
+  Save(tuple, 0);
+  slice = Tuple(Min(len, ObjLength(tuple)));
+  Restore(tuple, 0);
+
   for (i = 0; i < ObjLength(slice); i++) {
     TupleSet(slice, i, TupleGet(tuple, i + start));
   }
@@ -296,7 +340,13 @@ void BinarySet(u32 bin, u32 index, u32 value)
 
 u32 BinaryJoin(u32 left, u32 right)
 {
-  u32 bin = NewBinary(ObjLength(left) + ObjLength(right));
+  u32 bin;
+  Save(left, 0);
+  Save(right, 1);
+  bin = NewBinary(ObjLength(left) + ObjLength(right));
+  Restore(left, 0);
+  Restore(right, 1);
+
   Copy(BinaryData(left), BinaryData(bin), ObjLength(left));
   Copy(BinaryData(right),
        BinaryData(bin) + ObjLength(left),
@@ -307,7 +357,11 @@ u32 BinaryJoin(u32 left, u32 right)
 u32 BinarySlice(u32 bin, u32 start, u32 end)
 {
   u32 len = (end > start) ? end - start : 0;
-  u32 slice = NewBinary(Min(len, ObjLength(bin)));
+  u32 slice;
+  Save(bin, 0);
+  slice = NewBinary(Min(len, ObjLength(bin)));
+  Restore(bin, 1);
+
   Copy(BinaryData(bin)+start, BinaryData(slice), ObjLength(slice));
   return slice;
 }

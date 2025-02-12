@@ -6,14 +6,6 @@
 #include "univ/str.h"
 #include "univ/vec.h"
 
-#if DEBUG
-#include "univ/time.h"
-#include "runtime/stats.h"
-StatGroup *op_stats = 0;
-StatGroup *primitive_stats = 0;
-static i64 adjust = 0;
-#endif
-
 char *OpName(OpCode op)
 {
   switch (op) {
@@ -154,23 +146,10 @@ static void OpPanic(VM *vm)
   free(msg);
 }
 
-#if DEBUG
-#define OpGC(n, vm) do { \
-  adjust = Ticks(); \
-  MaybeGC(n, vm); \
-  adjust = Ticks() - adjust; \
-} while (0)
-#else
-#define OpGC MaybeGC
-#endif
-
 static void OpConst(VM *vm)
 {
   u32 value = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(value);
-
-  OpGC(1, vm);
-
   StackPush(value);
 }
 
@@ -229,7 +208,6 @@ static void OpPos(VM *vm)
 {
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
-  OpGC(1, vm);
   StackPush(IntVal((i32)vm->pc + n));
 }
 
@@ -286,7 +264,6 @@ static void OpBranch(VM *vm)
 static void OpPush(VM *vm)
 {
   i32 n = ReadLEB(++vm->pc, vm->program->code);
-  OpGC(1, vm);
   StackPush(vm->regs[n]);
   vm->pc++;
 }
@@ -304,7 +281,6 @@ static void OpPull(VM *vm)
 
 static void OpLink(VM *vm)
 {
-  OpGC(1, vm);
   StackPush(IntVal(vm->link));
   vm->link = StackSize();
   vm->pc++;
@@ -586,15 +562,11 @@ static void OpXor(VM *vm)
 
 static void OpDup(VM *vm)
 {
-  u32 a;
-  OpGC(1, vm);
   if (StackSize() < 1) {
     RuntimeError("Stack underflow", vm);
     return;
   }
-  a = StackPop();
-  StackPush(a);
-  StackPush(a);
+  StackPush(StackPeek(0));
   vm->pc++;
 }
 
@@ -624,17 +596,12 @@ static void OpSwap(VM *vm)
 
 static void OpOver(VM *vm)
 {
-  u32 a, b;
-  OpGC(1, vm);
+
   if (StackSize() < 2) {
     RuntimeError("Stack underflow", vm);
     return;
   }
-  b = StackPop();
-  a = StackPop();
-  StackPush(a);
-  StackPush(b);
-  StackPush(a);
+  StackPush(StackPeek(1));
   vm->pc++;
 }
 
@@ -657,7 +624,6 @@ static void OpRot(VM *vm)
 static void OpPick(VM *vm)
 {
   u32 n = ReadLEB(++vm->pc, vm->program->code);
-  u32 v;
   vm->pc += LEBSize(n);
   if (StackSize() < n) {
     RuntimeError("Stack underflow", vm);
@@ -667,15 +633,13 @@ static void OpPick(VM *vm)
     RuntimeError("Invalid stack index", vm);
     return;
   }
-  OpGC(1, vm);
-  v = StackPeek(n);
-  StackPush(v);
+  StackPush(StackPeek(n));
 }
 
 static void OpPair(VM *vm)
 {
   u32 a, b;
-  OpGC(1, vm);
+
   if (StackSize() < 2) {
     RuntimeError("Stack underflow", vm);
     return;
@@ -722,7 +686,6 @@ static void OpTuple(VM *vm)
 {
   u32 count = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(count);
-  OpGC(count+2, vm);
   StackPush(Tuple(count));
 }
 
@@ -803,7 +766,6 @@ static void OpSet(VM *vm)
 static void OpStr(VM *vm)
 {
   char *name;
-  u32 len;
   u32 a;
 
   if (StackSize() < 1) {
@@ -820,21 +782,19 @@ static void OpStr(VM *vm)
     RuntimeError("Unrecognized symbol", vm);
     return;
   }
-  len = StrLen(name);
-  OpGC(BinSpace(len) + 2, vm);
-  StackPush(BinaryFrom(name, len));
+  StackPush(Binary(name));
   vm->pc++;
 }
 
 static void OpJoin(VM *vm)
 {
-  u32 a, b;
+  u32 a, b, obj = 0;
   if (StackSize() < 2) {
     RuntimeError("Stack underflow", vm);
     return;
   }
-  b = StackPeek(0);
-  a = StackPeek(1);
+  b = StackPop();
+  a = StackPop();
   if (ValType(a) != ValType(b)) {
     RuntimeError("Only values of the same type can be joined", vm);
     return;
@@ -845,47 +805,32 @@ static void OpJoin(VM *vm)
   }
 
   if (ObjLength(a) == 0) {
-    StackPop();
-    StackPop();
-    StackPush(b);
+    obj = b;
   } else if (ObjLength(b) == 0) {
-    StackPop();
+    obj = a;
   } else {
     if (IsTuple(a)) {
-      OpGC(1 + ObjLength(a) + ObjLength(b), vm);
-      if (StackSize() < 2) {
-        RuntimeError("Stack underflow", vm);
-        return;
-      }
-
-      b = StackPop();
-      a = StackPop();
-      StackPush(TupleJoin(a, b));
+      obj = TupleJoin(a, b);
     } else if (IsBinary(a)) {
-      OpGC(1 + BinSpace(ObjLength(a) + ObjLength(b)), vm);
-      if (StackSize() < 2) {
-        RuntimeError("Stack underflow", vm);
-        return;
-      }
-
-      b = StackPop();
-      a = StackPop();
-      StackPush(BinaryJoin(a, b));
+      obj = BinaryJoin(a, b);
     }
   }
+
+  StackPush(obj);
+
   vm->pc++;
 }
 
 static void OpSlice(VM *vm)
 {
-  u32 a, b, c, len;
+  u32 a, b, c, obj = 0;
   if (StackSize() < 3) {
     RuntimeError("Stack underflow", vm);
     return;
   }
   c = StackPop();
   b = StackPop();
-  a = StackPeek(0);
+  a = StackPop();
   if (!IsInt(b) || !IsInt(c)) {
     RuntimeError("Only integers can be slice indexes", vm);
     return;
@@ -894,34 +839,24 @@ static void OpSlice(VM *vm)
     RuntimeError("Out of bounds", vm);
     return;
   }
-  len = RawVal(c) - RawVal(b);
 
   if (IsTuple(a)) {
-    OpGC(len+1, vm);
-    a = StackPop();
-    StackPush(TupleSlice(a, RawVal(b), RawVal(c)));
+    obj = TupleSlice(a, RawVal(b), RawVal(c));
   } else if (IsBinary(a)) {
-    OpGC(BinSpace(len)+1, vm);
-    a = StackPop();
-    StackPush(BinarySlice(a, RawVal(b), RawVal(c)));
+    obj = BinarySlice(a, RawVal(b), RawVal(c));
   } else {
     RuntimeError("Only tuples and binaries can be sliced", vm);
     return;
   }
+  StackPush(obj);
   vm->pc++;
 }
 
 static void OpTrap(VM *vm)
 {
-#if DEBUG
-  u64 start = Ticks();
-#endif
   u32 id = ReadLEB(vm->pc+1, vm->program->code);
   u32 value;
   value = PrimitiveFn(id)(vm);
-#if DEBUG
-  IncStat(primitive_stats, PrimitiveName(id), start);
-#endif
   if (vm->error) return;
 
   assert(MemFree() > 0);
@@ -989,18 +924,5 @@ static OpFn ops[128] = {
 
 void ExecOp(OpCode op, VM *vm)
 {
-#if DEBUG
-  u64 start;
-  if (!op_stats) op_stats = NewStatGroup("Ops");
-  if (!primitive_stats) primitive_stats = NewStatGroup("Primitives");
-  start = Ticks();
-#endif
-
   ops[op](vm);
-
-#if DEBUG
-  if (op != opTrap) IncStat(op_stats, OpName(op), start);
-  if (adjust != 0) AdjustStat(op_stats, OpName(op), -adjust);
-  adjust = 0;
-#endif
 }

@@ -9,6 +9,7 @@ SHARE = share
 INSTALL = $(HOME)/.local
 
 DEBUG ?= 0
+PROFILE ?= 0
 
 EXECTARGET = $(BIN)/$(NAME)
 LIBTARGET = $(BIN)/lib$(NAME).dylib
@@ -26,7 +27,10 @@ CFLAGS = -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
 ifeq ($(DEBUG),1)
-CFLAGS += -O0 -g -fsanitize=address -fno-omit-frame-pointer -DDEBUG
+CFLAGS += -O2 -g -fsanitize=address -fno-omit-frame-pointer -DDEBUG
+	ifeq ($(PROFILE),1)
+		CFLAGS += -DPROFILE
+	endif
 else
 CFLAGS += -O2
 endif

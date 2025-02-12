@@ -42,5 +42,4 @@ Error *VMRun(Program *program, Opts *opts); /* execute an entire program */
 u32 VMPushRef(void *ref, VM *vm); /* create a ref */
 void *VMGetRef(u32 ref, VM *vm); /* get the value of a ref */
 i32 VMFindRef(void *ref, VM *vm); /* find a ref */
-void MaybeGC(u32 size, VM *vm); /* collect garbage if size is too much */
 u32 RuntimeError(char *message, VM *vm); /* create a runtime error */

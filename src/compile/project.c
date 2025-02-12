@@ -9,7 +9,7 @@
 #include "univ/str.h"
 #include "univ/vec.h"
 
-#if DEBUG
+#if PROFILE
 #include "univ/time.h"
 StatGroup *build_stats = 0;
 #endif
@@ -269,7 +269,7 @@ Error *BuildProject(Project *project)
   Error *error;
   Compiler c;
 
-#if DEBUG
+#if PROFILE
   u64 start, build_start = Ticks();
   build_stats = NewStatGroup("Build");
 #endif
@@ -282,13 +282,13 @@ Error *BuildProject(Project *project)
     u32 name, j;
     ASTNode *exports;
 
-#if DEBUG
+#if PROFILE
     start = Ticks();
 #endif
 
     mod->ast = ParseModule(mod->source);
 
-#if DEBUG
+#if PROFILE
     IncStat(build_stats, "Parse", start);
 #endif
 
@@ -321,11 +321,11 @@ Error *BuildProject(Project *project)
   /* compile each module in the build list */
   InitCompiler(&c, project);
   for (i = 0; i < VecCount(project->build_list); i++) {
-#if DEBUG
+#if PROFILE
     start = Ticks();
 #endif
     error = Compile(&c, project->build_list[i]);
-#if DEBUG
+#if PROFILE
     IncStat(build_stats, "Compile", start);
 #endif
     if (error) {
@@ -335,18 +335,18 @@ Error *BuildProject(Project *project)
   }
   DestroyCompiler(&c);
 
-#if DEBUG
+#if PROFILE
   start = Ticks();
 #endif
 
   /* generate program from compiled modules */
   LinkModules(project);
 
-#if DEBUG
+#if PROFILE
   IncStat(build_stats, "Link", start);
 #endif
 
-#if DEBUG
+#if PROFILE
   IncStat(build_stats, "Build", build_start);
 #endif
 

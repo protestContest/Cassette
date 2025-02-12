@@ -10,13 +10,10 @@
 
 static u32 IOError(char *msg, VM *vm)
 {
-  u32 result;
-  u32 len = StrLen(msg);
-  MaybeGC(BinSpace(len) + 5, vm);
-  result = Tuple(2);
-  TupleSet(result, 0, IntVal(Symbol("error")));
-  TupleSet(result, 1, BinaryFrom(msg, len));
-  return result;
+  StackPush(Tuple(2));
+  TupleSet(StackPeek(0), 0, IntVal(Symbol("error")));
+  TupleSet(StackPeek(0), 1, Binary(msg));
+  return StackPop();
 }
 
 static u32 VMPanic(VM *vm)
@@ -77,13 +74,11 @@ static u8 *FormatVal(u32 value, u8 *buf)
 
 static u32 VMFormat(VM *vm)
 {
-  u32 a, size, bin;
+  u32 size, bin;
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
   size = FormatSize(StackPeek(0));
-  MaybeGC(BinSpace(size) + 1, vm);
   bin = NewBinary(size);
-  a = StackPop();
-  FormatVal(a, (u8*)BinaryData(bin));
+  FormatVal(StackPop(), (u8*)BinaryData(bin));
   return bin;
 }
 
@@ -97,7 +92,7 @@ static u32 VMMakeTuple(VM *vm)
     size++;
     list = Tail(list);
   }
-  MaybeGC(size+1, vm);
+
   tuple = Tuple(size);
   list = StackPop();
   for (i = 0; i < size; i++) {
@@ -116,8 +111,7 @@ static u32 VMSymbolName(VM *vm)
   a = StackPop();
   name = SymbolName(RawVal(a));
   if (!name || !*name) return 0;
-  MaybeGC(BinSpace(StrLen(name)) + 2, vm);
-  bin = BinaryFrom(name, StrLen(name));
+  bin = Binary(name);
   return bin;
 }
 
@@ -191,7 +185,6 @@ static u32 VMRead(VM *vm)
   data = malloc(RawInt(size));
   bytes_read = Read(RawInt(file), data, RawInt(size), &error);
   if (error) return IOError(error, vm);
-  MaybeGC(BinSpace(bytes_read) + 2, vm);
   result = BinaryFrom(data, bytes_read);
   free(data);
   return result;
@@ -304,45 +297,33 @@ static u32 VMSeed(VM *vm)
 static u32 VMArgs(VM *vm)
 {
   u32 i;
-  u32 args, size;
   u32 num_args = VecCount(vm->opts->program_args);
 
-  size = num_args + 1; /* space for tuple */
+  StackPush(Tuple(num_args));
   for (i = 0; i < num_args; i++) {
     char *arg = vm->opts->program_args[i];
-    size += BinSpace(StrLen(arg)) + 1; /* space for each binary */
+    TupleSet(StackPeek(0), i, Binary(arg));
   }
-
-  MaybeGC(size, vm);
-  args = Tuple(num_args);
-  for (i = 0; i < num_args; i++) {
-    char *arg = vm->opts->program_args[i];
-    TupleSet(args, i, BinaryFrom(arg, StrLen(arg)));
-  }
-
-  return args;
+  return StackPop();
 }
 
 static u32 VMEnv(VM *vm)
 {
   char *name;
   char *value;
-  u32 nameVal, valueVal, len;
+  u32 nameVal, valueVal;
 
   if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
-  nameVal = StackPeek(0);
+  nameVal = StackPop();
   if (!IsBinary(nameVal)) return RuntimeError("Env variable must be a string", vm);
   name = StringFrom(BinaryData(nameVal), ObjLength(nameVal));
   value = getenv(name);
   if (value) {
-    len = StrLen(value);
-    MaybeGC(BinSpace(len)+1, vm);
-    valueVal = BinaryFrom(value, StrLen(value));
+    valueVal = Binary(value);
   } else {
     valueVal = 0;
   }
   free(name);
-  StackPop();
   return valueVal;
 }
 
@@ -464,7 +445,7 @@ static u32 EventTypeVal(u32 id)
 static u32 VMPollEvent(VM *vm)
 {
   Event event;
-  u32 eventVal, where, msg;
+  u32 where, msg;
 
   NextEvent(&event);
 
@@ -481,18 +462,17 @@ static u32 VMPollEvent(VM *vm)
     break;
   }
 
-  MaybeGC(10, vm);
-  eventVal = Tuple(5);
-  TupleSet(eventVal, 0, EventTypeVal(event.what));
-  TupleSet(eventVal, 1, msg);
-  TupleSet(eventVal, 2, IntVal(event.when));
+  StackPush(Tuple(5));
+  TupleSet(StackPeek(0), 0, EventTypeVal(event.what));
+  TupleSet(StackPeek(0), 1, msg);
+  TupleSet(StackPeek(0), 2, IntVal(event.when));
   where = Tuple(2);
   TupleSet(where, 0, IntVal(event.where.x));
   TupleSet(where, 1, IntVal(event.where.y));
-  TupleSet(eventVal, 3, where);
-  TupleSet(eventVal, 4, IntVal(event.modifiers));
+  TupleSet(StackPeek(0), 3, where);
+  TupleSet(StackPeek(0), 4, IntVal(event.modifiers));
 
-  return eventVal;
+  return StackPop();
 }
 
 static u32 VMWritePixel(VM *vm)
