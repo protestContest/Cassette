@@ -380,7 +380,7 @@ static u32 VMNewWindow(VM *vm)
   /* new_window(title, width, height) */
   u32 title, width, height;
   CTWindow *w;
-  u32 ref;
+  u32 ref, i;
 
   if (StackSize() < 3) return RuntimeError("Stack underflow", vm);
   height = StackPop();
@@ -397,7 +397,10 @@ static u32 VMNewWindow(VM *vm)
   w->title = StringFrom(BinaryData(title), ObjLength(title));
   w->width = RawInt(width);
   w->height = RawInt(height);
-  w->buf = calloc(1, sizeof(u32)*w->width*w->height);
+  w->buf = malloc(sizeof(u32)*w->width*w->height);
+  for (i = 0; i < (u32)w->width*w->height; i++) {
+    w->buf[i] = 0x00FFFFFF;
+  }
   ref = VMPushRef(w, vm);
 
   OpenWindow(w);
@@ -486,10 +489,78 @@ static u32 VMWritePixel(VM *vm)
   y = StackPop();
   x = StackPop();
   if (!w) return RuntimeError("Invalid window reference", vm);
-  if (!IsInt(color)) return RuntimeError("Color must be an integer", vm);
+  if (!IsBinary(color) || ObjLength(color) != 4) {
+    return RuntimeError("Color must be a 32-bit RGBA binary", vm);
+  }
   if (!IsInt(y)) return RuntimeError("Y must be an integer", vm);
   if (!IsInt(x)) return RuntimeError("X must be an integer", vm);
-  WritePixel(w, RawInt(x), RawInt(y)) = RawInt(color);
+  color = *((u32*)BinaryData(color));
+  WritePixel(w, RawInt(x), RawInt(y)) = color;
+  return 0;
+}
+
+static u32 VMLine(VM *vm)
+{
+  CTWindow *w;
+  i32 x0, y0, x1, y1, dx, dy, err, sx, sy, e2;
+  if (StackSize() < 5) return RuntimeError("Stack underflow", vm);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  y1 = StackPop();
+  x1 = StackPop();
+  y0 = StackPop();
+  x0 = StackPop();
+  if (!IsInt(x0) || !IsInt(y0) || !IsInt(x1) || !IsInt(y1)) {
+    return RuntimeError("Coordinates must be integers", vm);
+  }
+  y1 = RawInt(y1);
+  x1 = RawInt(x1);
+  y0 = RawInt(y0);
+  x0 = RawInt(x0);
+
+  dx = Abs(x1-x0);
+  sx = x0<x1 ? 1 : -1;
+  dy = Abs(y1-y0);
+  sy = y0<y1 ? 1 : -1;
+  err = (dx>dy ? dx : -dy)/2;
+
+  for(;;){
+    WritePixel(w,x0,y0) = 0;
+    if (x0==x1 && y0==y1) break;
+    e2 = err;
+    if (e2 >-dx) { err -= dy; x0 += sx; }
+    if (e2 < dy) { err += dx; y0 += sy; }
+  }
+  return 0;
+}
+
+static u32 VMFillRect(VM *vm)
+{
+  CTWindow *w;
+  u32 x0, y0, x1, y1, color, x, y;
+  if (StackSize() < 5) return RuntimeError("Stack underflow", vm);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  color = StackPop();
+  y1 = StackPop();
+  x1 = StackPop();
+  y0 = StackPop();
+  x0 = StackPop();
+  if (!IsInt(x0) || !IsInt(y0) || !IsInt(x1) || !IsInt(y1)) {
+    return RuntimeError("Coordinates must be integers", vm);
+  }
+  if (!IsBinary(color) || ObjLength(color) != 4) {
+    return RuntimeError("Color must be a 32-bit RGBA binary", vm);
+  }
+  color = *((u32*)BinaryData(color));
+  y1 = RawInt(y1);
+  x1 = RawInt(x1);
+  y0 = RawInt(y0);
+  x0 = RawInt(x0);
+
+  for (y = 0; y < (u32)w->height; y++) {
+    for (x = 0; x < (u32)w->width; x++) {
+      WritePixel(w, x, y) = color;
+    }
+  }
   return 0;
 }
 
@@ -591,7 +662,9 @@ static PrimDef primitives[] = {
   {"update_window", VMUpdateWindow},
   {"next_event", VMPollEvent},
   {"write_pixel", VMWritePixel},
-  {"blit", VMBlit}
+  {"blit", VMBlit},
+  {"draw_line", VMLine},
+  {"fill_rect", VMFillRect}
 };
 
 i32 PrimitiveID(u32 name)
