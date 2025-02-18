@@ -35,9 +35,10 @@ def count(list) do
   loop(list, 0)
 end
 
-def delete(list, index)
+def delete(list, index) do
   let parts = split(list, index)
-  in concat(parts[0], ^parts[1])
+  concat(parts[0], ^parts[1])
+end
 
 def drop(list, n) when list == nil, nil
 def drop(list, n) when n == 0, list
@@ -49,12 +50,13 @@ def duplicate(item, n) do
   loop(nil, n)
 end
 
-def filter(list, test)
+def filter(list, test) do
   let list =
     reduce(list, nil, \item, acc ->
       if test(item), item : acc
       else acc)
-  in reverse(list)
+  reverse(list)
+end
 
 ; def find(list, test)
 ; def find_index(list, test)
@@ -64,9 +66,10 @@ def filter(list, test)
 
 def head(list) @list
 
-def insert(list, index, item)
+def insert(list, index, item) do
   let parts = split(list, index)
-  in concat(parts[0], item : parts[1])
+  concat(parts[0], item : parts[1])
+end
 
 def intersperse(list, sep) when list == nil, nil
 def intersperse(list, sep) when ^list == nil, list
@@ -85,9 +88,10 @@ def map(list, fn)
 def reduce(list, acc, fn) when list == nil, acc
 def reduce(list, acc, fn) reduce(^list, fn(@list, acc), fn)
 
-def replace(list, index, item)
+def replace(list, index, item) do
   let parts = split(list, index)
-  in concat(parts[0], item : ^parts[1])
+  concat(parts[0], item : ^parts[1])
+end
 
 def reverse(list) reverse_onto(list, nil)
 

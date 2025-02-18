@@ -16,9 +16,9 @@ def post(conn, path, body)
     tuple?(conn) and #conn == 2, request("POST", conn[0], path, conn[1], body)
     else {:error, "Invalid conn type"}
 
-def request(method, host, path, headers, body)
+def request(method, host, path, headers, body) do
   let
-    headers = String.join(headers, "\r\n")
+    headers = String.join(headers, "\r\n"),
     req = String.join([
       [method, " ", path, " HTTP/1.1"],
       ["Host: ", host],
@@ -26,7 +26,8 @@ def request(method, host, path, headers, body)
       headers,
       "",
       body
-    ], "\r\n")
-    conn = Net.connect(host, "80") except error?(conn), conn
-    result = IO.write(conn, req) except error?(result), result
-  in IO.read(conn)
+    ], "\r\n"),
+    conn = Net.connect(host, "80"), ; except error?(conn), conn
+    result = IO.write(conn, req) ; except error?(result), result
+  IO.read(conn)
+end

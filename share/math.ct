@@ -20,12 +20,11 @@ def random_between(min, max) do
   def loop(r, limit) r
 
   let
-    range = max - min
-    num_buckets = Host.max_int() / range
-    limit = num_buckets * range
+    range = max - min,
+    num_buckets = Host.max_int() / range,
+    limit = num_buckets * range,
     r = loop(random(), limit)
-  in
-    min + r / num_buckets
+  min + r / num_buckets
 end
 
 def min(a,b) when a < b, a

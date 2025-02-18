@@ -20,15 +20,17 @@ def key_index(rec, key) do
   loop(0, keys(rec))
 end
 
-def get(rec, key)
-  let i = key_index(rec, key) except i == nil, nil
-  in values(rec)[i]
+def get(rec, key) do
+  let i = key_index(rec, key) ; except i == nil, nil
+  values(rec)[i]
+end
 
-def put(rec, key, value)
+def put(rec, key, value) do
   let
-    i = key_index(rec, key) except i == nil, rec
-    values = values(rec)
+    i = key_index(rec, key), ; except i == nil, rec
+    values = values(rec),
     values = values[0,i] <> values[i+1,#values]
-  in {type(rec), keys(rec), values}
+  {type(rec), keys(rec), values}
+end
 
 def contains?(rec, key) key_index(rec, key) != nil

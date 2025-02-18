@@ -8,9 +8,10 @@ def parse(str, start) do
   def loop(i, n)
     if i == #str or not digit?(str[i]),
       {i, n}
-    else
+    else do
       let d = str[i] - $0
-      in loop(i+1, n*10 + d)
+      loop(i+1, n*10 + d)
+    end
 
   if
     str[start] == $- and digit?(str[start+1]),

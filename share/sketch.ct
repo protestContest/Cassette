@@ -9,15 +9,15 @@ def should_quit(event)
   ((event.message & 0xFF == $q and Window.modifier?(event, :cmd)) or
    (event.message >> 8 == 0x35))
 
-def loop_until_close(window)
+def loop_until_close(window) do
   let event = Window.next_event()
-  in if should_quit(event), nil
+  if should_quit(event), nil
   else loop_until_close(window)
+end
 
-def draw(width, height, draw)
+def draw(width, height, draw) do
   let window = Window.open("Sketch", width, height)
-  in do
-    draw(window)
-    Window.update(window)
-    loop_until_close(window)
-  end
+  draw(window)
+  Window.update(window)
+  loop_until_close(window)
+end

@@ -76,6 +76,12 @@ static void EmitConst(u32 n, Chunk *chunk)
   EmitInt(IntVal(n), chunk);
 }
 
+static void EmitNil(Chunk *chunk)
+{
+  Emit(opConst, chunk);
+  EmitInt(0, chunk);
+}
+
 /* Wrap a chunk with a "pos" instruction, pointing to the end of the chunk */
 static Chunk *EmitChunkSize(Chunk *chunk)
 {
@@ -140,18 +146,18 @@ static void EmitSetMod(Chunk *chunk)
 }
 
 /* Extends an environment for a chunk */
-static Chunk *EmitScope(u32 num_assigns, u32 pos, Chunk *body)
+static Chunk *EmitScope(u32 numAssigns, u32 pos, Chunk *body)
 {
   /*
   getEnv
-  tuple <num_assigns>
+  tuple <numAssigns>
   pair
   setEnv
   */
   Chunk *chunk = NewChunk(pos);
   EmitGetEnv(chunk);
   Emit(opTuple, chunk);
-  EmitInt(num_assigns, chunk);
+  EmitInt(numAssigns, chunk);
   Emit(opPair, chunk);
   EmitSetEnv(chunk);
   return AppendChunk(chunk, body);
@@ -407,6 +413,26 @@ static Chunk *CompileTuple(ASTNode *node, bool returns, Compiler *c)
   return chunk;
 }
 
+static Chunk *CompileList(ASTNode *node, bool returns, Compiler *c)
+{
+  Chunk *chunk = NewChunk(node->start);
+  Chunk *nilChunk = NewChunk(node->start);
+  u32 i;
+
+  for (i = 0; i < NodeCount(node); i++) {
+    ASTNode *item = NodeChild(node, i);
+    Chunk *itemChunk = CompileExpr(item, false, c);
+    chunk = PrependChunk(opPair, chunk);
+    if (!itemChunk) return CompileFail(chunk);
+    chunk = PreservingEnv(itemChunk, chunk);
+  }
+
+  EmitNil(nilChunk);
+  chunk = AppendChunk(nilChunk, chunk);
+
+  return chunk;
+}
+
 static Chunk *CompileOp(OpCode op, ASTNode *node, bool returns, Compiler *c)
 {
   /*
@@ -452,7 +478,7 @@ after:
 
   chunk = NewChunk(node->start);
   Emit(opDup, chunk);
-  if (node->type == andNode) Emit(opNot, chunk);
+  if (node->nodeType == andNode) Emit(opNot, chunk);
   Emit(opBranch, chunk);
   EmitInt(ChunkSize(right_chunk), chunk);
   right_chunk = AppendChunk(chunk, right_chunk);
@@ -504,140 +530,100 @@ after:
 
 static Chunk *CompileDo(ASTNode *node, bool returns, Compiler *c)
 {
-  u32 i, num_defs;
-  Chunk *chunk;
-  ASTNode **stmts = 0, **defs = 0; /* vec */
+  u32 i, numDefs;
+  Chunk *chunk = NewChunk(node->start);
+  numDefs = GetNodeAttr(node, "numAssigns");
 
-  /* split up the defs and other statements */
-  for (i = 0; i < NodeCount(node); i++) {
-    ASTNode *stmt = NodeChild(node, i);
-    if (stmt->type == defNode) {
-      VecPush(defs, stmt);
-    } else {
-      VecPush(stmts, stmt);
-    }
-  }
-  num_defs = VecCount(defs);
-
-  chunk = NewChunk(node->start);
-
-  if (num_defs > 0) {
-    c->env = ExtendEnv(num_defs, c->env);
+  if (numDefs > 0) {
+    c->env = ExtendEnv(numDefs, c->env);
 
     /* define each def ahead of time */
-    for (i = 0; i < VecCount(defs); i++) {
-      ASTNode *def = defs[i];
-      u32 name;
-      name = NodeValue(NodeChild(def, 0));
+    for (i = 0; i < numDefs; i++) {
+      ASTNode *def = NodeChild(node, i);
+      u32 name = NodeValue(NodeChild(def, 0));
       EnvSet(name, EnvUndefined, i, c->env);
     }
 
     /* compile each def, in reverse order to preserve env */
-    for (i = 0; i < VecCount(defs); i++) {
-      u32 index = num_defs - i - 1;
-      Chunk *def_chunk, *set_chunk;
-      ASTNode *def = defs[index];
-      set_chunk = NewChunk(def->start);
-      EmitDefine(index, set_chunk);
-      def_chunk = CompileExpr(NodeChild(def, 1), false, c);
-      if (!def_chunk) {
-        FreeVec(defs);
-        FreeVec(stmts);
-        FreeChunk(set_chunk);
+    for (i = 0; i < numDefs; i++) {
+      u32 index = numDefs - i - 1;
+      Chunk *defChunk, *setChunk;
+      ASTNode *def = NodeChild(node, index);
+      setChunk = NewChunk(def->start);
+      EmitDefine(index, setChunk);
+      defChunk = CompileExpr(NodeChild(def, 1), false, c);
+      if (!defChunk) {
+        FreeChunk(setChunk);
         return CompileFail(chunk);
       }
-      def_chunk = PreservingEnv(def_chunk, set_chunk);
-      chunk = PreservingEnv(def_chunk, chunk);
+      defChunk = PreservingEnv(defChunk, setChunk);
+      chunk = PreservingEnv(defChunk, chunk);
     }
 
     /* prepend the env extension */
-    chunk = EmitScope(num_defs, node->start, chunk);
+    chunk = EmitScope(numDefs, node->start, chunk);
   }
 
-  if (VecCount(stmts) == 0) {
+  if (numDefs == NodeCount(node)) {
     /* no non-def statments; add nil */
-    EmitConst(0, chunk);
+    EmitNil(chunk);
     if (returns) EmitReturn(chunk);
   } else {
-    Chunk *stmts_chunk = NewChunk(node->start);
+    Chunk *stmtsChunk = NewChunk(node->start);
     /* compile each non-def statement, in reverse */
-    for (i = 0; i < VecCount(stmts); i++) {
-      u32 index = VecCount(stmts) - i - 1;
-      ASTNode *stmt = stmts[index];
-      Chunk *stmt_chunk;
-      bool is_last = index == VecCount(stmts) - 1;
-      stmt_chunk = CompileExpr(stmt, is_last && returns, c);
-      if (!stmt_chunk) {
-        FreeVec(defs);
-        FreeVec(stmts);
-        FreeChunk(stmts_chunk);
+    for (i = 0; i < NodeCount(node) - numDefs; i++) {
+      u32 index = NodeCount(node) - i - 1;
+      ASTNode *stmt = NodeChild(node, index);
+      Chunk *stmtChunk;
+      bool isLast = index == NodeCount(node) - 1;
+      stmtChunk = CompileExpr(stmt, isLast && returns, c);
+      if (!stmtChunk) {
+        FreeChunk(stmtsChunk);
         return CompileFail(chunk);
       }
-      if (!is_last) stmts_chunk = PrependChunk(opDrop, stmts_chunk);
-      stmts_chunk = PreservingEnv(stmt_chunk, stmts_chunk);
+      if (!isLast) stmtsChunk = PrependChunk(opDrop, stmtsChunk);
+      stmtsChunk = PreservingEnv(stmtChunk, stmtsChunk);
     }
-    chunk = AppendChunk(chunk, stmts_chunk);
+    chunk = AppendChunk(chunk, stmtsChunk);
   }
 
-  if (num_defs > 0) {
+  if (numDefs > 0) {
     c->env = PopEnv(c->env);
   }
 
-  FreeVec(defs);
-  FreeVec(stmts);
   return chunk;
 }
 
+
 static Chunk *CompileLet(ASTNode *node, bool returns, Compiler *c)
 {
-  u32 num_assigns = GetNodeAttr(node, "count");
-  Chunk *chunk;
-  c->env = ExtendEnv(num_assigns, c->env);
-  chunk = CompileExpr(NodeChild(node, 0), returns, c);
-  if (!chunk) return 0;
+  ASTNode *assigns = NodeChild(node, 0);
+  ASTNode *expr = NodeChild(node, 1);
+  u32 numAssigns = NodeCount(assigns);
+  u32 i;
+  Chunk *chunk = NewChunk(node->start);
+  Chunk *exprChunk;
+
+  c->env = ExtendEnv(numAssigns, c->env);
+  for (i = 0; i < numAssigns; i++) {
+    Chunk *valueChunk, *setChunk;
+    ASTNode *assign = NodeChild(assigns, i);
+    u32 name = NodeValue(NodeChild(assign, 0));
+    ASTNode *value = NodeChild(assign, 1);
+    valueChunk = CompileExpr(value, false, c);
+    if (!valueChunk) return CompileFail(chunk);
+    setChunk = NewChunk(assign->start);
+    EmitDefine(i, setChunk);
+    valueChunk = PreservingEnv(valueChunk, setChunk);
+    chunk = AppendChunk(chunk, valueChunk);
+    EnvSet(name, EnvUndefined, i, c->env);
+  }
+
+  exprChunk = CompileExpr(expr, returns, c);
+  if (!exprChunk) return CompileFail(chunk);
+  chunk = PreservingEnv(chunk, exprChunk);
   c->env = PopEnv(c->env);
-  return EmitScope(num_assigns, node->start, chunk);
-}
-
-static Chunk *CompileAssign(ASTNode *node, bool returns, Compiler *c)
-{
-  /*
-  assign
-    index0
-    id0
-    val0
-    if
-      test0
-      alt0
-      assign
-        index1
-        id1
-        val1
-        expr
-
-  Similar to compiling nested if nodes, except each assign statement also sets
-  its value in the environment at its index.
-  */
-
-  Chunk *val_chunk, *def_chunk, *expr_chunk;
-  u32 index = GetNodeAttr(node, "index");
-  ASTNode *id = NodeChild(node, 0);
-  ASTNode *value = NodeChild(node, 1);
-  ASTNode *expr = NodeChild(node, 2);
-
-  val_chunk = CompileExpr(value, false, c);
-  if (!val_chunk) return 0;
-
-  def_chunk = NewChunk(node->start);
-  EmitDefine(index, def_chunk);
-  EnvSet(NodeValue(id), EnvUndefined, index, c->env);
-
-  val_chunk = PreservingEnv(val_chunk, def_chunk);
-
-  expr_chunk = CompileExpr(expr, returns, c);
-  if (!expr_chunk) return CompileFail(val_chunk);
-
-  return PreservingEnv(val_chunk, expr_chunk);
+  return EmitScope(numAssigns, node->start, chunk);
 }
 
 static Chunk *CompileLambdaBody(ASTNode *node, Compiler *c)
@@ -770,13 +756,13 @@ static Chunk *CompileArgs(ASTNode *node, Chunk *chunk, Compiler *c)
 
 static bool IsHostRef(ASTNode *node, Compiler *c)
 {
-  return node->type == refNode &&
+  return node->nodeType == refNode &&
          NodeValue(NodeChild(node, 0)) == Symbol("Host");
 }
 
 static bool IsImportedHostFn(ASTNode *node, Compiler *c)
 {
-  return node->type == idNode &&
+  return node->nodeType == idNode &&
          HashMapContains(&c->host_imports, NodeValue(node));
 }
 
@@ -799,7 +785,7 @@ static Chunk *CompileTrapCall(ASTNode *id, ASTNode *args, bool returns, Compiler
 
 static bool IsSet(ASTNode *node)
 {
-  return node->type == idNode && node->data.value == Symbol("set!");
+  return node->nodeType == idNode && NodeValue(node) == Symbol("set!");
 }
 
 static Chunk *CompileSet(ASTNode *node, bool returns, Compiler *c)
@@ -1022,43 +1008,24 @@ static Chunk *CompileModule(ASTNode *node, bool returns, Compiler *c)
 
 static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
 {
-  switch (node->type) {
-  case idNode:      return CompileVar(node, returns, c);
-  case constNode:   return CompileConst(node, returns, c);
+  switch (node->nodeType) {
+  case nilNode:     return CompileConst(node, returns, c);
+  case intNode:     return CompileConst(node, returns, c);
   case symNode:     return CompileConst(node, returns, c);
   case strNode:     return CompileStr(node, returns, c);
+  case idNode:      return CompileVar(node, returns, c);
   case tupleNode:   return CompileTuple(node, returns, c);
+  /* case recordNode */
+  case listNode:    return CompileList(node, returns, c);
   case lambdaNode:  return CompileLambda(node, returns, c);
-  case panicNode:   return CompileOp(opPanic, node, false, c);
-  case negNode:     return CompileOp(opNeg, node, returns, c);
-  case notNode:     return CompileOp(opNot, node, returns, c);
-  case headNode:    return CompileOp(opHead, node, returns, c);
-  case tailNode:    return CompileOp(opTail, node, returns, c);
-  case lenNode:     return CompileOp(opLen, node, returns, c);
-  case compNode:    return CompileOp(opComp, node, returns, c);
-  case eqNode:      return CompileOp(opEq, node, returns, c);
-  case remNode:     return CompileOp(opRem, node, returns, c);
-  case bitandNode:  return CompileOp(opAnd, node, returns, c);
-  case mulNode:     return CompileOp(opMul, node, returns, c);
-  case addNode:     return CompileOp(opAdd, node, returns, c);
-  case subNode:     return CompileOp(opSub, node, returns, c);
-  case divNode:     return CompileOp(opDiv, node, returns, c);
-  case ltNode:      return CompileOp(opLt, node, returns, c);
-  case shiftNode:   return CompileOp(opShift, node, returns, c);
-  case xorNode:     return CompileOp(opXor, node, returns, c);
-  case gtNode:      return CompileOp(opGt, node, returns, c);
-  case joinNode:    return CompileOp(opJoin, node, returns, c);
-  case sliceNode:   return CompileOp(opSlice, node, returns, c);
-  case bitorNode:   return CompileOp(opOr, node, returns, c);
-  case pairNode:    return CompileOp(opPair, node, returns, c);
-  case andNode:     return CompileLogic(node, returns, c);
-  case orNode:      return CompileLogic(node, returns, c);
-  case accessNode:  return CompileOp(opGet, node, returns, c);
+  case opNode:
+    return CompileOp(GetNodeAttr(node, "opCode"), node, returns, c);
   case callNode:    return CompileCall(node, returns, c);
   case refNode:     return CompileDot(node, returns, c);
+  case andNode:     return CompileLogic(node, returns, c);
+  case orNode:      return CompileLogic(node, returns, c);
   case ifNode:      return CompileIf(node, returns, c);
   case letNode:     return CompileLet(node, returns, c);
-  case assignNode:  return CompileAssign(node, returns, c);
   case doNode:      return CompileDo(node, returns, c);
   case moduleNode:  return CompileModule(node, returns, c);
   default:          assert(false);

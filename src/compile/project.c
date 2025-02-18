@@ -38,7 +38,7 @@ static Error *BadImportList(char *imports)
 static void AddStrings(ASTNode *node, Program *program, HashMap *strings)
 {
   u32 i;
-  if (node->type == strNode || node->type == symNode) {
+  if (node->nodeType == symNode) {
     u32 len, sym;
     char *name;
     sym = RawVal(NodeValue(node));
@@ -269,11 +269,6 @@ Error *BuildProject(Project *project)
   Error *error;
   Compiler c;
 
-#if PROFILE
-  u64 start, build_start = Ticks();
-  build_stats = NewStatGroup("Build");
-#endif
-
   SetSymbolSize(valBits);
 
   /* parse each source file and add it to mod_map */
@@ -282,15 +277,8 @@ Error *BuildProject(Project *project)
     u32 name, j;
     ASTNode *exports;
 
-#if PROFILE
-    start = Ticks();
-#endif
-
-    mod->ast = SimplifyNode(ParseModule(mod->source), 0);
-
-#if PROFILE
-    IncStat(build_stats, "Parse", start);
-#endif
+    mod->ast = ParseModule(mod->source);
+    if (i == project->entry_index) PrintNode(mod->ast);
 
     if (IsErrorNode(mod->ast)) {
       char *msg = SymbolName(mod->ast->data.value);
@@ -321,34 +309,18 @@ Error *BuildProject(Project *project)
   /* compile each module in the build list */
   InitCompiler(&c, project);
   for (i = 0; i < VecCount(project->build_list); i++) {
-#if PROFILE
-    start = Ticks();
-#endif
     error = Compile(&c, project->build_list[i]);
-#if PROFILE
-    IncStat(build_stats, "Compile", start);
-#endif
     if (error) {
       DestroyCompiler(&c);
       return error;
     }
+
+    DisassembleChunk(project->modules[project->build_list[i]].code);
   }
   DestroyCompiler(&c);
 
-#if PROFILE
-  start = Ticks();
-#endif
-
   /* generate program from compiled modules */
   LinkModules(project);
-
-#if PROFILE
-  IncStat(build_stats, "Link", start);
-#endif
-
-#if PROFILE
-  IncStat(build_stats, "Build", build_start);
-#endif
 
   return 0;
 }

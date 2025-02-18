@@ -1,14 +1,13 @@
 module Window
-import Record
+import Record, Graphics (Point)
 export open, close, update, next_event, write_pixel, blit, Color, Event, modifier?
 
 def Color(r, g, b) r << 16 | g << 8 | b
 def white() Color(255, 255, 255)
 def black() Color(0, 0, 0)
 
-record Event(what, message, when, where, modifiers)
+record Event(what, message, time, where, modifiers)
 record Window(title, width, height, ref)
-record Point(x, y)
 
 def mod_mask(mod)
   if
@@ -27,11 +26,13 @@ def open(title, width, height)
 def close(window) Host.close_window(window.ref)
 def update(window) Host.update_window(window.ref)
 
-def next_event()
+def next_event() do
   let
-    event = Host.next_event()
+    event = Host.next_event(),
     where = Point(event[3][0], event[3][1])
-  in Event(event[0], event[1], event[2], where, event[4])
+  Event(event[0], event[1], event[2], where, event[4])
+end
 
 def write_pixel(x, y, color, window) Host.write_pixel(x, y, color, window.ref)
 def blit(data, width, height, x, y, window) Host.blit(data, width, height, x, y, window.ref)
+def draw_line(x0, y0, x1, y1, window) Host.draw_line(x0, y0, x1, y1, window.ref)

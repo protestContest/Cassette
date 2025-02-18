@@ -1,35 +1,35 @@
-import Window, Graphics, List, Range, Math
+; import Window, Graphics, List, Range, Math
 
-def draw_image(window, grid_size, scale)
-  let
-    perlin = Graphics.perlin(grid_size)
-    pixels =
-      Range.for(0, window.height/scale, \y ->
-        let row = Range.for(0, window.width/scale, \x ->
-          let
-            color = Math.map(perlin(x, y), -grid_size, grid_size, 0, 255)
-            pixel = [color, color, color, 0]
-          in
-            List.duplicate(pixel, scale))
-        in List.duplicate(row, scale))
-    img = format(pixels)
-  in do
-    Window.blit(img, window.width, window.height, 0, 0, window)
-    Window.update(window)
-  end
+; def draw_image(window, grid_size, scale)
+;   let
+;     perlin = Graphics.perlin(grid_size)
+;     pixels =
+;       Range.for(0, window.height/scale, \y ->
+;         let row = Range.for(0, window.width/scale, \x ->
+;           let
+;             color = Math.map(perlin(x, y), -grid_size, grid_size, 0, 255)
+;             pixel = [color, color, color, 0]
+;           in
+;             List.duplicate(pixel, scale))
+;         in List.duplicate(row, scale))
+;     img = format(pixels)
+;   in do
+;     Window.blit(img, window.width, window.height, 0, 0, window)
+;     Window.update(window)
+;   end
 
-def loop(window, size)
-  let event = Window.next_event()
-  in
-    if event.what == :keyDown, nil
-    else do
-      draw_image(window, size, 2)
-      loop(window, size / 2 or 400)
-    end
+; def loop(window, size)
+;   let event = Window.next_event()
+;   in
+;     if event.what == :keyDown, nil
+;     else do
+;       draw_image(window, size, 2)
+;       loop(window, size / 2 or 400)
+;     end
 
-let
-  width = 400
-  height = 400
-  window = Window.open("Test", width, height)
-in
-  loop(window, 400)
+; let
+;   width = 400
+;   height = 400
+;   window = Window.open("Test", width, height)
+; in
+;   loop(window, 400)

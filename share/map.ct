@@ -42,20 +42,22 @@ def unset_slot(bits, slot) bits & ~(1 << slot)
 def hash_slot(hash, depth) (hash >> 4*depth) & 0xF
 def key_slot(key, depth) hash_slot(hash(key), depth)
 
-def replace_slot(map, slot, entry)
+def replace_slot(map, slot, entry) do
   let
-    bits = map.bits
-    index = slot_index(bits, slot)
-    entries = map.entries
+    bits = map.bits,
+    index = slot_index(bits, slot),
+    entries = map.entries,
     entries = entries[0,index] <> {entry} <> entries[index+1,#entries]
-  in Map(bits, entries)
+  Map(bits, entries)
+end
 
 ; create a map from a list of (key : value) pairs
 def new(entries) do
   def loop(entries, map) when entries == nil, map
-  def loop(entries, map)
+  def loop(entries, map) do
     let entry = @entries
-    in loop(^entries, put(map, @entry, ^entry))
+    loop(^entries, put(map, @entry, ^entry))
+  end
 
   loop(entries, empty_map())
 end
@@ -67,30 +69,33 @@ def put(map, key, value) do
     if leaf_key(map) == leaf_key(entry), entry ; replace value
     else put(mapify(map, depth), depth, hash, entry) ; extend map deeper
 
-  def put(map, depth, hash, entry)
+  def put(map, depth, hash, entry) do
     let
-      slot = hash_slot(hash, depth)
-      index = slot_index(map.bits, slot)
+      slot = hash_slot(hash, depth),
+      index = slot_index(map.bits, slot),
       entries = map.entries
-    in if
+    if
       slot_taken?(map, slot),
         replace_slot(map, slot, put(entries[index], depth+1, hash, entry))
       else
         insert_slot(map, slot, entry)
+  end
 
   ; wraps a leaf node in a mid-level node. we have to know the depth to
   ; correctly recalculate the slot from the hash
-  def mapify(leaf, depth)
+  def mapify(leaf, depth) do
     let slot = key_slot(leaf_key(leaf), depth)
-    in Map(set_slot(0, slot), {leaf})
+    Map(set_slot(0, slot), {leaf})
+  end
 
-  def insert_slot(map, slot, entry)
+  def insert_slot(map, slot, entry) do
     let
-      bits = set_slot(map.bits, slot)
-      index = slot_index(bits, slot)
-      entries = map.entries
+      bits = set_slot(map.bits, slot),
+      index = slot_index(bits, slot),
+      entries = map.entries,
       entries = entries[0,index] <> {entry} <> entries[index,#entries]
-    in Map(bits, entries)
+    Map(bits, entries)
+  end
 
   put(map, 0, hash(key), leaf(key, value))
 end
@@ -102,12 +107,13 @@ def get(map, key, default) do
     if leaf_key(map) == key, leaf_value(map)
     else default
 
-  def get(map, hash, key)
+  def get(map, hash, key) do
     let
-      slot = hash_slot(hash, 0) except not slot_taken?(map, slot), default
-      index = slot_index(map.bits, slot)
+      slot = hash_slot(hash, 0), ;except not slot_taken?(map, slot), default
+      index = slot_index(map.bits, slot),
       entries = map.entries
-    in get(entries[index], hash >> 4, key)
+    get(entries[index], hash >> 4, key)
+  end
 
   get(map, hash(key), key)
 end
@@ -121,25 +127,26 @@ def delete(map, key) do
     if leaf_key(map) == key, empty_map()
     else map
 
-  def delete(map, depth, key)
+  def delete(map, depth, key) do
     let
-      slot = key_slot(key, depth) except not slot_taken?(map, slot), map
-      index = slot_index(map.bits, slot)
-      entries = map.entries
+      slot = key_slot(key, depth), ; except not slot_taken?(map, slot), map
+      index = slot_index(map.bits, slot),
+      entries = map.entries,
       entry = delete(entries[index], depth+1, key)
-    in if
+    if
       empty?(entry), remove_slot(map, slot)
       else replace_slot(map, slot, entry)
+  end
 
-  def remove_slot(map, slot)
+  def remove_slot(map, slot) do
     let
-      index = slot_index(map.bits, slot)
-      bits = unset_slot(map.bits, slot)
-      entries = map.entries
+      index = slot_index(map.bits, slot),
+      bits = unset_slot(map.bits, slot),
+      entries = map.entries,
       entries = entries[0,index] <> entries[index+1,#entries]
-    in
-      if #entries == 1 and leaf?(entries[0]), entries[0]
-      else Map(bits, entries)
+    if #entries == 1 and leaf?(entries[0]), entries[0]
+    else Map(bits, entries)
+  end
 
   delete(map, 0, key)
 end
@@ -148,12 +155,13 @@ end
 def contains?(map, key) do
   def contains?(map, hash, key) when empty?(map), false
   def contains?(map, hash, key) when leaf?(map), leaf_key(map) == key
-  def contains?(map, hash, key)
+  def contains?(map, hash, key) do
     let
-      slot = hash_slot(hash, 0) except not slot_taken?(map, slot), false
-      index = slot_index(map.bits, slot)
+      slot = hash_slot(hash, 0), ; except not slot_taken?(map, slot), false
+      index = slot_index(map.bits, slot),
       entries = map.entries
-    in contains?(entries[index], hash >> 4, key)
+    contains?(entries[index], hash >> 4, key)
+  end
 
   contains?(map, hash(key), key)
 end
@@ -198,17 +206,18 @@ def inspect(map) do
 
   let items = List.map(items(map), \item ->
       [inspect_key(@item), ": ", Value.inspect(^item)])
-  in ["{", List.intersperse(items, ", "), "}"]
+  ["{", List.intersperse(items, ", "), "}"]
 end
 
 ; returns a map subset with only the given keys, if present
 def take(map, keys) do
   def loop(keys, taken) when keys == nil, taken
-  def loop(keys, taken)
+  def loop(keys, taken) do
     let
-      key = @keys except not contains?(map, key), loop(^keys, taken)
+      key = @keys, ; except not contains?(map, key), loop(^keys, taken)
       value = get!(map, key)
-    in loop(^keys, put(taken, key, value))
+    loop(^keys, put(taken, key, value))
+  end
 
   loop(keys, new([]))
 end
