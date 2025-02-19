@@ -5,8 +5,11 @@ def read_resp(conn) do
   ; define an iterative loop
   def loop(received) do
     let chunk = IO.read_chunk(conn, 1024) ; get the next chunk
-    if #chunk == 0, received              ; no more data
-    else loop(received <> chunk)          ; concatenate chunk onto received data
+
+    if #chunk == 0,
+      received                            ; no more data
+    else
+      loop(received <> chunk)             ; concatenate chunk onto received data
   end
 
   ; start the loop

@@ -15,8 +15,6 @@ strNode     Terminal, symbol
 idNode      Terminal, symbol
 
 tupleNode   List of items
-recordNode  0: name (idNode)
-            1: field names (listNode of idNode)
 listNode    List of items
 lambdaNode  0: params (listNode of idNode)
             1: body node
@@ -57,7 +55,6 @@ typedef enum {
   strNode,
   idNode,
   tupleNode,
-  recordNode,
   listNode,
   lambdaNode,
   opNode,

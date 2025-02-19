@@ -141,8 +141,6 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
   case intNode:
   case symNode:
   case strNode:
-  case recordNode:
-  case refNode:
   case importNode:
     return node;
 
@@ -358,6 +356,23 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
     }
   }
 
+  case refNode: {
+    ASTNode *obj = NodeChild(node, 0);
+    ASTNode *arg = NodeChild(node, 1);
+    ASTNode *call, *args;
+    if (obj->nodeType == idNode) {
+      i32 pos = EnvFind(NodeValue(obj), env);
+      if (pos < 0) return node;
+    }
+    call = NewNode(callNode, node->start, node->end, 0);
+    args = NewNode(listNode, node->start, node->end, 0);
+    NodePush(args, arg);
+    NodePush(call, obj);
+    NodePush(call, args);
+    FreeNodeShallow(node);
+    return call;
+  }
+
   case andNode: {
     NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
     NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
@@ -493,7 +508,6 @@ static char *NodeTypeName(i32 type)
   case strNode:     return "str";
   case idNode:      return "id";
   case tupleNode:   return "tuple";
-  case recordNode:  return "record";
   case listNode:    return "list";
   case lambdaNode:  return "lambda";
   case opNode:      return "op";
@@ -563,7 +577,7 @@ void PrintNodeLevel(ASTNode *node, u32 level, u32 lines)
     fprintf(stderr, " \"%s\"\n", SymbolName(RawVal(NodeValue(node))));
     break;
   case idNode:
-    fprintf(stderr, " %s\n", SymbolName(NodeValue(node)));
+    fprintf(stderr, " %s\n", SymbolName(RawVal(NodeValue(node))));
     break;
   default:
     fprintf(stderr, "\n");

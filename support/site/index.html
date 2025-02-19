@@ -35,8 +35,11 @@
   <span class="cm">; define an iterative loop</span>
   <span class="kw">def</span> <span class="fn">loop</span>(<span class="var">received</span>) <span class="kw">do</span>
     <span class="kw">let</span> <span class="var">chunk</span> = <span class="fn">IO.read_chunk</span>(conn, <span class="num">1024</span>) <span class="cm">; get the next chunk</span>
-    <span class="kw">if</span> <span class="kw">#</span>chunk <span class="kw">==</span> <span class="num">0</span>, received              <span class="cm">; no more data</span>
-    <span class="kw">else</span> <span class="fn">loop</span>(received <span class="kw">&lt;&gt;</span> chunk)          <span class="cm">; concatenate chunk onto received data</span>
+
+    <span class="kw">if</span> <span class="kw">#</span>chunk <span class="kw">==</span> <span class="num">0</span>,
+      received                            <span class="cm">; no more data</span>
+    <span class="kw">else</span>
+      <span class="fn">loop</span>(received <span class="kw">&lt;&gt;</span> chunk)             <span class="cm">; concatenate chunk onto received data</span>
   <span class="kw">end</span>
 
   <span class="cm">; start the loop</span>
@@ -68,7 +71,7 @@
       </ul>
 
       <h2 id="getting-started">Getting Started</h2>
-      <p>To use Cassette, you must build it from source.</p>
+      <p>To use Cassette, you must build it <a href="https://github.com/protestContest/Cassette">from source</a>.</p>
       <ol>
         <li>Get the project's dependencies
           <ul>
@@ -104,7 +107,7 @@ Comment text must be between triple hyphens.
       <pre>
 <span class="num">10_000</span>            <span class="cm">; decimal integer</span>
 <span class="num">0x1F</span>              <span class="cm">; hex integer</span>
-<span class="num">$a</span>                <span class="cm">; =&gt; 0x61</span>
+<span class="num">$a</span>                <span class="cm">; byte literal (0x61)</span>
 <span class="kw">true</span>              <span class="cm">; =&gt; 1</span>
 <span class="kw">false</span>             <span class="cm">; =&gt; 0</span>
 </pre>
@@ -114,7 +117,7 @@ Comment text must be between triple hyphens.
 <span class="sym">:ok</span>
 <span class="sym">:not_found_error</span>
 </pre>
-      <p>Pairs are Lisp-style cons cells, which are used to create linked lists. The keyword <code>nil</code> is shorthand for a special pair, which is the empty list. The pair operator, <code>:</code>, is right-associative.</p>
+      <p>Pairs are Lisp-style cons cells, which are used to create linked lists. The keyword <code>nil</code> is shorthand for the empty list. The pair operator, <code>:</code>, is right-associative.</p>
       <pre>
 <span class="num">100</span> <span class="kw">:</span> <span class="num">200</span>         <span class="cm">; pair</span>
 <span class="kw">nil</span>               <span class="cm">; empty list</span>
@@ -140,7 +143,7 @@ Comment text must be between triple hyphens.
 
       <h3 id="operators">Operators</h3>
       <p>Cassette supports several built-in operators on values. Most operators only work on certain types.</p>
-      <p>Basic arithmetic and comparison operators work on integers.</p>
+      <p>Basic arithmetic and comparison operators work with integers.</p>
       <pre>
 <span class="kw">-</span><span class="num">24</span>               <span class="cm">; negation</span>
 <span class="num">73</span> <span class="kw">+</span> <span class="num">4</span>            <span class="cm">; addition</span>
@@ -185,7 +188,7 @@ Comment text must be between triple hyphens.
 {<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>}[<span class="num">1</span>,<span class="num">3</span>] <span class="cm">; =&gt; {2, 3}</span>
 <span class="str">"hello"</span>[<span class="num">1</span>,<span class="num">4</span>]      <span class="cm">; =&gt; "ell"</span>
 </pre>
-      <p>Logic and equality operators work on any type. Only the values <code>0</code> (a.k.a. <code>false</code>) and <code>nil</code> evaluate as false. Logic operators short-circuit and evaluate to one of their operands. Equality is compared structurally, and returns <code>true</code> or <code>false</code>.</p>
+      <p>Logic and equality operators work with any type. Only the values <code>0</code> (a.k.a. <code>false</code>) and <code>nil</code> evaluate as false. Logic operators short-circuit and evaluate to one of their operands. Equality is compared structurally, and returns <code>true</code> or <code>false</code>.</p>
       <pre>
 <span class="kw">false</span> <span class="kw">or</span> <span class="sym">:ok</span>      <span class="cm">; =&gt; :ok</span>
 <span class="kw">true</span> <span class="kw">and</span> <span class="kw">nil</span>      <span class="cm">; =&gt; nil</span>
@@ -196,7 +199,7 @@ Comment text must be between triple hyphens.
 </pre>
 
       <h3 id="functions">Functions</h3>
-      <p>Functions can be defined as lambdas. Function calls look similar to other languages.</p>
+      <p>Functions can be created as lambdas. Function calls look similar to other languages.</p>
       <pre>
 <span class="kw">\</span><span class="var">a</span>, <span class="var">b</span> <span class="kw">-></span> a <span class="kw">+</span> b
 

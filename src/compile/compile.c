@@ -757,7 +757,7 @@ static Chunk *CompileArgs(ASTNode *node, Chunk *chunk, Compiler *c)
 static bool IsHostRef(ASTNode *node, Compiler *c)
 {
   return node->nodeType == refNode &&
-         NodeValue(NodeChild(node, 0)) == Symbol("Host");
+         RawVal(NodeValue(NodeChild(node, 0))) == Symbol("Host");
 }
 
 static bool IsImportedHostFn(ASTNode *node, Compiler *c)
@@ -770,7 +770,7 @@ static Chunk *CompileTrapCall(ASTNode *id, ASTNode *args, bool returns, Compiler
 {
   i32 primitive_num;
   Chunk *chunk;
-  primitive_num = PrimitiveID(NodeValue(id));
+  primitive_num = PrimitiveID(RawVal(NodeValue(id)));
   if (primitive_num < 0) return UndefinedTrap(id, c);
 
   chunk = NewChunk(id->start);
@@ -876,46 +876,10 @@ after:
   return chunk;
 }
 
-static Chunk *CompileMember(ASTNode *node, bool returns, Compiler *c)
-{
-  Chunk *chunk;
-  ASTNode *record = CloneNode(NodeChild(node, 0));
-  ASTNode *key = NodeChild(node, 1);
-  ASTNode *call = NewNode(callNode, node->start, node->end, 0);
-  ASTNode *fn = NewNode(refNode, node->start, node->end, 0);
-  ASTNode *args = NewNode(tupleNode, node->start, node->end, 0);
-
-  key = NewNode(symNode, key->start, key->end, IntVal(NodeValue(key)));
-  NodePush(fn, NewNode(idNode, node->start, node->end, Symbol("Record")));
-  NodePush(fn, NewNode(idNode, node->start, node->end, Symbol("get")));
-  NodePush(call, fn);
-  NodePush(args, record);
-  NodePush(args, key);
-  NodePush(call, args);
-
-  chunk = CompileExpr(call, returns, c);
-  FreeNode(call);
-  return chunk;
-}
-
 static Chunk *CompileDot(ASTNode *node, bool returns, Compiler *c)
 {
-  /*
-  Compiler has a map of alias -> module for imports
-  Get the fn index from the imported module's AST
-
-  getMod
-  const <mod index>
-  get
-  const <fn index>
-  get
-  */
   ASTNode *alias = NodeChild(node, 0);
   ASTNode *sym = NodeChild(node, 1);
-
-  i32 pos = EnvFind(NodeValue(alias), c->env);
-  if (pos >= 0) return CompileMember(node, returns, c);
-
   return CompileRef(alias, sym, returns, c);
 }
 
@@ -1015,7 +979,6 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   case strNode:     return CompileStr(node, returns, c);
   case idNode:      return CompileVar(node, returns, c);
   case tupleNode:   return CompileTuple(node, returns, c);
-  /* case recordNode */
   case listNode:    return CompileList(node, returns, c);
   case lambdaNode:  return CompileLambda(node, returns, c);
   case opNode:
