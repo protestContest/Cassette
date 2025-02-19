@@ -99,12 +99,14 @@ typedef struct ASTNode {
 ASTNode *NewNode(NodeType type, u32 start, u32 end, u32 value);
 #define ErrorNode(msg, start, end) NewNode(errorNode, start, end, Symbol(msg))
 ASTNode *CloneNode(ASTNode *node);
+ASTNode *WrapNode(ASTNode *node, NodeType type);
 void FreeNode(ASTNode *node);
 void FreeNodeShallow(ASTNode *node);
 bool IsTerminal(ASTNode *node);
 bool IsConstNode(ASTNode *node);
 void NodePush(ASTNode *node, ASTNode *child);
 void SetNodeAttr(ASTNode *node, char *name, u32 value);
+bool NodeHasAttr(ASTNode *node, char *name);
 u32 GetNodeAttr(ASTNode *node, char *name);
 
 ASTNode *SimplifyNode(ASTNode *node, Env *env);

@@ -17,17 +17,18 @@ def post(conn, path, body)
     else {:error, "Invalid conn type"}
 
 def request(method, host, path, headers, body) do
-  let
-    headers = String.join(headers, "\r\n"),
-    req = String.join([
+  let headers = String.join(headers, "\r\n")
+  let req = String.join([
       [method, " ", path, " HTTP/1.1"],
       ["Host: ", host],
       ["Connection: close"],
       headers,
       "",
       body
-    ], "\r\n"),
-    conn = Net.connect(host, "80"), ; except error?(conn), conn
-    result = IO.write(conn, req) ; except error?(result), result
+    ], "\r\n")
+  let conn = Net.connect(host, "80")
+  guard not error?(conn) else conn
+  let result = IO.write(conn, req)
+  guard not error?(result) else result
   IO.read(conn)
 end

@@ -3,6 +3,7 @@ import Math
 export Point, Rect, perlin
 
 record Point(x, y)
+
 record Rect(left, top, right, bottom)
 
 def perlin(grid_size) do

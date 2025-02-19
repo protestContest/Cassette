@@ -14,16 +14,15 @@ static void Usage(void)
   fprintf(stderr, "  -v            Print version\n");
   fprintf(stderr, "  -c            Compile project\n");
   fprintf(stderr, "  -d            Enable debug mode\n");
-  fprintf(stderr, "  -L lib_path   Library search path (defaults to $CASSETTE_PATH)\n");
+  fprintf(stderr, "  -L lib_path   Library search path (default $CASSETTE_PATH)\n");
   fprintf(stderr, "  -i imports    List of modules to auto-import\n");
 }
 
-/*
-Search for an existing library path in this order:
-- Env variable $CASSETTE_PATH
-- $HOME/.local/share/cassette
-- /usr/local/share/cassette
-*/
+/* Search for an existing library path in this order:
+ * - Env variable $CASSETTE_PATH
+ * - $HOME/.local/share/cassette
+ * - /usr/local/share/cassette
+ */
 static char *GetLibPath(void)
 {
   char *path = getenv("CASSETTE_PATH");

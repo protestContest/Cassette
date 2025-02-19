@@ -8,7 +8,7 @@ SRC = src
 SHARE = share
 INSTALL = $(HOME)/.local
 
-DEBUG ?= 0
+DEBUG ?= 1
 PROFILE ?= 0
 
 EXECTARGET = $(BIN)/$(NAME)

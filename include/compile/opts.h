@@ -1,15 +1,14 @@
 #pragma once
 
-/*
-These options control aspects of how a program is compiled and run.
+/* These options control how a program is compiled and run.
+ *
+ * `debug` controls whether the VM will trace its execution.
+ * `lib_path` is a folder to scan for files to add to a project.
+ * `entry` is the filename of the entry module.
+ * `default_imports` is a list of modules to automatically import.
+ */
 
-`debug` controls whether the VM will trace its execution.
-`lib_path` is a folder to scan for files to add to a project.
-`entry` is the filename of the entry module.
-`default_imports` is a list of modules to automatically import.
-*/
-
-#define VERSION_MAJOR   2
+#define VERSION_MAJOR   3
 #define VERSION_MINOR   0
 #define VERSION_PATCH   0
 

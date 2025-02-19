@@ -21,15 +21,16 @@ def key_index(rec, key) do
 end
 
 def get(rec, key) do
-  let i = key_index(rec, key) ; except i == nil, nil
+  let i = key_index(rec, key)
+  guard i != nil else nil
   values(rec)[i]
 end
 
 def put(rec, key, value) do
-  let
-    i = key_index(rec, key), ; except i == nil, rec
-    values = values(rec),
-    values = values[0,i] <> values[i+1,#values]
+  let i = key_index(rec, key)
+  guard i != nil else rec
+  let values = values(rec),
+      values = values[0,i] <> values[i+1,#values]
   {type(rec), keys(rec), values}
 end
 

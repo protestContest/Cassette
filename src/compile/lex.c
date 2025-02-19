@@ -122,9 +122,9 @@ Token NextToken(char *src, u32 pos)
   if (MatchKeyword("do", src+pos)) return MakeToken(doToken, pos, 2);
   if (MatchKeyword("else", src+pos)) return MakeToken(elseToken, pos, 4);
   if (MatchKeyword("end", src+pos)) return MakeToken(endToken, pos, 3);
-  if (MatchKeyword("except", src+pos)) return MakeToken(exceptToken, pos, 6);
   if (MatchKeyword("export", src+pos)) return MakeToken(exportToken, pos, 7);
   if (MatchKeyword("false", src+pos)) return MakeToken(falseToken, pos, 5);
+  if (MatchKeyword("guard", src+pos)) return MakeToken(guardToken, pos, 5);
   if (MatchKeyword("if", src+pos)) return MakeToken(ifToken, pos, 2);
   if (MatchKeyword("import", src+pos)) return MakeToken(importToken, pos, 6);
   if (MatchKeyword("in", src+pos)) return MakeToken(inToken, pos, 2);
@@ -155,9 +155,9 @@ bool IsKeyword(TokenType type)
   case doToken:
   case elseToken:
   case endToken:
-  case exceptToken:
   case exportToken:
   case falseToken:
+  case guardToken:
   case ifToken:
   case importToken:
   case inToken:

@@ -28,6 +28,13 @@ ASTNode *CloneNode(ASTNode *node)
   return clone;
 }
 
+ASTNode *WrapNode(ASTNode *node, NodeType type)
+{
+  ASTNode *newNode = NewNode(type, node->start, node->end, 0);
+  NodePush(newNode, node);
+  return newNode;
+}
+
 void FreeNode(ASTNode *node)
 {
   u32 i;
@@ -100,6 +107,16 @@ void SetNodeAttr(ASTNode *node, char *name, u32 value)
   VecPush(node->attrs, attr);
 }
 
+bool NodeHasAttr(ASTNode *node, char *name)
+{
+  u32 i;
+  u32 key = Symbol(name);
+  for (i = 0; i < VecCount(node->attrs); i++) {
+    if (node->attrs[i].name == key) return true;
+  }
+  return false;
+}
+
 u32 GetNodeAttr(ASTNode *node, char *name)
 {
   u32 i;
@@ -134,9 +151,13 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
     i32 pos = EnvFind(name, env);
     if (pos >= 0) {
       u32 value = EnvGet(pos, env);
-      if (value != EnvUndefined) {
-        NodeValue(node) = value;
-        node->nodeType = value ? intNode : nilNode;
+      if (value == 0) {
+        FreeNode(node);
+        return NewNode(nilNode, start, end, 0);
+      } else if (IsInt(value)) {
+        u32 value = NodeValue(node);
+        FreeNode(node);
+        return NewNode(intNode, start, end, value);
       }
     }
     return node;
@@ -156,20 +177,19 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
 
   case opNode: {
     u32 op = GetNodeAttr(node, "opCode");
-    ASTNode *arg1, *arg2;
     switch (op) {
     case opNeg:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      if (arg1->nodeType == intNode) {
-        NodeValue(arg1) = IntVal(-RawInt(NodeValue(arg1)));
-        FreeNodeShallow(node);
-        node = arg1;
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      if (NodeChild(node, 0)->nodeType == intNode) {
+        u32 value = NodeValue(NodeChild(node, 0));
+        FreeNode(node);
+        return NewNode(intNode, start, end, IntVal(-RawInt(value)));
       }
       return node;
     case opNot:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      if (IsConstNode(arg1)) {
-        if (IsNodeFalse(arg1)) {
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      if (IsConstNode(NodeChild(node, 0))) {
+        if (IsNodeFalse(NodeChild(node, 0))) {
           FreeNode(node);
           return NewNode(intNode, start, end, IntVal(1));
         } else {
@@ -179,121 +199,156 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
       }
       return node;
     case opComp:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      if (arg1->nodeType == intNode) {
-        u32 value = NodeValue(arg1);
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      if (NodeChild(node, 0)->nodeType == intNode) {
+        u32 value = NodeValue(NodeChild(node, 0));
         FreeNode(node);
         return NewNode(intNode, start, end, IntVal(~RawInt(value)));
       }
       return node;
     case opEq:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == nilNode && arg2->nodeType == nilNode) {
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == nilNode &&
+          NodeChild(node, 1)->nodeType == nilNode) {
         FreeNode(node);
         return NewNode(intNode, start, end, IntVal(1));
       }
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        bool eq = NodeValue(arg1) == NodeValue(arg2);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        bool eq = NodeValue(NodeChild(node, 0)) == NodeValue(NodeChild(node, 1));
         FreeNode(node);
         return NewNode(intNode, start, end, IntVal(eq));
       }
       return node;
     case opRem:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) % RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a % b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opAnd:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) & RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a & b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opMul:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) * RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a * b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opAdd:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) + RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a + b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opSub:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) - RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a - b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opDiv:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) / RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a / b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opLt:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) < RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a < b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opShift:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) << RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a << b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opGt:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) > RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a > b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opOr:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) | RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a | b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
       return node;
     case opXor:
-      arg1 = SimplifyNode(NodeChild(node, 0), env);
-      arg2 = SimplifyNode(NodeChild(node, 1), env);
-      if (arg1->nodeType == intNode && arg2->nodeType == intNode) {
-        u32 value = IntVal(RawInt(NodeValue(arg1)) ^ RawInt(NodeValue(arg2)));
+      NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+      NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+      if (NodeChild(node, 0)->nodeType == intNode &&
+          NodeChild(node, 1)->nodeType == intNode) {
+        i32 a = RawInt(NodeValue(NodeChild(node, 0)));
+        i32 b = RawInt(NodeValue(NodeChild(node, 1)));
+        u32 value = IntVal(a ^ b);
         FreeNode(node);
         return NewNode(intNode, start, end, value);
       }
@@ -304,34 +359,34 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
   }
 
   case andNode: {
-    ASTNode *arg1 = SimplifyNode(NodeChild(node, 0), env);
-    ASTNode *arg2 = SimplifyNode(NodeChild(node, 1), env);
-    if (IsConstNode(arg1)) {
-      if (IsNodeFalse(arg1)) {
+    NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+    NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+    if (IsConstNode(NodeChild(node, 0))) {
+      if (IsNodeFalse(NodeChild(node, 0))) {
         FreeNodeShallow(node);
-        FreeNode(arg2);
-        return arg1;
+        FreeNode(NodeChild(node, 1));
+        return NodeChild(node, 0);
       } else {
         FreeNodeShallow(node);
-        FreeNode(arg1);
-        return arg2;
+        FreeNode(NodeChild(node, 0));
+        return NodeChild(node, 1);
       }
     }
     return node;
   }
 
   case orNode: {
-    ASTNode *arg1 = SimplifyNode(NodeChild(node, 0), env);
-    ASTNode *arg2 = SimplifyNode(NodeChild(node, 1), env);
-    if (IsConstNode(arg1)) {
-      if (IsNodeFalse(arg1)) {
+    NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+    NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+    if (IsConstNode(NodeChild(node, 0))) {
+      if (IsNodeFalse(NodeChild(node, 0))) {
         FreeNodeShallow(node);
-        FreeNode(arg1);
-        return arg2;
+        FreeNode(NodeChild(node, 0));
+        return NodeChild(node, 1);
       } else {
         FreeNodeShallow(node);
-        FreeNode(arg2);
-        return arg1;
+        FreeNode(NodeChild(node, 1));
+        return NodeChild(node, 0);
       }
     }
     return node;

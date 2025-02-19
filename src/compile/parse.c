@@ -89,6 +89,7 @@ static ASTNode *ParseTuple(Parser *p);
 static ASTNode *ParseLambda(Parser *p);
 static ASTNode *ParseIf(Parser *p);
 static ASTNode *ParseLet(Parser *p);
+static ASTNode *ParseGuard(Parser *p);
 static ASTNode *ParseDo(Parser *p);
 
 /* Rules indexed by tokenType. */
@@ -131,9 +132,9 @@ static ParseRule rules[] = {
   /* doToken */       {ParseDo,       0,              precNone},
   /* elseToken */     {ParseID,       0,              precNone},
   /* endToken */      {ParseID,       0,              precNone},
-  /* exceptToken */   {0,             0,              precNone},
   /* exportToken */   {ParseID,       0,              precNone},
   /* falseToken */    {ParseLiteral,  0,              precNone},
+  /* guardToken */    {ParseGuard,    0,              precNone},
   /* ifToken */       {ParseIf,       0,              precNone},
   /* importToken */   {ParseID,       0,              precNone},
   /* inToken */       {0,             0,              precNone},
@@ -722,6 +723,28 @@ static ASTNode *PanicNode(char *msg, Parser *p)
   return panic;
 }
 
+static ASTNode *ParseGuard(Parser *p)
+{
+  ASTNode *node = MakeNode(ifNode, p);
+  ASTNode *test, *alt;
+  if (!MatchToken(guardToken, p)) return Expected("guard", node, p);
+  VSpacing(p);
+  test = ParseExpr(p);
+  if (IsErrorNode(test)) return ParseFail(node, test);
+  test = WrapNode(test, opNode);
+  SetNodeAttr(test, "opCode", opNot);
+  NodePush(node, test);
+  VSpacing(p);
+  if (!MatchToken(elseToken, p)) return Expected("else", node, p);
+  VSpacing(p);
+  alt = ParseExpr(p);
+  if (IsErrorNode(alt)) return ParseFail(node, alt);
+  NodePush(node, alt);
+  NodePush(node, NilNode(p));
+  SetNodeAttr(node, "guard", 1);
+  return node;
+}
+
 static ASTNode *ParseDef(Parser *p)
 {
   ASTNode *node = MakeNode(assignNode, p);
@@ -878,6 +901,13 @@ static void AppendStmts(StmtParser *sp, u32 index, ASTNode *node)
       SetNodeAttr(node, "numAssigns", 0);
       FreeNode(NodeChild(stmt, 1));
       NodeChild(stmt, 1) = node;
+      AppendStmts(sp, i+1, node);
+      return;
+    } else if (stmt->nodeType == ifNode && NodeHasAttr(stmt, "guard")) {
+      node = NewNode(doNode, stmt->start, node->end, 0);
+      SetNodeAttr(node, "numAssigns", 0);
+      FreeNode(NodeChild(stmt, 2));
+      NodeChild(stmt, 2) = node;
       AppendStmts(sp, i+1, node);
       return;
     }

@@ -1,16 +1,14 @@
-; import Sketch (rgba), Range, Window
+import Sketch (rgba), Range, Window
 
-; def draw_image(window, mod)
-;   let
-;     white = rgba(0xFF, 0xFF, 0xFF, 0)
-;     black = rgba(0, 0, 0, 0)
-;     pixels =
-;       Range.for(0, window.height, \y ->
-;         Range.for(0, window.width, \x ->
-;           if (x ^ y) % mod, white else black))
-;     img = format(pixels)
-;   in do
-;     Window.blit(img, window.width, window.height, 0, 0, window)
-;   end
+def draw_image(window, mod) do
+  let white = rgba(0xFF, 0xFF, 0xFF, 0),
+      black = rgba(0, 0, 0, 0),
+      pixels =
+        Range.for(0, window.height, \y ->
+          Range.for(0, window.width, \x ->
+            if (x ^ y) % mod, white else black)),
+      img = format(pixels)
+  Window.blit(img, window.width, window.height, 0, 0, window)
+end
 
-; Sketch.draw(512, 384, \window -> draw_image(window, 9))
+Sketch.draw(512, 384, \window -> draw_image(window, 9))

@@ -277,8 +277,7 @@ Error *BuildProject(Project *project)
     u32 name, j;
     ASTNode *exports;
 
-    mod->ast = ParseModule(mod->source);
-    if (i == project->entry_index) PrintNode(mod->ast);
+    mod->ast = SimplifyNode(ParseModule(mod->source), 0);
 
     if (IsErrorNode(mod->ast)) {
       char *msg = SymbolName(mod->ast->data.value);
@@ -314,8 +313,6 @@ Error *BuildProject(Project *project)
       DestroyCompiler(&c);
       return error;
     }
-
-    DisassembleChunk(project->modules[project->build_list[i]].code);
   }
   DestroyCompiler(&c);
 

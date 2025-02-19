@@ -33,29 +33,26 @@
 <span class="cm">; keeps reading from a connection while there's any data</span>
 <span class="kw">def</span> <span class="fn">read_resp</span>(<span class="var">conn</span>) <span class="kw">do</span>
   <span class="cm">; define an iterative loop</span>
-  <span class="kw">def</span> <span class="fn">loop</span>(<span class="var">received</span>)
-    <span class="kw">let</span>
-      <span class="var">chunk</span> = <span class="fn">IO.read_chunk</span>(conn, <span class="num">1024</span>)   <span class="cm">; get the next chunk</span>
-    <span class="kw">in</span>
-      <span class="kw">if</span> <span class="kw">#</span>chunk <span class="kw">==</span> <span class="num">0</span>, received            <span class="cm">; no more data</span>
-      <span class="kw">else</span> <span class="fn">loop</span>(received <span class="kw">&lt;&gt;</span> chunk)        <span class="cm">; concatenate chunk onto received data</span>
+  <span class="kw">def</span> <span class="fn">loop</span>(<span class="var">received</span>) <span class="kw">do</span>
+    <span class="kw">let</span> <span class="var">chunk</span> = <span class="fn">IO.read_chunk</span>(conn, <span class="num">1024</span>) <span class="cm">; get the next chunk</span>
+    <span class="kw">if</span> <span class="kw">#</span>chunk <span class="kw">==</span> <span class="num">0</span>, received              <span class="cm">; no more data</span>
+    <span class="kw">else</span> <span class="fn">loop</span>(received <span class="kw">&lt;&gt;</span> chunk)          <span class="cm">; concatenate chunk onto received data</span>
+  <span class="kw">end</span>
 
   <span class="cm">; start the loop</span>
   <span class="fn">loop</span>(<span class="str">""</span>)
 <span class="kw">end</span>
 
-<span class="kw">let</span>
-  <span class="var">conn</span> = <span class="fn">Net.connect</span>(<span class="str">"cassette-lang.com"</span>, <span class="str">"80"</span>)   <span class="cm">; open a network connection</span>
-  <span class="var">req</span> = <span class="fn">String.join</span>([                             <span class="cm">; form an HTTP request</span>
-    <span class="str">"GET / HTTP/1.0"</span>,
-    <span class="str">"Host: cassette-lang.com"</span>,
-    <span class="str">""</span>,
-    <span class="str">""</span>
-  ], <span class="str">"<span class="sym">\r\n</span>"</span>)
-<span class="kw">in</span> <span class="kw">do</span>
-  <span class="fn">IO.write</span>(conn, req)         <span class="cm">; send the request</span>
-  <span class="fn">IO.print</span>(<span class="fn">read_resp</span>(conn))   <span class="cm">; read the response and print it</span>
-<span class="kw">end</span>
+<span class="kw">let</span> <span class="var">conn</span> = <span class="fn">Net.connect</span>(<span class="str">"cassette-lang.com"</span>, <span class="str">"80"</span>),  <span class="cm">; open a network connection</span>
+    <span class="var">req</span> = <span class="fn">String.join</span>([                             <span class="cm">; form an HTTP request</span>
+      <span class="str">"GET / HTTP/1.0"</span>,
+      <span class="str">"Host: cassette-lang.com"</span>,
+      <span class="str">""</span>,
+      <span class="str">""</span>
+    ], <span class="str">"<span class="sym">\r\n</span>"</span>)
+
+<span class="fn">IO.write</span>(conn, req)         <span class="cm">; send the request</span>
+<span class="fn">IO.print</span>(<span class="fn">read_resp</span>(conn))   <span class="cm">; read the response and print it</span>
 </pre>
 
       <aside>Please direct any comments, questions, and insults <a href="mailto:cassette@zjm.me">here</a>.</aside>
@@ -217,43 +214,6 @@ Comment text must be between triple hyphens.
   <span class="kw">else</span>      <span class="sym">:less_than_one</span>
 </pre>
 
-      <h3 id="variables">Variables</h3>
-      <p>A <code>let</code> expression is a list of assignments and a result expression. Each assigned variable is in scope in the subsequent assignments (but not in its own) and in the result expression.</p>
-      <pre>
-<span class="kw">let</span>
-  <span class="var">x</span> = <span class="num">3</span>
-  <span class="var">y</span> = x <span class="kw">*</span> <span class="num">2</span> <span class="kw">+</span> <span class="num">1</span>
-<span class="kw">in</span>
-  x <span class="kw">-</span> y
-
-<span class="kw">let</span>
-  <span class="var">nums</span> = [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>]
-  <span class="var">nums</span> = <span class="fn">filter</span>(nums, odd?)
-  <span class="var">nums</span> = <span class="fn">map</span>(nums, <span class="kw">\</span><span class="var">n</span> <span class="kw">-></span> n<span class="kw">*</span><span class="num">2</span>)
-<span class="kw">in</span>
-  <span class="fn">done</span>(nums)
-</pre>
-      <p>An assignment in a <code>let</code> expression can have an <code>except</code> clause. If the <code>except</code> test evaluates true, the clause's alternate expression becomes the result of the <code>let</code> expression, and the rest of the <code>let</code> expression is ignored.</p>
-      <pre>
-<span class="kw">let</span>
-  <span class="var">conn</span> = <span class="fn">Net.connect</span>(host, <span class="str">"80"</span>) <span class="kw">except</span> <span class="fn">error?</span>(conn), conn
-  <span class="var">result</span> = <span class="fn">IO.write</span>(conn, req) <span class="kw">except</span> <span class="fn">error?</span>(result), result
-<span class="kw">in</span>
-  <span class="fn">IO.read</span>(conn)
-</pre>
-      <p>This makes <code>let</code> expressions useful for <a href="https://fsharpforfunandprofit.com/rop/">railway-oriented programming</a>. Each assignment can be tested and bail on an error.</p>
-
-      <h3 id="set!">set!</h3>
-      <p>While discouraged, variable values can be replaced with the pseudo-function <code>set!</code>. This replaces the value of the variable in the current environment, similar to Lisp.</p>
-      <pre>
-<span class="kw">let</span>
-  <span class="var">x</span> = <span class="num">0</span>
-<span class="kw">in</span> <span class="kw">do</span>
-  <span class="sym">set!</span>(x, <span class="num">1</span>)
-  <span class="fn">IO.inspect</span>(x)   <span class="cm">; prints "1"</span>
-<span class="kw">end</span>
-</pre>
-
       <h3 id="blocks">Blocks</h3>
       <p>A <code>do</code> block is a list of expressions. The result of the last expression is the result of the block.</p>
       <pre>
@@ -283,13 +243,36 @@ Comment text must be between triple hyphens.
   n <span class="kw">*</span> <span class="fn">fact</span>(n <span class="kw">-</span> <span class="num">1</span>)
 </pre>
 
+      <h3>Guard</h3>
+      <p>A <code>do</code> block can contain <code>guard</code> statements. A <code>guard</code> statement is similar to an <code>if</code> expression, except that if the condition is false, the block returns early with the <code>guard</code>'s alternative value.</p>
+      <pre><span class="kw">do</span>
+  <span class="kw">guard</span> <span class="fn">foo</span>(<span class="num">100</span>) <span class="kw">else</span> <span class="str">"Foo failed!"</span>
+
+  <span class="str">"Foo succeeded"</span>
+<span class="kw">end</span>
+</pre>
+
+      <h3 id="variables">Variables</h3>
+      <p>A <code>do</code> block can contain <code>let</code> statements. A <code>let</code> statement is a list of assignments. Each assigned variable is in scope in the subsequent assignments (but not in its own) and in the rest of the block.</p>
+      <pre>
+<span class="kw">let</span> <span class="var">x</span> = <span class="num">3</span>,
+    <span class="var">y</span> = x <span class="kw">*</span> <span class="num">2</span> <span class="kw">+</span> <span class="num">1</span>
+x <span class="kw">-</span> y
+
+<span class="kw">let</span> <span class="var">nums</span> = [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>],
+    <span class="var">nums</span> = <span class="fn">filter</span>(nums, odd?),
+    <span class="var">nums</span> = <span class="fn">map</span>(nums, <span class="kw">\</span><span class="var">n</span> <span class="kw">-></span> n<span class="kw">*</span><span class="num">2</span>)
+<span class="fn">done</span>(nums)
+</pre>
+
+      <h3>Records</h3>
       <p>In a <code>do</code> block, you can define records with <code>record</code>. This is syntactic sugar for defining a function that maps symbol keys to values. Members can be accessed with the <code>.</code> operator. The format of records is undefined.</p>
 
       <pre>
 <span class="kw">record</span> <span class="fn">Rect</span>(<span class="var">left</span>, <span class="var">top</span>, <span class="var">right</span>, <span class="var">bottom</span>)
 
 <span class="kw">let</span> <span class="var">r</span> = <span class="fn">Rect</span>(<span class="num">0</span>, <span class="num">0</span>, <span class="num">400</span>, <span class="num">300</span>)
-<span class="kw">in</span> r.right
+r.right
 </pre>
 
       <h3 id="modules">Modules</h3>
@@ -300,9 +283,10 @@ Comment text must be between triple hyphens.
 <span class="kw">import</span> <span class="var">Bar</span> (<span class="fn">bar_fn</span>), <span class="var">LongModuleName</span> <span class="kw">as</span> <span class="var">LMN</span>
 <span class="kw">export</span> <span class="var">foo</span>, <span class="var">foo2</span>
 
-<span class="kw">def</span> <span class="fn">foo</span>(<span class="var">x</span>)
+<span class="kw">def</span> <span class="fn">foo</span>(<span class="var">x</span>) <span class="kw">do</span>
   <span class="kw">let</span> <span class="var">y</span> = <span class="fn">Bar.parse</span>(x)
-  <span class="kw">in</span> <span class="fn">LMN.run</span>(y)
+  <span class="fn">LMN.run</span>(y)
+<span class="kw">end</span>
 
 <span class="kw">def</span> <span class="fn">foo2</span>(<span class="var">x</span>) <span class="sym">:unimplemented</span>
 
