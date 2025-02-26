@@ -60,8 +60,6 @@ static Chunk *UndefinedModule(ASTNode *node, Compiler *c)
   return 0;
 }
 
-/* Helper to free a chunk and return null */
-
 static Chunk *CompileFail(Chunk *chunk)
 {
   FreeChunk(chunk);
@@ -94,10 +92,6 @@ static Chunk *EmitChunkSize(Chunk *chunk)
 /* Assumes a return value and result are on the stack */
 static void EmitReturn(Chunk *chunk)
 {
-  /*
-  swap
-  goto
-  */
   Emit(opSwap, chunk);
   Emit(opGoto, chunk);
 }
@@ -297,8 +291,7 @@ static Chunk *EmitMakeCall(Chunk *chunk, bool returns)
 }
 
 static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c);
-static Chunk *CompileRef(
-  ASTNode *alias, ASTNode *sym, bool returns, Compiler *c);
+static Chunk *CompileRef(ASTNode *alias, ASTNode *sym, bool returns, Compiler *c);
 
 static Chunk *CompileConst(ASTNode *node, bool returns, Compiler *c)
 {
@@ -883,8 +876,7 @@ static Chunk *CompileDot(ASTNode *node, bool returns, Compiler *c)
   return CompileRef(alias, sym, returns, c);
 }
 
-static Chunk *CompileRef(
-  ASTNode *alias, ASTNode *sym, bool returns, Compiler *c)
+static Chunk *CompileRef(ASTNode *alias, ASTNode *sym, bool returns, Compiler *c)
 {
   Module *mod;
   ASTNode *mod_exports;
@@ -981,8 +973,7 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   case tupleNode:   return CompileTuple(node, returns, c);
   case listNode:    return CompileList(node, returns, c);
   case lambdaNode:  return CompileLambda(node, returns, c);
-  case opNode:
-    return CompileOp(GetNodeAttr(node, "opCode"), node, returns, c);
+  case opNode:      return CompileOp(GetNodeAttr(node, "opCode"), node, returns, c);
   case callNode:    return CompileCall(node, returns, c);
   case refNode:     return CompileDot(node, returns, c);
   case andNode:     return CompileLogic(node, returns, c);

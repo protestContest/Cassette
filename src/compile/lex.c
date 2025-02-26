@@ -36,8 +36,73 @@ static bool Match(char *test, char *str)
   return *test == 0;
 }
 
+typedef struct {
+  char *lexeme;
+  TokenType type;
+} Keyword;
+
+static Keyword operators[] = {
+  {"->",      arrowToken},
+  {">>",      gtgtToken},
+  {"<<",      ltltToken},
+  {"<>",      ltgtToken},
+  {"!=",      bangeqToken},
+  {"==",      eqeqToken},
+  {"<=",      lteqToken},
+  {">=",      gteqToken},
+  {"#",       hashToken},
+  {"%",       percentToken},
+  {"&",       ampToken},
+  {"(",       lparenToken},
+  {")",       rparenToken},
+  {"*",       starToken},
+  {"+",       plusToken},
+  {",",       commaToken},
+  {"-",       minusToken},
+  {".",       dotToken},
+  {"/",       slashToken},
+  {":",       colonToken},
+  {"<",       ltToken},
+  {"=",       eqToken},
+  {">",       gtToken},
+  {"@",       atToken},
+  {"[",       lbracketToken},
+  {"\\",      bslashToken},
+  {"]",       rbracketToken},
+  {"^",       caretToken},
+  {"{",       lbraceToken},
+  {"|",       barToken},
+  {"}",       rbraceToken},
+  {"~",       tildeToken}
+};
+
+static Keyword keywords[] = {
+  {"and",     andToken},
+  {"as",      asToken},
+  {"def",     defToken},
+  {"do",      doToken},
+  {"else",    elseToken},
+  {"end",     endToken},
+  {"export",  exportToken},
+  {"false",   falseToken},
+  {"guard",   guardToken},
+  {"if",      ifToken},
+  {"import",  importToken},
+  {"in",      inToken},
+  {"let",     letToken},
+  {"module",  moduleToken},
+  {"nil",     nilToken},
+  {"not",     notToken},
+  {"or",      orToken},
+  {"record",  recordToken},
+  {"true",    trueToken},
+  {"when"  ,  whenToken},
+};
+
 Token NextToken(char *src, u32 pos)
 {
+  u32 i;
+
   if (src[pos] == ';') {
     while (src[pos] && !IsNewline(src[pos])) pos++;
   }
@@ -83,59 +148,17 @@ Token NextToken(char *src, u32 pos)
     return MakeToken(byteToken, pos, 2);
   }
 
-  if (Match("->", src+pos)) return MakeToken(arrowToken, pos, 2);
-  if (Match(">>", src+pos)) return MakeToken(gtgtToken, pos, 2);
-  if (Match("<<", src+pos)) return MakeToken(ltltToken, pos, 2);
-  if (Match("<>", src+pos)) return MakeToken(ltgtToken, pos, 2);
-  if (Match("!=", src+pos)) return MakeToken(bangeqToken, pos, 2);
-  if (Match("==", src+pos)) return MakeToken(eqeqToken, pos, 2);
-  if (Match("<=", src+pos)) return MakeToken(lteqToken, pos, 2);
-  if (Match(">=", src+pos)) return MakeToken(gteqToken, pos, 2);
-  if (src[pos] == '#') return MakeToken(hashToken, pos, 1);
-  if (src[pos] == '%') return MakeToken(percentToken, pos, 1);
-  if (src[pos] == '&') return MakeToken(ampToken, pos, 1);
-  if (src[pos] == '(') return MakeToken(lparenToken, pos, 1);
-  if (src[pos] == ')') return MakeToken(rparenToken, pos, 1);
-  if (src[pos] == '*') return MakeToken(starToken, pos, 1);
-  if (src[pos] == '+') return MakeToken(plusToken, pos, 1);
-  if (src[pos] == ',') return MakeToken(commaToken, pos, 1);
-  if (src[pos] == '-') return MakeToken(minusToken, pos, 1);
-  if (src[pos] == '.') return MakeToken(dotToken, pos, 1);
-  if (src[pos] == '/') return MakeToken(slashToken, pos, 1);
-  if (src[pos] == ':') return MakeToken(colonToken, pos, 1);
-  if (src[pos] == '<') return MakeToken(ltToken, pos, 1);
-  if (src[pos] == '=') return MakeToken(eqToken, pos, 1);
-  if (src[pos] == '>') return MakeToken(gtToken, pos, 1);
-  if (src[pos] == '@') return MakeToken(atToken, pos, 1);
-  if (src[pos] == '[') return MakeToken(lbracketToken, pos, 1);
-  if (src[pos] == '\\') return MakeToken(bslashToken, pos, 1);
-  if (src[pos] == ']') return MakeToken(rbracketToken, pos, 1);
-  if (src[pos] == '^') return MakeToken(caretToken, pos, 1);
-  if (src[pos] == '{') return MakeToken(lbraceToken, pos, 1);
-  if (src[pos] == '|') return MakeToken(barToken, pos, 1);
-  if (src[pos] == '}') return MakeToken(rbraceToken, pos, 1);
-  if (src[pos] == '~') return MakeToken(tildeToken, pos, 1);
+  for (i = 0; i < ArrayCount(operators); i++) {
+    if (Match(operators[i].lexeme, src+pos)) {
+      return MakeToken(operators[i].type, pos, StrLen(operators[i].lexeme));
+    }
+  }
 
-  if (MatchKeyword("and", src+pos)) return MakeToken(andToken, pos, 3);
-  if (MatchKeyword("as", src+pos)) return MakeToken(asToken, pos, 2);
-  if (MatchKeyword("def", src+pos)) return MakeToken(defToken, pos, 3);
-  if (MatchKeyword("do", src+pos)) return MakeToken(doToken, pos, 2);
-  if (MatchKeyword("else", src+pos)) return MakeToken(elseToken, pos, 4);
-  if (MatchKeyword("end", src+pos)) return MakeToken(endToken, pos, 3);
-  if (MatchKeyword("export", src+pos)) return MakeToken(exportToken, pos, 7);
-  if (MatchKeyword("false", src+pos)) return MakeToken(falseToken, pos, 5);
-  if (MatchKeyword("guard", src+pos)) return MakeToken(guardToken, pos, 5);
-  if (MatchKeyword("if", src+pos)) return MakeToken(ifToken, pos, 2);
-  if (MatchKeyword("import", src+pos)) return MakeToken(importToken, pos, 6);
-  if (MatchKeyword("in", src+pos)) return MakeToken(inToken, pos, 2);
-  if (MatchKeyword("let", src+pos)) return MakeToken(letToken, pos, 3);
-  if (MatchKeyword("module", src+pos)) return MakeToken(moduleToken, pos, 6);
-  if (MatchKeyword("nil", src+pos)) return MakeToken(nilToken, pos, 3);
-  if (MatchKeyword("not", src+pos)) return MakeToken(notToken, pos, 3);
-  if (MatchKeyword("or", src+pos)) return MakeToken(orToken, pos, 2);
-  if (MatchKeyword("record", src+pos)) return MakeToken(recordToken, pos, 6);
-  if (MatchKeyword("true", src+pos)) return MakeToken(trueToken, pos, 4);
-  if (MatchKeyword("when", src+pos)) return MakeToken(whenToken, pos, 4);
+  for (i = 0; i < ArrayCount(keywords); i++) {
+    if (MatchKeyword(keywords[i].lexeme, src+pos)) {
+      return MakeToken(keywords[i].type, pos, StrLen(keywords[i].lexeme));
+    }
+  }
 
   if (IsSymChar(src[pos])) {
     u32 len = 0;

@@ -6,11 +6,10 @@
 #define IsEmpty(bucket)       ((bucket).probe < 0)
 #define MaxBuckets(cap)       (((cap) >> 2) + ((cap) >> 1))
 #define MinBuckets(cap)       ((cap) >> 2)
-#define TooSmall(map) \
-  ((map)->capacity == 0 || (map)->count > MaxBuckets((map)->capacity))
-#define TooBig(map) \
-  ((map)->capacity > HashMapMinSize && \
-   (map)->count < MinBuckets((map)->capacity))
+#define TooSmall(map)         ((map)->capacity == 0 || \
+                               (map)->count > MaxBuckets((map)->capacity))
+#define TooBig(map)           ((map)->capacity > HashMapMinSize && \
+                               (map)->count < MinBuckets((map)->capacity))
 
 typedef struct MapBucket {
   u32 key;

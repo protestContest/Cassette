@@ -19,7 +19,7 @@ static u32 IOError(char *msg, VM *vm)
 static u32 VMPanic(VM *vm)
 {
   u32 a;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   a = StackPop();
   if (IsBinary(a)) {
     char *msg = BinToStr(a);
@@ -34,7 +34,7 @@ static u32 VMPanic(VM *vm)
 static u32 VMTypeOf(VM *vm)
 {
   u32 a;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   a = StackPop();
   if (IsPair(a))    return IntVal(Symbol("pair"));
   if (IsTuple(a))   return IntVal(Symbol("tuple"));
@@ -75,7 +75,7 @@ static u8 *FormatVal(u32 value, u8 *buf)
 static u32 VMFormat(VM *vm)
 {
   u32 size, bin;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   size = FormatSize(StackPeek(0));
   bin = NewBinary(size);
   FormatVal(StackPop(), (u8*)BinaryData(bin));
@@ -85,7 +85,7 @@ static u32 VMFormat(VM *vm)
 static u32 VMMakeTuple(VM *vm)
 {
   u32 list, size = 0, tuple, i;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   list = StackPeek(0);
   if (!IsPair(list)) return RuntimeError("Expected a list", vm);
   while (list) {
@@ -107,7 +107,7 @@ static u32 VMSymbolName(VM *vm)
   u32 a;
   char *name;
   u32 bin;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   a = StackPop();
   name = SymbolName(RawVal(a));
   if (!name || !*name) return 0;
@@ -120,7 +120,7 @@ static u32 VMOpen(VM *vm)
   u32 flags, path;
   char *str, *error;
   i32 file;
-  if (StackSize() < 2) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 2);
   flags = StackPop();
   path = StackPop();
 
@@ -139,7 +139,7 @@ static u32 VMOpenSerial(VM *vm)
   u32 opts, port, speed;
   i32 file;
   char *str, *error;
-  if (StackSize() < 3) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 3);
   opts = StackPop();
   speed = StackPop();
   port = StackPop();
@@ -161,7 +161,7 @@ static u32 VMClose(VM *vm)
 {
   u32 file;
   char *err;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   file = StackPop();
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
 
@@ -175,7 +175,7 @@ static u32 VMRead(VM *vm)
   u32 result, size, file;
   char *data, *error;
   i32 bytes_read;
-  if (StackSize() < 2) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 2);
   size = StackPop();
   file = StackPop();
 
@@ -195,7 +195,7 @@ static u32 VMWrite(VM *vm)
   u32 buf, file;
   i32 written;
   char *error;
-  if (StackSize() < 2) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 2);
   buf = StackPop();
   file = StackPop();
   if (!IsInt(file)) return RuntimeError("File must be an integer", vm);
@@ -210,7 +210,7 @@ static u32 VMSeek(VM *vm)
   u32 whence, offset, file;
   i32 pos;
   char *error;
-  if (StackSize() < 3) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 3);
   whence = StackPop();
   offset = StackPop();
   file = StackPop();
@@ -229,7 +229,7 @@ static u32 VMListen(VM *vm)
   u32 portVal;
   i32 s;
   char *port, *error;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   portVal = StackPop();
   if (!IsBinary(portVal)) return RuntimeError("Port must be a string", vm);
 
@@ -245,7 +245,7 @@ static u32 VMAccept(VM *vm)
   u32 socketVal;
   i32 s;
   char *error;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   socketVal = StackPop();
   if (!IsInt(socketVal)) return RuntimeError("Socket must be an integer", vm);
   s = Accept(RawInt(socketVal), &error);
@@ -259,7 +259,7 @@ static u32 VMConnect(VM *vm)
   i32 s;
   char *node, *port, *error;
 
-  if (StackSize() < 2) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 2);
 
   portVal = StackPop();
   nodeVal = StackPop();
@@ -287,7 +287,7 @@ static u32 VMRandom(VM *vm)
 static u32 VMSeed(VM *vm)
 {
   u32 seed;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   seed = StackPop();
   if (!IsInt(seed)) return RuntimeError("Seed must be an integer", vm);
   SeedRandom(RawInt(seed));
@@ -313,7 +313,7 @@ static u32 VMEnv(VM *vm)
   char *value;
   u32 nameVal, valueVal;
 
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   nameVal = StackPop();
   if (!IsBinary(nameVal)) return RuntimeError("Env variable must be a string", vm);
   name = StringFrom(BinaryData(nameVal), ObjLength(nameVal));
@@ -333,7 +333,7 @@ static u32 VMShell(VM *vm)
   u32 cmdVal;
   u32 result;
 
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   cmdVal = StackPeek(0);
   if (!IsBinary(cmdVal)) return RuntimeError("Command must be a string", vm);
   cmd = StringFrom(BinaryData(cmdVal), ObjLength(cmdVal));
@@ -358,7 +358,7 @@ static u32 VMMinInt(VM *vm)
 static u32 VMPopCount(VM *vm)
 {
   i32 a;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsInt(a)) return RuntimeError("Only integers can be popcnt'd", vm);
   return IntVal(PopCount(RawInt(a)));
@@ -366,7 +366,7 @@ static u32 VMPopCount(VM *vm)
 
 static u32 VMHash(VM *vm)
 {
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   return HashVal(StackPop());
 }
 
@@ -382,7 +382,7 @@ static u32 VMNewWindow(VM *vm)
   CTWindow *w;
   u32 ref, i;
 
-  if (StackSize() < 3) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 3);
   height = StackPop();
   width = StackPop();
   title = StackPop();
@@ -412,7 +412,7 @@ static u32 VMNewWindow(VM *vm)
 static u32 VMDestroyWindow(VM *vm)
 {
   CTWindow *w;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   w = VMGetRef(RawVal(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
   CloseWindow(w);
@@ -425,7 +425,7 @@ static u32 VMDestroyWindow(VM *vm)
 static u32 VMUpdateWindow(VM *vm)
 {
   CTWindow *w;
-  if (StackSize() < 1) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 1);
   w = VMGetRef(RawVal(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
   UpdateWindow(w);
@@ -483,7 +483,7 @@ static u32 VMWritePixel(VM *vm)
   /* write_pixel(x, y, color, window) */
   CTWindow *w;
   u32 x, y, color;
-  if (StackSize() < 4) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 4);
   w = VMGetRef(RawVal(StackPop()), vm);
   color = StackPop();
   y = StackPop();
@@ -503,7 +503,7 @@ static u32 VMLine(VM *vm)
 {
   CTWindow *w;
   i32 x0, y0, x1, y1, dx, dy, err, sx, sy, e2;
-  if (StackSize() < 5) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 5);
   w = VMGetRef(RawVal(StackPop()), vm);
   y1 = StackPop();
   x1 = StackPop();
@@ -537,7 +537,7 @@ static u32 VMFillRect(VM *vm)
 {
   CTWindow *w;
   u32 x0, y0, x1, y1, color, x, y;
-  if (StackSize() < 5) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 5);
   w = VMGetRef(RawVal(StackPop()), vm);
   color = StackPop();
   y1 = StackPop();
@@ -570,7 +570,7 @@ static u32 VMBlit(VM *vm)
   CTWindow *w;
   i32 data, width, height, x, y, sx, sy, i, rowWidth;
   u32 *pixels;
-  if (StackSize() < 6) return RuntimeError("Stack underflow", vm);
+  assert(StackSize() >= 6);
   w = VMGetRef(RawVal(StackPop()), vm);
   y = StackPop();
   x = StackPop();

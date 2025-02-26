@@ -2,9 +2,8 @@
 #include "runtime/source_map.h"
 
 /*
-A generic error object. Error constructors copy messages and filenames given to
-them.
-*/
+ * A generic error object. Error constructors copy messages and filenames given to them.
+ */
 
 typedef struct StackTrace {
   char *filename;

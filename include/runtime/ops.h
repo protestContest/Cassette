@@ -2,10 +2,10 @@
 #include "vm.h"
 
 /*
-These are the VM's op codes.
-Each op code has a stack diagram.
-Some ops take an inline LEB-encoded argument.
-*/
+ * These are the VM's op codes.
+ * Each op code has a stack diagram.
+ * Some ops take an inline LEB-encoded argument.
+ */
 
 typedef enum {
   opNoop = 0x00,

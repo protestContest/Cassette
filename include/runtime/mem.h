@@ -1,28 +1,24 @@
 #pragma once
 
 /*
-The runtime dynamic memory system.
-
-Cassette values are 32 bits long, using 2 bits as a type tag. The types are
-object, integer, tuple header, and binary header. An object is a pointer to
-a pair, a tuple header, or a binary header. Tuple and binary headers should only
-appear in the heap. An object value is considered to "be" a pair, tuple, or
-binary if that's what it points to.
-
-A tuple header contains the count of its items, followed by the items. A binary
-header contains its length in bytes, followed by its binary data. Since heap
-space is allocated in 32-bit cells, a binary is padded to the next cell
-boundary.
-
-Values can be stored on the stack, and objects can be created in the heap. If
-there isn't enough space, garbage is collected and the heap is potentially
-resized.
-
-Before calling any function that may collect garbage, all live objects (except
-the function arguments) must be on the stack, in the heap, or in the root
-values. Those objects must be read back after the call, since their values may
-have changed.
-*/
+ * The runtime dynamic memory system.
+ *
+ * Cassette values are 32 bits long, using 2 bits as a type tag. The types are object, integer,
+ * tuple header, and binary header. An object is a pointer to a pair, a tuple header, or a binary
+ * header. Tuple and binary headers should only appear in the heap. An object value is considered to
+ * "be" a pair, tuple, or binary if that's what it points to.
+ *
+ * A tuple header contains the count of its items, followed by the items. A binary header contains
+ * its length in bytes, followed by its binary data. Since heap space is allocated in 32-bit cells,
+ * a binary is padded to the next cell boundary.
+ *
+ * Values can be stored on the stack, and objects can be created in the heap. If there isn't enough
+ * space, garbage is collected and the heap is potentially resized.
+ *
+ * Before calling any function that may collect garbage, all live objects (except the function
+ * arguments) must be on the stack, in the heap, or in the root values. Those objects must be read
+ * back after the call, since their values may have changed.
+ */
 
 enum {objType, intType, tupleHdr, binHdr};
 
@@ -47,7 +43,7 @@ enum {objType, intType, tupleHdr, binHdr};
 #define IsTuple(v)      (IsObj(v)  && IsTupleHdr(Head(v)))
 #define IsBinary(v)     (IsObj(v) && IsBinHdr(Head(v)))
 #define MaxIntVal       0x7FFFFFFD
-#define MinIntVal       0xFFFFFFFD
+#define MinIntVal       0x80000001
 
 typedef struct {
   u32 capacity;

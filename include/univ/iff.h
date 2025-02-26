@@ -1,8 +1,6 @@
 #pragma once
 
-/*
-Functions for the Interchange File Format.
-*/
+/* Functions for the Interchange File Format. */
 
 typedef struct IFFChunk IFFChunk;
 

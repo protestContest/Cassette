@@ -62,8 +62,7 @@ Chunk *AppendChunk(Chunk *first, Chunk *second)
   if (!second) return first;
   if (!first) return second;
   TackOnChunk(first, second);
-  first->needs_env =
-      first->needs_env | (second->needs_env & ~first->modifies_env);
+  first->needs_env = first->needs_env | (second->needs_env & ~first->modifies_env);
   first->modifies_env = first->modifies_env | second->modifies_env;
   return first;
 }

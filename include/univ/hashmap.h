@@ -25,8 +25,7 @@ bool HashMapContains(HashMap *map, u32 key);
 /* Returns the value of a key in a hash map, or -1 if not present */
 u32 HashMapGet(HashMap *map, u32 key);
 
-/* Returns whether a hashmap contains a key, and the value if true. More
- * efficient than using HashMapContains and HashMapGet in sequence. */
+/* Returns whether a hashmap contains a key, and the value if true. */
 bool HashMapFetch(HashMap *map, u32 key, u32 *value);
 
 /* Deletes an entry from a hash map */

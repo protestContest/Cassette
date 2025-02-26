@@ -362,9 +362,7 @@ u32 BinaryJoin(u32 left, u32 right)
   Restore(right, 1);
 
   Copy(BinaryData(left), BinaryData(bin), ObjLength(left));
-  Copy(BinaryData(right),
-       BinaryData(bin) + ObjLength(left),
-       ObjLength(right));
+  Copy(BinaryData(right), BinaryData(bin) + ObjLength(left), ObjLength(right));
   return bin;
 }
 

@@ -129,11 +129,9 @@ void ScanProjectFolder(Project *project, char *path)
   FreeFileList(list);
 }
 
-/*
-For each module, add it to the scan list. Then scan each of its imports.
-Afterwards, move the module to the build list. Thus all of that module's
-dependencies are in the build list before it.
-*/
+/* For each module, add it to the scan list. Then scan each of its imports.
+ * Afterwards, move the module to the build list. Thus all of that module's
+ * dependencies are in the build list before it. */
 static Error *ScanModuleDeps(
   u32 mod_index,
   u32 **scan_list, /* vec */
@@ -182,8 +180,7 @@ static Error *ScanDeps(Project *project)
   u32 *scan_list = 0; /* vec */
   HashMap build_set = EmptyHashMap;
   HashMap scan_set = EmptyHashMap;
-  Error *error = ScanModuleDeps(project->entry_index,
-                                &scan_list, &build_set, &scan_set, project);
+  Error *error = ScanModuleDeps(project->entry_index, &scan_list, &build_set, &scan_set, project);
   FreeVec(scan_list);
   DestroyHashMap(&build_set);
   DestroyHashMap(&scan_set);

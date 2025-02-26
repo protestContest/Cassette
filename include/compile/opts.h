@@ -1,6 +1,7 @@
 #pragma once
 
-/* These options control how a program is compiled and run.
+/*
+ * These options control how a program is compiled and run.
  *
  * `debug` controls whether the VM will trace its execution.
  * `lib_path` is a folder to scan for files to add to a project.

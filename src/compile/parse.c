@@ -20,8 +20,7 @@ typedef struct {
   Precedence prec;
 } ParseRule;
 
-#define Adv(p) \
-  (p)->token = NextToken((p)->text, (p)->token.pos + (p)->token.length)
+#define Adv(p) (p)->token = NextToken((p)->text, (p)->token.pos + (p)->token.length)
 #define AtEnd(p)            ((p)->token.type == eofToken)
 #define CheckToken(t, p)    ((p)->token.type == (t))
 #define Lexeme(token, p)    SymbolFrom((p)->text + (token).pos, (token).length)
@@ -457,7 +456,7 @@ static char EscapeChar(char c)
   case 't': return '\t';
   case 'v': return '\v';
   case '0': return '\0';
-  default: return c;
+  default:  return c;
   }
 }
 

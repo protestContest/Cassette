@@ -4,7 +4,7 @@
 #include "univ/vec.h"
 #include <unistd.h>
 
-#define DEFAULT_IMPORTS "Record, Value (typeof, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect, format)"
+#define DEFAULT_IMPORTS "Value (typeof, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect, format)"
 
 #define DEFAULT_EXT ".ct"
 

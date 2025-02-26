@@ -4,22 +4,20 @@
 #include "runtime/program.h"
 
 /*
-A VM can execute bytecode in a Program. Each instruction is executed until the
-end is reached, or until a runtime error occurs.
-
-The VM has 8 "registers" that can be freely manipulated with the push and pull
-instructions. The compiler uses r0 to store the environment and r1 to store a
-tuple of module exports.
-
-The VM has a program counter, pc, which tracks the current execution position.
-It also has a separate "link" register, which is used with the link and unlink
-instructions to keep track of the call stack.
-
-The VM has a list of "refs", which are opaque pointers that primitive functions
-can create and use. For example, a primitive function can create a complex
-structure, add it as a reference to the VM, and return the reference integer to
-the program code.
-*/
+ * A VM can execute bytecode in a Program. Each instruction is executed until the end is reached, or
+ * until a runtime error occurs.
+ *
+ * The VM has 8 "registers" that can be freely manipulated with the push and pull instructions. The
+ * compiler uses r0 to store the environment and r1 to store a tuple of module exports.
+ *
+ * The VM has a program counter, pc, which tracks the current execution position. It also has a
+ * separate "link" register, which is used with the link and unlink instructions to keep track of
+ * the call stack.
+ *
+ * The VM has a list of "refs", which are opaque pointers that primitive functions can create and
+ * use. For example, a primitive function can create a complex structure, add it as a reference to
+ * the VM, and return the reference integer to the program code.
+ */
 
 struct VM;
 

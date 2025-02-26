@@ -1,8 +1,8 @@
 #pragma once
 
 /*
-A compiler object holds context for compiling a module's AST to a Chunk.
-*/
+ * A compiler object holds context for compiling a module's AST to a Chunk.
+ */
 
 #include "compile/env.h"
 #include "compile/project.h"

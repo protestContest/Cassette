@@ -258,8 +258,7 @@ FileList *ListFiles(char *path, char *ext, FileList *list)
     }
   }
 
-  list->filenames = realloc(list->filenames,
-                            sizeof(char*)*(list->count + num_filtered));
+  list->filenames = realloc(list->filenames, sizeof(char*)*(list->count + num_filtered));
 
   for (i = 0; i < num_files; i++) {
     if (filenames[i]) {

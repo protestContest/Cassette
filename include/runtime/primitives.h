@@ -2,12 +2,12 @@
 #include "runtime/vm.h"
 
 /*
-Primitive functions for use by the VM.
-
-A primitive function must return a value to be pushed onto the stack. If an
-error occurs, it can be signaled with RuntimeError(vm). When called, function
-arguments will be on the stack in reverse order.
-*/
+ * Primitive functions for use by the VM.
+ *
+ * A primitive function must return a value to be pushed onto the stack. If an error occurs, it can
+ * be signaled with RuntimeError(vm). When called, function arguments will be on the stack in
+ * reverse order.
+ */
 
 typedef u32 (*PrimFn)(VM *vm);
 

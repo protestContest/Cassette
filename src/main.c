@@ -4,17 +4,15 @@
 #include "univ/file.h"
 #include "univ/str.h"
 
-/* This file is the command-line interface to Cassette. It's job is to build
- * and/or run Cassette programs based on the given options. There are three
- * basic modes:
+/* This file is the command-line interface to Cassette. It's job is to build and/or run Cassette
+ * programs based on the given options. There are three * basic modes:
  *
  * 1. Compile and run a project from source files (default).
  * 2. Compile a project to an image to run later (-c option).
  * 3. Run a previously-compiled image.
  *
- * The entry file must always be specified. This is either the entry source file
- * for a program or a compiled image file. See "opts.h" for a description of all
- * options.
+ * The entry file must always be specified. This is either the entry source file for a program or a
+ * compiled image file. See "opts.h" for a description of all options.
  */
 
 int main(int argc, char *argv[])

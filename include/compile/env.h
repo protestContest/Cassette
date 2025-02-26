@@ -2,9 +2,9 @@
 #include "runtime/mem.h"
 
 /*
-An Env keeps track of variables currently in scope during compilation. Each item
-in the env is the symbol of the variable and an optional constant value.
-*/
+ * An Env keeps track of variables currently in scope during compilation. Each item in the env is
+ * the symbol of the variable and an optional constant value.
+ */
 
 typedef struct {
   u32 var;

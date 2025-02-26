@@ -183,8 +183,7 @@ void PrintStackTrace(StackTrace *st)
         u32 line = LineNum(text, trace->pos);
         u32 col = ColNum(text, trace->pos);
         u32 j, printed;
-        printed = fprintf(stderr, "  %s:%d:%d: ",
-            trace->filename, line+1, col+1);
+        printed = fprintf(stderr, "  %s:%d:%d: ", trace->filename, line+1, col+1);
         for (j = 0; j < colwidth - printed; j++) fprintf(stderr, " ");
         PrintSourceLine(text, trace->pos);
         free(text);

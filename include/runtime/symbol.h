@@ -1,9 +1,9 @@
 #pragma once
 
 /*
-A symbol is a hash of the symbol name. Names are stored in a static block and
-can be retrieved later.
-*/
+ * A symbol is a hash of the symbol name. Names are stored in a static block and can be retrieved
+ * later.
+ */
 
 u32 Symbol(char *name);
 u32 SymbolFrom(char *name, u32 len);
