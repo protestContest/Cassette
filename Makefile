@@ -8,14 +8,13 @@ SRC = src
 SHARE = share
 INSTALL = $(HOME)/.local
 
-DEBUG ?= 1
+DEBUG ?= 0
 PROFILE ?= 0
 
 EXECTARGET = $(BIN)/$(NAME)
 LIBTARGET = $(BIN)/lib$(NAME).dylib
 
 MAIN := main
-TESTFILE = test/test.ct
 SRCS := $(shell find $(SRC) -name '*.c' -not -name '$(MAIN).c' -print)
 OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 MAIN_OBJ := $(BUILD)/$(MAIN).o
@@ -62,13 +61,13 @@ clean:
 	rm -rf $(BUILD)
 	rm -rf $(BIN)
 
-.PHONY: test
-test: $(EXECTARGET)
-	$(EXECTARGET) -L share $(TESTFILE)
+.PHONY: test/%
+test/%: $(EXECTARGET)
+	$(EXECTARGET) -L share $@.ct
 
 .PHONY: leaks
 leaks: $(EXECTARGET)
-	leaks -atExit -- $(EXECTARGET) -L share $(TESTFILE)
+	leaks -atExit -- $(EXECTARGET) -L share test/test.ct
 
 .PHONY: syntax
 syntax:
