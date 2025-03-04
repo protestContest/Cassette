@@ -1,5 +1,4 @@
 module Net
-export listen, accept, connect
 
 def listen(port) Host.listen(port)
 def accept(socket) Host.accept(socket)

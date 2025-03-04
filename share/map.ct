@@ -1,11 +1,5 @@
 module Map
 import Record, Math (hash), Value (typeof, symbol?), List
-export
-  map?, empty?, count,
-  new, put, get, delete, contains?,
-  reduce, merge, take, drop,
-  keys, values, items,
-  inspect
 
 ---
 a hash array mapped trie. each node has 16 "slots" and a bitmap of which slots

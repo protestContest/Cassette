@@ -1,6 +1,5 @@
 module String
 import List
-export alpha?, digit?, duplicate, join, lowercase?, newline?, space?, uppercase?
 
 def alpha?(c) lowercase?(c) or uppercase?(c)
 

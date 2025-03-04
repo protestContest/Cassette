@@ -305,7 +305,11 @@ Error *BuildProject(Project *project)
   /* compile each module in the build list */
   InitCompiler(&c, project);
   for (i = 0; i < VecCount(project->build_list); i++) {
-    error = Compile(&c, project->build_list[i]);
+    u32 mod_index = project->build_list[i];
+    Module *mod = &project->modules[mod_index];
+    c.current_mod = mod_index;
+
+    error = Compile(&c, mod);
     if (error) {
       DestroyCompiler(&c);
       return error;

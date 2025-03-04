@@ -1,6 +1,5 @@
 module Graphics
 import Math
-export Point, Rect, perlin
 
 record Point(x, y)
 

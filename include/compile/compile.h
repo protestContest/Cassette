@@ -20,4 +20,4 @@ typedef struct {
 
 void InitCompiler(Compiler *c, Project *project);
 void DestroyCompiler(Compiler *c);
-Error *Compile(Compiler *c, u32 mod_index);
+Error *Compile(Compiler *c, Module *mod);

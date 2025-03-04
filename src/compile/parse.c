@@ -133,7 +133,6 @@ static ParseRule rules[] = {
   /* doToken */       {ParseDo,       0,              precNone},
   /* elseToken */     {ParseID,       0,              precNone},
   /* endToken */      {ParseID,       0,              precNone},
-  /* exportToken */   {ParseID,       0,              precNone},
   /* falseToken */    {ParseLiteral,  0,              precNone},
   /* guardToken */    {ParseGuard,    0,              precNone},
   /* ifToken */       {ParseIf,       0,              precNone},
@@ -1145,17 +1144,22 @@ static ASTNode *ParseImports(Parser *p)
   return node;
 }
 
-static ASTNode *ParseExports(Parser *p)
+static ASTNode *FindExports(ASTNode *body, Parser *p)
 {
-  ASTNode *node;
-  if (!MatchToken(exportToken, p)) return EmptyNode(p);
-  VSpacing(p);
-  node = ParseIDList(p);
-  if (!MatchToken(newlineToken, p)) return Expected("newline", node, p);
-  node->nodeType = tupleNode;
-  node->end = p->token.pos;
-  VSpacing(p);
-  return node;
+  ASTNode *exports;
+  u32 i, count;
+  if (body->nodeType != doNode) return EmptyNode(p);
+
+  count = GetNodeAttr(body, "numAssigns");
+  exports = MakeNode(tupleNode, p);
+
+  /* depends on exported defs being first in body */
+  for (i = 0; i < count; i++) {
+    ASTNode *child = NodeChild(body, i);
+    assert(child->nodeType == assignNode);
+    NodePush(exports, CloneNode(NodeChild(child, 0)));
+  }
+  return exports;
 }
 
 ASTNode *ParseModule(char *source)
@@ -1176,19 +1180,17 @@ ASTNode *ParseModule(char *source)
   NodePush(node, imports);
 
   VSpacing(&p);
-  exports = ParseExports(&p);
-  if (IsErrorNode(exports)) return ParseFail(node, exports);
-  NodePush(node, exports);
-
-  if (NodeCount(exports) > 0 && name->nodeType != idNode) {
-    return ParseFail(node, ParseError("Unnamed modules can't export", &p));
-  }
-
-  VSpacing(&p);
   body = ParseStmts(&p);
   if (IsErrorNode(body)) return ParseFail(node, body);
+
   if (name->nodeType == idNode) {
+    VSpacing(&p);
+    exports = FindExports(body, &p);
+    if (IsErrorNode(exports)) return ParseFail(node, exports);
+    NodePush(node, exports);
     NodePush(body, CloneNode(exports));
+  } else {
+    NodePush(node, EmptyNode(&p));
   }
 
   NodePush(node, body);

@@ -83,7 +83,6 @@ static Keyword keywords[] = {
   {"do",      doToken},
   {"else",    elseToken},
   {"end",     endToken},
-  {"export",  exportToken},
   {"false",   falseToken},
   {"guard",   guardToken},
   {"if",      ifToken},
@@ -178,7 +177,6 @@ bool IsKeyword(TokenType type)
   case doToken:
   case elseToken:
   case endToken:
-  case exportToken:
   case falseToken:
   case guardToken:
   case ifToken:

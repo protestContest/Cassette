@@ -1,6 +1,5 @@
 module Record
 import Value (symbol?, tuple?)
-export get, put, contains?, type, keys, values, record?
 
 def record?(rec)
   tuple?(rec) and

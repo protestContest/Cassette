@@ -1,6 +1,5 @@
 module HTTP
 import Net, Value (binary?, tuple?, error?), String, IO
-export new, request, get, post
 
 def new(host, headers) {host, headers}
 

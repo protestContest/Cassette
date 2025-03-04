@@ -1,9 +1,4 @@
 module Math
-export
-  max_int, min_int, popcount,
-  random, seed, random_between,
-  min, max, clamp, map,
-  align, hash
 
 def max_int() Host.max_int()
 def min_int() Host.min_int()

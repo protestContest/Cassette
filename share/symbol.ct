@@ -1,4 +1,3 @@
 module Symbol
-export name
 
 def name(sym) Host.symbol_name(sym)

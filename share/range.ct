@@ -1,6 +1,5 @@
 module Range
 import List
-export Range, reduce, map, for
 
 record Range(first, last)
 

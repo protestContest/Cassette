@@ -41,7 +41,6 @@ typedef enum {
   doToken,
   elseToken,
   endToken,
-  exportToken,
   falseToken,
   guardToken,
   ifToken,

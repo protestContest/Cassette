@@ -986,10 +986,8 @@ static Chunk *CompileExpr(ASTNode *node, bool returns, Compiler *c)
   }
 }
 
-Error *Compile(Compiler *c, u32 mod_index)
+Error *Compile(Compiler *c, Module *mod)
 {
-  Module *mod = &c->project->modules[mod_index];
-  c->current_mod = mod_index;
   mod->code = CompileExpr(mod->ast, false, c);
   return c->error;
 }

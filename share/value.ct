@@ -1,8 +1,5 @@
 module Value
 import List, Symbol
-export
-  typeof, nil?, integer?, symbol?, pair?, tuple?, binary?, error?,
-  inspect, format
 
 ---
 Basic functions to determine types of values

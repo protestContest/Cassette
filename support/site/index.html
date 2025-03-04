@@ -279,7 +279,7 @@ r.right
 </pre>
 
       <h3 id="modules">Modules</h3>
-      <p>Cassette programs are composed of modules. The body of the module is a <code>do</code> block, and can define functions with <code>def</code>. A module can export some of its defined functions and import other modules. A module can reference imported functions by qualifying them with the module name or alias. Module declaration, import, and export statements must appear first in a module (its "header").</p>
+      <p>Cassette programs are composed of modules. The body of the module is a <code>do</code> block, and can define functions with <code>def</code>. All top-level <code>def</code>-defined functions are exported, and can be imported in other modules. A module can reference imported functions by qualifying them with the module name or alias. Module declaration, import, and export statements must appear first in a module (its "header").</p>
 
       <pre>
 <span class="kw">module</span> <span class="var">Foo</span>

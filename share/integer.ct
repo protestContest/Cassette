@@ -1,6 +1,5 @@
 module Integer
 import String (digit?)
-export parse, to_string, num_digits
 
 ; returns {index, value} pair, where index is the byte index after the parsed
 ; num and value is the integer, or nil

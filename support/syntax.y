@@ -5,14 +5,13 @@
 
 %%
 
-Module:     vsp ModName Imports Exports Stmts ;
+Module:     vsp ModName Imports Stmts ;
 ModName:    "module" sp ID NL vsp | ;
 Imports:    "import" ImportList NL vsp | ;
 ImportList: vsp Import | ImportList "," vsp Import ;
 Import:     ID sp Alias sp FnList ;
 Alias:      "as" sp ID | ;
 FnList:     "(" IDList ")" | ;
-Exports:    "export" vsp IDList NL vsp | ;
 Stmts:      vsp Stmt | Stmts NL vsp Stmt ;
 Stmt:       Def | Let | Guard | Record | Expr ;
 Def:        "def" sp ID "(" vsp Params ")" vsp DefGuard vsp Expr ;

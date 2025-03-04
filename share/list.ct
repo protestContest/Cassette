@@ -1,12 +1,4 @@
 module List
-export
-  all?, any?, at,
-  concat, contains?, count,
-  delete, drop, duplicate,
-  filter, head, insert, intersperse, iota,
-  map, reduce, replace, reverse, reverse_onto,
-  slice, split, tail, take,
-  with_index, zip
 
 def all?(list) when list == nil, true
 def all?(list) when @list, all?(^list)
