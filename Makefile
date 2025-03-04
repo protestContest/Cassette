@@ -61,7 +61,7 @@ clean:
 	rm -rf $(BUILD)
 	rm -rf $(BIN)
 
-.PHONY: test/%.ct
+.PHONY: test/%
 test/%: $(EXECTARGET)
 	$(EXECTARGET) -L share $@
 

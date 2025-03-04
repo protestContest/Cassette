@@ -4,8 +4,6 @@
 #include "univ/vec.h"
 #include <unistd.h>
 
-#define DEFAULT_IMPORTS "Value (typeof, nil?, integer?, symbol?, pair?, tuple?, binary?, error?, inspect, format)"
-
 #define DEFAULT_EXT ".ct"
 
 static void Usage(void)
@@ -15,7 +13,7 @@ static void Usage(void)
   fprintf(stderr, "  -c            Compile project\n");
   fprintf(stderr, "  -d            Enable debug mode\n");
   fprintf(stderr, "  -L lib_path   Library search path (default $CASSETTE_PATH)\n");
-  fprintf(stderr, "  -i imports    List of modules to auto-import\n");
+  fprintf(stderr, "  -m manifest   Project file list (default all .ct files in current directory)\n");
 }
 
 /* Search for an existing library path in this order:
@@ -50,7 +48,7 @@ Opts *DefaultOpts(void)
   opts->compile = false;
   opts->lib_path = GetLibPath();
   opts->entry = 0;
-  opts->default_imports = NewString(DEFAULT_IMPORTS);
+  opts->manifest = 0;
   opts->source_ext = NewString(DEFAULT_EXT);
   opts->program_args = 0;
   return opts;
@@ -61,7 +59,7 @@ Opts *ParseOpts(int argc, char *argv[])
   Opts *opts = DefaultOpts();
   int ch, i;
 
-  while ((ch = getopt(argc, argv, "chvdL:i:")) >= 0) {
+  while ((ch = getopt(argc, argv, "chvdL:m:")) >= 0) {
     switch (ch) {
     case 'c':
       opts->compile = true;
@@ -77,9 +75,8 @@ Opts *ParseOpts(int argc, char *argv[])
       PrintVersion();
       FreeOpts(opts);
       return 0;
-    case 'i':
-      free(opts->default_imports);
-      opts->default_imports = NewString(optarg);
+    case 'm':
+      opts->manifest = NewString(optarg);
       break;
     default:
       Usage();
@@ -88,14 +85,17 @@ Opts *ParseOpts(int argc, char *argv[])
     }
   }
 
-  if (optind == argc) {
-    Usage();
-    FreeOpts(opts);
-    exit(1);
+  if (!opts->manifest) {
+    if (optind == argc) {
+      Usage();
+      FreeOpts(opts);
+      exit(1);
+    }
+
+    opts->entry = argv[optind++];
   }
 
-  opts->entry = argv[optind];
-  for (i = optind + 1; i < argc; i++) {
+  for (i = optind; i < argc; i++) {
     VecPush(opts->program_args, NewString(argv[i]));
   }
   return opts;
@@ -104,7 +104,7 @@ Opts *ParseOpts(int argc, char *argv[])
 void FreeOpts(Opts *opts)
 {
   if (opts->lib_path) free(opts->lib_path);
-  if (opts->default_imports) free(opts->default_imports);
+  if (opts->manifest) free(opts->manifest);
   if (opts->source_ext) free(opts->source_ext);
   if (opts->program_args) {
     u32 i;

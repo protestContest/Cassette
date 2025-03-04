@@ -4,13 +4,12 @@ import List, Symbol
 ---
 Basic functions to determine types of values
 ---
-def typeof(v)   Host.typeof(v)
 def nil?(v)     v == nil
-def integer?(v) typeof(v) == :integer
-def symbol?(v)  typeof(v) == :symbol
-def pair?(v)    typeof(v) == :pair
-def tuple?(v)   typeof(v) == :tuple
-def binary?(v)  typeof(v) == :binary
+def integer?(v) Host.typeof(v) == :integer
+def symbol?(v)  Host.typeof(v) == :symbol
+def pair?(v)    Host.typeof(v) == :pair
+def tuple?(v)   Host.typeof(v) == :tuple
+def binary?(v)  Host.typeof(v) == :binary
 
 def error?(result) when result == :error, true
 def error?(result) when tuple?(result) and #result > 0 and result[0] == :error, true
@@ -77,5 +76,3 @@ def inspect(value) do
 
   inspect_depth(value, 10)
 end
-
-def format(value) Host.format(value)

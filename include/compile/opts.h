@@ -18,7 +18,7 @@ typedef struct {
   bool compile;
   char *lib_path;
   char *entry;
-  char *default_imports;
+  char *manifest;
   char *source_ext;
   char **program_args; /* vec */
 } Opts;

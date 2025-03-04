@@ -80,11 +80,6 @@ Project *NewProject(Opts *opts)
   project->build_list = 0;
   project->opts = opts ? opts : DefaultOpts();
   project->entry_index = 0;
-  if (project->opts->entry) {
-    if (!AddProjectFile(project, project->opts->entry)) {
-      project->entry_index = VecCount(project->modules) - 1;
-    }
-  }
   return project;
 }
 
@@ -127,6 +122,28 @@ void ScanProjectFolder(Project *project, char *path)
     if (error) FreeError(error);
   }
   FreeFileList(list);
+}
+
+Error *ScanManifest(Project *project, char *path)
+{
+  Error *error;
+  Cut cut = {0};
+  char *cwd = DirName(path);
+  char *source = ReadTextFile(path);
+  if (!source) return FileNotFound(path);
+  cut.tail = StrSpan(source, source + StrLen(source));
+  while (cut.tail.len) {
+    char *line;
+    cut = StrCut(cut.tail, '\n');
+    line = cut.head.data;
+    line[cut.head.len] = 0;
+    line = JoinStr(cwd, line, '/');
+    error = AddProjectFile(project, line);
+    free(line);
+    if (error) break;
+  }
+  free(source);
+  return error;
 }
 
 /* For each module, add it to the scan list. Then scan each of its imports.
@@ -236,30 +253,6 @@ static void LinkModules(Project *project)
   project->program = program;
 }
 
-/* Adds default imports to a module */
-static Error *AddDefaultImports(Module *module, char *import_str)
-{
-  Parser p;
-  ASTNode *imports, *defaults;
-  u32 i;
-
-  InitParser(&p, import_str);
-  defaults = ParseImportList(&p);
-  if (IsErrorNode(defaults)) {
-    FreeNode(defaults);
-    return BadImportList(import_str);
-  }
-
-  imports = ModuleImports(module);
-  for (i = 0; i < NodeCount(defaults); i++) {
-    ASTNode *import = NodeChild(defaults, i);
-    NodePush(imports, import);
-  }
-
-  FreeNodeShallow(defaults);
-  return 0;
-}
-
 Error *BuildProject(Project *project)
 {
   u32 i;
@@ -280,11 +273,6 @@ Error *BuildProject(Project *project)
       char *msg = SymbolName(mod->ast->data.value);
       u32 len = mod->ast->end - mod->ast->start;
       return NewError(msg, mod->filename, mod->ast->start, len);
-    }
-
-    if (*project->opts->default_imports) {
-      error = AddDefaultImports(mod, project->opts->default_imports);
-      if (error) return error;
     }
 
     name = NodeValue(ModuleName(mod));

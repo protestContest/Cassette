@@ -13,6 +13,20 @@
 #define HexByte(c)        (IsDigit(c) ? (c) - '0' : UpChar(c) - 'A' + 10)
 #define IsPrintable(c)    ((c) >= 0x20 && (c) < 0x7F)
 
+typedef struct {
+  char *data;
+  u32 len;
+} Span;
+
+typedef struct {
+  Span head;
+  Span tail;
+  bool ok;
+} Cut;
+
+Span StrSpan(char *start, char *end);
+Cut StrCut(Span str, char c);
+
 bool StrEq(char *s1, char *s2);
 void Copy(void *src, void *dst, u32 size);
 u32 StrLen(char *s);

@@ -93,6 +93,8 @@ u32 BinarySlice(u32 list, u32 start, u32 end); /* may GC */
 bool BinIsPrintable(u32 bin);
 char *BinToStr(u32 bin);
 
+u32 FormatVal(u32 value); /* may GC */
+
 bool ValEq(u32 a, u32 b);
 u32 HashVal(u32 a);
 u32 InspectVal(u32 value);

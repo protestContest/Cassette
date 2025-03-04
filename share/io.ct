@@ -32,7 +32,7 @@ end
 ; stop bits should be 1 or 2
 def open_serial(port, speed, opts) do
   def parse_opts(opts)
-    if typeof(opts) == :binary, do
+    if Host.typeof(opts) == :binary, do
       let parity =
         if
           opts[1] == $E, :even
@@ -62,7 +62,7 @@ def read(file) do
   def loop(received) do
     let data = read_chunk(file, 1024)
     if error?(data), data
-       #data == 0, format(List.reverse(received))
+       #data == 0, Host.format(List.reverse(received))
        else loop(data : received)
   end
 
@@ -83,7 +83,7 @@ def write(file, data) do
   loop(data)
 end
 
-def print(str) write(stdout(), format([str, "\n"]))
+def print(str) write(stdout(), Host.format([str, "\n"]))
 
 def inspect(val) do
   print(Value.inspect(val))

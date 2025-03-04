@@ -18,24 +18,24 @@
 int main(int argc, char *argv[])
 {
   Opts *opts;
-  Error *error;
+  Error *error = 0;
   Program *program = 0;
 
   opts = ParseOpts(argc, argv);
   if (!opts) return 1;
 
-  if (!FileExists(opts->entry)) {
-    fprintf(stderr, "Error: File \"%s\" not found\n", opts->entry);
-    FreeOpts(opts);
-    return 1;
-  }
-
-  if (StrEq(FileExt(opts->entry), opts->source_ext)) {
+  if (opts->manifest || StrEq(FileExt(opts->entry), opts->source_ext)) {
     Project *project = NewProject(opts);
-    ScanProjectFolder(project, DirName(opts->entry));
-    if (opts->lib_path) ScanProjectFolder(project, opts->lib_path);
+    if (opts->manifest) {
+      error = ScanManifest(project, opts->manifest);
+    } else {
+      error = AddProjectFile(project, project->opts->entry);
+      if (!error) ScanProjectFolder(project, DirName(opts->entry));
+    }
+    if (!error && opts->lib_path) ScanProjectFolder(project, opts->lib_path);
 
-    error = BuildProject(project);
+    if (!error) error = BuildProject(project);
+
     if (error) {
       PrintError(error);
       FreeError(error);
@@ -45,7 +45,8 @@ int main(int argc, char *argv[])
     }
 
     if (opts->compile) {
-      char *path = ReplaceExt(opts->entry, ".tape");
+      char *path = opts->entry ? opts->entry : opts->manifest;
+      path = ReplaceExt(path, ".tape");
       WriteProgramFile(project->program, path);
       FreeProject(project);
       FreeOpts(opts);

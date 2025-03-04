@@ -44,42 +44,10 @@ static u32 VMTypeOf(VM *vm)
   return 0;
 }
 
-static u32 FormatSize(u32 value)
-{
-  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < 256) return 1;
-  if (IsBinary(value)) return ObjLength(value);
-  if (value && IsPair(value)) {
-    return FormatSize(Head(value)) + FormatSize(Tail(value));
-  }
-  return 0;
-}
-
-static u8 *FormatVal(u32 value, u8 *buf)
-{
-  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < 256) {
-    *buf = (u8)RawInt(value);
-    return buf + 1;
-  }
-  if (IsBinary(value)) {
-    Copy(BinaryData(value), buf, ObjLength(value));
-    return buf + ObjLength(value);
-  }
-  if (value && IsPair(value)) {
-    buf = FormatVal(Head(value), buf);
-    buf = FormatVal(Tail(value), buf);
-    return buf;
-  }
-  return buf;
-}
-
 static u32 VMFormat(VM *vm)
 {
-  u32 size, bin;
   assert(StackSize() >= 1);
-  size = FormatSize(StackPeek(0));
-  bin = NewBinary(size);
-  FormatVal(StackPop(), (u8*)BinaryData(bin));
-  return bin;
+  return FormatVal(StackPop());
 }
 
 static u32 VMMakeTuple(VM *vm)

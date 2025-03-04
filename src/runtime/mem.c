@@ -209,10 +209,9 @@ void CollectGarbage(void)
 u32 StackPush(u32 value)
 {
   if (mem.stack <= mem.free) {
-    mem.tmp[0] = value;
+    Save(value, 0);
     CollectGarbage();
-    value = mem.tmp[0];
-    mem.tmp[1] = 0;
+    Restore(value, 0);
   }
   assert(mem.stack > mem.free);
   mem.data[--mem.stack] = value;
@@ -393,6 +392,61 @@ char *BinToStr(u32 bin)
   Copy(BinaryData(bin), str, ObjLength(bin));
   str[ObjLength(bin)] = 0;
   return str;
+}
+
+
+static u32 FormatSize(u32 value)
+{
+  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < 256) return 1;
+  if (IsBinary(value)) return ObjLength(value);
+  if (IsTuple(value)) {
+    u32 i, len = 0;
+    for (i = 0; i < ObjLength(value); i++) {
+      len += FormatSize(TupleGet(value, i));
+    }
+    return len;
+  }
+  if (value && IsPair(value)) {
+    return FormatSize(Head(value)) + FormatSize(Tail(value));
+  }
+  return 0;
+}
+
+static u8 *FormatValInto(u32 value, u8 *buf)
+{
+  if (IsInt(value) && RawInt(value) >= 0 && RawInt(value) < 256) {
+    *buf = (u8)RawInt(value);
+    return buf + 1;
+  }
+  if (IsBinary(value)) {
+    Copy(BinaryData(value), buf, ObjLength(value));
+    return buf + ObjLength(value);
+  }
+  if (IsTuple(value)) {
+    u32 i;
+    for (i = 0; i < ObjLength(value); i++) {
+      buf = FormatValInto(TupleGet(value, i), buf);
+    }
+    return buf;
+  }
+  if (value && IsPair(value)) {
+    buf = FormatValInto(Head(value), buf);
+    buf = FormatValInto(Tail(value), buf);
+    return buf;
+  }
+  return buf;
+}
+
+u32 FormatVal(u32 value)
+{
+  u32 size, bin;
+  if (IsBinary(value)) return value;
+  size = FormatSize(value);
+  Save(value, 0);
+  bin = NewBinary(size);
+  Restore(value, 0);
+  FormatValInto(value, (u8*)BinaryData(bin));
+  return bin;
 }
 
 bool ValEq(u32 a, u32 b)

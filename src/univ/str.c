@@ -3,6 +3,29 @@
 #include <string.h>
 #include <malloc/malloc.h>
 
+Span StrSpan(char *start, char *end)
+{
+  Span span = {0};
+  span.data = start;
+  span.len = start ? end - start : 0;
+  return span;
+}
+
+Cut StrCut(Span span, char c)
+{
+  Cut cut = {0};
+  char *start, *end, *data;
+  if (span.len == 0) return cut;
+  start = span.data;
+  end = span.data + span.len;
+  data = start;
+  while (data < end && *data != c) data++;
+  cut.ok = data < end;
+  cut.head = StrSpan(start, data);
+  cut.tail = StrSpan(data + cut.ok, end);
+  return cut;
+}
+
 bool StrEq(char *s1, char *s2)
 {
   return s1 && s2 && strcmp(s1,s2) == 0;

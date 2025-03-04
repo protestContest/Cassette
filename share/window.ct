@@ -1,5 +1,5 @@
 module Window
-import Record, Graphics (Point)
+import Graphics (Point)
 
 def Color(r, g, b) r << 16 | g << 8 | b
 def white() Color(255, 255, 255)
