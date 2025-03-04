@@ -26,7 +26,7 @@ CFLAGS = -std=c89 $(WFLAGS) $(INCLUDE_FLAGS)
 LIBLDFLAGS = -dynamiclib -undefined dynamic_lookup
 
 ifeq ($(DEBUG),1)
-CFLAGS += -O2 -g -fsanitize=address -fno-omit-frame-pointer -DDEBUG
+CFLAGS += -O0 -g -fsanitize=address -fno-omit-frame-pointer -DDEBUG
 	ifeq ($(PROFILE),1)
 		CFLAGS += -DPROFILE
 	endif
@@ -61,9 +61,9 @@ clean:
 	rm -rf $(BUILD)
 	rm -rf $(BIN)
 
-.PHONY: test/%
+.PHONY: test/%.ct
 test/%: $(EXECTARGET)
-	$(EXECTARGET) -L share $@.ct
+	$(EXECTARGET) -L share $@
 
 .PHONY: leaks
 leaks: $(EXECTARGET)

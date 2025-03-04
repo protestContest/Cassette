@@ -452,6 +452,7 @@ static char EscapeChar(char c)
   case 'f': return '\f';
   case 'n': return '\n';
   case 'r': return '\r';
+  case 's': return ' ';
   case 't': return '\t';
   case 'v': return '\v';
   case '0': return '\0';
@@ -555,10 +556,9 @@ static ASTNode *ParseByte(Parser *p)
   ASTNode *node;
   u8 byte;
   char *lexeme = p->text + p->token.pos;
-  if (IsSpace(lexeme[1]) || !IsPrintable(lexeme[1])) {
-    return ParseError("Expected character", p);
-  }
-  byte = lexeme[1];
+  char ch = (lexeme[1] == '\\') ? lexeme[2] : lexeme[1];
+  if (IsSpace(ch) || !IsPrintable(ch)) return ParseError("Expected character", p);
+  byte = (lexeme[1] == '\\') ? EscapeChar(ch) : ch;
   node = MakeTerminal(intNode, IntVal(byte), p);
   Adv(p);
   return node;

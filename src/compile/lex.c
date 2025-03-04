@@ -144,6 +144,10 @@ Token NextToken(char *src, u32 pos)
   }
   if (src[pos] == '$') {
     if (src[pos+1] == 0) return MakeToken(errorToken, pos, 1);
+    if (src[pos+1] == '\\') {
+      if (src[pos+2] == 0) return MakeToken(errorToken, pos, 1);
+      return MakeToken(byteToken, pos, 3);
+    }
     return MakeToken(byteToken, pos, 2);
   }
 
