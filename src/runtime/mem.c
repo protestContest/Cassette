@@ -19,6 +19,7 @@ StatGroup *mem_stats = 0;
 
 void InitMem(u32 size)
 {
+  size = Max(size, MIN_CAPACITY);
   mem.data = malloc(size*sizeof(u32));
   mem.capacity = size;
   mem.free = 2;
@@ -156,6 +157,8 @@ void CollectGarbage(void)
     InitMem(MIN_CAPACITY);
     return;
   }
+
+  /* fprintf(stderr, "GARBAGE DAY!!!\n"); */
 
   mem.collecting = true;
   mem.data = malloc(mem.capacity*sizeof(u32));

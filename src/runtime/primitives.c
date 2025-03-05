@@ -2,7 +2,9 @@
 #include "runtime/mem.h"
 #include "runtime/symbol.h"
 #include "univ/file.h"
+#include "univ/font.h"
 #include "univ/math.h"
+#include "univ/res.h"
 #include "univ/str.h"
 #include "univ/time.h"
 #include "univ/vec.h"
@@ -343,12 +345,17 @@ static u32 VMTime(VM *vm)
   return IntVal(Time());
 }
 
+static u32 VMMillis(VM *vm)
+{
+  return IntVal(Microtime()/1000);
+}
+
 static u32 VMNewWindow(VM *vm)
 {
   /* new_window(title, width, height) */
   u32 title, width, height;
   CTWindow *w;
-  u32 ref, i;
+  u32 ref;
 
   assert(StackSize() >= 3);
   height = StackPop();
@@ -362,13 +369,7 @@ static u32 VMNewWindow(VM *vm)
   }
 
   w = malloc(sizeof(CTWindow));
-  w->title = StringFrom(BinaryData(title), ObjLength(title));
-  w->width = RawInt(width);
-  w->height = RawInt(height);
-  w->buf = malloc(sizeof(u32)*w->width*w->height);
-  for (i = 0; i < (u32)w->width*w->height; i++) {
-    w->buf[i] = 0x00FFFFFF;
-  }
+  w = NewWindow(StringFrom(BinaryData(title), ObjLength(title)), RawInt(width), RawInt(height));
   ref = VMPushRef(w, vm);
 
   OpenWindow(w);
@@ -384,7 +385,7 @@ static u32 VMDestroyWindow(VM *vm)
   w = VMGetRef(RawVal(StackPop()), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
   CloseWindow(w);
-  free(w->buf);
+  DestroyCanvas(&w->canvas);
   free(w->title);
   free(w);
   return 0;
@@ -457,54 +458,142 @@ static u32 VMWritePixel(VM *vm)
   y = StackPop();
   x = StackPop();
   if (!w) return RuntimeError("Invalid window reference", vm);
-  if (!IsBinary(color) || ObjLength(color) != 4) {
+  if (!IsBinary(color)) {
     return RuntimeError("Color must be a 32-bit RGBA binary", vm);
   }
   if (!IsInt(y)) return RuntimeError("Y must be an integer", vm);
   if (!IsInt(x)) return RuntimeError("X must be an integer", vm);
   color = *((u32*)BinaryData(color));
-  WritePixel(w, RawInt(x), RawInt(y)) = color;
+  PixelAt(&w->canvas, RawInt(x), RawInt(y)) = color;
+  return 0;
+}
+
+static u32 VMMoveTo(VM *vm)
+{
+  CTWindow *w;
+  u32 x, y;
+  assert(StackSize() >= 3);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  y = StackPop();
+  x = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsInt(x)) return RuntimeError("Coordinates must be integers", vm);
+  if (!IsInt(y)) return RuntimeError("Coordinates must be integers", vm);
+
+  MoveTo(RawInt(x), RawInt(y), &w->canvas);
+
+  return 0;
+}
+
+static u32 VMMove(VM *vm)
+{
+  CTWindow *w;
+  u32 x, y;
+  assert(StackSize() >= 3);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  y = StackPop();
+  x = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsInt(x)) return RuntimeError("Coordinates must be integers", vm);
+  if (!IsInt(y)) return RuntimeError("Coordinates must be integers", vm);
+
+  Move(RawInt(x), RawInt(y), &w->canvas);
+
+  return 0;
+}
+
+static u32 VMSetColor(VM *vm)
+{
+  CTWindow *w;
+  u32 color;
+  assert(StackSize() >= 2);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  color = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsBinary(color)) return RuntimeError("Color must be a 32-bit RGBA binary", vm);
+
+  w->canvas.pen.color = *((u32*)BinaryData(color));
+  printf("%08X\n", w->canvas.pen.color);
+
+  return 0;
+}
+
+static u32 VMSetFont(VM *vm)
+{
+  CTWindow *w;
+  u32 name, size;
+  char *name_str;
+  assert(StackSize() >= 3);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  size = StackPop();
+  name = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsBinary(name)) return RuntimeError("Font name must be a string", vm);
+  if (!IsInt(size)) return RuntimeError("Font size must be an integer", vm);
+
+  name_str = BinToStr(name);
+  SetFont(name_str, RawInt(size), &w->canvas);
+  free(name_str);
+  return 0;
+}
+
+static u32 VMDrawString(VM *vm)
+{
+  CTWindow *w;
+  u32 text;
+  char *str;
+  assert(StackSize() >= 2);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  text = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsBinary(text)) return RuntimeError("Text must be a string", vm);
+
+  str = BinToStr(text);
+  DrawString(str, &w->canvas);
+  free(str);
+  return 0;
+}
+
+static u32 VMLineTo(VM *vm)
+{
+  CTWindow *w;
+  u32 x, y;
+  assert(StackSize() >= 3);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  y = StackPop();
+  x = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsInt(x)) return RuntimeError("Coordinates must be integers", vm);
+  if (!IsInt(y)) return RuntimeError("Coordinates must be integers", vm);
+
+  LineTo(RawInt(x), RawInt(y), &w->canvas);
+
   return 0;
 }
 
 static u32 VMLine(VM *vm)
 {
   CTWindow *w;
-  i32 x0, y0, x1, y1, dx, dy, err, sx, sy, e2;
-  assert(StackSize() >= 5);
+  u32 x, y;
+  assert(StackSize() >= 3);
   w = VMGetRef(RawVal(StackPop()), vm);
-  y1 = StackPop();
-  x1 = StackPop();
-  y0 = StackPop();
-  x0 = StackPop();
-  if (!IsInt(x0) || !IsInt(y0) || !IsInt(x1) || !IsInt(y1)) {
-    return RuntimeError("Coordinates must be integers", vm);
-  }
-  y1 = RawInt(y1);
-  x1 = RawInt(x1);
-  y0 = RawInt(y0);
-  x0 = RawInt(x0);
+  y = StackPop();
+  x = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsInt(x)) return RuntimeError("Coordinates must be integers", vm);
+  if (!IsInt(y)) return RuntimeError("Coordinates must be integers", vm);
 
-  dx = Abs(x1-x0);
-  sx = x0<x1 ? 1 : -1;
-  dy = Abs(y1-y0);
-  sy = y0<y1 ? 1 : -1;
-  err = (dx>dy ? dx : -dy)/2;
+  Line(RawInt(x), RawInt(y), &w->canvas);
 
-  for(;;){
-    WritePixel(w,x0,y0) = 0;
-    if (x0==x1 && y0==y1) break;
-    e2 = err;
-    if (e2 >-dx) { err -= dy; x0 += sx; }
-    if (e2 < dy) { err += dx; y0 += sy; }
-  }
   return 0;
 }
 
 static u32 VMFillRect(VM *vm)
 {
   CTWindow *w;
-  u32 x0, y0, x1, y1, color, x, y;
+  u32 x0, y0, x1, y1, color;
+  BBox r;
+
   assert(StackSize() >= 5);
   w = VMGetRef(RawVal(StackPop()), vm);
   color = StackPop();
@@ -519,16 +608,13 @@ static u32 VMFillRect(VM *vm)
     return RuntimeError("Color must be a 32-bit RGBA binary", vm);
   }
   color = *((u32*)BinaryData(color));
-  y1 = RawInt(y1);
-  x1 = RawInt(x1);
-  y0 = RawInt(y0);
-  x0 = RawInt(x0);
 
-  for (y = 0; y < (u32)w->height; y++) {
-    for (x = 0; x < (u32)w->width; x++) {
-      WritePixel(w, x, y) = color;
-    }
-  }
+  r.left = RawInt(x0);
+  r.top = RawInt(y0);
+  r.right = RawInt(x1);
+  r.bottom = RawInt(y1);
+  FillRect(&r, color, &w->canvas);
+
   return 0;
 }
 
@@ -536,7 +622,7 @@ static u32 VMBlit(VM *vm)
 {
   /* blit(data, width, height, x, y, window) */
   CTWindow *w;
-  i32 data, width, height, x, y, sx, sy, i, rowWidth;
+  i32 data, width, height, x, y;
   u32 *pixels;
   assert(StackSize() >= 6);
   w = VMGetRef(RawVal(StackPop()), vm);
@@ -553,47 +639,24 @@ static u32 VMBlit(VM *vm)
   if (!IsBinary(data)) return RuntimeError("Data must be binary", vm);
 
   width = RawInt(width);
-  rowWidth = width;
   height = RawInt(height);
   x = RawInt(x);
   y = RawInt(y);
-  sx = 0;
-  sy = 0;
   pixels = (u32*)BinaryData(data);
+  Blit(pixels, width, height, x, y, &w->canvas);
+  return 0;
+}
 
-  /* dst is outside window */
-  if (x >= w->width) return 0;
-  if (y >= w->height) return 0;
-
-  /* clip src to fit in window */
-  if (x < 0) {
-    width += x;
-    sx = -x;
-    x = 0;
-  }
-  if (y < 0) {
-    height += y;
-    sy = -y;
-    y = 0;
-  }
-  if (x + width > w->width) width = w->width - x;
-  if (y + height > w->height) height = w->height - y;
-
-  /* nothing to copy */
-  if (width <= 0 || height <= 0) return 0;
-
-  /* check source data size */
-  if ((sx+width)*(sy+height) >= (i32)ObjLength(data)) {
-    return RuntimeError("Source data too small", vm);
-  }
-
-  /* copy each row */
-  for (i = 0; i < height; i++) {
-    u32 *src = pixels + (sy+i)*rowWidth + sx;
-    u32 *dst = w->buf + (y+i)*w->width + x;
-    Copy(src, dst, width*sizeof(u32));
-  }
-
+static u32 VMUseResources(VM *vm)
+{
+  u32 res;
+  char *filename;
+  assert(StackSize() >= 1);
+  res = StackPop();
+  if (!IsBinary(res)) return RuntimeError("Filename must be a string", vm);
+  filename = BinToStr(res);
+  OpenResFile(filename);
+  free(filename);
   return 0;
 }
 
@@ -609,6 +672,7 @@ static PrimDef primitives[] = {
   {"min_int", VMMinInt},
   /* System */
   {"time", VMTime},
+  {"millis", VMMillis},
   {"random", VMRandom},
   {"seed", VMSeed},
   {"args", VMArgs},
@@ -630,9 +694,16 @@ static PrimDef primitives[] = {
   {"update_window", VMUpdateWindow},
   {"next_event", VMPollEvent},
   {"write_pixel", VMWritePixel},
+  {"move_to", VMMoveTo},
+  {"move", VMMove},
+  {"set_color", VMSetColor},
+  {"set_font", VMSetFont},
+  {"draw_string", VMDrawString},
+  {"line_to", VMLineTo},
+  {"line", VMLine},
+  {"fill_rect", VMFillRect},
   {"blit", VMBlit},
-  {"draw_line", VMLine},
-  {"fill_rect", VMFillRect}
+  {"use_resources", VMUseResources}
 };
 
 i32 PrimitiveID(u32 name)

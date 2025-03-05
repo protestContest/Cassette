@@ -29,6 +29,7 @@ u32 AppendHash(u32 hash, void *data, u32 size);
 u32 FoldHash(u32 hash, i32 size);
 
 u32 ByteSwap(u32 n);
+u16 ByteSwapShort(u16 n);
 u32 CRC32(u8 *data, u32 size);
 
 /* Crockford's version. Resulting string is zero-padded and null-terminated. */

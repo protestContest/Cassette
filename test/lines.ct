@@ -1,0 +1,70 @@
+import Sketch, Window, Math, Graphics (Rect), Time, List
+
+def update_endpoint(endpoint, window) when endpoint.x + endpoint.dx < 0,
+  update_endpoint(
+    Endpoint(-endpoint.x,
+             endpoint.y,
+             -endpoint.dx,
+             endpoint.dy + Math.random_between(-1, 2)),
+    window)
+
+def update_endpoint(endpoint, window) when endpoint.x + endpoint.dx > window.width-1,
+  update_endpoint(
+    Endpoint(2*window.width - endpoint.x - 1,
+             endpoint.y,
+             -endpoint.dx,
+             endpoint.dy + Math.random_between(-1, 2)),
+    window)
+
+def update_endpoint(endpoint, window) when endpoint.y + endpoint.dy < 0,
+  update_endpoint(
+    Endpoint(endpoint.x,
+             -endpoint.y,
+             endpoint.dx + Math.random_between(-1, 2),
+             -endpoint.dy),
+    window)
+
+def update_endpoint(endpoint, window) when endpoint.y + endpoint.dy > window.height-1,
+  update_endpoint(
+    Endpoint(endpoint.x,
+             2*window.height - endpoint.y - 1,
+             endpoint.dx + Math.random_between(-1, 2),
+             -endpoint.dy),
+    window)
+
+def update_endpoint(endpoint, window)
+  Endpoint(endpoint.x + endpoint.dx, endpoint.y + endpoint.dy, endpoint.dx, endpoint.dy)
+
+def draw_image(state, window) do
+  Window.fill_rect(Rect(0, 0, window.width, window.height), Window.white(), window)
+
+  List.map(state, \line -> do
+    let a = line.a, b = line.b
+    Window.move_to(a.x, a.y, window)
+    Window.line_to(b.x, b.y, window)
+    Line(update_endpoint(a, window), update_endpoint(b, window))
+  end)
+end
+
+record Endpoint(x, y, dx, dy)
+record Line(a, b)
+
+Math.seed(Time.millis())
+
+def random_line(window)
+  Line(
+    Endpoint(
+      Math.random_between(0, window.width),
+      Math.random_between(0, window.height),
+      Math.random_between(-2, 3),
+      Math.random_between(-2, 3)),
+    Endpoint(
+      Math.random_between(0, window.width),
+      Math.random_between(0, window.height),
+      Math.random_between(-2, 3),
+      Math.random_between(-2, 3)))
+
+
+let window = Window.open("Lines", 500, 500)
+let state = List.fill(1000, \i -> random_line(window))
+Sketch.animate(window, draw_image, state)

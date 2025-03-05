@@ -42,6 +42,12 @@ def duplicate(item, n) do
   loop(nil, n)
 end
 
+def fill(n, fn) do
+  def loop(list, i) when i == n, reverse(list)
+  def loop(list, i) loop(fn(i) : list, i + 1)
+  loop(nil, 0)
+end
+
 def filter(list, test) do
   let list =
     reduce(list, nil, \item, acc ->

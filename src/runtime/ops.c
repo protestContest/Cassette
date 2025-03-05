@@ -210,14 +210,9 @@ static void OpGoto(VM *vm)
   u32 a;
   assert(StackSize() >= 1);
   a = StackPop();
-  if (!IsInt(a)) {
-    RuntimeError("Invalid address", vm);
-    return;
-  }
-  if (RawInt(a) < 0 || RawInt(a) > (i32)VecCount(vm->program->code)) {
-    RuntimeError("Out of bounds", vm);
-    return;
-  }
+  assert(IsInt(a));
+  assert(RawInt(a) >= 0 && RawInt(a) < (i32)VecCount(vm->program->code));
+
   vm->pc = RawVal(a);
 }
 

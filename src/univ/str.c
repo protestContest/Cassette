@@ -166,8 +166,9 @@ u32 WriteNum(i32 num, char *buf)
   return snprintf(buf, len, "%d", num);
 }
 
-void WriteBE(u32 num, void *dst)
+void WriteBE(i32 n, void *dst)
 {
+  u32 num = (u32)n;
   u8 *bytes = (u8*)dst;
   bytes[0] = num >> 24;
   bytes[1] = (num >> 16) & 0xFF;
@@ -175,7 +176,7 @@ void WriteBE(u32 num, void *dst)
   bytes[3] = num & 0xFF;
 }
 
-u32 ReadBE(void *src)
+i32 ReadBE(void *src)
 {
   u8 *bytes = (u8*)src;
   return
@@ -183,6 +184,12 @@ u32 ReadBE(void *src)
     | (((u32)bytes[1] & 0xFF) << 16)
     | (((u32)bytes[2] & 0xFF) << 8)
     | (((u32)bytes[3] & 0xFF));
+}
+
+i16 ReadShortBE(void *src)
+{
+  u8 *bytes = (u8*)src;
+  return (((u16)bytes[0]) << 8) | (((u16)bytes[1] & 0xFF));
 }
 
 char *TerminateString(char *str)

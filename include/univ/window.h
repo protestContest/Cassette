@@ -1,18 +1,17 @@
 #pragma once
+#include "univ/canvas.h"
 
 typedef struct {
+  Canvas canvas;
   char *title;
-  i32 width;
-  i32 height;
-  u32 *buf;
   void *data;
 } CTWindow;
 
-#ifdef __APPLE__
-#include <Carbon/Carbon.h>
-enum {quitEvent = 15};
-#else
+CTWindow *NewWindow(char *title, i32 width, i32 height);
+
 enum {nullEvent, mouseDown, mouseUp, keyDown, keyUp, autoKey, quitEvent = 15};
+#ifdef __APPLE__
+#else
 enum {
   controlKey  = (1 << 12),
   optionKey   = (1 << 11),
@@ -51,4 +50,3 @@ void OpenWindow(CTWindow *window);
 void CloseWindow(CTWindow *window);
 void UpdateWindow(CTWindow *window);
 void NextEvent(Event *event);
-#define WritePixel(w, x, y) ((w)->buf[((y) * (w)->width) + (x)])

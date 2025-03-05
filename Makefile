@@ -5,6 +5,7 @@ BUILD = build
 INCLUDE = include
 LIB = lib
 SRC = src
+TEST = test
 SHARE = share
 INSTALL = $(HOME)/.local
 
@@ -15,6 +16,7 @@ EXECTARGET = $(BIN)/$(NAME)
 LIBTARGET = $(BIN)/lib$(NAME).dylib
 
 MAIN := main
+TESTS := $(shell find $(TEST) -name '*.ct' -print)
 SRCS := $(shell find $(SRC) -name '*.c' -not -name '$(MAIN).c' -print)
 OBJS := $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
 MAIN_OBJ := $(BUILD)/$(MAIN).o
@@ -61,13 +63,13 @@ clean:
 	rm -rf $(BUILD)
 	rm -rf $(BIN)
 
-.PHONY: test/%
-test/%: $(EXECTARGET)
+.PHONY: force
+test/%.ct: $(EXECTARGET) force
 	$(EXECTARGET) -L share $@
 
 .PHONY: leaks
 leaks: $(EXECTARGET)
-	leaks -atExit -- $(EXECTARGET) -L share test/test.ct
+	leaks -atExit -- $(EXECTARGET) -L share test/net.ct
 
 .PHONY: syntax
 syntax:

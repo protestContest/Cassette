@@ -18,7 +18,8 @@ i32 Read(i32 file, char *buf, u32 size, char **error);
 i32 Write(i32 file, char *buf, u32 size, char **error);
 
 /* Seeks to a position in a file */
-i32 Seek(i32 file, i32 offset, i32 whence, char **error);
+typedef enum {seek_set, seek_cur, seek_end} SeekMethod;
+i32 Seek(i32 file, i32 offset, SeekMethod whence, char **error);
 
 /* Opens a listening socket on a port */
 i32 Listen(char *port, char **error);

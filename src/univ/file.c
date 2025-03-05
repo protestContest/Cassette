@@ -24,10 +24,10 @@ i32 OpenSerial(char *path, i32 speed, i32 opts, char **error)
   struct termios options;
   i32 file = open(path, O_RDWR | O_NDELAY | O_NOCTTY);
   if (file < 0) {
-    *error = strerror(errno);
+    if (error) *error = strerror(errno);
     return file;
   }
-  *error = 0;
+  if (error) *error = 0;
   fcntl(file, F_SETFL, O_NONBLOCK);
   tcgetattr(file, &options);
   cfsetispeed(&options, speed);
@@ -51,21 +51,21 @@ char *Close(i32 file)
 i32 Read(i32 file, char *buf, u32 size, char **error)
 {
   i32 num_read = read(file, buf, size);
-  *error = (num_read < 0) ? strerror(errno) : 0;
+  if (error) *error = (num_read < 0) ? strerror(errno) : 0;
   return num_read;
 }
 
 i32 Write(i32 file, char *buf, u32 size, char **error)
 {
   i32 num_written = write(file, buf, size);
-  *error = (num_written < 0) ? strerror(errno) : 0;
+  if (error) *error = (num_written < 0) ? strerror(errno) : 0;
   return num_written;
 }
 
-i32 Seek(i32 file, i32 offset, i32 whence, char **error)
+i32 Seek(i32 file, i32 offset, SeekMethod whence, char **error)
 {
   i32 pos = lseek(file, offset, whence);
-  *error = (pos < 0) ? strerror(errno) : 0;
+  if (error) *error = (pos < 0) ? strerror(errno) : 0;
   return pos;
 }
 
@@ -81,38 +81,38 @@ i32 Listen(char *port, char **error)
   status = getaddrinfo(0, port, &hints, &info);
 
   if (status != 0) {
-    *error = (char*)gai_strerror(status);
+    if (error) *error = (char*)gai_strerror(status);
     return -1;
   }
 
   sock = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
   if (sock < 0) {
     freeaddrinfo(info);
-    *error = (char*)strerror(errno);
+    if (error) *error = (char*)strerror(errno);
     return -1;
   }
 
   status = bind(sock, info->ai_addr, info->ai_addrlen);
   freeaddrinfo(info);
   if (status < 0) {
-    *error = (char*)strerror(errno);
+    if (error) *error = (char*)strerror(errno);
     return -1;
   }
 
   status = listen(sock, 10);
   if (status < 0) {
-    *error = strerror(errno);
+    if (error) *error = strerror(errno);
     return -1;
   }
 
-  *error = 0;
+  if (error) *error = 0;
   return sock;
 }
 
 i32 Accept(i32 sock, char **error)
 {
   i32 s = accept(sock, 0, 0);
-  *error = (s < 0) ? strerror(errno) : 0;
+  if (error) *error = (s < 0) ? strerror(errno) : 0;
   return s;
 }
 
@@ -126,21 +126,21 @@ i32 Connect(char *host, char *port, char **error)
   hints.ai_socktype = SOCK_STREAM;
   status = getaddrinfo(host, port, &hints, &servinfo);
   if (status != 0) {
-    *error = (char*)gai_strerror(status);
+    if (error) *error = (char*)gai_strerror(status);
     return -1;
   }
 
   s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
   if (s < 0) {
     freeaddrinfo(servinfo);
-    *error = strerror(errno);
+    if (error) *error = strerror(errno);
     return s;
   }
 
   status = connect(s, servinfo->ai_addr, servinfo->ai_addrlen);
   freeaddrinfo(servinfo);
 
-  *error = (status < 0) ? *error = strerror(errno) : 0;
+  if (error) *error = (status < 0) ? *error = strerror(errno) : 0;
   return s;
 }
 
@@ -162,7 +162,7 @@ void *ReadFile(char *path)
   u32 size;
   char *data;
 
-  file = open(path, O_RDWR, 0);
+  file = open(path, O_RDONLY, 0);
   if (file < 0) return 0;
   size = lseek(file, 0, 2);
   lseek(file, 0, 0);

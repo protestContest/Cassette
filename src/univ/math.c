@@ -117,6 +117,11 @@ u32 ByteSwap(u32 n)
     (n >> 24);
 }
 
+u16 ByteSwapShort(u16 n)
+{
+  return (n << 8) | (n >> 8);
+}
+
 static u32 *crcTable = 0;
 
 static void GenerateCRCTable(void)

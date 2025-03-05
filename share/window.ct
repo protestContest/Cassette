@@ -1,7 +1,7 @@
 module Window
-import Graphics (Point)
+import Graphics (Point, Rect)
 
-def Color(r, g, b) r << 16 | g << 8 | b
+def Color(r, g, b) Host.format([r, g, b, 0])
 def white() Color(255, 255, 255)
 def black() Color(0, 0, 0)
 
@@ -33,5 +33,18 @@ def next_event() do
 end
 
 def write_pixel(x, y, color, window) Host.write_pixel(x, y, color, window.ref)
+def move_to(x, y, window) Host.move_to(x, y, window.ref)
+def move(dx, dy, window) Host.move(dx, dy, window.ref)
+def set_color(color, window) Host.set_color(color, window.ref)
+def set_font(name, size, window) Host.set_font(name, size, window.ref)
+def draw_string(text, window) Host.draw_string(text, window.ref)
+def line_to(x, y, window) Host.line_to(x, y, window.ref)
+def line(dx, dy, window) Host.line(dx, dy, window.ref)
+def fill_rect(rect, color, window)
+  Host.fill_rect(rect.left, rect.top, rect.right, rect.bottom, color, window.ref)
 def blit(data, width, height, x, y, window) Host.blit(data, width, height, x, y, window.ref)
-def draw_line(x0, y0, x1, y1, window) Host.draw_line(x0, y0, x1, y1, window.ref)
+
+def draw_line(x0, y0, x1, y1, window) do
+  move_to(x0, y0, window)
+  line_to(x1, y1, window)
+end

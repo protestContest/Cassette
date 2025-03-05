@@ -4,6 +4,8 @@ record Date(year, month, day)
 record Time(hour, minute, second)
 record DateTime(date, time)
 
+def millis() Host.millis()
+
 ; def timestamp()
 ; def now()
 ; def from_string(str)

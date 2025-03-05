@@ -1,5 +1,5 @@
 module Sketch
-import Window
+import Window, Time
 
 def should_quit(event)
   event.what == :keyDown and
@@ -20,4 +20,18 @@ def draw(window, draw_frame) do
   Window.update(window)
   if draw_frame, draw(window, draw_frame)
   else nil
+end
+
+def animate(window, draw_frame, state) do
+  def next_frame(time, fn) when Time.millis() < time, next_frame(time, fn)
+  def next_frame(time, fn) fn()
+
+  let now = Time.millis()
+  let event = Window.next_event()
+  guard not should_quit(event) else nil
+
+  let state = draw_frame(state, window)
+  Window.update(window)
+  if state == :quit, nil
+  else next_frame(now + 33, \ -> animate(window, draw_frame, state))
 end

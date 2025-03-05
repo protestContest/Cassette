@@ -9,6 +9,14 @@ static CTWindow **windows = 0;
 static HashMap window_map = EmptyHashMap;
 static i32 state = running;
 
+CTWindow *NewWindow(char *title, i32 width, i32 height)
+{
+  CTWindow *w = malloc(sizeof(CTWindow));
+  w->title = title;
+  InitCanvas(&w->canvas, width, height);
+  return w;
+}
+
 #ifdef __APPLE__
 #include <CoreGraphics/CoreGraphics.h>
 #include <objc/NSObjCRuntime.h>
@@ -44,15 +52,15 @@ static void DrawRect(id view, SEL s, CGRect r)
   CGContextSetInterpolationQuality(port, kCGInterpolationNone);
   space = CGColorSpaceCreateDeviceRGB();
   provider = CGDataProviderCreateWithData(
-    NULL, window->buf, window->width * window->height * 4, NULL);
+    NULL, window->canvas.buf, window->canvas.width * window->canvas.height * 4, NULL);
   img =
-    CGImageCreate(window->width, window->height, 8, 32, window->width*4, space,
-                  kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little,
+    CGImageCreate(window->canvas.width, window->canvas.height, 8, 32, window->canvas.width*4, space,
+                  kCGImageAlphaNoneSkipLast | kCGBitmapByteOrder32Big,
                   provider, NULL, false, kCGRenderingIntentDefault);
   CGColorSpaceRelease(space);
   CGDataProviderRelease(provider);
   CGContextDrawImage(port,
-                     CGRectMake(0, 0, window->width, window->height),
+                     CGRectMake(0, 0, window->canvas.width, window->canvas.height),
                      img);
   CGImageRelease(img);
 }
@@ -67,7 +75,7 @@ enum {TerminateNow = 1, TerminateCancel = 0, TerminateLater = 2};
 static int ShouldTerminate(id v, SEL s, id w)
 {
   state = quitting;
-  return TerminateCancel;
+  return TerminateNow;
 }
 
 void OpenWindow(CTWindow *window)
@@ -79,7 +87,7 @@ void OpenWindow(CTWindow *window)
   msg1(void, NSApp, "setActivationPolicy:", NSInteger, 0);
   window->data = msg4(id, msg(id, cls("NSWindow"), "alloc"),
                 "initWithContentRect:styleMask:backing:defer:", CGRect,
-                CGRectMake(0, 0, window->width, window->height), NSUInteger, 3,
+                CGRectMake(0, 0, window->canvas.width, window->canvas.height), NSUInteger, 3,
                 NSUInteger, 2, BOOL, NO);
   delegateclass =
       objc_allocateClassPair((Class)cls("NSObject"), "CassetteDelegate", 0);
@@ -111,8 +119,6 @@ void OpenWindow(CTWindow *window)
   ev = msg4(id, NSApp, "nextEventMatchingMask:untilDate:inMode:dequeue:",
     NSUInteger, NSUIntegerMax, id, NULL, id, NSDefaultRunLoopMode, BOOL, YES);
   if (ev) msg1(void, NSApp, "sendEvent:", id, ev);
-
-
 
   key = Hash(&window->data, sizeof(id));
   HashMapSet(&window_map, key, VecCount(windows));

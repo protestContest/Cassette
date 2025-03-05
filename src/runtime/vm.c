@@ -78,7 +78,7 @@ Error *VMRun(Program *program, Opts *opts)
   VM vm;
 
   InitVM(&vm, program, opts);
-  InitMem(256);
+  InitMem(0);
   SetMemRoots(vm.regs, ArrayCount(vm.regs));
 
   if (opts->debug) {

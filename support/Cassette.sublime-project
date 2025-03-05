@@ -30,7 +30,7 @@
 			"variants": [
 				{
 					"name": "Run",
-					"cmd": ["bin/cassette", "$file"],
+					"cmd": ["bin/cassette", "-L", "share", "$file"],
 				},
 				{
 					"name": "Clean",
