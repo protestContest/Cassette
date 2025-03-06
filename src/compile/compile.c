@@ -423,6 +423,8 @@ static Chunk *CompileList(ASTNode *node, bool returns, Compiler *c)
   EmitNil(nilChunk);
   chunk = AppendChunk(nilChunk, chunk);
 
+  if (returns) EmitReturn(chunk);
+
   return chunk;
 }
 
