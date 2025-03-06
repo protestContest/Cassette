@@ -7,6 +7,7 @@ def black() Color(0, 0, 0)
 
 record Event(what, message, time, where, modifiers)
 record Window(title, width, height, ref)
+record FontInfo(ascent, descent, max_width, leading)
 
 def mod_mask(mod)
   if
@@ -32,6 +33,13 @@ def next_event() do
   Event(event[0], event[1], event[2], where, event[4])
 end
 
+def bounds(window)
+  Rect(0, 0, window.width, window.height)
+
+def clear(color, window)
+  fill_rect(bounds(window), color, window)
+
+
 def write_pixel(x, y, color, window) Host.write_pixel(x, y, color, window.ref)
 def move_to(x, y, window) Host.move_to(x, y, window.ref)
 def move(dx, dy, window) Host.move(dx, dy, window.ref)
@@ -48,4 +56,14 @@ def blit(data, width, height, x, y, window) Host.blit(data, width, height, x, y,
 def draw_line(x0, y0, x1, y1, window) do
   move_to(x0, y0, window)
   line_to(x1, y1, window)
+end
+
+def get_pen(window) do
+  let pen = Host.get_pen(window.ref)
+  Point(pen[0], pen[1])
+end
+
+def font_info(window) do
+  let info = Host.font_info(window.ref)
+  FontInfo(info[0], info[1], info[2], info[3])
 end

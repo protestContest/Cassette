@@ -677,6 +677,38 @@ static u32 VMUseResources(VM *vm)
   return 0;
 }
 
+static u32 VMGetPen(VM *vm)
+{
+  CTWindow *w;
+  u32 canvas;
+  assert(StackSize() >= 1);
+  w = VMGetRef(RawVal(StackPeek(0)), vm);
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  canvas = Tuple(2);
+  TupleSet(canvas, 0, IntVal(w->canvas.pen.x));
+  TupleSet(canvas, 1, IntVal(w->canvas.pen.y));
+  StackPop();
+  return canvas;
+}
+
+static u32 VMGetFont(VM *vm)
+{
+  CTWindow *w;
+  u32 font_info;
+  FontInfo info;
+  assert(StackSize() >= 1);
+  w = VMGetRef(RawVal(StackPeek(0)), vm);
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  GetFontInfo(&info, &w->canvas);
+  font_info = Tuple(4);
+  TupleSet(font_info, 0, IntVal(info.ascent));
+  TupleSet(font_info, 1, IntVal(info.descent));
+  TupleSet(font_info, 2, IntVal(info.widMax));
+  TupleSet(font_info, 3, IntVal(info.leading));
+  StackPop();
+  return font_info;
+}
+
 static PrimDef primitives[] = {
   {"panic!", VMPanic},
   {"typeof", VMTypeOf},
@@ -721,7 +753,9 @@ static PrimDef primitives[] = {
   {"line", VMLine},
   {"fill_rect", VMFillRect},
   {"blit", VMBlit},
-  {"use_resources", VMUseResources}
+  {"use_resources", VMUseResources},
+  {"get_pen", VMGetPen},
+  {"font_info", VMGetFont}
 };
 
 i32 PrimitiveID(u32 name)

@@ -202,6 +202,16 @@ i16 GetFNum(char *name)
   return ByteSwapShort(data->famID);
 }
 
+void GetFontInfo(FontInfo *info, Canvas *canvas)
+{
+  FontRec *font = LoadFont(canvas->text.font, canvas->text.size);
+  if (!font) return;
+  info->ascent = font->ascent;
+  info->descent = font->descent;
+  info->widMax = font->wid_max;
+  info->leading = font->leading;
+}
+
 static char *styles[] = {
   "bold",
   "italic",

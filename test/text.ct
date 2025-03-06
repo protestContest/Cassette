@@ -1,12 +1,22 @@
-import Sketch, Window
+import Sketch, Window (Color), String, Graphics (Rect), IO, List
 
 Host.use_resources("support/Fonts")
 
-let window = Window.open("Text", 300, 200)
+let window = Window.open("Text", 500, 200)
 Window.set_font("Helvetica", 18, window)
 
+def draw_str(str, y, window) do
+  let x = window.width/2 - Window.string_width(str, window)/2
+  Window.move_to(x, y, window)
+  Window.draw_string(str, window)
+end
+
 Sketch.draw(window, \window -> do
-  let x = window.width/2 - Window.string_width("Hello, world!", window)/2
-  Window.move_to(x, 100, window)
-  Window.draw_string("Hello, world!", window)
+  Window.clear(Color(120, 180, 250), window)
+
+  let info = Window.font_info(window)
+  let line_height = info.ascent + info.descent + info.leading
+
+  draw_str("SPHINX OF BLACK QUARTZ, JUDGE MY VOW!", 80, window)
+  draw_str("(jackdaws love my big sphinx of quartz)", 120, window)
 end)

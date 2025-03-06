@@ -35,8 +35,8 @@ def update_endpoint(endpoint, window) when endpoint.y + endpoint.dy > window.hei
 def update_endpoint(endpoint, window)
   Endpoint(endpoint.x + endpoint.dx, endpoint.y + endpoint.dy, endpoint.dx, endpoint.dy)
 
-def draw_image(state, window) do
-  Window.fill_rect(Rect(0, 0, window.width, window.height), Window.white(), window)
+def draw(state, window) do
+  Window.clear(Window.white(), window)
 
   List.map(state, \line -> do
     let a = line.a, b = line.b
@@ -66,5 +66,5 @@ def random_line(window)
 
 
 let window = Window.open("Lines", 500, 500)
-let state = List.fill(1000, \i -> random_line(window))
-Sketch.animate(window, draw_image, state)
+let state = List.fill(500, \i -> random_line(window))
+Sketch.animate(window, draw, state)
