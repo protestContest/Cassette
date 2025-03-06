@@ -1,6 +1,8 @@
 #include "univ/font.h"
+#include "univ/hashmap.h"
 #include "univ/math.h"
 #include "univ/res.h"
+#include "univ/vec.h"
 
 #define propFont  (i16)0x9000
 #define fixedFont (i16)0xB000
@@ -45,43 +47,52 @@ typedef struct {
   u16 resID;
 } FontAssoc;
 
+static HashMap font_map = EmptyHashMap;
+static FontRec **fonts = 0;
+
+/* Swap all the bytes to reverse endianness */
+static void FixFont(FontRec *rec)
+{
+  i32 i, table_size;
+  i16 *bit_image, *loc_table, *ow_table;
+
+  for (i = 0; i < 13; i++) {
+    ((i16*)rec)[i] = ByteSwapShort(((i16*)rec)[i]);
+  }
+
+  table_size = rec->last_char - rec->first_char + 2;
+  bit_image = (i16*)(rec + 1);
+  loc_table = bit_image + rec->row_words*rec->rect_height;
+  ow_table = &rec->owt_offset + rec->owt_offset;
+
+  for (i = 0; i < rec->row_words*rec->rect_height; i++) {
+    bit_image[i] = ByteSwapShort(bit_image[i]);
+  }
+  for (i = 0; i < table_size+1; i++) {
+    loc_table[i] = ByteSwapShort(loc_table[i]);
+  }
+  for (i = 0; i < table_size; i++) {
+    ow_table[i] = ByteSwapShort(ow_table[i]);
+  }
+}
+
 static FontRec *LoadFont(i16 font, i16 size)
 {
   i16 resID = 128*font + size;
-  i16 tag;
-  FontRec *rec = GetResource('FONT', resID);
-  if (!rec) return 0;
+  u32 hash = Hash(&resID, sizeof(resID));
+  u32 index;
+  FontRec *rec;
 
-  /* If the font was just loaded, we have to swap each word */
-  tag = rec->type & 0xFFFC;
-  if (tag != propFont && tag != fixedFont && tag != fontWid) {
-    i32 i, table_size;
-    i16 *bit_image, *loc_table, *ow_table;
-
-    for (i = 0; i < 13; i++) {
-      ((i16*)rec)[i] = ByteSwapShort(((i16*)rec)[i]);
-    }
-
-    table_size = rec->last_char - rec->first_char + 2;
-    bit_image = (i16*)(rec + 1);
-    loc_table = bit_image + rec->row_words*rec->rect_height;
-    ow_table = &rec->owt_offset + rec->owt_offset;
-
-    for (i = 0; i < rec->row_words*rec->rect_height; i++) {
-      bit_image[i] = ByteSwapShort(bit_image[i]);
-    }
-    for (i = 0; i < table_size+1; i++) {
-      loc_table[i] = ByteSwapShort(loc_table[i]);
-    }
-    for (i = 0; i < table_size; i++) {
-      ow_table[i] = ByteSwapShort(ow_table[i]);
-    }
+  if (HashMapFetch(&font_map, hash, &index)) {
+    return fonts[index];
+  } else {
+    rec = GetResource('FONT', resID);
+    if (!rec) return 0;
+    HashMapSet(&font_map, hash, VecCount(fonts));
+    VecPush(fonts, rec);
+    FixFont(rec);
+    return rec;
   }
-
-  /* If the font type is still bad, just give up */
-  if (rec->type != propFont && rec->type != fixedFont && rec->type != fontWid) return 0;
-
-  return rec;
 }
 
 void DrawChar(char ch, Canvas *canvas)
@@ -92,16 +103,16 @@ void DrawChar(char ch, Canvas *canvas)
   DrawString(str, canvas);
 }
 
-void DrawString(char *str, Canvas *canvas)
+static i32 DoString(char *str, FontRec *rec, Canvas *canvas)
 {
   i16 *bit_image;
   i16 *loc_table;
   i16 *ow_table;
   i16 table_size;
   i16 ow;
-
-  FontRec *rec = LoadFont(canvas->text.font, canvas->text.size);
-  if (!rec) return;
+  i16 font_type = rec->type & 0xFFFC;
+  i16 x = canvas ? canvas->pen.x : 0;
+  i16 y = canvas ? canvas->pen.y : 0;
 
   table_size = rec->last_char - rec->first_char + 2;
   bit_image = (i16*)(rec + 1);
@@ -135,11 +146,11 @@ void DrawString(char *str, Canvas *canvas)
     leading_bits = loc % 16;
     trailing_bits = 15 - (loc+img_width-1) % 16;
 
-    if (rec->type != fontWid) {
+    if (rec->type != fontWid && canvas) {
       i32 bx, by, w;
       for (by = 0; by < rec->rect_height; by++) {
-        i16 px = canvas->pen.x - leading_bits + offset;
-        i16 py = canvas->pen.y - rec->ascent + by;
+        i16 px = x - leading_bits + offset;
+        i16 py = y - rec->ascent + by;
         for (w = first_word; w <= last_word; w++) {
           u16 word = bit_image[by*rec->row_words + w];
           if (w == first_word) word &= (0xFFFF >> leading_bits);
@@ -158,14 +169,30 @@ void DrawString(char *str, Canvas *canvas)
       }
     }
 
-    if (rec->type == propFont) {
-      canvas->pen.x += width;
-    } else if (rec->type == fixedFont) {
-      canvas->pen.x += rec->wid_max;
+    if (font_type == propFont) {
+      x += width;
+    } else if (font_type == fixedFont) {
+      x += rec->wid_max;
     }
 
     str++;
   }
+
+  return x;
+}
+
+void DrawString(char *str, Canvas *canvas)
+{
+  FontRec *rec = LoadFont(canvas->text.font, canvas->text.size);
+  if (!rec) return;
+  canvas->pen.x = DoString(str, rec, canvas);
+}
+
+i32 StringWidth(char *str, Canvas *canvas)
+{
+  FontRec *rec = LoadFont(canvas->text.font, canvas->text.size);
+  if (!rec) return 0;
+  return DoString(str, rec, 0);
 }
 
 i16 GetFNum(char *name)

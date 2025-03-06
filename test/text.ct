@@ -1,0 +1,12 @@
+import Sketch, Window
+
+Host.use_resources("support/Fonts")
+
+let window = Window.open("Text", 300, 200)
+Window.set_font("Helvetica", 18, window)
+
+Sketch.draw(window, \window -> do
+  let x = window.width/2 - Window.string_width("Hello, world!", window)/2
+  Window.move_to(x, 100, window)
+  Window.draw_string("Hello, world!", window)
+end)

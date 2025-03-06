@@ -554,6 +554,23 @@ static u32 VMDrawString(VM *vm)
   return 0;
 }
 
+static u32 VMStringWidth(VM *vm)
+{
+  CTWindow *w;
+  u32 text, width;
+  char *str;
+  assert(StackSize() >= 2);
+  w = VMGetRef(RawVal(StackPop()), vm);
+  text = StackPop();
+  if (!w) return RuntimeError("Invalid window reference", vm);
+  if (!IsBinary(text)) return RuntimeError("Text must be a string", vm);
+
+  str = BinToStr(text);
+  width = IntVal(StringWidth(str, &w->canvas));
+  free(str);
+  return width;
+}
+
 static u32 VMLineTo(VM *vm)
 {
   CTWindow *w;
@@ -699,6 +716,7 @@ static PrimDef primitives[] = {
   {"set_color", VMSetColor},
   {"set_font", VMSetFont},
   {"draw_string", VMDrawString},
+  {"string_width", VMStringWidth},
   {"line_to", VMLineTo},
   {"line", VMLine},
   {"fill_rect", VMFillRect},

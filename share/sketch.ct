@@ -13,13 +13,9 @@ def loop_until_close(window) do
 end
 
 def draw(window, draw_frame) do
-  let event = Window.next_event()
-  guard not should_quit(event) else nil
-
-  let draw_frame = draw_frame(window)
+  draw_frame(window)
   Window.update(window)
-  if draw_frame, draw(window, draw_frame)
-  else nil
+  loop_until_close(window)
 end
 
 def animate(window, draw_frame, state) do
