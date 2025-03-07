@@ -264,10 +264,9 @@ Error *BuildProject(Project *project)
   /* parse each source file and add it to mod_map */
   for (i = 0; i < VecCount(project->modules); i++) {
     Module *mod = &project->modules[i];
-    u32 name, j;
-    ASTNode *exports;
+    u32 name;
 
-    mod->ast = SimplifyNode(ParseModule(mod->source), 0);
+    mod->ast = ParseModuleHeader(mod->source);
 
     if (IsErrorNode(mod->ast)) {
       char *msg = SymbolName(mod->ast->data.value);
@@ -277,6 +276,27 @@ Error *BuildProject(Project *project)
 
     name = NodeValue(ModuleName(mod));
     if (name) HashMapSet(&project->mod_map, name, i);
+  }
+
+  /* create the build list */
+  error = ScanDeps(project);
+  if (error) return error;
+
+  /* parse each module in the build list */
+  for (i = 0; i < VecCount(project->build_list); i++) {
+    u32 mod_index = project->build_list[i];
+    Module *mod = &project->modules[mod_index];
+    ASTNode *exports;
+    u32 j;
+
+    FreeNode(mod->ast);
+    mod->ast = SimplifyNode(ParseModule(mod->source), 0);
+
+    if (IsErrorNode(mod->ast)) {
+      char *msg = SymbolName(mod->ast->data.value);
+      u32 len = mod->ast->end - mod->ast->start;
+      return NewError(msg, mod->filename, mod->ast->start, len);
+    }
 
     /* index the module's exports */
     exports = ModuleExports(mod);
@@ -285,10 +305,6 @@ Error *BuildProject(Project *project)
       HashMapSet(&mod->exports, export, j);
     }
   }
-
-  /* create the build list */
-  error = ScanDeps(project);
-  if (error) return error;
 
   /* compile each module in the build list */
   InitCompiler(&c, project);

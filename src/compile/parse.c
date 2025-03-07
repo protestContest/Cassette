@@ -1162,6 +1162,26 @@ static ASTNode *FindExports(ASTNode *body, Parser *p)
   return exports;
 }
 
+ASTNode *ParseModuleHeader(char *source)
+{
+  Parser p;
+  ASTNode *node, *name, *imports;
+  InitParser(&p, source);
+
+  VSpacing(&p);
+  node = MakeNode(moduleNode, &p);
+
+  name = ParseModuleName(&p);
+  if (IsErrorNode(name)) return ParseFail(node, name);
+  NodePush(node, name);
+
+  imports = ParseImports(&p);
+  if (IsErrorNode(imports)) return ParseFail(node, imports);
+  NodePush(node, imports);
+
+  return node;
+}
+
 ASTNode *ParseModule(char *source)
 {
   Parser p;

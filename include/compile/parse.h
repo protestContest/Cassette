@@ -13,4 +13,5 @@ typedef struct {
 void InitParser(Parser *p, char *text);
 
 ASTNode *ParseModule(char *source);
+ASTNode *ParseModuleHeader(char *source);
 ASTNode *ParseImportList(Parser *p);
