@@ -31,3 +31,14 @@ def animate(window, draw_frame, state) do
   if state == :quit, nil
   else next_frame(now + 33, \ -> animate(window, draw_frame, state))
 end
+
+def run(window, update, state) do
+  let now = Time.millis()
+  let event = Window.next_event()
+  guard not should_quit(event) else nil
+
+  let state = update(event, state, window)
+  Window.update(window)
+  if state == :quit, nil
+  else run(window, update, state)
+end

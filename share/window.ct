@@ -7,7 +7,7 @@ def black() Color(0, 0, 0)
 
 record Event(what, message, time, where, modifiers)
 record Window(title, width, height, ref)
-record FontInfo(ascent, descent, max_width, leading)
+record FontInfo(ascent, descent, max_width, leading, line_height)
 
 def mod_mask(mod)
   if
@@ -65,5 +65,5 @@ end
 
 def font_info(window) do
   let info = Host.font_info(window.ref)
-  FontInfo(info[0], info[1], info[2], info[3])
+  FontInfo(info[0], info[1], info[2], info[3], info[0] + info[1] + info[3])
 end

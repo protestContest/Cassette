@@ -60,7 +60,7 @@ void LineTo(i32 x, i32 y, Canvas *canvas)
   err = ((dx > dy) ? dx : -dy) / 2;
 
   while (true) {
-    if (InCanvas(canvas, x0, y0)) PixelAt(canvas, x0, y0) = canvas->pen.color;
+    WritePixel(x0, y0, canvas);
     if (x0 == x1 && y0 == y1) break;
     e2 = err;
     if (e2 > -dx) { err -= dy; x0 += sx; }
@@ -78,7 +78,7 @@ void FillRect(BBox *r, u32 color, Canvas *canvas)
   i32 x, y;
   for (y = Max(0, r->top); y <= Min(canvas->height-1, r->bottom); y++) {
     for (x = Max(0, r->left); x <= Min(canvas->width-1, r->right); x++) {
-      if (InCanvas(canvas, x, y)) PixelAt(canvas, x, y) = color;
+      WritePixel(x, y, canvas);
     }
   }
 }
@@ -117,4 +117,10 @@ void Blit(u32 *pixels, i32 width, i32 height, i32 x, i32 y, Canvas *canvas)
     u32 *dst = canvas->buf + (y+i)*canvas->width + x;
     Copy(src, dst, width*sizeof(u32));
   }
+}
+
+void WritePixel(i32 x, i32 y, Canvas *canvas)
+{
+  if (!InCanvas(canvas, x, y)) return;
+  PixelAt(canvas, x, y) = canvas->pen.color;
 }

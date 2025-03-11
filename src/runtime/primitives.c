@@ -464,7 +464,7 @@ static u32 VMWritePixel(VM *vm)
   if (!IsInt(y)) return RuntimeError("Y must be an integer", vm);
   if (!IsInt(x)) return RuntimeError("X must be an integer", vm);
   color = *((u32*)BinaryData(color));
-  PixelAt(&w->canvas, RawInt(x), RawInt(y)) = color;
+  WritePixel(RawInt(x), RawInt(y), &w->canvas);
   return 0;
 }
 

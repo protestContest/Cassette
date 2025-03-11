@@ -161,7 +161,7 @@ static i32 DoString(char *str, FontRec *rec, Canvas *canvas)
           }
           for (bx = 0; bx < 16; bx++) {
             if ((word & (0x8000 >> bx)) && InCanvas(canvas, px, py)) {
-              PixelAt(canvas, px, py) = canvas->pen.color;
+              WritePixel(px, py, canvas);
             }
             px++;
           }
@@ -276,7 +276,7 @@ void DumpFont(Canvas *canvas)
         if (word & (0x8000 >> b)) {
           i32 px = (w*16+b) % canvas->width;
           i32 py = y + (w*16+b) / canvas->width * rec->rect_height;
-          PixelAt(canvas, px, py) = canvas->pen.color;
+          WritePixel(px, py, canvas);
         }
       }
     }

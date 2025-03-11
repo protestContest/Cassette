@@ -35,3 +35,4 @@ void LineTo(i32 x, i32 y, Canvas *canvas);
 void Line(i32 dx, i32 dy, Canvas *canvas);
 void FillRect(BBox *r, u32 color, Canvas *canvas);
 void Blit(u32 *src, i32 width, i32 height, i32 x, i32 y, Canvas *canvas);
+void WritePixel(i32 x, i32 y, Canvas *canvas);
