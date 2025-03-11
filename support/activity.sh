@@ -185,4 +185,4 @@ result=$(cat <<-EOF
 EOF
 )
 
-echo "$result"
+echo "$result" > support/site/activity.html

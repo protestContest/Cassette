@@ -254,7 +254,7 @@ void OpenWindow(CTWindow *window)
   window->data = info;
   screen = DefaultScreen(display);
   info->win = XCreateSimpleWindow(display, RootWindow(display, screen), 0, 0,
-      window->width, window->height, 0, BlackPixel(display, screen),
+      window->canvas.width, window->canvas.height, 0, BlackPixel(display, screen),
       WhitePixel(display, screen));
 
   info->gc = XCreateGC(display, info->win, 0, 0);
@@ -264,7 +264,7 @@ void OpenWindow(CTWindow *window)
   XMapWindow(display, info->win);
   XSync(display, info->win);
   info->img = XCreateImage(display, DefaultVisual(display, 0), 24, ZPixmap, 0,
-      (char *)window->buf, window->width, window->height, 32, 0);
+      (char *)window->canvas.buf, window->canvas.width, window->canvas.height, 32, 0);
 
   key = Hash(&info->win, sizeof(info->win));
   HashMapSet(&window_map, key, VecCount(windows));
@@ -284,8 +284,8 @@ void CloseWindow(CTWindow *window)
 void UpdateWindow(CTWindow *window)
 {
   XInfo *info = window->data;
-  XPutImage(display, info->win, info->gc, info->img, 0, 0, 0, 0, window->width,
-      window->height);
+  XPutImage(display, info->win, info->gc, info->img, 0, 0, 0, 0, window->canvas.width,
+      window->canvas.height);
   XFlush(display);
 }
 

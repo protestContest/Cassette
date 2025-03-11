@@ -10,8 +10,6 @@ typedef struct {
 CTWindow *NewWindow(char *title, i32 width, i32 height);
 
 enum {nullEvent, mouseDown, mouseUp, keyDown, keyUp, autoKey, quitEvent = 15};
-#ifdef __APPLE__
-#else
 enum {
   controlKey  = (1 << 12),
   optionKey   = (1 << 11),
@@ -20,7 +18,6 @@ enum {
   cmdKey      = (1 <<  8),
   btnState    = (1 <<  7)
 };
-#endif
 
 #define enterKey    0x03
 #define escapeKey   0x1B

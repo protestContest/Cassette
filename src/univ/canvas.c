@@ -78,7 +78,9 @@ void FillRect(BBox *r, u32 color, Canvas *canvas)
   i32 x, y;
   for (y = Max(0, r->top); y <= Min(canvas->height-1, r->bottom); y++) {
     for (x = Max(0, r->left); x <= Min(canvas->width-1, r->right); x++) {
-      WritePixel(x, y, canvas);
+      if (InCanvas(canvas, x, y)) {
+        PixelAt(canvas, x, y) = color;
+      }
     }
   }
 }

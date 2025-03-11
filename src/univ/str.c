@@ -1,7 +1,14 @@
 #include "univ/str.h"
 #include "univ/math.h"
 #include <string.h>
+
+#ifdef __APPLE__
 #include <malloc/malloc.h>
+#define PtrSize(x) malloc_size(x)
+#else
+#include <malloc.h>
+#define PtrSize(x) malloc_usable_size(x)
+#endif
 
 Span StrSpan(char *start, char *end)
 {
@@ -194,7 +201,7 @@ i16 ReadShortBE(void *src)
 
 char *TerminateString(char *str)
 {
-  i32 size = malloc_size(str);
+  i32 size = PtrSize(str);
   str = realloc(str, size+1);
   str[size] = 0;
   return str;

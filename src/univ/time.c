@@ -1,5 +1,6 @@
 #include "univ/time.h"
 #include <sys/time.h>
+#include <time.h>
 
 u32 Time(void)
 {
