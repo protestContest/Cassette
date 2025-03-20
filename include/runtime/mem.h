@@ -53,7 +53,6 @@ typedef struct {
   u32 *data;
   u32 *roots;
   u32 num_roots;
-  bool collecting;
 } Mem;
 
 void InitMem(u32 size);

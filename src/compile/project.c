@@ -9,11 +9,6 @@
 #include "univ/str.h"
 #include "univ/vec.h"
 
-#if PROFILE
-#include "univ/time.h"
-StatGroup *build_stats = 0;
-#endif
-
 static Error *FileNotFound(char *filename)
 {
   Error *error = NewError("File \"^\" not found", filename, 0, 0);

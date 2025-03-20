@@ -8,12 +8,6 @@
 
 static Mem mem = {0};
 
-#if PROFILE
-#include "runtime/stats.h"
-#include "univ/time.h"
-StatGroup *mem_stats = 0;
-#endif
-
 #define Save(v, n)      mem.tmp[n] = (v)
 #define Restore(v, n)   v = mem.tmp[n], mem.tmp[n] = 0
 
@@ -69,7 +63,7 @@ static u32 MemAlloc(u32 count)
   if (!mem.data) InitMem(MIN_CAPACITY);
   count = Max(2, count);
 
-  if (MemFree() < count && !mem.collecting) CollectGarbage();
+  if (MemFree() < count) CollectGarbage();
   if (MemFree() < count) {
     u32 needed = MemCapacity() + count - MemFree();
     SizeMem(Max(2*MemCapacity(), needed));
@@ -99,44 +93,41 @@ void SetMemRoots(u32 *roots, u32 num_roots)
   mem.num_roots = num_roots;
 }
 
-static u32 CopyObj(u32 value, u32 *oldmem)
+static u32 CopyObj(u32 value, u32 *oldmem, u32 *newmem, u32 *free)
 {
   static u32 moved = 0;
-  u32 index, i, len;
+  u32 index;
 
   if (!moved) moved = IntVal(Symbol("*moved*"));
   if (value == 0 || !IsObj(value)) return value;
+
   index = RawVal(value);
-  if (oldmem[index] == moved) {
-    return oldmem[index+1];
-  }
+
+  if (oldmem[index] == moved) return oldmem[index+1];
+
   if (IsBinHdr(oldmem[index])) {
     u32 obj_index;
-    len = RawVal(oldmem[index]);
-
-    obj_index = mem.free;
-    mem.free += BinSpace(len) + 1;
-    MemSet(obj_index, BinHeader(len));
+    u32 len = RawVal(oldmem[index]);
+    obj_index = *free;
+    *free += BinSpace(len) + 1;
+    newmem[obj_index] = BinHeader(len);
     value = ObjVal(obj_index);
-
-    Copy(oldmem+index+1, BinaryData(value), len);
+    Copy(oldmem+index+1, newmem+obj_index+1, len);
   } else if (IsTupleHdr(oldmem[index])) {
-    u32 obj_index = mem.free;
-    len = RawVal(oldmem[index]);
-    mem.free += len + 1;
-    MemSet(obj_index, TupleHeader(len));
+    u32 obj_index = *free;
+    u32 len = RawVal(oldmem[index]);
+    *free += len + 1;
+    newmem[obj_index] = TupleHeader(len);
     value = ObjVal(obj_index);
-
-    for (i = 0; i < len; i++) {
-      TupleSet(value, i, oldmem[index+i+1]);
-    }
+    Copy(oldmem+index+1, newmem+obj_index+1, len*sizeof(u32));
   } else {
-    u32 obj_index = mem.free;
-    mem.free += 2;
-    MemSet(obj_index, oldmem[index]);
-    MemSet(obj_index+1, oldmem[index+1]);
+    u32 obj_index = *free;
+    *free += 2;
+    newmem[obj_index] = oldmem[index];
+    newmem[obj_index+1] = oldmem[index+1];
     value = ObjVal(obj_index);
   }
+
   oldmem[index] = moved;
   oldmem[index+1] = value;
   return value;
@@ -147,12 +138,6 @@ void CollectGarbage(void)
   u32 i, scan;
   u32 *oldmem = mem.data;
 
-#if PROFILE
-  u64 start;
-  if (!mem_stats) mem_stats = NewStatGroup("Mem");
-  start = Ticks();
-#endif
-
   if (!mem.data) {
     InitMem(MIN_CAPACITY);
     return;
@@ -160,36 +145,35 @@ void CollectGarbage(void)
 
   /* fprintf(stderr, "GARBAGE DAY!!!\n"); */
 
-  mem.collecting = true;
   mem.data = malloc(mem.capacity*sizeof(u32));
   mem.data[0] = 0;
   mem.data[1] = 0;
   mem.free = 2;
 
   for (i = 0; i < mem.num_roots; i++) {
-    mem.roots[i] = CopyObj(mem.roots[i], oldmem);
+    mem.roots[i] = CopyObj(mem.roots[i], oldmem, mem.data, &mem.free);
   }
 
   for (i = mem.stack; i < mem.capacity; i++) {
-    mem.data[i] = CopyObj(oldmem[i], oldmem);
+    mem.data[i] = CopyObj(oldmem[i], oldmem, mem.data, &mem.free);
   }
 
-  mem.tmp[0] = CopyObj(mem.tmp[0], oldmem);
-  mem.tmp[1] = CopyObj(mem.tmp[1], oldmem);
+  mem.tmp[0] = CopyObj(mem.tmp[0], oldmem, mem.data, &mem.free);
+  mem.tmp[1] = CopyObj(mem.tmp[1], oldmem, mem.data, &mem.free);
 
   scan = 2;
   while (scan < mem.free) {
-    u32 next = MemGet(scan);
+    u32 next = mem.data[scan];
     if (IsBinHdr(next)) {
       scan += Max(2, BinSpace(RawVal(next)) + 1);
     } else if (IsTupleHdr(next)) {
       for (i = 0; i < RawVal(next); i++) {
-        MemSet(scan+1+i, CopyObj(MemGet(scan+1+i), oldmem));
+        mem.data[scan+i+1] = CopyObj(mem.data[scan+i+1], oldmem, mem.data, &mem.free);
       }
       scan += Max(2, RawVal(next) + 1);
     } else {
-      MemSet(scan, CopyObj(MemGet(scan), oldmem));
-      MemSet(scan+1, CopyObj(MemGet(scan+1), oldmem));
+      mem.data[scan] = CopyObj(mem.data[scan], oldmem, mem.data, &mem.free);
+      mem.data[scan+1] = CopyObj(mem.data[scan+1], oldmem, mem.data, &mem.free);
       scan += 2;
     }
   }
@@ -202,11 +186,6 @@ void CollectGarbage(void)
       MemFree() > MemCapacity()/4 + MemCapacity()/2) {
     SizeMem(MemCapacity()/2);
   }
-  mem.collecting = false;
-
-#if PROFILE
-  IncStat(mem_stats, "GC", start);
-#endif
 }
 
 u32 StackPush(u32 value)
