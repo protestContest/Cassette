@@ -386,26 +386,24 @@ void PackBits(void *src, i8 **dst, u32 len)
   }
 }
 
-void UnpackBits(void *src, void *dst, u32 len)
+void UnpackBits(i8 **src, u8 *dst, u32 len)
 {
-  i8 *bytes = src;
-  u8 *dstBytes = dst;
   while (len > 0) {
-    if (*bytes == -128) {
-      bytes++;
-    } else if (*bytes >= 0) {
-      u32 runLen = 1 + *bytes;
-      Copy(bytes + 1, dstBytes, runLen);
-      bytes += runLen + 1;
-      dstBytes += runLen;
+    if ((*src)[0] == -128) {
+      (*src)++;
+    } else if ((*src)[0] >= 0) {
+      u32 runLen = 1 + **src;
+      Copy(*src + 1, dst, runLen);
+      *src += runLen + 1;
+      dst += runLen;
       len -= runLen;
     } else {
-      u32 runLen = 1 - *bytes;
+      u32 runLen = 1 - (*src)[0];
       u32 i;
       for (i = 0; i < runLen; i++) {
-        *dstBytes++ = *(bytes+1);
+        *dst++ = (*src)[1];
       }
-      bytes += 2;
+      *src += 2;
       len -= runLen;
     }
   }

@@ -55,4 +55,4 @@ u32 StopCode(Compressor *c);
 
 /* Simple Macintosh-style RLE encoding */
 void PackBits(void *src, i8 **dst, u32 len);
-void UnpackBits(void *src, void *dst, u32 len);
+void UnpackBits(i8 **src, u8 *dst, u32 len);

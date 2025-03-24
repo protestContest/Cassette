@@ -2,6 +2,7 @@
 
 #define IsSpace(c)        ((c) == ' ' || (c) == '\t')
 #define IsNewline(c)      ((c) == '\n' || (c) == '\r')
+#define IsWhitespace(c)   (IsSpace(c) || IsNewline(c))
 #define IsDigit(c)        ((c) >= '0' && (c) <= '9')
 #define IsUppercase(c)    ((c) >= 'A' && (c) <= 'Z')
 #define IsLowercase(c)    ((c) >= 'a' && (c) <= 'z')
@@ -49,3 +50,6 @@ i32 ReadBE(void *bytes);
 i16 ReadShortBE(void *src);
 char *TerminateString(char *str);
 char *StuffHex(char *hex);
+
+bool ParseInt(char **str, i32 base, i32 *num);
+bool ParseFloat(char **str, float *num);

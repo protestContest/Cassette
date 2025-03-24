@@ -1,4 +1,4 @@
-#include "univ/font.h"
+#include "graphics/font.h"
 #include "univ/hashmap.h"
 #include "univ/math.h"
 #include "univ/res.h"
@@ -111,8 +111,8 @@ static i32 DoString(char *str, FontRec *rec, Canvas *canvas)
   i16 table_size;
   i16 ow;
   i16 font_type = rec->type & 0xFFFC;
-  i16 x = canvas ? canvas->pen.x : 0;
-  i16 y = canvas ? canvas->pen.y : 0;
+  i16 x = canvas ? canvas->pen.h : 0;
+  i16 y = canvas ? canvas->pen.v : 0;
 
   table_size = rec->last_char - rec->first_char + 2;
   bit_image = (i16*)(rec + 1);
@@ -185,7 +185,7 @@ void DrawString(char *str, Canvas *canvas)
 {
   FontRec *rec = LoadFont(canvas->text.font, canvas->text.size);
   if (!rec) return;
-  canvas->pen.x = DoString(str, rec, canvas);
+  canvas->pen.h = DoString(str, rec, canvas);
 }
 
 i32 StringWidth(char *str, Canvas *canvas)

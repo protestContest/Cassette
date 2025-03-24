@@ -91,9 +91,3 @@ u32 DisassembleInst(u8 *code /* vec */, u32 *index);
 void Disassemble(u8 *code /* vec */);
 
 void ExecOp(OpCode op, VM *vm);
-
-#if PROFILE
-#include "runtime/stats.h"
-extern StatGroup *op_stats;
-extern StatGroup *primitive_stats;
-#endif

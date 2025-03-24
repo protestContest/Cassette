@@ -1,10 +1,12 @@
 module Range
 import List
 
-record Range(first, last)
+def Range(first, last) first : last
+def first(range) @range
+def last(range) @range
 
 def reduce(range, acc, fn) do
-  def loop(i, acc) when i >= range.last, acc
+  def loop(i, acc) when i >= last(range), acc
   def loop(i, acc) loop(i+1, fn(i, acc))
   loop(0, acc)
 end
@@ -18,8 +20,8 @@ def for(first, last, fn) map(Range(first, last), fn)
 def disjoint?(range1, range2)
   range1.first >= range2.last or range1.last <= range2.first
 
-def size(range) range.last - range.first
+def size(range) last(range) - first(range)
 
-def split(range, index) when index < range.first, range
-def split(range, index) when index >= range.last, range
-def split(range, index) {Range(range.first, index), Range(index, range.last)}
+def split(range, index) when index < first(range), range
+def split(range, index) when index >= last(range), range
+def split(range, index) {Range(first(range), index), Range(index, last(range))}

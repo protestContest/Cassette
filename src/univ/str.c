@@ -235,3 +235,86 @@ char *StuffHex(char *hex)
   }
   return realloc(dst, len);
 }
+
+
+bool ParseInt(char **str, i32 base, i32 *num)
+{
+  i32 sign = 1;
+  char *start = *str;
+
+  if (**str == '+') (*str)++;
+  if (**str == '-') {
+    (*str)++;
+    sign = -1;
+  }
+
+  if (!IsDigit(**str)) {
+    *str = start;
+    return false;
+  }
+
+  *num = 0;
+  while (IsDigit(**str)) {
+    *num = *num * base + HexByte(**str);
+    (*str)++;
+  }
+
+  *num *= sign;
+  return true;
+}
+
+bool ParseFloat(char **str, float *num)
+{
+  bool sign = 1;
+  char *start = *str;
+  i32 whole;
+  i32 part = 0;
+  i32 div = 1;
+  i32 exp = 0;
+
+  if (**str == '+') (*str)++;
+  if (**str == '-') {
+    (*str)++;
+    sign = -1;
+  }
+
+  if (!ParseInt(str, 10, &whole)) {
+    *str = start;
+    return false;
+  }
+
+  if (**str == '.' && IsDigit((*str)[1])) {
+    (*str)++;
+    while (IsDigit(**str)) {
+      part = part * 10 + **str - '0';
+      div *= 10;
+      (*str)++;
+    }
+  }
+
+  if ((**str == 'e' || **str == 'E')) {
+    start = *str;
+    (*str)++;
+    if (!ParseInt(str, 10, &exp)) {
+      *str = start;
+      exp = 0;
+    }
+  }
+
+  *num = sign * ((float)whole + (float)part/div);
+
+  if (exp < 0) {
+    exp = -exp;
+    while (exp) {
+      *num /= 10;
+      exp--;
+    }
+  } else {
+    while (exp) {
+      *num *= 10;
+      exp--;
+    }
+  }
+
+  return true;
+}

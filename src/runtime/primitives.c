@@ -2,13 +2,13 @@
 #include "runtime/mem.h"
 #include "runtime/symbol.h"
 #include "univ/file.h"
-#include "univ/font.h"
+#include "graphics/font.h"
 #include "univ/math.h"
 #include "univ/res.h"
 #include "univ/str.h"
 #include "univ/time.h"
 #include "univ/vec.h"
-#include "univ/window.h"
+#include "graphics/window.h"
 
 static u32 IOError(char *msg, VM *vm)
 {
@@ -512,8 +512,7 @@ static u32 VMSetColor(VM *vm)
   if (!w) return RuntimeError("Invalid window reference", vm);
   if (!IsBinary(color)) return RuntimeError("Color must be a 32-bit RGBA binary", vm);
 
-  w->canvas.pen.color = *((u32*)BinaryData(color));
-  printf("%08X\n", w->canvas.pen.color);
+  w->canvas.color = *((u32*)BinaryData(color));
 
   return 0;
 }
@@ -609,7 +608,7 @@ static u32 VMFillRect(VM *vm)
 {
   CTWindow *w;
   u32 x0, y0, x1, y1, color;
-  BBox r;
+  Rect r;
 
   assert(StackSize() >= 5);
   w = VMGetRef(RawVal(StackPop()), vm);
@@ -685,8 +684,8 @@ static u32 VMGetPen(VM *vm)
   w = VMGetRef(RawVal(StackPeek(0)), vm);
   if (!w) return RuntimeError("Invalid window reference", vm);
   canvas = Tuple(2);
-  TupleSet(canvas, 0, IntVal(w->canvas.pen.x));
-  TupleSet(canvas, 1, IntVal(w->canvas.pen.y));
+  TupleSet(canvas, 0, IntVal(w->canvas.pen.h));
+  TupleSet(canvas, 1, IntVal(w->canvas.pen.v));
   StackPop();
   return canvas;
 }

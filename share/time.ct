@@ -1,9 +1,5 @@
 module Time
 
-record Date(year, month, day)
-record Time(hour, minute, second)
-record DateTime(date, time)
-
 def millis() Host.millis()
 
 ; def timestamp()

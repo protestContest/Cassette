@@ -1,5 +1,5 @@
 #pragma once
-#include "univ/canvas.h"
+#include "graphics/canvas.h"
 
 typedef struct {
   i16 ascent;

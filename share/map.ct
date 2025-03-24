@@ -1,5 +1,5 @@
 module Map
-import Record, Math (hash), Value (typeof, symbol?), List
+import Math (hash), Value (tuple?, symbol?), List
 
 ---
 a hash array mapped trie. each node has 16 "slots" and a bitmap of which slots
@@ -8,24 +8,26 @@ to slots based on 4 bits of their hash. on a collision, that slot is a sub-map
 that uses the next 4 hash bits.
 ---
 
-record Map(bits, entries)
+def Map(bits, entries) {:Map, bits, entries}
+def bits(map) map[1]
+def entries(map) map[2]
 
-def map?(map) Record.type(map) == :Map
+def map?(map) tuple?(map) and map[0] == :Map
 
 ; a map node stores its slot bitmap and its entries
 
 ; if the entries are nil, it's the empty map
-def empty?(map) map.entries == nil
+def empty?(map) entries(map) == nil
 def empty_map() Map(0, nil)
 
 ; if the entries are a pair, it's a leaf
-def leaf?(map) typeof(map.entries) == :pair
+def leaf?(map) Host.typeof(entries(map)) == :pair
 def leaf(key, value) Map(0, key : value)
-def leaf_key(leaf) @leaf.entries
-def leaf_value(leaf) ^leaf.entries
+def leaf_key(leaf) @entries(leaf)
+def leaf_value(leaf) ^entries(leaf)
 
 ; check if a slot is taken
-def slot_taken?(map, slot) map.bits & (1 << slot)
+def slot_taken?(map, slot) bits(map) & (1 << slot)
 
 ; the entry index is the number of taken slots below our slot
 def slot_index(bits, slot) Math.popcount(bits & ((1 << slot)-1))
@@ -38,9 +40,9 @@ def key_slot(key, depth) hash_slot(hash(key), depth)
 
 def replace_slot(map, slot, entry) do
   let
-    bits = map.bits,
+    bits = bits(map),
     index = slot_index(bits, slot),
-    entries = map.entries,
+    entries = entries(map),
     entries = entries[0,index] <> {entry} <> entries[index+1,#entries]
   Map(bits, entries)
 end
@@ -66,8 +68,8 @@ def put(map, key, value) do
   def put(map, depth, hash, entry) do
     let
       slot = hash_slot(hash, depth),
-      index = slot_index(map.bits, slot),
-      entries = map.entries
+      index = slot_index(bits(map), slot),
+      entries = entries(map)
     if
       slot_taken?(map, slot),
         replace_slot(map, slot, put(entries[index], depth+1, hash, entry))
@@ -84,9 +86,9 @@ def put(map, key, value) do
 
   def insert_slot(map, slot, entry) do
     let
-      bits = set_slot(map.bits, slot),
+      bits = set_slot(bits(map), slot),
       index = slot_index(bits, slot),
-      entries = map.entries,
+      entries = entries(map),
       entries = entries[0,index] <> {entry} <> entries[index,#entries]
     Map(bits, entries)
   end
@@ -104,8 +106,8 @@ def get(map, key, default) do
   def get(map, hash, key) do
     let slot = hash_slot(hash, 0)
     guard slot_taken?(map, slot) else default
-    let index = slot_index(map.bits, slot),
-        entries = map.entries
+    let index = slot_index(bits(map), slot),
+        entries = entries(map)
     get(entries[index], hash >> 4, key)
   end
 
@@ -124,8 +126,8 @@ def delete(map, key) do
   def delete(map, depth, key) do
     let slot = key_slot(key, depth)
     guard slot_taken?(map, slot) else map
-    let index = slot_index(map.bits, slot),
-        entries = map.entries,
+    let index = slot_index(bits(map), slot),
+        entries = entries(map),
         entry = delete(entries[index], depth+1, key)
     if
       empty?(entry), remove_slot(map, slot)
@@ -134,9 +136,9 @@ def delete(map, key) do
 
   def remove_slot(map, slot) do
     let
-      index = slot_index(map.bits, slot),
-      bits = unset_slot(map.bits, slot),
-      entries = map.entries,
+      index = slot_index(bits(map), slot),
+      bits = unset_slot(bits(map), slot),
+      entries = entries(map),
       entries = entries[0,index] <> entries[index+1,#entries]
     if #entries == 1 and leaf?(entries[0]), entries[0]
     else Map(bits, entries)
@@ -152,8 +154,8 @@ def contains?(map, key) do
   def contains?(map, hash, key) do
     let slot = hash_slot(hash, 0)
     guard slot_taken?(map, slot) else false
-    let index = slot_index(map.bits, slot),
-        entries = map.entries
+    let index = slot_index(bits(map), slot),
+        entries = entries(map)
     contains?(entries[index], hash >> 4, key)
   end
 
@@ -172,7 +174,7 @@ def reduce(map, result, fn) do
       entry_loop(entries, i+1, loop(entries[i], result))
     end
 
-    entry_loop(map.entries, 0, result)
+    entry_loop(entries(map), 0, result)
   end
 
   loop(map, result)
@@ -195,7 +197,7 @@ def merge(m1, m2)
 
 ; renders a map to a string
 def inspect(map) do
-  def inspect_key(key) when symbol?(key), symbol_name(key)
+  def inspect_key(key) when symbol?(key), Host.symbol_name(key)
   def inspect_key(key) inspect(key)
 
   let items = List.map(items(map), \item ->

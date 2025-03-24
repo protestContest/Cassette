@@ -32,8 +32,3 @@ Error *AddProjectFile(Project *project, char *filename);
 void ScanProjectFolder(Project *project, char *path);
 Error *ScanManifest(Project *project, char *path);
 Error *BuildProject(Project *project);
-
-#if PROFILE
-#include "runtime/stats.h"
-extern StatGroup *build_stats;
-#endif
