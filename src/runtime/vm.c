@@ -6,6 +6,8 @@
 #include "univ/str.h"
 #include "univ/vec.h"
 
+static void VMTrace(VM *vm);
+
 #define VMDone(vm) ((vm)->error || (vm)->pc >= VecCount((vm)->program->code))
 
 void InitVM(VM *vm, Program *program, Opts *opts)
@@ -38,6 +40,7 @@ void DestroyVM(VM *vm)
 
 void VMStep(VM *vm)
 {
+  if (vm->opts->debug) VMTrace(vm);
   ExecOp(vm->program->code[vm->pc], vm);
 }
 

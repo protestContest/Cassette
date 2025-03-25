@@ -59,8 +59,13 @@ end
 ; def find(list, test)
 ; def find_index(list, test)
 ; def find_value(list, fn)
-; def flatten(list)
-; def flatten_onto(list, tail)
+
+def flatten(list) do
+  def loop(list, flattened) when list == nil, flattened
+  def loop(list, flattened)
+    loop(^list, insert(flattened, #flattened, @list))
+  loop(list, nil)
+end
 
 def head(list) @list
 

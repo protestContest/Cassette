@@ -96,11 +96,8 @@ u32 FormatVal(u32 value); /* may GC */
 
 bool ValEq(u32 a, u32 b);
 u32 HashVal(u32 a);
-u32 InspectVal(u32 value);
 char *MemValStr(u32 value);
 
 #ifdef DEBUG
-#include "runtime/stats.h"
-extern StatGroup *mem_stats;
 void DumpMem(void);
 #endif

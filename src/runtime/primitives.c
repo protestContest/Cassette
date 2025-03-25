@@ -347,7 +347,8 @@ static u32 VMTime(VM *vm)
 
 static u32 VMMillis(VM *vm)
 {
-  return IntVal(Microtime()/1000);
+  i32 t = Microtime()/1000;
+  return IntVal(t);
 }
 
 static u32 VMNewWindow(VM *vm)

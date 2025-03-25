@@ -1,6 +1,7 @@
 #include "graphics/window.h"
 #include "univ/math.h"
 #include "univ/hashmap.h"
+#include "univ/time.h"
 #include "univ/vec.h"
 
 enum {running, quitting, done};
@@ -145,7 +146,7 @@ void NextEvent(Event *event)
   u32 key;
   NSUInteger mod, evtype, len;
   CGPoint xy;
-  CFTimeInterval timestamp;
+  /*CFTimeInterval timestamp;*/
   id chars;
   Event _;
 
@@ -153,16 +154,10 @@ void NextEvent(Event *event)
 
   event->what = nullEvent;
   event->message.window = 0;
-  event->when = 0;
+  event->when = Microtime() / 1000;
   event->where.x = 0;
   event->where.y = 0;
   event->modifiers = 0;
-
-  if (state == quitting) {
-    event->what = quitEvent;
-    state = done;
-    return;
-  }
 
   ev = msg4(id, NSApp, "nextEventMatchingMask:untilDate:inMode:dequeue:",
     NSUInteger, NSUIntegerMax, id, NULL, id, NSDefaultRunLoopMode, BOOL, YES);
@@ -170,8 +165,15 @@ void NextEvent(Event *event)
 
   evtype = msg(NSUInteger, ev, "type");
 
-  timestamp = msg(CFTimeInterval, ev, "timestamp");
-  event->when = (i32)(timestamp * 1000);
+  /*timestamp = msg(CFTimeInterval, ev, "timestamp");*/
+  /*event->when = (i32)(timestamp * 1000);*/
+
+  if (state == quitting) {
+    event->what = quitEvent;
+    state = done;
+    return;
+  }
+
   win = msg(id, ev, "window");
   key = Hash(&win, sizeof(id));
   if (HashMapContains(&window_map, key)) {

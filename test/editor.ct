@@ -1,0 +1,191 @@
+import Sketch, Window, Graphics (Rect), IO, Time, List, Math
+
+record Cursor(line, col, time, rate)
+record TextEdit(lines, cursor, bounds, window)
+
+def empty_text(bounds, rate, window) TextEdit({""}, Cursor(0, 0, 0, rate), bounds, window)
+
+def set_cursor_time(te, time)
+  TextEdit(te.lines,
+           Cursor(te.cursor.line, te.cursor.col, time, te.cursor.rate),
+           te.bounds,
+           te.window)
+
+def set_cursor(te, line, col)
+  TextEdit(te.lines,
+           Cursor(line, col, te.cursor.time, te.cursor.rate),
+           te.bounds,
+           te.window)
+
+def erase_cursor(te) do
+  Window.set_color(Window.white(), te.window)
+  draw_cursor(te)
+  Window.set_color(Window.black(), te.window)
+end
+
+def draw_cursor(te) do
+  let font = Window.font_info(te.window)
+  let line = te.lines[te.cursor.line]
+  let x = te.bounds.left + Window.string_width(line[0, te.cursor.col], te.window)
+  Window.move_to(x, te.bounds.top + te.cursor.line*font.line_height, te.window)
+  Window.line(0, font.ascent + font.descent, te.window)
+end
+
+def update_cursor(te, time) when time - te.cursor.time > te.cursor.rate, do
+  erase_cursor(te)
+  set_cursor_time(te, time)
+end
+
+def update_cursor(te, time) when time - te.cursor.time > te.cursor.rate/2, do
+  draw_cursor(te)
+  te
+end
+
+def update_cursor(te, time) te
+
+def set_line(te, line, str) do
+  let lines = te.lines[0, line] <> {str} <> te.lines[line+1, #te.lines]
+  TextEdit(lines, te.cursor, te.bounds, te.window)
+end
+
+def set_lines(te, lines) TextEdit(lines, te.cursor, te.bounds, te.window)
+
+def draw_line(line, te) do
+  let font = Window.font_info(te.window)
+  let rect = Rect(te.bounds.left, te.bounds.top + line*font.line_height,
+                  te.bounds.right, te.bounds.top + (line+1)*font.line_height)
+  Window.fill_rect(rect, Window.white(), te.window)
+  Window.move_to(te.bounds.left, te.bounds.top + line*font.line_height + font.ascent, te.window)
+  Window.draw_string(te.lines[line], te.window)
+end
+
+def draw_lines_from(line, te) do
+  let font = Window.font_info(te.window)
+  let rect = Rect(te.bounds.left, te.bounds.top + line * font.line_height, te.window.width, te.window.height)
+  Window.fill_rect(rect, Window.white(), te.window)
+  do
+    def loop(line) when line == #te.lines, nil
+    def loop(line) do
+      Window.move_to(te.bounds.left, te.bounds.top + line * font.line_height + font.ascent, te.window)
+      Window.draw_string(te.lines[line], te.window)
+      loop(line+1)
+    end
+
+    loop(line)
+  end
+end
+
+def te_move(dir, te) when dir == left(), do
+  erase_cursor(te)
+  if
+    te.cursor.col > 0,
+      set_cursor(te, te.cursor.line, te.cursor.col - 1)
+    te.cursor.line > 0,
+      set_cursor(te, te.cursor.line - 1, #te.lines[te.cursor.line - 1])
+    else
+      te
+end
+
+def te_move(dir, te) when dir == right(), do
+  erase_cursor(te)
+  if
+    te.cursor.col < #te.lines[te.cursor.line],
+      set_cursor(te, te.cursor.line, te.cursor.col + 1)
+    te.cursor.line < #te.lines - 1,
+      set_cursor(te, te.cursor.line + 1, 0)
+    else
+      te
+end
+
+def te_move(dir, te) when dir == up(), do
+  erase_cursor(te)
+  if te.cursor.line > 0,
+      set_cursor(te, te.cursor.line - 1, Math.min(te.cursor.col, #te.lines[te.cursor.line - 1]))
+  else
+    te
+end
+
+def te_move(dir, te) when dir == down(), do
+  erase_cursor(te)
+  if te.cursor.line < #te.lines - 1,
+      set_cursor(te, te.cursor.line + 1, Math.min(te.cursor.col, #te.lines[te.cursor.line + 1]))
+  else
+    te
+end
+
+def te_move(dir, te) te
+
+def te_key(key, te) when printable?(key), do
+  let line = te.lines[te.cursor.line]
+  let line = Host.format([line[0, te.cursor.col], key, line[te.cursor.col, #line]])
+  let te = set_line(te, te.cursor.line, line)
+  erase_cursor(te)
+  draw_line(te.cursor.line, te)
+  set_cursor(te, te.cursor.line, te.cursor.col + 1)
+end
+
+def te_key(key, te) when key == 0x7F, do
+  if te.cursor.col == 0, delete_line(te)
+  else backspace(te)
+end
+
+def te_key(key, te) when newline?(key), do
+  erase_cursor(te)
+  let te = set_cursor(te, te.cursor.line + 1, 0)
+  let lines = te.lines[0, te.cursor.line] <> {""} <> te.lines[te.cursor.line, #te.lines]
+  let te = set_lines(te, lines)
+  draw_lines_from(te.cursor.line, te)
+  te
+end
+
+def te_key(key, te) te
+
+def backspace(te) do
+  erase_cursor(te)
+  let line = te.lines[te.cursor.line]
+  let line = Host.format([line[0, te.cursor.col-1], line[te.cursor.col, #line]])
+  let te = set_line(te, te.cursor.line, line)
+  let te = set_cursor(te, te.cursor.line, te.cursor.col - 1)
+  draw_line(te.cursor.line, te)
+  te
+end
+
+def delete_line(te) when te.cursor.line == 0, te
+
+def delete_line(te) do
+  erase_cursor(te)
+  let line = te.lines[te.cursor.line - 1]
+  let te = set_cursor(te, te.cursor.line - 1, #line)
+  let line = te.lines[te.cursor.line] <> te.lines[te.cursor.line+1]
+  let lines = te.lines[0, te.cursor.line] <> {line} <> te.lines[te.cursor.line+2, #te.lines]
+  let te = set_lines(te, lines)
+  draw_lines_from(te.cursor.line, te)
+  te
+end
+
+def printable?(ch) when ch < $\s, false
+def printable?(ch) when ch >= 0x7F, false
+def printable?(ch) true
+
+def newline?(ch) ch == $\n or ch == $\r
+
+def left()  0x7B
+def right() 0x7C
+def down()  0x7D
+def up()    0x7E
+def arrow?(ch) ch >= left() and ch <= up()
+
+def update(event, te, window) do
+  let te = update_cursor(te, event.time)
+  if event.what == :keyDown,
+    if arrow?(event.message >> 8), te_move(event.message >> 8, te)
+    else te_key(event.message & 0xFF, te)
+  else te
+end
+
+
+Host.use_resources("support/Fonts")
+let window = Window.open("Edit", 630, 380)
+Window.set_font("Helvetica", 18, window)
+
+Sketch.run(window, update, empty_text(Rect(10, 10, window.width-20, window.height-20), 1000, window))

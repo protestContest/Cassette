@@ -109,17 +109,16 @@ static u32 CopyObj(u32 value, u32 *oldmem, u32 *newmem, u32 *free)
     u32 obj_index;
     u32 len = RawVal(oldmem[index]);
     obj_index = *free;
-    *free += BinSpace(len) + 1;
+    *free += Max(1, BinSpace(len)) + 1;
     newmem[obj_index] = BinHeader(len);
     value = ObjVal(obj_index);
     Copy(oldmem+index+1, newmem+obj_index+1, len);
   } else if (IsTupleHdr(oldmem[index])) {
     u32 obj_index = *free;
-    u32 len = RawVal(oldmem[index]);
+    u32 len = Max(1, RawVal(oldmem[index]));
     *free += len + 1;
-    newmem[obj_index] = TupleHeader(len);
+    Copy(oldmem+index, newmem+obj_index, (len+1)*sizeof(u32));
     value = ObjVal(obj_index);
-    Copy(oldmem+index+1, newmem+obj_index+1, len*sizeof(u32));
   } else {
     u32 obj_index = *free;
     *free += 2;
@@ -353,7 +352,7 @@ u32 BinarySlice(u32 bin, u32 start, u32 end)
   u32 slice;
   Save(bin, 0);
   slice = NewBinary(Min(len, ObjLength(bin)));
-  Restore(bin, 1);
+  Restore(bin, 0);
 
   Copy(BinaryData(bin)+start, BinaryData(slice), ObjLength(slice));
   return slice;

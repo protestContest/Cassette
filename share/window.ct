@@ -53,6 +53,14 @@ def fill_rect(rect, color, window)
   Host.fill_rect(rect.left, rect.top, rect.right, rect.bottom, color, window.ref)
 def blit(data, width, height, x, y, window) Host.blit(data, width, height, x, y, window.ref)
 
+def frame_rect(rect, window) do
+  move_to(rect.left, rect.top, window)
+  line_to(rect.right, rect.top, window)
+  line_to(rect.right, rect.bottom, window)
+  line_to(rect.left, rect.bottom, window)
+  line_to(rect.left, rect.top, window)
+end
+
 def draw_line(x0, y0, x1, y1, window) do
   move_to(x0, y0, window)
   line_to(x1, y1, window)

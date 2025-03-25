@@ -351,8 +351,13 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
         return NewNode(intNode, start, end, value);
       }
       return node;
-    default:
+    default: {
+      u32 i;
+      for (i = 0; i < NodeCount(node); i++) {
+        NodeChild(node, i) = SimplifyNode(NodeChild(node, i), env);
+      }
       return node;
+    }
     }
   }
 
