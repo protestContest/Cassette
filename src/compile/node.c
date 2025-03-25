@@ -357,9 +357,11 @@ ASTNode *SimplifyNode(ASTNode *node, Env *env)
   }
 
   case refNode: {
-    ASTNode *obj = NodeChild(node, 0);
-    ASTNode *arg = NodeChild(node, 1);
-    ASTNode *call, *args;
+    ASTNode *obj, *arg, *call, *args;
+    NodeChild(node, 0) = SimplifyNode(NodeChild(node, 0), env);
+    NodeChild(node, 1) = SimplifyNode(NodeChild(node, 1), env);
+    obj = NodeChild(node, 0);
+    arg = NodeChild(node, 1);
     if (obj->nodeType == idNode) {
       i32 pos = EnvFind(NodeValue(obj), env);
       if (pos < 0) return node;

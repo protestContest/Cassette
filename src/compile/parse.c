@@ -788,6 +788,37 @@ static ASTNode *RecordBody(ASTNode *params, Parser *p)
 
 static ASTNode *ParseRecord(Parser *p)
 {
+  /*
+  record Foo(x, y)
+
+  def Foo(x, y)
+    \field ->
+      if field == :x, x
+         field == :y, y
+         else panic!("Key not found in record")
+
+  assign
+    id Foo
+    lambda
+      list
+        id x
+        id y
+      lambda
+        list
+          id field
+        if
+          eq
+            id field
+            sym x
+          id field
+          if
+            eq
+              id field
+              sym y
+            id y
+            panic
+              sym "Key not found in record"
+  */
   ASTNode *node = MakeNode(assignNode, p);
   ASTNode *id, *lambda, *params, *body;
   assert(MatchToken(recordToken, p));
