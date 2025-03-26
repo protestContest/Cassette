@@ -3,13 +3,11 @@
 #include "univ/hashmap.h"
 #include "univ/math.h"
 #include "univ/str.h"
+#include "univ/vec.h"
 
 #define MIN_CAPACITY  1000000
 
 static Mem mem = {0};
-
-#define Save(v, n)      mem.tmp[n] = (v)
-#define Restore(v, n)   v = mem.tmp[n], mem.tmp[n] = 0
 
 void InitMem(u32 size)
 {
@@ -17,13 +15,11 @@ void InitMem(u32 size)
   mem.data = malloc(size*sizeof(u32));
   mem.capacity = size;
   mem.free = 2;
-  mem.stack = size;
+  mem.stack = 0;
   mem.data[0] = 0;
   mem.data[1] = 0;
   mem.roots = 0;
   mem.num_roots = 0;
-  mem.tmp[0] = 0;
-  mem.tmp[1] = 0;
 }
 
 void DestroyMem(void)
@@ -35,26 +31,21 @@ void DestroyMem(void)
   mem.stack = 0;
 }
 
-void SizeMem(u32 size)
+static void SizeMem(u32 size)
 {
-  u32 stack_size = StackSize();
-  u32 *stack = malloc(sizeof(u32)*stack_size);
-  Copy(mem.data + mem.stack, stack, sizeof(u32)*stack_size);
   mem.data = realloc(mem.data, sizeof(u32)*size);
-  mem.stack = size - stack_size;
-  Copy(stack, mem.data + mem.stack, sizeof(u32)*stack_size);
   mem.capacity = size;
-  free(stack);
 }
 
-u32 MemCapacity(void)
+static u32 MemCapacity(void)
 {
   return mem.capacity;
 }
 
-u32 MemFree(void)
+static u32 MemFree(void)
 {
-  return mem.stack - mem.free;
+  assert(mem.capacity >= mem.free);
+  return mem.capacity - mem.free;
 }
 
 static u32 MemAlloc(u32 count)
@@ -153,12 +144,9 @@ void CollectGarbage(void)
     mem.roots[i] = CopyObj(mem.roots[i], oldmem, mem.data, &mem.free);
   }
 
-  for (i = mem.stack; i < mem.capacity; i++) {
-    mem.data[i] = CopyObj(oldmem[i], oldmem, mem.data, &mem.free);
+  for (i = 0; i < VecCount(mem.stack); i++) {
+    mem.stack[i] = CopyObj(mem.stack[i], oldmem, mem.data, &mem.free);
   }
-
-  mem.tmp[0] = CopyObj(mem.tmp[0], oldmem, mem.data, &mem.free);
-  mem.tmp[1] = CopyObj(mem.tmp[1], oldmem, mem.data, &mem.free);
 
   scan = 2;
   while (scan < mem.free) {
@@ -189,36 +177,38 @@ void CollectGarbage(void)
 
 u32 StackPush(u32 value)
 {
-  if (mem.stack <= mem.free) {
-    Save(value, 0);
-    CollectGarbage();
-    Restore(value, 0);
-  }
-  assert(mem.stack > mem.free);
-  mem.data[--mem.stack] = value;
+  VecPush(mem.stack, value);
   return value;
 }
 
 u32 StackPop(void)
 {
-  assert(mem.stack < mem.capacity);
-  return mem.data[mem.stack++];
+  assert(StackSize() > 0);
+  return VecPop(mem.stack);
 }
 
 u32 StackPeek(u32 index)
 {
   assert(StackSize() > index);
-  return mem.data[mem.stack + index];
+  return mem.stack[VecCount(mem.stack) - 1 - index];
 }
 
 u32 StackSize(void)
 {
-  return mem.capacity - mem.stack;
+  return VecCount(mem.stack);
 }
 
 u32 Pair(u32 head, u32 tail)
 {
-  i32 index = MemAlloc(2);
+  i32 index;
+  if (MemFree() < 2) {
+    StackPush(head);
+    StackPush(tail);
+    CollectGarbage();
+    tail = StackPop();
+    head = StackPop();
+  }
+  index = MemAlloc(2);
   MemSet(index, head);
   MemSet(index+1, tail);
   return ObjVal(index);
@@ -264,11 +254,11 @@ u32 TupleJoin(u32 left, u32 right)
 {
   u32 i;
   u32 tuple;
-  Save(left, 0);
-  Save(right, 1);
+  StackPush(left);
+  StackPush(right);
   tuple = Tuple(ObjLength(left) + ObjLength(right));
-  Restore(left, 0);
-  Restore(right, 1);
+  right = StackPop();
+  left = StackPop();
 
   for (i = 0; i < ObjLength(left); i++) {
     TupleSet(tuple, i, TupleGet(left, i));
@@ -285,9 +275,9 @@ u32 TupleSlice(u32 tuple, u32 start, u32 end)
   u32 len = (end > start) ? end - start : 0;
   u32 slice;
 
-  Save(tuple, 0);
+  StackPush(tuple);
   slice = Tuple(Min(len, ObjLength(tuple)));
-  Restore(tuple, 0);
+  tuple = StackPop();
 
   for (i = 0; i < ObjLength(slice); i++) {
     TupleSet(slice, i, TupleGet(tuple, i + start));
@@ -335,11 +325,11 @@ void BinarySet(u32 bin, u32 index, u32 value)
 u32 BinaryJoin(u32 left, u32 right)
 {
   u32 bin;
-  Save(left, 0);
-  Save(right, 1);
+  StackPush(left);
+  StackPush(right);
   bin = NewBinary(ObjLength(left) + ObjLength(right));
-  Restore(left, 0);
-  Restore(right, 1);
+  right = StackPop();
+  left = StackPop();
 
   Copy(BinaryData(left), BinaryData(bin), ObjLength(left));
   Copy(BinaryData(right), BinaryData(bin) + ObjLength(left), ObjLength(right));
@@ -350,9 +340,9 @@ u32 BinarySlice(u32 bin, u32 start, u32 end)
 {
   u32 len = (end > start) ? end - start : 0;
   u32 slice;
-  Save(bin, 0);
+  StackPush(bin);
   slice = NewBinary(Min(len, ObjLength(bin)));
-  Restore(bin, 0);
+  bin = StackPop();
 
   Copy(BinaryData(bin)+start, BinaryData(slice), ObjLength(slice));
   return slice;
@@ -423,9 +413,9 @@ u32 FormatVal(u32 value)
   u32 size, bin;
   if (IsBinary(value)) return value;
   size = FormatSize(value);
-  Save(value, 0);
+  StackPush(value);
   bin = NewBinary(size);
-  Restore(value, 0);
+  value = StackPop();
   FormatValInto(value, (u8*)BinaryData(bin));
   return bin;
 }

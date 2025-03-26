@@ -66,5 +66,5 @@ def random_line(window)
 
 
 let window = Window.open("Lines", 500, 500)
-let state = List.fill(500, \i -> random_line(window))
+let state = List.fill(100, \i -> random_line(window))
 Sketch.animate(window, draw, state)

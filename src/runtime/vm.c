@@ -90,7 +90,6 @@ Error *VMRun(Program *program, Opts *opts)
     for (i = 0; i < num_width; i++) fprintf(stderr, "─");
     fprintf(stderr, "┬─inst─────────stack───────────────\n");
     while (!VMDone(&vm)) {
-      VMTrace(&vm);
       VMStep(&vm);
     }
     for (i = 0; i < 20; i++) fprintf(stderr, " ");

@@ -48,8 +48,7 @@ enum {objType, intType, tupleHdr, binHdr};
 typedef struct {
   u32 capacity;
   u32 free;
-  u32 stack;
-  u32 tmp[2];
+  u32 *stack; /* vec */
   u32 *data;
   u32 *roots;
   u32 num_roots;
@@ -57,9 +56,6 @@ typedef struct {
 
 void InitMem(u32 size);
 void DestroyMem(void);
-void SizeMem(u32 size);
-u32 MemCapacity(void);
-u32 MemFree(void);
 void SetMemRoots(u32 *roots, u32 num_roots);
 void CollectGarbage(void);
 

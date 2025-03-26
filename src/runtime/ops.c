@@ -157,7 +157,6 @@ static void OpLookup(VM *vm)
 {
   u32 n = ReadLEB(++vm->pc, vm->program->code);
   u32 env;
-  assert(StackSize() >= 1);
   env = StackPop();
   while (env) {
     u32 frame = Head(env);
@@ -179,7 +178,6 @@ static void OpDefine(VM *vm)
 {
   u32 n = ReadLEB(++vm->pc, vm->program->code);
   u32 env, value;
-  assert(StackSize() >= 2);
   value = StackPop();
   env = StackPop();
   while (env) {
@@ -208,7 +206,6 @@ static void OpPos(VM *vm)
 static void OpGoto(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   assert(IsInt(a));
   assert(RawInt(a) >= 0 && RawInt(a) < (i32)VecCount(vm->program->code));
@@ -232,7 +229,6 @@ static void OpBranch(VM *vm)
   u32 a;
   i32 n = ReadLEB(++vm->pc, vm->program->code);
   vm->pc += LEBSize(n);
-  assert(StackSize() >= 1);
 
   a = StackPop();
   if (RawVal(a)) {
@@ -254,7 +250,6 @@ static void OpPush(VM *vm)
 static void OpPull(VM *vm)
 {
   i32 n = ReadLEB(++vm->pc, vm->program->code);
-  assert(StackSize() >= 1);
   vm->regs[n] = StackPop();
   vm->pc++;
 }
@@ -269,7 +264,6 @@ static void OpLink(VM *vm)
 static void OpUnlink(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsInt(a)) {
     RuntimeError("Invalid stack link", vm);
@@ -282,7 +276,6 @@ static void OpUnlink(VM *vm)
 static void OpAdd(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -296,7 +289,6 @@ static void OpAdd(VM *vm)
 static void OpSub(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -310,7 +302,6 @@ static void OpSub(VM *vm)
 static void OpMul(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -324,7 +315,6 @@ static void OpMul(VM *vm)
 static void OpDiv(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -342,7 +332,6 @@ static void OpDiv(VM *vm)
 static void OpRem(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -360,7 +349,6 @@ static void OpRem(VM *vm)
 static void OpAnd(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -374,7 +362,6 @@ static void OpAnd(VM *vm)
 static void OpOr(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -388,7 +375,6 @@ static void OpOr(VM *vm)
 static void OpComp(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsInt(a)) {
     RuntimeError("Only integers can be complemented", vm);
@@ -401,7 +387,6 @@ static void OpComp(VM *vm)
 static void OpLt(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -415,7 +400,6 @@ static void OpLt(VM *vm)
 static void OpGt(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -429,7 +413,6 @@ static void OpGt(VM *vm)
 static void OpEq(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   StackPush(IntVal(ValEq(a, b)));
@@ -439,7 +422,6 @@ static void OpEq(VM *vm)
 static void OpNeg(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsInt(a)) {
     RuntimeError("Only integers can be negated", vm);
@@ -452,7 +434,6 @@ static void OpNeg(VM *vm)
 static void OpNot(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   StackPush(IntVal(RawVal(a) == 0));
   vm->pc++;
@@ -461,7 +442,6 @@ static void OpNot(VM *vm)
 static void OpShift(VM *vm)
 {
   i32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -481,7 +461,6 @@ static void OpShift(VM *vm)
 static void OpXor(VM *vm)
 {
   i32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(a) || !IsInt(b)) {
@@ -501,7 +480,6 @@ static void OpDup(VM *vm)
 
 static void OpDrop(VM *vm)
 {
-  assert(StackSize() >= 1);
   StackPop();
   vm->pc++;
 }
@@ -509,7 +487,6 @@ static void OpDrop(VM *vm)
 static void OpSwap(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   StackPush(b);
@@ -527,7 +504,6 @@ static void OpOver(VM *vm)
 static void OpRot(VM *vm)
 {
   u32 a, b, c;
-  assert(StackSize() >= 3);
   c = StackPop();
   b = StackPop();
   a = StackPop();
@@ -556,7 +532,6 @@ static void OpPair(VM *vm)
 {
   u32 a, b;
 
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   StackPush(Pair(b, a));
@@ -566,7 +541,6 @@ static void OpPair(VM *vm)
 static void OpHead(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsPair(a)) {
     RuntimeError("Only pairs have heads", vm);
@@ -579,7 +553,6 @@ static void OpHead(VM *vm)
 static void OpTail(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsPair(a)) {
     RuntimeError("Only pairs have tails", vm);
@@ -599,7 +572,6 @@ static void OpTuple(VM *vm)
 static void OpLen(VM *vm)
 {
   u32 a;
-  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsTuple(a) && !IsBinary(a)) {
     RuntimeError("Only tuples and binaries have lengths", vm);
@@ -612,7 +584,6 @@ static void OpLen(VM *vm)
 static void OpGet(VM *vm)
 {
   u32 a, b;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (!IsInt(b)) {
@@ -637,7 +608,6 @@ static void OpGet(VM *vm)
 static void OpSet(VM *vm)
 {
   u32 a, b, c;
-  assert(StackSize() >= 3);
   c = StackPop();
   b = StackPop();
   a = StackPop();
@@ -666,7 +636,6 @@ static void OpStr(VM *vm)
   char *name;
   u32 a;
 
-  assert(StackSize() >= 1);
   a = StackPop();
   if (!IsInt(a)) {
     RuntimeError("Only symbols can become strings", vm);
@@ -684,7 +653,6 @@ static void OpStr(VM *vm)
 static void OpJoin(VM *vm)
 {
   u32 a, b, obj = 0;
-  assert(StackSize() >= 2);
   b = StackPop();
   a = StackPop();
   if (ValType(a) != ValType(b)) {
@@ -716,7 +684,6 @@ static void OpJoin(VM *vm)
 static void OpSlice(VM *vm)
 {
   u32 a, b, c, obj = 0;
-  assert(StackSize() >= 3);
   c = StackPop();
   b = StackPop();
   a = StackPop();
@@ -748,7 +715,6 @@ static void OpTrap(VM *vm)
   value = PrimitiveFn(id)(vm);
   if (vm->error) return;
 
-  assert(MemFree() > 0);
   StackPush(value);
   vm->pc += LEBSize(id) + 1;
 }
