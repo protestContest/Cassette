@@ -5,6 +5,7 @@
 #define MaxUInt           ((u32)0xFFFFFFFF)
 #define Abs(n)            (((n) ^ ((n) >> 31)) - ((n) >> 31))
 #define Align(n, m)       ((n) == 0 ? 0 : ((((n) - 1) / (m) + 1) * (m)))
+#define RotateLeft(n, b)  ((((u32)(n)) << (b)) | (((u32)(n)) >> (32 - (b))))
 #define RightZeroBit(x)   (~(x) & ((x) + 1))
 
 u32 NumDigits(i32 num, u32 base);
