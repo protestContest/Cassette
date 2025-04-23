@@ -9,6 +9,7 @@
 #define GrowVec(vec, num)     (VecMakeRoom(vec, Max(1, num)), RawVecCount(vec) += num)
 #define VecEnd(vec)           &(vec[RawVecCount(vec)])
 #define VecTrunc(vec,n)       ((vec) ? RawVecCount(vec) = (n),0 : 0)
+#define VecDelete(vec,i)      (DoVecDelete((u8*)vec, i, sizeof(*(vec))), RawVecCount(vec)--)
 
 #define RawVec(vec)           (((u32 *)vec) - 2)
 #define RawVecCap(vec)        RawVec(vec)[0]
@@ -17,4 +18,5 @@
 #define VecMakeRoom(vec, n)   (VecHasRoom(vec, n) ? 0 : DoVecGrow(vec, n))
 #define DoVecGrow(vec, n)     (*((void **)&(vec)) = ResizeVec((vec), (n), sizeof(*(vec))/* NOLINT */))
 
-void *ResizeVec(void *vec, u32 num_items, u32 item_size);
+void *ResizeVec(void *vec, u32 numItems, u32 itemSize);
+void DoVecDelete(u8 *vec, u32 index, u32 itemSize);

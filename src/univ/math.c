@@ -2,6 +2,12 @@
 #include "univ/bitstream.h"
 #include "univ/str.h"
 
+bool IsBigEndian(void)
+{
+  int n = 1;
+  return ((u8*)&n)[0] == 0;
+}
+
 u32 NumDigits(i32 num, u32 base)
 {
   u32 n = 0;

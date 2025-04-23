@@ -5,8 +5,15 @@
 #define MaxUInt           ((u32)0xFFFFFFFF)
 #define Abs(n)            (((n) ^ ((n) >> 31)) - ((n) >> 31))
 #define Align(n, m)       ((n) == 0 ? 0 : ((((n) - 1) / (m) + 1) * (m)))
-#define RotateLeft(n, b)  ((((u32)(n)) << (b)) | (((u32)(n)) >> (32 - (b))))
+#define RotL(n, b)        ((((u32)(n)) << (b)) | (((u32)(n)) >> (32 - (b))))
+#define RotR(n, b)        ((((u32)(n)) >> (b)) | (((u32)(n)) << (32 - (b))))
 #define RightZeroBit(x)   (~(x) & ((x) + 1))
+#define SwapBytes(n)      ((((n)<<24)&0xFF000000)|\
+                           (((n)<< 8)&0x00FF0000)|\
+                           (((n)>> 8)&0x0000FF00)|\
+                           (((n)>>24)&0x000000FF))
+
+bool IsBigEndian(void);
 
 u32 NumDigits(i32 num, u32 base);
 void SeedRandom(u32 seed);
