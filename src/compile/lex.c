@@ -26,16 +26,6 @@ static bool MatchKeyword(char *test, char *str)
   return !IsSymChar(*str);
 }
 
-static bool Match(char *test, char *str)
-{
-  while (*test && *str) {
-    if (*test != *str) return false;
-    str++;
-    test++;
-  }
-  return *test == 0;
-}
-
 typedef struct {
   char *lexeme;
   TokenType type;

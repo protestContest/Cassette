@@ -88,6 +88,13 @@ char *FormatString(char *format, char *str)
     if (format[start] == '^') break;
   }
   if (start == len_format) return format;
+
+  if (len_str == 0) {
+    Copy(format + start + 1, format + start, len_format - start - 1);
+    format[len_format-1] = 0;
+    return format;
+  }
+
   len_result = len_format - 1 + len_str;
 
   format = realloc(format, len_result + 1);
@@ -236,6 +243,35 @@ char *StuffHex(char *hex)
   return realloc(dst, len);
 }
 
+void WriteHex(void *data, u32 len, char *buf)
+{
+  u8 *src = (u8*)data;
+  char *cur = buf;
+  u32 i;
+  for (i = 0; i < len; i++) {
+    u8 byte = src[i];
+    *cur++ = HexDigit(byte >> 4);
+    *cur++ = HexDigit(byte & 0xF);
+  }
+}
+
+void Downcase(char *str)
+{
+  while (*str) {
+    *str = DownChar(*str);
+    str++;
+  }
+}
+
+bool Match(char *test, char *str)
+{
+  while (*test && *str) {
+    if (*test != *str) return false;
+    str++;
+    test++;
+  }
+  return *test == 0;
+}
 
 bool ParseInt(char **str, i32 base, i32 *num)
 {

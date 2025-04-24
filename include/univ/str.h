@@ -13,6 +13,7 @@
 #define HexDigit(n)       ((n) < 10 ? (n) + '0' : (n) - 10 + 'A')
 #define HexByte(c)        (IsDigit(c) ? (c) - '0' : UpChar(c) - 'A' + 10)
 #define IsPrintable(c)    ((c) >= 0x20 && (c) < 0x7F)
+#define SkipSpace(str)    do { while (IsWhitespace(*(str))) (str)++; } while (0)
 
 typedef struct {
   char *data;
@@ -50,6 +51,11 @@ i32 ReadBE(void *bytes);
 i16 ReadShortBE(void *src);
 char *TerminateString(char *str);
 char *StuffHex(char *hex);
+void WriteHex(void *data, u32 len, char *buf);
+
+void Downcase(char *str);
+
+bool Match(char *test, char *str);
 
 bool ParseInt(char **str, i32 base, i32 *num);
 bool ParseFloat(char **str, float *num);
