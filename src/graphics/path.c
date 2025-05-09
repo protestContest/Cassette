@@ -13,17 +13,12 @@ static void SetControl(Canvas *canvas, Point pt)
   canvas->control.v = canvas->pen.v*2 - pt.v;
 }
 
-static void SkipSpace(char **path)
-{
-  while (IsWhitespace(**path)) (*path)++;
-}
-
 static bool ParseCoord(char **path, i32 *coord)
 {
   float num;
 
   if (!ParseFloat(path, &num)) return false;
-  SkipSpace(path);
+  SkipSpace(*path);
   *coord = (i32)num;
   return true;
 }
@@ -34,20 +29,20 @@ static bool ParsePoint(char **path, Point *pt)
 
   if (!ParseCoord(path, &coord)) return false;
   pt->h = coord;
-  SkipSpace(path);
+  SkipSpace(*path);
 
   if (**path == ',') {
     (*path)++;
-    SkipSpace(path);
+    SkipSpace(*path);
   }
 
   if (!ParseCoord(path, &coord)) return false;
   pt->v = coord;
-  SkipSpace(path);
+  SkipSpace(*path);
 
   if (**path == ',') {
     (*path)++;
-    SkipSpace(path);
+    SkipSpace(*path);
   }
 
   return true;
@@ -105,11 +100,11 @@ char *DrawPath(char *path, Canvas *canvas)
   char cmd;
   ArcParams arc;
 
-  SkipSpace(&path);
+  SkipSpace(path);
   cmd = *path++;
 
   while (cmd) {
-    SkipSpace(&path);
+    SkipSpace(path);
 
     switch (cmd) {
     case 'M':
