@@ -6,10 +6,11 @@ typedef struct {
 } XMLAttribute;
 
 typedef struct XMLNode {
+  enum {xmlNode, xmlText} type;
   char *name;
   char *textContent;
-  struct XMLNode **children; /* vec */
   XMLAttribute *attrs; /* vec */
+  struct XMLNode **children; /* vec */
 } XMLNode;
 
 XMLNode *ParseXML(char *str);

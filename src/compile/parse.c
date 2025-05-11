@@ -18,7 +18,7 @@ typedef struct {
   ParsePrefix prefix;
   ParseInfix infix;
   Precedence prec;
-} ParseRule;
+} CParseRule;
 
 #define Adv(p) (p)->token = NextToken((p)->text, (p)->token.pos + (p)->token.length)
 #define AtEnd(p)            ((p)->token.type == eofToken)
@@ -94,7 +94,7 @@ static ASTNode *ParseRecord(Parser *p);
 static ASTNode *ParseDo(Parser *p);
 
 /* Rules indexed by tokenType. */
-static ParseRule rules[] = {
+static CParseRule rules[] = {
   /* eofToken */      {0,             0,              precNone},
   /* newlineToken */  {0,             0,              precNone},
   /* spaceToken */    {0,             0,              precNone},
@@ -162,7 +162,7 @@ static ParseRule rules[] = {
 static ASTNode *ParsePrec(Precedence prec, Parser *p)
 {
   ASTNode *expr;
-  ParseRule rule = rules[p->token.type];
+  CParseRule rule = rules[p->token.type];
   if (!rule.prefix) return ParseError("Unexpected token", p);
 
   expr = rule.prefix(p);

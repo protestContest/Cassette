@@ -1,4 +1,5 @@
 #pragma once
+#include "univ/peg.h"
 
 /* The parser produces an ASTNode from some input text. */
 
@@ -15,3 +16,7 @@ void InitParser(Parser *p, char *text);
 ASTNode *ParseModule(char *source);
 ASTNode *ParseModuleHeader(char *source);
 ASTNode *ParseImportList(Parser *p);
+
+Grammar *CassetteGrammar(void);
+
+PNode *Parse(char *text, u32 *index);
